@@ -1,112 +1,176 @@
-.swipe-container {
-    max-width: 400px;
+body {
+    background-color: #f0f2f5;
+    font-family: 'Arial', sans-serif;
+}
+
+.container {
+    max-width: 480px;
     margin: 0 auto;
+}
+
+#swipe-container {
     position: relative;
     height: 70vh;
+    margin-bottom: 20px;
 }
-.profile-card {
+
+.swipe-card {
     position: absolute;
     width: 100%;
     height: 100%;
     background-color: #fff;
-    border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    border-radius: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     overflow: hidden;
     transition: transform 0.3s ease-out;
-    display: flex;
-    flex-direction: column;
 }
-.profile-picture {
+
+.card-img-top {
     width: 100%;
-    height: 70%;
+    height: 60%;
     object-fit: cover;
 }
-.profile-info {
+
+.card-body {
     padding: 20px;
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    background: linear-gradient(to bottom, rgba(255,255,255,0.8), rgba(255,255,255,1));
+    background: linear-gradient(to bottom, rgba(255,255,255,0.9), rgba(255,255,255,1));
 }
-.profile-info h2 {
-    margin: 0;
+
+.card-title {
     font-size: 24px;
+    font-weight: bold;
     color: #333;
+    margin-bottom: 15px;
 }
+
 .profile-info p {
-    margin: 5px 0;
-    font-size: 14px;
-    color: #666;
+    margin: 8px 0;
+    font-size: 16px;
+    color: #555;
 }
+
+.bio {
+    font-style: italic;
+    color: #666;
+    margin-top: 15px;
+}
+
 .swipe-buttons {
     display: flex;
-    justify-content: space-around;
+    justify-content: center;
     padding: 10px 0;
 }
-.swipe-button {
-    width: 60px;
-    height: 60px;
+
+#dislike-btn, #like-btn {
+    width: 70px;
+    height: 70px;
     border-radius: 50%;
     border: none;
     font-size: 24px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    transition: transform 0.2s;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
+    margin: 0 15px;
+    cursor: pointer;
 }
-.swipe-button:hover {
+
+#dislike-btn:hover, #like-btn:hover {
     transform: scale(1.1);
 }
-#dislike {
+
+#dislike-btn {
     background-color: #ff4f4f;
     color: white;
 }
-#like {
+
+#like-btn {
     background-color: #4caf50;
     color: white;
 }
-.match-view {
+
+.swipe-overlay {
     position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 80px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.swipe-overlay.like {
+    right: 20px;
+    color: #4caf50;
+}
+
+.swipe-overlay.dislike {
+    left: 20px;
+    color: #ff4f4f;
+}
+
+.match-popup {
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(76, 175, 80, 0.9);
+    background-color: rgba(76, 175, 80, 0.95);
     display: flex;
     justify-content: center;
     align-items: center;
     color: white;
     text-align: center;
+    z-index: 1000;
 }
-.match-content {
-    max-width: 80%;
+
+.match-popup h2 {
+    font-size: 32px;
+    margin-bottom: 20px;
 }
-.match-profiles {
-    display: flex;
-    justify-content: center;
-    margin: 20px 0;
-}
-.match-profile-pic {
-    width: 80px;
-    height: 80px;
+
+.match-popup img {
+    width: 120px;
+    height: 120px;
     border-radius: 50%;
     object-fit: cover;
-    margin: 0 10px;
-    border: 3px solid white;
+    margin: 20px 0;
+    border: 4px solid white;
 }
-#continueSwipingBtn {
+
+.match-popup button {
     margin-top: 20px;
-    padding: 10px 20px;
-    font-size: 16px;
+    padding: 12px 24px;
+    font-size: 18px;
     background-color: white;
     color: #4caf50;
     border: none;
-    border-radius: 5px;
+    border-radius: 30px;
     cursor: pointer;
     transition: background-color 0.3s ease;
 }
-#continueSwipingBtn:hover {
+
+.match-popup button:hover {
     background-color: #e0e0e0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+    #swipe-container {
+        height: 60vh;
+    }
+
+    .card-title {
+        font-size: 20px;
+    }
+
+    .profile-info p {
+        font-size: 14px;
+    }
+
+    #dislike-btn, #like-btn {
+        width: 60px;
+        height: 60px;
+        font-size: 20px;
+    }
 }
