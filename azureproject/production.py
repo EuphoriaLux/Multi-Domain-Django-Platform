@@ -5,10 +5,8 @@ from .settings import BASE_DIR
 
 # Configure the domain name using the environment variable
 # that Azure automatically creates for us.
-
-ALLOWED_HOSTS = [os.environ.get('WEBSITE_HOSTNAME'), 'power-up.lu'] if 'WEBSITE_HOSTNAME' in os.environ else ['localhost']
-CSRF_TRUSTED_ORIGINS = ['https://' + os.environ.get('WEBSITE_HOSTNAME'), 'https://power-up.lu'] if 'WEBSITE_HOSTNAME' in os.environ else ['http://localhost']
-
+ALLOWED_HOSTS = [os.environ['WEBSITE_HOSTNAME']] if 'WEBSITE_HOSTNAME' in os.environ else []
+CSRF_TRUSTED_ORIGINS = ['https://' + os.environ['WEBSITE_HOSTNAME']] if 'WEBSITE_HOSTNAME' in os.environ else []
 DEBUG = False
 
 # WhiteNoise configuration
