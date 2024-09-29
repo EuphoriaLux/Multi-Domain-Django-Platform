@@ -5,8 +5,21 @@ from .settings import BASE_DIR
 
 # Configure the domain name using the environment variable
 # that Azure automatically creates for us.
-ALLOWED_HOSTS = [os.environ['WEBSITE_HOSTNAME']] if 'WEBSITE_HOSTNAME' in os.environ else []
-CSRF_TRUSTED_ORIGINS = ['https://' + os.environ['WEBSITE_HOSTNAME']] if 'WEBSITE_HOSTNAME' in os.environ else []
+# Fetch custom domains from environment variables, separated by commas
+CUSTOM_DOMAINS = os.environ.get('CUSTOM_DOMAINS', '').split(',')
+
+# Configure ALLOWED_HOSTS
+ALLOWED_HOSTS = []
+if 'WEBSITE_HOSTNAME' in os.environ:
+    ALLOWED_HOSTS.append(os.environ['WEBSITE_HOSTNAME'])
+ALLOWED_HOSTS += [domain.strip() for domain in CUSTOM_DOMAINS if domain.strip()]
+
+# Configure CSRF_TRUSTED_ORIGINS
+CSRF_TRUSTED_ORIGINS = []
+if 'WEBSITE_HOSTNAME' in os.environ:
+    CSRF_TRUSTED_ORIGINS.append('https://' + os.environ['WEBSITE_HOSTNAME'])
+CSRF_TRUSTED_ORIGINS += [f'https://{domain.strip()}' for domain in CUSTOM_DOMAINS if domain.strip()]
+
 DEBUG = False
 
 # WhiteNoise configuration
@@ -14,7 +27,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.locale.LocaleMiddleware',  # Make sure this is after SessionMiddleware
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -23,7 +36,6 @@ MIDDLEWARE = [
     'allauth.account.middleware.AccountMiddleware',
 ]
 
-SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 
 
 STATIC_URL = '/static/'
@@ -53,14 +65,24 @@ DATABASES = {
     }
 }
 
-
 CACHES = {
-        "default": {  
-            "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": os.environ.get('AZURE_REDIS_CONNECTIONSTRING'),
-            "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-                "COMPRESSOR": "django_redis.compressors.zlib.ZlibCompressor",
-        },
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
     }
 }
+
+SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
+
+#SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+
+#CACHES = {
+#        "default": {  
+#            "BACKEND": "django_redis.cache.RedisCache",
+#            "LOCATION": os.environ.get('AZURE_REDIS_CONNECTIONSTRING'),
+#            "OPTIONS": {
+#                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+#                "COMPRESSOR": "django_redis.compressors.zlib.ZlibCompressor",
+#        },
+#    }
+#}

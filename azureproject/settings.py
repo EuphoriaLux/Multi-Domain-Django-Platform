@@ -86,6 +86,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.i18n',  # Ensure this line is present
             ],
         },
     },
@@ -187,6 +188,7 @@ ACCOUNT_SIGNUP_REDIRECT_URL = '/profile/'  # Redirect to profile page after sign
 
 # Email backend (for development)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
 #CACHES = {
 #        "default": {  
 #            "BACKEND": "django_redis.cache.RedisCache",
@@ -198,7 +200,6 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 #}
 
 # Internationalization
-# https://docs.djangoproject.com/en/4.0/topics/i18n/
 
 LOCALE_PATHS = [
     BASE_DIR / 'locale',
@@ -221,10 +222,6 @@ LANGUAGES = [
 
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.0/howto/static-files/
-
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
@@ -236,9 +233,6 @@ STATICFILES_DIRS = [
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
