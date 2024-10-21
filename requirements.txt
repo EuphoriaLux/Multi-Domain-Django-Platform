@@ -4,6 +4,6 @@ python-dotenv==1.0.1
 whitenoise==6.7.0
 django-redis==5.4.0
 django-allauth==0.63.6
-Pillow==10.4.0
+Pillow==11.0.0
 django-crispy-forms==2.3
 crispy-bootstrap5==2024.2
