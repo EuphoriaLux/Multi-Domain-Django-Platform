@@ -1,0 +1,7 @@
+{% extends "admin/change_form.html" %}
+{% block form_top %}
+    <form enctype="multipart/form-data" method="post">
+        {% csrf_token %}
+        {{ block.super }}
+    </form>
+{% endblock %}
