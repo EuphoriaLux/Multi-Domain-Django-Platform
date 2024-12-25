@@ -56,9 +56,9 @@
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                     {% if user.entrepreneurprofile.profile_picture %}
-                                        <img src="{{ user.entrepreneurprofile.profile_picture.url }}" alt="User Avatar" class="user-avatar me-1">
+                                        <img src="{{ user.entrepreneurprofile.profile_picture.url }}" alt="User Avatar" class="user-avatar me-1" style="width: 24px; height: 24px;">
                                     {% else %}
-                                        <img src="{% static 'images/default-profile.png' %}" alt="Default Avatar" class="user-avatar me-1">
+                                        <img src="{% static 'images/default-profile.png' %}" alt="Default Avatar" class="user-avatar me-1" style="width: 24px; height: 24px;">
                                     {% endif %}
                                     {{ user.username }}
                                 </a>
