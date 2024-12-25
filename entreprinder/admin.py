@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import EntrepreneurProfile, Skill, Industry
+from django.db import models
+from .widgets import AdminImageWidget
 
 @admin.register(Industry)
 class IndustryAdmin(admin.ModelAdmin):
