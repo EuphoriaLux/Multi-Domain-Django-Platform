@@ -4,60 +4,90 @@
 {% block title %}{% trans "Entreprinder - Connect Entrepreneurs in Luxembourg" %}{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-lg-8 mx-auto text-center">
-        <h1 class="display-4">{% trans "Welcome to Entreprinder" %}</h1>
+<section class="hero-section bg-light text-center py-5">
+    <div class="container">
+        <h1 class="display-3 fw-bold mb-3">{% trans "Welcome to Entreprinder" %}</h1>
         <p class="lead mb-4">{% trans "The premier platform for entrepreneurs in Luxembourg to connect, collaborate, and grow their businesses together." %}</p>
         <a href="#" class="btn btn-primary btn-lg">{% trans "Join Now" %}</a>
     </div>
-</div>
+</section>
 
-<div class="row mt-5">
-    <div class="col-md-4">
-        <div class="card mb-4">
-            <div class="card-body text-center">
-                <i class="fas fa-users fa-3x mb-3 text-primary"></i>
-                <h3 class="card-title">{% trans "Connect" %}</h3>
-                <p class="card-text">{% trans "Network with like-minded entrepreneurs in Luxembourg" %}</p>
+<section class="features-section py-5">
+    <div class="container">
+        <div class="row row-cols-1 row-cols-md-3 g-4">
+            <div class="col">
+                <div class="card h-100 feature-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-users fa-3x mb-3 text-primary"></i>
+                        <h3 class="card-title">{% trans "Connect" %}</h3>
+                        <p class="card-text">{% trans "Network with like-minded entrepreneurs in Luxembourg" %}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card h-100 feature-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-handshake fa-3x mb-3 text-primary"></i>
+                        <h3 class="card-title">{% trans "Collaborate" %}</h3>
+                        <p class="card-text">{% trans "Find partners for your next big project" %}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card h-100 feature-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-chart-line fa-3x mb-3 text-primary"></i>
+                        <h3 class="card-title">{% trans "Grow" %}</h3>
+                        <p class="card-text">{% trans "Access resources and support to scale your business" %}</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card mb-4">
-            <div class="card-body text-center">
-                <i class="fas fa-handshake fa-3x mb-3 text-primary"></i>
-                <h3 class="card-title">{% trans "Collaborate" %}</h3>
-                <p class="card-text">{% trans "Find partners for your next big project" %}</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card mb-4">
-            <div class="card-body text-center">
-                <i class="fas fa-chart-line fa-3x mb-3 text-primary"></i>
-                <h3 class="card-title">{% trans "Grow" %}</h3>
-                <p class="card-text">{% trans "Access resources and support to scale your business" %}</p>
-            </div>
-        </div>
-    </div>
-</div>
+</section>
 
-<div class="row mt-5">
-    <div class="col-lg-8 mx-auto">
+<section class="why-choose-section py-5 bg-light">
+    <div class="container">
         <h2 class="text-center mb-4">{% trans "Why Choose Entreprinder?" %}</h2>
-        <ul class="list-group">
-            <li class="list-group-item"><i class="fas fa-check-circle text-success me-2"></i>{% trans "Exclusive focus on Luxembourg's entrepreneurial ecosystem" %}</li>
-            <li class="list-group-item"><i class="fas fa-check-circle text-success me-2"></i>{% trans "Easy-to-use platform for finding and connecting with potential partners" %}</li>
-            <li class="list-group-item"><i class="fas fa-check-circle text-success me-2"></i>{% trans "Access to local events, workshops, and networking opportunities" %}</li>
-            <li class="list-group-item"><i class="fas fa-check-circle text-success me-2"></i>{% trans "Resources tailored to Luxembourg's business environment" %}</li>
-        </ul>
+        <div class="row">
+            <div class="col-md-8 mx-auto">
+                <ul class="list-unstyled">
+                    <li class="mb-3"><i class="fas fa-check-circle text-success me-2"></i>{% trans "Exclusive focus on Luxembourg's entrepreneurial ecosystem" %}</li>
+                    <li class="mb-3"><i class="fas fa-check-circle text-success me-2"></i>{% trans "Easy-to-use platform for finding and connecting with potential partners" %}</li>
+                    <li class="mb-3"><i class="fas fa-check-circle text-success me-2"></i>{% trans "Access to local events, workshops, and networking opportunities" %}</li>
+                    <li class="mb-3"><i class="fas fa-check-circle text-success me-2"></i>{% trans "Resources tailored to Luxembourg's business environment" %}</li>
+                </ul>
+            </div>
+        </div>
     </div>
-</div>
+</section>
 
-<div class="row mt-5">
-    <div class="col text-center">
-        <p class="lead">{% trans "Ready to take your entrepreneurial journey to the next level?" %}</p>
+<section class="cta-section py-5 text-center">
+    <div class="container">
+        <p class="lead mb-4">{% trans "Ready to take your entrepreneurial journey to the next level?" %}</p>
         <a href="#" class="btn btn-primary btn-lg">{% trans "Get Started" %}</a>
     </div>
-</div>
+</section>
 {% endblock %}
+<style>
+    .hero-section {
+        background: linear-gradient(135deg, #f0f0f0, #e0e0e0);
+    }
+    .hero-section h1 {
+        color: #333;
+    }
+    .feature-card {
+        transition: transform 0.3s ease;
+    }
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .why-choose-section ul li {
+        display: flex;
+        align-items: center;
+    }
+    .why-choose-section ul li i {
+        margin-right: 10px;
+    }
+</style>
