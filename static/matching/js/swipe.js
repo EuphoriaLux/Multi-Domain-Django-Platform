@@ -43,19 +43,28 @@ function submitForm(action) {
         return response.json();
     })
     .then(data => {
-         if (data.match_found) {
+        if (data.match_found) {
             showMatchPopup(data.match_profile);
         }
         if (data.next_profile) {
             updateProfile(data.next_profile);
-            resetCard(); // Reset card position for the next profile
+            resetCard();
         } else if (data.redirect_url) {
             window.location.href = data.redirect_url;
-        } else {
-            // Handle the case where there are no more profiles
+        } else if (data.no_more_profiles) {
             document.getElementById('swipeCard').style.display = 'none';
             document.querySelector('.swipe-buttons').style.display = 'none';
             document.querySelector('#swipe-container').innerHTML = '<p class="text-center">No more profiles to show.</p>';
+        } else {
+            console.log("Profile already liked/disliked, loading next profile if available");
+             if (data.next_profile) {
+                updateProfile(data.next_profile);
+                resetCard();
+            } else {
+                document.getElementById('swipeCard').style.display = 'none';
+                document.querySelector('.swipe-buttons').style.display = 'none';
+                document.querySelector('#swipe-container').innerHTML = '<p class="text-center">No more profiles to show.</p>';
+            }
         }
     })
     .catch(error => console.error('Error:', error));
