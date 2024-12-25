@@ -1,7 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import EntrepreneurProfile, Skill, Industry
-from .forms import EntrepreneurProfileAdminForm
 
 @admin.register(Industry)
 class IndustryAdmin(admin.ModelAdmin):
@@ -14,7 +13,6 @@ class EntrepreneurProfileAdmin(admin.ModelAdmin):
     list_filter = ('industry', 'location', 'is_mentor', 'is_investor')
     search_fields = ('user__username', 'user__email', 'company', 'industry__name', 'location')
     autocomplete_fields = ['skills', 'industry']
-    form = EntrepreneurProfileAdminForm
     change_form_template = 'entreprinder/admin/entrepreneurprofile_change_form.html'
 
     def profile_picture_preview(self, obj):
