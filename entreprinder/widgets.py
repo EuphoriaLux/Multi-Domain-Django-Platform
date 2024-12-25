@@ -38,8 +38,9 @@ class AdminImageWidget(forms.widgets.Widget):
     def render(self, name, value, attrs=None, renderer=None):
         context = self.get_context(name, value, attrs)
         return mark_safe(format_html(
-            '<div class="admin-image-widget" >'
-            '<select name="{}" class="form-select">',
+            '<div class="admin-image-widget">'
+            '<input type="hidden" name="{}" value="{}">'.format(name, value or '') +
+            '<select name="{}_select" class="form-select" onchange="this.previousElementSibling.value=this.value">',
             name
         ) + ''.join(
             format_html(
