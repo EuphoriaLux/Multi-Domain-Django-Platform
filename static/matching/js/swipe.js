@@ -92,7 +92,7 @@ function closeMatchPopup() {
 }
 
 function updateProfile(profile) {
-    document.querySelector('.card-img-top').src = profile.profile_picture.url;
+    document.querySelector('.card-img-top').src = profile.profile_picture;
     document.querySelector('.card-title').textContent = profile.full_name;
     document.querySelector('.profile-info').innerHTML = `
         <p><strong>Company:</strong> ${profile.company}</p>
