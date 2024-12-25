@@ -36,12 +36,6 @@ function submitForm(action) {
         })
     })
     .then(response => response.json())
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    })
     .then(data => {
         if (data.match_found) {
             showMatchPopup(data.match_profile);
