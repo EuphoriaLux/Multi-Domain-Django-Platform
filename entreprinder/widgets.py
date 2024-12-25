@@ -25,7 +25,7 @@ class AdminImageWidget(forms.widgets.Widget):
         return image_files
 
     def format_value(self, value):
-        if value and value not in self.media_files:
+        if value and value not in self.media_files and value:
             return ''
         return value
 
