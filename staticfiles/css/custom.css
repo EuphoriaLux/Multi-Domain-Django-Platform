@@ -5,16 +5,18 @@
     border-radius: 50%;
 }
 
-.navbar-toggler-icon {
-    background-image: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.navbar-custom {
+    background-color: #ffffff; /* Light background for navbar */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
 }
 
-.navbar-toggler-icon i {
-    color: #000; /* Adjust this color to match your navbar theme */
-    font-size: 1.5rem;
+.navbar-brand {
+    font-weight: bold;
+    color: #343a40; /* Dark color for brand text */
+}
+
+.navbar-brand:hover {
+    color: #007bff; /* Highlight color on hover */
 }
 
 .navbar-toggler {
@@ -23,4 +25,41 @@
 
 .navbar-toggler:focus {
     box-shadow: none;
+}
+
+.navbar-toggler-icon {
+    background-image: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.navbar-toggler-icon i {
+    color: #343a40; /* Dark color for toggler icon */
+    font-size: 1.5rem;
+}
+
+.navbar-nav .nav-link {
+    color: #343a40; /* Dark color for nav links */
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.navbar-nav .nav-link:hover,
+.navbar-nav .nav-link.active {
+    color: #007bff; /* Highlight color on hover and active */
+}
+
+.dropdown-menu {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dropdown-item {
+    color: #343a40;
+}
+
+.dropdown-item:hover {
+    background-color: #f8f9fa;
+    color: #007bff;
 }

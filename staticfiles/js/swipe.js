@@ -1,34 +1,30 @@
 document.addEventListener('DOMContentLoaded', function() {
     const swipeContainer = document.getElementById('swipe-container');
-    const likeButton = document.getElementById('like');
-    const dislikeButton = document.getElementById('dislike');
-    const buttonsContainer = document.querySelector('.swipe-buttons');
+    const swipeCard = document.getElementById('swipeCard');
+    const likeButton = document.getElementById('like-btn');
+    const dislikeButton = document.getElementById('dislike-btn');
+    const form = document.getElementById('swipe-form');
+    const actionInput = form.querySelector('input[name="action"]');
 
-    let currentCard = null;
     let hammer = null;
     let isSwipeInProgress = false;
 
-    // Load the initial profile
-    if (typeof initialProfile !== 'undefined' && initialProfile !== null) {
-        updateProfileCard(initialProfile);
-    } else {
-        showNoMoreProfiles();
-    }
+    setupSwipe();
 
     function setupSwipe() {
-        if (currentCard) {
-            // Destroy previous Hammer instance if it exists
+        if (swipeCard) {
             if (hammer) {
                 hammer.destroy();
             }
-            // Initialize new Hammer instance
-            hammer = new Hammer(currentCard);
+            hammer = new Hammer(swipeCard);
             hammer.get('pan').set({ direction: Hammer.DIRECTION_HORIZONTAL });
             hammer.on('pan', handlePan);
             hammer.on('panend', handlePanEnd);
             
-            // Prevent default behavior on the image to avoid dragging
-            currentCard.querySelector('.profile-picture').addEventListener('dragstart', (e) => e.preventDefault());
+            const profilePicture = swipeCard.querySelector('.card-img-top');
+            if (profilePicture) {
+                profilePicture.addEventListener('dragstart', (e) => e.preventDefault());
+            }
         }
     }
 
@@ -38,8 +34,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const xPos = event.deltaX;
         const rotate = xPos / 10;
 
-        currentCard.style.transform = `translateX(${xPos}px) rotate(${rotate}deg)`;
-        currentCard.style.transition = 'none';
+        swipeCard.style.transform = `translateX(${xPos}px) rotate(${rotate}deg)`;
+        swipeCard.style.transition = 'none';
     }
 
     function handlePanEnd(event) {
@@ -55,65 +51,39 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (action === 'reset') {
-            currentCard.style.transform = '';
+            swipeCard.style.transform = '';
         } else {
             const endX = action === 'like' ? window.innerWidth : -window.innerWidth;
-            currentCard.style.transform = `translateX(${endX}px) rotate(${event.deltaX / 10}deg)`;
+            swipeCard.style.transform = `translateX(${endX}px) rotate(${event.deltaX / 10}deg)`;
         }
 
-        currentCard.style.transition = 'transform 0.5s';
+        swipeCard.style.transition = 'transform 0.5s';
 
         if (action !== 'reset') {
             isSwipeInProgress = true;
             setTimeout(() => {
-                swipeAction(action);
+                submitForm(action);
                 isSwipeInProgress = false;
             }, 500);
         }
     }
 
-    function swipeAction(action) {
-        if (!currentCard) return;
-    
-        const profileId = currentCard.dataset.profileId;
-    
-        fetch('/swipe-action/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({
-                profile_id: profileId,
-                action: action
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'match') {
-                if (data.match_profile) {
-                    const currentUserPicture = currentCard.querySelector('.profile-picture').src;
-                    showMatchView(data.match_profile, data.next_profile, currentUserPicture);
-                } else {
-                    console.error('Match found but no match_profile data received');
-                    showErrorModal('An error occurred while processing the match. Please try again.');
-                }
-            } else if (data.status === 'success') {
-                if (data.next_profile) {
-                    updateProfileCard(data.next_profile);
-                } else {
-                    redirectToNoMoreProfiles();
-                }
-            } else if (data.status === 'no_more_profiles') {
-                redirectToNoMoreProfiles();
-            } else {
-                console.error('Unexpected response status:', data.status);
-                showErrorModal('An unexpected error occurred. Please try again.');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showErrorModal('An error occurred. Please try again.');
+    function submitForm(action) {
+        actionInput.value = action;
+        form.submit();
+    }
+
+    if (likeButton) {
+        likeButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            submitForm('like');
+        });
+    }
+
+    if (dislikeButton) {
+        dislikeButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            submitForm('dislike');
         });
     }
 
