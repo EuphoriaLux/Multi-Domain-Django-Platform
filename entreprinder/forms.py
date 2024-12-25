@@ -2,21 +2,13 @@ from allauth.account.forms import SignupForm
 from django import forms
 from .models import EntrepreneurProfile
 import logging
-from django import forms
+
+logger = logging.getLogger(__name__)
 
 class EntrepreneurProfileAdminForm(forms.ModelForm):
     class Meta:
         model = EntrepreneurProfile
         fields = '__all__'
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # self.fields['profile_picture'].widget = AdminImageWidget()
-        # self.fields['profile_picture'].widget.attrs['enctype'] = 'multipart/form-data'
-
-
-logger = logging.getLogger(__name__)
-
 
 class EntrepreneurProfileForm(forms.ModelForm):
     class Meta:
@@ -29,11 +21,6 @@ class EntrepreneurProfileForm(forms.ModelForm):
             'looking_for': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'location': forms.TextInput(attrs={'class': 'form-control'}),
         }
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # self.fields['profile_picture'].widget = AdminImageWidget()
-        # self.attrs['enctype'] = 'multipart/form-data'
 
 class CustomSignupForm(SignupForm):
     company = forms.CharField(max_length=100, required=True)
