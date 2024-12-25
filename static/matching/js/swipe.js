@@ -43,11 +43,12 @@ function submitForm(action) {
         return response.json();
     })
     .then(data => {
-        if (data.match_found) {
+         if (data.match_found) {
             showMatchPopup(data.match_profile);
         }
         if (data.next_profile) {
-             updateProfile(data.next_profile);
+            updateProfile(data.next_profile);
+            resetCard(); // Reset card position for the next profile
         } else if (data.redirect_url) {
             window.location.href = data.redirect_url;
         } else {
@@ -58,6 +59,17 @@ function submitForm(action) {
         }
     })
     .catch(error => console.error('Error:', error));
+}
+
+function resetCard() {
+    var swipeCard = document.getElementById('swipeCard');
+    var likeOverlay = swipeCard.querySelector('.swipe-overlay.like');
+    var dislikeOverlay = swipeCard.querySelector('.swipe-overlay.dislike');
+
+    swipeCard.style.transition = 'none';
+    swipeCard.style.transform = 'translateX(0) rotate(0)';
+    likeOverlay.style.opacity = 0;
+    dislikeOverlay.style.opacity = 0;
 }
 
 function showMatchPopup(matchProfile) {
