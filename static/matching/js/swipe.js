@@ -36,14 +36,25 @@ function submitForm(action) {
         })
     })
     .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.match_found) {
             showMatchPopup(data.match_profile);
         }
         if (data.next_profile) {
-            updateProfile(data.next_profile);
+             updateProfile(data.next_profile);
         } else if (data.redirect_url) {
             window.location.href = data.redirect_url;
+        } else {
+            // Handle the case where there are no more profiles
+            document.getElementById('swipeCard').style.display = 'none';
+            document.querySelector('.swipe-buttons').style.display = 'none';
+            document.querySelector('#swipe-container').innerHTML = '<p class="text-center">No more profiles to show.</p>';
         }
     })
     .catch(error => console.error('Error:', error));
