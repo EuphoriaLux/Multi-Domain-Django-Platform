@@ -27,6 +27,7 @@ def profile(request):
             profile = form.save(commit=False)
             if 'profile_picture' in request.FILES:
                 profile.profile_picture = request.FILES['profile_picture']
+                print(f"Uploaded profile picture to: {profile.profile_picture.path}")
             profile.save()
             messages.success(request, 'Profile updated successfully.')
             return redirect('entreprinder:profile')
