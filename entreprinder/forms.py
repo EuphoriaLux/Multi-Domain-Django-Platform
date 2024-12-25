@@ -3,6 +3,16 @@ from django import forms
 from .models import EntrepreneurProfile
 from .widgets import AdminImageWidget
 import logging
+from django import forms
+
+class EntrepreneurProfileAdminForm(forms.ModelForm):
+    class Meta:
+        model = EntrepreneurProfile
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['profile_picture'].widget = AdminImageWidget()
 
 
 logger = logging.getLogger(__name__)
