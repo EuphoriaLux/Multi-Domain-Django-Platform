@@ -38,7 +38,7 @@ class AdminImageWidget(forms.widgets.Widget):
     def render(self, name, value, attrs=None, renderer=None):
         context = self.get_context(name, value, attrs)
         return mark_safe(format_html(
-            '<div class="admin-image-widget" enctype="multipart/form-data">'
+            '<div class="admin-image-widget" >'
             '<select name="{}" class="form-select">',
             name
         ) + ''.join(
