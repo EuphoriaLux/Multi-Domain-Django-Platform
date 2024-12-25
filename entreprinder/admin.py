@@ -1,8 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import EntrepreneurProfile, Skill, Industry
-from django.db import models
-from .widgets import AdminImageWidget
 from .forms import EntrepreneurProfileAdminForm
 
 @admin.register(Industry)
@@ -18,10 +16,6 @@ class EntrepreneurProfileAdmin(admin.ModelAdmin):
     autocomplete_fields = ['skills', 'industry']
     form = EntrepreneurProfileAdminForm
     change_form_template = 'entreprinder/admin/entrepreneurprofile_change_form.html'
-    
-    # formfield_overrides = {
-    #     models.ImageField: {'widget': AdminImageWidget},
-    # }
 
     def profile_picture_preview(self, obj):
         if obj.profile_picture:

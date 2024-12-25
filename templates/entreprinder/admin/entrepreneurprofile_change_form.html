@@ -1,18 +1,9 @@
 {% extends "admin/change_form.html" %}
 {% block form_top %}
-    <form  method="post" enctype="multipart/form-data" id="entrepreneur_form">
+    <form  method="post" enctype="multipart/form-data">
         {% csrf_token %}
         {{ block.super }}
 {% endblock %}
 {% block admin_change_form_bottom %}
     {{ block.super }}
-    <script>
-        document.getElementById('entrepreneur_form').addEventListener('submit', function(event) {
-            var selects = document.querySelectorAll('.admin-image-widget select');
-            selects.forEach(function(select) {
-                var hiddenInput = select.previousElementSibling;
-                hiddenInput.value = select.value;
-            });
-        });
-    </script>
 {% endblock %}
