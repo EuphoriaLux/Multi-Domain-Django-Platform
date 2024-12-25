@@ -1,7 +1,7 @@
 <div class="admin-image-widget">
     <select name="{{ widget.name }}" class="form-select">
         {% for file in widget.media_files %}
-            <option value="{{ file }}" {% if file == widget.selected_image %}selected{% endif %}>{{ file }}</option>
+            <option value="{{ file }}" {% if file == widget.selected_image %}selected="selected"{% endif %}>{{ file }}</option>
         {% endfor %}
     </select>
 </div>
