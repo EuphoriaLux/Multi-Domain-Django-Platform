@@ -17,7 +17,6 @@ class EntrepreneurProfileAdminForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['profile_picture'].widget = AdminImageWidget()
         self.fields['profile_picture'].widget.attrs['enctype'] = 'multipart/form-data'
-        self.attrs['enctype'] = 'multipart/form-data'
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +37,7 @@ class EntrepreneurProfileForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['profile_picture'].widget = AdminImageWidget()
-
+        self.attrs['enctype'] = 'multipart/form-data'
 
 class CustomSignupForm(SignupForm):
     company = forms.CharField(max_length=100, required=True)
