@@ -17,6 +17,7 @@ class EntrepreneurProfileAdminForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['profile_picture'].widget = AdminImageWidget()
         self.fields['profile_picture'].widget.attrs['enctype'] = 'multipart/form-data'
+        self.attrs['enctype'] = 'multipart/form-data'
 
 
 logger = logging.getLogger(__name__)
