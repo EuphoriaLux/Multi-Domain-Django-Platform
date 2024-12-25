@@ -13,6 +13,10 @@ class EntrepreneurProfileAdmin(admin.ModelAdmin):
     list_filter = ('industry', 'location', 'is_mentor', 'is_investor')
     search_fields = ('user__username', 'user__email', 'company', 'industry__name', 'location')
     autocomplete_fields = ['skills', 'industry']
+    
+    formfield_overrides = {
+        models.ImageField: {'widget': AdminImageWidget},
+    }
 
     def profile_picture_preview(self, obj):
         if obj.profile_picture:
