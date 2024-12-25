@@ -1,6 +1,7 @@
 from allauth.account.forms import SignupForm
 from django import forms
 from .models import EntrepreneurProfile
+from .widgets import AdminImageWidget
 import logging
 
 
@@ -18,10 +19,10 @@ class EntrepreneurProfileForm(forms.ModelForm):
             'looking_for': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'location': forms.TextInput(attrs={'class': 'form-control'}),
         }
-
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['profile_picture'].widget.attrs.update({'class': 'form-control-file'})
+        self.fields['profile_picture'].widget = AdminImageWidget()
 
 
 class CustomSignupForm(SignupForm):
