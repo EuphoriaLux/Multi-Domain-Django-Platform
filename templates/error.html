@@ -10,7 +10,10 @@
                 <h4 class="alert-heading">An Error Occurred</h4>
                 <p>{{ error_message }}</p>
                 <hr>
-                <p class="mb-0">Please try again later or contact support if the problem persists.</p>
+                <p class="mb-0">
+                    Please try again later. If the problem persists, contact support with the following error details:
+                </p>
+                <pre><code>{{ error_message }}</code></pre>
             </div>
             <a href="{% url 'entreprinder:home' %}" class="btn btn-primary">Return to Home</a>
         </div>

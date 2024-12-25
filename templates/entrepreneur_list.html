@@ -22,6 +22,7 @@
                         <p class="card-text"><strong>Company:</strong> {{ profile.company }}</p>
                         <p class="card-text">{{ profile.bio|truncatewords:20 }}</p>
                         <button class="btn btn-primary like-button" data-profile-id="{{ profile.id }}">Like</button>
+                        <div class="loading-spinner" style="display: none;">Loading...</div>
                     </div>
                 </div>
             </div>
@@ -54,13 +55,19 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(response => response.json())
             .then(data => {
+                this.querySelector('.loading-spinner').style.display = 'none';
                 if (data.status === 'match') {
                     alert('It\'s a match!');
                 }
-                // Remove the liked profile from the list
-                this.closest('.col-md-4').remove();
+                if (data.status === 'no_more_profiles') {
+                    window.location.href = data.redirect_url;
+                } else {
+                    // Remove the liked profile from the list
+                    this.closest('.entrepreneur-card').remove();
+                }
             })
             .catch(error => {
+                this.querySelector('.loading-spinner').style.display = 'none';
                 console.error('Error:', error);
             });
         });
