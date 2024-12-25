@@ -9,7 +9,7 @@ class EntrepreneurProfileAdminForm(forms.ModelForm):
     class Meta:
         model = EntrepreneurProfile
         fields = '__all__'
-
+        
 class EntrepreneurProfileForm(forms.ModelForm):
     class Meta:
         model = EntrepreneurProfile
