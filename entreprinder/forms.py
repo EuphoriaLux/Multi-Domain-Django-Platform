@@ -1,7 +1,6 @@
 from allauth.account.forms import SignupForm
 from django import forms
 from .models import EntrepreneurProfile
-from .widgets import AdminImageWidget
 import logging
 from django import forms
 
@@ -9,14 +8,11 @@ class EntrepreneurProfileAdminForm(forms.ModelForm):
     class Meta:
         model = EntrepreneurProfile
         fields = '__all__'
-        widgets = {
-            'profile_picture': AdminImageWidget(),
-        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['profile_picture'].widget = AdminImageWidget()
-        self.fields['profile_picture'].widget.attrs['enctype'] = 'multipart/form-data'
+        # self.fields['profile_picture'].widget = AdminImageWidget()
+        # self.fields['profile_picture'].widget.attrs['enctype'] = 'multipart/form-data'
 
 
 logger = logging.getLogger(__name__)
@@ -36,8 +32,8 @@ class EntrepreneurProfileForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['profile_picture'].widget = AdminImageWidget()
-        self.attrs['enctype'] = 'multipart/form-data'
+        # self.fields['profile_picture'].widget = AdminImageWidget()
+        # self.attrs['enctype'] = 'multipart/form-data'
 
 class CustomSignupForm(SignupForm):
     company = forms.CharField(max_length=100, required=True)
