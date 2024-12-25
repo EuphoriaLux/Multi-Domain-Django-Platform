@@ -20,6 +20,11 @@ class Like(models.Model):
             models.Index(fields=['liker', 'liked']),
         ]
 
+    def save(self, *args, **kwargs):
+        # Check if a like already exists
+        if not self.__class__.objects.filter(liker=self.liker, liked=self.liked).exists():
+            super().save(*args, **kwargs)
+
 class Dislike(models.Model):
     disliker = models.ForeignKey(EntrepreneurProfile, on_delete=models.CASCADE, related_name='dislikes_given')
     disliked = models.ForeignKey(EntrepreneurProfile, on_delete=models.CASCADE, related_name='dislikes_received')
@@ -27,6 +32,11 @@ class Dislike(models.Model):
     
     class Meta:
         unique_together = ('disliker', 'disliked')
+
+    def save(self, *args, **kwargs):
+        # Check if a dislike already exists
+        if not self.__class__.objects.filter(disliker=self.disliker, disliked=self.disliked).exists():
+            super().save(*args, **kwargs)
 
 from django.db.models.signals import post_save
 from django.dispatch import receiver
