@@ -96,17 +96,23 @@ document.addEventListener('DOMContentLoaded', function() {
             var direction = deltaX > 0 ? 'like' : 'dislike';
             
             if (Math.abs(deltaX) > 100) {
+                swipeCard.style.transition = 'transform 0.3s ease-out';
                 swipeCard.style.transform = `translateX(${deltaX > 0 ? 1000 : -1000}px) rotate(${deltaX / 10}deg)`;
                 setTimeout(() => {
+                    swipeCard.style.transition = 'none';
                     submitForm(direction);
                     swipeCard.style.transform = '';
                     likeOverlay.style.opacity = 0;
                     dislikeOverlay.style.opacity = 0;
                 }, 300);
             } else {
-                swipeCard.style.transform = '';
-                likeOverlay.style.opacity = 0;
-                dislikeOverlay.style.opacity = 0;
+                swipeCard.style.transition = 'transform 0.3s ease-out';
+                swipeCard.style.transform = 'translateX(0) rotate(0)';
+                setTimeout(() => {
+                    swipeCard.style.transition = 'none';
+                    likeOverlay.style.opacity = 0;
+                    dislikeOverlay.style.opacity = 0;
+                }, 300);
             }
         });
     }
