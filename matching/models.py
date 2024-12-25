@@ -16,6 +16,9 @@ class Like(models.Model):
     
     class Meta:
         unique_together = ('liker', 'liked')
+        indexes = [
+            models.Index(fields=['liker', 'liked']),
+        ]
 
 class Dislike(models.Model):
     disliker = models.ForeignKey(EntrepreneurProfile, on_delete=models.CASCADE, related_name='dislikes_given')
@@ -28,14 +31,21 @@ class Dislike(models.Model):
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+def _create_match_if_mutual_like(like):
+    """
+    Creates a match if there's a mutual like.
+    """
+    mutual_like = Like.objects.filter(liker=like.liked, liked=like.liker).exists()
+    if mutual_like:
+        try:
+            Match.objects.get_or_create(
+                entrepreneur1=like.liker,
+                entrepreneur2=like.liked
+            )
+        except Exception as e:
+            print(f"Error creating match: {e}")
+
 @receiver(post_save, sender=Like)
 def create_match(sender, instance, created, **kwargs):
     if created:
-        # Check if there's a mutual like
-        mutual_like = Like.objects.filter(liker=instance.liked, liked=instance.liker).exists()
-        if mutual_like:
-            # Create a match
-            Match.objects.get_or_create(
-                entrepreneur1=instance.liker,
-                entrepreneur2=instance.liked
-            )
+        _create_match_if_mutual_like(instance)
