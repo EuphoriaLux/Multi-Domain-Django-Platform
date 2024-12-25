@@ -234,5 +234,12 @@ STATICFILES_DIRS = [
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Ensure media directory exists
+if not os.path.exists(MEDIA_ROOT):
+    os.makedirs(MEDIA_ROOT)
+    print(f"Created media directory at: {MEDIA_ROOT}")
+else:
+    print(f"Media directory already exists at: {MEDIA_ROOT}")
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
