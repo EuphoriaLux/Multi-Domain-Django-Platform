@@ -17,6 +17,7 @@ class EntrepreneurProfileAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'user__email', 'company', 'industry__name', 'location')
     autocomplete_fields = ['skills', 'industry']
     form = EntrepreneurProfileAdminForm
+    change_form_template = 'entreprinder/admin/entrepreneurprofile_change_form.html'
     
     # formfield_overrides = {
     #     models.ImageField: {'widget': AdminImageWidget},
