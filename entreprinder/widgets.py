@@ -39,17 +39,16 @@ class AdminImageWidget(forms.widgets.Widget):
         context = self.get_context(name, value, attrs)
         return mark_safe(format_html(
             '<div class="admin-image-widget">'
-            '<input type="hidden" name="{}" value="{}">'.format(name, value or '') +
-            '<select name="{}_select" class="form-select" onchange="this.previousElementSibling.value=this.value">',
-            name
-        ) + ''.join(
-            format_html(
-                '<option value="{}" {}>{}</option>',
-                file,
-                'selected' if file == context['widget']['selected_image'] else '',
-                file
-            ) for file in context['widget']['media_files']
-        ) + format_html(
+            '<input type="hidden" name="{}" id="{}_hidden" value="{}">'.format(name, name, value or '') +
+            '<select name="{}_select" class="form-select" onchange="document.getElementById(\'{}_hidden\').value = this.value;">'.format(name, name) +
+            ''.join(
+                format_html(
+                    '<option value="{}" {}>{}</option>',
+                    file,
+                    'selected' if file == context['widget']['selected_image'] else '',
+                    file
+                ) for file in context['widget']['media_files']
+            ) +
             '</select>'
             '</div>'
         ))
