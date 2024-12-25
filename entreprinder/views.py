@@ -4,6 +4,9 @@ from django.shortcuts import redirect, render
 from .forms import EntrepreneurProfileForm
 from .models import EntrepreneurProfile
 from matching.models import Like
+import logging
+
+logger = logging.getLogger(__name__)
 
 def home(request):
     return render(request, 'landing_page.html')
@@ -46,4 +49,5 @@ def entrepreneur_list(request):
         
         return render(request, 'entrepreneur_list.html', {'profiles': profiles})
     except Exception as e:
-        return render(request, 'error.html', {'error_message': "An error occurred while loading the entrepreneur list. Please try again later."})
+        logger.exception("Error loading entrepreneur list")
+        return render(request, 'error.html', {'error_message': f"An error occurred while loading the entrepreneur list. Please try again later. Error details: {e}"})
