@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 import os
 from pathlib import Path
 from django.utils.translation import gettext_lazy as _
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -41,27 +42,34 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',  # Add this line
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
+    'allauth.socialaccount.providers.linkedin_oauth2',
     'entreprinder',
     'crispy_forms',
-    'crispy_bootstrap5',  # If you're using Bootstrap 5
+    'crispy_bootstrap5',
     'matching',
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'corsheaders',
 ]
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Add this line
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Ensure correct placement
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.middleware.locale.LocaleMiddleware',
+    'django.middleware.locale.LocaleMiddleware',  # Placement matters
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',  # Add this line
+    'allauth.account.middleware.AccountMiddleware',  # Ensure correct placement
 ]
+
 
 from django.contrib.messages import constants as messages
 MESSAGE_TAGS = {
@@ -91,6 +99,7 @@ TEMPLATES = [
         },
     },
 ]
+
 
 # Logging Configuration
 LOGGING = {
@@ -179,6 +188,8 @@ ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = True
 ACCOUNT_SESSION_REMEMBER = True
 
 LOGIN_REDIRECT_URL = '/'  # or wherever you want users to go after login
+LOGIN_REDIRECT_URL = '/login_complete/'
+
 
 # Use CustomSignupForm
 ACCOUNT_FORMS = {'signup': 'entreprinder.forms.CustomSignupForm'}
@@ -188,6 +199,61 @@ ACCOUNT_SIGNUP_REDIRECT_URL = '/profile/'  # Redirect to profile page after sign
 
 # Email backend (for development)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+CORS_ALLOWED_ORIGINS = [
+    "chrome-extension://bcmdjekoagpaefiimcjomakaacbalime",
+]
+
+SITE_ID = 1
+
+SOCIALACCOUNT_PROVIDERS = {
+    'linkedin_oauth2': {
+        'SCOPE': [
+            'r_liteprofile',
+            'r_emailaddress',
+            'w_member_social',
+        ],
+        'AUTH_PARAMS': {
+            'response_type': 'code',
+        },
+        'ACCESS_TOKEN_URL': 'https://www.linkedin.com/oauth/v2/accessToken',
+        'AUTHORIZATION_URL': 'https://www.linkedin.com/oauth/v2/authorization',
+        'CLIENT_ID': os.getenv('LINKEDIN_CLIENT_ID'),
+        'CLIENT_SECRET': os.getenv('LINKEDIN_CLIENT_SECRET'),
+        # Removed 'INITIATE_LOGIN_URI' and 'REDIRECT_URI'
+    }
+}
+
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
+
+
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
+
+
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+}
 
 #CACHES = {
 #        "default": {  

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login Complete</title>
+    <script>
+        (function() {
+            const accessToken = "{{ access_token }}";
+            const refreshToken = "{{ refresh_token }}";
+
+            if (accessToken && refreshToken) {
+                // Send the tokens to the Chrome extension
+                window.opener.postMessage({
+                    access_token: accessToken,
+                    refresh_token: refreshToken
+                }, "chrome-extension://bcmdjekoagpaefiimcjomakaacbalime");
+                window.close();
+            } else {
+                // Handle absence of tokens
+                alert("Authentication failed. No tokens received.");
+                window.close();
+            }
+        })();
+    </script>
+</head>
+<body>
+    <p>Logging you in...</p>
+</body>
+</html>

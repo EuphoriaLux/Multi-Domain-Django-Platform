@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LinkedIn Login Complete</title>
+    <script>
+        (function() {
+            // Since django-allauth handles the code exchange, you can retrieve the token from the server
+            // Alternatively, use an API endpoint to fetch the JWT after successful login
+            
+            // Example: Fetch JWT token from your API
+            fetch('/api/get-jwt-token/', {
+                credentials: 'include',  // Include cookies if necessary
+            })
+            .then(response => response.json())
+            .then(data => {
+                const token = data.access_token;
+                if (token) {
+                    // Send the token to the Chrome extension
+                    window.opener.postMessage({ token: token }, "chrome-extension://bcmdjekoagpaefiimcjomakaacbalime");
+                    window.close();
+                } else {
+                    alert("Authentication failed. No token received.");
+                    window.close();
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching JWT token:', error);
+                alert("Authentication failed. An error occurred.");
+                window.close();
+            });
+        })();
+    </script>
+</head>
+<body>
+    <p>Logging you in...</p>
+</body>
+</html>

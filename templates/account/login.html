@@ -1,6 +1,7 @@
 {% extends "entreprinder/base.html" %}
 {% load i18n %}
 {% load account socialaccount %}
+{% load form_tags %}
 
 {% block head_title %}{% trans "Sign In" %}{% endblock %}
 
@@ -10,27 +11,28 @@
     <div class="col-md-6 offset-md-3">
       <h1>{% trans "Sign In" %}</h1>
 
+      <!-- Standard Login Form -->
       <form class="login" method="POST" action="{% url 'account_login' %}">
         {% csrf_token %}
         {{ form.non_field_errors }}
         
-        <div class="form-group">
+        <div class="form-group mb-3">
           {{ form.login.errors }}
           <label for="{{ form.login.id_for_label }}">{% trans "E-mail" %}:</label>
-          {{ form.login }}
+          {{ form.login|add_class:"form-control" }}
         </div>
         
-        <div class="form-group">
+        <div class="form-group mb-3">
           {{ form.password.errors }}
           <label for="{{ form.password.id_for_label }}">{% trans "Password" %}:</label>
-          {{ form.password }}
+          {{ form.password|add_class:"form-control" }}
         </div>
         
         {% if redirect_field_value %}
         <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
         {% endif %}
         
-        <button class="btn btn-primary" type="submit">{% trans "Sign In" %}</button>
+        <button class="btn btn-primary w-100" type="submit">{% trans "Sign In" %}</button>
       </form>
       
       {% if form.errors %}
@@ -38,6 +40,20 @@
           <strong>Error:</strong> Your e-mail and password didn't match. Please try again.
         </div>
       {% endif %}
+      
+      <!-- Divider -->
+      <div class="d-flex align-items-center my-4">
+        <hr class="flex-grow-1">
+        <span class="mx-2">{% trans "OR" %}</span>
+        <hr class="flex-grow-1">
+      </div>
+      
+      <!-- Login with LinkedIn Button -->
+      <div class="text-center">
+        <a href="{% provider_login_url 'linkedin_oauth2' %}" class="btn btn-outline-primary w-100">
+          <i class="fab fa-linkedin me-2"></i> {% trans "Login with LinkedIn" %}
+        </a>
+      </div>
     </div>
   </div>
 </div>

@@ -1,10 +1,23 @@
+# entreprinder/views.py
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from .forms import EntrepreneurProfileForm
 from .models import EntrepreneurProfile
+from django.conf import settings
 from matching.models import Like
 import logging
+import jwt
+import datetime
+from django.http import JsonResponse
+
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.decorators import authentication_classes
+
 
 logger = logging.getLogger(__name__)
 
@@ -52,3 +65,25 @@ def entrepreneur_list(request):
     except Exception as e:
         logger.exception("Error loading entrepreneur list")
         return render(request, 'error.html', {'error_message': f"An error occurred while loading the entrepreneur list. Please try again later. Error details: {e}"})
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def protected_api(request):
+    user = request.user
+    return JsonResponse({'message': f'Hello, {user.email}!'}, status=200)
+
+
+@login_required
+def login_complete(request):
+    # Generate JWT tokens
+    refresh = RefreshToken.for_user(request.user)
+    access_token = str(refresh.access_token)
+    refresh_token = str(refresh)
+
+    # Render the callback template with the tokens
+    return render(request, 'login_complete.html', {
+        'access_token': access_token,
+        'refresh_token': refresh_token,
+    })
+

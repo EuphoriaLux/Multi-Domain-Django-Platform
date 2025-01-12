@@ -3,6 +3,7 @@ import os
 from .settings import *  # noqa
 from .settings import BASE_DIR
 
+
 # Configure the domain name using the environment variable
 # that Azure automatically creates for us.
 # Fetch custom domains from environment variables, separated by commas
@@ -34,9 +35,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
+
 ]
-
-
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
