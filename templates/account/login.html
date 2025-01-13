@@ -50,8 +50,9 @@
       
       <!-- Login with LinkedIn Button -->
       <div class="text-center">
-        <a href="{% provider_login_url 'linkedin_oauth2' %}" class="btn btn-outline-primary w-100">
-          <i class="fab fa-linkedin me-2"></i> {% trans "Login with LinkedIn" %}
+        {% load socialaccount %}
+        <a href="{% provider_login_url 'openid_connect_linkedin' %}">
+          Sign in with LinkedIn
         </a>
       </div>
     </div>

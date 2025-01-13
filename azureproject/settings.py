@@ -42,11 +42,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.sites',  # Add this line
+    'django.contrib.sites',  # Must come before allauth apps
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
-    'allauth.socialaccount.providers.linkedin_oauth2',
+    'allauth.socialaccount.providers.openid_connect',
     'entreprinder',
     'crispy_forms',
     'crispy_bootstrap5',
@@ -188,7 +188,9 @@ ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = True
 ACCOUNT_SESSION_REMEMBER = True
 
 LOGIN_REDIRECT_URL = '/'  # or wherever you want users to go after login
-LOGIN_REDIRECT_URL = '/login_complete/'
+LOGIN_REDIRECT_URL = '/profile/'
+
+SOCIALACCOUNT_LOGIN_ON_GET = True
 
 
 # Use CustomSignupForm
@@ -206,30 +208,8 @@ CORS_ALLOWED_ORIGINS = [
 
 SITE_ID = 1
 
-SOCIALACCOUNT_PROVIDERS = {
-    'linkedin_oauth2': {
-        'SCOPE': [
-            'r_liteprofile',
-            'r_emailaddress',
-            'w_member_social',
-        ],
-        'AUTH_PARAMS': {
-            'response_type': 'code',
-        },
-        'ACCESS_TOKEN_URL': 'https://www.linkedin.com/oauth/v2/accessToken',
-        'AUTHORIZATION_URL': 'https://www.linkedin.com/oauth/v2/authorization',
-        'CLIENT_ID': os.getenv('LINKEDIN_CLIENT_ID'),
-        'CLIENT_SECRET': os.getenv('LINKEDIN_CLIENT_SECRET'),
-        # Removed 'INITIATE_LOGIN_URI' and 'REDIRECT_URI'
-    }
-}
 
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
-
-
-ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
-
-
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
