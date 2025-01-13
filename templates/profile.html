@@ -35,15 +35,15 @@
                         <div class="row mb-4">
                             <div class="col-md-4 text-center">
                                 <div class="mb-3">
-                                    {% if form.instance.profile_picture %}
-                                        <img src="{{ form.instance.profile_picture.url }}" alt="Profile Picture" class="img-fluid rounded-circle mb-3" style="width: 180px; height: 180px; object-fit: cover;">
+                                    {% if profile.linkedin_photo_url %}
+                                        <img src="{{ profile.linkedin_photo_url }}" 
+                                             class="img-fluid rounded-circle mb-3" 
+                                             style="width: 180px; height: 180px; object-fit: cover;">
                                     {% else %}
-                                        <img src="{% static 'images/default-profile.png' %}" alt="Default Profile Picture" class="img-fluid rounded-circle mb-3" style="width: 180px; height: 180px; object-fit: cover;">
+                                        <img src="{% static 'images/default-profile.png' %}" 
+                                             class="img-fluid rounded-circle mb-3" 
+                                             style="width: 180px; height: 180px; object-fit: cover;">
                                     {% endif %}
-                                    <label for="{{ form.profile_picture.id_for_label }}" class="btn btn-outline-primary btn-sm mt-2">
-                                        Change Picture
-                                    </label>
-                                    {{ form.profile_picture }}
                                 </div>
                             </div>
                             <div class="col-md-8">

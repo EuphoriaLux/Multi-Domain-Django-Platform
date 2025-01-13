@@ -1,11 +1,33 @@
-from allauth.account.signals import user_logged_in
+# entreprinder/signals.py
 from django.dispatch import receiver
-from rest_framework_simplejwt.tokens import RefreshToken
+from allauth.socialaccount.signals import social_account_added, social_account_updated
+from allauth.socialaccount.models import SocialAccount
+from entreprinder.models import EntrepreneurProfile
 
-@receiver(user_logged_in)
-def generate_jwt_token(sender, request, user, **kwargs):
-    refresh = RefreshToken.for_user(user)
-    access_token = str(refresh.access_token)
-    # Implement a mechanism to send the token to the Chrome extension
-    # This could be via a secure API endpoint or other methods
+@receiver(social_account_added)
+def update_linkedin_photo_url_added(request, sociallogin, **kwargs):
+    """
+    Fired when a user adds a new LinkedIn OIDC account.
+    """
+    if sociallogin.account.provider == 'openid_connect_linkedin':
+        user = sociallogin.user
+        extra_data = sociallogin.account.extra_data
+        photo_url = extra_data.get("picture", "")
 
+        profile, _ = EntrepreneurProfile.objects.get_or_create(user=user)
+        profile.linkedin_photo_url = photo_url
+        profile.save()
+
+@receiver(social_account_updated)
+def update_linkedin_photo_url_updated(request, sociallogin, **kwargs):
+    """
+    Fired when a user re-authenticates or updates their LinkedIn OIDC account.
+    """
+    if sociallogin.account.provider == 'openid_connect_linkedin':
+        user = sociallogin.user
+        extra_data = sociallogin.account.extra_data
+        photo_url = extra_data.get("picture", "")
+
+        profile, _ = EntrepreneurProfile.objects.get_or_create(user=user)
+        profile.linkedin_photo_url = photo_url
+        profile.save()

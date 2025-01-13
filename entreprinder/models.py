@@ -1,3 +1,5 @@
+# entreprinder/models.py
+
 from django.db import models
 from django.contrib.auth.models import User
 from django.conf import settings
@@ -18,7 +20,7 @@ class Skill(models.Model):
 
 class EntrepreneurProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    profile_picture = models.ImageField(upload_to='profile_pics', blank=True, null=True)
+    linkedin_photo_url = models.URLField(blank=True, null=True)  # NEW FIELD
     bio = models.TextField(max_length=500, blank=True)
     tagline = models.CharField(max_length=150, blank=True, help_text="A brief, catchy description of yourself")
     company = models.CharField(max_length=100, blank=True)
@@ -36,8 +38,3 @@ class EntrepreneurProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.username}'s profile"
-
-    def get_profile_picture_url(self):
-        if self.profile_picture and self.profile_picture.name:
-            return self.profile_picture.url
-        return f"{settings.STATIC_URL}images/default-profile.png"

@@ -13,7 +13,7 @@ class EntrepreneurProfileAdminForm(forms.ModelForm):
 class EntrepreneurProfileForm(forms.ModelForm):
     class Meta:
         model = EntrepreneurProfile
-        fields = ['profile_picture', 'bio', 'company', 'industry', 'looking_for', 'location']
+        fields = ['bio', 'company', 'industry', 'looking_for', 'location']
         widgets = {
             'bio': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'company': forms.TextInput(attrs={'class': 'form-control'}),

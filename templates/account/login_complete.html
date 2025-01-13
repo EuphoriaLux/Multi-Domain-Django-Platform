@@ -4,18 +4,22 @@
     <title>Login Complete</title>
     <script>
         (function() {
-            const accessToken = "{{ access_token }}";
-            const refreshToken = "{{ refresh_token }}";
+            // These are injected by the Django context
+            const accessToken = "{{ access_token|default_if_none:'' }}";
+            const refreshToken = "{{ refresh_token|default_if_none:'' }}";
 
             if (accessToken && refreshToken) {
-                // Send the tokens to the Chrome extension
+                // For demonstration, we send them to the Chrome extension
+                // with ID "bcmdjekoagpaefiimcjomakaacbalime"
                 window.opener.postMessage({
                     access_token: accessToken,
                     refresh_token: refreshToken
                 }, "chrome-extension://bcmdjekoagpaefiimcjomakaacbalime");
+
+                // Close the popup or tab
                 window.close();
             } else {
-                // Handle absence of tokens
+                // If tokens are missing, show an error
                 alert("Authentication failed. No tokens received.");
                 window.close();
             }
