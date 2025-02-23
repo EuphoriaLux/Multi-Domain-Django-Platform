@@ -12,8 +12,10 @@
         <div id="swipeCard" class="swipe-card card">
             <div class="swipe-overlay like">👍</div>
             <div class="swipe-overlay dislike">👎</div>
-            {% if profile.profile_picture %}
-                <img src="{{ profile.profile_picture.url }}" class="card-img-top" alt="{{ profile.user.username }}'s picture">
+            {% if profile.linkedin_photo_url %}
+                <img src="{{ profile.linkedin_photo_url }}" class="card-img-top" alt="{{ profile.user.get_full_name }}'s LinkedIn profile picture">
+            {% elif profile.profile_picture %}
+                <img src="{{ profile.profile_picture.url }}" class="card-img-top" alt="{{ profile.user.get_full_name }}'s profile picture">
             {% else %}
                 <img src="{% static 'images/default-profile.png' %}" class="card-img-top" alt="Default profile picture">
             {% endif %}
