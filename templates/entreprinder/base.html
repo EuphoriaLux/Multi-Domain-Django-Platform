@@ -1,20 +1,20 @@
 {% load i18n %}
 {% load static %}
+{% load socialaccount %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}">
 <head>
     <script
-    type="text/javascript"
-    src="https://app.termly.io/resource-blocker/73a95dc5-f718-4b6c-8338-1449db86c45b?autoBlock=on"
-  ></script>
+        type="text/javascript"
+        src="https://app.termly.io/resource-blocker/73a95dc5-f718-4b6c-8338-1449db86c45b?autoBlock=on"
+    ></script>
   
-        <!-- Google tag (gtag.js) -->
+    <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-KECD3RMYZB"></script>
     <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-
     gtag('config', 'G-KECD3RMYZB');
     </script>
     <meta charset="UTF-8">
@@ -24,7 +24,27 @@
     <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap.min.css' %}">
     <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}">
     <link rel="stylesheet" href="{% static 'css/custom.css' %}">
-    {% block extra_css %}{% endblock %}
+    {% block extra_css %}
+    <style>
+      /* LinkedIn Login Button Styling */
+      .linkedin-login-button {
+          display: inline-block;
+          width: 250px;  /* Adjust width if necessary */
+          height: 60px;  /* Adjust height if necessary */
+          background: url("{% static 'linkedin/Retina/Sign-In-Small---Default.png' %}") no-repeat center center;
+          background-size: contain;
+          border: none;
+          text-indent: -9999px; /* Hides text but remains accessible */
+          cursor: pointer;
+      }
+      .linkedin-login-button:hover {
+          background-image: url("{% static 'linkedin/Retina/Sign-In-Small---Hover.png' %}");
+      }
+      .linkedin-login-button:active {
+          background-image: url("{% static 'linkedin/Retina/Sign-In-Small---Active.png' %}");
+      }
+    </style>
+    {% endblock %}
 </head>
 <body>   
     <header>
@@ -33,32 +53,46 @@
                 <a class="navbar-brand" href="{% url 'entreprinder:home' %}">
                     <i class="fas fa-handshake me-2"></i>Entreprinder
                 </a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" 
+                        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"><i class="fas fa-bars"></i></span>
                 </button>
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav ms-auto">
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'entreprinder:home' %}"><i class="fas fa-home me-1"></i>{% trans "Home" %}</a>
+                            <a class="nav-link" href="{% url 'entreprinder:home' %}">
+                                <i class="fas fa-home me-1"></i>{% trans "Home" %}
+                            </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'entreprinder:about' %}"><i class="fas fa-info-circle me-1"></i>{% trans "About" %}</a>
+                            <a class="nav-link" href="{% url 'entreprinder:about' %}">
+                                <i class="fas fa-info-circle me-1"></i>{% trans "About" %}
+                            </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'entreprinder:contact' %}"><i class="fas fa-envelope me-1"></i>{% trans "Contact" %}</a>
+                            <a class="nav-link" href="{% url 'entreprinder:contact' %}">
+                                <i class="fas fa-envelope me-1"></i>{% trans "Contact" %}
+                            </a>
                         </li>
                         {% if user.is_authenticated %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'entreprinder:entrepreneur_list' %}"><i class="fas fa-search me-1"></i>{% trans "Find Entrepreneurs" %}</a>
+                                <a class="nav-link" href="{% url 'entreprinder:entrepreneur_list' %}">
+                                    <i class="fas fa-search me-1"></i>{% trans "Find Entrepreneurs" %}
+                                </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'matching:swipe' %}"><i class="fas fa-exchange-alt me-1"></i>Swipe</a>
+                                <a class="nav-link" href="{% url 'matching:swipe' %}">
+                                    <i class="fas fa-exchange-alt me-1"></i>Swipe
+                                </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'matching:matches' %}"><i class="fas fa-users me-1"></i>Matches</a>
+                                <a class="nav-link" href="{% url 'matching:matches' %}">
+                                    <i class="fas fa-users me-1"></i>Matches
+                                </a>
                             </li>
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" 
+                                   data-bs-toggle="dropdown" aria-expanded="false">
                                     {% if user.entrepreneurprofile.linkedin_photo_url %}
                                         <img src="{{ user.entrepreneurprofile.linkedin_photo_url }}"
                                              alt="User Avatar"
@@ -73,17 +107,25 @@
                                     {{ user.username }}
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                                    <li><a class="dropdown-item" href="{% url 'entreprinder:profile' %}"><i class="fas fa-user-circle me-2"></i>Profile</a></li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'entreprinder:profile' %}">
+                                            <i class="fas fa-user-circle me-2"></i>Profile
+                                        </a>
+                                    </li>
                                     <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="{% url 'account_logout' %}"><i class="fas fa-sign-out-alt me-2"></i>{% trans "Logout" %}</a></li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'account_logout' %}">
+                                            <i class="fas fa-sign-out-alt me-2"></i>{% trans "Logout" %}
+                                        </a>
+                                    </li>
                                 </ul>
                             </li>
                         {% else %}
+                            <!-- Replacing Login/Sign Up with LinkedIn Login Button -->
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'account_login' %}"><i class="fas fa-sign-in-alt me-1"></i>Login</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'account_signup' %}"><i class="fas fa-user-plus me-1"></i>Sign Up</a>
+                                <a href="{% provider_login_url 'openid_connect_linkedin' %}" class="linkedin-login-button">
+                                    {% trans "Sign in with LinkedIn" %}
+                                </a>
                             </li>
                         {% endif %}
                         <li class="nav-item">
@@ -115,7 +157,7 @@
 
     <footer class="bg-light text-center text-lg-start mt-4">
         <div class="container p-4">
-            <p>&copy; 2024 Entreprinder. All rights reserved.</p>
+            <p>&copy; 2025 Entreprinder. All rights reserved.</p>
         </div>
     </footer>
 
