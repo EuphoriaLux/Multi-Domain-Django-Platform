@@ -122,11 +122,15 @@
                             </li>
                         {% else %}
                             <!-- Replacing Login/Sign Up with LinkedIn Login Button -->
+                           
+
                             <li class="nav-item">
                                 <a href="{% provider_login_url 'openid_connect_linkedin' %}" class="linkedin-login-button">
                                     {% trans "Sign in with LinkedIn" %}
-                                </a>
+                                  </a>
                             </li>
+        
+
                         {% endif %}
                         <li class="nav-item">
                             <form action="{% url 'set_language' %}" method="post" class="d-flex align-items-center">

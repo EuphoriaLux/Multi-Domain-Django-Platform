@@ -42,11 +42,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.sites',  # Must come before allauth apps
+    'django.contrib.sites',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.openid_connect',
+    'allauth.socialaccount.providers.linkedin_oauth2', 
     'entreprinder',
     'crispy_forms',
     'crispy_bootstrap5',
@@ -169,6 +170,28 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+# In settings.py
+SOCIALACCOUNT_PROVIDERS = {
+    'linkedin_oauth2': {
+        'SCOPE': ['openid', 'profile', 'email'],
+        'AUTH_PARAMS': {
+            'prompt': 'select_account',
+        },
+        'OAUTH_PKCE_ENABLED': True,
+    }
+}
+
+# These settings optimize the login experience
+SOCIALACCOUNT_LOGIN_ON_GET = True
+SOCIALACCOUNT_STORE_TOKENS = True
+SOCIALACCOUNT_AUTO_SIGNUP = True
+
+
+SESSION_COOKIE_AGE = 86400  # 24 hours
+SESSION_REMEMBER_ME = True
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_UNIQUE_EMAIL = True
 
 
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
