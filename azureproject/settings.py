@@ -47,7 +47,6 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.openid_connect',
-    'allauth.socialaccount.providers.linkedin_oauth2', 
     'entreprinder',
     'crispy_forms',
     'crispy_bootstrap5',
@@ -194,15 +193,6 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # In settings.py
-SOCIALACCOUNT_PROVIDERS = {
-    'linkedin_oauth2': {
-        'SCOPE': ['openid', 'profile', 'email'],
-        'AUTH_PARAMS': {
-            'prompt': 'select_account',
-        },
-        'OAUTH_PKCE_ENABLED': True,
-    }
-}
 
 # These settings optimize the login experience
 SOCIALACCOUNT_LOGIN_ON_GET = True

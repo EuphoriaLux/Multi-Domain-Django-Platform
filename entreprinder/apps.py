@@ -6,5 +6,4 @@ class EntreprinderConfig(AppConfig):
     name = 'entreprinder'
     
     def ready(self):
-        # Import and register without custom adapter for now
-        pass
+        import entreprinder.signals  # Make sure signals are connected

@@ -8,8 +8,6 @@ from .models import EntrepreneurProfile
 from django.conf import settings
 from matching.models import Like
 import logging
-import jwt
-import datetime
 from django.http import JsonResponse
 
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -18,8 +16,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.decorators import authentication_classes
 
-from allauth.socialaccount.models import SocialAccount, SocialToken
-
+from allauth.socialaccount.models import SocialAccount
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +34,9 @@ def profile(request):
     profile, created = EntrepreneurProfile.objects.get_or_create(user=request.user)
 
     if request.method == 'POST':
-        # No file uploads anymore => remove request.FILES
         form = EntrepreneurProfileForm(request.POST, instance=profile)
         if form.is_valid():
             profile = form.save(commit=False)
-            # Remove references to request.FILES or profile_picture
             profile.save()
             messages.success(request, 'Profile updated successfully.')
             return redirect('entreprinder:profile')
@@ -51,8 +46,6 @@ def profile(request):
         form = EntrepreneurProfileForm(instance=profile)
 
     return render(request, 'profile.html', {'form': form, 'profile': profile})
-
-
 
 @login_required
 def entrepreneur_list(request):
@@ -76,43 +69,76 @@ def protected_api(request):
     user = request.user
     return JsonResponse({'message': f'Hello, {user.email}!'}, status=200)
 
-
-
 def login_complete(request):
-    # After user logs in with LinkedIn
-    from allauth.socialaccount.models import SocialAccount
-    from entreprinder.signals import get_linkedin_photo_url
-    import logging
+    """Handle LinkedIn login completion and extract profile photo URL"""
+    logger.info("Login complete view called")
     
-    logger = logging.getLogger(__name__)
-    linkedin_photo_url = ""
+    # Log request information
+    logger.info(f"Request method: {request.method}")
+    logger.info(f"Request path: {request.path}")
+    logger.info(f"Is user authenticated: {request.user.is_authenticated}")
 
     if request.user.is_authenticated:
-        # Try to get LinkedIn account
+        logger.info(f"Authenticated user: {request.user.username} (ID: {request.user.id})")
+        
+        # Check for existing EntrepreneurProfile
+        existing_profile = EntrepreneurProfile.objects.filter(user=request.user).first()
+        if existing_profile:
+            logger.info(f"Existing profile found with linkedin_photo_url: {existing_profile.linkedin_photo_url}")
+        else:
+            logger.info("No existing EntrepreneurProfile found for this user")
+        
         try:
-            # First try OpenID Connect
+            # Get all social accounts for debugging
+            all_accounts = SocialAccount.objects.filter(user=request.user)
+            logger.info(f"All social accounts for user: {[acc.provider for acc in all_accounts]}")
+            
+            # Focus only on OpenID Connect provider
             socialaccount = SocialAccount.objects.filter(
                 user=request.user, 
-                provider__in=['openid_connect_linkedin', 'linkedin_oauth2']
+                provider='openid_connect_linkedin'
             ).first()
             
             if socialaccount:
+                logger.info(f"Found social account: {socialaccount.provider} (ID: {socialaccount.id})")
                 extra_data = socialaccount.extra_data
-                linkedin_photo_url = get_linkedin_photo_url(socialaccount.provider, extra_data)
-                logger.info(f"Found LinkedIn photo URL from {socialaccount.provider} for user {request.user.email}")
+                
+                # Log the entire extra_data for debugging
+                logger.info(f"Extra data from LinkedIn: {extra_data}")
+                
+                # OpenID Connect provides the picture URL directly
+                linkedin_photo_url = extra_data.get('picture', '')
+                logger.info(f"Extracted LinkedIn photo URL: {linkedin_photo_url}")
+                
+                # Update the profile with LinkedIn photo URL
+                if linkedin_photo_url:
+                    profile, created = EntrepreneurProfile.objects.get_or_create(user=request.user)
+                    profile.linkedin_photo_url = linkedin_photo_url
+                    profile.save()
+                    logger.info(f"Updated profile linkedin_photo_url to: {profile.linkedin_photo_url}")
+                    logger.info(f"Profile created: {created}")
+                else:
+                    logger.warning("No LinkedIn photo URL found in the data")
+                
+            else:
+                logger.warning(f"No OpenID Connect LinkedIn account found for user {request.user.username}")
+                
         except Exception as e:
-            logger.error(f"Error retrieving LinkedIn account: {str(e)}")
-            # Continue with the flow even if there's an error
+            logger.error(f"Error retrieving LinkedIn account: {str(e)}", exc_info=True)
+    else:
+        logger.warning("User not authenticated in login_complete view")
 
-        # Update the profile
-        from entreprinder.models import EntrepreneurProfile
-        profile, _ = EntrepreneurProfile.objects.get_or_create(user=request.user)
-        
-        # Update the remote URL if we found one
-        if linkedin_photo_url:
-            profile.linkedin_photo_url = linkedin_photo_url
-            profile.save()
-            logger.info(f"Updated profile with LinkedIn photo for user {request.user.email}")
-
-    # Then render or redirect as usual
-    return render(request, 'login_complete.html')
+    # Generate JWT tokens for the extension
+    if request.user.is_authenticated:
+        refresh = RefreshToken.for_user(request.user)
+        context = {
+            'access_token': str(refresh.access_token),
+            'refresh_token': str(refresh),
+        }
+    else:
+        context = {
+            'access_token': '',
+            'refresh_token': '',
+        }
+    
+    return render(request, 'account/login_complete.html', context)
