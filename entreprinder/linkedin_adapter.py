@@ -1,6 +1,5 @@
 # entreprinder/linkedin_adapter.py
 from allauth.socialaccount.providers.oauth2.views import OAuth2Adapter
-from allauth.socialaccount.providers.openid_connect.client import OpenIDConnectClient
 from allauth.socialaccount.providers.openid_connect.provider import OpenIDConnectProvider
 import requests
 

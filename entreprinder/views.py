@@ -81,23 +81,38 @@ def protected_api(request):
 def login_complete(request):
     # After user logs in with LinkedIn
     from allauth.socialaccount.models import SocialAccount
-
-    try:
-        socialaccount = SocialAccount.objects.get(user=request.user, provider='openid_connect_linkedin')
-        extra_data = socialaccount.extra_data  # e.g. {"picture": "https://..." }
-    except SocialAccount.DoesNotExist:
-        extra_data = {}
-
-    linkedin_photo_url = extra_data.get("picture", "")
+    from entreprinder.signals import get_linkedin_photo_url
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    linkedin_photo_url = ""
 
     if request.user.is_authenticated:
+        # Try to get LinkedIn account
+        try:
+            # First try OpenID Connect
+            socialaccount = SocialAccount.objects.filter(
+                user=request.user, 
+                provider__in=['openid_connect_linkedin', 'linkedin_oauth2']
+            ).first()
+            
+            if socialaccount:
+                extra_data = socialaccount.extra_data
+                linkedin_photo_url = get_linkedin_photo_url(socialaccount.provider, extra_data)
+                logger.info(f"Found LinkedIn photo URL from {socialaccount.provider} for user {request.user.email}")
+        except Exception as e:
+            logger.error(f"Error retrieving LinkedIn account: {str(e)}")
+            # Continue with the flow even if there's an error
+
+        # Update the profile
         from entreprinder.models import EntrepreneurProfile
         profile, _ = EntrepreneurProfile.objects.get_or_create(user=request.user)
         
-        # Update the remote URL
-        profile.linkedin_photo_url = linkedin_photo_url
-        profile.save()
+        # Update the remote URL if we found one
+        if linkedin_photo_url:
+            profile.linkedin_photo_url = linkedin_photo_url
+            profile.save()
+            logger.info(f"Updated profile with LinkedIn photo for user {request.user.email}")
 
     # Then render or redirect as usual
     return render(request, 'login_complete.html')
-
