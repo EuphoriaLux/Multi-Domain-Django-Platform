@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'travelinstyle',
+    'vibe_coding',
 ]
 
 
@@ -235,8 +236,17 @@ ACCOUNT_FORMS = {'signup': 'entreprinder.forms.CustomSignupForm'}
 # Specify where to redirect after successful sign-up
 ACCOUNT_SIGNUP_REDIRECT_URL = '/profile/'  # Redirect to profile page after signup
 
-# Email backend (for development)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# Email backend Configuration (using SMTP)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'mail.power-up.lu')  # SMTP server address
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 465))          # SMTP port (465 for SSL)
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')          # Your SMTP username (e.g., info@power-up.lu)
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')  # Your SMTP password or App Password
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'True').lower() == 'true' # Use SSL since port is 465
+# EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'False').lower() == 'true' # Use TLS if port was 587
+
+# Default email address for outgoing mail
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
 
 CORS_ALLOWED_ORIGINS = [
     "chrome-extension://bcmdjekoagpaefiimcjomakaacbalime",
@@ -323,4 +333,3 @@ else:
     print(f"Media directory already exists at: {MEDIA_ROOT}")
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-

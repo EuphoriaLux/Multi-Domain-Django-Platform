@@ -1,0 +1,12 @@
+{% extends "entreprinder/base.html" %}
+{% load i18n %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>{{ page_title }}</h1>
+    <p>{% trans "Welcome to the Vibe Coding projects page. More content will be added here soon!" %}</p>
+    <!-- You can add project listings or other content here -->
+</div>
+{% endblock %}
