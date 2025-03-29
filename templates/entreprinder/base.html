@@ -160,6 +160,19 @@
     </header>
 
     <main class="container mt-4">
+        {% load account i18n %} {# Load the allauth account tags and i18n #}
+        {% if user.is_authenticated %}
+            {% get_primary_email_address user as primary_email %}
+            {% if primary_email and not primary_email.verified %}
+                <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    {% blocktrans with email=primary_email.email %}Your email address ({{ email }}) is not verified.{% endblocktrans %}
+                    <a href="{% url 'account_email' %}" class="alert-link">{% trans "Please verify your email address to access all features." %}</a>
+                    {% trans "Need a new verification email?" %} <a href="{% url 'account_email' %}" class="alert-link">{% trans "Resend verification" %}</a>.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endif %}
+        {% endif %}
+
         {% block content %}
         {% endblock %}
     </main>

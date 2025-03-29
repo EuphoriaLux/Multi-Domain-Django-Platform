@@ -3,6 +3,8 @@ from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import JsonResponse
+from django.contrib import messages  # Import messages framework
+from allauth.account.models import EmailAddress # Import EmailAddress for checking verification
 from entreprinder.models import EntrepreneurProfile
 from .models import Like, Dislike, Match
 from .forms import SwipeForm
@@ -82,8 +84,27 @@ def matches(request):
 
 @login_required
 def swipe(request):
-    current_user = request.user.entrepreneurprofile
-    
+    # --- Start Verification Check ---
+    try:
+        primary_email = EmailAddress.objects.get(user=request.user, primary=True)
+        if not primary_email.verified:
+            messages.warning(request, 'Please verify your email address before you can start swiping.')
+            # Redirect to profile page
+            return redirect('entreprinder:profile')
+    except EmailAddress.DoesNotExist:
+        # This case should ideally not happen if ACCOUNT_EMAIL_REQUIRED is True,
+        # but handle it defensively.
+        messages.error(request, 'Could not find your primary email address. Please contact support.')
+        return redirect('entreprinder:profile') # Or home page
+    # --- End Verification Check ---
+
+    # Check if user has an EntrepreneurProfile
+    try:
+        current_user = request.user.entrepreneurprofile
+    except EntrepreneurProfile.DoesNotExist:
+         messages.error(request, "Please complete your entrepreneur profile before swiping.")
+         return redirect('entreprinder:profile') # Redirect to profile creation/edit
+
     # Get profiles that haven't been interacted with
     interacted_profiles = Like.objects.filter(liker=current_user).values_list('liked', flat=True)
     disliked_profiles = Dislike.objects.filter(disliker=current_user).values_list('disliked', flat=True)
