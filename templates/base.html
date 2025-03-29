@@ -1,6 +1,7 @@
 {% load i18n %}
 {% load static %}
 {% load socialaccount %}
+{# Removed account load - now in settings builtins #}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}">
 <head>
@@ -65,8 +66,8 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'entreprinder:about' %}">
-                                <i class="fas fa-info-circle me-1"></i>{% trans "About" %}
+                            <a class="nav-link" href="{% url 'vibe_coding:index' %}">
+                                <i class="fas fa-code me-1"></i>{% trans "Vibe Coding" %}
                             </a>
                         </li>
                         <li class="nav-item">
@@ -160,17 +161,14 @@
     </header>
 
     <main class="container mt-4">
-        {% load account i18n %} {# Load the allauth account tags and i18n #}
-        {% if user.is_authenticated %}
-            {% get_primary_email_address user as primary_email %}
-            {% if primary_email and not primary_email.verified %}
-                <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                    {% blocktrans with email=primary_email.email %}Your email address ({{ email }}) is not verified.{% endblocktrans %}
-                    <a href="{% url 'account_email' %}" class="alert-link">{% trans "Please verify your email address to access all features." %}</a>
-                    {% trans "Need a new verification email?" %} <a href="{% url 'account_email' %}" class="alert-link">{% trans "Resend verification" %}</a>.
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endif %}
+        {# Display verification alert if context variable is set by the view #}
+        {% if show_verification_alert %}
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                {% blocktrans with email=unverified_email %}Your email address ({{ email }}) is not verified.{% endblocktrans %}
+                <a href="{% url 'account_email' %}" class="alert-link">{% trans "Please verify your email address to access all features." %}</a>
+                {% trans "Need a new verification email?" %} <a href="{% url 'account_email' %}" class="alert-link">{% trans "Resend verification" %}</a>.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
         {% endif %}
 
         {% block content %}

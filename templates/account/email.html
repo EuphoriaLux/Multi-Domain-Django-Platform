@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% load i18n crispy_forms_tags %}
+
+{% block head_title %}{% trans "Manage E-mail Addresses" %}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h1 class="h4 mb-0">{% trans "Manage E-mail Addresses" %}</h1>
+                </div>
+                <div class="card-body">
+                    {% if emailaddresses %} {# Use the variable passed by allauth view #}
+                        <p>{% trans 'The following e-mail addresses are associated with your account:' %}</p>
+
+                        <form action="{% url 'account_email' %}" class="email_list" method="post">
+                            {% csrf_token %}
+                            <fieldset class="blockLabels">
+                                {% for emailaddress in emailaddresses %} {# Iterate over the passed list #}
+                                <div class="mb-3 p-3 border rounded {% if emailaddress.primary %}border-primary shadow-sm{% else %}border-light{% endif %}">
+                                    <div class="form-check d-flex justify-content-between align-items-center">
+                                        <div>
+                                            {# Use emailaddress.email directly for value and display #}
+                                            <input id="email_radio_{{forloop.counter}}" type="radio" name="email" class="form-check-input" {% if emailaddress.primary %}checked="checked"{% endif %} value="{{emailaddress.email}}">
+                                            <label for="email_radio_{{forloop.counter}}" class="form-check-label {% if emailaddress.primary %}fw-bold{% endif %} ms-2">
+                                                {{ emailaddress.email }}
+                                            </label>
+                                        </div>
+                                        <div>
+                                            {% if emailaddress.verified %}
+                                                <span class="badge bg-success me-1">{% trans "Verified" %}</span>
+                                            {% else %}
+                                                <span class="badge bg-warning text-dark me-1">{% trans "Unverified" %}</span>
+                                            {% endif %}
+                                            {% if emailaddress.primary %}
+                                                <span class="badge bg-primary me-1">{% trans "Primary" %}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+
+                                <div class="d-flex justify-content-start flex-wrap gap-2 mt-3 border-top pt-3">
+                                    {# Buttons matching the original template's actions #}
+                                    <button class="btn btn-primary" type="submit" name="action_primary">{% trans 'Make Primary' %}</button>
+                                    <button class="btn btn-secondary" type="submit" name="action_send">{% trans 'Re-send Verification' %}</button>
+                                    <button class="btn btn-danger" type="submit" name="action_remove">{% trans 'Remove' %}</button>
+                                </div>
+                            </fieldset>
+                        </form>
+
+                    {% else %}
+                         {# Use the snippet if it exists, otherwise a simple message #}
+                         {% include "account/snippets/warn_no_email.html" %}
+                         {# Fallback message if snippet doesn't exist #}
+                         {# <p class="text-muted">{% trans "You currently do not have any e-mail addresses associated with your account." %}</p> #}
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if can_add_email %} {# Check if user can add more emails #}
+            <div class="card shadow-sm">
+                 <div class="card-header">
+                    <h2 class="h4 mb-0">{% trans "Add E-mail Address" %}</h2>
+                 </div>
+                 <div class="card-body">
+                    <form method="post" action="{% url 'account_email' %}" class="add_email">
+                        {% csrf_token %}
+                        {% crispy form %} {# Use crispy forms tag for styling the add form #}
+                        <div class="d-grid">
+                            <button name="action_add" type="submit" class="btn btn-primary mt-3">{% trans "Add E-mail" %}</button>
+                        </div>
+                    </form>
+                 </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %} {# Changed from extra_body to match your base.html #}
+    <script type="text/javascript">
+(function() {
+  var message = "{% trans 'Do you really want to remove the selected email address?' %}";
+  var actions = document.getElementsByName('action_remove');
+  if (actions.length) {
+    // Add listener to the form itself to catch the button click via event bubbling
+    var form = actions[0].closest('form');
+    if (form) {
+        form.addEventListener("submit", function(e) {
+            // Check if the remove button was the trigger
+            var submitter = e.submitter || (document.activeElement && document.activeElement.type === 'submit' ? document.activeElement : null);
+            if (submitter && submitter.name === 'action_remove') {
+                if (!confirm(message)) {
+                    e.preventDefault();
+                }
+            }
+        });
+    }
+  }
+})();
+    </script>
+{% endblock extra_js %}

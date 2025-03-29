@@ -25,6 +25,7 @@ urlpatterns += [
     path('accounts/', include('allauth.urls')),
     path('login_complete/', entreprinder_views.login_complete, name='login_complete'),
     path('matching/', include('matching.urls')),
+    path('vibe-coding/', include('vibe_coding.urls', namespace='vibe_coding')), # Added vibe_coding URLs
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/protected/', entreprinder_views.protected_api, name='protected_api'),

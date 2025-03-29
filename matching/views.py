@@ -69,14 +69,34 @@ def swipe_action(request):
 
 @login_required
 def no_more_profiles(request):
-    return render(request, 'matching/no_more_profiles.html')
+    context = {} # Initialize context
+    # Add verification check logic
+    try:
+        primary_email = EmailAddress.objects.get(user=request.user, primary=True)
+        if not primary_email.verified:
+            context['show_verification_alert'] = True
+            context['unverified_email'] = primary_email.email
+    except EmailAddress.DoesNotExist:
+        pass # Ignore if no primary email found
+    return render(request, 'matching/no_more_profiles.html', context)
 
 @login_required
 def matches(request):
+    context = {} # Initialize context
+    # Add verification check logic
+    try:
+        primary_email = EmailAddress.objects.get(user=request.user, primary=True)
+        if not primary_email.verified:
+            context['show_verification_alert'] = True
+            context['unverified_email'] = primary_email.email
+    except EmailAddress.DoesNotExist:
+        pass # Ignore if no primary email found
+
     try:
         user_profile = request.user.entrepreneurprofile
         matches = Match.objects.filter(Q(entrepreneur1=user_profile) | Q(entrepreneur2=user_profile))
-        return render(request, 'matching/matches.html', {'matches': matches})
+        context['matches'] = matches # Add matches to context
+        return render(request, 'matching/matches.html', context)
     except EntrepreneurProfile.DoesNotExist:
         return render(request, 'error.html', {'error_message': "Your entrepreneur profile doesn't exist. Please create one."})
     except Exception as e:
@@ -84,13 +104,17 @@ def matches(request):
 
 @login_required
 def swipe(request):
+    context = {} # Initialize context
     # --- Start Verification Check ---
     try:
         primary_email = EmailAddress.objects.get(user=request.user, primary=True)
         if not primary_email.verified:
             messages.warning(request, 'Please verify your email address before you can start swiping.')
-            # Redirect to profile page
+            # Redirect to profile page - KEEPING REDIRECT HERE as swipe is restricted
             return redirect('entreprinder:profile')
+        # If verified, still add alert context in case user navigates here directly
+        # (though unlikely if they passed verification)
+        # context['show_verification_alert'] = False # Or simply don't set it
     except EmailAddress.DoesNotExist:
         # This case should ideally not happen if ACCOUNT_EMAIL_REQUIRED is True,
         # but handle it defensively.
@@ -117,8 +141,18 @@ def swipe(request):
 
     form = SwipeForm(initial={'entrepreneur_id': profile_to_display.id})
 
-    context = {
-        'form': form,
-        'profile': profile_to_display,
-    }
+    context['form'] = form
+    context['profile'] = profile_to_display
+    
+    # Add verification check context (will be false if check passed)
+    try:
+        primary_email = EmailAddress.objects.get(user=request.user, primary=True)
+        if not primary_email.verified:
+             # This part is technically redundant due to the redirect above,
+             # but included for completeness if the redirect logic were removed.
+            context['show_verification_alert'] = True
+            context['unverified_email'] = primary_email.email
+    except EmailAddress.DoesNotExist:
+        pass
+
     return render(request, 'matching/swipe.html', context)

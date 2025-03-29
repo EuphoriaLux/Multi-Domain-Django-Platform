@@ -17,11 +17,23 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.decorators import authentication_classes
 
 from allauth.socialaccount.models import SocialAccount
+from allauth.account.models import EmailAddress # Import EmailAddress
 
 logger = logging.getLogger(__name__)
 
 def home(request):
-    return render(request, 'landing_page.html')
+    context = {}
+    if request.user.is_authenticated:
+        try:
+            primary_email = EmailAddress.objects.get(user=request.user, primary=True)
+            if not primary_email.verified:
+                context['show_verification_alert'] = True
+                context['unverified_email'] = primary_email.email
+        except EmailAddress.DoesNotExist:
+            # Handle case where primary email might not exist yet, though unlikely
+            # with ACCOUNT_EMAIL_REQUIRED=True
+            pass
+    return render(request, 'landing_page.html', context)
 
 def about_page(request):
     return render(request, 'about.html')
@@ -32,6 +44,16 @@ def contact_page(request):
 @login_required
 def profile(request):
     profile, created = EntrepreneurProfile.objects.get_or_create(user=request.user)
+    context = {'form': None, 'profile': profile} # Initialize context
+
+    # Add verification check logic
+    try:
+        primary_email = EmailAddress.objects.get(user=request.user, primary=True)
+        if not primary_email.verified:
+            context['show_verification_alert'] = True
+            context['unverified_email'] = primary_email.email
+    except EmailAddress.DoesNotExist:
+        pass # Ignore if no primary email found
 
     if request.method == 'POST':
         form = EntrepreneurProfileForm(request.POST, instance=profile)
@@ -45,10 +67,21 @@ def profile(request):
     else:
         form = EntrepreneurProfileForm(instance=profile)
 
-    return render(request, 'profile.html', {'form': form, 'profile': profile})
+    context['form'] = form # Add form to context
+    return render(request, 'entreprinder/profile.html', context)
 
 @login_required
 def entrepreneur_list(request):
+    context = {} # Initialize context
+    # Add verification check logic
+    try:
+        primary_email = EmailAddress.objects.get(user=request.user, primary=True)
+        if not primary_email.verified:
+            context['show_verification_alert'] = True
+            context['unverified_email'] = primary_email.email
+    except EmailAddress.DoesNotExist:
+        pass # Ignore if no primary email found
+
     try:
         current_user_profile, created = EntrepreneurProfile.objects.get_or_create(user=request.user)
         if created:
@@ -57,7 +90,8 @@ def entrepreneur_list(request):
         liked_profiles = Like.objects.filter(liker=current_user_profile).values_list('liked_id', flat=True)
         profiles = EntrepreneurProfile.objects.exclude(user=request.user).exclude(id__in=liked_profiles)
         
-        return render(request, 'entrepreneur_list.html', {'profiles': profiles})
+        context['profiles'] = profiles # Add profiles to context
+        return render(request, 'entreprinder/entrepreneur_list.html', context)
     except Exception as e:
         logger.exception("Error loading entrepreneur list")
         return render(request, 'error.html', {'error_message': f"An error occurred while loading the entrepreneur list. Please try again later. Error details: {e}"})
