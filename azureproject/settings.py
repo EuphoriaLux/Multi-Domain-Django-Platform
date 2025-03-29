@@ -98,6 +98,9 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'django.template.context_processors.i18n',  # Ensure this line is present
             ],
+            'builtins': [ # Simplify builtins to only include allauth account tags
+                'allauth.account.templatetags.account',
+            ],
         },
     },
 ]

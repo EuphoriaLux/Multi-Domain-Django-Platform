@@ -19,7 +19,7 @@ if 'WEBSITE_HOSTNAME' in os.environ:
     CSRF_TRUSTED_ORIGINS.append('https://' + os.environ['WEBSITE_HOSTNAME'])
 CSRF_TRUSTED_ORIGINS += [f'https://{domain.strip()}' for domain in CUSTOM_DOMAINS if domain.strip()]
 
-DEBUG = True
+DEBUG = False
 
 # WhiteNoise configuration and Middleware list
 MIDDLEWARE = [
