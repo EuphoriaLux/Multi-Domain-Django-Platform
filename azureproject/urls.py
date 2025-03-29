@@ -23,6 +23,7 @@ urlpatterns += i18n_patterns(
     path('', entreprinder_views.home, name='home'),
     path('', include('entreprinder.urls')),
     path('matching/', include('matching.urls')),
+    path('vibe-coding/', include('vibe_coding.urls')),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/protected/', entreprinder_views.protected_api, name='protected_api'),
