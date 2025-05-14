@@ -1,0 +1,98 @@
+{% load i18n %}
+{% load static %}
+{% load socialaccount %}
+{# Removed account load - now in settings builtins #}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+    <script
+        type="text/javascript"
+        src="https://app.termly.io/resource-blocker/73a95dc5-f718-4b6c-8338-1449db86c45b?autoBlock=on"
+    ></script>
+  
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KECD3RMYZB"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-KECD3RMYZB');
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Vinsdelux{% endblock %}</title>
+
+    <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}">
+    <link rel="stylesheet" href="{% static 'css/custom.css' %}">
+    {% block extra_css %}
+    <style>
+      /* LinkedIn Login Button Styling */
+      .linkedin-login-button {
+          display: inline-block;
+          width: 250px;  /* Adjust width if necessary */
+          height: 60px;  /* Adjust height if necessary */
+          background: url("{% static 'linkedin/Retina/Sign-In-Small---Default.png' %}") no-repeat center center;
+          background-size: contain;
+          border: none;
+          text-indent: -9999px; /* Hides text but remains accessible */
+          cursor: pointer;
+      }
+      .linkedin-login-button:hover {
+          background-image: url("{% static 'linkedin/Retina/Sign-In-Small---Hover.png' %}");
+      }
+      .linkedin-login-button:active {
+          background-image: url("{% static 'linkedin/Retina/Sign-In-Small---Active.png' %}");
+      }
+    </style>
+    {% endblock %}
+</head>
+<body>   
+    <header>
+        <nav class="navbar navbar-expand-lg navbar-custom">
+            <div class="container">
+                <a class="navbar-brand" href="{% url 'vinsdelux:home' %}">
+                    <i class="fas fa-wine-glass me-2"></i>Vinsdelux
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"><i class="fas fa-bars"></i></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'vinsdelux:home' %}">
+                                <i class="fas fa-home me-1"></i>Home
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">
+                                <i class="fas fa-wine-bottle me-1"></i>Wines
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">
+                                <i class="fas fa-shopping-cart me-1"></i>Cart
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mt-4">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <footer class="bg-light text-center text-lg-start mt-4">
+        <div class="container p-4">
+            <p>&copy; 2025 Vinsdelux. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,45 @@
+{% extends 'vinsdelux/base.html' %}
+{% load static %}
+
+{% block title %}Vinsdelux - Wine Experience E-commerce{% endblock %}
+
+{% block content %}
+    <section class="hero">
+        <div class="container">
+            <h1>Welcome to Vinsdelux</h1>
+            <p>Discover the world of fine wines.</p>
+            <a href="#" class="btn btn-primary">Explore Our Wines</a>
+        </div>
+    </section>
+
+    <section class="featured-wines">
+        <div class="container">
+            <h2>Featured Wines</h2>
+            <div class="row">
+                {% for product in featured_products %}
+                    <div class="col-md-4">
+                        <div class="card">
+                            <img src="{{ product.main_image.url }}" class="card-img-top" alt="{{ product.name }}">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ product.name }}</h5>
+                                <p class="card-text">{{ product.short_description }}</p>
+                                <a href="#" class="btn btn-secondary">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section class="product-categories">
+        <div class="container">
+            <h2>Product Categories</h2>
+            <ul>
+                {% for category in categories %}
+                    <li><a href="#">{{ category.name }}</a></li>
+                {% endfor %}
+            </ul>
+        </div>
+    </section>
+{% endblock %}
