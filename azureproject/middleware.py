@@ -16,6 +16,8 @@ class DomainURLRoutingMiddleware:
             request.urlconf = 'azureproject.urls_travelinstyle'
         elif host in ['powerup.lu', 'www.powerup.lu']:
             request.urlconf = 'azureproject.urls_powerup'
+        elif host in ['vinsdelux.com', 'www.vinsdelux.com']:
+            request.urlconf = 'azureproject.urls_vinsdelux'
         else:
             # Fallback to powerup if no match
             request.urlconf = 'azureproject.urls_powerup'

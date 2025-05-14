@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'travelinstyle',
     'vibe_coding',
+    'vinsdelux',
 ]
 
 

@@ -22,6 +22,7 @@ urlpatterns += i18n_patterns(
     path('admin/', admin.site.urls),
     path('', entreprinder_views.home, name='home'),
     path('', include('entreprinder.urls')), # Assuming entreprinder.urls defines app_name='entreprinder'
+    path('vinsdelux/', include('vinsdelux.urls', namespace='vinsdelux')), # Switched from Entreprinder to Vinsdelux
     path('matching/', include('matching.urls', namespace='matching')), # Explicit namespace
     path('vibe-coding/', include('vibe_coding.urls', namespace='vibe_coding')), # Explicit namespace
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
