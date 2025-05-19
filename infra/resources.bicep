@@ -178,7 +178,7 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
     type: 'SystemAssigned'
   }
   
-  resource appSettings 'config' = {
+  resource webAppSettings 'config' = {
     name: 'appsettings'
     properties: {
       SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
@@ -292,7 +292,7 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2020-03
   })
 }
 
-module applicationInsightsResources 'appinsights.bicep' = {
+module applicationInsightsResources './appinsights.bicep' = {
   name: 'applicationinsights-resources'
   params: {
     prefix: prefix
@@ -366,12 +366,7 @@ resource pythonAppDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/databases@
 output WEB_URI string = 'https://${web.properties.defaultHostName}'
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = applicationInsightsResources.outputs.APPLICATIONINSIGHTS_CONNECTION_STRING
 
-resource webAppSettings 'Microsoft.Web/sites/config@2022-03-01' existing = {
-  name: web::appSettings.name
-  parent: web
-}
-
-var webAppSettingsKeys = map(items(webAppSettings.list().properties), setting => setting.key)
+var webAppSettingsKeys = map(items(web::webAppSettings.properties), setting => setting.key)
 output WEB_APP_SETTINGS array = webAppSettingsKeys
 output WEB_APP_LOG_STREAM string = format('https://portal.azure.com/#@/resource{0}/logStream', web.id)
 output WEB_APP_SSH string = format('https://{0}.scm.azurewebsites.net/webssh/host', web.name)
