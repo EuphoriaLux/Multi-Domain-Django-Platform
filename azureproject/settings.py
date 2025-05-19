@@ -256,7 +256,7 @@ CORS_ALLOWED_ORIGINS = [
     "chrome-extension://bcmdjekoagpaefiimcjomakaacbalime",
 ]
 
-SITE_ID = 1
+SITE_ID = 2
 
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
 
