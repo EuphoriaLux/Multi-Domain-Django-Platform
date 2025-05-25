@@ -25,8 +25,16 @@ class VdlAddress(models.Model):
     def __str__(self):
         return f"{self.address_line_1}, {self.city}, {self.country}"
 
+WINE_TYPE_CHOICES = [
+    ('Red Wine', 'Red Wine'),
+    ('White Wine', 'White Wine'),
+    ('Rosé', 'Rosé'),
+    ('Sparkling Wine', 'Sparkling Wine'),
+    ('Dessert Wine', 'Dessert Wine'),
+]
+
 class VdlCategory(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100, choices=WINE_TYPE_CHOICES) # Use choices
     slug = models.SlugField(max_length=120, unique=True, help_text="URL-friendly version of the name")
     description = models.TextField(blank=True, null=True)
     image = models.ImageField(upload_to='categories/', blank=True, null=True)
@@ -40,28 +48,50 @@ class VdlProducer(models.Model):
     name = models.CharField(max_length=150, unique=True)
     slug = models.SlugField(max_length=170, unique=True)
     description = models.TextField(blank=True)
-    logo = models.ImageField(upload_to='producers/', blank=True, null=True)
+    logo = models.ImageField(upload_to='producers/logos/', blank=True, null=True) # Updated upload_to for clarity
+    producer_photo = models.ImageField(upload_to='producers/photos/', blank=True, null=True, help_text="Photo of the producer")
     website = models.URLField(blank=True, null=True)
     region = models.CharField(max_length=100, blank=True)
+    is_featured_on_homepage = models.BooleanField(default=False, help_text="Feature this producer on the homepage?")
 
     def __str__(self):
         return self.name
 
+PRODUCT_TYPE_CHOICES = [
+    ('coffret', 'Coffret'),
+    ('adoption', 'Adoption Plan'),
+]
+
 class VdlProduct(models.Model):
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=220, unique=True)
+    product_type = models.CharField(max_length=20, choices=PRODUCT_TYPE_CHOICES, default='coffret') # Added product type field
     category = models.ForeignKey(VdlCategory, related_name='products', on_delete=models.SET_NULL, null=True, blank=True)
     producer = models.ForeignKey(VdlProducer, related_name='products', on_delete=models.SET_NULL, null=True, blank=True)
     short_description = models.TextField(help_text="Brief overview for product listings.")
     full_description = models.TextField(blank=True, null=True, help_text="Detailed description for product page.")
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    # Fields for Coffret Products
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Price per coffret")
+    stock_quantity = models.PositiveIntegerField(default=0, null=True, blank=True, help_text="Stock for standalone coffrets")
     sku = models.CharField(max_length=50, unique=True, blank=True, null=True, help_text="Stock Keeping Unit")
-    stock_quantity = models.PositiveIntegerField(default=0)
     is_available = models.BooleanField(default=True, help_text="Is the product available for purchase?")
     is_featured = models.BooleanField(default=False, help_text="Feature on homepage or special sections?")
     main_image = models.ImageField(upload_to='products/main/')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # Fields for Adoption Plan Products (moved from VdlAdoptionPackage)
+    duration_months = models.IntegerField(null=True, blank=True, help_text="Duration of the adoption in months")
+    coffrets_per_year = models.IntegerField(null=True, blank=True, help_text="Number of seasonal coffrets included per year")
+    bottles_per_coffret = models.IntegerField(null=True, blank=True, help_text="Number of bottles included in each seasonal coffret (e.g., 1 personalized + 1 surprise)")
+    includes_visit = models.BooleanField(default=False, help_text="Does this package include a vineyard visit?")
+    visit_details = models.TextField(blank=True, null=True, help_text="Details about the vineyard visit")
+    includes_medallion = models.BooleanField(default=False, help_text="Does this package include a personalized medallion?")
+    includes_club_membership = models.BooleanField(default=False, help_text="Does this package include Club Cuvée Privée membership?")
+    adoption_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Price for the entire adoption package") # Renamed price to adoption_price for clarity
+    avant_premiere_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, help_text="Price for the Avant-Première gift option")
+    welcome_kit_description = models.TextField(blank=True, null=True, help_text="Description of what's included in the welcome kit")
 
     def __str__(self):
         return self.name
@@ -75,17 +105,7 @@ class VdlProductImage(models.Model):
     def __str__(self):
         return self.alt_text
 
-class VdlAdoptionTier(models.Model):
-    product = models.OneToOneField(VdlProduct, on_delete=models.CASCADE, related_name='adoption_details', help_text="Links to the base product entry")
-    vine_location_name = models.CharField(max_length=100, blank=True, help_text="e.g., 'Parcel Les Champs'")
-    duration_months = models.IntegerField(default=12, help_text="Duration of the adoption in months")
-    bottles_included = models.IntegerField(default=6)
-    personalization_options = models.TextField(blank=True, help_text="e.g., 'Name on vine label, personalized certificate'")
-    visit_included = models.BooleanField(default=False, help_text="Is a vineyard visit part of this tier?")
-    experience_description = models.TextField(blank=True, help_text="What does the adopter get?")
-
-    def __str__(self):
-        return f"Adoption Tier for {self.product.name}"
+# VdlAdoptionPackage and VdlUserAdoption models are removed
 
 class VdlOrder(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
@@ -110,13 +130,14 @@ class VdlOrder(models.Model):
 
 class VdlOrderItem(models.Model):
     order = models.ForeignKey(VdlOrder, related_name='items', on_delete=models.CASCADE)
-    product = models.ForeignKey(VdlProduct, related_name='order_items', on_delete=models.PROTECT)
+    product = models.ForeignKey(VdlProduct, related_name='order_items', on_delete=models.PROTECT) # Link directly to VdlProduct
     price_at_purchase = models.DecimalField(max_digits=10, decimal_places=2, help_text="Price of the item when the order was placed")
-    quantity = models.PositiveIntegerField(default=1)
+    quantity = models.PositiveIntegerField(default=1) # Quantity of coffrets or adoption packages
     personalization_details = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.quantity} x {self.product.name} in Order {self.order.order_number}"
+
 
 class VdlBlogPostCategory(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -142,3 +163,14 @@ class VdlBlogPost(models.Model):
 
     def __str__(self):
         return self.title
+
+class HomepageContent(models.Model):
+    hero_title = models.CharField(max_length=200, help_text="Title for the homepage hero section")
+    hero_subtitle = models.TextField(help_text="Subtitle for the homepage hero section")
+    hero_background_image = models.ImageField(upload_to='homepage/', help_text="Background image for the homepage hero section")
+
+    class Meta:
+        verbose_name_plural = "Homepage Content"
+
+    def __str__(self):
+        return "Homepage Content"

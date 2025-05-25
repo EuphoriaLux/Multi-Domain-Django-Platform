@@ -5,6 +5,116 @@
     border-radius: 50%;
 }
 
+/* Updated styling for wine plot cards */
+.wine-plot-card {
+    border: none; /* Remove default card border */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Add subtle shadow */
+    transition: transform 0.3s ease-in-out;
+    position: relative; /* Needed for absolute positioning of icon */
+    overflow: hidden; /* Hide overflowing parts of the image */
+}
+
+.wine-plot-card:hover {
+    transform: translateY(-5px); /* Slight lift effect on hover */
+}
+
+.image-container {
+    position: relative; /* Needed for absolute positioning of images */
+    height: 300px; /* Set a fixed height for the container */
+    overflow: hidden; /* Hide overflowing parts of images */
+}
+
+.wine-plot-img {
+    position: absolute; /* Position images within the container */
+    top: 0;
+    left: 0;
+    height: 100%; /* Make images fill the container height */
+    width: 100%; /* Make images fill the container width */
+    object-fit: cover; /* Crop the image to cover the area */
+    transition: opacity 0.3s ease-in-out; /* Add transition for smooth hover effect */
+}
+
+.producer-img {
+    opacity: 1; /* Initially show producer image */
+}
+
+.product-img {
+    opacity: 0; /* Initially hide product image */
+}
+
+.wine-plot-card:hover .producer-img {
+    opacity: 0; /* Hide producer image on hover */
+}
+
+.wine-plot-card:hover .product-img {
+    opacity: 1; /* Show product image on hover */
+}
+
+.wine-drop-icon {
+    position: absolute;
+    bottom: 10px; /* Position at the bottom */
+    right: 10px; /* Position at the right */
+    width: 30px; /* Adjust size as needed */
+    height: 30px; /* Adjust size as needed */
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow for highlighting */
+    border: 1px solid #343a40; /* Add a dark grey border */
+    /* Add a wine drop shape using CSS or an SVG/image */
+    /* For simplicity, using a circle placeholder */
+}
+
+.wine-plot-card .card-body {
+    text-align: center;
+    padding: 15px; /* Adjust padding */
+    display: flex;
+    flex-direction: column;
+}
+
+.wine-plot-card .card-title {
+    font-size: 1.2rem; /* Adjust font size */
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.wine-plot-card .card-subtitle {
+    font-size: 1rem; /* Adjust font size */
+    color: #6c757d; /* Muted text color */
+    margin-bottom: 10px;
+}
+
+.wine-plot-card .adoption-text {
+    font-size: 0.9rem; /* Adjust font size */
+    font-weight: bold;
+    color: #343a40;
+    margin-bottom: 15px;
+}
+
+.card-content-top { /* New rule for the top content wrapper */
+    flex-grow: 1; /* Allow this div to take up remaining space */
+    align-items: center; /* Center content horizontally */
+}
+
+.wine-plots-section .d-flex.align-items-center.mt-3 {
+    background-color: #e9ecef; /* Add a slightly darker background for more contrast */
+    padding: 10px; /* Add some padding */
+    border-radius: 5px; /* Add rounded corners */
+    margin-top: auto; /* Push to the bottom of the flex container */
+}
+
+.wine-plots-section .d-flex.align-items-center.mt-3 div {
+    flex-basis: 50%; /* Distribute space for price points */
+    text-align: center;
+}
+
+.wine-plots-section .d-flex.justify-content-between.align-items-center.mt-3 span {
+    font-size: 1.1rem; /* Adjust price font size */
+}
+
+.wine-plots-section .d-flex.justify-content-between.align-items-center.mt-3 small {
+    font-size: 0.8rem; /* Adjust price label font size */
+}
+
+
 .navbar-custom {
     background-color: #ffffff; /* Light background for navbar */
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
@@ -59,7 +169,120 @@
     color: #343a40;
 }
 
+.hero-section {
+    height: 500px; /* Increased height to accommodate content below background */
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column; /* Stack content vertically */
+    align-items: center;
+    justify-content: flex-end; /* Align content to the bottom */
+    padding-bottom: 50px; /* Add padding at the bottom */
+}
+
+.hero-content {
+    width: 80%; /* Set a width for the content block */
+    background-color: rgba(255, 255, 255, 0.6); /* Reduced opacity of white background */
+    padding: 30px; /* Add padding inside the content block */
+    text-align: center;
+    color: #343a40; /* Dark text color for readability on white background */
+    text-shadow: none; /* Remove text shadow as background is light */
+    z-index: 1;
+    margin: 0 auto -30px auto; /* Center the block and reduce negative bottom margin */
+    border-radius: 8px; /* Rounded corners */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+}
+
+.hero-section .btn {
+    margin-top: 20px; /* Add some space above buttons */
+}
+
+.hero-section .btn-primary {
+    background-color: #b8860b; /* DarkGoldenRod */
+    border-color: #b8860b;
+    color: white;
+    transition: background-color 0.3s ease-in-out, border-color 0.3s ease-in-out;
+}
+
+.hero-section .btn-primary:hover {
+    background-color: #daa520; /* GoldenRod */
+    border-color: #daa520;
+    color: white;
+}
+
+.hero-section .btn-secondary {
+    background-color: #800020; /* Wine color */
+    border-color: #800020;
+    color: white;
+    transition: background-color 0.3s ease-in-out, border-color 0.3s ease-in-out;
+}
+
+.hero-section .btn-secondary:hover {
+    background-color: #a52a2a; /* Brown */
+    border-color: #a52a2a;
+    color: white;
+}
+
 .dropdown-item:hover {
     background-color: #f8f9fa;
     color: #007bff;
+}
+
+.region-label {
+    position: absolute;
+    top: 10px; /* Adjust as needed for spacing from top */
+    left: 10px; /* Adjust as needed for spacing from left */
+    background-color: rgba(255, 255, 255, 0.8); /* Light background with some opacity */
+    color: #333; /* Dark text color */
+    padding: 5px 10px; /* Vertical and horizontal padding */
+    border-radius: 5px; /* Rounded corners */
+    font-size: 0.8rem; /* Adjust font size */
+    font-weight: bold;
+    z-index: 2; /* Ensure it's above the image */
+}
+
+.wine-drop-icon.red-wine {
+    background-color: #f8f9fa; /* Light background for red wine */
+}
+
+.wine-drop-icon.red-wine svg path {
+    fill: #a52a2a; /* Example red wine color */
+}
+
+.wine-drop-icon.white-wine {
+    background-color: #343a40; /* Dark background for white wine */
+}
+
+.wine-drop-icon.white-wine svg path {
+    fill: #f5f5dc; /* Example white wine color (beige) */
+}
+
+.wine-drop-icon.rose-wine {
+    background-color: #f8f9fa; /* Light background for rosé wine */
+}
+
+.wine-drop-icon.rose-wine svg path {
+    fill: #ffb6c1; /* Example rosé wine color (light pink) */
+}
+
+.wine-drop-icon svg {
+    display: block; /* Ensure it behaves as a block element */
+    width: 100%; /* Make SVG fill the width of its container */
+    height: 100%; /* Make SVG fill the height of its container */
+}
+
+.wine-drop-icon.sparkling-wine {
+    background-color: #343a40; /* Dark background for sparkling wine */
+}
+
+.wine-drop-icon.sparkling-wine svg path {
+    fill: #c0c0c0; /* Example sparkling wine color (silver) */
+}
+
+.wine-drop-icon.dessert-wine {
+    background-color: #f8f9fa; /* Light background for dessert wine */
+}
+
+.wine-drop-icon.dessert-wine svg path {
+    fill: #ffd700; /* Example dessert wine color (gold) */
 }

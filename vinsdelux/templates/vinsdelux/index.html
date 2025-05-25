@@ -1,45 +1,97 @@
 {% extends 'vinsdelux/base.html' %}
 {% load static %}
+{% load i18n %}
 
-{% block title %}Vinsdelux - Wine Experience E-commerce{% endblock %}
+{% block title %}{% trans "Vinsdelux - Wine Experience E-commerce" %}{% endblock %}
 
 {% block content %}
-    <section class="hero">
-        <div class="container">
-            <h1>Welcome to Vinsdelux</h1>
-            <p>Discover the world of fine wines.</p>
-            <a href="#" class="btn btn-primary">Explore Our Wines</a>
+    {% if homepage_content %}
+    <section class="hero-section bg-light text-center py-5" style="background: url('{{ homepage_content.hero_background_image.url }}') no-repeat center center; background-size: cover;">
+        <div class="hero-content"> {# Use a new class for potential custom styling #}
+            <h1 class="display-3 fw-bold mb-3">{{ homepage_content.hero_title }}</h1>
+            <p class="lead mb-4">{{ homepage_content.hero_subtitle }}</p>
+            <a href="#" class="btn btn-primary btn-lg me-2">{% trans "Choose my caves" %}</a>
+            <a href="#" class="btn btn-secondary btn-lg">{% trans "Discover wine adoption" %}</a>
         </div>
     </section>
+    {% else %}
+    {# Fallback hero section if no HomepageContent object exists #}
+    <section class="hero-section bg-light text-center py-5">
+        <div class="hero-content"> {# Use a new class for potential custom styling #}
+            <h1 class="display-3 fw-bold mb-3">{% trans "Discover Vinsdelux" %}</h1>
+            <p class="lead mb-4">{% trans "Explore our exquisite selection of wines and unique adoption opportunities." %}</p>
+            <a href="#" class="btn btn-primary btn-lg me-2">{% trans "Choose my caves" %}</a>
+            <a href="#" class="btn btn-secondary btn-lg">{% trans "Discover wine adoption" %}</a>
+        </div>
+    </section>
+{% endif %}
 
-    <section class="featured-wines">
+    <section class="wine-plots-section py-5">
         <div class="container">
-            <h2>Featured Wines</h2>
-            <div class="row">
-                {% for product in featured_products %}
-                    <div class="col-md-4">
-                        <div class="card">
-                            <img src="{{ product.main_image.url }}" class="card-img-top" alt="{{ product.name }}">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">{% trans "Notre sélection de parcelles à adopter" %}</h2>
+                <a href="#" class="btn btn-outline-secondary">{% trans "VOIR TOUT" %}</a>
+            </div>
+            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
+                {% for producer_product in featured_producer_products %}
+                    {% with producer=producer_product.producer product=producer_product.product formatted_category_name=producer_product.formatted_category_name %}
+                    <div class="col">
+                        <div class="card h-100 wine-plot-card">
+                            <div class="image-container">
+                                {% if producer.producer_photo %}
+                                    <img src="{{ producer.producer_photo.url }}" class="card-img-top wine-plot-img producer-img" alt="{{ producer.name }} Photo">
+                                {% endif %}
+                                {% if product.main_image %}
+                                    <img src="{{ product.main_image.url }}" class="card-img-top wine-plot-img product-img" alt="{{ product.name }}">
+                                {% endif %}
+                                <span class="region-label">{{ producer.region }}</span>
+                            </div>
+                            <div class="wine-drop-icon {{ formatted_category_name|default:'' }}">
+                                {% include "vinsdelux/wine-drop.svg" %} {# Include the SVG file here #}
+                            </div>
                             <div class="card-body">
-                                <h5 class="card-title">{{ product.name }}</h5>
-                                <p class="card-text">{{ product.short_description }}</p>
-                                <a href="#" class="btn btn-secondary">View Details</a>
+                                <div class="card-content-top"> {# New div to wrap top content #}
+                                    <h5 class="card-title">{{ product.name }}</h5>
+                                    {% if product.product_type == 'adoption' %}
+                                        {% if product.subtitle %}
+                                            <p class="card-subtitle mb-2 text-muted">{{ product.subtitle }}</p>
+                                        {% elif producer %}
+                                            <p class="card-subtitle mb-2 text-muted">{{ producer.name }}</p>
+                                        {% endif %}
+                                        <p class="card-text adoption-text">{% trans "ADOPTION DE VIGNE" %}</p>
+                                    {% else %} {# Assuming 'coffret' or other types #}
+                                         {% if producer %}
+                                            <p class="card-subtitle mb-2 text-muted">{{ producer.name }}</p>
+                                        {% endif %}
+                                    {% endif %}
+                                </div> {# End card-content-top #}
+                                <div class="d-flex align-items-center mt-3">
+                                    {% if product.price %} {# Display coffret price if available #}
+                                        <div class="me-3"> {# Add margin to separate prices #}
+                                            <span class="fw-bold">{{ product.price }} €</span><br>
+                                            <small class="text-muted">{% trans "PAR COFFRET" %}</small>
+                                        </div>
+                                    {% endif %}
+                                    {% if product.adoption_price %} {# Display adoption price if available #}
+                                        <div>
+                                            <span class="fw-bold">{{ product.adoption_price }} €</span><br>
+                                            <small class="text-muted">{% if product.first_price_label %}{{ product.first_price_label }}{% else %}{% trans "ADOPTION" %}{% endif %}</small> {# Using ADOPTION as a default label #}
+                                        </div>
+                                    {% endif %}
+                                    {# Add logic for stock quantity display if needed for coffrets #}
+                                </div>
+                                {# Add links/buttons based on product type here if needed #}
+                                {% if product.product_type == 'adoption' %}
+                                    <a href="#" class="btn btn-primary mt-3">{% trans "Discover Adoption" %}</a> {# Example link #}
+                                {% else %}
+                                     <a href="#" class="btn btn-primary mt-3">{% trans "View Product" %}</a> {# Example link for coffret #}
+                                {% endif %}
                             </div>
                         </div>
                     </div>
+                    {% endwith %}
                 {% endfor %}
             </div>
-        </div>
-    </section>
-
-    <section class="product-categories">
-        <div class="container">
-            <h2>Product Categories</h2>
-            <ul>
-                {% for category in categories %}
-                    <li><a href="#">{{ category.name }}</a></li>
-                {% endfor %}
-            </ul>
         </div>
     </section>
 {% endblock %}

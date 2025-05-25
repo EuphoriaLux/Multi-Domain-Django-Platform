@@ -60,6 +60,8 @@ INSTALLED_APPS = [
 ]
 
 
+SITE_ID = 1
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Ensure correct placement
@@ -256,7 +258,7 @@ CORS_ALLOWED_ORIGINS = [
     "chrome-extension://bcmdjekoagpaefiimcjomakaacbalime",
 ]
 
-SITE_ID = 2
+
 
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
 
