@@ -9,8 +9,10 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 from entreprinder import views as entreprinder_views
+from azureproject.urls import health_check_view # Import health check view
 
 urlpatterns = [
+    path('healthz/', health_check_view, name='healthz_powerup'), # Add health check endpoint
     # Include the i18n URLs so that {% url 'set_language' %} works
     path('i18n/', include('django.conf.urls.i18n')),
     

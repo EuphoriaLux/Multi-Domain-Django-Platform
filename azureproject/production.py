@@ -7,11 +7,19 @@ from .settings import BASE_DIR
 # Fetch custom domains from environment variables, separated by commas
 CUSTOM_DOMAINS = os.environ.get('CUSTOM_DOMAINS', '').split(',')
 
+# Fetch additional health check IPs from environment variable, separated by commas
+HEALTH_CHECK_IPS = os.environ.get('HEALTH_CHECK_IPS', '').split(',')
+
 # Configure ALLOWED_HOSTS
 ALLOWED_HOSTS = []
 if 'WEBSITE_HOSTNAME' in os.environ:
     ALLOWED_HOSTS.append(os.environ['WEBSITE_HOSTNAME'])
+# Add custom domains
 ALLOWED_HOSTS += [domain.strip() for domain in CUSTOM_DOMAINS if domain.strip()]
+# Add health check IPs from environment variable
+ALLOWED_HOSTS += [ip.strip() for ip in HEALTH_CHECK_IPS if ip.strip() and ip.strip() not in ALLOWED_HOSTS]
+
+
 
 # Configure CSRF_TRUSTED_ORIGINS
 CSRF_TRUSTED_ORIGINS = []
@@ -19,7 +27,12 @@ if 'WEBSITE_HOSTNAME' in os.environ:
     CSRF_TRUSTED_ORIGINS.append('https://' + os.environ['WEBSITE_HOSTNAME'])
 CSRF_TRUSTED_ORIGINS += [f'https://{domain.strip()}' for domain in CUSTOM_DOMAINS if domain.strip()]
 
-DEBUG = True
+# Trust X-Forwarded-Host header for correct host detection behind proxy
+USE_X_FORWARDED_HOST = True
+# Trust X-Forwarded-Proto header for SSL detection
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+DEBUG = False
 
 # WhiteNoise configuration and Middleware list
 MIDDLEWARE = [
@@ -29,6 +42,7 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
+    'azureproject.middleware.ForceAdminToEnglishMiddleware', # Force admin to English
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -49,25 +63,40 @@ STATICFILES_DIRS = [
 ]
 
 
-SITE_ID = 2
+SITE_ID = 1
 
-MEDIA_URL = '/media/'
-# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# Django 4.2+ STORAGES configuration
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.azure_storage.AzureStorage",
+        "OPTIONS": {
+            "account_name": os.getenv('AZURE_ACCOUNT_NAME'),
+            "account_key": os.getenv('AZURE_ACCOUNT_KEY'),
+            "azure_container": os.getenv('AZURE_CONTAINER_NAME'),
+            "overwrite_files": True, # Explicitly set to True for testing
+            # "azure_ssl": True, # Default is True
+            # "upload_max_conn": 2, # Default is 2
+            # "timeout": 20, # Default is 20
+            # "max_memory_size": 2*1024*1024, # Default is 2MB
+            # "expiration_secs": None, # Default is None
+            # "location": "", # Default is ''
+            # "endpoint_suffix": "core.windows.net", # Default is core.windows.net
+            # "custom_domain": None, # Default is None
+            # "token_credential": DefaultAzureCredential(), # For Managed Identity
+        },
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
-# Azure Blob Storage Settings
-DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
+# MEDIA_URL is now derived from STORAGES["default"]
+# You can access it via default_storage.url() or by constructing it manually
+# based on the STORAGES settings.
+# For direct URL construction, you'd still need account name and container name.
 AZURE_ACCOUNT_NAME = os.getenv('AZURE_ACCOUNT_NAME')
-AZURE_ACCOUNT_KEY = os.getenv('AZURE_ACCOUNT_KEY')
 AZURE_CONTAINER_NAME = os.getenv('AZURE_CONTAINER_NAME')
-
-# Optional: If you want to use a custom domain or the default blob endpoint
-# AZURE_CUSTOM_DOMAIN = f'{AZURE_ACCOUNT_NAME}.blob.core.windows.net'
-
-# Update MEDIA_URL to point to your Azure Blob Storage container
-# If using the default blob endpoint:
 MEDIA_URL = f'https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}/'
-# If using a custom domain:
-# MEDIA_URL = f'https://your-custom-domain.com/{AZURE_CONTAINER_NAME}/'
 
 # Configure Postgres database based on connection string of the libpq Keyword/Value form
 conn_str = os.environ['AZURE_POSTGRESQL_CONNECTIONSTRING']
@@ -108,15 +137,47 @@ SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': { # Added a simple formatter for less verbose general logs if preferred
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
+            'formatter': 'verbose', # Using verbose for more details during debugging
         },
     },
+    'root': { # Default handler for any logger not specified below
+        'handlers': ['console'],
+        'level': 'DEBUG', # Set root to DEBUG to catch more during diagnostics
+    },
     'loggers': {
-        '': {  # This is the root logger
+        'django': {
             'handlers': ['console'],
-            'level': 'INFO',
+            'level': os.getenv('DJANGO_LOG_LEVEL', 'DEBUG'), # Set Django to DEBUG
+            'propagate': False,
         },
+        'storages': {  # Logger for django-storages
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'azure': {  # Logger for azure-storage-blob and other Azure SDK parts
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'vinsdelux': { # Logger for your app
+            'handlers': ['console'],
+            'level': 'DEBUG', # Set your app to DEBUG
+            'propagate': False,
+        }
+        # Add other specific app loggers if needed
     },
 }

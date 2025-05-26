@@ -196,8 +196,10 @@ class VdlBlogPostAdmin(admin.ModelAdmin):
 @admin.register(HomepageContent)
 class HomepageContentAdmin(admin.ModelAdmin):
     list_display = ('hero_title', 'hero_subtitle', 'hero_background_image')
-    fieldsets = (
-        (None, {
-            'fields': ('hero_title', 'hero_subtitle', 'hero_background_image')
-        }),
-    )
+    fields = ('hero_title', 'hero_subtitle', 'hero_background_image') # Using fields instead of fieldsets
+    # fieldsets = (
+    #     (None, {
+    #         'fields': ('hero_title', 'hero_subtitle', 'hero_background_image')
+    #     }),
+    # )
+    inlines = [] # Explicitly define no inlines

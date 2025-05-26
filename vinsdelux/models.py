@@ -1,5 +1,6 @@
 from django.db import models
 import logging
+import os # Added import for os module
 logger = logging.getLogger(__name__)
 from django.contrib.auth.models import User
 
@@ -169,19 +170,38 @@ class VdlBlogPost(models.Model):
 class HomepageContent(models.Model):
     hero_title = models.CharField(max_length=200, help_text="Title for the homepage hero section")
     hero_subtitle = models.TextField(help_text="Subtitle for the homepage hero section")
-    hero_background_image = models.ImageField(upload_to='homepage/', help_text="Background image for the homepage hero section")
+    hero_background_image = models.ImageField(upload_to='', help_text="Background image for the homepage hero section") # Removed 'homepage/' from upload_to
 
     class Meta:
         verbose_name_plural = "Homepage Content"
 
     def save(self, *args, **kwargs):
+        logger.debug(f"HomepageContent save method called for instance: {self.pk}")
         if self.hero_background_image:
-            logger.info(f"Attempting to save image: {self.hero_background_image.name}")
+            logger.debug(f"hero_background_image exists. Type: {type(self.hero_background_image)}")
+            logger.debug(f"Original File name: {self.hero_background_image.name}")
+            logger.debug(f"File size: {self.hero_background_image.size} bytes")
             try:
-                super().save(*args, **kwargs)
-                logger.info(f"Successfully saved image: {self.hero_background_image.name}")
+                # Attempt to read a small part of the file to check accessibility
+                # Reset file pointer before reading if it's an UploadedFile
+                if hasattr(self.hero_background_image, 'seek'):
+                    self.hero_background_image.seek(0)
+                
+                # Read first 100 bytes
+                first_bytes = self.hero_background_image.read(100)
+                logger.debug(f"First 100 bytes of file: {first_bytes[:50]}...")
+                
+                # Reset file pointer for actual save operation
+                if hasattr(self.hero_background_image, 'seek'):
+                    self.hero_background_image.seek(0)
+
             except Exception as e:
-                logger.error(f"Error saving image {self.hero_background_image.name}: {e}", exc_info=True)
+                logger.error(f"Error reading hero_background_image in save method: {e}", exc_info=True)
+        else:
+            logger.debug("hero_background_image is None or not set.")
+
+        super().save(*args, **kwargs)
+        logger.debug("super().save() completed successfully.")
 
     def __str__(self):
         return "Homepage Content"

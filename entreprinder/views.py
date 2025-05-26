@@ -22,7 +22,9 @@ from allauth.account.models import EmailAddress # Import EmailAddress
 logger = logging.getLogger(__name__)
 
 def home(request):
-    context = {}
+    context = {
+        'redirect_to': request.get_full_path()  # Add current path for language switcher
+    }
     if request.user.is_authenticated:
         try:
             primary_email = EmailAddress.objects.get(user=request.user, primary=True)
