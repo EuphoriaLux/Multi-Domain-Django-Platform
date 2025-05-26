@@ -176,32 +176,8 @@ class HomepageContent(models.Model):
         verbose_name_plural = "Homepage Content"
 
     def save(self, *args, **kwargs):
-        logger.debug(f"HomepageContent save method called for instance: {self.pk}")
-        if self.hero_background_image:
-            logger.debug(f"hero_background_image exists. Type: {type(self.hero_background_image)}")
-            logger.debug(f"Original File name: {self.hero_background_image.name}")
-            logger.debug(f"File size: {self.hero_background_image.size} bytes")
-            try:
-                # Attempt to read a small part of the file to check accessibility
-                # Reset file pointer before reading if it's an UploadedFile
-                if hasattr(self.hero_background_image, 'seek'):
-                    self.hero_background_image.seek(0)
-                
-                # Read first 100 bytes
-                first_bytes = self.hero_background_image.read(100)
-                logger.debug(f"First 100 bytes of file: {first_bytes[:50]}...")
-                
-                # Reset file pointer for actual save operation
-                if hasattr(self.hero_background_image, 'seek'):
-                    self.hero_background_image.seek(0)
-
-            except Exception as e:
-                logger.error(f"Error reading hero_background_image in save method: {e}", exc_info=True)
-        else:
-            logger.debug("hero_background_image is None or not set.")
-
+        # Temporarily simplified for extreme debugging - REMOVE ALL LOGGING AND TRY/EXCEPT
         super().save(*args, **kwargs)
-        logger.debug("super().save() completed successfully.")
 
     def __str__(self):
         return "Homepage Content"
