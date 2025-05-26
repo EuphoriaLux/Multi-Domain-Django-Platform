@@ -3,6 +3,7 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
+from django.http import HttpResponse # Added for health check view
 from django.conf.urls.static import static
 from django.conf.urls.i18n import i18n_patterns
 
@@ -12,7 +13,12 @@ from rest_framework_simplejwt.views import (
 )
 from entreprinder import views as entreprinder_views
 
+# Simple health check view
+def health_check_view(request):
+    return HttpResponse("OK", status=200)
+
 urlpatterns = [
+    path('healthz/', health_check_view, name='healthz'), # Added health check endpoint
     path('i18n/', include('django.conf.urls.i18n')),
     path('accounts/', include('allauth.urls')),  # Ensure this is outside i18n_patterns
     path('login_complete/', entreprinder_views.login_complete, name='login_complete'),  # Add this line

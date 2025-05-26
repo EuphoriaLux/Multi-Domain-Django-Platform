@@ -54,7 +54,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
-    'travelinstyle',
     'vibe_coding',
     'vinsdelux',
 ]
@@ -101,9 +100,9 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'django.template.context_processors.i18n',  # Ensure this line is present
             ],
-            'builtins': [ # Simplify builtins to only include allauth account tags
-                'allauth.account.templatetags.account',
-            ],
+            # 'builtins': [ # Simplify builtins to only include allauth account tags
+            #     'allauth.account.templatetags.account',
+            # ],
         },
     },
 ]
@@ -255,7 +254,6 @@ EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'True').lower() == 'true' # Use SSL s
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
 
 CORS_ALLOWED_ORIGINS = [
-    "chrome-extension://bcmdjekoagpaefiimcjomakaacbalime",
 ]
 
 
@@ -328,14 +326,24 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
 ]
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-
-# Ensure media directory exists
-if not os.path.exists(MEDIA_ROOT):
-    os.makedirs(MEDIA_ROOT)
-    print(f"Created media directory at: {MEDIA_ROOT}")
+# Azure Blob Storage Settings (Conditional for Development)
+if os.getenv('AZURE_ACCOUNT_NAME'):
+    DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
+    AZURE_ACCOUNT_NAME = os.getenv('AZURE_ACCOUNT_NAME')
+    AZURE_ACCOUNT_KEY = os.getenv('AZURE_ACCOUNT_KEY')
+    AZURE_CONTAINER_NAME = os.getenv('AZURE_CONTAINER_NAME')
+    MEDIA_URL = f'https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}/'
+    print("Using Azure Blob Storage for media files.")
 else:
-    print(f"Media directory already exists at: {MEDIA_ROOT}")
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = BASE_DIR / 'media'
+
+    # Ensure media directory exists
+    if not os.path.exists(MEDIA_ROOT):
+        os.makedirs(MEDIA_ROOT)
+        print(f"Created media directory at: {MEDIA_ROOT}")
+    else:
+        print(f"Media directory already exists at: {MEDIA_ROOT}")
+    print("Using local file system for media files.")
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

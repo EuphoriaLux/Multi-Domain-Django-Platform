@@ -12,5 +12,6 @@ requests==2.26.0
 djangorestframework-simplejwt==5.4.0
 PyJWT == 2.10.1
 django-cors-headers==4.6.0
-django-storages==1.14.6
+django-storages==1.14.2
 azure-storage-blob==12.25.1
+olefile==0.47

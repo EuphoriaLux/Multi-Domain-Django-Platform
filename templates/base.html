@@ -51,29 +51,23 @@
     <header>
         <nav class="navbar navbar-expand-lg navbar-custom">
             <div class="container">
-                <a class="navbar-brand" href="{% url 'vinsdelux:home' %}">
-                    <i class="fas fa-wine-glass-alt me-2"></i>Vinsdelux
+                <a class="navbar-brand" href="{% url 'entreprinder:home' %}">
+                    <i class="fas fa-handshake me-2"></i>Entreprinder
                 </a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" 
                         aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"><i class="fas fa-bars"></i></span>
                 </button>
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav ms-auto">
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'vinsdelux:home' %}">
+                            <a class="nav-link" href="{% url 'entreprinder:home' %}">
                                 <i class="fas fa-home me-1"></i>{% trans "Home" %}
                             </a>
                         </li>
-                        {# Add other relevant Vinsdelux links here #}
                         <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="fas fa-wine-bottle me-1"></i>{% trans "Our Wines" %}
-                            </a>
-                        </li>
-                         <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="fas fa-leaf me-1"></i>{% trans "Wine Adoption" %}
+                            <a class="nav-link" href="{% url 'vibe_coding:index' %}">
+                                <i class="fas fa-code me-1"></i>{% trans "Vibe Coding" %}
                             </a>
                         </li>
                         <li class="nav-item">
@@ -81,13 +75,32 @@
                                 <i class="fas fa-envelope me-1"></i>{% trans "Contact" %}
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'vibe_coding:index' %}">
+                                <i class="fas fa-code me-1"></i>{% trans "Vibe Coding" %}
+                            </a>
+                        </li>
                         {% if user.is_authenticated %}
-                            {# Add user-specific Vinsdelux links here if needed #}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'entreprinder:entrepreneur_list' %}">
+                                    <i class="fas fa-search me-1"></i>{% trans "Find Entrepreneurs" %}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'matching:swipe' %}">
+                                    <i class="fas fa-exchange-alt me-1"></i>Swipe
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'matching:matches' %}">
+                                    <i class="fas fa-users me-1"></i>Matches
+                                </a>
+                            </li>
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
+                                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" 
                                    data-bs-toggle="dropdown" aria-expanded="false">
-                                    {% if user.vdluserprofile.linkedin_photo_url %} {# Assuming VdlUserProfile has linkedin_photo_url #}
-                                        <img src="{{ user.vdluserprofile.linkedin_photo_url }}"
+                                    {% if user.entrepreneurprofile.linkedin_photo_url %}
+                                        <img src="{{ user.entrepreneurprofile.linkedin_photo_url }}"
                                              alt="User Avatar"
                                              class="user-avatar me-1"
                                              style="width: 24px; height: 24px;">
@@ -101,7 +114,7 @@
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
                                     <li>
-                                        <a class="dropdown-item" href="{% url 'vinsdelux:profile' %}"> {# Assuming a Vinsdelux profile URL #}
+                                        <a class="dropdown-item" href="{% url 'entreprinder:profile' %}">
                                             <i class="fas fa-user-circle me-2"></i>Profile
                                         </a>
                                     </li>
@@ -114,11 +127,16 @@
                                 </ul>
                             </li>
                         {% else %}
+                            <!-- Replacing Login/Sign Up with LinkedIn Login Button -->
+                           
+
                             <li class="nav-item">
                                 <a href="{% provider_login_url 'openid_connect_linkedin' %}" class="linkedin-login-button">
                                     {% trans "Sign in with LinkedIn" %}
                                   </a>
                             </li>
+        
+
                         {% endif %}
                         <li class="nav-item">
                             <form action="{% url 'set_language' %}" method="post" class="d-flex align-items-center">
