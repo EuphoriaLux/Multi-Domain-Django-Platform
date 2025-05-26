@@ -1,4 +1,6 @@
 from django.db import models
+import logging
+logger = logging.getLogger(__name__)
 from django.contrib.auth.models import User
 
 class VdlUserProfile(models.Model):
@@ -171,6 +173,15 @@ class HomepageContent(models.Model):
 
     class Meta:
         verbose_name_plural = "Homepage Content"
+
+    def save(self, *args, **kwargs):
+        if self.hero_background_image:
+            logger.info(f"Attempting to save image: {self.hero_background_image.name}")
+            try:
+                super().save(*args, **kwargs)
+                logger.info(f"Successfully saved image: {self.hero_background_image.name}")
+            except Exception as e:
+                logger.error(f"Error saving image {self.hero_background_image.name}: {e}", exc_info=True)
 
     def __str__(self):
         return "Homepage Content"

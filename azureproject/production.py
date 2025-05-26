@@ -52,7 +52,22 @@ STATICFILES_DIRS = [
 SITE_ID = 2
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Azure Blob Storage Settings
+DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
+AZURE_ACCOUNT_NAME = os.getenv('AZURE_ACCOUNT_NAME')
+AZURE_ACCOUNT_KEY = os.getenv('AZURE_ACCOUNT_KEY')
+AZURE_CONTAINER_NAME = os.getenv('AZURE_CONTAINER_NAME')
+
+# Optional: If you want to use a custom domain or the default blob endpoint
+# AZURE_CUSTOM_DOMAIN = f'{AZURE_ACCOUNT_NAME}.blob.core.windows.net'
+
+# Update MEDIA_URL to point to your Azure Blob Storage container
+# If using the default blob endpoint:
+MEDIA_URL = f'https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}/'
+# If using a custom domain:
+# MEDIA_URL = f'https://your-custom-domain.com/{AZURE_CONTAINER_NAME}/'
 
 # Configure Postgres database based on connection string of the libpq Keyword/Value form
 conn_str = os.environ['AZURE_POSTGRESQL_CONNECTIONSTRING']
@@ -88,3 +103,20 @@ SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 #        },
 #    }
 # }
+
+# Basic logging configuration to output INFO level messages to the console
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        '': {  # This is the root logger
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+    },
+}

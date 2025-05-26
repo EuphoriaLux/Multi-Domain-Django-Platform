@@ -184,6 +184,7 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
       AZURE_POSTGRESQL_CONNECTIONSTRING: 'dbname=${pythonAppDatabase.name} host=${postgresServer.name}.postgres.database.azure.com port=5432 sslmode=require user=${postgresServer.properties.administratorLogin} password=${databasePassword}'
       SECRET_KEY: secretKey
+      CUSTOM_DOMAINS: 'www.powerup.lu,powerup.lu,vinsdelux.com,www.vinsdelux.com'
       FLASK_DEBUG: 'False'
       //Added for Azure Redis Cache
  //     AZURE_REDIS_CONNECTIONSTRING: 'rediss://:${redisCache.listKeys().primaryKey}@${redisCache.name}.redis.cache.windows.net:6380/0'
@@ -362,6 +363,34 @@ resource pythonAppDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/databases@
 //    minimumTlsVersion: '1.2'
 //  }
 //}    
+
+// Azure Storage Account for Media Files
+var storageAccountName = '${toLower('media')}${uniqueString(resourceGroup().id)}' // Use a fixed prefix and uniqueString
+var mediaContainerName = 'media' // This should match AZURE_CONTAINER_NAME in production.py
+
+resource storageAccount 'Microsoft.Storage/storageAccounts@2021-09-01' = {
+  name: storageAccountName
+  location: location
+  tags: tags
+  sku: {
+    name: 'Standard_LRS' // Or choose a different SKU based on your needs
+  }
+  kind: 'StorageV2'
+  properties: {
+    supportsHttpsTrafficOnly: true
+  }
+
+  resource blobServices 'blobServices' = {
+    name: 'default'
+
+    resource container 'containers' = {
+      name: mediaContainerName
+      properties: {
+        publicAccess: 'None' // Or 'Blob' or 'Container' depending on your needs
+      }
+    }
+  }
+}
 
 output WEB_URI string = 'https://${web.properties.defaultHostName}'
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = applicationInsightsResources.outputs.APPLICATIONINSIGHTS_CONNECTION_STRING
