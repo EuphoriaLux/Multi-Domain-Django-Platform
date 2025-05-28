@@ -27,9 +27,48 @@ def home(request):
 
     categories = VdlCategory.objects.filter(is_active=True) # Keep categories in context if needed elsewhere
 
+    client_journey_steps = [
+        {
+            'id': 'step-1',
+            'step': '01',
+            'title': 'Sélection de la Parcelle',
+            'description': 'Choisissez la parcelle de vigne qui correspond à vos préférences et à votre vision. Chaque parcelle offre un terroir unique et une histoire à raconter.',
+            'icon_class': 'fa-seedling' # Font Awesome icon class
+        },
+        {
+            'id': 'step-2',
+            'step': '02',
+            'title': 'Personnalisation de Votre Vin',
+            'description': 'Collaborez avec nos vignerons experts pour personnaliser chaque aspect de votre vin, de la variété de raisin aux techniques de vinification.',
+            'icon_class': 'fa-wine-bottle' # Font Awesome icon class
+        },
+        {
+            'id': 'step-3',
+            'step': '03',
+            'title': 'Suivi de la Production',
+            'description': 'Recevez des mises à jour régulières sur la croissance de votre vigne et le processus de vinification, avec des photos et des rapports détaillés.',
+            'icon_class': 'fa-chart-line' # Font Awesome icon class
+        },
+        {
+            'id': 'step-4',
+            'step': '04',
+            'title': 'Réception et Dégustation',
+            'description': 'Vos bouteilles personnalisées sont livrées directement chez vous, prêtes à être dégustées et partagées avec vos proches.',
+            'icon_class': 'fa-glass-cheers' # Font Awesome icon class
+        },
+        {
+            'id': 'step-5',
+            'step': '05',
+            'title': 'Création de Votre Héritage',
+            'description': 'Votre vin devient un héritage familial, une expression unique de votre passion pour le vin et un investissement dans l\'avenir.',
+            'icon_class': 'fa-scroll' # Font Awesome icon class
+        },
+    ]
+
     context = {
         'homepage_content': homepage_content, # Add homepage content to context
         'featured_producer_products': featured_producer_products,
         'categories': categories,
+        'client_journey_steps': client_journey_steps, # Add client journey steps to context
     }
     return render(request, 'vinsdelux/index.html', context)

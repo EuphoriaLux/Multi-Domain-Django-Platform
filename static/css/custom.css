@@ -286,3 +286,240 @@
 .wine-drop-icon.dessert-wine svg path {
     fill: #ffd700; /* Example dessert wine color (gold) */
 }
+
+/* Client Journey Section Styles */
+.client-journey-section {
+    background-color: #212529; /* Very dark gray, almost black - to fit existing dark elements */
+    padding-top: 4rem;
+    padding-bottom: 4rem;
+}
+
+.client-journey-section .section-title {
+    font-size: 2.25rem;
+    font-weight: 700;
+    color: #daa520; /* GoldenRod - from btn-primary:hover */
+    margin-bottom: 1rem;
+}
+
+.client-journey-section .section-subtitle {
+    font-size: 1.125rem;
+    color: #f8f9fa; /* White - for readability on dark background */
+    text-align: center;
+    margin-bottom: 4rem;
+    max-width: 48rem;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.client-journey-section .relative {
+    position: relative;
+}
+
+.client-journey-section .px-4 {
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+/* Vertical line for larger screens */
+.client-journey-section .hidden-md-block {
+    display: none;
+}
+
+@media (min-width: 768px) { /* md breakpoint */
+    .client-journey-section .hidden-md-block {
+        display: block;
+    }
+}
+
+.client-journey-section .absolute-line {
+    position: absolute;
+    top: 1.5rem;
+    bottom: 1.5rem;
+    left: 50%;
+    width: 0.25rem;
+    background-color: rgba(218, 165, 32, 0.5); /* GoldenRod with 50% opacity */
+    border-radius: 9999px;
+    transform: translateX(-50%);
+}
+
+.client-journey-section .space-y-16-imitation > div:not(:first-child) {
+    margin-top: 4rem;
+}
+
+@media (min-width: 768px) { /* md breakpoint */
+    .client-journey-section .md-space-y-20-imitation > div:not(:first-child) {
+        margin-top: 5rem;
+    }
+}
+
+.client-journey-section .md-flex-imitation {
+    display: block; /* Default to block for mobile */
+}
+
+@media (min-width: 768px) { /* md breakpoint */
+    .client-journey-section .md-flex-imitation {
+        display: flex;
+    }
+}
+
+.client-journey-section .items-center-imitation {
+    align-items: center;
+}
+
+.client-journey-section .w-full-imitation {
+    width: 100%;
+}
+
+@media (min-width: 768px) { /* md breakpoint */
+    .client-journey-section .md-flex-row-reverse-imitation {
+        flex-direction: row-reverse;
+    }
+}
+
+/* Card Content Area */
+.client-journey-section .md-w-5-12-imitation {
+    width: 100%; /* Default for mobile */
+}
+
+@media (min-width: 768px) { /* md breakpoint */
+    .client-journey-section .md-w-5-12-imitation {
+        width: 41.666667%;
+    }
+}
+
+.client-journey-section .card-content-imitation {
+    padding: 2rem;
+    background-color: #343a40; /* Dark gray - existing text color */
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease-in-out;
+    border: 2px solid transparent;
+    text-align: center;
+}
+
+.client-journey-section .card-content-imitation:hover {
+    box-shadow: 0 10px 15px -3px rgba(218, 165, 32, 0.2), 0 4px 6px -2px rgba(218, 165, 32, 0.1); /* GoldenRod with 20% opacity */
+    border-color: rgba(218, 165, 32, 0.6); /* GoldenRod with 60% opacity */
+}
+
+@media (min-width: 768px) { /* md breakpoint */
+    .client-journey-section .md-ml-10-imitation {
+        margin-left: 2.5rem;
+    }
+    .client-journey-section .md-mr-10-imitation {
+        margin-right: 2.5rem;
+    }
+    .client-journey-section .card-content-imitation {
+        text-align: left;
+    }
+}
+
+.client-journey-section .flex-justify-center-imitation {
+    display: flex;
+    justify-content: center;
+}
+
+@media (min-width: 768px) { /* md breakpoint */
+    .client-journey-section .flex-justify-center-imitation {
+        justify-content: flex-start;
+    }
+}
+
+.client-journey-section .mb-4-imitation {
+    margin-bottom: 1rem;
+}
+
+.client-journey-section .icon-imitation {
+    height: 3rem;
+    width: 3rem;
+    color: #daa520; /* GoldenRod */
+    transition: color 0.3s;
+}
+
+.client-journey-section .card-content-imitation:hover .icon-imitation {
+    color: #fbd38d; /* Lighter amber */
+}
+
+.client-journey-section .card-title-imitation {
+    font-size: 1.5rem;
+    color: #daa520; /* GoldenRod */
+    transition: color 0.3s;
+    margin-bottom: 0.75rem;
+    /* Removed font-family: 'Georgia', serif; to inherit site font */
+}
+
+@media (min-width: 1024px) { /* lg breakpoint */
+    .client-journey-section .card-title-imitation {
+        font-size: 1.875rem;
+    }
+}
+
+.client-journey-section .card-content-imitation:hover .card-title-imitation {
+    color: #fbd38d; /* Lighter amber */
+}
+
+.client-journey-section .card-description-imitation {
+    color: #f8f9fa; /* White */
+    font-size: 1rem;
+}
+
+@media (min-width: 1024px) { /* lg breakpoint */
+    .client-journey-section .card-description-imitation {
+        font-size: 1.125rem;
+    }
+}
+
+/* Central Circle / Timeline Point */
+.client-journey-section .md-w-2-12-imitation {
+    width: 100%; /* Default for mobile */
+}
+
+@media (min-width: 768px) { /* md breakpoint */
+    .client-journey-section .md-w-2-12-imitation {
+        width: 16.666667%;
+    }
+}
+
+.client-journey-section .my-8-imitation {
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+}
+
+@media (min-width: 768px) { /* md breakpoint */
+    .client-journey-section .md-my-0-imitation {
+        margin-top: 0;
+        margin-bottom: 0;
+    }
+}
+
+.client-journey-section .relative-z-10-imitation {
+    position: relative;
+    z-index: 10;
+}
+
+.client-journey-section .circle-imitation {
+    width: 3rem;
+    height: 3rem;
+    background-color: #daa520; /* GoldenRod */
+    border-radius: 9999px;
+    box-shadow: 0 10px 15px -3px rgba(218, 165, 32, 0.5); /* GoldenRod with 50% opacity */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #212529; /* Very dark gray */
+    font-weight: 700;
+    font-size: 1.25rem;
+    box-shadow: 0 0 0 4px #343a40; /* Dark gray ring */
+}
+
+/* Spacer for alternating layout on desktop */
+.client-journey-section .md-w-5-12-imitation.hidden-md-block-imitation {
+    display: none; /* Default for mobile */
+}
+
+@media (min-width: 768px) { /* md breakpoint */
+    .client-journey-section .md-w-5-12-imitation.hidden-md-block-imitation {
+        display: block;
+        width: 41.666667%;
+    }
+}
