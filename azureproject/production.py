@@ -16,8 +16,12 @@ if 'WEBSITE_HOSTNAME' in os.environ:
     ALLOWED_HOSTS.append(os.environ['WEBSITE_HOSTNAME'])
 # Add custom domains
 ALLOWED_HOSTS += [domain.strip() for domain in CUSTOM_DOMAINS if domain.strip()]
-# Add health check IPs from environment variable
-ALLOWED_HOSTS += [ip.strip() for ip in HEALTH_CHECK_IPS if ip.strip() and ip.strip() not in ALLOWED_HOSTS]
+# Add custom allowed hosts from environment variable
+ALLOWED_HOSTS += [host.strip() for host in os.environ.get('ALLOWED_HOSTS_ENV', '').split(',') if host.strip()]
+
+# Add health check IPs from environment variable, allowing 169.254.*
+health_check_ips = [ip.strip() for ip in os.environ.get('HEALTH_CHECK_IPS', '').split(',') if ip.strip().startswith('169.254.') and ip.strip() not in ALLOWED_HOSTS]
+ALLOWED_HOSTS += health_check_ips
 
 
 
@@ -134,50 +138,3 @@ SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 # }
 
 # Basic logging configuration to output INFO level messages to the console
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-            'style': '{',
-        },
-        'simple': { # Added a simple formatter for less verbose general logs if preferred
-            'format': '{levelname} {message}',
-            'style': '{',
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose', # Using verbose for more details during debugging
-        },
-    },
-    'root': { # Default handler for any logger not specified below
-        'handlers': ['console'],
-        'level': 'DEBUG', # Set root to DEBUG to catch more during diagnostics
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': os.getenv('DJANGO_LOG_LEVEL', 'DEBUG'), # Set Django to DEBUG
-            'propagate': False,
-        },
-        'storages': {  # Logger for django-storages
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-        'azure': {  # Logger for azure-storage-blob and other Azure SDK parts
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-        'vinsdelux': { # Logger for your app
-            'handlers': ['console'],
-            'level': 'DEBUG', # Set your app to DEBUG
-            'propagate': False,
-        }
-        # Add other specific app loggers if needed
-    },
-}
