@@ -1,74 +1,75 @@
+# in vinsdelux/views.py
+
 from django.shortcuts import render
-from django.utils.text import slugify # Import slugify
-from .models import VdlProduct, VdlCategory, VdlProducer, HomepageContent
+from django.utils.text import slugify
+# Import only the models we actually need here
+from .models import VdlCoffret, HomepageContent, VdlCategory
 
 def home(request):
-    homepage_content = HomepageContent.objects.first() # Get the single homepage content object
+    """
+    Displays the homepage, featuring a selection of the best Coffrets
+    and their associated Adoption Plans.
+    """
+    homepage_content = HomepageContent.objects.first()
+    
+    # --- NEW, SIMPLIFIED & OPTIMIZED QUERY ---
+    # The new logic is much cleaner. We fetch the featured Coffrets and tell Django
+    # to also grab all related data (producer, category, and especially adoption plans)
+    # in the most efficient way possible.
+    
+    featured_coffrets = VdlCoffret.objects.filter(
+        is_featured=True, 
+        is_available=True
+    ).select_related(
+        'producer', 'category'  # Use JOINs for one-to-one relationships
+    ).prefetch_related(
+        'adoption_plans'  # Use a separate, efficient query for many-to-one
+    )[:4] # Limit to the first 4 featured coffrets for the homepage
 
-    featured_producers = VdlProducer.objects.filter(is_featured_on_homepage=True)
-    featured_producer_products = []
-    for producer in featured_producers:
-        # Find one featured product for this producer
-        featured_product = VdlProduct.objects.select_related('category').filter(producer=producer, is_featured=True).first()
-        if featured_product:
-            # Format category name for CSS class
-            formatted_category_name = None
-            if featured_product.category:
-                formatted_category_name = slugify(featured_product.category.name) # Use slugify
-
-            featured_producer_products.append({
-                'producer': producer,
-                'product': featured_product,
-                'formatted_category_name': formatted_category_name # Add formatted name here
-            })
-
-    # Limit to 4 producer/product pairs for the homepage display
-    featured_producer_products = featured_producer_products[:4]
-
-    categories = VdlCategory.objects.filter(is_active=True) # Keep categories in context if needed elsewhere
-
+    # The client journey steps are static and fine as they are.
     client_journey_steps = [
         {
             'id': 'step-1',
             'step': '01',
-            'title': 'Sélection de la Parcelle',
-            'description': 'Choisissez la parcelle de vigne qui correspond à vos préférences et à votre vision. Chaque parcelle offre un terroir unique et une histoire à raconter.',
-            'icon_class': 'fa-seedling' # Font Awesome icon class
+            'title': 'Plot Selection',
+            'description': 'Choose the vineyard plot that matches your preferences and vision. Each plot offers a unique terroir and a story to tell.',
+            'icon_class': 'fa-seedling'
         },
         {
             'id': 'step-2',
             'step': '02',
-            'title': 'Personnalisation de Votre Vin',
-            'description': 'Collaborez avec nos vignerons experts pour personnaliser chaque aspect de votre vin, de la variété de raisin aux techniques de vinification.',
-            'icon_class': 'fa-wine-bottle' # Font Awesome icon class
+            'title': 'Personalize Your Wine',
+            'description': 'Collaborate with our expert winemakers to personalize every aspect of your wine, from the grape variety to the winemaking techniques.',
+            'icon_class': 'fa-wine-bottle'
         },
         {
             'id': 'step-3',
             'step': '03',
-            'title': 'Suivi de la Production',
-            'description': 'Recevez des mises à jour régulières sur la croissance de votre vigne et le processus de vinification, avec des photos et des rapports détaillés.',
-            'icon_class': 'fa-chart-line' # Font Awesome icon class
+            'title': 'Follow the Production',
+            'description': 'Receive regular updates on the growth of your vine and the winemaking process, complete with detailed photos and reports.',
+            'icon_class': 'fa-chart-line'
         },
         {
             'id': 'step-4',
             'step': '04',
-            'title': 'Réception et Dégustation',
-            'description': 'Vos bouteilles personnalisées sont livrées directement chez vous, prêtes à être dégustées et partagées avec vos proches.',
-            'icon_class': 'fa-glass-cheers' # Font Awesome icon class
+            'title': 'Receive and Taste',
+            'description': 'Your personalized bottles are delivered directly to your home, ready to be tasted and shared with loved ones.',
+            'icon_class': 'fa-glass-cheers'
         },
         {
             'id': 'step-5',
             'step': '05',
-            'title': 'Création de Votre Héritage',
-            'description': 'Votre vin devient un héritage familial, une expression unique de votre passion pour le vin et un investissement dans l\'avenir.',
-            'icon_class': 'fa-scroll' # Font Awesome icon class
+            'title': 'Create Your Legacy',
+            'description': 'Your wine becomes a family legacy, a unique expression of your passion for wine, and an investment in the future.',
+            'icon_class': 'fa-scroll'
         },
     ]
 
     context = {
-        'homepage_content': homepage_content, # Add homepage content to context
-        'featured_producer_products': featured_producer_products,
-        'categories': categories,
-        'client_journey_steps': client_journey_steps, # Add client journey steps to context
+        'homepage_content': homepage_content,
+        # We pass this clean, powerful list of coffret objects to the template.
+        # The template will handle the display logic.
+        'featured_coffrets': featured_coffrets,
+        'client_journey_steps': client_journey_steps,
     }
     return render(request, 'vinsdelux/index.html', context)

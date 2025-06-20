@@ -1,0 +1,85 @@
+{% load static %}
+{% load i18n %}
+
+<section class="wine-plots-section py-5">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="mb-0">{% trans "Our selection of plots to adopt" %}</h2>
+            <a href="#" class="btn btn-outline-secondary">{% trans "See all" %}</a>
+        </div>
+        
+        {# --- NEW, CLEANER LOOP --- #}
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
+            {% for coffret in featured_coffrets %}
+            <div class="col">
+                <div class="card h-100 wine-plot-card">
+                    <div class="image-container">
+                        {# The main image is now the coffret's image #}
+                        {% if coffret.main_image %}
+                            <img src="{{ coffret.main_image.url }}" class="card-img-top wine-plot-img" alt="{{ coffret.name }}">
+                        {% else %}
+                            {# Fallback image #}
+                            <img src="{% static 'path/to/default-image.jpg' %}" class="card-img-top wine-plot-img" alt="Default Image">
+                        {% endif %}
+                        <span class="region-label">{{ coffret.producer.region }}</span>
+                        <img src="{{ coffret.producer.producer_photo.url }}" class="producer-logo" alt="{{ coffret.producer.name }} Photo">
+                    </div>
+                    
+                    {% if coffret.category %}
+                    <div class="wine-drop-icon {{ coffret.category.name|slugify }}">
+                        {% include "vinsdelux/wine-drop.svg" %}
+                    </div>
+                    {% endif %}
+
+                    <div class="card-body d-flex flex-column"> {# Use flexbox for layout #}
+                        <div class="card-content-top mb-auto"> {# mb-auto pushes price to bottom #}
+                            <h5 class="card-title">{{ coffret.producer.name }}</h5>
+                        </div>
+
+                        {# --- NEW PRICING SECTION --- #}
+                        <div class="mt-3">
+                            <!-- Always show the Coffret price -->
+                            <div class="price-option border-top pt-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="fw-bold">{% trans "Coffret" %}</span><br>
+                                        <small class="text-muted">{% trans "One-time purchase" %}</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="fw-bold fs-5">€{{ coffret.price }}</span>
+                                    </div>
+                                </div>
+                                <a href="#" class="btn btn-secondary w-100 mt-2 btn-sm">{% trans "Add to Cart" %}</a>
+                            </div>
+                            
+                            <!-- Check if there are any adoption plans -->
+                            {% if coffret.adoption_plans.all %}
+                                {# If there are multiple plans, you could loop here. #}
+                                {# For a simple homepage, we'll just show the first one. #}
+                                {% with plan=coffret.adoption_plans.first %}
+                                <div class="price-option mt-3">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <span class="fw-bold">{% trans "Adoption" %}</span><br>
+                                            <small class="text-muted">{% blocktrans with duration=plan.duration_months %}for {{ duration }} months{% endblocktrans %}</small>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="fw-bold fs-5">€{{ plan.price }}</span>
+                                        </div>
+                                    </div>
+                                    <a href="#" class="btn btn-primary w-100 mt-2 btn-sm">{% trans "Discover Plan" %}</a>
+                                </div>
+                            {% endwith %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <p>{% trans "No featured products available at the moment. Please check back soon!" %}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
