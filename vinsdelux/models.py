@@ -85,14 +85,7 @@ class BaseProduct(models.Model):
     full_description = models.TextField(blank=True, null=True, help_text="Detailed description for product page.")
     sku = models.CharField(max_length=50, unique=True, blank=True, null=True, help_text="Stock Keeping Unit")
     is_available = models.BooleanField(default=True, help_text="Is the product available for purchase?")
-    is_featured = models.BooleanField(default=False, help_text="Feature on homepage or special sections?")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     
-    # REMOVED: The following two fields were incorrect or redundant.
-    # adoption_plan = models.ForeignKey('VdlAdoptionPlan', ...)
-    # product_type = models.CharField(...)
-
     images = GenericRelation('VdlProductImage')
 
     class Meta:
@@ -104,9 +97,6 @@ class BaseProduct(models.Model):
     @property
     def main_image(self):
         """Returns the main featured image from the related images, or the first image as a fallback."""
-        featured_image = self.images.filter(is_feature=True).first()
-        if featured_image:
-            return featured_image.image
         return self.images.first().image if self.images.exists() else None
 
 class VdlCoffret(BaseProduct):
@@ -177,7 +167,6 @@ class VdlProductImage(models.Model):
     product = GenericForeignKey('content_type', 'object_id')
     image = models.ImageField(upload_to='products/gallery/')
     alt_text = models.CharField(max_length=100, blank=True, help_text="Description for SEO and accessibility")
-    is_feature = models.BooleanField(default=False, help_text="Set as the primary display image for the product.")
 
     def __str__(self):
         return self.alt_text or f"Image for {self.product}"
@@ -196,7 +185,7 @@ class VdlOrder(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     total_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    status = models.CharField(max_length=50, choices=[('pending', 'Pending'), ('processing', 'Processing'), ('shipped', 'Shipped'), ('delivered', 'Delivered'), ('cancelled', 'Cancelled')], default='pending')
+    status = models.CharField(max_length=50, choices=[('pending', 'Pending'), ('processing', 'Processing'), ('shipped', 'Shipped'), ('delivered', 'Cancelled')], default='pending')
     is_gift = models.BooleanField(default=False)
     gift_message = models.TextField(blank=True, null=True)
     payment_intent_id = models.CharField(max_length=100, blank=True, null=True)

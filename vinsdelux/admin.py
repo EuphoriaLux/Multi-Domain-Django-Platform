@@ -38,7 +38,25 @@ class VdlCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(VdlProducer)
 class VdlProducerAdmin(admin.ModelAdmin):
+    list_display = ('name', 'region', 'website', 'is_featured_on_homepage')
+    list_filter = ('region', 'is_featured_on_homepage')
+    search_fields = ('name', 'description')
     prepopulated_fields = {'slug': ('name',)}
+    inlines = []
+
+class VdlCoffretInline(admin.TabularInline):
+    model = VdlCoffret
+    extra = 0
+    fields = ('name', 'category', 'price', 'stock_quantity', 'is_available')
+    readonly_fields = ('name', 'category', 'price', 'stock_quantity', 'is_available')
+
+class VdlAdoptionPlanInline(admin.TabularInline):
+    model = VdlAdoptionPlan
+    extra = 0
+    fields = ('name', 'associated_coffret', 'price', 'duration_months', 'coffrets_per_year', 'is_available')
+    readonly_fields = ('name', 'associated_coffret', 'price', 'duration_months', 'coffrets_per_year', 'is_available')
+
+VdlProducerAdmin.inlines = [VdlCoffretInline, VdlAdoptionPlanInline]
 
 # --- NEW, IMPROVED Product Administration ---
 
@@ -62,11 +80,17 @@ class VdlAdoptionPlanInline(admin.TabularInline):
 
 @admin.register(VdlCoffret)
 class VdlCoffretAdmin(admin.ModelAdmin):
-    list_display = ('name', 'producer', 'price', 'stock_quantity', 'is_available')
-    list_filter = ('is_available', 'producer', 'category')
+    list_display = ('name', 'producer', 'price', 'stock_quantity', 'is_available', 'main_image_thumbnail')
+    list_filter = ('is_available', 'producer', 'category') # Add price range filter later if needed
     search_fields = ('name', 'sku')
     prepopulated_fields = {'slug': ('name',)}
     inlines = [ProductImageInline, VdlAdoptionPlanInline]
+
+    def main_image_thumbnail(self, obj):
+        if obj.main_image:
+            return format_html('<img src="{}" style="max-height: 50px; max-width: 50px;" />', obj.main_image.url)
+        return None
+    main_image_thumbnail.short_description = 'Main Image'
 
 # Restore the full admin for Adoption Plan to handle detailed editing
 @admin.register(VdlAdoptionPlan)
@@ -74,7 +98,7 @@ class VdlAdoptionPlanAdmin(admin.ModelAdmin):
     list_display = ('name', 'associated_coffret', 'price', 'duration_months', 'is_available')
     list_filter = ('is_available', 'duration_months', 'associated_coffret__producer')
     search_fields = ('name', 'associated_coffret__name')
-    readonly_fields = ('associated_coffret', 'producer', 'created_at', 'updated_at')
+    readonly_fields = ('associated_coffret', 'producer')
     inlines = [ProductImageInline] # An adoption plan can have its own images too
 
     fieldsets = (
@@ -82,7 +106,7 @@ class VdlAdoptionPlanAdmin(admin.ModelAdmin):
             'fields': ('name', 'slug', 'associated_coffret', 'producer', 'category', 'sku')
         }),
         ('Plan Details', {
-            'fields': ('price', 'duration_months', 'coffrets_per_year', 'is_available', 'is_featured')
+            'fields': ('price', 'duration_months', 'coffrets_per_year', 'is_available', )
         }),
         ('Descriptions', {
             'fields': ('short_description', 'full_description', 'welcome_kit_description'),
@@ -94,10 +118,6 @@ class VdlAdoptionPlanAdmin(admin.ModelAdmin):
         }),
         ('Gift Option', {
             'fields': ('avant_premiere_price',),
-            'classes': ('collapse',)
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
             'classes': ('collapse',)
         }),
     )
