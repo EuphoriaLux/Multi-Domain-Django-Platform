@@ -1,43 +1,44 @@
 {% load static %}
 {% load i18n %}
 
-<section id="{{ id }}" class="client-journey-section bg-gray-800-imitation">
+<section id="{{ id }}" class="client-journey-section">
     <div class="container">
-        <h2 class="section-title text-center">{% trans "Votre Parcours VinsDeLux" %}</h2>
-        <p class="section-subtitle text-center">
+        <h2 class="section-title">{% trans "Votre Parcours VinsDeLux" %}</h2>
+        <p class="section-subtitle">
             {% trans "Découvrez les étapes clés de votre aventure œnologique personnalisée avec VinsDeLux, de la sélection de votre parcelle à la création de votre héritage vinicole." %}
         </p>
-        <div class="relative px-4">
-            {# Vertical line for larger screens #}
-            <div class="hidden-md-block absolute-line" aria-hidden="true"></div>
-            
-            <div class="space-y-16-imitation md-space-y-20-imitation">
-                {% for step in client_journey_steps %}
-                <div class="md-flex-imitation items-center-imitation w-full-imitation {% if forloop.counter0|divisibleby:2 %}md-flex-row-reverse-imitation{% endif %}">
-                    {# Card Content Area #}
-                    <div class="md-w-5-12-imitation">
-                        <div class="card-content-imitation {% if forloop.counter0|divisibleby:2 %}md-ml-10-imitation{% else %}md-mr-10-imitation{% endif %}">
-                            <div class="flex-justify-center-imitation mb-4-imitation">
-                                {# Icon Placeholder #}
-                                <i class="fa {{ step.icon_class }} icon-imitation"></i>
-                            </div>
-                            <h3 class="card-title-imitation">{{ step.step }}. {{ step.title }}</h3>
-                            <p class="card-description-imitation">{{ step.description }}</p>
+
+        <div class="timeline-container">
+            {# The vertical line that connects the steps #}
+            <div class="timeline-line" aria-hidden="true"></div>
+
+            {% for step in client_journey_steps %}
+            <div class="timeline-item">
+                
+                {# This determines the order and applies reverse class to EVEN items (2nd, 4th, etc.) #}
+                <div class="timeline-content {% if forloop.counter|divisibleby:2 %}timeline-content-reverse{% endif %}">
+
+                    <!-- Image Column -->
+                    <div class="timeline-image-wrapper">
+                        <img src="{% static step.image_url %}" alt="{{ step.title }}" class="timeline-image">
+                    </div>
+
+                    <!-- Center Timeline Point -->
+                    <div class="timeline-point-wrapper">
+                        <div class="timeline-point">{{ step.step }}</div>
+                    </div>
+
+                    <!-- Text Column -->
+                    <div class="timeline-text-wrapper">
+                        <div class="timeline-text">
+                            <h3 class="timeline-title">{{ step.title }}</h3>
+                            <p class="timeline-description">{{ step.description }}</p>
                         </div>
                     </div>
 
-                    {# Central Circle / Timeline Point #}
-                    <div class="md-w-2-12-imitation flex-justify-center-imitation my-8-imitation md-my-0-imitation relative-z-10-imitation">
-                        <div class="circle-imitation">
-                            {{ step.step|slice:"1:" }}
-                        </div>
-                    </div>
-
-                    {# Spacer for alternating layout on desktop #}
-                    <div class="md-w-5-12-imitation hidden-md-block-imitation"></div>
                 </div>
-                {% endfor %}
             </div>
+            {% endfor %}
         </div>
     </div>
 </section>
