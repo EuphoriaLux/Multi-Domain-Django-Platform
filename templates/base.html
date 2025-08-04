@@ -131,9 +131,10 @@
                            
 
                             <li class="nav-item">
-                                <a href="{% provider_login_url 'openid_connect_linkedin' %}" class="linkedin-login-button">
+                                <!-- Or standard OpenID Connect -->
+                                <a href="{% provider_login_url 'openid_connect' %}" class="linkedin-login-button">
                                     {% trans "Sign in with LinkedIn" %}
-                                  </a>
+                                </a>
                             </li>
         
 

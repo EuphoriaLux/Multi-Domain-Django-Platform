@@ -34,8 +34,8 @@
         <div class="hero-content">
             <h1 class="display-3 fw-bold mb-3">{{ homepage_content.hero_title }}</h1>
             <p class="lead mb-4">{{ homepage_content.hero_subtitle }}</p>
-            <a href="#" class="btn btn-primary btn-lg me-2">{% trans "Choose my caves" %}</a>
-            <a href="#" class="btn btn-secondary btn-lg">{% trans "Discover wine adoption" %}</a>
+            <a href="{% url 'vinsdelux:coffret_list' %}" class="btn btn-primary btn-lg me-2">{% trans "Browse Wine Coffrets" %}</a>
+            <a href="{% url 'vinsdelux:producer_list' %}" class="btn btn-secondary btn-lg">{% trans "Meet Our Producers" %}</a>
         </div>
     </section>
     {% else %}
