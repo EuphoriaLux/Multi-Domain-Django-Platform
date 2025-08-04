@@ -51,25 +51,25 @@ MEDIA_URL = f'https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINE
 
 ## 📁 Directory Structure
 
-### **Expected Storage Structure**
+### **Updated Storage Structure (2025)**
 ```
 Azure Blob Container: 'media'
 ├── producers/
 │   ├── logos/              # Producer logo images
-│   │   ├── producer1.png
-│   │   ├── producer2.png
-│   │   ├── producer3.png
-│   │   ├── producer4.png
-│   │   └── producer5.png
+│   │   ├── producer_1_logo.jpg
+│   │   ├── producer_2_logo.jpg
+│   │   ├── producer_3_logo.jpg
+│   │   ├── producer_4_logo.jpg
+│   │   └── producer_5_logo.jpg
 │   └── photos/             # Producer photography
-│       ├── producer1.png
-│       ├── producer2.png
-│       ├── producer3.png
-│       ├── producer4.png
-│       └── producer5.png
+│       ├── producer_1_photo.jpg
+│       ├── producer_2_photo.jpg
+│       ├── producer_3_photo.jpg
+│       ├── producer_4_photo.jpg
+│       └── producer_5_photo.jpg
 │
 ├── products/
-│   ├── main/               # Main product images
+│   ├── winebottles/        # NEW: Wine bottle images (improved structure)
 │   │   ├── winebottle1.png
 │   │   ├── winebottle2.png
 │   │   ├── winebottle3.png
@@ -78,21 +78,21 @@ Azure Blob Container: 'media'
 │   │   ├── winebottle6.png
 │   │   ├── winebottle7.png
 │   │   └── winebottle8.png
-│   └── gallery/            # Product gallery images
-│       ├── winebottle1.png
-│       ├── winebottle2.png
-│       ├── winebottle3.png
-│       ├── winebottle4.png
-│       ├── winebottle5.png
-│       ├── winebottle6.png
-│       ├── winebottle7.png
-│       └── winebottle8.png
+│   ├── gallery/            # Product gallery images (mapped to database)
+│   │   ├── coffret_1.jpg
+│   │   ├── coffret_2.jpg
+│   │   ├── coffret_3.jpg
+│   │   ├── plan_1.jpg
+│   │   ├── plan_2.jpg
+│   │   └── plan_3.jpg
+│   └── main/               # Main product images
+│       └── featured_products.jpg
 │
 ├── categories/             # Category images (future use)
 │   └── {category-images}
 │
 ├── homepage/               # Homepage assets
-│   ├── hero-section.png
+│   ├── hero-background.jpg
 │   └── {other-homepage-assets}
 │
 └── blog/                   # Blog post images (future use)
@@ -127,43 +127,88 @@ Azure Blob Container: 'media'
 3. Add images via the **Product Images** inline
 4. Images automatically link to the adoption plan
 
-### **Method 2: Management Command (Bulk Upload)**
+### **Method 2: Automated Deployment (Recommended for Bulk Upload)**
+
+**NEW: Complete Deployment Process**
+This is the **recommended approach** for deploying your improved media structure.
 
 **Prerequisites:**
 ```bash
-# Ensure images exist in your local media directory
+# Ensure images exist in your improved local media directory structure
 media/
-├── producers/logos/producer1.png → producer5.png
-├── products/gallery/winebottle1.png → winebottle8.png
-└── homepage/producer1.png (for producer photos)
+├── homepage/
+│   └── hero-background.jpg
+├── producers/
+│   ├── logos/           # Producer logos  
+│   │   ├── producer1.png
+│   │   ├── producer2.png
+│   │   └── producer3.png
+│   └── photos/          # Producer photography
+│       ├── producer1.png
+│       ├── producer2.png
+│       └── producer3.png
+└── products/
+    ├── winebottles/     # NEW: Improved structure for wine bottles
+    │   ├── winebottle1.png
+    │   ├── winebottle2.png
+    │   └── winebottle3.png
+    ├── gallery/         # Additional product images
+    │   └── extra-images.png
+    └── main/            # Main product images
+        └── featured.png
 ```
 
-**Command:**
+**Automatic Deployment (via azd deploy):**
+```bash
+# The deployment is automatic during azd deploy
+azd deploy
+
+# This automatically runs (via startup.sh):
+python manage.py deploy_media_and_data --force-refresh
+```
+
+**Manual Deployment Command:**
 ```bash
 # SSH into Azure App Service
 az webapp ssh --name YOUR_APP --resource-group YOUR_RG
 
-# Run data population (includes image upload)
-python manage.py populate_data
+# Run complete deployment manually
+python manage.py deploy_media_and_data --force-refresh
+
+# Options:
+python manage.py deploy_media_and_data --dry-run        # Preview deployment
+python manage.py deploy_media_and_data --force-refresh  # Clear existing and deploy
 ```
 
-**What the command does:**
+**What the new command does:**
 ```python
-# From populate_data.py
-# 1. Creates producers with logo and photo uploads
-with open(logo_path, 'rb') as logo_file:
-    producer.logo.save(os.path.basename(logo_path), File(logo_file), save=False)
+# From deploy_media_and_data.py
+# 1. Analyzes local media structure intelligently
+inventory = self._analyze_media_structure(media_root)
 
-# 2. Creates coffrets with image uploads
-VdlProductImage.objects.create(
-    content_type=content_type,
-    object_id=coffret.id,
-    image=File(image_file, name=os.path.basename(image_path)),
-    alt_text=coffret_name
-)
+# 2. Maps local files to Azure Blob Storage with proper paths
+azure_path = f'producers/logos/producer_{i+1}_logo{Path(logo_path).suffix}'
+self._upload_and_set_image(logo_path, producer, 'logo', azure_path)
+
+# 3. Creates database records with proper Azure URLs
+producer = VdlProducer.objects.create(name=name, region=region, ...)
+if self._upload_and_set_image(logo_path, producer, 'logo', azure_path):
+    pass  # Success
+
+# 4. Handles improved media structure automatically
+winebottles_path = os.path.join(media_root, 'products', 'winebottles')
 ```
 
-### **Method 3: Direct Azure Storage Upload**
+### **Method 3: Legacy Commands (Individual Tasks)**
+
+```bash
+# Individual legacy commands (for specific needs)
+python manage.py populate_data              # Create sample data only
+python manage.py sync_media_to_azure       # Upload media files only  
+python manage.py map_existing_media        # Map existing files intelligently
+```
+
+### **Method 4: Direct Azure Storage Upload**
 
 **Using Azure CLI:**
 ```bash
