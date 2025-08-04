@@ -62,17 +62,30 @@
                     <ul class="navbar-nav ms-auto">
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'vinsdelux:home' %}">
-                                <i class="fas fa-home me-1"></i>Home
+                                <i class="fas fa-home me-1"></i>{% trans "Home" %}
+                            </a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-wine-bottle me-1"></i>{% trans "Products" %}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                                <li><a class="dropdown-item" href="{% url 'vinsdelux:coffret_list' %}">
+                                    <i class="fas fa-box me-2"></i>{% trans "Wine Coffrets" %}
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'vinsdelux:producer_list' %}">
+                                    <i class="fas fa-wine-glass-alt me-2"></i>{% trans "Producers" %}
+                                </a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">
+                                <i class="fas fa-shopping-cart me-1"></i>{% trans "Cart" %}
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="#">
-                                <i class="fas fa-wine-bottle me-1"></i>Wines
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="fas fa-shopping-cart me-1"></i>Cart
+                                <i class="fas fa-user me-1"></i>{% trans "Account" %}
                             </a>
                         </li>
                     </ul>

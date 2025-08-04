@@ -1,9 +1,11 @@
 # in vinsdelux/views.py
 
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.utils.text import slugify
+from django.core.paginator import Paginator
+from django.db.models import Q
 # Import only the models we actually need here
-from .models import VdlCoffret, HomepageContent, VdlCategory, VdlProducer
+from .models import VdlCoffret, VdlAdoptionPlan, HomepageContent, VdlCategory, VdlProducer
 
 def home(request):
     """
@@ -60,3 +62,120 @@ def home(request):
         'client_journey_steps': client_journey_steps,
     }
     return render(request, 'vinsdelux/index.html', context)
+
+
+def coffret_list(request):
+    """
+    Display paginated list of coffrets with filtering options.
+    """
+    coffrets = VdlCoffret.objects.filter(is_available=True).select_related('producer', 'category').prefetch_related('images')
+    
+    # Search functionality
+    search_query = request.GET.get('search')
+    if search_query:
+        coffrets = coffrets.filter(
+            Q(name__icontains=search_query) |
+            Q(short_description__icontains=search_query) |
+            Q(producer__name__icontains=search_query)
+        )
+    
+    # Category filter
+    category_filter = request.GET.get('category')
+    if category_filter:
+        coffrets = coffrets.filter(category__slug=category_filter)
+    
+    # Producer filter
+    producer_filter = request.GET.get('producer')
+    if producer_filter:
+        coffrets = coffrets.filter(producer__slug=producer_filter)
+    
+    # Pagination
+    paginator = Paginator(coffrets, 12)  # Show 12 coffrets per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Get categories and producers for filters
+    categories = VdlCategory.objects.filter(is_active=True)
+    producers = VdlProducer.objects.all()
+    
+    context = {
+        'page_obj': page_obj,
+        'categories': categories,
+        'producers': producers,
+        'search_query': search_query,
+        'current_category': category_filter,
+        'current_producer': producer_filter,
+    }
+    return render(request, 'vinsdelux/coffret_list.html', context)
+
+
+def coffret_detail(request, slug):
+    """
+    Display detailed view of a specific coffret with its adoption plans.
+    """
+    coffret = get_object_or_404(
+        VdlCoffret.objects.select_related('producer', 'category')
+                          .prefetch_related('images', 'adoption_plans__images'),
+        slug=slug,
+        is_available=True
+    )
+    
+    adoption_plans = coffret.adoption_plans.filter(is_available=True)
+    
+    # Get related coffrets from same producer
+    related_coffrets = VdlCoffret.objects.filter(
+        producer=coffret.producer,
+        is_available=True
+    ).exclude(id=coffret.id)[:4]
+    
+    context = {
+        'coffret': coffret,
+        'adoption_plans': adoption_plans,
+        'related_coffrets': related_coffrets,
+    }
+    return render(request, 'vinsdelux/coffret_detail.html', context)
+
+
+def adoption_plan_detail(request, slug):
+    """
+    Display detailed view of a specific adoption plan.
+    """
+    adoption_plan = get_object_or_404(
+        VdlAdoptionPlan.objects.select_related('associated_coffret', 'producer', 'category')
+                               .prefetch_related('images'),
+        slug=slug,
+        is_available=True
+    )
+    
+    context = {
+        'adoption_plan': adoption_plan,
+    }
+    return render(request, 'vinsdelux/adoption_plan_detail.html', context)
+
+
+def producer_list(request):
+    """
+    Display list of all producers.
+    """
+    producers = VdlProducer.objects.prefetch_related('vdlcoffret_set').order_by('name')
+    
+    context = {
+        'producers': producers,
+    }
+    return render(request, 'vinsdelux/producer_list.html', context)
+
+
+def producer_detail(request, slug):
+    """
+    Display detailed view of a producer with their products.
+    """
+    producer = get_object_or_404(VdlProducer, slug=slug)
+    coffrets = producer.vdlcoffret_set.filter(is_available=True).prefetch_related('images')
+    adoption_plans = producer.vdladoptionplan_set.filter(is_available=True).prefetch_related('images')
+    
+    context = {
+        'producer': producer,
+        'coffrets': coffrets,
+        'adoption_plans': adoption_plans,
+    }
+    return render(request, 'vinsdelux/producer_detail.html', context)

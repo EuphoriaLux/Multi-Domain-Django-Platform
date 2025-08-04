@@ -19,9 +19,11 @@ ALLOWED_HOSTS += [domain.strip() for domain in CUSTOM_DOMAINS if domain.strip()]
 # Add custom allowed hosts from environment variable
 ALLOWED_HOSTS += [host.strip() for host in os.environ.get('ALLOWED_HOSTS_ENV', '').split(',') if host.strip()]
 
-# Add health check IPs from environment variable, allowing 169.254.*
-health_check_ips = [ip.strip() for ip in os.environ.get('HEALTH_CHECK_IPS', '').split(',') if ip.strip().startswith('169.254.') and ip.strip() not in ALLOWED_HOSTS]
+# Add health check IPs - allow all 169.254.* ranges for Azure health checks
+health_check_ips = [ip.strip() for ip in os.environ.get('HEALTH_CHECK_IPS', '').split(',') if ip.strip()]
 ALLOWED_HOSTS += health_check_ips
+# Add Azure internal IPs for health checks
+ALLOWED_HOSTS += ['169.254.129.4', '169.254.129.6', '169.254.129.1']
 
 
 
@@ -36,7 +38,7 @@ USE_X_FORWARDED_HOST = True
 # Trust X-Forwarded-Proto header for SSL detection
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-DEBUG = False
+DEBUG = True
 
 # WhiteNoise configuration and Middleware list
 MIDDLEWARE = [
@@ -60,7 +62,7 @@ ROOT_URLCONF = 'azureproject.urls_default'
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# STATICFILES_STORAGE is now configured in STORAGES above (Django 4.2+)
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
@@ -138,3 +140,5 @@ SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 # }
 
 # Basic logging configuration to output INFO level messages to the console
+
+

@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.openid_connect',
+    'allauth.socialaccount.providers.linkedin_oauth2',
     'entreprinder',
     'crispy_forms',
     'crispy_bootstrap5',

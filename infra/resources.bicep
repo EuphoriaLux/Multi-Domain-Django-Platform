@@ -186,6 +186,12 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       SECRET_KEY: secretKey
       CUSTOM_DOMAINS: 'www.powerup.lu,powerup.lu,vinsdelux.com,www.vinsdelux.com'
       FLASK_DEBUG: 'False'
+      // Azure Storage Account Configuration for Media Files
+      AZURE_ACCOUNT_NAME: storageAccount.name
+      AZURE_ACCOUNT_KEY: storageAccount.listKeys().keys[0].value
+      AZURE_CONTAINER_NAME: mediaContainerName
+      // Auto-populate sample data with images on deployment (disabled for now)
+      POPULATE_SAMPLE_DATA: 'false'
       //Added for Azure Redis Cache
  //     AZURE_REDIS_CONNECTIONSTRING: 'rediss://:${redisCache.listKeys().primaryKey}@${redisCache.name}.redis.cache.windows.net:6380/0'
     }
@@ -394,6 +400,11 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2021-09-01' = {
 
 output WEB_URI string = 'https://${web.properties.defaultHostName}'
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = applicationInsightsResources.outputs.APPLICATIONINSIGHTS_CONNECTION_STRING
+
+// Azure Storage Account Outputs
+output AZURE_STORAGE_ACCOUNT_NAME string = storageAccount.name
+output AZURE_STORAGE_CONTAINER_NAME string = mediaContainerName
+output AZURE_STORAGE_BLOB_ENDPOINT string = storageAccount.properties.primaryEndpoints.blob
 
 var webAppSettingsKeys = map(items(web::webAppSettings.properties), setting => setting.key)
 output WEB_APP_SETTINGS array = webAppSettingsKeys
