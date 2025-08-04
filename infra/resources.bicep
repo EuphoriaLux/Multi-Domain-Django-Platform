@@ -190,7 +190,10 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       AZURE_ACCOUNT_NAME: storageAccount.name
       AZURE_ACCOUNT_KEY: storageAccount.listKeys().keys[0].value
       AZURE_CONTAINER_NAME: mediaContainerName
-      // Auto-populate sample data with images on deployment (disabled for now)
+      // Complete deployment with media and data (new unified approach)
+      DEPLOY_MEDIA_AND_DATA: 'true'
+      // Legacy options (kept for backward compatibility)
+      SYNC_MEDIA_TO_AZURE: 'false'
       POPULATE_SAMPLE_DATA: 'false'
       //Added for Azure Redis Cache
  //     AZURE_REDIS_CONNECTIONSTRING: 'rediss://:${redisCache.listKeys().primaryKey}@${redisCache.name}.redis.cache.windows.net:6380/0'

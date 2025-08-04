@@ -98,37 +98,60 @@ gunicorn --workers 2 --threads 4 --timeout 60 --access-logfile \
 
 ---
 
-## 📊 Data Population Process
+## 📊 Automatic Media and Data Deployment
 
-### **Step 1: Access App Service SSH**
+### **NEW: Complete Deployment Process (Recommended)**
+
+The application now features an **automated deployment system** that handles both media uploads and data creation in one command. This is automatically triggered during `azd deploy` when `DEPLOY_MEDIA_AND_DATA=true` is set in the Bicep template.
+
+### **Automatic Process (via startup.sh)**
 ```bash
-# Get SSH access to your deployed app
+# During azd deploy, startup.sh automatically runs:
+python manage.py migrate
+python manage.py deploy_media_and_data --force-refresh
+
+# This complete process:
+# ✅ Analyzes your local media folder structure
+# ✅ Creates producers, coffrets, and adoption plans
+# ✅ Maps local images to Azure Blob Storage with proper paths
+# ✅ Updates database records with correct Azure URLs
+# ✅ Handles improved media structure: producers/photos/, products/winebottles/
+```
+
+### **Media Structure Analysis**
+The deployment command intelligently analyzes your local media directory:
+```
+media/
+├── homepage/              # Hero background images
+├── producers/
+│   ├── logos/            # Producer logo images  
+│   └── photos/           # Producer photography
+├── products/
+│   ├── winebottles/      # Wine bottle product images
+│   ├── gallery/          # Additional product gallery
+│   └── main/             # Main product images
+```
+
+### **Manual Deployment (if needed)**
+```bash
+# SSH into Azure App Service
 az webapp ssh --resource-group YOUR_RESOURCE_GROUP --name YOUR_APP_NAME
 
-# Or use the Azure Portal SSH console
+# Run complete deployment manually
+python manage.py deploy_media_and_data --force-refresh
+
+# Options:
+python manage.py deploy_media_and_data --dry-run        # Preview what will be deployed
+python manage.py deploy_media_and_data --force-refresh  # Clear existing data and start fresh
 ```
 
-### **Step 2: Populate Sample Data**
+### **Legacy Commands (Still Available)**
 ```bash
-# Run the data population command
-python manage.py populate_data
-
-# This creates:
-# - 5 Wine Producers (Château Margaux, Domaine de la Romanée-Conti, etc.)
-# - 5 Wine Coffrets with pricing and descriptions
-# - 5 Adoption Plans linked to coffrets
-# - Product images (if available in storage)
-```
-
-### **Step 3: Test Azure Storage Upload** (Optional)
-```bash
-# Test if Azure Blob Storage is working
-python manage.py test_azure_upload
-
-# This verifies:
-# - Storage account credentials
-# - Container access
-# - Upload permissions
+# Individual commands (for specific needs)
+python manage.py populate_data              # Create sample data only
+python manage.py sync_media_to_azure       # Upload media files only
+python manage.py map_existing_media        # Map existing files intelligently
+python manage.py test_azure_upload         # Test storage connectivity
 ```
 
 ---
@@ -137,26 +160,31 @@ python manage.py test_azure_upload
 
 ### **Azure Blob Storage Configuration**
 
-#### **Storage Structure:**
+#### **Updated Storage Structure (2025):**
 ```
-media/                          # Container name
+media/                          # Container name (Azure Blob)
 ├── producers/
-│   ├── logos/
-│   │   ├── producer1.png
-│   │   └── producer2.png
-│   └── photos/
-│       ├── producer1.png
-│       └── producer2.png
+│   ├── logos/                  # Producer logos
+│   │   ├── producer_1_logo.jpg
+│   │   ├── producer_2_logo.jpg
+│   │   └── producer_3_logo.jpg
+│   └── photos/                 # Producer photography  
+│       ├── producer_1_photo.jpg
+│       ├── producer_2_photo.jpg
+│       └── producer_3_photo.jpg
 ├── products/
-│   ├── main/
+│   ├── winebottles/           # NEW: Wine bottle images (improved structure)
 │   │   ├── winebottle1.png
-│   │   └── winebottle2.png
-│   └── gallery/
-│       ├── winebottle1.png
-│       ├── winebottle2.png
-│       └── winebottle3.png
-└── homepage/
-    └── hero-section.png
+│   │   ├── winebottle2.png
+│   │   └── winebottle3.png
+│   ├── gallery/               # Product gallery images
+│   │   ├── coffret_1.jpg
+│   │   ├── coffret_2.jpg
+│   │   └── plan_1.jpg
+│   └── main/                  # Main product images
+│       └── featured_products.jpg
+└── homepage/                  # Homepage assets
+    └── hero-background.jpg
 ```
 
 #### **Image Upload Methods:**
