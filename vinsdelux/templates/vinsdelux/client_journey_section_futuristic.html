@@ -1,0 +1,353 @@
+{% load static %}
+{% load i18n %}
+
+<section id="{{ id }}" class="futuristic-journey-section" role="main" aria-label="{% trans 'Client Journey Experience' %}">
+    <!-- Background Elements -->
+    <div class="journey-background">
+        <canvas id="particles-canvas" class="particles-canvas" aria-hidden="true"></canvas>
+        <div class="gradient-overlay"></div>
+        <div class="constellation-bg"></div>
+    </div>
+
+    <div class="container">
+        <!-- Header Section -->
+        <header class="journey-header">
+            <div class="header-content">
+                <h2 class="journey-title" data-animate="fade-up">
+                    {% trans "Votre Parcours VinsDeLux" %}
+                </h2>
+                <p class="journey-subtitle" data-animate="fade-up" data-delay="200">
+                    {% trans "Découvrez les étapes clés de votre aventure œnologique personnalisée avec VinsDeLux, de la sélection de votre parcelle à la création de votre héritage vinicole." %}
+                </p>
+                
+                <!-- Progress Indicator -->
+                <div class="journey-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar"></div>
+                    <div class="progress-label">
+                        <span class="current-step">0</span>/<span class="total-steps">{{ client_journey_steps|length }}</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation Controls -->
+        <nav class="journey-navigation" aria-label="{% trans 'Journey Steps Navigation' %}">
+            <button class="nav-btn nav-prev" aria-label="{% trans 'Previous Step' %}" disabled>
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                </svg>
+            </button>
+            
+            <div class="step-indicators">
+                {% for step in client_journey_steps %}
+                <button class="step-indicator {% if forloop.first %}active{% endif %}" 
+                        data-step="{{ forloop.counter0 }}"
+                        aria-label="{% trans 'Go to step' %} {{ forloop.counter }}: {{ step.title }}">
+                    <span class="indicator-number">{{ forloop.counter }}</span>
+                    <span class="indicator-dot"></span>
+                </button>
+                {% endfor %}
+            </div>
+            
+            <button class="nav-btn nav-next" aria-label="{% trans 'Next Step' %}">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/>
+                </svg>
+            </button>
+        </nav>
+
+        <!-- Journey Steps Container -->
+        <div class="journey-steps-container" role="region" aria-live="polite">
+            {% for step in client_journey_steps %}
+            <article class="journey-step {% if forloop.first %}active{% endif %}" 
+                     data-step="{{ forloop.counter0 }}"
+                     role="tabpanel"
+                     aria-labelledby="step-{{ forloop.counter0 }}-title"
+                     tabindex="0">
+                
+                <!-- 3D Card Container -->
+                <div class="step-card-container">
+                    <div class="step-card" data-tilt>
+                        
+                        <!-- Front Face -->
+                        <div class="card-face card-front">
+                            <!-- Card Header with Status Badge -->
+                            <div class="card-header">
+                                <div class="header-top">
+                                    <div class="step-number-badge">
+                                        <span class="step-number">{{ step.step }}</span>
+                                        <div class="number-glow"></div>
+                                    </div>
+                                    <div class="step-status-badge">
+                                        <span class="status-text">
+                                            {% if forloop.counter == 1 %}{% trans "Actif" %}
+                                            {% elif forloop.counter == 2 %}{% trans "Premium" %}
+                                            {% elif forloop.counter == 3 %}{% trans "Suivi" %}
+                                            {% elif forloop.counter == 4 %}{% trans "Livraison" %}
+                                            {% else %}{% trans "Héritage" %}{% endif %}
+                                        </span>
+                                        <div class="status-indicator"></div>
+                                    </div>
+                                </div>
+                                <div class="step-icon-container">
+                                    <div class="step-icon">
+                                        {% if forloop.counter == 1 %}
+                                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5M12,2A7,7 0 0,1 19,9C19,14.25 12,22 12,22C12,22 5,14.25 5,9A7,7 0 0,1 12,2Z"/>
+                                            </svg>
+                                        {% elif forloop.counter == 2 %}
+                                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/>
+                                            </svg>
+                                        {% elif forloop.counter == 3 %}
+                                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M12,2A2,2 0 0,1 14,4C14,4.74 13.6,5.39 13,5.73V7H14A7,7 0 0,1 21,14H22A1,1 0 0,1 23,15V18A1,1 0 0,1 22,19H21V20A2,2 0 0,1 19,22H5A2,2 0 0,1 3,20V19H2A1,1 0 0,1 1,18V15A1,1 0 0,1 2,14H3A7,7 0 0,1 10,7H11V5.73C10.4,5.39 10,4.74 10,4A2,2 0 0,1 12,2M7.5,13A2.5,2.5 0 0,0 5,15.5A2.5,2.5 0 0,0 7.5,18A2.5,2.5 0 0,0 10,15.5A2.5,2.5 0 0,0 7.5,13M16.5,13A2.5,2.5 0 0,0 14,15.5A2.5,2.5 0 0,0 16.5,18A2.5,2.5 0 0,0 19,15.5A2.5,2.5 0 0,0 16.5,13Z"/>
+                                            </svg>
+                                        {% elif forloop.counter == 4 %}
+                                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M2,10.96C1.5,10.68 1.35,10.07 1.63,9.59L3.13,7C3.24,6.8 3.41,6.66 3.6,6.58L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.66,6.72 20.82,6.88 20.91,7.08L22.37,9.6C22.64,10.08 22.47,10.69 22,10.96L21,11.54V16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V11.54L2,10.96Z"/>
+                                            </svg>
+                                        {% else %}
+                                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M5,16L3,5H1V3H4L6,14H18.5L19.5,12H6.5L7.2,9H21L18,16H5M7,18A2,2 0 0,0 5,20A2,2 0 0,0 7,22A2,2 0 0,0 9,20A2,2 0 0,0 7,18M17,18A2,2 0 0,0 15,20A2,2 0 0,0 17,22A2,2 0 0,0 19,20A2,2 0 0,0 17,18M12,2L13.09,8.26L22,9L17,14L18.18,23L12,19.77L5.82,23L7,14L2,9L10.91,8.26L12,2Z"/>
+                                            </svg>
+                                        {% endif %}
+                                    </div>
+                                    <div class="icon-pulse"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Enhanced Image Container -->
+                            <div class="card-image-container">
+                                <div class="image-frame">
+                                    <img src="{% static step.image_url %}" 
+                                         alt="{{ step.title }}" 
+                                         class="step-image"
+                                         loading="lazy">
+                                    <div class="image-overlay"></div>
+                                    <div class="hologram-effect"></div>
+                                    
+                                    <!-- Image Enhancement Overlay -->
+                                    <div class="image-enhancement">
+                                        <div class="enhancement-badge">
+                                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M9,11H7L12,6L17,11H15V21H9V11M5,3V5H19V3H5Z"/>
+                                            </svg>
+                                            <span>{% trans "HD" %}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Progress Ring -->
+                                <div class="progress-ring">
+                                    <svg class="ring-svg" viewBox="0 0 100 100">
+                                        <circle cx="50" cy="50" r="45" class="ring-background"/>
+                                        <circle cx="50" cy="50" r="45" class="ring-progress" 
+                                                style="--progress: {% if forloop.counter == 1 %}85{% elif forloop.counter == 2 %}60{% elif forloop.counter == 3 %}75{% elif forloop.counter == 4 %}90{% else %}95{% endif %}"/>
+                                    </svg>
+                                    <div class="ring-text">
+                                        <span class="ring-percentage">{% if forloop.counter == 1 %}85{% elif forloop.counter == 2 %}60{% elif forloop.counter == 3 %}75{% elif forloop.counter == 4 %}90{% else %}95{% endif %}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Enhanced Content Section -->
+                            <div class="card-content">
+                                <div class="content-header">
+                                    <h3 id="step-{{ forloop.counter0 }}-title" class="step-title">
+                                        {{ step.title }}
+                                    </h3>
+                                    <div class="title-underline"></div>
+                                </div>
+                                
+                                <p class="step-description">
+                                    {{ step.description }}
+                                </p>
+                                
+                                <!-- Enhanced Stats Section -->
+                                <div class="step-stats">
+                                    <div class="stat-item primary-stat">
+                                        <div class="stat-icon">
+                                            {% if forloop.counter == 1 %}
+                                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M19,3A2,2 0 0,1 21,5V19A2,2 0 0,1 19,21H5A2,2 0 0,1 3,19V5A2,2 0 0,1 5,3H19M13.96,12.71L11.63,15.04L8.54,11.95L5,15.5V19H19V8.5L15.04,12.46L13.96,12.71Z"/>
+                                                </svg>
+                                            {% elif forloop.counter == 2 %}
+                                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M12,6A6,6 0 0,1 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6M12,8A4,4 0 0,0 8,12A4,4 0 0,0 12,16A4,4 0 0,0 16,12A4,4 0 0,0 12,8Z"/>
+                                                </svg>
+                                            {% elif forloop.counter == 3 %}
+                                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M19,19H5V5H19V19Z"/>
+                                                </svg>
+                                            {% else %}
+                                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,7V13L16.2,16.2L17,14.9L12.5,12.2V7H11Z"/>
+                                                </svg>
+                                            {% endif %}
+                                        </div>
+                                        <div class="stat-content">
+                                            <span class="stat-value" data-count="{% if forloop.counter == 1 %}250{% elif forloop.counter == 2 %}15{% elif forloop.counter == 3 %}30{% else %}5{% endif %}">0</span>
+                                            <span class="stat-label">
+                                                {% if forloop.counter == 1 %}{% trans "Parcelles" %}
+                                                {% elif forloop.counter == 2 %}{% trans "Jours" %}
+                                                {% elif forloop.counter == 3 %}{% trans "Mois" %}
+                                                {% else %}{% trans "Années" %}{% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Additional Stats -->
+                                    <div class="secondary-stats">
+                                        <div class="mini-stat">
+                                            <span class="mini-value">
+                                                {% if forloop.counter == 1 %}98{% elif forloop.counter == 2 %}24{% elif forloop.counter == 3 %}52{% else %}15{% endif %}
+                                            </span>
+                                            <span class="mini-label">
+                                                {% if forloop.counter == 1 %}{% trans "% Qualité" %}
+                                                {% elif forloop.counter == 2 %}{% trans "h Support" %}
+                                                {% elif forloop.counter == 3 %}{% trans "Rapports" %}
+                                                {% else %}{% trans "Ans Exp" %}{% endif %}
+                                            </span>
+                                        </div>
+                                        <div class="mini-stat">
+                                            <span class="mini-value">
+                                                {% if forloop.counter == 1 %}4.9{% elif forloop.counter == 2 %}100{% elif forloop.counter == 3 %}360{% else %}∞{% endif %}
+                                            </span>
+                                            <span class="mini-label">
+                                                {% if forloop.counter == 1 %}{% trans "★ Note" %}
+                                                {% elif forloop.counter == 2 %}{% trans "% Bio" %}
+                                                {% elif forloop.counter == 3 %}{% trans "° Suivi" %}
+                                                {% else %}{% trans "Valeur" %}{% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Enhanced Action Button -->
+                                <div class="card-actions">
+                                    <a href="{% if forloop.counter == 1 %}{% url 'vinsdelux:journey_plot_selection' %}{% elif forloop.counter == 2 %}{% url 'vinsdelux:journey_personalize_wine' %}{% elif forloop.counter == 3 %}{% url 'vinsdelux:journey_follow_production' %}{% elif forloop.counter == 4 %}{% url 'vinsdelux:journey_receive_taste' %}{% else %}{% url 'vinsdelux:journey_create_legacy' %}{% endif %}" class="flip-card-btn enhanced-btn" aria-label="{% trans 'Learn more about this step' %}">
+                                        <div class="btn-content">
+                                            <span class="btn-text">{% trans "En savoir plus" %}</span>
+                                            <div class="btn-icon">
+                                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+                                                </svg>
+                                            </div>
+                                        </div>
+                                        <div class="btn-glow"></div>
+                                    </a>
+                                    
+                                    <!-- Quick Action Buttons -->
+                                    <div class="quick-actions">
+                                        <button class="quick-btn" aria-label="{% trans 'Partager' %}">
+                                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M18,16.08C17.24,16.08 16.56,16.38 16.04,16.85L8.91,12.7C8.96,12.47 9,12.24 9,12C9,11.76 8.96,11.53 8.91,11.3L15.96,7.19C16.5,7.69 17.21,8 18,8A3,3 0 0,0 21,5A3,3 0 0,0 18,2A3,3 0 0,0 15,5C15,5.24 15.04,5.47 15.09,5.7L8.04,9.81C7.5,9.31 6.79,9 6,9A3,3 0 0,0 3,12A3,3 0 0,0 6,15C6.79,15 7.5,14.69 8.04,14.19L15.16,18.34C15.11,18.55 15.08,18.77 15.08,19C15.08,20.61 16.39,21.91 18,21.91C19.61,21.91 20.92,20.61 20.92,19A1.92,1.92 0 0,0 19,17.08C18.64,17.08 18.31,17.25 18.04,17.53L8.91,12.7C8.96,12.47 9,12.24 9,12L18,16.08Z"/>
+                                            </svg>
+                                        </button>
+                                        <button class="quick-btn" aria-label="{% trans 'Favoris' %}">
+                                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M12,21.35L10.55,20.03C5.4,15.36 2,12.27 2,8.5C2,5.41 4.42,3 7.5,3C9.24,3 10.91,3.81 12,5.08C13.09,3.81 14.76,3 16.5,3C19.58,3 22,5.41 22,8.5C22,12.27 18.6,15.36 13.45,20.03L12,21.35Z"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Back Face -->
+                        <div class="card-face card-back">
+                            <div class="back-content">
+                                <h4 class="back-title">{{ step.title }}</h4>
+                                <div class="detailed-info">
+                                    <p>{% trans "Détails techniques et informations complémentaires sur cette étape de votre parcours vinicole." %}</p>
+                                    
+                                    <ul class="feature-list">
+                                        <li>{% trans "Suivi personnalisé" %}</li>
+                                        <li>{% trans "Experts dédiés" %}</li>
+                                        <li>{% trans "Garantie qualité" %}</li>
+                                        <li>{% trans "Support 24/7" %}</li>
+                                    </ul>
+                                    
+                                    <div class="tech-specs">
+                                        <div class="spec-item">
+                                            <span class="spec-label">{% trans "Durée" %}:</span>
+                                            <span class="spec-value">
+                                                {% if forloop.counter == 1 %}{% trans "Immédiat" %}
+                                                {% elif forloop.counter == 2 %}{% trans "2-3 semaines" %}
+                                                {% elif forloop.counter == 3 %}{% trans "6-12 mois" %}
+                                                {% else %}{% trans "Plusieurs années" %}{% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <button class="back-to-front-btn" aria-label="{% trans 'Return to main view' %}">
+                                    <svg viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"/>
+                                    </svg>
+                                    <span>{% trans "Retour" %}</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+
+        <!-- Call to Action -->
+        <div class="journey-cta" data-animate="fade-up">
+            <h3 class="cta-title">{% trans "Prêt à commencer votre aventure ?" %}</h3>
+            <p class="cta-subtitle">{% trans "Rejoignez des milliers de passionnés qui ont déjà créé leur héritage vinicole." %}</p>
+            
+            <div class="cta-buttons">
+                <button class="cta-primary" data-pulse>
+                    {% trans "Commencer maintenant" %}
+                    <div class="button-glow"></div>
+                </button>
+                <button class="cta-secondary">
+                    {% trans "En savoir plus" %}
+                </button>
+            </div>
+            
+            <!-- Trust Indicators -->
+            <div class="trust-indicators">
+                <div class="trust-item">
+                    <span class="trust-number" data-count="5000">0</span>
+                    <span class="trust-label">{% trans "Clients satisfaits" %}</span>
+                </div>
+                <div class="trust-item">
+                    <span class="trust-number" data-count="98">0</span><span>%</span>
+                    <span class="trust-label">{% trans "Satisfaction" %}</span>
+                </div>
+                <div class="trust-item">
+                    <span class="trust-number" data-count="15">0</span>
+                    <span class="trust-label">{% trans "Années d'expérience" %}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="journey-loading" aria-hidden="true">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p>{% trans "Préparation de votre parcours..." %}</p>
+        </div>
+    </div>
+</section>
+
+<!-- Keyboard Navigation Help -->
+<div class="keyboard-help" id="keyboard-help" role="dialog" aria-labelledby="keyboard-help-title" aria-hidden="true">
+    <div class="help-content">
+        <h4 id="keyboard-help-title">{% trans "Navigation au clavier" %}</h4>
+        <ul>
+            <li><kbd>←</kbd> / <kbd>→</kbd> : {% trans "Étapes précédente/suivante" %}</li>
+            <li><kbd>Space</kbd> : {% trans "Retourner la carte" %}</li>
+            <li><kbd>Enter</kbd> : {% trans "Activer le bouton" %}</li>
+            <li><kbd>Esc</kbd> : {% trans "Fermer l'aide" %}</li>
+        </ul>
+        <button class="help-close" aria-label="{% trans 'Fermer l\'aide' %}">×</button>
+    </div>
+</div>
