@@ -1,0 +1,715 @@
+{% extends 'vinsdelux/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ step_data.title }} - {% trans "VinsDeLux Journey" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+.journey-step-hero {
+    background: linear-gradient(135deg, #2d1810 0%, #5d4037 100%) center/cover no-repeat;
+    background-blend-mode: overlay;
+    color: white;
+    padding: 100px 0;
+    position: relative;
+    overflow: hidden;
+    min-height: 400px;
+}
+
+.hero-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(45, 24, 16, 0.8) 0%, rgba(93, 64, 55, 0.6) 100%);
+    z-index: 1;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 2;
+}
+
+.step-badge {
+    display: inline-block;
+    background: linear-gradient(45deg, #d4af37, #f4e49c);
+    color: #2d1810;
+    padding: 10px 20px;
+    border-radius: 25px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    font-size: 1.2rem;
+}
+
+.journey-navigation-bar {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 20px 0;
+    border-bottom: 1px solid #e0e0e0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.nav-progress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+}
+
+.nav-step {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #f5f5f5;
+    color: #666;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.nav-step.active {
+    background: linear-gradient(45deg, #d4af37, #f4e49c);
+    color: #2d1810;
+    transform: scale(1.2);
+}
+
+.nav-step.completed {
+    background: #4caf50;
+    color: white;
+}
+
+.nav-connector {
+    height: 2px;
+    width: 60px;
+    background: #e0e0e0;
+    position: relative;
+}
+
+.nav-connector.active {
+    background: linear-gradient(90deg, #d4af37, #f4e49c);
+}
+
+.content-section {
+    padding: 80px 0;
+}
+
+.step-image-container {
+    position: relative;
+    display: inline-block;
+}
+
+.step-detail-image {
+    max-width: 600px;
+    width: 100%;
+    height: auto;
+    border-radius: 15px !important;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15) !important;
+    transition: transform 0.3s ease;
+}
+
+.step-detail-image:hover {
+    transform: scale(1.02);
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
+    margin: 50px 0;
+}
+
+.feature-card {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.feature-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+}
+
+.feature-icon {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(45deg, #d4af37, #f4e49c);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    color: #2d1810;
+    font-size: 1.5rem;
+}
+
+.benefits-section {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 80px 0;
+    margin: 50px 0;
+    border-radius: 20px;
+}
+
+.benefit-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    font-size: 1.1rem;
+}
+
+.benefit-icon {
+    width: 30px;
+    height: 30px;
+    background: #4caf50;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+
+.cta-section {
+    background: linear-gradient(135deg, #2d1810 0%, #5d4037 100%);
+    color: white;
+    padding: 80px 0;
+    text-align: center;
+    border-radius: 20px;
+    margin: 50px 0;
+}
+
+.cta-button {
+    display: inline-block;
+    background: linear-gradient(45deg, #d4af37, #f4e49c);
+    color: #2d1810;
+    padding: 20px 40px;
+    border: none;
+    border-radius: 50px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    margin: 20px 10px;
+}
+
+.cta-button:hover {
+    background: linear-gradient(45deg, #f4e49c, #d4af37);
+    color: #2d1810;
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(212, 175, 55, 0.3);
+}
+
+.main-benefits-section {
+    margin: 60px 0;
+}
+
+.benefit-card {
+    background: white;
+    padding: 40px 20px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.benefit-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+}
+
+.benefit-icon-large {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(45deg, #d4af37, #f4e49c);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    color: #2d1810;
+    font-size: 2rem;
+}
+
+.why-vinsdelux-section {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 60px 0;
+    margin: 50px 0;
+    border-radius: 20px;
+}
+
+.comparison-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 25px;
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
+.comparison-icon {
+    width: 30px;
+    height: 30px;
+    background: linear-gradient(45deg, #d4af37, #f4e49c);
+    color: #2d1810;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 20px;
+    flex-shrink: 0;
+    margin-top: 5px;
+}
+
+.investment-data-section {
+    background: linear-gradient(135deg, #2d1810 0%, #5d4037 100%);
+    color: white;
+    padding: 60px 0;
+    margin: 50px 0;
+    border-radius: 20px;
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 30px 20px;
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #d4af37;
+    margin-bottom: 10px;
+}
+
+.stat-metric {
+    font-size: 1rem;
+    opacity: 0.9;
+    margin: 0;
+}
+
+.testimonial-section {
+    padding: 60px 0;
+    margin: 50px 0;
+}
+
+.testimonial-card {
+    background: white;
+    padding: 50px 40px;
+    border-radius: 20px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    position: relative;
+}
+
+.testimonial-icon {
+    font-size: 3rem;
+    color: #d4af37;
+    margin-bottom: 30px;
+}
+
+.testimonial-text {
+    font-size: 1.3rem;
+    font-style: italic;
+    line-height: 1.6;
+    margin-bottom: 30px;
+    color: #333;
+}
+
+.testimonial-author {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #666;
+}
+
+/* Step Navigation Styles */
+.step-navigation {
+    margin-top: 50px;
+}
+
+.nav-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 30px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    border: 1px solid #e9ecef;
+    min-height: 100px;
+}
+
+.nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    padding: 18px 30px;
+    border: none;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    min-width: 250px;
+    text-align: center;
+    line-height: 1.3;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.nav-btn-prev {
+    background: linear-gradient(135deg, #6c757d, #8a9197);
+    color: white;
+    border: 2px solid transparent;
+}
+
+.nav-btn-prev:hover {
+    background: linear-gradient(135deg, #5a6268, #6c757d);
+    color: white;
+    transform: translateX(-5px) translateY(-3px);
+    box-shadow: 0 8px 25px rgba(108, 117, 125, 0.3);
+}
+
+.nav-btn-next {
+    background: linear-gradient(135deg, #d4af37, #f4e49c);
+    color: #2d1810;
+    border: 2px solid transparent;
+}
+
+.nav-btn-next:hover {
+    background: linear-gradient(135deg, #f4e49c, #d4af37);
+    color: #2d1810;
+    transform: translateX(5px) translateY(-3px);
+    box-shadow: 0 8px 25px rgba(212, 175, 55, 0.4);
+}
+
+.nav-btn-start {
+    background: linear-gradient(135deg, #28a745, #34ce57);
+    color: white;
+    border: 2px solid transparent;
+}
+
+.nav-btn-start:hover {
+    background: linear-gradient(135deg, #218838, #28a745);
+    color: white;
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4);
+}
+
+.nav-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 250px;
+    height: 60px;
+}
+
+.nav-info {
+    color: #6c757d;
+    font-style: italic;
+    font-size: 1.1rem;
+}
+
+@media (max-width: 768px) {
+    .journey-step-hero {
+        padding: 60px 0;
+    }
+    
+    .nav-progress {
+        gap: 10px;
+    }
+    
+    .nav-connector {
+        width: 30px;
+    }
+    
+    .features-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    
+    .benefit-card {
+        padding: 30px 15px;
+    }
+    
+    .benefit-icon-large {
+        width: 60px;
+        height: 60px;
+        font-size: 1.5rem;
+    }
+    
+    .comparison-item {
+        font-size: 1rem;
+    }
+    
+    .testimonial-card {
+        padding: 30px 20px;
+    }
+    
+    .testimonial-text {
+        font-size: 1.1rem;
+    }
+    
+    .nav-container {
+        flex-direction: column;
+        gap: 20px;
+        padding: 20px;
+        min-height: auto;
+    }
+    
+    .nav-btn {
+        width: 100%;
+        min-width: auto;
+        padding: 15px 20px;
+        font-size: 1rem;
+    }
+    
+    .nav-placeholder {
+        min-width: auto;
+        width: 100%;
+        text-align: center;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="journey-step-hero" style="background-image: url('{% static step_data.image_url %}');">
+    <div class="hero-overlay"></div>
+    <div class="container">
+        <div class="hero-content text-center">
+            <div class="step-badge">
+                {% trans "Étape" %} {{ step_data.step }}
+            </div>
+            <h1 class="display-4 fw-bold mb-4">{{ step_data.title }}</h1>
+            <p class="lead mb-0">{{ step_data.description }}</p>
+        </div>
+    </div>
+</section>
+
+<!-- Navigation Progress Bar -->
+<section class="journey-navigation-bar">
+    <div class="container">
+        <div class="nav-progress">
+            {% for i in "12345" %}
+            <div class="nav-step {% if forloop.counter <= current_step %}{% if forloop.counter == current_step %}active{% else %}completed{% endif %}{% endif %}">
+                {{ forloop.counter }}
+            </div>
+            {% if not forloop.last %}
+            <div class="nav-connector {% if forloop.counter < current_step %}active{% endif %}"></div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Main Content Section -->
+<section class="content-section">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                <div class="text-center mb-5">
+                    <!-- Step Image -->
+                    <div class="step-image-container mb-4">
+                        <img src="{% static step_data.image_url %}" alt="{{ step_data.title }}" class="step-detail-image img-fluid rounded-3 shadow-lg">
+                    </div>
+                    
+                    <h2 class="h1 mb-4">{% trans "Découvrez cette étape en détail" %}</h2>
+                    <p class="lead text-muted">{{ step_data.detailed_description }}</p>
+                </div>
+
+                <!-- Main Benefits Section -->
+                {% if step_data.main_benefits %}
+                <div class="main-benefits-section mb-5">
+                    <h3 class="text-center mb-5">{% trans "Avantages Principaux de VinsDeLux" %}</h3>
+                    <div class="row">
+                        {% for benefit in step_data.main_benefits %}
+                        <div class="col-lg-4 mb-4">
+                            <div class="benefit-card h-100">
+                                <div class="benefit-icon-large">
+                                    <i class="{{ benefit.icon }}"></i>
+                                </div>
+                                <h4 class="mb-3">{{ benefit.title }}</h4>
+                                <p class="text-muted">{{ benefit.description }}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Features Grid -->
+                <div class="features-grid">
+                    {% for feature in step_data.features %}
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <h4 class="mb-3">{% trans "Fonctionnalité" %} {{ forloop.counter }}</h4>
+                        <p class="text-muted mb-0">{{ feature }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Benefits Section -->
+                <div class="benefits-section">
+                    <div class="container">
+                        <h3 class="text-center mb-5">{% trans "Avantages de cette étape" %}</h3>
+                        <div class="row">
+                            <div class="col-lg-8 mx-auto">
+                                {% for benefit in step_data.benefits %}
+                                <div class="benefit-item">
+                                    <div class="benefit-icon">
+                                        <i class="fas fa-check"></i>
+                                    </div>
+                                    <span>{{ benefit }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Why VinsDeLux Section -->
+                {% if step_data.why_vinsdelux %}
+                <div class="why-vinsdelux-section">
+                    <div class="container">
+                        <h3 class="text-center mb-5">{{ step_data.why_vinsdelux.title }}</h3>
+                        <div class="row">
+                            <div class="col-lg-10 mx-auto">
+                                {% for point in step_data.why_vinsdelux.points %}
+                                <div class="comparison-item">
+                                    <div class="comparison-icon">
+                                        <i class="fas fa-arrow-right"></i>
+                                    </div>
+                                    <span>{{ point }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Investment Data Section -->
+                {% if step_data.investment_data %}
+                <div class="investment-data-section">
+                    <div class="container">
+                        <h3 class="text-center mb-5">{{ step_data.investment_data.title }}</h3>
+                        <div class="row">
+                            {% for stat in step_data.investment_data.statistics %}
+                            <div class="col-lg-3 col-md-6 mb-4">
+                                <div class="stat-card text-center">
+                                    <h4 class="stat-value">{{ stat.value }}</h4>
+                                    <p class="stat-metric">{{ stat.metric }}</p>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Testimonial Section -->
+                {% if step_data.testimonial %}
+                <div class="testimonial-section">
+                    <div class="container">
+                        <div class="row">
+                            <div class="col-lg-8 mx-auto text-center">
+                                <div class="testimonial-card">
+                                    <div class="testimonial-icon">
+                                        <i class="fas fa-quote-left"></i>
+                                    </div>
+                                    <blockquote class="testimonial-text">
+                                        "{{ step_data.testimonial.text }}"
+                                    </blockquote>
+                                    <cite class="testimonial-author">
+                                        - {{ step_data.testimonial.author }}
+                                    </cite>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+
+                <!-- Step Navigation -->
+                <div class="step-navigation">
+                    <div class="nav-container">
+                        {% if current_step == 1 %}
+                        <div class="nav-placeholder">
+                            <span class="nav-info">{% trans "Première étape" %}</span>
+                        </div>
+                        <a href="{% url 'vinsdelux:journey_personalize_wine' %}" class="nav-btn nav-btn-next">
+                            <span>{% trans "Personnaliser Votre Vin" %}</span>
+                            <i class="fas fa-arrow-right"></i>
+                        </a>
+                        {% elif current_step == 2 %}
+                        <a href="{% url 'vinsdelux:journey_plot_selection' %}" class="nav-btn nav-btn-prev">
+                            <i class="fas fa-arrow-left"></i>
+                            <span>{% trans "Sélection de Parcelle" %}</span>
+                        </a>
+                        <a href="{% url 'vinsdelux:journey_follow_production' %}" class="nav-btn nav-btn-next">
+                            <span>{% trans "Suivi de Production" %}</span>
+                            <i class="fas fa-arrow-right"></i>
+                        </a>
+                        {% elif current_step == 3 %}
+                        <a href="{% url 'vinsdelux:journey_personalize_wine' %}" class="nav-btn nav-btn-prev">
+                            <i class="fas fa-arrow-left"></i>
+                            <span>{% trans "Personnaliser Votre Vin" %}</span>
+                        </a>
+                        <a href="{% url 'vinsdelux:journey_receive_taste' %}" class="nav-btn nav-btn-next">
+                            <span>{% trans "Réception et Dégustation" %}</span>
+                            <i class="fas fa-arrow-right"></i>
+                        </a>
+                        {% elif current_step == 4 %}
+                        <a href="{% url 'vinsdelux:journey_follow_production' %}" class="nav-btn nav-btn-prev">
+                            <i class="fas fa-arrow-left"></i>
+                            <span>{% trans "Suivi de Production" %}</span>
+                        </a>
+                        <a href="{% url 'vinsdelux:journey_create_legacy' %}" class="nav-btn nav-btn-next">
+                            <span>{% trans "Créer Votre Héritage" %}</span>
+                            <i class="fas fa-arrow-right"></i>
+                        </a>
+                        {% elif current_step == 5 %}
+                        <a href="{% url 'vinsdelux:journey_receive_taste' %}" class="nav-btn nav-btn-prev">
+                            <i class="fas fa-arrow-left"></i>
+                            <span>{% trans "Réception et Dégustation" %}</span>
+                        </a>
+                        <a href="{% url 'vinsdelux:coffret_list' %}" class="nav-btn nav-btn-start">
+                            <span>{% trans "Commencer Votre Parcours" %}</span>
+                            <i class="fas fa-rocket"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Call to Action -->
+<section class="cta-section">
+    <div class="container">
+        <h3 class="display-5 mb-4">{% trans "Prêt à découvrir cette étape ?" %}</h3>
+        <p class="lead mb-4">{% trans "Explorez notre sélection de coffrets et plans d'adoption pour commencer votre aventure vinicole." %}</p>
+        <a href="{% url 'vinsdelux:coffret_list' %}" class="cta-button">
+            {% trans "Voir nos coffrets" %}
+        </a>
+        <a href="{% url 'vinsdelux:producer_list' %}" class="cta-button">
+            {% trans "Nos producteurs" %}
+        </a>
+    </div>
+</section>
+{% endblock %}

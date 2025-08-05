@@ -25,6 +25,10 @@
     <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap.min.css' %}">
     <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}">
     <link rel="stylesheet" href="{% static 'css/custom.css' %}">
+    
+    <!-- Futuristic Journey CSS -->
+    <link rel="stylesheet" href="{% static 'css/vdl-journey-futuristic.css' %}">
+    <link rel="stylesheet" href="{% static 'css/vdl-journey-mobile.css' %}">
     {% block extra_css %}
     <style>
       /* LinkedIn Login Button Styling */
@@ -75,6 +79,28 @@
                                 </a></li>
                                 <li><a class="dropdown-item" href="{% url 'vinsdelux:producer_list' %}">
                                     <i class="fas fa-wine-glass-alt me-2"></i>{% trans "Producers" %}
+                                </a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="journeyDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-route me-1"></i>{% trans "Your Journey" %}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="journeyDropdown">
+                                <li><a class="dropdown-item" href="{% url 'vinsdelux:journey_plot_selection' %}">
+                                    <i class="fas fa-map me-2"></i>{% trans "Plot Selection" %}
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'vinsdelux:journey_personalize_wine' %}">
+                                    <i class="fas fa-palette me-2"></i>{% trans "Personalize Your Wine" %}
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'vinsdelux:journey_follow_production' %}">
+                                    <i class="fas fa-chart-line me-2"></i>{% trans "Follow Production" %}
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'vinsdelux:journey_receive_taste' %}">
+                                    <i class="fas fa-gift me-2"></i>{% trans "Receive & Taste" %}
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'vinsdelux:journey_create_legacy' %}">
+                                    <i class="fas fa-crown me-2"></i>{% trans "Create Legacy" %}
                                 </a></li>
                             </ul>
                         </li>
@@ -152,6 +178,18 @@
     </footer>
 
     <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    
+    <!-- Futuristic Journey JavaScript -->
+    <script src="{% static 'js/vdl-journey-futuristic.js' %}"></script>
+    
+    <!-- Journey Step Animations -->
+    <script src="{% static 'js/vdl-journey-animations.js' %}"></script>
+    
+    <!-- Debug Console (only load in development) -->
+    {% if debug %}
+    <script src="{% static 'js/vdl-debug-console.js' %}"></script>
+    {% endif %}
+    
     {% block extra_js %}{% endblock %}
 </body>
 </html>
