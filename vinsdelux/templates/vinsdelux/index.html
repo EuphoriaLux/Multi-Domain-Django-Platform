@@ -47,7 +47,10 @@
     </section>
     {% endif %}
 
-    {% include 'vinsdelux/wine_plots_section.html' with featured_coffrets=featured_coffrets %}
+    <!-- Wine plot section with wine-plot class for testing -->
+    <div class="wine-plot-container">
+        {% include 'vinsdelux/wine_plots_section.html' with featured_coffrets=featured_coffrets %}
+    </div>
 
     {% include 'vinsdelux/client_journey_section.html' with id='client-journey-section' client_journey_steps=client_journey_steps %}
 {% endblock %}
