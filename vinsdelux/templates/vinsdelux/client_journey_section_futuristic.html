@@ -226,7 +226,7 @@
                                 
                                 <!-- Enhanced Action Button -->
                                 <div class="card-actions">
-                                    <a href="{% if forloop.counter == 1 %}{% url 'vinsdelux:journey_plot_selection' %}{% elif forloop.counter == 2 %}{% url 'vinsdelux:journey_personalize_wine' %}{% elif forloop.counter == 3 %}{% url 'vinsdelux:journey_follow_production' %}{% elif forloop.counter == 4 %}{% url 'vinsdelux:journey_receive_taste' %}{% else %}{% url 'vinsdelux:journey_create_legacy' %}{% endif %}" class="flip-card-btn enhanced-btn" aria-label="{% trans 'Learn more about this step' %}">
+                                    <a href="{% if forloop.counter == 1 %}{% url 'vinsdelux:plot_selector' %}{% elif forloop.counter == 2 %}{% url 'vinsdelux:journey_personalize_wine' %}{% elif forloop.counter == 3 %}{% url 'vinsdelux:journey_follow_production' %}{% elif forloop.counter == 4 %}{% url 'vinsdelux:journey_receive_taste' %}{% else %}{% url 'vinsdelux:journey_create_legacy' %}{% endif %}" class="flip-card-btn enhanced-btn" aria-label="{% trans 'Learn more about this step' %}">
                                         <div class="btn-content">
                                             <span class="btn-text">{% trans "En savoir plus" %}</span>
                                             <div class="btn-icon">

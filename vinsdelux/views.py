@@ -181,6 +181,122 @@ def producer_detail(request, slug):
     return render(request, 'vinsdelux/producer_detail.html', context)
 
 
+def plot_selector(request):
+    """
+    Standalone plot selector page for choosing adoption plans
+    """
+    from .models import VdlAdoptionPlan, VdlProducer
+    
+    # Fetch adoption plans from database
+    adoption_plans = VdlAdoptionPlan.objects.select_related(
+        'producer', 'associated_coffret', 'category'
+    ).filter(
+        is_available=True
+    ).prefetch_related('images')
+    
+    # Get unique regions and producers for filters
+    regions = list(adoption_plans.values_list('producer__region', flat=True).distinct())
+    regions = [r for r in regions if r]  # Remove None values
+    
+    producers = VdlProducer.objects.filter(
+        id__in=adoption_plans.values_list('producer_id', flat=True)
+    ).distinct()
+    
+    context = {
+        'adoption_plans': adoption_plans,
+        'regions': regions,
+        'producers': producers,
+    }
+    
+    return render(request, 'vinsdelux/plot_selector.html', context)
+
+
+def journey_interactive_form(request):
+    """
+    Interactive gamified journey form for VinsDelux customer experience.
+    """
+    import json
+    from .models import VdlAdoptionPlan, VdlProducer
+    
+    # Client journey steps data for the interactive form
+    client_journey_steps = [
+        {
+            'step': '01',
+            'title': 'Plot Selection',
+            'description': 'Choose the vineyard plot that matches your preferences and vision. Each plot offers a unique terroir and a story to tell.',
+            'image_url': 'images/journey/step_01.png'
+        },
+        {
+            'step': '02',
+            'title': 'Personalize Your Wine',
+            'description': 'Collaborate with our expert winemakers to personalize every aspect of your wine, from the grape variety to the winemaking techniques.',
+            'image_url': 'images/journey/step_02.png'
+        },
+        {
+            'step': '03',
+            'title': 'Follow the Production',
+            'description': 'Receive regular updates on the growth of your vine and the winemaking process, complete with detailed photos and reports.',
+            'image_url': 'images/journey/step_03.png'
+        },
+        {
+            'step': '04',
+            'title': 'Receive and Taste',
+            'description': 'Your personalized bottles are delivered directly to your home, ready to be tasted and shared with loved ones.',
+            'image_url': 'images/journey/step_04.png'
+        },
+        {
+            'step': '05',
+            'title': 'Create Your Legacy',
+            'description': 'Your wine becomes a family legacy, a unique expression of your passion for wine, and an investment in the future.',
+            'image_url': 'images/journey/step_05.png'
+        }
+    ]
+    
+    # Fetch adoption plans from database with related producer data
+    adoption_plans = VdlAdoptionPlan.objects.select_related(
+        'producer', 'associated_coffret', 'category'
+    ).filter(
+        is_available=True
+    ).prefetch_related('images')
+    
+    # Convert adoption plans to plot data for the frontend
+    plot_data = []
+    for plan in adoption_plans:
+        plot_item = {
+            'id': f'plot-{plan.id}',
+            'plan_id': plan.id,
+            'name': plan.name,
+            'producer_name': plan.producer.name if plan.producer else 'Unknown Producer',
+            'region': plan.producer.region if plan.producer else 'Unknown Region',
+            'price': str(plan.price),
+            'duration_months': plan.duration_months,
+            'coffrets_per_year': plan.coffrets_per_year,
+            'description': plan.short_description,
+            'full_description': plan.full_description,
+            'includes_visit': plan.includes_visit,
+            'visit_details': plan.visit_details,
+            'includes_medallion': plan.includes_medallion,
+            'includes_club_membership': plan.includes_club_membership,
+            'avant_premiere_price': str(plan.avant_premiere_price) if plan.avant_premiere_price else None,
+            'welcome_kit_description': plan.welcome_kit_description,
+            'coffret_name': plan.associated_coffret.name if plan.associated_coffret else None,
+            'category': plan.category.get_name_display() if plan.category else None,
+            'main_image': plan.main_image.url if plan.main_image else None,
+            'is_available': plan.is_available,
+        }
+        plot_data.append(plot_item)
+    
+    context = {
+        'client_journey_steps': client_journey_steps,
+        'adoption_plans': adoption_plans,
+        'plot_data': json.dumps(plot_data),  # Convert to JSON string for JavaScript
+    }
+    response = render(request, 'vinsdelux/journey_interactive_form.html', context)
+    # Allow iframe embedding for test purposes
+    response['X-Frame-Options'] = 'SAMEORIGIN'
+    return response
+
+
 def journey_test_runner(request):
     """
     Test runner page for the futuristic journey functionality.
@@ -596,3 +712,127 @@ def journey_step_create_legacy(request):
         'is_final_step': True
     }
     return render(request, 'vinsdelux/journey_step_detail.html', context)
+
+def api_adoption_plans(request):
+    """
+    API endpoint to fetch adoption plans as JSON for dynamic updates
+    """
+    from django.http import JsonResponse
+    from django.db.models import Q
+    from .models import VdlAdoptionPlan
+    
+    # Get filter parameters from request
+    producer_id = request.GET.get('producer_id')
+    region = request.GET.get('region')
+    min_price = request.GET.get('min_price')
+    max_price = request.GET.get('max_price')
+    category = request.GET.get('category')
+    includes_visit = request.GET.get('includes_visit')
+    includes_medallion = request.GET.get('includes_medallion')
+    includes_club = request.GET.get('includes_club')
+    search = request.GET.get('search')
+    
+    # Build query
+    plans = VdlAdoptionPlan.objects.select_related(
+        'producer', 'associated_coffret', 'category'
+    ).prefetch_related('images').filter(is_available=True)
+    
+    # Apply filters
+    if producer_id:
+        plans = plans.filter(producer_id=producer_id)
+    if region:
+        plans = plans.filter(producer__region__icontains=region)
+    if min_price:
+        try:
+            plans = plans.filter(price__gte=float(min_price))
+        except ValueError:
+            pass
+    if max_price:
+        try:
+            plans = plans.filter(price__lte=float(max_price))
+        except ValueError:
+            pass
+    if category:
+        plans = plans.filter(category__name=category)
+    if includes_visit == 'true':
+        plans = plans.filter(includes_visit=True)
+    if includes_medallion == 'true':
+        plans = plans.filter(includes_medallion=True)
+    if includes_club == 'true':
+        plans = plans.filter(includes_club_membership=True)
+    if search:
+        plans = plans.filter(
+            Q(name__icontains=search) |
+            Q(short_description__icontains=search) |
+            Q(producer__name__icontains=search) |
+            Q(producer__region__icontains=search)
+        )
+    
+    # Get available filters for the UI
+    all_regions = list(VdlAdoptionPlan.objects.filter(
+        is_available=True, producer__isnull=False
+    ).values_list('producer__region', flat=True).distinct())
+    all_regions = [r for r in all_regions if r]  # Remove None values
+    
+    all_producers = list(VdlAdoptionPlan.objects.filter(
+        is_available=True, producer__isnull=False
+    ).values_list('producer__id', 'producer__name').distinct())
+    
+    # Convert to JSON-serializable format
+    data = []
+    for plan in plans:
+        item = {
+            'id': plan.id,
+            'name': plan.name,
+            'slug': plan.slug,
+            'producer': {
+                'id': plan.producer.id if plan.producer else None,
+                'name': plan.producer.name if plan.producer else 'Unknown',
+                'region': plan.producer.region if plan.producer else 'Unknown',
+                'vineyard_size': plan.producer.vineyard_size if plan.producer else None,
+                'elevation': plan.producer.elevation if plan.producer else None,
+                'soil_type': plan.producer.soil_type if plan.producer else None,
+                'sun_exposure': plan.producer.sun_exposure if plan.producer else None,
+                'map_x': plan.producer.map_x_position if plan.producer else 50,
+                'map_y': plan.producer.map_y_position if plan.producer else 50,
+                'vineyard_features': plan.producer.vineyard_features if plan.producer else [],
+            },
+            'price': float(plan.price),
+            'duration_months': plan.duration_months,
+            'coffrets_per_year': plan.coffrets_per_year,
+            'description': plan.short_description,
+            'full_description': plan.full_description,
+            'features': {
+                'includes_visit': plan.includes_visit,
+                'includes_medallion': plan.includes_medallion,
+                'includes_club_membership': plan.includes_club_membership,
+            },
+            'visit_details': plan.visit_details,
+            'welcome_kit': plan.welcome_kit_description,
+            'coffret': {
+                'name': plan.associated_coffret.name if plan.associated_coffret else None,
+                'price': float(plan.associated_coffret.price) if plan.associated_coffret and plan.associated_coffret.price else None,
+            },
+            'category': plan.category.get_name_display() if plan.category else None,
+            'image_url': plan.main_image.url if plan.main_image else None,
+            'avant_premiere_price': float(plan.avant_premiere_price) if plan.avant_premiere_price else None,
+        }
+        data.append(item)
+    
+    return JsonResponse({
+        'adoption_plans': data,
+        'filters': {
+            'regions': all_regions,
+            'producers': [{'id': p[0], 'name': p[1]} for p in all_producers],
+            'total_count': len(data)
+        }
+    })
+
+def journey_test(request):
+    """
+    Test suite for debugging the interactive journey game
+    """
+    response = render(request, 'vinsdelux/journey_test.html')
+    # Allow iframe for testing purposes only on this specific view
+    response['X-Frame-Options'] = 'SAMEORIGIN'
+    return response

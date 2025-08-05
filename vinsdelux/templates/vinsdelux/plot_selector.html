@@ -1,0 +1,1674 @@
+{% extends "vinsdelux/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Select Your Vineyard Plot" %} - VinsDelux{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'css/vinsdelux-plot-selector.css' %}" rel="stylesheet">
+<style>
+    /* Enhanced Plot Selector Styles */
+    .plot-selector-container {
+        padding: 2rem 0;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e8f5e9 100%);
+        min-height: 100vh;
+    }
+
+    .selector-header {
+        text-align: center;
+        margin-bottom: 3rem;
+        padding: 0 1rem;
+    }
+
+    .selector-header h1 {
+        font-size: 2.5rem;
+        color: #2c3e50;
+        margin-bottom: 1rem;
+        font-weight: 700;
+    }
+
+    .selector-header p {
+        font-size: 1.2rem;
+        color: #5a6c7d;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    /* Search and Filter Bar */
+    .filter-bar {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        margin-bottom: 2rem;
+    }
+
+    .filter-row {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .filter-group {
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .filter-group label {
+        display: block;
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+
+    .filter-group input,
+    .filter-group select {
+        width: 100%;
+        padding: 0.625rem 1rem;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .filter-group input:focus,
+    .filter-group select:focus {
+        outline: none;
+        border-color: #722f37;
+        box-shadow: 0 0 0 3px rgba(114, 47, 55, 0.1);
+    }
+
+    .search-box {
+        position: relative;
+    }
+
+    .search-box i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #adb5bd;
+    }
+
+    .search-box input {
+        padding-left: 40px;
+    }
+
+    /* Feature Filters */
+    .feature-filters {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+    }
+
+    .feature-toggle {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        background: #f8f9fa;
+        border: 2px solid #dee2e6;
+        border-radius: 25px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .feature-toggle:hover {
+        background: #e9ecef;
+    }
+
+    .feature-toggle.active {
+        background: #722f37;
+        color: white;
+        border-color: #722f37;
+    }
+
+    .feature-toggle input {
+        display: none;
+    }
+
+    .feature-toggle i {
+        margin-right: 0.5rem;
+    }
+
+    /* Results Summary */
+    .results-summary {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding: 0 0.5rem;
+    }
+
+    .result-count {
+        font-size: 1.125rem;
+        color: #495057;
+    }
+
+    .result-count strong {
+        color: #722f37;
+        font-weight: 600;
+    }
+
+    .view-toggle {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .view-btn {
+        padding: 0.5rem 1rem;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .view-btn.active {
+        background: #722f37;
+        color: white;
+        border-color: #722f37;
+    }
+
+    /* Plot Cards Grid */
+    .plots-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 2rem;
+    }
+
+    .plot-card {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+    }
+
+    .plot-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+
+    .plot-card.selected {
+        border: 3px solid #d4af37;
+        box-shadow: 0 8px 30px rgba(212, 175, 55, 0.3);
+    }
+
+    .plot-image-container {
+        position: relative;
+        height: 120px;
+        overflow: hidden;
+        background: linear-gradient(135deg, #8BC34A, #689F38);
+    }
+
+    .plot-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    /* Styles for JavaScript-generated cards */
+    .plot-cards-container .plot-card {
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transition: all 0.3s;
+    }
+    
+    .plot-cards-container .plot-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    }
+    
+    .card-image {
+        position: relative;
+        height: 120px;
+        overflow: hidden;
+    }
+    
+    .card-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .card-badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: rgba(255, 255, 255, 0.95);
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .card-content {
+        padding: 0.75rem;
+    }
+    
+    .card-content h3 {
+        font-size: 0.95rem;
+        margin-bottom: 0.375rem;
+        color: #2c3e50;
+    }
+    
+    .card-content .plot-description {
+        font-size: 0.75rem;
+        color: #666;
+        margin-bottom: 0.5rem;
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .plot-features {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.2rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .feature-item {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.7rem;
+        color: #555;
+    }
+    
+    .feature-item i {
+        width: 12px;
+        color: #722f37;
+        font-size: 0.7rem;
+    }
+    
+    .plot-highlights {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .highlight-tag {
+        background: #e8f5e9;
+        color: #2e7d32;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 0.65rem;
+    }
+    
+    .plot-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 0.5rem;
+        border-top: 1px solid #eee;
+    }
+    
+    .plot-price {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #722f37;
+    }
+    
+    .btn-select-plot {
+        padding: 5px 10px;
+        background: linear-gradient(135deg, #d4af37, #f4e49c);
+        border: none;
+        border-radius: 5px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        color: #2d1810;
+    }
+    
+    .btn-select-plot:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 8px rgba(212, 175, 55, 0.3);
+    }
+
+    .plot-badges {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        right: 1rem;
+        display: flex;
+        justify-content: space-between;
+        pointer-events: none;
+    }
+
+    .producer-badge {
+        background: rgba(255, 255, 255, 0.95);
+        padding: 0.375rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .availability-badge {
+        background: #28a745;
+        color: white;
+        padding: 0.375rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .availability-badge.limited {
+        background: #ffc107;
+    }
+
+    .plot-content {
+        padding: 1.5rem;
+    }
+
+    .plot-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+
+    .plot-region {
+        color: #6c757d;
+        font-size: 0.875rem;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .plot-region i {
+        margin-right: 0.5rem;
+        color: #722f37;
+    }
+
+    .plot-description {
+        color: #495057;
+        line-height: 1.6;
+        margin-bottom: 1rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .plot-details {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .detail-item {
+        display: flex;
+        align-items: center;
+        font-size: 0.875rem;
+        color: #495057;
+    }
+
+    .detail-item i {
+        margin-right: 0.5rem;
+        color: #722f37;
+        width: 20px;
+        text-align: center;
+    }
+
+    .plot-features {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+
+    .feature-tag {
+        background: #e8f5e9;
+        color: #2e7d32;
+        padding: 0.25rem 0.75rem;
+        border-radius: 15px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .plot-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 1rem;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .plot-price {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .price-label {
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+
+    .price-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #722f37;
+    }
+
+    .plot-action {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .btn-view-details,
+    .btn-select {
+        padding: 0.625rem 1.25rem;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: none;
+    }
+
+    .btn-view-details {
+        background: #f8f9fa;
+        color: #495057;
+    }
+
+    .btn-view-details:hover {
+        background: #e9ecef;
+    }
+
+    .btn-select {
+        background: #722f37;
+        color: white;
+    }
+
+    .btn-select:hover {
+        background: #5a242a;
+    }
+
+    .btn-select.selected {
+        background: #d4af37;
+        color: #2c3e50;
+    }
+
+    /* Plot Selection Container */
+    .plot-selection-container {
+        position: relative;
+        min-height: 600px;
+    }
+    
+    .vineyard-map {
+        position: relative;
+        background: #f4f0e8;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .vineyard-map.hidden {
+        display: none;
+    }
+    
+    .map-canvas {
+        width: 100%;
+        height: 500px;
+        border-radius: 8px;
+        transition: transform 0.3s ease;
+    }
+    
+    /* Map Markers */
+    .plot-marker {
+        position: absolute;
+        z-index: 10;
+    }
+    
+    .marker-pin {
+        font-size: 24px;
+        color: #d4af37;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        transition: all 0.3s;
+    }
+    
+    .plot-marker:hover .marker-pin {
+        color: #722f37;
+        transform: scale(1.2);
+    }
+    
+    .plot-marker.selected .marker-pin {
+        color: #722f37;
+        transform: scale(1.3);
+    }
+    
+    .marker-label {
+        position: absolute;
+        top: 25px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255, 255, 255, 0.9);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 10px;
+        white-space: nowrap;
+        display: none;
+    }
+    
+    .plot-marker:hover .marker-label {
+        display: block;
+    }
+    
+    .marker-tooltip {
+        position: absolute;
+        bottom: 35px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        min-width: 150px;
+        display: none;
+        z-index: 100;
+    }
+    
+    .plot-marker:hover .marker-tooltip {
+        display: block;
+    }
+    
+    .marker-tooltip h4 {
+        margin: 0 0 5px 0;
+        font-size: 12px;
+        color: #722f37;
+    }
+    
+    .marker-tooltip p {
+        margin: 0;
+        font-size: 11px;
+        color: #666;
+    }
+    
+    .marker-tooltip .price {
+        color: #d4af37;
+        font-weight: bold;
+    }
+    
+    .cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 2rem;
+    }
+    
+    .cards-grid.hidden {
+        display: none;
+    }
+    
+    /* Plot Details Panel */
+    .plot-details-panel {
+        display: none;
+        position: fixed;
+        right: 2rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        width: 350px;
+        max-height: 80vh;
+        overflow-y: auto;
+        z-index: 100;
+    }
+    
+    .plot-details-panel.active {
+        display: block;
+    }
+    
+    .close-panel-btn {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: transparent;
+        border: none;
+        font-size: 1.25rem;
+        color: #666;
+        cursor: pointer;
+        padding: 0.25rem;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: all 0.3s;
+        z-index: 10;
+    }
+    
+    .close-panel-btn:hover {
+        background: #f0f0f0;
+        color: #333;
+    }
+    
+    /* View Toggle Buttons */
+    .view-toggle {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .view-btn {
+        padding: 8px 16px;
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-size: 14px;
+    }
+    
+    .view-btn:hover {
+        background: #f8f9fa;
+    }
+    
+    .view-btn.active {
+        background: #722f37;
+        color: white;
+        border-color: #722f37;
+    }
+    
+    .plot-details-panel h3 {
+        color: #722f37;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+        padding: 0.5rem 0;
+    }
+    
+    .detail-row .label {
+        font-weight: 600;
+        color: #6c757d;
+    }
+    
+    .detail-row span:last-child {
+        color: #2c3e50;
+        font-weight: 500;
+    }
+    
+    .features-section {
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .features-section h4 {
+        color: #722f37;
+        font-size: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .features-section ul {
+        list-style: none;
+        padding: 0;
+    }
+    
+    .features-section li {
+        padding: 0.5rem 0;
+        color: #2c3e50;
+    }
+    
+    .features-section li i {
+        color: #4caf50;
+        margin-right: 0.5rem;
+    }
+    
+    .btn-confirm {
+        width: 100%;
+        margin-top: 1.5rem;
+        padding: 0.75rem;
+        background: #722f37;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-confirm:hover:not(:disabled) {
+        background: #5a242a;
+    }
+    
+    .btn-confirm:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+    
+    .btn-confirm.active {
+        background: #4caf50;
+    }
+    
+    /* Map Markers */
+    .plot-marker {
+        position: absolute;
+        cursor: pointer;
+    }
+    
+    .marker-pin {
+        font-size: 2rem;
+        color: #722f37;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        transition: all 0.3s ease;
+    }
+    
+    .plot-marker:hover .marker-pin {
+        transform: scale(1.2);
+        color: #d4af37;
+    }
+    
+    .plot-marker.selected .marker-pin {
+        color: #d4af37;
+        transform: scale(1.3);
+    }
+    
+    .marker-label {
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        white-space: nowrap;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-top: 0.25rem;
+    }
+    
+    .marker-tooltip {
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        padding: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        min-width: 200px;
+        display: none;
+        margin-bottom: 0.5rem;
+    }
+    
+    .plot-marker:hover .marker-tooltip {
+        display: block;
+    }
+    
+    .marker-tooltip h4 {
+        margin: 0 0 0.5rem 0;
+        color: #722f37;
+        font-size: 1rem;
+    }
+    
+    .marker-tooltip p {
+        margin: 0.25rem 0;
+        color: #6c757d;
+        font-size: 0.875rem;
+    }
+    
+    .marker-tooltip .price {
+        color: #2c3e50;
+        font-weight: 600;
+    }
+    
+    /* Enhanced Plot Card Styles */
+    .plot-card .plot-highlights {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin: 1rem 0;
+    }
+    
+    .highlight-tag {
+        background: #e8f5e9;
+        color: #2e7d32;
+        padding: 0.25rem 0.75rem;
+        border-radius: 15px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
+    .plot-card .btn-select-plot {
+        background: #722f37;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .plot-card .btn-select-plot:hover {
+        background: #5a242a;
+    }
+    
+    .plot-card.selected .btn-select-plot {
+        background: #d4af37;
+        color: #2c3e50;
+    }
+    
+    /* Notification */
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    /* Map View */
+    .map-view-container {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        margin-bottom: 3rem;
+        display: none;
+    }
+
+    .map-view-container.active {
+        display: block;
+    }
+
+    .vineyard-map {
+        position: relative;
+        height: 600px;
+        background: #f0f4f7;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .map-controls {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        z-index: 10;
+    }
+
+    .map-btn {
+        width: 40px;
+        height: 40px;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .map-btn:hover {
+        background: #f8f9fa;
+        border-color: #722f37;
+        color: #722f37;
+    }
+
+    /* Detail Modal */
+    .plot-detail-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+    }
+
+    .plot-detail-modal.active {
+        display: flex;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 16px;
+        max-width: 900px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        position: relative;
+    }
+
+    .modal-close {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        width: 40px;
+        height: 40px;
+        background: #f8f9fa;
+        border: none;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 1.5rem;
+        z-index: 1;
+    }
+
+    .modal-close:hover {
+        background: #e9ecef;
+    }
+
+    /* Loading State */
+    .loading-spinner {
+        display: none;
+        text-align: center;
+        padding: 3rem;
+    }
+
+    .loading-spinner.active {
+        display: block;
+    }
+
+    .spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #722f37;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1rem;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* No Results */
+    .no-results {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: white;
+        border-radius: 12px;
+        display: none;
+    }
+
+    .no-results.active {
+        display: block;
+    }
+
+    .no-results i {
+        font-size: 4rem;
+        color: #dee2e6;
+        margin-bottom: 1rem;
+    }
+
+    .no-results h3 {
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+
+    .no-results p {
+        color: #6c757d;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .filter-row {
+            flex-direction: column;
+        }
+
+        .filter-group {
+            width: 100%;
+        }
+
+        .plots-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .plot-details {
+            grid-template-columns: 1fr;
+        }
+
+        .results-summary {
+            flex-direction: column;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="plot-selector-container">
+    <div class="container">
+        <!-- Header -->
+        <div class="selector-header">
+            <h1>{% trans "Select Your Vineyard Plot" %}</h1>
+            <p>{% trans "Choose from our exclusive collection of vineyard adoption plans. Each plot offers a unique terroir, producer story, and wine experience tailored to your preferences." %}</p>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+            <div class="filter-row">
+                <div class="filter-group search-box">
+                    <label for="search-input">{% trans "Search" %}</label>
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="search-input" placeholder="{% trans 'Search by name, producer, or region...' %}">
+                </div>
+                
+                <div class="filter-group">
+                    <label for="region-filter">{% trans "Region" %}</label>
+                    <select id="region-filter">
+                        <option value="">{% trans "All Regions" %}</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="category-filter">{% trans "Wine Type" %}</label>
+                    <select id="category-filter">
+                        <option value="">{% trans "All Types" %}</option>
+                        <option value="Red Wine">{% trans "Red Wine" %}</option>
+                        <option value="White Wine">{% trans "White Wine" %}</option>
+                        <option value="Rosé">{% trans "Rosé" %}</option>
+                        <option value="Sparkling Wine">{% trans "Sparkling Wine" %}</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="price-filter">{% trans "Price Range" %}</label>
+                    <select id="price-filter">
+                        <option value="">{% trans "All Prices" %}</option>
+                        <option value="0-500">€0 - €500</option>
+                        <option value="500-1000">€500 - €1,000</option>
+                        <option value="1000-2000">€1,000 - €2,000</option>
+                        <option value="2000+">€2,000+</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Feature Filters -->
+            <div class="feature-filters">
+                <label class="feature-toggle" data-feature="visit">
+                    <input type="checkbox" id="filter-visit">
+                    <i class="fas fa-map-marked-alt"></i>
+                    <span>{% trans "Vineyard Visit" %}</span>
+                </label>
+                
+                <label class="feature-toggle" data-feature="medallion">
+                    <input type="checkbox" id="filter-medallion">
+                    <i class="fas fa-medal"></i>
+                    <span>{% trans "Personalized Medallion" %}</span>
+                </label>
+                
+                <label class="feature-toggle" data-feature="club">
+                    <input type="checkbox" id="filter-club">
+                    <i class="fas fa-users"></i>
+                    <span>{% trans "Club Membership" %}</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Results Summary -->
+        <div class="results-summary">
+            <div class="result-count">
+                {% trans "Showing" %} <strong id="result-count">0</strong> {% trans "adoption plans" %}
+            </div>
+            
+            <div class="view-toggle">
+                <button class="view-btn active" id="grid-view-btn" data-view="grid">
+                    <i class="fas fa-th"></i> {% trans "Grid" %}
+                </button>
+                <button class="view-btn" id="map-view-btn" data-view="map">
+                    <i class="fas fa-map"></i> {% trans "Map" %}
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div class="loading-spinner active" id="loading-spinner">
+            <div class="spinner"></div>
+            <p>{% trans "Loading adoption plans..." %}</p>
+        </div>
+
+        <!-- Plot Cards Grid -->
+        <div class="plots-grid" id="plots-grid">
+            <!-- Plot selection content from journey game -->
+            <div class="plot-selection-container">
+                <div class="vineyard-map hidden" id="vineyard-map">
+                    <div class="map-controls">
+                        <button class="map-zoom-in"><i class="fas fa-plus"></i></button>
+                        <button class="map-zoom-out"><i class="fas fa-minus"></i></button>
+                        <button class="map-reset"><i class="fas fa-sync"></i></button>
+                    </div>
+                    <canvas class="map-canvas" id="map-canvas" width="800" height="600"></canvas>
+                    <div id="map-markers" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>
+                </div>
+                
+                <!-- Plot Cards Container -->
+                <div class="plot-cards-container cards-grid">
+                    <!-- Cards will be dynamically generated -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Plot Details Panel -->
+        <div class="plot-details-panel" id="plot-details">
+            <button class="close-panel-btn" id="close-details-panel" aria-label="Close">
+                <i class="fas fa-times"></i>
+            </button>
+            <h3>{% trans "Selected Plot Details" %}</h3>
+            <div class="details-content">
+                <div class="detail-row">
+                    <span class="label">{% trans "Name:" %}</span>
+                    <span id="plot-name">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">{% trans "Region:" %}</span>
+                    <span id="plot-region">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">{% trans "Size:" %}</span>
+                    <span id="plot-size">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">{% trans "Elevation:" %}</span>
+                    <span id="plot-elevation">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">{% trans "Soil Type:" %}</span>
+                    <span id="plot-soil">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">{% trans "Exposure:" %}</span>
+                    <span id="plot-exposure">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">{% trans "Price:" %}</span>
+                    <span id="plot-price">-</span>
+                </div>
+                <div class="features-section">
+                    <h4>{% trans "Included Features:" %}</h4>
+                    <ul id="plot-features-list"></ul>
+                </div>
+                <button class="btn btn-primary btn-confirm" id="confirm-selection" disabled>
+                    {% trans "Confirm Selection" %}
+                </button>
+            </div>
+        </div>
+
+        <!-- No Results -->
+        <div class="no-results" id="no-results">
+            <i class="fas fa-wine-bottle"></i>
+            <h3>{% trans "No adoption plans found" %}</h3>
+            <p>{% trans "Try adjusting your filters or search criteria" %}</p>
+        </div>
+    </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="plot-detail-modal" id="plot-detail-modal">
+    <div class="modal-content" id="modal-content">
+        <button class="modal-close" onclick="closePlotDetail()">×</button>
+        <div id="modal-body"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/vinsdelux-plot-selector-standalone.js' %}"></script>
+<script>
+// Enhanced Plot Selector with Database Integration
+class PlotSelector {
+    constructor() {
+        this.adoptionPlans = [];
+        this.filteredPlans = [];
+        this.selectedPlan = null;
+        this.currentView = 'grid';
+        this.filters = {
+            search: '',
+            region: '',
+            category: '',
+            price: '',
+            includes_visit: false,
+            includes_medallion: false,
+            includes_club: false
+        };
+        
+        this.init();
+    }
+    
+    async init() {
+        await this.loadAdoptionPlans();
+        this.setupEventListeners();
+        this.renderPlans();
+    }
+    
+    async loadAdoptionPlans() {
+        const spinner = document.getElementById('loading-spinner');
+        spinner.classList.add('active');
+        
+        try {
+            const response = await fetch('/vinsdelux/api/adoption-plans/');
+            const data = await response.json();
+            
+            this.adoptionPlans = data.adoption_plans;
+            this.filteredPlans = [...this.adoptionPlans];
+            
+            // Populate filter options
+            if (data.filters) {
+                this.populateRegionFilter(data.filters.regions);
+            }
+            
+            // Update result count
+            document.getElementById('result-count').textContent = this.filteredPlans.length;
+            
+        } catch (error) {
+            console.error('Failed to load adoption plans:', error);
+            this.showNoResults();
+        } finally {
+            spinner.classList.remove('active');
+        }
+    }
+    
+    populateRegionFilter(regions) {
+        const select = document.getElementById('region-filter');
+        select.innerHTML = '<option value="">{% trans "All Regions" %}</option>';
+        
+        regions.forEach(region => {
+            const option = document.createElement('option');
+            option.value = region;
+            option.textContent = region;
+            select.appendChild(option);
+        });
+    }
+    
+    setupEventListeners() {
+        // Search
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            this.filters.search = e.target.value;
+            this.applyFilters();
+        });
+        
+        // Filters
+        document.getElementById('region-filter').addEventListener('change', (e) => {
+            this.filters.region = e.target.value;
+            this.applyFilters();
+        });
+        
+        document.getElementById('category-filter').addEventListener('change', (e) => {
+            this.filters.category = e.target.value;
+            this.applyFilters();
+        });
+        
+        document.getElementById('price-filter').addEventListener('change', (e) => {
+            this.filters.price = e.target.value;
+            this.applyFilters();
+        });
+        
+        // Feature toggles
+        document.querySelectorAll('.feature-toggle').forEach(toggle => {
+            toggle.addEventListener('click', (e) => {
+                const feature = toggle.dataset.feature;
+                const input = toggle.querySelector('input');
+                input.checked = !input.checked;
+                toggle.classList.toggle('active', input.checked);
+                
+                if (feature === 'visit') this.filters.includes_visit = input.checked;
+                if (feature === 'medallion') this.filters.includes_medallion = input.checked;
+                if (feature === 'club') this.filters.includes_club = input.checked;
+                
+                this.applyFilters();
+            });
+        });
+        
+        // View toggle
+        document.querySelectorAll('.view-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const view = btn.dataset.view;
+                this.switchView(view);
+            });
+        });
+    }
+    
+    applyFilters() {
+        this.filteredPlans = this.adoptionPlans.filter(plan => {
+            // Search filter
+            if (this.filters.search) {
+                const searchLower = this.filters.search.toLowerCase();
+                const matchesSearch = 
+                    plan.name.toLowerCase().includes(searchLower) ||
+                    (plan.description && plan.description.toLowerCase().includes(searchLower)) ||
+                    (plan.producer.name && plan.producer.name.toLowerCase().includes(searchLower)) ||
+                    (plan.producer.region && plan.producer.region.toLowerCase().includes(searchLower));
+                
+                if (!matchesSearch) return false;
+            }
+            
+            // Region filter
+            if (this.filters.region && plan.producer.region !== this.filters.region) {
+                return false;
+            }
+            
+            // Category filter
+            if (this.filters.category && plan.category !== this.filters.category) {
+                return false;
+            }
+            
+            // Price filter
+            if (this.filters.price) {
+                const price = plan.price;
+                switch(this.filters.price) {
+                    case '0-500':
+                        if (price > 500) return false;
+                        break;
+                    case '500-1000':
+                        if (price < 500 || price > 1000) return false;
+                        break;
+                    case '1000-2000':
+                        if (price < 1000 || price > 2000) return false;
+                        break;
+                    case '2000+':
+                        if (price < 2000) return false;
+                        break;
+                }
+            }
+            
+            // Feature filters
+            if (this.filters.includes_visit && !plan.features.includes_visit) return false;
+            if (this.filters.includes_medallion && !plan.features.includes_medallion) return false;
+            if (this.filters.includes_club && !plan.features.includes_club_membership) return false;
+            
+            return true;
+        });
+        
+        // Update result count
+        document.getElementById('result-count').textContent = this.filteredPlans.length;
+        
+        // Re-render
+        this.renderPlans();
+    }
+    
+    renderPlans() {
+        const grid = document.getElementById('plots-grid');
+        const noResults = document.getElementById('no-results');
+        
+        if (this.filteredPlans.length === 0) {
+            grid.innerHTML = '';
+            noResults.classList.add('active');
+            return;
+        }
+        
+        noResults.classList.remove('active');
+        grid.innerHTML = '';
+        
+        this.filteredPlans.forEach(plan => {
+            const card = this.createPlanCard(plan);
+            grid.appendChild(card);
+        });
+    }
+    
+    createPlanCard(plan) {
+        const card = document.createElement('div');
+        card.className = `plot-card ${this.selectedPlan === plan.id ? 'selected' : ''}`;
+        card.dataset.planId = plan.id;
+        
+        // Build features HTML
+        const features = [];
+        if (plan.features.includes_visit) features.push('<span class="feature-tag"><i class="fas fa-map-marked-alt"></i> Vineyard Visit</span>');
+        if (plan.features.includes_medallion) features.push('<span class="feature-tag"><i class="fas fa-medal"></i> Medallion</span>');
+        if (plan.features.includes_club_membership) features.push('<span class="feature-tag"><i class="fas fa-users"></i> Club Member</span>');
+        
+        card.innerHTML = `
+            <div class="plot-image-container">
+                ${plan.image_url ? 
+                    `<img src="${plan.image_url}" alt="${plan.name}" class="plot-image" onerror="this.src='/static/images/journey/step_01.png'">` :
+                    `<div class="plot-image" style="background: linear-gradient(135deg, #8BC34A, #689F38); display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-wine-bottle" style="font-size: 4rem; color: white; opacity: 0.8;"></i>
+                    </div>`
+                }
+                <div class="plot-badges">
+                    <span class="producer-badge">${plan.producer.name}</span>
+                    <span class="availability-badge">Available</span>
+                </div>
+            </div>
+            
+            <div class="plot-content">
+                <h3 class="plot-title">${plan.name}</h3>
+                <div class="plot-region">
+                    <i class="fas fa-map-marker-alt"></i>
+                    ${plan.producer.region || 'France'}
+                </div>
+                
+                <p class="plot-description">${plan.description || 'Experience exceptional wine adoption with exclusive benefits.'}</p>
+                
+                <div class="plot-details">
+                    <div class="detail-item">
+                        <i class="fas fa-clock"></i>
+                        <span>${plan.duration_months} months</span>
+                    </div>
+                    <div class="detail-item">
+                        <i class="fas fa-wine-bottle"></i>
+                        <span>${plan.coffrets_per_year} coffrets/year</span>
+                    </div>
+                    ${plan.coffret && plan.coffret.name ? `
+                    <div class="detail-item">
+                        <i class="fas fa-box"></i>
+                        <span>${plan.coffret.name}</span>
+                    </div>` : ''}
+                    ${plan.category ? `
+                    <div class="detail-item">
+                        <i class="fas fa-tag"></i>
+                        <span>${plan.category}</span>
+                    </div>` : ''}
+                </div>
+                
+                ${features.length > 0 ? `
+                <div class="plot-features">
+                    ${features.join('')}
+                </div>` : ''}
+                
+                <div class="plot-footer">
+                    <div class="plot-price">
+                        <span class="price-label">Adoption Plan</span>
+                        <span class="price-value">€${plan.price}</span>
+                    </div>
+                    <div class="plot-action">
+                        <button class="btn-view-details" onclick="plotSelector.showPlanDetail(${plan.id})">
+                            <i class="fas fa-eye"></i> Details
+                        </button>
+                        <button class="btn-select ${this.selectedPlan === plan.id ? 'selected' : ''}" 
+                                onclick="plotSelector.selectPlan(${plan.id})">
+                            ${this.selectedPlan === plan.id ? '✓ Selected' : 'Select'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        return card;
+    }
+    
+    selectPlan(planId) {
+        this.selectedPlan = planId;
+        
+        // Update all cards
+        document.querySelectorAll('.plot-card').forEach(card => {
+            const cardId = parseInt(card.dataset.planId);
+            card.classList.toggle('selected', cardId === planId);
+            
+            const selectBtn = card.querySelector('.btn-select');
+            if (selectBtn) {
+                selectBtn.classList.toggle('selected', cardId === planId);
+                selectBtn.textContent = cardId === planId ? '✓ Selected' : 'Select';
+            }
+        });
+        
+        // Save selection
+        const plan = this.adoptionPlans.find(p => p.id === planId);
+        if (plan) {
+            localStorage.setItem('selected_adoption_plan', JSON.stringify(plan));
+            
+            // Trigger custom event
+            const event = new CustomEvent('adoptionPlanSelected', { detail: plan });
+            window.dispatchEvent(event);
+        }
+    }
+    
+    showPlanDetail(planId) {
+        const plan = this.adoptionPlans.find(p => p.id === planId);
+        if (!plan) return;
+        
+        const modal = document.getElementById('plot-detail-modal');
+        const modalBody = document.getElementById('modal-body');
+        
+        // Build features list
+        const features = [];
+        if (plan.features.includes_visit) {
+            features.push(`<li><i class="fas fa-map-marked-alt"></i> <strong>Vineyard Visit Included</strong>${plan.visit_details ? `: ${plan.visit_details}` : ''}</li>`);
+        }
+        if (plan.features.includes_medallion) {
+            features.push('<li><i class="fas fa-medal"></i> <strong>Personalized Medallion</strong></li>');
+        }
+        if (plan.features.includes_club_membership) {
+            features.push('<li><i class="fas fa-users"></i> <strong>Exclusive Club Membership</strong></li>');
+        }
+        
+        modalBody.innerHTML = `
+            <div style="padding: 2rem;">
+                <h2 style="margin-bottom: 1rem; color: #2c3e50;">${plan.name}</h2>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                    <div>
+                        <h3 style="color: #722f37; margin-bottom: 1rem;">Producer Information</h3>
+                        <p><strong>Name:</strong> ${plan.producer.name}</p>
+                        <p><strong>Region:</strong> ${plan.producer.region || 'France'}</p>
+                    </div>
+                    
+                    <div>
+                        <h3 style="color: #722f37; margin-bottom: 1rem;">Plan Details</h3>
+                        <p><strong>Duration:</strong> ${plan.duration_months} months</p>
+                        <p><strong>Coffrets per year:</strong> ${plan.coffrets_per_year}</p>
+                        ${plan.coffret && plan.coffret.name ? `<p><strong>Coffret:</strong> ${plan.coffret.name}</p>` : ''}
+                        ${plan.category ? `<p><strong>Wine Type:</strong> ${plan.category}</p>` : ''}
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="color: #722f37; margin-bottom: 1rem;">Description</h3>
+                    <p style="line-height: 1.6;">${plan.full_description || plan.description || 'Experience exceptional wine adoption with exclusive benefits tailored to your preferences.'}</p>
+                </div>
+                
+                ${features.length > 0 ? `
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="color: #722f37; margin-bottom: 1rem;">Included Features</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        ${features.join('')}
+                    </ul>
+                </div>` : ''}
+                
+                ${plan.welcome_kit ? `
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="color: #722f37; margin-bottom: 1rem;">Welcome Kit</h3>
+                    <p>${plan.welcome_kit}</p>
+                </div>` : ''}
+                
+                <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
+                    <h3 style="color: #722f37; margin-bottom: 1rem;">Investment</h3>
+                    <p style="font-size: 2rem; font-weight: bold; color: #2c3e50; margin: 0;">€${plan.price}</p>
+                    ${plan.avant_premiere_price ? `<p style="margin-top: 0.5rem;">Avant-Première Option: €${plan.avant_premiere_price}</p>` : ''}
+                </div>
+                
+                <div style="display: flex; gap: 1rem; justify-content: center;">
+                    <button onclick="closePlotDetail()" style="padding: 0.75rem 2rem; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        Close
+                    </button>
+                    <button onclick="plotSelector.selectPlan(${plan.id}); closePlotDetail();" 
+                            style="padding: 0.75rem 2rem; background: #722f37; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        Select This Plan
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        modal.classList.add('active');
+    }
+    
+    switchView(view) {
+        this.currentView = view;
+        
+        // Update buttons
+        document.querySelectorAll('.view-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.view === view);
+        });
+        
+        // Toggle views
+        document.getElementById('plots-grid').style.display = view === 'grid' ? 'grid' : 'none';
+        document.getElementById('map-view').classList.toggle('active', view === 'map');
+        
+        if (view === 'map') {
+            this.initMapView();
+        }
+    }
+    
+    initMapView() {
+        // Initialize map view if needed
+        // This could integrate with the canvas-based map from the previous implementation
+    }
+    
+    showNoResults() {
+        document.getElementById('plots-grid').innerHTML = '';
+        document.getElementById('no-results').classList.add('active');
+    }
+}
+
+// Comment out the original PlotSelector initialization
+// as we're using the StandalonePlotSelector from the external file
+// let plotSelector;
+// document.addEventListener('DOMContentLoaded', () => {
+//     plotSelector = new PlotSelector();
+// });
+
+// Helper functions
+function closePlotDetail() {
+    document.getElementById('plot-detail-modal').classList.remove('active');
+}
+
+// Close modal on outside click
+document.getElementById('plot-detail-modal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) {
+        closePlotDetail();
+    }
+});
+</script>
+{% endblock %}

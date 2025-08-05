@@ -68,6 +68,19 @@ class VdlProducer(models.Model):
     website = models.URLField(blank=True, null=True)
     region = models.CharField(max_length=100, blank=True)
     is_featured_on_homepage = models.BooleanField(default=False, help_text="Feature this producer on the homepage?")
+    
+    # Vineyard characteristics
+    vineyard_size = models.CharField(max_length=50, blank=True, null=True, help_text="Total vineyard size (e.g., '25 hectares')")
+    elevation = models.CharField(max_length=50, blank=True, null=True, help_text="Vineyard elevation (e.g., '150m')")
+    soil_type = models.CharField(max_length=100, blank=True, null=True, help_text="Predominant soil type (e.g., 'Clay-limestone')")
+    sun_exposure = models.CharField(max_length=50, blank=True, null=True, help_text="Primary sun exposure (e.g., 'South-facing')")
+    
+    # Map positioning for interactive vineyard map
+    map_x_position = models.IntegerField(default=50, help_text="X position on vineyard map (0-100%)")
+    map_y_position = models.IntegerField(default=50, help_text="Y position on vineyard map (0-100%)")
+    
+    # Additional vineyard features
+    vineyard_features = models.JSONField(default=list, blank=True, help_text="List of vineyard features (e.g., ['Organic certification', 'Historic estate', 'Award-winning'])")
 
     def __str__(self):
         return self.name
