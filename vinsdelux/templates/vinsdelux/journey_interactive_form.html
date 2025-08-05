@@ -1,0 +1,963 @@
+{% load static %}
+{% load i18n %}
+
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% trans "VinsDelux Interactive Journey" %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="{% static 'bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    
+    <!-- Custom Journey Game CSS -->
+    <link href="{% static 'css/vinsdelux-journey-game.css' %}" rel="stylesheet">
+    <link href="{% static 'css/vinsdelux-images-fix.css' %}" rel="stylesheet">
+    <link href="{% static 'css/vinsdelux-plot-selector.css' %}" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link href="{% static 'fontawesome/css/all.min.css' %}" rel="stylesheet">
+</head>
+<body>
+    
+    <!-- Main Journey Container -->
+    <div id="journey-game-container" class="journey-game-container">
+        
+        <!-- Background Effects -->
+        <div class="game-background">
+            <canvas id="vineyard-canvas" class="vineyard-background"></canvas>
+            <div class="parallax-layer layer-1"></div>
+            <div class="parallax-layer layer-2"></div>
+            <div class="ambient-particles"></div>
+        </div>
+        
+        <!-- Achievement Notification -->
+        <div id="achievement-popup" class="achievement-popup" aria-live="polite">
+            <div class="achievement-content">
+                <i class="achievement-icon fas fa-trophy"></i>
+                <div class="achievement-text">
+                    <h4 class="achievement-title"></h4>
+                    <p class="achievement-description"></p>
+                </div>
+                <div class="achievement-points">+<span>0</span> XP</div>
+            </div>
+        </div>
+        
+        <!-- Game Header with Progress -->
+        <header class="game-header">
+            <div class="container-fluid">
+                <div class="header-content">
+                    <!-- Logo/Brand -->
+                    <div class="game-brand">
+                        <div class="brand-logo" style="width: 180px; height: 60px; background: linear-gradient(135deg, #722f37, #d4af37); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold; border-radius: 8px;">VinsDelux</div>
+                        <span class="brand-tagline">{% trans "Your Wine Journey" %}</span>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    <div class="journey-progress-bar">
+                        <div class="progress-track">
+                            <div class="progress-fill" data-progress="0"></div>
+                            <div class="progress-milestones">
+                                <div class="milestone" data-step="1" data-unlocked="true">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span class="milestone-label">{% trans "Plot" %}</span>
+                                </div>
+                                <div class="milestone" data-step="2">
+                                    <i class="fas fa-wine-glass"></i>
+                                    <span class="milestone-label">{% trans "Personalize" %}</span>
+                                </div>
+                                <div class="milestone" data-step="3">
+                                    <i class="fas fa-seedling"></i>
+                                    <span class="milestone-label">{% trans "Production" %}</span>
+                                </div>
+                                <div class="milestone" data-step="4">
+                                    <i class="fas fa-gift"></i>
+                                    <span class="milestone-label">{% trans "Delivery" %}</span>
+                                </div>
+                                <div class="milestone" data-step="5">
+                                    <i class="fas fa-crown"></i>
+                                    <span class="milestone-label">{% trans "Legacy" %}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="progress-stats">
+                            <div class="stat-item">
+                                <i class="fas fa-star"></i>
+                                <span class="stat-value" id="user-points">0</span>
+                                <span class="stat-label">{% trans "Points" %}</span>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-clock"></i>
+                                <span class="stat-value" id="time-spent">00:00</span>
+                                <span class="stat-label">{% trans "Time" %}</span>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-percentage"></i>
+                                <span class="stat-value" id="completion-rate">0</span>
+                                <span class="stat-label">{% trans "Complete" %}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- User Menu -->
+                    <div class="user-menu">
+                        <button class="btn-save-progress" id="save-progress">
+                            <i class="fas fa-save"></i>
+                            <span>{% trans "Save" %}</span>
+                        </button>
+                        <button class="btn-help" id="show-help">
+                            <i class="fas fa-question-circle"></i>
+                        </button>
+                        <button class="btn-sound-toggle" id="toggle-sound">
+                            <i class="fas fa-volume-up"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Main Game Content -->
+        <main class="game-main">
+            <div class="container">
+                
+                <!-- Step 1: Plot Selection -->
+                <section id="step-plot-selection" class="journey-step active" data-step="1">
+                    <div class="step-content">
+                        <div class="step-header">
+                            <h2 class="step-title animate-in">{% trans "Select Your Perfect Plot" %}</h2>
+                            <p class="step-subtitle animate-in">{% trans "Explore our exclusive vineyard plots and find the one that matches your vision" %}</p>
+                        </div>
+                        
+                        <!-- Interactive Map -->
+                        <div class="plot-selection-container">
+                            <div class="vineyard-map" id="vineyard-map">
+                                <div class="map-controls">
+                                    <button class="map-zoom-in"><i class="fas fa-plus"></i></button>
+                                    <button class="map-zoom-out"><i class="fas fa-minus"></i></button>
+                                    <button class="map-reset"><i class="fas fa-sync"></i></button>
+                                </div>
+                                <canvas class="map-canvas" id="map-canvas" width="800" height="600">
+                                    <!-- Canvas for interactive vineyard map -->
+                                </canvas>
+                                <div id="map-markers" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
+                                    <!-- Interactive plot markers will be added here -->
+                                </div>
+                                <div class="map-legend">
+                                    <h4>{% trans "Terroir Types" %}</h4>
+                                    <div class="legend-item">
+                                        <span class="legend-color" style="background: #8B4513;"></span>
+                                        <span>{% trans "Clay-Limestone" %}</span>
+                                    </div>
+                                    <div class="legend-item">
+                                        <span class="legend-color" style="background: #D2691E;"></span>
+                                        <span>{% trans "Sandy" %}</span>
+                                    </div>
+                                    <div class="legend-item">
+                                        <span class="legend-color" style="background: #696969;"></span>
+                                        <span>{% trans "Granite" %}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Plot Details Panel -->
+                            <div class="plot-details-panel" id="plot-details">
+                                <div class="panel-header">
+                                    <h3>{% trans "Plot Information" %}</h3>
+                                    <button class="panel-close"><i class="fas fa-times"></i></button>
+                                </div>
+                                <div class="panel-content">
+                                    <div class="plot-image">
+                                        <img src="" alt="" id="plot-image">
+                                        <div class="image-overlay">
+                                            <button class="btn-360-view">
+                                                <i class="fas fa-street-view"></i>
+                                                {% trans "360° View" %}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="plot-info">
+                                        <h4 id="plot-name"></h4>
+                                        <div class="plot-stats">
+                                            <div class="stat">
+                                                <i class="fas fa-ruler"></i>
+                                                <span class="stat-label">{% trans "Size" %}:</span>
+                                                <span class="stat-value" id="plot-size"></span>
+                                            </div>
+                                            <div class="stat">
+                                                <i class="fas fa-mountain"></i>
+                                                <span class="stat-label">{% trans "Elevation" %}:</span>
+                                                <span class="stat-value" id="plot-elevation"></span>
+                                            </div>
+                                            <div class="stat">
+                                                <i class="fas fa-compass"></i>
+                                                <span class="stat-label">{% trans "Exposure" %}:</span>
+                                                <span class="stat-value" id="plot-exposure"></span>
+                                            </div>
+                                            <div class="stat">
+                                                <i class="fas fa-layer-group"></i>
+                                                <span class="stat-label">{% trans "Soil" %}:</span>
+                                                <span class="stat-value" id="plot-soil"></span>
+                                            </div>
+                                        </div>
+                                        <p class="plot-description" id="plot-description"></p>
+                                        <div class="plot-actions">
+                                            <button class="btn-select-plot btn-primary" data-plot-id="">
+                                                <i class="fas fa-check"></i>
+                                                {% trans "Select This Plot" %}
+                                            </button>
+                                            <button class="btn-compare-plots btn-secondary">
+                                                <i class="fas fa-balance-scale"></i>
+                                                {% trans "Compare" %}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Quick Selection Cards -->
+                        <div class="quick-selection-cards">
+                            <h3>{% trans "Featured Plots" %}</h3>
+                            <div class="plot-cards-container cards-grid">
+                                <div class="plot-card" data-plot-id="1">
+                                    <div class="card-image">
+                                        <img src="{% static 'images/journey/step_01.png' %}" alt="Château Heights">
+                                        <div class="card-badge">{% trans "Best Seller" %}</div>
+                                    </div>
+                                    <div class="card-content">
+                                        <h4>Château Heights</h4>
+                                        <p>{% trans "Premium south-facing slopes with exceptional drainage" %}</p>
+                                        <div class="card-rating">
+                                            <i class="fas fa-star"></i>
+                                            <i class="fas fa-star"></i>
+                                            <i class="fas fa-star"></i>
+                                            <i class="fas fa-star"></i>
+                                            <i class="fas fa-star"></i>
+                                            <span>5.0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="plot-card" data-plot-id="2">
+                                    <div class="card-image">
+                                        <img src="{% static 'images/journey/step_01.png' %}" alt="Valley Reserve">
+                                        <div class="card-badge">{% trans "Limited" %}</div>
+                                    </div>
+                                    <div class="card-content">
+                                        <h4>Valley Reserve</h4>
+                                        <p>{% trans "Historic vineyard with century-old vines" %}</p>
+                                        <div class="card-rating">
+                                            <i class="fas fa-star"></i>
+                                            <i class="fas fa-star"></i>
+                                            <i class="fas fa-star"></i>
+                                            <i class="fas fa-star"></i>
+                                            <i class="fas fa-star-half-alt"></i>
+                                            <span>4.8</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="plot-card" data-plot-id="3">
+                                    <div class="card-image">
+                                        <img src="{% static 'images/journey/step_01.png' %}" alt="Riverside Terroir">
+                                        <div class="card-badge">{% trans "Exclusive" %}</div>
+                                    </div>
+                                    <div class="card-content">
+                                        <h4>Riverside Terroir</h4>
+                                        <p>{% trans "Unique microclimate with morning mists" %}</p>
+                                        <div class="card-rating">
+                                            <i class="fas fa-star"></i>
+                                            <i class="fas fa-star"></i>
+                                            <i class="fas fa-star"></i>
+                                            <i class="fas fa-star"></i>
+                                            <i class="fas fa-star"></i>
+                                            <span>4.9</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Step 2: Wine Personalization -->
+                <section id="step-personalize" class="journey-step" data-step="2">
+                    <div class="step-content">
+                        <div class="step-header">
+                            <h2 class="step-title" data-animate="fade-up">{% trans "Craft Your Signature Wine" %}</h2>
+                            <p class="step-subtitle" data-animate="fade-up" data-delay="200">{% trans "Work with our master winemakers to create your unique blend" %}</p>
+                        </div>
+                        
+                        <!-- Wine Builder Interface -->
+                        <div class="wine-builder">
+                            <div class="builder-panels">
+                                <!-- Grape Selection -->
+                                <div class="builder-panel panel-grapes">
+                                    <h3>{% trans "Select Grape Varieties" %}</h3>
+                                    <div class="grape-selector">
+                                        <div class="available-grapes">
+                                            <h4>{% trans "Available Varieties" %}</h4>
+                                            <div class="grape-list" id="available-grapes">
+                                                <div class="grape-item" data-grape="cabernet-sauvignon">
+                                                    <div style="width: 80px; height: 80px; background: #722f37; color: white; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: bold;">CS</div>
+                                                    <span>Cabernet Sauvignon</span>
+                                                    <div class="grape-info">
+                                                        <i class="fas fa-info-circle"></i>
+                                                    </div>
+                                                </div>
+                                                <div class="grape-item" data-grape="merlot">
+                                                    <div style="width: 80px; height: 80px; background: #8B4513; color: white; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: bold;">M</div>
+                                                    <span>Merlot</span>
+                                                    <div class="grape-info">
+                                                        <i class="fas fa-info-circle"></i>
+                                                    </div>
+                                                </div>
+                                                <div class="grape-item" data-grape="pinot-noir">
+                                                    <div style="width: 80px; height: 80px; background: #A0522D; color: white; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: bold;">PN</div>
+                                                    <span>Pinot Noir</span>
+                                                    <div class="grape-info">
+                                                        <i class="fas fa-info-circle"></i>
+                                                    </div>
+                                                </div>
+                                                <div class="grape-item" data-grape="chardonnay">
+                                                    <div style="width: 80px; height: 80px; background: #DAA520; color: white; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: bold;">CH</div>
+                                                    <span>Chardonnay</span>
+                                                    <div class="grape-info">
+                                                        <i class="fas fa-info-circle"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Blend Composition -->
+                                        <div class="blend-composition">
+                                            <h4>{% trans "Your Blend" %}</h4>
+                                            <div class="blend-container" id="blend-container">
+                                                <div class="blend-drop-zone">
+                                                    <i class="fas fa-wine-bottle"></i>
+                                                    <p>{% trans "Drag grapes here to create your blend" %}</p>
+                                                </div>
+                                                <div class="blend-percentages" id="blend-percentages">
+                                                    <!-- Dynamic percentage sliders will appear here -->
+                                                </div>
+                                            </div>
+                                            <div class="blend-visualizer">
+                                                <canvas id="blend-chart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Winemaking Techniques -->
+                                <div class="builder-panel panel-techniques">
+                                    <h3>{% trans "Winemaking Techniques" %}</h3>
+                                    <div class="techniques-grid">
+                                        <div class="technique-option">
+                                            <input type="radio" name="fermentation" id="steel-tank" value="steel">
+                                            <label for="steel-tank">
+                                                <i class="fas fa-industry"></i>
+                                                <span>{% trans "Steel Tank" %}</span>
+                                                <p>{% trans "Clean, fruit-forward profile" %}</p>
+                                            </label>
+                                        </div>
+                                        <div class="technique-option">
+                                            <input type="radio" name="fermentation" id="oak-barrel" value="oak">
+                                            <label for="oak-barrel">
+                                                <i class="fas fa-tree"></i>
+                                                <span>{% trans "Oak Barrel" %}</span>
+                                                <p>{% trans "Complex, vanilla notes" %}</p>
+                                            </label>
+                                        </div>
+                                        <div class="technique-option">
+                                            <input type="radio" name="fermentation" id="concrete-egg" value="concrete">
+                                            <label for="concrete-egg">
+                                                <i class="fas fa-egg"></i>
+                                                <span>{% trans "Concrete Egg" %}</span>
+                                                <p>{% trans "Mineral, textured finish" %}</p>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="aging-options">
+                                        <h4>{% trans "Aging Duration" %}</h4>
+                                        <div class="aging-slider">
+                                            <input type="range" id="aging-months" min="6" max="36" value="12">
+                                            <div class="slider-labels">
+                                                <span>6 {% trans "months" %}</span>
+                                                <span class="current-value"><span id="aging-value">12</span> {% trans "months" %}</span>
+                                                <span>36 {% trans "months" %}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Wine Preview -->
+                                <div class="builder-panel panel-preview">
+                                    <h3>{% trans "Your Wine Preview" %}</h3>
+                                    <div class="wine-preview">
+                                        <div class="bottle-mockup">
+                                            <div class="bottle-base" style="width: 200px; height: 400px; background: linear-gradient(180deg, #722f37 0%, #4a1f23 100%); border-radius: 20px 20px 60px 60px; position: relative; display: flex; align-items: center; justify-content: center; color: #d4af37; font-size: 18px; font-weight: bold; text-align: center; padding: 20px;">
+                                                <div style="position: absolute; top: 20px; width: 60%; height: 30px; background: #333; border-radius: 10px;"></div>
+                                                <span>Your Wine</span>
+                                            </div>
+                                            <div class="label-preview" id="label-preview">
+                                                <h4 id="wine-name">{% trans "Your Signature Wine" %}</h4>
+                                                <p id="wine-year">2024</p>
+                                                <p id="wine-blend-text"></p>
+                                            </div>
+                                        </div>
+                                        <div class="wine-characteristics">
+                                            <h4>{% trans "Expected Profile" %}</h4>
+                                            <div class="characteristics-radar">
+                                                <canvas id="wine-profile-chart"></canvas>
+                                            </div>
+                                            <div class="tasting-notes">
+                                                <h5>{% trans "Tasting Notes" %}</h5>
+                                                <div class="notes-tags" id="tasting-notes">
+                                                    <!-- Dynamic tags based on blend -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Sommelier Assistant -->
+                            <div class="sommelier-assistant">
+                                <div class="assistant-avatar">
+                                    <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #4A4A4A, #6A6A6A); color: white; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: bold; font-size: 20px;">AI</div>
+                                    <span class="status-indicator online"></span>
+                                </div>
+                                <div class="assistant-chat">
+                                    <div class="chat-messages" id="sommelier-chat">
+                                        <div class="message sommelier">
+                                            <p>{% trans "Welcome! I'm here to help you create your perfect wine. What style are you aiming for?" %}</p>
+                                        </div>
+                                    </div>
+                                    <div class="chat-suggestions">
+                                        <button class="suggestion">{% trans "Bold & Full-bodied" %}</button>
+                                        <button class="suggestion">{% trans "Light & Elegant" %}</button>
+                                        <button class="suggestion">{% trans "Balanced & Classic" %}</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Step 3: Production Follow-up -->
+                <section id="step-production" class="journey-step" data-step="3">
+                    <div class="step-content">
+                        <div class="step-header">
+                            <h2 class="step-title" data-animate="fade-up">{% trans "Follow Your Wine's Journey" %}</h2>
+                            <p class="step-subtitle" data-animate="fade-up" data-delay="200">{% trans "Track every stage from vine to bottle" %}</p>
+                        </div>
+                        
+                        <!-- Interactive Timeline -->
+                        <div class="production-timeline">
+                            <div class="timeline-header">
+                                <h3>{% trans "Production Timeline" %}</h3>
+                                <div class="timeline-controls">
+                                    <button class="btn-play-timeline">
+                                        <i class="fas fa-play"></i>
+                                        {% trans "Play Journey" %}
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="timeline-container">
+                                <div class="timeline-track">
+                                    <div class="timeline-progress"></div>
+                                    <div class="timeline-events">
+                                        <div class="timeline-event" data-stage="pruning">
+                                            <div class="event-marker">
+                                                <i class="fas fa-cut"></i>
+                                            </div>
+                                            <div class="event-content">
+                                                <h4>{% trans "Winter Pruning" %}</h4>
+                                                <p>{% trans "January - February" %}</p>
+                                                <div class="event-media">
+                                                    <img src="{% static 'images/journey/step_03.png' %}" alt="Pruning">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="timeline-event" data-stage="budbreak">
+                                            <div class="event-marker">
+                                                <i class="fas fa-seedling"></i>
+                                            </div>
+                                            <div class="event-content">
+                                                <h4>{% trans "Bud Break" %}</h4>
+                                                <p>{% trans "March - April" %}</p>
+                                                <div class="event-media">
+                                                    <img src="{% static 'images/journey/step_03.png' %}" alt="Bud Break">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="timeline-event" data-stage="flowering">
+                                            <div class="event-marker">
+                                                <i class="fas fa-spa"></i>
+                                            </div>
+                                            <div class="event-content">
+                                                <h4>{% trans "Flowering" %}</h4>
+                                                <p>{% trans "May - June" %}</p>
+                                                <div class="event-media">
+                                                    <img src="{% static 'images/journey/step_03.png' %}" alt="Flowering">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="timeline-event" data-stage="veraison">
+                                            <div class="event-marker">
+                                                <i class="fas fa-circle"></i>
+                                            </div>
+                                            <div class="event-content">
+                                                <h4>{% trans "Veraison" %}</h4>
+                                                <p>{% trans "July - August" %}</p>
+                                                <div class="event-media">
+                                                    <img src="{% static 'images/journey/step_03.png' %}" alt="Veraison">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="timeline-event" data-stage="harvest">
+                                            <div class="event-marker">
+                                                <i class="fas fa-wine-glass"></i>
+                                            </div>
+                                            <div class="event-content">
+                                                <h4>{% trans "Harvest" %}</h4>
+                                                <p>{% trans "September - October" %}</p>
+                                                <div class="event-media">
+                                                    <img src="{% static 'images/journey/step_04.png' %}" alt="Harvest">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="timeline-event" data-stage="fermentation">
+                                            <div class="event-marker">
+                                                <i class="fas fa-flask"></i>
+                                            </div>
+                                            <div class="event-content">
+                                                <h4>{% trans "Fermentation" %}</h4>
+                                                <p>{% trans "October - November" %}</p>
+                                                <div class="event-media">
+                                                    <img src="{% static 'images/journey/step_04.png' %}" alt="Fermentation">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="timeline-event" data-stage="aging">
+                                            <div class="event-marker">
+                                                <i class="fas fa-hourglass-half"></i>
+                                            </div>
+                                            <div class="event-content">
+                                                <h4>{% trans "Aging" %}</h4>
+                                                <p>{% trans "12-24 months" %}</p>
+                                                <div class="event-media">
+                                                    <img src="{% static 'images/journey/step_04.png' %}" alt="Aging">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="timeline-event" data-stage="bottling">
+                                            <div class="event-marker">
+                                                <i class="fas fa-wine-bottle"></i>
+                                            </div>
+                                            <div class="event-content">
+                                                <h4>{% trans "Bottling" %}</h4>
+                                                <p>{% trans "Final Stage" %}</p>
+                                                <div class="event-media">
+                                                    <img src="{% static 'images/journey/step_05.png' %}" alt="Bottling">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Live Updates Dashboard -->
+                        <div class="updates-dashboard">
+                            <div class="dashboard-grid">
+                                <div class="dashboard-card weather-card">
+                                    <h4><i class="fas fa-cloud-sun"></i> {% trans "Vineyard Weather" %}</h4>
+                                    <div class="weather-display">
+                                        <div class="current-weather">
+                                            <i class="fas fa-sun weather-icon"></i>
+                                            <span class="temperature">22°C</span>
+                                        </div>
+                                        <div class="weather-details">
+                                            <div class="detail">
+                                                <i class="fas fa-tint"></i>
+                                                <span>{% trans "Humidity" %}: 65%</span>
+                                            </div>
+                                            <div class="detail">
+                                                <i class="fas fa-wind"></i>
+                                                <span>{% trans "Wind" %}: 12 km/h</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="dashboard-card photo-updates">
+                                    <h4><i class="fas fa-camera"></i> {% trans "Latest Photos" %}</h4>
+                                    <div class="photo-grid">
+                                        <img src="{% static 'images/journey/step_03.png' %}" alt="Update 1">
+                                        <img src="{% static 'images/journey/step_03.png' %}" alt="Update 2">
+                                        <img src="{% static 'images/journey/step_04.png' %}" alt="Update 3">
+                                        <img src="{% static 'images/journey/step_05.png' %}" alt="Update 4">
+                                    </div>
+                                </div>
+                                
+                                <div class="dashboard-card winemaker-notes">
+                                    <h4><i class="fas fa-user-tie"></i> {% trans "Winemaker's Notes" %}</h4>
+                                    <div class="notes-feed">
+                                        <div class="note-item">
+                                            <span class="note-date">{% trans "2 days ago" %}</span>
+                                            <p>{% trans "The vines are showing excellent growth this season..." %}</p>
+                                        </div>
+                                        <div class="note-item">
+                                            <span class="note-date">{% trans "1 week ago" %}</span>
+                                            <p>{% trans "We've completed the green harvest to ensure optimal ripening..." %}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Step 4: Delivery & Tasting -->
+                <section id="step-delivery" class="journey-step" data-step="4">
+                    <div class="step-content">
+                        <div class="step-header">
+                            <h2 class="step-title" data-animate="fade-up">{% trans "Receive Your Masterpiece" %}</h2>
+                            <p class="step-subtitle" data-animate="fade-up" data-delay="200">{% trans "White-glove delivery and exclusive tasting experience" %}</p>
+                        </div>
+                        
+                        <!-- Delivery Configuration -->
+                        <div class="delivery-configuration">
+                            <div class="config-panels">
+                                <div class="config-panel delivery-details">
+                                    <h3>{% trans "Delivery Details" %}</h3>
+                                    <form class="delivery-form">
+                                        <div class="form-group">
+                                            <label for="delivery-address">{% trans "Delivery Address" %}</label>
+                                            <input type="text" id="delivery-address" class="form-control" placeholder="{% trans 'Enter your address' %}">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="delivery-date">{% trans "Preferred Date" %}</label>
+                                            <input type="date" id="delivery-date" class="form-control">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>{% trans "Delivery Options" %}</label>
+                                            <div class="delivery-options">
+                                                <label class="option-card">
+                                                    <input type="radio" name="delivery-type" value="standard">
+                                                    <div class="option-content">
+                                                        <i class="fas fa-truck"></i>
+                                                        <span>{% trans "Standard Delivery" %}</span>
+                                                        <p>{% trans "5-7 business days" %}</p>
+                                                    </div>
+                                                </label>
+                                                <label class="option-card">
+                                                    <input type="radio" name="delivery-type" value="express">
+                                                    <div class="option-content">
+                                                        <i class="fas fa-shipping-fast"></i>
+                                                        <span>{% trans "Express Delivery" %}</span>
+                                                        <p>{% trans "2-3 business days" %}</p>
+                                                    </div>
+                                                </label>
+                                                <label class="option-card premium">
+                                                    <input type="radio" name="delivery-type" value="ceremony">
+                                                    <div class="option-content">
+                                                        <i class="fas fa-crown"></i>
+                                                        <span>{% trans "Ceremony Delivery" %}</span>
+                                                        <p>{% trans "Personal sommelier presentation" %}</p>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                                
+                                <div class="config-panel package-preview">
+                                    <h3>{% trans "Your Package" %}</h3>
+                                    <div class="package-3d-view">
+                                        <div class="package-box">
+                                            <div class="box-side front"></div>
+                                            <div class="box-side back"></div>
+                                            <div class="box-side left"></div>
+                                            <div class="box-side right"></div>
+                                            <div class="box-side top"></div>
+                                            <div class="box-side bottom"></div>
+                                        </div>
+                                    </div>
+                                    <div class="package-contents">
+                                        <h4>{% trans "Package Includes" %}</h4>
+                                        <ul class="contents-list">
+                                            <li><i class="fas fa-wine-bottle"></i> {% trans "6 bottles of your signature wine" %}</li>
+                                            <li><i class="fas fa-certificate"></i> {% trans "Certificate of authenticity" %}</li>
+                                            <li><i class="fas fa-book"></i> {% trans "Tasting guide & food pairings" %}</li>
+                                            <li><i class="fas fa-glass-cheers"></i> {% trans "Crystal wine glasses (2)" %}</li>
+                                            <li><i class="fas fa-key"></i> {% trans "Cellar membership card" %}</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Virtual Tasting Room -->
+                        <div class="virtual-tasting">
+                            <h3>{% trans "Virtual Tasting Experience" %}</h3>
+                            <div class="tasting-room">
+                                <div class="room-view">
+                                    <canvas id="tasting-room-3d"></canvas>
+                                    <div class="room-controls">
+                                        <button class="control-btn" data-action="rotate-left"><i class="fas fa-arrow-left"></i></button>
+                                        <button class="control-btn" data-action="rotate-right"><i class="fas fa-arrow-right"></i></button>
+                                        <button class="control-btn" data-action="zoom-in"><i class="fas fa-search-plus"></i></button>
+                                        <button class="control-btn" data-action="zoom-out"><i class="fas fa-search-minus"></i></button>
+                                    </div>
+                                </div>
+                                <div class="tasting-guide">
+                                    <h4>{% trans "Tasting Steps" %}</h4>
+                                    <div class="tasting-steps">
+                                        <div class="tasting-step">
+                                            <span class="step-number">1</span>
+                                            <div class="step-content">
+                                                <h5>{% trans "Visual" %}</h5>
+                                                <p>{% trans "Observe the color and clarity" %}</p>
+                                            </div>
+                                        </div>
+                                        <div class="tasting-step">
+                                            <span class="step-number">2</span>
+                                            <div class="step-content">
+                                                <h5>{% trans "Aroma" %}</h5>
+                                                <p>{% trans "Swirl and identify the bouquet" %}</p>
+                                            </div>
+                                        </div>
+                                        <div class="tasting-step">
+                                            <span class="step-number">3</span>
+                                            <div class="step-content">
+                                                <h5>{% trans "Taste" %}</h5>
+                                                <p>{% trans "Savor the flavors and texture" %}</p>
+                                            </div>
+                                        </div>
+                                        <div class="tasting-step">
+                                            <span class="step-number">4</span>
+                                            <div class="step-content">
+                                                <h5>{% trans "Finish" %}</h5>
+                                                <p>{% trans "Note the aftertaste and length" %}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Step 5: Create Legacy -->
+                <section id="step-legacy" class="journey-step" data-step="5">
+                    <div class="step-content">
+                        <div class="step-header">
+                            <h2 class="step-title" data-animate="fade-up">{% trans "Build Your Wine Legacy" %}</h2>
+                            <p class="step-subtitle">{% trans "Create a lasting heritage for generations to come" %}</p>
+                        </div>
+                        
+                        <!-- Legacy Builder -->
+                        <div class="legacy-builder">
+                            <div class="legacy-options">
+                                <div class="legacy-card">
+                                    <div class="card-icon">
+                                        <i class="fas fa-users"></i>
+                                    </div>
+                                    <h3>{% trans "Family Heritage" %}</h3>
+                                    <p>{% trans "Pass down your wine tradition through generations" %}</p>
+                                    <ul class="feature-list">
+                                        <li>{% trans "Family crest on labels" %}</li>
+                                        <li>{% trans "Annual family harvest event" %}</li>
+                                        <li>{% trans "Heritage documentation" %}</li>
+                                    </ul>
+                                    <button class="btn-select-legacy" data-legacy="family">
+                                        {% trans "Choose Family Heritage" %}
+                                    </button>
+                                </div>
+                                
+                                <div class="legacy-card">
+                                    <div class="card-icon">
+                                        <i class="fas fa-chart-line"></i>
+                                    </div>
+                                    <h3>{% trans "Investment Portfolio" %}</h3>
+                                    <p>{% trans "Build value with rare vintages and limited editions" %}</p>
+                                    <ul class="feature-list">
+                                        <li>{% trans "Market valuation tracking" %}</li>
+                                        <li>{% trans "Auction house partnerships" %}</li>
+                                        <li>{% trans "Storage in bonded warehouse" %}</li>
+                                    </ul>
+                                    <button class="btn-select-legacy" data-legacy="investment">
+                                        {% trans "Choose Investment" %}
+                                    </button>
+                                </div>
+                                
+                                <div class="legacy-card">
+                                    <div class="card-icon">
+                                        <i class="fas fa-gift"></i>
+                                    </div>
+                                    <h3>{% trans "Collector's Reserve" %}</h3>
+                                    <p>{% trans "Create an exclusive collection for special occasions" %}</p>
+                                    <ul class="feature-list">
+                                        <li>{% trans "Custom aging program" %}</li>
+                                        <li>{% trans "Numbered bottles" %}</li>
+                                        <li>{% trans "Private cellar allocation" %}</li>
+                                    </ul>
+                                    <button class="btn-select-legacy" data-legacy="collector">
+                                        {% trans "Choose Collector's" %}
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Legacy Timeline Visualization -->
+                            <div class="legacy-timeline-viz">
+                                <h3>{% trans "Your Wine Journey Through Time" %}</h3>
+                                <div class="timeline-visualization">
+                                    <canvas id="legacy-timeline-chart"></canvas>
+                                </div>
+                                <div class="milestone-badges">
+                                    <div class="badge earned">
+                                        <i class="fas fa-medal"></i>
+                                        <span>{% trans "First Vintage" %}</span>
+                                    </div>
+                                    <div class="badge">
+                                        <i class="fas fa-trophy"></i>
+                                        <span>{% trans "5 Year Member" %}</span>
+                                    </div>
+                                    <div class="badge">
+                                        <i class="fas fa-crown"></i>
+                                        <span>{% trans "Legacy Founder" %}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Final Summary -->
+                        <div class="journey-summary">
+                            <h3>{% trans "Your Journey Summary" %}</h3>
+                            <div class="summary-stats">
+                                <div class="stat-card">
+                                    <i class="fas fa-map-marked-alt"></i>
+                                    <h4 id="selected-plot-name">{% trans "Plot Selected" %}</h4>
+                                    <p>{% trans "Premium vineyard location" %}</p>
+                                </div>
+                                <div class="stat-card">
+                                    <i class="fas fa-wine-glass-alt"></i>
+                                    <h4 id="wine-blend-summary">{% trans "Your Blend" %}</h4>
+                                    <p>{% trans "Unique composition" %}</p>
+                                </div>
+                                <div class="stat-card">
+                                    <i class="fas fa-calendar-check"></i>
+                                    <h4>{% trans "Production Time" %}</h4>
+                                    <p>{% trans "18 months estimated" %}</p>
+                                </div>
+                                <div class="stat-card">
+                                    <i class="fas fa-star"></i>
+                                    <h4>{% trans "Experience Points" %}</h4>
+                                    <p><span id="total-xp">0</span> XP {% trans "earned" %}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="final-actions">
+                                <button class="btn-complete-journey btn-lg btn-primary">
+                                    <i class="fas fa-check-circle"></i>
+                                    {% trans "Complete Your Journey" %}
+                                </button>
+                                <button class="btn-share-journey btn-lg btn-secondary">
+                                    <i class="fas fa-share-alt"></i>
+                                    {% trans "Share Your Experience" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Navigation Controls -->
+                <div class="step-navigation">
+                    <button class="nav-btn btn-prev" disabled>
+                        <i class="fas fa-chevron-left"></i>
+                        <span>{% trans "Previous" %}</span>
+                    </button>
+                    <div class="step-dots">
+                        <span class="dot active" data-step="1"></span>
+                        <span class="dot" data-step="2"></span>
+                        <span class="dot" data-step="3"></span>
+                        <span class="dot" data-step="4"></span>
+                        <span class="dot" data-step="5"></span>
+                    </div>
+                    <button class="nav-btn btn-next">
+                        <span>{% trans "Next" %}</span>
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Help Modal -->
+        <div class="modal fade" id="help-modal" tabindex="-1" role="dialog">
+            <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{% trans "Journey Guide" %}</h5>
+                        <button type="button" class="close" data-dismiss="modal">
+                            <span>&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="help-content">
+                            <h6>{% trans "Keyboard Shortcuts" %}</h6>
+                            <ul class="shortcuts-list">
+                                <li><kbd>→</kbd> {% trans "Next step" %}</li>
+                                <li><kbd>←</kbd> {% trans "Previous step" %}</li>
+                                <li><kbd>S</kbd> {% trans "Save progress" %}</li>
+                                <li><kbd>H</kbd> {% trans "Show help" %}</li>
+                                <li><kbd>M</kbd> {% trans "Toggle sound" %}</li>
+                            </ul>
+                            
+                            <h6>{% trans "Tips" %}</h6>
+                            <ul>
+                                <li>{% trans "Complete each step thoroughly to earn maximum points" %}</li>
+                                <li>{% trans "Your progress is automatically saved" %}</li>
+                                <li>{% trans "Explore all options to unlock achievements" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loading-overlay">
+            <div class="loading-content">
+                <div class="wine-loader">
+                    <div class="bottle">
+                        <div class="wine-fill"></div>
+                    </div>
+                </div>
+                <p>{% trans "Loading your journey..." %}</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Plot Details Panel (Hidden by default) -->
+    <div id="plot-details-panel">
+        <!-- Content will be dynamically generated -->
+    </div>
+    
+    <!-- Scripts -->
+    <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    
+    <!-- Pass Django data to JavaScript -->
+    <script>
+        // Adoption plans data from Django
+        window.plotData = {{ plot_data|safe|default:"[]" }};
+    </script>
+    
+    <!-- Enhanced Plot Selector with Database Integration -->
+    <script src="{% static 'js/vinsdelux-plot-selector-db.js' %}"></script>
+    <!-- Using the fixed version with better error handling -->
+    <script src="{% static 'js/vinsdelux-journey-game-fixed.js' %}"></script>
+</body>
+</html>

@@ -18,8 +18,18 @@ urlpatterns = [
     # Test runner URL (for development/testing)
     path('test-journey/', views.journey_test_runner, name='journey_test_runner'),
     
+    # Interactive Journey Form
+    path('journey/interactive/', views.journey_interactive_form, name='journey_interactive_form'),
+    path('journey/test/', views.journey_test, name='journey_test'),
+    
+    # API Endpoints
+    path('api/adoption-plans/', views.api_adoption_plans, name='api_adoption_plans'),
+    
+    # Plot Selector (standalone - main plot selection page)
+    path('journey/plot-selection/', views.plot_selector, name='plot_selector'),
+    
     # Journey step landing pages
-    path('journey/plot-selection/', views.journey_step_plot_selection, name='journey_plot_selection'),
+    # Note: journey_plot_selection removed as plot_selector now handles this
     path('journey/personalize-wine/', views.journey_step_personalize_wine, name='journey_personalize_wine'),
     path('journey/follow-production/', views.journey_step_follow_production, name='journey_follow_production'),
     path('journey/receive-taste/', views.journey_step_receive_taste, name='journey_receive_taste'),
