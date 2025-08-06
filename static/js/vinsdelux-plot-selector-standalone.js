@@ -24,13 +24,63 @@ class StandalonePlotSelector {
     
     async loadPlots() {
         try {
-            // Get the current language prefix from URL
-            const pathParts = window.location.pathname.split('/');
-            const langPrefix = pathParts[1] && pathParts[1].length === 2 ? `/${pathParts[1]}` : '';
+            // Try different URL patterns based on the current page URL
+            const currentPath = window.location.pathname;
+            let apiUrl;
             
-            // Load adoption plans from API with language prefix
-            const response = await fetch(`${langPrefix}/vinsdelux/api/adoption-plans/`);
+            // Check if we're on a path with language prefix
+            const pathParts = currentPath.split('/').filter(p => p);
+            const hasLangPrefix = pathParts[0] && /^[a-z]{2}$/i.test(pathParts[0]);
+            
+            if (hasLangPrefix) {
+                // Use the existing language prefix
+                apiUrl = `/${pathParts[0]}/vinsdelux/api/adoption-plans/`;
+            } else if (currentPath.includes('/journey/plot-selection')) {
+                // Special case for journey URLs without language prefix
+                // Try without language prefix first
+                apiUrl = '/vinsdelux/api/adoption-plans/';
+            } else {
+                // Default to English
+                apiUrl = '/en/vinsdelux/api/adoption-plans/';
+            }
+            
+            console.log('Fetching adoption plans from:', apiUrl);
+            
+            // Try the first URL
+            let response = await fetch(apiUrl);
+            
+            // If that fails with 404, try with /en/ prefix as fallback
+            if (response.status === 404 && !apiUrl.includes('/en/')) {
+                console.log('First attempt failed, trying with /en/ prefix');
+                apiUrl = '/en/vinsdelux/api/adoption-plans/';
+                response = await fetch(apiUrl);
+            }
+            
+            // If still failing, try without any prefix
+            if (response.status === 404 && apiUrl !== '/vinsdelux/api/adoption-plans/') {
+                console.log('Second attempt failed, trying without language prefix');
+                apiUrl = '/vinsdelux/api/adoption-plans/';
+                response = await fetch(apiUrl);
+            }
+            
+            // Check if response is OK
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            // Check content type
+            const contentType = response.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                throw new Error("Response is not JSON!");
+            }
+            
             const data = await response.json();
+            
+            // Check if data has the expected structure
+            if (!data.adoption_plans || !Array.isArray(data.adoption_plans)) {
+                console.error('Invalid data structure:', data);
+                throw new Error('Invalid data structure received from API');
+            }
             
             // Transform API data to plot format
             this.plots = data.adoption_plans.map(plan => ({
@@ -66,9 +116,16 @@ class StandalonePlotSelector {
             
         } catch (error) {
             console.error('Failed to load adoption plans:', error);
-            // Fallback to empty state
-            this.plots = [];
-            this.showNoDataMessage();
+            
+            // Fallback to sample data for demonstration
+            this.plots = this.getSamplePlots();
+            
+            // Show warning message about using sample data
+            this.showWarningMessage('Unable to load live data. Showing sample adoption plans for demonstration.');
+            
+            // Still render the sample plots
+            this.renderPlotCards();
+            this.renderMapMarkers();
             
             // Hide loading spinner even on error
             this.hideLoadingSpinner();
@@ -94,6 +151,95 @@ class StandalonePlotSelector {
         if (container) {
             container.innerHTML = '<div class="no-data-message">No adoption plans available at this time.</div>';
         }
+    }
+    
+    showWarningMessage(message) {
+        const container = document.querySelector('.plot-cards-container');
+        if (container) {
+            const warningDiv = document.createElement('div');
+            warningDiv.className = 'alert alert-warning mb-3';
+            warningDiv.style.cssText = 'padding: 15px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; color: #856404;';
+            warningDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+            container.parentNode.insertBefore(warningDiv, container);
+        }
+    }
+    
+    getSamplePlots() {
+        // Return sample data for demonstration when API fails
+        return [
+            {
+                id: 'plot-sample-1',
+                planId: 1,
+                name: 'Château Margaux Heritage',
+                producerName: 'Château Margaux',
+                region: 'Bordeaux',
+                size: '2 hectares',
+                elevation: '250m',
+                soil: 'Clay-limestone',
+                exposure: 'South-facing',
+                price: '€2500/year',
+                features: ['Vineyard Visit', 'Personalized Medallion', 'Club Membership'],
+                vineyardFeatures: ['Organic certified', 'Historic vineyard'],
+                description: 'Experience the legendary Château Margaux with this exclusive adoption plan.',
+                x: 30,
+                y: 40,
+                includesVisit: true,
+                includesMedallion: true,
+                includesClub: true,
+                visitDetails: 'Annual private tour and tasting',
+                welcomeKit: 'Premium welcome kit with estate history book',
+                durationMonths: 12,
+                coffretsPerYear: 4
+            },
+            {
+                id: 'plot-sample-2',
+                planId: 2,
+                name: 'Burgundy Premier Cru',
+                producerName: 'Domaine de la Romanée',
+                region: 'Burgundy',
+                size: '1.5 hectares',
+                elevation: '350m',
+                soil: 'Limestone',
+                exposure: 'East-facing',
+                price: '€1800/year',
+                features: ['Vineyard Visit', 'Personalized Medallion'],
+                vineyardFeatures: ['Biodynamic', 'Premier Cru'],
+                description: 'Own a piece of Burgundy\'s finest Premier Cru vineyard.',
+                x: 60,
+                y: 30,
+                includesVisit: true,
+                includesMedallion: true,
+                includesClub: false,
+                visitDetails: 'Bi-annual visits with winemaker',
+                welcomeKit: 'Exclusive Burgundy wine accessories',
+                durationMonths: 12,
+                coffretsPerYear: 3
+            },
+            {
+                id: 'plot-sample-3',
+                planId: 3,
+                name: 'Tuscany Hills Reserve',
+                producerName: 'Villa Antinori',
+                region: 'Tuscany',
+                size: '3 hectares',
+                elevation: '400m',
+                soil: 'Galestro',
+                exposure: 'Southwest-facing',
+                price: '€2200/year',
+                features: ['Vineyard Visit', 'Club Membership'],
+                vineyardFeatures: ['DOCG certified', 'Ancient vines'],
+                description: 'Discover the magic of Tuscan winemaking with this premium adoption.',
+                x: 70,
+                y: 60,
+                includesVisit: true,
+                includesMedallion: false,
+                includesClub: true,
+                visitDetails: 'Quarterly visits with harvest participation',
+                welcomeKit: 'Italian wine culture collection',
+                durationMonths: 12,
+                coffretsPerYear: 6
+            }
+        ];
     }
     
     hideLoadingSpinner() {

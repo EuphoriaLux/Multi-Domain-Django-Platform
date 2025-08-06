@@ -17,11 +17,16 @@ from entreprinder import views as entreprinder_views
 def health_check_view(request):
     return HttpResponse("OK", status=200)
 
+from vinsdelux import views as vinsdelux_views
+
 urlpatterns = [
     path('healthz/', health_check_view, name='healthz'), # Added health check endpoint
     path('i18n/', include('django.conf.urls.i18n')),
     path('accounts/', include('allauth.urls')),  # Ensure this is outside i18n_patterns
     path('login_complete/', entreprinder_views.login_complete, name='login_complete'),  # Add this line
+    # Add journey URLs and API outside i18n_patterns for direct access
+    path('journey/plot-selection/', vinsdelux_views.plot_selector, name='plot_selector_direct'),
+    path('vinsdelux/api/adoption-plans/', vinsdelux_views.api_adoption_plans, name='api_adoption_plans_direct'),
 ]
 
 urlpatterns += i18n_patterns(
