@@ -720,113 +720,131 @@ def api_adoption_plans(request):
     from django.http import JsonResponse
     from django.db.models import Q
     from .models import VdlAdoptionPlan
+    import traceback
     
-    # Get filter parameters from request
-    producer_id = request.GET.get('producer_id')
-    region = request.GET.get('region')
-    min_price = request.GET.get('min_price')
-    max_price = request.GET.get('max_price')
-    category = request.GET.get('category')
-    includes_visit = request.GET.get('includes_visit')
-    includes_medallion = request.GET.get('includes_medallion')
-    includes_club = request.GET.get('includes_club')
-    search = request.GET.get('search')
+    try:
+        # Get filter parameters from request
+        producer_id = request.GET.get('producer_id')
+        region = request.GET.get('region')
+        min_price = request.GET.get('min_price')
+        max_price = request.GET.get('max_price')
+        category = request.GET.get('category')
+        includes_visit = request.GET.get('includes_visit')
+        includes_medallion = request.GET.get('includes_medallion')
+        includes_club = request.GET.get('includes_club')
+        search = request.GET.get('search')
+        
+        # Build query
+        plans = VdlAdoptionPlan.objects.select_related(
+            'producer', 'associated_coffret', 'category'
+        ).prefetch_related('images').filter(is_available=True)
+        
+        # Apply filters
+        if producer_id:
+            plans = plans.filter(producer_id=producer_id)
+        if region:
+            plans = plans.filter(producer__region__icontains=region)
+        if min_price:
+            try:
+                plans = plans.filter(price__gte=float(min_price))
+            except ValueError:
+                pass
+        if max_price:
+            try:
+                plans = plans.filter(price__lte=float(max_price))
+            except ValueError:
+                pass
+        if category:
+            plans = plans.filter(category__name=category)
+        if includes_visit == 'true':
+            plans = plans.filter(includes_visit=True)
+        if includes_medallion == 'true':
+            plans = plans.filter(includes_medallion=True)
+        if includes_club == 'true':
+            plans = plans.filter(includes_club_membership=True)
+        if search:
+            plans = plans.filter(
+                Q(name__icontains=search) |
+                Q(short_description__icontains=search) |
+                Q(producer__name__icontains=search) |
+                Q(producer__region__icontains=search)
+            )
+        
+        # Get available filters for the UI
+        all_regions = list(VdlAdoptionPlan.objects.filter(
+            is_available=True, producer__isnull=False
+        ).values_list('producer__region', flat=True).distinct())
+        all_regions = [r for r in all_regions if r]  # Remove None values
+        
+        all_producers = list(VdlAdoptionPlan.objects.filter(
+            is_available=True, producer__isnull=False
+        ).values_list('producer__id', 'producer__name').distinct())
+        
+        # Convert to JSON-serializable format
+        data = []
+        for plan in plans:
+            item = {
+                'id': plan.id,
+                'name': plan.name,
+                'slug': plan.slug,
+                'producer': {
+                    'id': plan.producer.id if plan.producer else None,
+                    'name': plan.producer.name if plan.producer else 'Unknown',
+                    'region': plan.producer.region if plan.producer else 'Unknown',
+                    'vineyard_size': plan.producer.vineyard_size if plan.producer else None,
+                    'elevation': plan.producer.elevation if plan.producer else None,
+                    'soil_type': plan.producer.soil_type if plan.producer else None,
+                    'sun_exposure': plan.producer.sun_exposure if plan.producer else None,
+                    'map_x': plan.producer.map_x_position if plan.producer else 50,
+                    'map_y': plan.producer.map_y_position if plan.producer else 50,
+                    'vineyard_features': plan.producer.vineyard_features if plan.producer else [],
+                },
+                'price': float(plan.price),
+                'duration_months': plan.duration_months,
+                'coffrets_per_year': plan.coffrets_per_year,
+                'description': plan.short_description,
+                'full_description': plan.full_description,
+                'features': {
+                    'includes_visit': plan.includes_visit,
+                    'includes_medallion': plan.includes_medallion,
+                    'includes_club_membership': plan.includes_club_membership,
+                },
+                'visit_details': plan.visit_details,
+                'welcome_kit': plan.welcome_kit_description,
+                'coffret': {
+                    'name': plan.associated_coffret.name if plan.associated_coffret else None,
+                    'price': float(plan.associated_coffret.price) if plan.associated_coffret and plan.associated_coffret.price else None,
+                },
+                'category': plan.category.get_name_display() if plan.category else None,
+                'image_url': plan.main_image.url if plan.main_image else None,
+                'avant_premiere_price': float(plan.avant_premiere_price) if plan.avant_premiere_price else None,
+            }
+            data.append(item)
     
-    # Build query
-    plans = VdlAdoptionPlan.objects.select_related(
-        'producer', 'associated_coffret', 'category'
-    ).prefetch_related('images').filter(is_available=True)
-    
-    # Apply filters
-    if producer_id:
-        plans = plans.filter(producer_id=producer_id)
-    if region:
-        plans = plans.filter(producer__region__icontains=region)
-    if min_price:
-        try:
-            plans = plans.filter(price__gte=float(min_price))
-        except ValueError:
-            pass
-    if max_price:
-        try:
-            plans = plans.filter(price__lte=float(max_price))
-        except ValueError:
-            pass
-    if category:
-        plans = plans.filter(category__name=category)
-    if includes_visit == 'true':
-        plans = plans.filter(includes_visit=True)
-    if includes_medallion == 'true':
-        plans = plans.filter(includes_medallion=True)
-    if includes_club == 'true':
-        plans = plans.filter(includes_club_membership=True)
-    if search:
-        plans = plans.filter(
-            Q(name__icontains=search) |
-            Q(short_description__icontains=search) |
-            Q(producer__name__icontains=search) |
-            Q(producer__region__icontains=search)
-        )
-    
-    # Get available filters for the UI
-    all_regions = list(VdlAdoptionPlan.objects.filter(
-        is_available=True, producer__isnull=False
-    ).values_list('producer__region', flat=True).distinct())
-    all_regions = [r for r in all_regions if r]  # Remove None values
-    
-    all_producers = list(VdlAdoptionPlan.objects.filter(
-        is_available=True, producer__isnull=False
-    ).values_list('producer__id', 'producer__name').distinct())
-    
-    # Convert to JSON-serializable format
-    data = []
-    for plan in plans:
-        item = {
-            'id': plan.id,
-            'name': plan.name,
-            'slug': plan.slug,
-            'producer': {
-                'id': plan.producer.id if plan.producer else None,
-                'name': plan.producer.name if plan.producer else 'Unknown',
-                'region': plan.producer.region if plan.producer else 'Unknown',
-                'vineyard_size': plan.producer.vineyard_size if plan.producer else None,
-                'elevation': plan.producer.elevation if plan.producer else None,
-                'soil_type': plan.producer.soil_type if plan.producer else None,
-                'sun_exposure': plan.producer.sun_exposure if plan.producer else None,
-                'map_x': plan.producer.map_x_position if plan.producer else 50,
-                'map_y': plan.producer.map_y_position if plan.producer else 50,
-                'vineyard_features': plan.producer.vineyard_features if plan.producer else [],
-            },
-            'price': float(plan.price),
-            'duration_months': plan.duration_months,
-            'coffrets_per_year': plan.coffrets_per_year,
-            'description': plan.short_description,
-            'full_description': plan.full_description,
-            'features': {
-                'includes_visit': plan.includes_visit,
-                'includes_medallion': plan.includes_medallion,
-                'includes_club_membership': plan.includes_club_membership,
-            },
-            'visit_details': plan.visit_details,
-            'welcome_kit': plan.welcome_kit_description,
-            'coffret': {
-                'name': plan.associated_coffret.name if plan.associated_coffret else None,
-                'price': float(plan.associated_coffret.price) if plan.associated_coffret and plan.associated_coffret.price else None,
-            },
-            'category': plan.category.get_name_display() if plan.category else None,
-            'image_url': plan.main_image.url if plan.main_image else None,
-            'avant_premiere_price': float(plan.avant_premiere_price) if plan.avant_premiere_price else None,
-        }
-        data.append(item)
-    
-    return JsonResponse({
-        'adoption_plans': data,
-        'filters': {
-            'regions': all_regions,
-            'producers': [{'id': p[0], 'name': p[1]} for p in all_producers],
-            'total_count': len(data)
-        }
-    })
+        return JsonResponse({
+            'adoption_plans': data,
+            'filters': {
+                'regions': all_regions,
+                'producers': [{'id': p[0], 'name': p[1]} for p in all_producers],
+                'total_count': len(data)
+            }
+        })
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error in api_adoption_plans: {str(e)}")
+        print(traceback.format_exc())
+        
+        # Return a proper JSON error response
+        return JsonResponse({
+            'error': 'Failed to load adoption plans',
+            'message': str(e) if request.GET.get('debug') else 'An error occurred while loading the data',
+            'adoption_plans': [],
+            'filters': {
+                'regions': [],
+                'producers': [],
+                'total_count': 0
+            }
+        }, status=500)
 
 def journey_test(request):
     """
