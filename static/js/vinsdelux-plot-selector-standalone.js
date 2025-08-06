@@ -24,42 +24,46 @@ class StandalonePlotSelector {
     
     async loadPlots() {
         try {
-            // Try different URL patterns based on the current page URL
+            // Detect if we're on vinsdelux.com domain (production)
+            const hostname = window.location.hostname;
+            const isVinsDeluxDomain = hostname.includes('vinsdelux.com');
             const currentPath = window.location.pathname;
             let apiUrl;
             
-            // Check if we're on a path with language prefix
-            const pathParts = currentPath.split('/').filter(p => p);
-            const hasLangPrefix = pathParts[0] && /^[a-z]{2}$/i.test(pathParts[0]);
-            
-            if (hasLangPrefix) {
-                // Use the existing language prefix
-                apiUrl = `/${pathParts[0]}/vinsdelux/api/adoption-plans/`;
-            } else if (currentPath.includes('/journey/plot-selection')) {
-                // Special case for journey URLs without language prefix
-                // Try without language prefix first
-                apiUrl = '/vinsdelux/api/adoption-plans/';
+            if (isVinsDeluxDomain) {
+                // On vinsdelux.com, the API is at the root (no /vinsdelux prefix needed)
+                apiUrl = '/api/adoption-plans/';
+                console.log('Detected vinsdelux.com domain, using root API path');
             } else {
-                // Default to English
-                apiUrl = '/en/vinsdelux/api/adoption-plans/';
+                // For local development or other domains
+                const pathParts = currentPath.split('/').filter(p => p);
+                const hasLangPrefix = pathParts[0] && /^[a-z]{2}$/i.test(pathParts[0]);
+                
+                if (hasLangPrefix) {
+                    // Use the existing language prefix
+                    apiUrl = `/${pathParts[0]}/vinsdelux/api/adoption-plans/`;
+                } else {
+                    // Try without language prefix first
+                    apiUrl = '/vinsdelux/api/adoption-plans/';
+                }
             }
             
             console.log('Fetching adoption plans from:', apiUrl);
             
-            // Try the first URL
+            // Try the primary URL
             let response = await fetch(apiUrl);
             
-            // If that fails with 404, try with /en/ prefix as fallback
-            if (response.status === 404 && !apiUrl.includes('/en/')) {
-                console.log('First attempt failed, trying with /en/ prefix');
-                apiUrl = '/en/vinsdelux/api/adoption-plans/';
+            // If on vinsdelux.com and still getting 404, try with vinsdelux prefix as fallback
+            if (isVinsDeluxDomain && response.status === 404) {
+                console.log('First attempt failed, trying with /vinsdelux prefix');
+                apiUrl = '/vinsdelux/api/adoption-plans/';
                 response = await fetch(apiUrl);
             }
             
-            // If still failing, try without any prefix
-            if (response.status === 404 && apiUrl !== '/vinsdelux/api/adoption-plans/') {
-                console.log('Second attempt failed, trying without language prefix');
-                apiUrl = '/vinsdelux/api/adoption-plans/';
+            // If not on vinsdelux domain and failing, try other patterns
+            if (!isVinsDeluxDomain && response.status === 404) {
+                console.log('First attempt failed, trying with /en/ prefix');
+                apiUrl = '/en/vinsdelux/api/adoption-plans/';
                 response = await fetch(apiUrl);
             }
             
