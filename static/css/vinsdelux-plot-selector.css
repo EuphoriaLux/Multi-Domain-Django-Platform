@@ -4,9 +4,10 @@
 
 /* Plot Selection Container */
 .plot-selection-container {
-    padding: 20px;
-    background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+    padding: 30px 20px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
     min-height: 100vh;
+    position: relative;
 }
 
 /* Filters Section */
@@ -79,10 +80,15 @@
 .map-container {
     background: white;
     border-radius: 20px;
-    padding: 20px;
+    padding: 25px;
     margin-bottom: 30px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
     position: relative;
+    transition: all 0.3s ease;
+}
+
+.map-container:hover {
+    box-shadow: 0 12px 48px rgba(0,0,0,0.12);
 }
 
 #map-canvas {
@@ -129,29 +135,48 @@
 /* Plot Cards Grid */
 .plot-cards-container {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
     margin-bottom: 30px;
+    padding: 0 5px;
+}
+
+@media (min-width: 1400px) {
+    .plot-cards-container {
+        grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .plot-cards-container {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
 }
 
 /* Enhanced Plot Card */
 .plot-card {
     background: white;
-    border-radius: 20px;
+    border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
     position: relative;
+    cursor: pointer;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 .plot-card:hover {
-    transform: translateY(-10px) scale(1.02);
-    box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+    transform: translateY(-8px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.15);
 }
 
 .plot-card.selected {
     border: 3px solid #d4af37;
-    box-shadow: 0 20px 50px rgba(212, 175, 55, 0.3);
+    box-shadow: 0 12px 40px rgba(212, 175, 55, 0.25);
+    transform: translateY(-4px);
 }
 
 .plot-card.unavailable {
@@ -235,7 +260,10 @@
 }
 
 .plot-card-body {
-    padding: 15px;
+    padding: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .plot-name {
@@ -256,11 +284,11 @@
 .plot-details {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    margin-bottom: 20px;
-    padding: 20px;
+    gap: 12px;
+    margin-bottom: 15px;
+    padding: 15px;
     background: #f8f9fa;
-    border-radius: 12px;
+    border-radius: 10px;
 }
 
 .detail-item {
@@ -383,31 +411,49 @@
     cursor: not-allowed;
 }
 
-/* Plot Details Panel */
-#plot-details-panel {
+/* Plot Details Panel - Improved Sidebar */
+#plot-details-panel,
+.plot-details-panel {
     position: fixed;
-    right: -500px;
-    top: 0;
-    width: 500px;
-    height: 100vh;
+    right: -450px;
+    top: 80px;
+    width: 420px;
+    height: calc(100vh - 100px);
     background: white;
-    box-shadow: -10px 0 30px rgba(0,0,0,0.2);
-    transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border-radius: 16px 0 0 16px;
+    box-shadow: -8px 0 32px rgba(0,0,0,0.15);
+    transition: right 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     z-index: 1000;
     overflow-y: auto;
+    overflow-x: hidden;
 }
 
-#plot-details-panel.active {
+#plot-details-panel.active,
+.plot-details-panel.active {
     right: 0;
+}
+
+@media (max-width: 768px) {
+    #plot-details-panel,
+    .plot-details-panel {
+        width: 100%;
+        right: -100%;
+        top: 0;
+        height: 100vh;
+        border-radius: 0;
+    }
 }
 
 .plot-details-header {
     background: linear-gradient(135deg, #722f37, #8e3a42);
     color: white;
-    padding: 30px;
+    padding: 25px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 .plot-details-header h2 {
@@ -423,7 +469,11 @@
 }
 
 .plot-details-content {
-    padding: 30px;
+    padding: 25px;
+}
+
+.details-content {
+    padding: 25px;
 }
 
 .details-section {
@@ -523,23 +573,35 @@
     color: #722f37;
 }
 
-.btn-confirm-selection {
+.btn-confirm-selection,
+.btn-confirm {
     width: 100%;
-    padding: 20px;
+    padding: 16px;
     background: linear-gradient(135deg, #d4af37, #f4e49c);
     color: #2d1810;
     border: none;
-    border-radius: 12px;
-    font-size: 18px;
-    font-weight: 700;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.3s;
-    margin-top: 30px;
+    margin-top: 20px;
+    position: sticky;
+    bottom: 20px;
 }
 
-.btn-confirm-selection:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 30px rgba(212, 175, 55, 0.4);
+.btn-confirm-selection:hover:not(:disabled),
+.btn-confirm:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(212, 175, 55, 0.35);
+}
+
+.btn-confirm-selection:disabled,
+.btn-confirm:disabled {
+    background: #e9ecef;
+    color: #6c757d;
+    cursor: not-allowed;
+    transform: none;
 }
 
 /* Comparison Panel */
@@ -624,42 +686,221 @@
 }
 
 /* Animations */
-@keyframes pulse {
-    0% {
-        transform: scale(1);
+/* Remove pulse animation for selected cards as it's distracting */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
     }
-    50% {
-        transform: scale(1.05);
-    }
-    100% {
-        transform: scale(1);
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
 
-.plot-card.selected {
-    animation: pulse 2s infinite;
+.plot-card {
+    animation: fadeIn 0.5s ease backwards;
+}
+
+.plot-card:nth-child(n) {
+    animation-delay: calc(0.05s * var(--index, 1));
 }
 
 /* Loading State */
-.plot-loading {
+.plot-loading,
+.loading-spinner {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 400px;
+    min-height: 400px;
+    flex-direction: column;
+    gap: 20px;
 }
 
-.plot-loading::after {
+.plot-loading::after,
+.spinner {
     content: '';
-    width: 50px;
-    height: 50px;
-    border: 5px solid #f0f0f0;
+    width: 48px;
+    height: 48px;
+    border: 4px solid #f0f0f0;
     border-top-color: #722f37;
     border-radius: 50%;
     animation: spin 1s linear infinite;
+}
+
+.loading-spinner.active {
+    display: flex;
+}
+
+.loading-spinner:not(.active) {
+    display: none;
 }
 
 @keyframes spin {
     to {
         transform: rotate(360deg);
     }
+}
+
+/* Map Integration Improvements */
+.map-wrapper {
+    position: relative;
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+.map-placeholder {
+    position: relative;
+    width: 100%;
+    height: 500px;
+    background: linear-gradient(135deg, #f0f4f7 0%, #e1e8ed 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.map-placeholder::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px),
+        repeating-linear-gradient(-45deg, transparent, transparent 35px, rgba(0,0,0,.03) 35px, rgba(0,0,0,.03) 70px);
+    pointer-events: none;
+}
+
+.map-message {
+    text-align: center;
+    z-index: 1;
+    padding: 30px;
+    background: rgba(255,255,255,0.95);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+.map-message i {
+    font-size: 48px;
+    color: #722f37;
+    margin-bottom: 15px;
+}
+
+.map-message h4 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+    font-size: 20px;
+}
+
+.map-message p {
+    color: #6c757d;
+    font-size: 14px;
+    margin: 0;
+}
+
+/* Interactive Map Styles (for future API integration) */
+.interactive-map {
+    width: 100%;
+    height: 500px;
+    border-radius: 12px;
+    position: relative;
+}
+
+.map-overlay-controls {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 500;
+}
+
+.map-control-btn {
+    width: 42px;
+    height: 42px;
+    background: white;
+    border: 2px solid #dee2e6;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 18px;
+    color: #495057;
+}
+
+.map-control-btn:hover {
+    background: #722f37;
+    border-color: #722f37;
+    color: white;
+    transform: scale(1.1);
+}
+
+.map-legend {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    background: rgba(255,255,255,0.95);
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    max-width: 200px;
+}
+
+.map-legend h5 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #495057;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.legend-marker {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Improved Close Button */
+.close-panel-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 36px;
+    height: 36px;
+    background: rgba(255,255,255,0.1);
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    color: white;
+    font-size: 20px;
+    z-index: 11;
+}
+
+.close-panel-btn:hover {
+    background: rgba(255,255,255,0.2);
+    border-color: rgba(255,255,255,0.4);
+    transform: rotate(90deg);
 }

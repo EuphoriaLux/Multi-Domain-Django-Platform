@@ -811,6 +811,7 @@ def api_adoption_plans(request):
                 },
                 'visit_details': plan.visit_details,
                 'welcome_kit': plan.welcome_kit_description,
+                'images': plan.get_images_or_defaults(),
                 'coffret': {
                     'name': plan.associated_coffret.name if plan.associated_coffret else None,
                     'price': float(plan.associated_coffret.price) if plan.associated_coffret and plan.associated_coffret.price else None,

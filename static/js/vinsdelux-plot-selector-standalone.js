@@ -109,7 +109,18 @@ class StandalonePlotSelector {
                 visitDetails: plan.visit_details,
                 welcomeKit: plan.welcome_kit,
                 durationMonths: plan.duration_months,
-                coffretsPerYear: plan.coffrets_per_year
+                coffretsPerYear: plan.coffrets_per_year,
+                // Add wine and coffret information
+                wineTypes: plan.producer.wine_types || [],
+                grapeVarieties: plan.producer.grape_varieties || [],
+                coffret: plan.coffret || null,
+                availableCoffrets: plan.available_coffrets || [],
+                producerDescription: plan.producer.description || '',
+                category: plan.category || 'Mixed',
+                // Add images data
+                images: plan.images || [],
+                primaryImage: this.getPrimaryImage(plan),
+                imageUrl: plan.image_url // Fallback to main image
             }));
             
             this.renderPlotCards();
@@ -148,6 +159,61 @@ class StandalonePlotSelector {
         }
         
         return features;
+    }
+    
+    getPrimaryImage(plan) {
+        // Check for uploaded images first (for initial display)
+        if (plan.images && plan.images.length > 0) {
+            // Find primary uploaded image
+            const primaryImg = plan.images.find(img => img.is_primary && !img.is_default);
+            if (primaryImg && primaryImg.url) {
+                return primaryImg.url;
+            }
+            // Return first uploaded image if no primary
+            const firstUploaded = plan.images.find(img => !img.is_default);
+            if (firstUploaded && firstUploaded.url) {
+                return firstUploaded.url;
+            }
+        }
+        
+        // Fallback to image_url if exists
+        if (plan.image_url) {
+            return plan.image_url;
+        }
+        
+        // Otherwise use default vineyard image
+        return `/static/images/vineyard-defaults/vineyard_01.jpg`;
+    }
+    
+    getRotatingImages(plot) {
+        const images = [];
+        
+        // Check if plot has uploaded images
+        if (plot.images && plot.images.length > 0) {
+            // Filter out default images and get uploaded ones
+            const uploadedImages = plot.images.filter(img => !img.is_default && img.url);
+            
+            if (uploadedImages.length > 0) {
+                // Use uploaded images, repeat them if less than 5
+                for (let i = 0; i < 5; i++) {
+                    const img = uploadedImages[i % uploadedImages.length];
+                    images.push(img.url);
+                }
+                return images;
+            }
+        }
+        
+        // If no uploaded images, use the 5 default vineyard placeholders
+        for (let i = 1; i <= 5; i++) {
+            images.push(`/static/images/vineyard-defaults/vineyard_0${i}.jpg`);
+        }
+        
+        return images;
+    }
+    
+    determineImageSet(plot) {
+        // Always use the vineyard image set since there are no different regions/categories
+        return 'vineyard';
     }
     
     showNoDataMessage() {
@@ -304,24 +370,57 @@ class StandalonePlotSelector {
     }
     
     renderPlotCards() {
-        const container = document.querySelector('.plot-cards-container');
-        if (!container) return;
+        // Use plots-grid as the main container for cards
+        const container = document.getElementById('plots-grid');
+        if (!container) {
+            console.error('Could not find plots-grid container');
+            return;
+        }
         
         container.innerHTML = '';
         
-        this.plots.forEach(plot => {
+        this.plots.forEach((plot, index) => {
             const card = document.createElement('div');
             card.className = 'plot-card';
             card.dataset.plotId = plot.id;
+            card.style.setProperty('--index', index + 1);
+            
+            // Get images for this plot
+            const images = this.getRotatingImages(plot);
+            
+            // For variety, start each card at a different image in the rotation
+            let startingIndex = 0;
+            let primaryImage = plot.primaryImage;
+            
+            if (!primaryImage && images.length > 0) {
+                // Calculate starting index based on card position
+                startingIndex = index % images.length;
+                primaryImage = images[startingIndex];
+            }
+            primaryImage = primaryImage || '/static/images/vineyard-defaults/vineyard_01.jpg';
+            
+            // Create image carousel container
+            const imageCarouselHtml = images.length > 1 ? `
+                <div class="image-indicators" style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; z-index: 5;">
+                    ${images.map((_, idx) => `
+                        <span class="indicator" data-index="${idx}" style="width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,${idx === 0 ? '1' : '0.5'}); cursor: pointer; transition: all 0.3s;"></span>
+                    `).join('')}
+                </div>
+            ` : '';
             
             card.innerHTML = `
-                <div class="card-image">
-                    <img src="/static/images/journey/step_01.png" alt="${plot.name}">
-                    <div class="card-badge">${plot.region}</div>
+                <div class="card-image" style="position: relative; height: 180px; overflow: hidden; background: linear-gradient(135deg, #8BC34A, #689F38);">
+                    <div class="image-carousel" data-images='${JSON.stringify(images)}' data-current="0">
+                        <img src="${primaryImage}" alt="${plot.name}" style="width: 100%; height: 100%; object-fit: cover; transition: opacity 0.5s;" onerror="this.src='/static/images/journey/step_01.png'">
+                    </div>
+                    ${imageCarouselHtml}
+                    <div class="card-badge" style="position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.95); padding: 6px 12px; border-radius: 20px; font-size: 0.875rem; font-weight: 600; color: #495057;">
+                        ${plot.region}
+                    </div>
                 </div>
                 <div class="card-content">
-                    <h3>${plot.name}</h3>
-                    <p class="plot-description">${plot.description}</p>
+                    <h3 style="font-size: 1.25rem; margin-bottom: 0.75rem; color: #2c3e50;">${plot.name}</h3>
+                    <p class="plot-description" style="color: #6c757d; line-height: 1.5; margin-bottom: 1rem; flex: 1;">${plot.description}</p>
                     <div class="plot-features">
                         <div class="feature-item">
                             <i class="fas fa-mountain"></i>
@@ -339,14 +438,78 @@ class StandalonePlotSelector {
                     <div class="plot-highlights">
                         ${plot.features.map(f => `<span class="highlight-tag">${f}</span>`).join('')}
                     </div>
-                    <div class="plot-footer">
-                        <span class="plot-price">${plot.price}</span>
-                        <button class="btn-select-plot">Select Plot</button>
+                    <div class="plot-footer" style="display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; margin-top: auto; border-top: 1px solid #e9ecef;">
+                        <span class="plot-price" style="font-size: 1.5rem; font-weight: 700; color: #722f37;">${plot.price}</span>
+                        <button class="btn-select-plot" style="padding: 0.625rem 1.25rem; background: #722f37; color: white; border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s; font-weight: 500;" 
+                                onmouseover="this.style.background='#5a242a'" 
+                                onmouseout="this.style.background='#722f37'">
+                            Select Plot
+                        </button>
                     </div>
                 </div>
             `;
             
             container.appendChild(card);
+            
+            // Add carousel functionality if multiple images
+            if (images.length > 1) {
+                // Pass the starting index so each card starts at a different image
+                this.setupImageCarousel(card, images, startingIndex);
+            }
+        });
+    }
+    
+    setupImageCarousel(card, images, startingIndex = 0) {
+        const carousel = card.querySelector('.image-carousel');
+        const img = carousel.querySelector('img');
+        const indicators = card.querySelectorAll('.indicator');
+        let currentIndex = startingIndex;
+        let interval;
+        
+        // Set the initial indicator to match starting index
+        indicators.forEach((ind, idx) => {
+            ind.style.background = `rgba(255,255,255,${idx === startingIndex ? '1' : '0.5'})`;
+        });
+        
+        // Function to change image
+        const changeImage = (index) => {
+            currentIndex = index % images.length;
+            img.style.opacity = '0';
+            setTimeout(() => {
+                img.src = images[currentIndex];
+                img.style.opacity = '1';
+            }, 200);
+            
+            // Update indicators
+            indicators.forEach((ind, idx) => {
+                ind.style.background = `rgba(255,255,255,${idx === currentIndex ? '1' : '0.5'})`;
+            });
+            
+            carousel.dataset.current = currentIndex;
+        };
+        
+        // Auto-rotate images
+        const startRotation = () => {
+            interval = setInterval(() => {
+                changeImage(currentIndex + 1);
+            }, 3000); // Change every 3 seconds
+        };
+        
+        const stopRotation = () => {
+            if (interval) clearInterval(interval);
+        };
+        
+        // Start rotation on hover
+        card.addEventListener('mouseenter', startRotation);
+        card.addEventListener('mouseleave', stopRotation);
+        
+        // Click on indicators
+        indicators.forEach((indicator, index) => {
+            indicator.addEventListener('click', (e) => {
+                e.stopPropagation();
+                stopRotation();
+                changeImage(index);
+            });
         });
     }
     
@@ -435,30 +598,221 @@ class StandalonePlotSelector {
         const panel = document.getElementById('plot-details');
         if (!panel) return;
         
-        panel.classList.add('active');
+        // Smooth animation
+        requestAnimationFrame(() => {
+            panel.classList.add('active');
+        });
         
-        const elements = {
-            '#plot-name': plot.name,
+        // Update producer information
+        const producerElements = {
+            '#producer-name': plot.producerName,
+            '#plot-region': plot.region,
             '#plot-size': plot.size,
             '#plot-elevation': plot.elevation,
-            '#plot-exposure': plot.exposure,
             '#plot-soil': plot.soil,
-            '#plot-region': plot.region,
             '#plot-price': plot.price
         };
         
-        Object.entries(elements).forEach(([selector, value]) => {
+        Object.entries(producerElements).forEach(([selector, value]) => {
             const element = document.querySelector(selector);
-            if (element) element.textContent = value;
+            if (element) element.textContent = value || '-';
         });
         
-        // Update features list
+        // Update adoption plan details
+        const durationEl = document.getElementById('plan-duration');
+        const deliveriesEl = document.getElementById('plan-deliveries');
+        if (durationEl) durationEl.textContent = `${plot.durationMonths || 12} months`;
+        if (deliveriesEl) deliveriesEl.textContent = `${plot.coffretsPerYear || 4} coffrets`;
+        
+        // Display wine types
+        const wineTypesContainer = document.getElementById('wine-types-container');
+        if (wineTypesContainer) {
+            const wineTypes = this.getWineTypesForPlot(plot);
+            wineTypesContainer.innerHTML = `
+                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                    ${wineTypes.map(type => `
+                        <div style="background: linear-gradient(135deg, #722f37, #8e3a42); color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem;">
+                            <i class="fas fa-wine-glass-alt"></i> ${type}
+                        </div>
+                    `).join('')}
+                </div>
+                ${wineTypes.length === 0 ? '<p style="color: #6c757d;">Wine types will be confirmed upon selection</p>' : ''}
+            `;
+        }
+        
+        // Display coffret options
+        const coffretContainer = document.getElementById('coffret-options');
+        if (coffretContainer) {
+            const coffretOptions = this.getCoffretOptionsForPlot(plot);
+            coffretContainer.innerHTML = `
+                <div style="display: grid; gap: 15px;">
+                    ${coffretOptions.map((coffret, index) => `
+                        <div class="coffret-option" data-coffret-id="${index}">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <div style="flex: 1;">
+                                    <h5 style="margin: 0 0 8px 0; color: #2c3e50; font-size: 1.1rem;">
+                                        ${coffret.name}
+                                    </h5>
+                                    <p style="margin: 0 0 10px 0; color: #6c757d; font-size: 0.9rem; line-height: 1.4;">
+                                        ${coffret.description}
+                                    </p>
+                                    <div style="display: flex; align-items: center; gap: 15px;">
+                                        <span style="display: inline-flex; align-items: center; gap: 5px; color: #722f37;">
+                                            <i class="fas fa-wine-bottle"></i>
+                                            <strong>${coffret.bottles}</strong> bottles
+                                        </span>
+                                        ${coffret.price ? `
+                                            <span style="color: #d4af37; font-weight: 600;">
+                                                ${coffret.price}
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                                <div style="display: flex; align-items: center; justify-content: center; width: 40px; height: 40px;">
+                                    <div class="coffret-selector" style="width: 24px; height: 24px; border: 2px solid #dee2e6; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.3s;">
+                                        <div style="width: 12px; height: 12px; border-radius: 50%; background: #d4af37; opacity: 0; transition: all 0.3s;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                ${coffretOptions.length === 0 ? '<p style="color: #6c757d; text-align: center; padding: 20px;">Coffret options will be available after selection</p>' : ''}
+            `;
+            
+            // Add click handlers for coffret selection
+            coffretContainer.querySelectorAll('.coffret-option').forEach(option => {
+                option.addEventListener('click', (e) => {
+                    // Remove previous selection
+                    coffretContainer.querySelectorAll('.coffret-option').forEach(opt => {
+                        opt.classList.remove('selected');
+                        const selector = opt.querySelector('.coffret-selector div');
+                        if (selector) selector.style.opacity = '0';
+                    });
+                    
+                    // Add selection to clicked option
+                    option.classList.add('selected');
+                    const selector = option.querySelector('.coffret-selector div');
+                    if (selector) selector.style.opacity = '1';
+                    
+                    // Store selected coffret
+                    this.selectedCoffret = coffretOptions[parseInt(option.dataset.coffretId)];
+                });
+            });
+            
+            // Auto-select first coffret if only one available
+            if (coffretOptions.length === 1) {
+                const firstOption = coffretContainer.querySelector('.coffret-option');
+                if (firstOption) firstOption.click();
+            }
+        }
+        
+        // Update features list with better styling
         const featuresList = document.getElementById('plot-features-list');
         if (featuresList) {
             featuresList.innerHTML = plot.features
-                .map(f => `<li><i class="fas fa-check"></i> ${f}</li>`)
+                .map(f => `
+                    <li style="padding: 8px 0; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-check-circle" style="color: #4caf50;"></i>
+                        <span>${f}</span>
+                    </li>
+                `)
                 .join('');
         }
+    }
+    
+    // Helper method to get wine types for a plot
+    getWineTypesForPlot(plot) {
+        // First check if we have wine types from the API
+        if (plot.wineTypes && plot.wineTypes.length > 0) {
+            return plot.wineTypes;
+        }
+        
+        // Check grape varieties as fallback
+        if (plot.grapeVarieties && plot.grapeVarieties.length > 0) {
+            return plot.grapeVarieties;
+        }
+        
+        // Use category information
+        if (plot.category) {
+            if (plot.category.toLowerCase().includes('red')) {
+                return ['Red Wine Selection'];
+            } else if (plot.category.toLowerCase().includes('white')) {
+                return ['White Wine Selection'];
+            } else if (plot.category.toLowerCase().includes('rosé')) {
+                return ['Rosé Wine Selection'];
+            }
+        }
+        
+        // Default wine types based on region
+        const wineTypesByRegion = {
+            'Bordeaux': ['Merlot', 'Cabernet Sauvignon', 'Cabernet Franc'],
+            'Burgundy': ['Pinot Noir', 'Chardonnay'],
+            'Tuscany': ['Sangiovese', 'Merlot', 'Cabernet Sauvignon'],
+            'Luxembourg': ['Riesling', 'Pinot Gris', 'Auxerrois'],
+            'France': ['Mixed Red', 'Mixed White']
+        };
+        
+        return wineTypesByRegion[plot.region] || ['Premium Wine Selection'];
+    }
+    
+    // Helper method to get coffret options for a plot
+    getCoffretOptionsForPlot(plot) {
+        // First check if we have available coffrets from the API
+        if (plot.availableCoffrets && plot.availableCoffrets.length > 0) {
+            return plot.availableCoffrets.map(coffret => ({
+                name: coffret.name || 'Wine Collection',
+                description: coffret.description || `${coffret.bottles_count || 6} selected wines`,
+                bottles: coffret.bottles_count || 6,
+                price: coffret.price ? `€${coffret.price}` : null
+            }));
+        }
+        
+        // Check if there's a single coffret associated
+        if (plot.coffret) {
+            return [{
+                name: plot.coffret.name || 'Selected Coffret',
+                description: plot.coffret.description || `${plot.coffret.bottles_count || 6} carefully selected wines`,
+                bottles: plot.coffret.bottles_count || 6,
+                price: plot.coffret.price ? `€${plot.coffret.price}` : null
+            }];
+        }
+        
+        // Default coffret options based on deliveries per year
+        const coffretsPerYear = plot.coffretsPerYear || 4;
+        const defaultOptions = [];
+        
+        if (coffretsPerYear >= 2) {
+            defaultOptions.push({
+                name: 'Discovery Collection',
+                description: '3 red wines + 3 white wines',
+                bottles: 6
+            });
+        }
+        
+        if (coffretsPerYear >= 4) {
+            defaultOptions.push({
+                name: 'Premium Selection',
+                description: '6 grand cru wines',
+                bottles: 6
+            });
+        }
+        
+        if (coffretsPerYear >= 6) {
+            defaultOptions.push({
+                name: 'Connoisseur Choice',
+                description: '12 carefully selected wines',
+                bottles: 12
+            });
+        }
+        
+        return defaultOptions.length > 0 ? defaultOptions : [
+            {
+                name: 'Standard Collection',
+                description: `${coffretsPerYear} deliveries of selected wines`,
+                bottles: 6
+            }
+        ];
     }
     
     initializeMap() {
@@ -546,19 +900,51 @@ class StandalonePlotSelector {
         ctx.textAlign = 'center';
         ctx.fillText('Luxembourg Wine Regions - Moselle Valley', canvas.width / 2, 30);
         
-        // Add compass
+        // Add compass rose
+        const compassX = 60;
+        const compassY = 60;
+        ctx.save();
+        ctx.translate(compassX, compassY);
+        
+        // Outer circle
+        ctx.beginPath();
+        ctx.arc(0, 0, 25, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.fill();
         ctx.strokeStyle = '#666';
         ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(50, 50);
-        ctx.lineTo(50, 80);
-        ctx.moveTo(35, 65);
-        ctx.lineTo(65, 65);
         ctx.stroke();
-        ctx.fillStyle = '#666';
-        ctx.font = 'bold 14px Arial';
+        
+        // North arrow
+        ctx.beginPath();
+        ctx.moveTo(0, -20);
+        ctx.lineTo(-5, -5);
+        ctx.lineTo(0, -10);
+        ctx.lineTo(5, -5);
+        ctx.closePath();
+        ctx.fillStyle = '#722f37';
+        ctx.fill();
+        
+        // Other directions
+        ctx.strokeStyle = '#666';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, 20);
+        ctx.lineTo(0, 10);
+        ctx.moveTo(-20, 0);
+        ctx.lineTo(-10, 0);
+        ctx.moveTo(20, 0);
+        ctx.lineTo(10, 0);
+        ctx.stroke();
+        
+        // Labels
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('N', 50, 45);
+        ctx.textBaseline = 'middle';
+        ctx.fillText('N', 0, -30);
+        
+        ctx.restore();
         
         // Add legend
         ctx.fillStyle = '#f8f8f8';
@@ -605,8 +991,11 @@ class StandalonePlotSelector {
     
     showGridView() {
         this.mapView = false;
-        document.querySelector('.plot-cards-container')?.classList.remove('hidden');
-        document.querySelector('.vineyard-map')?.classList.add('hidden');
+        const plotsGrid = document.getElementById('plots-grid');
+        const mapView = document.getElementById('map-view');
+        
+        if (plotsGrid) plotsGrid.style.display = 'grid';  // Use 'grid' instead of 'block'
+        if (mapView) mapView.style.display = 'none';
         
         document.getElementById('grid-view-btn')?.classList.add('active');
         document.getElementById('map-view-btn')?.classList.remove('active');
@@ -614,8 +1003,15 @@ class StandalonePlotSelector {
     
     showMapView() {
         this.mapView = true;
-        document.querySelector('.plot-cards-container')?.classList.add('hidden');
-        document.querySelector('.vineyard-map')?.classList.remove('hidden');
+        const plotsGrid = document.getElementById('plots-grid');
+        const mapView = document.getElementById('map-view');
+        
+        if (plotsGrid) plotsGrid.style.display = 'none';
+        if (mapView) {
+            mapView.style.display = 'block';
+            // Re-initialize map when showing
+            setTimeout(() => this.initializeMap(), 100);
+        }
         
         document.getElementById('map-view-btn')?.classList.add('active');
         document.getElementById('grid-view-btn')?.classList.remove('active');
@@ -677,6 +1073,9 @@ class StandalonePlotSelector {
         if (panel) {
             panel.classList.remove('active');
         }
+        
+        // Enable scrolling on body again
+        document.body.style.overflow = '';
         
         // Also deselect any selected plots
         document.querySelectorAll('.plot-card.selected').forEach(card => {
