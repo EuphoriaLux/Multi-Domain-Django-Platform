@@ -163,6 +163,56 @@ class VdlAdoptionPlan(BaseProduct):
         if self.associated_coffret:
             return f"{self.name} (for {self.associated_coffret.name})"
         return self.name
+    
+    def get_images_or_defaults(self):
+        """Returns adoption plan images or default vineyard images if none exist"""
+        images = list(self.images.all().order_by('order'))
+        
+        if not images:
+            # Return default vineyard images
+            default_images = []
+            # Use different default sets based on wine category or region
+            image_set = self._get_default_image_set()
+            for i in range(1, 6):
+                default_images.append({
+                    'url': f'/static/images/vineyard-defaults/{image_set}_{i:02d}.jpg',
+                    'order': i - 1,
+                    'is_primary': i == 1,
+                    'caption': f'Vineyard View {i}',
+                    'is_default': True
+                })
+            return default_images
+        
+        # Return actual images
+        return [
+            {
+                'url': img.image.url,
+                'order': img.order,
+                'is_primary': img.is_primary,
+                'caption': img.caption,
+                'is_default': False
+            } for img in images
+        ]
+    
+    def _get_default_image_set(self):
+        """Determine which set of default images to use based on wine type or region"""
+        if self.category and 'Red' in self.category.get_name_display():
+            return 'red'
+        elif self.category and 'White' in self.category.get_name_display():
+            return 'white'
+        elif self.category and 'Rosé' in self.category.get_name_display():
+            return 'rose'
+        elif self.producer and self.producer.region:
+            # Use region-based defaults
+            region = self.producer.region.lower()
+            if 'bordeaux' in region:
+                return 'bordeaux'
+            elif 'burgundy' in region or 'bourgogne' in region:
+                return 'burgundy'
+            elif 'luxembourg' in region:
+                return 'luxembourg'
+        # Default vineyard images
+        return 'vineyard'
 
     def save(self, *args, **kwargs):
         """
@@ -260,3 +310,50 @@ class HomepageContent(models.Model):
 
     def __str__(self):
         return "Homepage Content"
+
+
+class VdlAdoptionPlanImage(models.Model):
+    """Images for adoption plans - supports multiple rotating images per plan"""
+    adoption_plan = models.ForeignKey(
+        VdlAdoptionPlan,
+        on_delete=models.CASCADE,
+        related_name='images',
+        help_text="The adoption plan this image belongs to"
+    )
+    image = models.ImageField(
+        upload_to='adoption_plans/%Y/%m/',
+        help_text="Image for the adoption plan (will be stored in adoption_plans/YYYY/MM/ folder)"
+    )
+    order = models.IntegerField(
+        default=0,
+        help_text="Display order for rotation (lower numbers appear first)"
+    )
+    caption = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Optional caption for the image"
+    )
+    is_primary = models.BooleanField(
+        default=False,
+        help_text="Is this the primary/default image for the adoption plan?"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['adoption_plan', 'order']
+        verbose_name = "Adoption Plan Image"
+        verbose_name_plural = "Adoption Plan Images"
+
+    def __str__(self):
+        return f"Image {self.order} for {self.adoption_plan.name}"
+
+    def save(self, *args, **kwargs):
+        # Ensure only one primary image per adoption plan
+        if self.is_primary:
+            VdlAdoptionPlanImage.objects.filter(
+                adoption_plan=self.adoption_plan,
+                is_primary=True
+            ).exclude(pk=self.pk).update(is_primary=False)
+        super().save(*args, **kwargs)

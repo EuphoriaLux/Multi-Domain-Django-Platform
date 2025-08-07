@@ -9,7 +9,7 @@ from .models import (
     VdlUserProfile, VdlAddress, VdlCategory, VdlProducer,
     VdlCoffret, VdlAdoptionPlan, VdlProductImage,
     VdlOrder, VdlOrderItem, HomepageContent,
-    VdlBlogPost, VdlBlogPostCategory
+    VdlBlogPost, VdlBlogPostCategory, VdlAdoptionPlanImage
 )
 
 # --- User Admin ---
@@ -92,6 +92,13 @@ class VdlCoffretAdmin(admin.ModelAdmin):
         return None
     main_image_thumbnail.short_description = 'Main Image'
 
+# Inline for Adoption Plan Images
+class VdlAdoptionPlanImageInline(admin.TabularInline):
+    model = VdlAdoptionPlanImage
+    extra = 1
+    fields = ('image', 'order', 'is_primary', 'caption')
+    ordering = ['order']
+
 # Restore the full admin for Adoption Plan to handle detailed editing
 @admin.register(VdlAdoptionPlan)
 class VdlAdoptionPlanAdmin(admin.ModelAdmin):
@@ -99,7 +106,7 @@ class VdlAdoptionPlanAdmin(admin.ModelAdmin):
     list_filter = ('is_available', 'duration_months', 'associated_coffret__producer')
     search_fields = ('name', 'associated_coffret__name')
     readonly_fields = ('associated_coffret', 'producer')
-    inlines = [ProductImageInline] # An adoption plan can have its own images too
+    inlines = [VdlAdoptionPlanImageInline, ProductImageInline] # New image inline + existing product images
 
     fieldsets = (
         (None, {
@@ -121,6 +128,14 @@ class VdlAdoptionPlanAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+# Register VdlAdoptionPlanImage for direct management
+@admin.register(VdlAdoptionPlanImage)
+class VdlAdoptionPlanImageAdmin(admin.ModelAdmin):
+    list_display = ('adoption_plan', 'order', 'is_primary', 'caption', 'created_at')
+    list_filter = ('is_primary', 'adoption_plan')
+    search_fields = ('adoption_plan__name', 'caption')
+    ordering = ['adoption_plan', 'order']
 
 # --- Order Admin ---
 class VdlOrderItemInline(admin.TabularInline):

@@ -172,27 +172,37 @@
         border-color: #722f37;
     }
 
-    /* Plot Cards Grid */
+    /* Plot Cards Grid - Improved Layout */
     .plots-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 1.25rem;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.5rem;
         margin-bottom: 2rem;
+        padding: 0 5px;
+    }
+    
+    @media (min-width: 1400px) {
+        .plots-grid {
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+        }
     }
 
     .plot-card {
         background: white;
-        border-radius: 12px;
+        border-radius: 16px;
         overflow: hidden;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
         transition: all 0.3s ease;
         cursor: pointer;
         position: relative;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
     }
 
     .plot-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        transform: translateY(-8px);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.15);
     }
 
     .plot-card.selected {
@@ -372,6 +382,9 @@
 
     .plot-content {
         padding: 1.5rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
     }
 
     .plot-title {
@@ -617,50 +630,50 @@
         display: none;
     }
     
-    /* Plot Details Panel */
+    /* Plot Details Panel - Improved Sidebar */
     .plot-details-panel {
-        display: none;
         position: fixed;
-        right: 2rem;
-        top: 50%;
-        transform: translateY(-50%);
+        right: -450px;
+        top: 80px;
         background: white;
-        border-radius: 12px;
-        padding: 2rem;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        width: 350px;
-        max-height: 80vh;
+        border-radius: 16px 0 0 16px;
+        box-shadow: -8px 0 32px rgba(0,0,0,0.15);
+        width: 420px;
+        height: calc(100vh - 100px);
         overflow-y: auto;
-        z-index: 100;
+        overflow-x: hidden;
+        z-index: 1000;
+        transition: right 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
     
     .plot-details-panel.active {
-        display: block;
+        right: 0;
     }
     
     .close-panel-btn {
         position: absolute;
-        top: 1rem;
-        right: 1rem;
-        background: transparent;
-        border: none;
-        font-size: 1.25rem;
-        color: #666;
-        cursor: pointer;
-        padding: 0.25rem;
-        width: 30px;
-        height: 30px;
+        top: 15px;
+        right: 15px;
+        width: 36px;
+        height: 36px;
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 50%;
+        cursor: pointer;
         transition: all 0.3s;
-        z-index: 10;
+        color: #495057;
+        font-size: 20px;
+        z-index: 11;
     }
     
     .close-panel-btn:hover {
-        background: #f0f0f0;
-        color: #333;
+        background: #722f37;
+        border-color: #722f37;
+        color: white;
+        transform: rotate(90deg);
     }
     
     /* View Toggle Buttons */
@@ -1042,6 +1055,66 @@
         color: #6c757d;
     }
 
+    /* Coffret Selection Styles */
+    .coffret-option {
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 20px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: white;
+        margin-bottom: 15px;
+    }
+    
+    .coffret-option:hover {
+        border-color: #d4af37;
+        background: #fdfaf3;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(212, 175, 55, 0.15);
+    }
+    
+    .coffret-option.selected {
+        border-color: #d4af37;
+        background: linear-gradient(135deg, #fdfaf3 0%, #fff9e6 100%);
+        box-shadow: 0 4px 16px rgba(212, 175, 55, 0.2);
+    }
+    
+    .wine-type-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: linear-gradient(135deg, #722f37, #8e3a42);
+        color: white;
+        padding: 10px 18px;
+        border-radius: 25px;
+        font-size: 0.9rem;
+        margin: 5px;
+        box-shadow: 0 2px 8px rgba(114, 47, 55, 0.2);
+    }
+    
+    .adoption-feature {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .adoption-feature:last-child {
+        border-bottom: none;
+    }
+    
+    .adoption-feature i {
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #e8f5e9;
+        border-radius: 50%;
+        color: #4caf50;
+    }
+    
     /* Responsive Design */
     @media (max-width: 768px) {
         .filter-row {
@@ -1161,69 +1234,153 @@
             <p>{% trans "Loading adoption plans..." %}</p>
         </div>
 
-        <!-- Plot Cards Grid -->
-        <div class="plots-grid" id="plots-grid">
-            <!-- Plot selection content from journey game -->
-            <div class="plot-selection-container">
-                <div class="vineyard-map hidden" id="vineyard-map">
-                    <div class="map-controls">
-                        <button class="map-zoom-in"><i class="fas fa-plus"></i></button>
-                        <button class="map-zoom-out"><i class="fas fa-minus"></i></button>
-                        <button class="map-reset"><i class="fas fa-sync"></i></button>
-                    </div>
-                    <canvas class="map-canvas" id="map-canvas" width="800" height="600"></canvas>
-                    <div id="map-markers" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>
+        <!-- Map View Container (Hidden by default) -->
+        <div class="map-wrapper" id="map-view" style="display: none;">
+            <div class="vineyard-map" id="vineyard-map">
+                <div class="map-overlay-controls">
+                    <button class="map-control-btn map-zoom-in" title="Zoom In">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <button class="map-control-btn map-zoom-out" title="Zoom Out">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                    <button class="map-control-btn map-reset" title="Reset View">
+                        <i class="fas fa-sync"></i>
+                    </button>
+                    <button class="map-control-btn map-fullscreen" title="Fullscreen">
+                        <i class="fas fa-expand"></i>
+                    </button>
                 </div>
                 
-                <!-- Plot Cards Container -->
-                <div class="plot-cards-container cards-grid">
-                    <!-- Cards will be dynamically generated -->
+                <!-- Map Canvas for Current Implementation -->
+                <canvas class="map-canvas" id="map-canvas" width="1200" height="600"></canvas>
+                <div id="map-markers" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: auto;"></div>
+                
+                <!-- Map Placeholder for Future API Integration -->
+                <div class="map-placeholder" id="map-api-placeholder" style="display: none;">
+                    <div class="map-message">
+                        <i class="fas fa-map-marked-alt"></i>
+                        <h4>{% trans "Interactive Map Coming Soon" %}</h4>
+                        <p>{% trans "We're integrating advanced mapping features to help you explore vineyard locations in detail." %}</p>
+                    </div>
+                </div>
+                
+                <!-- Map Legend -->
+                <div class="map-legend">
+                    <h5>{% trans "Legend" %}</h5>
+                    <div class="legend-item">
+                        <span class="legend-marker" style="background: #d4af37;">
+                            <i class="fas fa-map-marker-alt" style="color: white; font-size: 10px;"></i>
+                        </span>
+                        <span>{% trans "Available Plot" %}</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-marker" style="background: #722f37;">
+                            <i class="fas fa-map-marker-alt" style="color: white; font-size: 10px;"></i>
+                        </span>
+                        <span>{% trans "Selected Plot" %}</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-marker" style="background: #e9ecef;">
+                            <i class="fas fa-map-marker-alt" style="color: #6c757d; font-size: 10px;"></i>
+                        </span>
+                        <span>{% trans "Unavailable" %}</span>
+                    </div>
                 </div>
             </div>
         </div>
 
+        <!-- Plot Cards Grid -->
+        <div class="plots-grid" id="plots-grid" style="display: grid;">
+            <!-- Cards will be dynamically generated here -->
+        </div>
+
         <!-- Plot Details Panel -->
         <div class="plot-details-panel" id="plot-details">
-            <button class="close-panel-btn" id="close-details-panel" aria-label="Close">
-                <i class="fas fa-times"></i>
-            </button>
-            <h3>{% trans "Selected Plot Details" %}</h3>
-            <div class="details-content">
-                <div class="detail-row">
-                    <span class="label">{% trans "Name:" %}</span>
-                    <span id="plot-name">-</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">{% trans "Region:" %}</span>
-                    <span id="plot-region">-</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">{% trans "Size:" %}</span>
-                    <span id="plot-size">-</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">{% trans "Elevation:" %}</span>
-                    <span id="plot-elevation">-</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">{% trans "Soil Type:" %}</span>
-                    <span id="plot-soil">-</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">{% trans "Exposure:" %}</span>
-                    <span id="plot-exposure">-</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">{% trans "Price:" %}</span>
-                    <span id="plot-price">-</span>
-                </div>
-                <div class="features-section">
-                    <h4>{% trans "Included Features:" %}</h4>
-                    <ul id="plot-features-list"></ul>
-                </div>
-                <button class="btn btn-primary btn-confirm" id="confirm-selection" disabled>
-                    {% trans "Confirm Selection" %}
+            <div class="plot-details-header">
+                <h3 style="margin: 0; color: white;">{% trans "Adoption Plan Details" %}</h3>
+                <button class="close-panel-btn" id="close-details-panel" aria-label="Close" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color: white;">
+                    <i class="fas fa-times"></i>
                 </button>
+            </div>
+            <div class="details-content">
+                <!-- Producer Information -->
+                <div class="producer-section" style="margin-bottom: 25px; padding-bottom: 20px; border-bottom: 2px solid #e9ecef;">
+                    <h4 style="color: #722f37; margin-bottom: 15px;">
+                        <i class="fas fa-user-tie"></i> {% trans "Producer Information" %}
+                    </h4>
+                    <div class="detail-row">
+                        <span class="label">{% trans "Producer:" %}</span>
+                        <span id="producer-name">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">{% trans "Region:" %}</span>
+                        <span id="plot-region">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">{% trans "Vineyard Size:" %}</span>
+                        <span id="plot-size">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">{% trans "Elevation:" %}</span>
+                        <span id="plot-elevation">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">{% trans "Soil Type:" %}</span>
+                        <span id="plot-soil">-</span>
+                    </div>
+                </div>
+                
+                <!-- Wine Information -->
+                <div class="wine-section" style="margin-bottom: 25px; padding-bottom: 20px; border-bottom: 2px solid #e9ecef;">
+                    <h4 style="color: #722f37; margin-bottom: 15px;">
+                        <i class="fas fa-wine-bottle"></i> {% trans "Wine Production" %}
+                    </h4>
+                    <div id="wine-types-container">
+                        <!-- Wine types will be dynamically inserted here -->
+                    </div>
+                </div>
+                
+                <!-- Coffret Options -->
+                <div class="coffret-section" style="margin-bottom: 25px; padding-bottom: 20px; border-bottom: 2px solid #e9ecef;">
+                    <h4 style="color: #722f37; margin-bottom: 15px;">
+                        <i class="fas fa-box"></i> {% trans "Wine Coffret Selection" %}
+                    </h4>
+                    <div id="coffret-options">
+                        <!-- Coffret options will be dynamically inserted here -->
+                    </div>
+                </div>
+                
+                <!-- Adoption Plan Details -->
+                <div class="adoption-section" style="margin-bottom: 25px;">
+                    <h4 style="color: #722f37; margin-bottom: 15px;">
+                        <i class="fas fa-certificate"></i> {% trans "Adoption Benefits" %}
+                    </h4>
+                    <div class="detail-row">
+                        <span class="label">{% trans "Duration:" %}</span>
+                        <span id="plan-duration">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">{% trans "Deliveries/Year:" %}</span>
+                        <span id="plan-deliveries">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">{% trans "Price:" %}</span>
+                        <span id="plot-price" style="font-size: 1.25rem; font-weight: 700; color: #722f37;">-</span>
+                    </div>
+                    <div class="features-section" style="margin-top: 15px;">
+                        <h5 style="font-size: 0.9rem; margin-bottom: 10px;">{% trans "Included Features:" %}</h5>
+                        <ul id="plot-features-list" style="list-style: none; padding: 0;">
+                            <!-- Features will be dynamically inserted here -->
+                        </ul>
+                    </div>
+                </div>
+                
+                <div style="padding: 20px 0; position: sticky; bottom: 0; background: white;">
+                    <button class="btn btn-primary btn-confirm" id="confirm-selection" disabled>
+                        <i class="fas fa-check-circle"></i> {% trans "Confirm Selection" %}
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -1423,13 +1580,20 @@ class PlotSelector {
         const grid = document.getElementById('plots-grid');
         const noResults = document.getElementById('no-results');
         
+        if (!grid) {
+            console.error('Could not find plots-grid container');
+            return;
+        }
+        
         if (this.filteredPlans.length === 0) {
             grid.innerHTML = '';
+            grid.style.display = 'none';
             noResults.classList.add('active');
             return;
         }
         
         noResults.classList.remove('active');
+        grid.style.display = 'grid';  // Ensure grid display is set
         grid.innerHTML = '';
         
         this.filteredPlans.forEach(plan => {
@@ -1633,11 +1797,18 @@ class PlotSelector {
         });
         
         // Toggle views
-        document.getElementById('plots-grid').style.display = view === 'grid' ? 'grid' : 'none';
-        document.getElementById('map-view').classList.toggle('active', view === 'map');
+        const plotsGrid = document.getElementById('plots-grid');
+        const mapView = document.getElementById('map-view');
         
-        if (view === 'map') {
-            this.initMapView();
+        if (view === 'grid') {
+            plotsGrid.style.display = 'grid';  // Use 'grid' instead of 'block'
+            if (mapView) mapView.style.display = 'none';
+        } else if (view === 'map') {
+            plotsGrid.style.display = 'none';
+            if (mapView) {
+                mapView.style.display = 'block';
+                this.initMapView();
+            }
         }
     }
     
