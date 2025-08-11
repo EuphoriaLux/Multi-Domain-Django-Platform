@@ -1,0 +1,782 @@
+{% extends 'vinsdelux/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Select Your Vineyard Plot" %} - Vins de Lux{% endblock %}
+
+{% block extra_css %}
+    <!-- Resource Hints for Performance -->
+    <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="//unpkg.com">
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    
+    <!-- Critical CSS - Inline for above-the-fold content -->
+    <style>
+        /* Critical path CSS */
+        .vdl-hero{position:relative;min-height:60vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#722F37 0%,#8B4513 100%)}
+        .vdl-hero-content{text-align:center;color:#F5F5DC;z-index:2;position:relative}
+        .vdl-hero-title{font-size:3.5rem;font-weight:700;margin-bottom:1.5rem;text-shadow:2px 2px 4px rgba(0,0,0,0.3)}
+        .vdl-hero-subtitle{font-size:1.2rem;margin-bottom:2rem;max-width:600px;margin-left:auto;margin-right:auto;opacity:0.9}
+        .vdl-btn{display:inline-flex;align-items:center;gap:0.5rem;padding:1rem 2rem;border:none;border-radius:6px;font-weight:600;text-decoration:none;transition:all 0.2s ease}
+        .vdl-btn-accent{background:#D4AF37;color:#722F37}
+        .vdl-map-section{padding:4rem 0}
+    </style>
+    
+    <!-- Performance Optimized CSS -->
+    <link rel="stylesheet" href="{% static 'css/performance-optimized.css' %}">
+    
+    <!-- Bootstrap 5 CSS - Preload for performance -->
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"></noscript>
+    
+    <!-- Leaflet.js for Interactive Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+          crossorigin="anonymous" />
+    
+    <!-- Font Awesome for Icons -->
+    <link rel="preload" href="{% static 'fontawesome/css/all.min.css' %}" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}"></noscript>
+    
+    <!-- Vins de Lux Design System -->
+    <link rel="stylesheet" href="{% static 'css/enhanced-plot-selector.css' %}">
+    <link rel="stylesheet" href="{% static 'vinsdelux/css/adoption-plans.css' %}">
+    <link rel="stylesheet" href="{% static 'vinsdelux/css/vineyard-map.css' %}">
+    
+    <!-- Leaflet MarkerCluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+    
+    <!-- AOS (Animate On Scroll) Library - Load asynchronously -->
+    <link rel="preload" href="https://unpkg.com/aos@2.3.1/dist/aos.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://unpkg.com/aos@2.3.1/dist/aos.css"></noscript>
+{% endblock %}
+
+{% block content %}
+<main class="vdl-plot-selection" role="main" aria-label="{% trans 'Vineyard plot selection interface' %}">
+    <!-- Skip to main content link for screen readers -->
+    <a href="#vineyard-selection" class="sr-only sr-only-focusable" aria-label="{% trans 'Skip to vineyard selection' %}">{% trans "Skip to main content" %}</a>
+    
+    <!-- Hero Section with Video Background -->
+    <section class="vdl-hero" data-aos="fade-in" role="banner" aria-labelledby="hero-title">
+        <!-- Video Background Placeholder -->
+        <!-- Video disabled until assets are available -->
+        <div class="vdl-hero-video-placeholder" style="position: absolute; inset: 0; background: linear-gradient(135deg, rgba(114, 47, 55, 0.9) 0%, rgba(139, 69, 19, 0.9) 100%); z-index: 0;"></div>
+        
+        <!-- Overlay for better text readability -->
+        <div class="vdl-hero-overlay" aria-hidden="true"></div>
+        
+        <!-- Hero Content -->
+        <div class="vdl-hero-content">
+            <h1 id="hero-title" class="vdl-hero-title" data-aos="fade-up" data-aos-delay="300">
+                {% trans "Choose Your Wine Producer" %}
+            </h1>
+            <p class="vdl-hero-subtitle" data-aos="fade-up" data-aos-delay="600">
+                {% trans "Begin your wine adoption journey by selecting a prestigious producer. Click on any marker on the map below to explore their vineyard plots and discover the perfect match for your wine preferences." %}
+            </p>
+            <div data-aos="fade-up" data-aos-delay="900">
+                <a href="#vineyard-selection" class="vdl-btn vdl-btn-accent" 
+                   aria-describedby="explore-description"
+                   role="button">
+                    <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
+                    {% trans "Explore Vineyards" %}
+                </a>
+                <div id="explore-description" class="sr-only">{% trans "Navigate to the interactive vineyard map to select your plot" %}</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Vineyard Selection Section -->
+    <section id="vineyard-selection" class="vdl-map-section" 
+             role="application" 
+             aria-labelledby="selection-title" 
+             aria-describedby="selection-description">
+        <div class="container-fluid vdl-container-xl">
+            <!-- Section Title and Description for Screen Readers -->
+            <div class="sr-only">
+                <h2 id="selection-title">{% trans "Vineyard Plot Selection" %}</h2>
+                <p id="selection-description">{% trans "Interactive map and plot selection interface. Use the map to explore available vineyard plots and select your preferred options." %}</p>
+            </div>
+            
+            <div class="row">
+                <!-- Map Container -->
+                <div class="col-lg-8">
+                    <div class="vdl-fade-in" data-aos="fade-right">
+                        <!-- Map Overlay with Instructions -->
+                        <div class="vdl-map-overlay" role="region" aria-labelledby="map-instructions-title">
+                            <h3 id="map-instructions-title" class="vdl-heading-tertiary vdl-mb-md">
+                                <i class="fas fa-info-circle vdl-text-gold" aria-hidden="true"></i>
+                                {% trans "Interactive Plot Selection" %}
+                            </h3>
+                            <p class="vdl-body-small vdl-mb-lg">
+                                {% trans "Click on any available plot to view detailed information including soil composition, sun exposure, and wine characteristics." %}
+                            </p>
+                            
+                            <!-- Legend with proper labels -->
+                            <div class="d-flex gap-3 vdl-mb-md" role="group" aria-labelledby="legend-title">
+                                <div class="sr-only" id="legend-title">{% trans "Plot Status Legend" %}</div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div style="width: 16px; height: 16px; background: var(--vdl-gold); border-radius: 50%;" 
+                                         aria-hidden="true" role="img" aria-label="{% trans 'Gold circle indicating available plots' %}"></div>
+                                    <span class="vdl-caption">{% trans "Available" %}</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div style="width: 16px; height: 16px; background: var(--vdl-burgundy); border-radius: 50%;" 
+                                         aria-hidden="true" role="img" aria-label="{% trans 'Red circle indicating reserved plots' %}"></div>
+                                    <span class="vdl-caption">{% trans "Reserved" %}</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div style="width: 16px; height: 16px; background: var(--vdl-silver); border-radius: 50%;" 
+                                         aria-hidden="true" role="img" aria-label="{% trans 'Silver circle indicating unavailable plots' %}"></div>
+                                    <span class="vdl-caption">{% trans "Unavailable" %}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Interactive Map -->
+                        <div class="vdl-map-container" role="img" aria-labelledby="map-title" aria-describedby="map-description">
+                            <div class="sr-only">
+                                <h4 id="map-title">{% trans "Interactive Vineyard Map" %}</h4>
+                                <p id="map-description">{% trans "Map showing available vineyard plots. Use mouse or keyboard to navigate and select plots. Plot details will appear in the sidebar." %}</p>
+                            </div>
+                            <div id="vineyard-map" class="vdl-hover-glow" 
+                                 style="height: 600px; width: 100%; position: relative; z-index: 1;"
+                                 tabindex="0" 
+                                 role="application" 
+                                 aria-label="{% trans 'Interactive vineyard map for plot selection' %}"
+                                 aria-describedby="map-instructions">
+                            </div>
+                            <div id="map-instructions" class="sr-only">
+                                {% trans "Use arrow keys to navigate the map. Press Enter or Space to select a plot. Press Tab to move between plots." %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Plot Details Sidebar -->
+                <div class="col-lg-4">
+                    <div class="vdl-sidebar" data-aos="fade-left" role="complementary" aria-labelledby="sidebar-title">
+                        <!-- Sidebar Header -->
+                        <div class="vdl-sidebar-header">
+                            <h2 id="sidebar-title" class="vdl-heading-secondary vdl-mb-sm">
+                                {% trans "Your Selection" %}
+                            </h2>
+                            <div class="vdl-plot-counter" role="status" aria-live="polite" aria-atomic="true">
+                                <i class="fas fa-wine-glass-alt" aria-hidden="true"></i>
+                                <span id="selected-count" aria-label="{% trans 'Number of selected plots' %}">0</span> 
+                                <span id="selected-count-label">{% trans "plots selected" %}</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Selection Cart -->
+                        <div class="vdl-selection-cart" role="region" aria-labelledby="selection-cart-title">
+                            <h4 id="selection-cart-title" class="vdl-heading-tertiary vdl-mb-md">
+                                {% trans "Selected Plots" %}
+                            </h4>
+                            <div id="selection-list" class="mb-4" role="list" aria-live="polite" aria-label="{% trans 'List of selected plots' %}">
+                                <!-- Dynamic content populated by JavaScript -->
+                                <div class="text-center vdl-text-muted" id="empty-selection" role="listitem">
+                                    <i class="fas fa-map vdl-wine-loading vdl-mb-md" style="font-size: 2rem; color: var(--vdl-gold);" aria-hidden="true"></i>
+                                    <p class="vdl-body-small">{% trans "Click on a plot to begin your selection" %}</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Plot Details Panel -->
+                        <div id="plot-details" class="vdl-card vdl-card-premium" style="display: none;" 
+                             role="region" aria-labelledby="plot-details-title" aria-live="polite">
+                            <div class="vdl-card-header">
+                                <h4 id="plot-details-title" class="vdl-heading-tertiary vdl-mb-sm">
+                                    {% trans "Plot Details" %}
+                                </h4>
+                                <div class="vdl-caption vdl-text-gold" id="plot-coordinates" aria-label="{% trans 'Plot coordinates' %}"></div>
+                            </div>
+                            
+                            <div class="vdl-card-body">
+                                <!-- Plot Image -->
+                                <div class="mb-3">
+                                    <img id="plot-image" src="" alt="" class="img-fluid rounded vdl-lazy-image" 
+                                         style="display: none;" loading="lazy" decoding="async">
+                                </div>
+                                
+                                <!-- Plot Information -->
+                                <div class="row mb-3">
+                                    <div class="col-6">
+                                        <div class="vdl-caption vdl-mb-xs">{% trans "Size" %}</div>
+                                        <div class="vdl-body-small" id="plot-size" aria-label="{% trans 'Plot size' %}">-</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="vdl-caption vdl-mb-xs">{% trans "Elevation" %}</div>
+                                        <div class="vdl-body-small" id="plot-elevation" aria-label="{% trans 'Plot elevation' %}">-</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-3">
+                                    <div class="col-6">
+                                        <div class="vdl-caption vdl-mb-xs">{% trans "Soil Type" %}</div>
+                                        <div class="vdl-body-small" id="plot-soil" aria-label="{% trans 'Soil composition' %}">-</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="vdl-caption vdl-mb-xs">{% trans "Sun Exposure" %}</div>
+                                        <div class="vdl-body-small" id="plot-sun" aria-label="{% trans 'Sun exposure direction' %}">-</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Wine Characteristics -->
+                                <div class="mb-3">
+                                    <div class="vdl-caption vdl-mb-xs">{% trans "Wine Profile" %}</div>
+                                    <div class="vdl-body-small" id="plot-wine-profile" aria-label="{% trans 'Expected wine characteristics' %}">-</div>
+                                </div>
+                                
+                                <!-- Price -->
+                                <div class="mb-3">
+                                    <div class="vdl-caption vdl-mb-xs">{% trans "Adoption Price" %}</div>
+                                    <div class="vdl-heading-tertiary vdl-text-burgundy" id="plot-price" aria-label="{% trans 'Plot adoption price' %}">-</div>
+                                </div>
+                            </div>
+                            
+                            <div class="vdl-card-footer">
+                                <button type="button" id="add-to-selection" class="vdl-btn vdl-btn-primary w-100"
+                                        aria-describedby="add-button-description">
+                                    <i class="fas fa-plus" aria-hidden="true"></i>
+                                    {% trans "Add to Selection" %}
+                                </button>
+                                <div id="add-button-description" class="sr-only">{% trans "Add this plot to your selection for adoption" %}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Proceed to Adoption Button -->
+                        <div class="mt-4" id="proceed-section" style="display: none;" role="region" aria-labelledby="action-buttons-title">
+                            <div class="sr-only" id="action-buttons-title">{% trans "Plot Selection Actions" %}</div>
+                            <div class="d-grid gap-2">
+                                <button type="button" id="proceed-to-adoption" class="vdl-btn vdl-btn-accent"
+                                        aria-describedby="proceed-description">
+                                    <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                                    {% trans "Proceed to Adoption" %}
+                                </button>
+                                <div id="proceed-description" class="sr-only">{% trans "Continue to the next step to complete your vineyard plot adoption" %}</div>
+                                
+                                <button type="button" id="clear-selection" class="vdl-btn vdl-btn-secondary"
+                                        aria-describedby="clear-description" aria-label="{% trans 'Clear all selected plots' %}">
+                                    <i class="fas fa-trash-alt" aria-hidden="true"></i>
+                                    {% trans "Clear Selection" %}
+                                </button>
+                                <div id="clear-description" class="sr-only">{% trans "Remove all plots from your selection and start over" %}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Adoption Plan Selection Section -->
+    <section id="adoption-plan-section" class="vdl-map-section" style="display: none;">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="vdl-heading-secondary">{% trans "Choose Your Adoption Plan" %}</h2>
+                <p class="vdl-body-large">{% trans "Select the perfect wine adoption plan for your journey" %}</p>
+            </div>
+            
+            <div id="adoption-plans-container">
+                <!-- Plans will be loaded dynamically -->
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="sr-only">{% trans "Loading adoption plans..." %}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Progress Indicator -->
+    <section class="py-5 vdl-bg-pearl" role="navigation" aria-labelledby="progress-title">
+        <div class="container">
+            <div class="sr-only">
+                <h2 id="progress-title">{% trans "Adoption Process Progress" %}</h2>
+            </div>
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <div class="d-flex align-items-center justify-content-between" data-aos="fade-up" role="progressbar" 
+                         aria-valuenow="1" aria-valuemin="1" aria-valuemax="3" aria-label="{% trans 'Step 1 of 3: Plot Selection' %}">
+                        <div class="text-center">
+                            <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-2" 
+                                 style="width: 60px; height: 60px; background: var(--vdl-gold);" 
+                                 role="img" aria-label="{% trans 'Current step: Plot Selection' %}">
+                                <i class="fas fa-map-marked-alt text-white" aria-hidden="true"></i>
+                            </div>
+                            <div class="vdl-caption vdl-text-gold" aria-hidden="true">{% trans "Step 1" %}</div>
+                            <div class="vdl-body-small">{% trans "Select Plot" %}</div>
+                        </div>
+                        <div class="flex-grow-1 mx-3" aria-hidden="true">
+                            <hr style="border-color: var(--vdl-gold); border-width: 2px;">
+                        </div>
+                        <div class="text-center">
+                            <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-2" 
+                                 style="width: 60px; height: 60px; background: var(--vdl-silver);" 
+                                 role="img" aria-label="{% trans 'Upcoming step: Choose Plan' %}">
+                                <i class="fas fa-user-tie text-white" aria-hidden="true"></i>
+                            </div>
+                            <div class="vdl-caption" aria-hidden="true">{% trans "Step 2" %}</div>
+                            <div class="vdl-body-small">{% trans "Choose Plan" %}</div>
+                        </div>
+                        <div class="flex-grow-1 mx-3" aria-hidden="true">
+                            <hr style="border-color: var(--vdl-silver); border-width: 2px;">
+                        </div>
+                        <div class="text-center">
+                            <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-2" 
+                                 style="width: 60px; height: 60px; background: var(--vdl-silver);" 
+                                 role="img" aria-label="{% trans 'Future step: Confirm Adoption' %}">
+                                <i class="fas fa-handshake text-white" aria-hidden="true"></i>
+                            </div>
+                            <div class="vdl-caption" aria-hidden="true">{% trans "Step 3" %}</div>
+                            <div class="vdl-body-small">{% trans "Confirm Adoption" %}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<!-- Selection Confirmation Modal -->
+<div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content vdl-card vdl-card-premium">
+            <div class="modal-header border-0">
+                <h4 class="modal-title vdl-heading-tertiary" id="confirmationModalLabel">
+                    <i class="fas fa-wine-glass vdl-text-gold me-2"></i>
+                    {% trans "Confirm Your Selection" %}
+                </h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="vdl-body-large vdl-mb-lg">
+                    {% trans "You have selected the following plots for adoption:" %}
+                </p>
+                <div id="modal-selection-list" class="vdl-mb-lg">
+                    <!-- Dynamic content -->
+                </div>
+                <div class="alert" style="background: var(--vdl-gold-alpha-20); border-color: var(--vdl-gold); color: var(--vdl-burgundy);">
+                    <i class="fas fa-info-circle me-2"></i>
+                    {% trans "You'll be redirected to choose your adoption plan and complete the registration process." %}
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="vdl-btn vdl-btn-secondary" data-bs-dismiss="modal">
+                    {% trans "Go Back" %}
+                </button>
+                <button type="button" id="confirm-selection" class="vdl-btn vdl-btn-primary">
+                    <i class="fas fa-check me-2"></i>
+                    {% trans "Confirm & Continue" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay" class="d-none position-fixed top-0 start-0 w-100 h-100" 
+     style="background: rgba(114, 47, 55, 0.9); z-index: 9999;">
+    <div class="d-flex align-items-center justify-content-center h-100">
+        <div class="text-center text-white">
+            <i class="fas fa-wine-glass-alt vdl-wine-loading mb-3" style="font-size: 4rem; color: var(--vdl-gold);"></i>
+            <h3 class="vdl-heading-secondary vdl-text-cream">{% trans "Preparing Your Vineyard Experience" %}</h3>
+            <p class="vdl-body vdl-text-cream opacity-75">{% trans "Please wait while we process your selection..." %}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Leaflet.js -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Leaflet MarkerCluster -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    
+    <!-- AOS (Animate On Scroll) Library -->
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    
+    <!-- Import our custom map and selection classes -->
+    <script src="{% static 'vinsdelux/js/vineyard-map.js' %}"></script>
+    <script src="{% static 'vinsdelux/js/plot-selection.js' %}"></script>
+    <script src="{% static 'vinsdelux/js/producer-plot-selector.js' %}"></script>
+    <script src="{% static 'vinsdelux/js/producer-map-connector.js' %}"></script>
+    <script src="{% static 'vinsdelux/js/producer-selector-fix.js' %}"></script>
+    
+    <!-- Debug: Check if files are loading -->
+    <script>
+        console.log('Checking script loading...');
+        if (typeof VineyardMap !== 'undefined') {
+            console.log('✓ VineyardMap loaded');
+        } else {
+            console.error('✗ VineyardMap NOT loaded - check path: {% static "vinsdelux/js/vineyard-map.js" %}');
+        }
+        if (typeof PlotSelection !== 'undefined') {
+            console.log('✓ PlotSelection loaded');
+        } else {
+            console.error('✗ PlotSelection NOT loaded - check path: {% static "vinsdelux/js/plot-selection.js" %}');
+        }
+    </script>
+    
+    <!-- Plot Selection JavaScript -->
+    <script>
+        // Initialize AOS
+        AOS.init({
+            duration: 800,
+            easing: 'ease-out-cubic',
+            once: true,
+            offset: 100
+        });
+
+        // Global variables for plot selection
+        let vineyardMap;
+        let plotSelection;
+        let currentPlotData = null;
+        
+        // Parse plot data from Django context
+        const plotsData = {{ plot_data|safe }};
+        
+        // Initialize components when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing map...');
+            console.log('Plot data available:', plotsData.length, 'plots');
+            
+            // Check if container exists
+            const mapContainer = document.getElementById('vineyard-map');
+            if (!mapContainer) {
+                console.error('ERROR: Map container #vineyard-map not found!');
+                return;
+            }
+            console.log('Map container found:', mapContainer);
+            
+            initializeMapAndSelection();
+            setupEventListeners();
+        });
+        
+        function initializeMapAndSelection() {
+            try {
+                console.log('Initializing VineyardMap...');
+                
+                // Check if VineyardMap class exists
+                if (typeof VineyardMap === 'undefined') {
+                    console.error('ERROR: VineyardMap class not found! Make sure vineyard-map.js is loaded.');
+                    return;
+                }
+                
+                // Check if Leaflet is loaded
+                if (typeof L === 'undefined') {
+                    console.error('ERROR: Leaflet library not loaded!');
+                    return;
+                }
+                
+                // Initialize the interactive map
+                vineyardMap = new VineyardMap({
+                    container: 'vineyard-map',
+                    plotData: plotsData,
+                    center: [49.8153, 6.1296], // Luxembourg
+                    zoom: 10,
+                    onPlotSelect: handleMapPlotSelection,
+                    onPlotDeselect: handleMapPlotDeselection,
+                    onPlotHover: handleMapPlotHover,
+                    onMapReady: () => {
+                        console.log('✓ Vineyard map initialized successfully');
+                    }
+                });
+            } catch (error) {
+                console.error('ERROR initializing map:', error);
+                // Show error message to user
+                const mapContainer = document.getElementById('vineyard-map');
+                if (mapContainer) {
+                    mapContainer.innerHTML = `
+                        <div style="padding: 40px; text-align: center; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px;">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #856404; margin-bottom: 20px;"></i>
+                            <h3 style="color: #856404;">Map Loading Error</h3>
+                            <p>Unable to load the interactive map. Please refresh the page or try again later.</p>
+                            <p style="font-size: 12px; color: #666;">Error: ${error.message}</p>
+                        </div>
+                    `;
+                }
+            }
+            
+            // Initialize the cart/selection manager
+            plotSelection = new PlotSelection({
+                maxSelections: 5,
+                apiEndpoint: '/api/plots/selection/',
+                onPlotAdded: updateUIAfterSelection,
+                onPlotRemoved: updateUIAfterDeselection,
+                onSelectionLimitReached: (limit) => {
+                    showNotification(`Maximum ${limit} plots allowed`, 'warning');
+                },
+                onCartUpdated: updateCartSummaryUI
+            });
+        }
+        
+        function handleMapPlotSelection(plot) {
+            currentPlotData = plot;
+            displayPlotDetails(plot);
+        }
+        
+        function handleMapPlotDeselection(plot) {
+            if (currentPlotData && currentPlotData.id === plot.id) {
+                currentPlotData = null;
+                document.getElementById('plot-details').style.display = 'none';
+            }
+        }
+        
+        function handleMapPlotHover(plot) {
+            // Optional: Show quick preview on hover
+        }
+        
+        function updateUIAfterSelection(plot) {
+            updateSelectionDisplay();
+        }
+        
+        function updateUIAfterDeselection(plot) {
+            updateSelectionDisplay();
+        }
+        
+        function updateCartSummaryUI(summary) {
+            // Update UI with cart summary
+        }
+
+        function selectPlot(plot) {
+            currentPlotData = plot;
+            displayPlotDetails(plot);
+        }
+
+        function displayPlotDetails(plot) {
+            // Update plot details panel
+            const plotTitle = document.getElementById('plot-details-title');
+            if (plotTitle) {
+                plotTitle.textContent = plot.name || `Plot ${plot.plot_identifier}`;
+            }
+            
+            document.getElementById('plot-coordinates').textContent = plot.display_coordinates || `${plot.latitude}, ${plot.longitude}`;
+            document.getElementById('plot-size').textContent = plot.plot_size || 'N/A';
+            document.getElementById('plot-elevation').textContent = plot.elevation || 'N/A';
+            document.getElementById('plot-soil').textContent = plot.soil_type || 'N/A';
+            document.getElementById('plot-sun').textContent = plot.sun_exposure || 'N/A';
+            document.getElementById('plot-wine-profile').textContent = plot.wine_profile || 'Wine profile not available';
+            
+            const price = plot.base_price ? `€${plot.base_price.toLocaleString()}` : 'Price on request';
+            document.getElementById('plot-price').textContent = price;
+            
+            // Show plot image if available
+            const plotImage = document.getElementById('plot-image');
+            if (plot.image || plot.producer?.producer_photo) {
+                plotImage.src = plot.image || plot.producer.producer_photo;
+                plotImage.style.display = 'block';
+                plotImage.alt = plot.name || 'Vineyard plot';
+            }
+            
+            // Show details panel
+            document.getElementById('plot-details').style.display = 'block';
+            
+            // Update add button state
+            const addButton = document.getElementById('add-to-selection');
+            const isSelected = plotSelection.hasPlot(plot.id);
+            addButton.innerHTML = isSelected 
+                ? '<i class="fas fa-check"></i> {% trans "Added to Selection" %}'
+                : '<i class="fas fa-plus"></i> {% trans "Add to Selection" %}';
+            addButton.disabled = isSelected;
+            addButton.className = isSelected 
+                ? 'vdl-btn vdl-btn-secondary w-100' 
+                : 'vdl-btn vdl-btn-primary w-100';
+        }
+
+        function addToSelection() {
+            if (currentPlotData) {
+                plotSelection.addPlot(currentPlotData);
+                vineyardMap.selectPlot(currentPlotData);
+            }
+        }
+
+        function removeFromSelection(plotId) {
+            plotSelection.removePlot(plotId);
+            const plot = plotsData.find(p => p.id === plotId);
+            if (plot) {
+                vineyardMap.deselectPlot(plot);
+            }
+        }
+        
+        function showNotification(message, type = 'info') {
+            // Use PlotSelection's notification system
+            plotSelection.showNotification(message, type);
+        }
+
+        function updateSelectionDisplay() {
+            const selectedCount = document.getElementById('selected-count');
+            const selectionList = document.getElementById('selection-list');
+            const emptySelection = document.getElementById('empty-selection');
+            const proceedSection = document.getElementById('proceed-section');
+            
+            const selectedPlots = plotSelection.getSelectedPlots();
+            selectedCount.textContent = selectedPlots.length;
+            
+            if (selectedPlots.length === 0) {
+                emptySelection.style.display = 'block';
+                proceedSection.style.display = 'none';
+                selectionList.innerHTML = '<div class="text-center vdl-text-muted" id="empty-selection"><i class="fas fa-map vdl-wine-loading vdl-mb-md" style="font-size: 2rem; color: var(--vdl-gold);"></i><p class="vdl-body-small">{% trans "Click on a plot to begin your selection" %}</p></div>';
+            } else {
+                emptySelection.style.display = 'none';
+                proceedSection.style.display = 'block';
+                
+                const price = (plot) => plot.base_price ? `€${plot.base_price.toLocaleString()}` : 'Price on request';
+                
+                selectionList.innerHTML = selectedPlots.map(plot => `
+                    <div class="vdl-cart-item">
+                        <div>
+                            <div class="vdl-body-small fw-bold">${plot.name || 'Plot ' + plot.plot_identifier}</div>
+                            <div class="vdl-caption">${price(plot)}</div>
+                        </div>
+                        <button type="button" class="vdl-remove-item" onclick="removeFromSelection(${plot.id})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function clearSelection() {
+            plotSelection.clearCart();
+            vineyardMap.clearSelection();
+            updateSelectionDisplay();
+            
+            // Refresh current plot details if any
+            if (currentPlotData) {
+                displayPlotDetails(currentPlotData);
+            }
+        }
+
+        function proceedToAdoption() {
+            const selectedPlots = plotSelection.getSelectedPlots();
+            if (selectedPlots.length === 0) return;
+            
+            const price = (plot) => plot.base_price ? `€${plot.base_price.toLocaleString()}` : 'Price on request';
+            
+            // Update modal content
+            const modalList = document.getElementById('modal-selection-list');
+            modalList.innerHTML = selectedPlots.map(plot => `
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <div>
+                        <div class="vdl-body fw-bold">${plot.name || 'Plot ' + plot.plot_identifier}</div>
+                        <div class="vdl-body-small text-muted">${plot.plot_size || 'Size N/A'}</div>
+                    </div>
+                    <div class="vdl-heading-tertiary vdl-text-burgundy">${price(plot)}</div>
+                </div>
+            `).join('');
+            
+            // Show confirmation modal
+            const modal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+            modal.show();
+        }
+
+        function confirmSelection() {
+            // Show loading overlay
+            document.getElementById('loading-overlay').classList.remove('d-none');
+            
+            // Use PlotSelection to proceed to checkout
+            plotSelection.proceedToCheckout();
+        }
+
+        function setupEventListeners() {
+            // Add to selection button
+            document.getElementById('add-to-selection').addEventListener('click', addToSelection);
+            
+            // Clear selection button
+            document.getElementById('clear-selection').addEventListener('click', clearSelection);
+            
+            // Proceed to adoption button
+            document.getElementById('proceed-to-adoption').addEventListener('click', proceedToAdoption);
+            
+            // Confirm selection in modal
+            document.getElementById('confirm-selection').addEventListener('click', confirmSelection);
+        }
+
+        // Add scroll-triggered animations
+        window.addEventListener('scroll', function() {
+            const elements = document.querySelectorAll('.vdl-fade-in');
+            elements.forEach(element => {
+                const elementTop = element.getBoundingClientRect().top;
+                const elementVisible = 150;
+                
+                if (elementTop < window.innerHeight - elementVisible) {
+                    element.classList.add('visible');
+                }
+            });
+        });
+        
+        // Error handling for network issues
+        window.addEventListener('online', () => {
+            announceToScreenReader('{% trans "Internet connection restored" %}');
+        });
+        
+        window.addEventListener('offline', () => {
+            announceToScreenReader('{% trans "Internet connection lost. Some features may not be available" %}');
+        });
+        
+        // Performance monitoring
+        if ('PerformanceObserver' in window) {
+            // Monitor Largest Contentful Paint
+            const observer = new PerformanceObserver((list) => {
+                for (const entry of list.getEntries()) {
+                    if (entry.startTime > 4000) {
+                        console.warn('🐌 Slow LCP detected:', entry.startTime.toFixed(0) + 'ms');
+                    }
+                }
+            });
+            observer.observe({entryTypes: ['largest-contentful-paint']});
+        }
+        
+        // Preload critical resources
+        function preloadCriticalResources() {
+            const criticalImages = [
+                // Images will be added when assets are available
+            ];
+            
+            criticalImages.forEach(src => {
+                const link = document.createElement('link');
+                link.rel = 'prefetch';
+                link.as = 'image';
+                link.href = src;
+                document.head.appendChild(link);
+            });
+        }
+        
+        // Initialize on DOM ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', preloadCriticalResources);
+        } else {
+            preloadCriticalResources();
+        }
+    </script>
+    
+    <!-- Schema.org structured data for SEO -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "VinsDelux Plot Selection",
+        "description": "Interactive vineyard plot selection for wine adoption",
+        "url": "{{ request.build_absolute_uri }}",
+        "applicationCategory": "WineAndSpirits",
+        "offers": {
+            "@type": "Offer",
+            "@description": "Vineyard plot adoption",
+            "priceCurrency": "EUR"
+        },
+        "featureList": [
+            "Interactive vineyard map",
+            "Plot selection and comparison",
+            "Real-time availability",
+            "Accessibility support"
+        ]
+    }
+    </script>
+{% endblock %}

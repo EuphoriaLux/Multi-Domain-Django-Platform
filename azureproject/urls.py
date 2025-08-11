@@ -26,6 +26,7 @@ urlpatterns = [
     path('login_complete/', entreprinder_views.login_complete, name='login_complete'),  # Add this line
     # Add journey URLs and API outside i18n_patterns for direct access
     path('journey/plot-selection/', vinsdelux_views.plot_selector, name='plot_selector_direct'),
+    path('journey/enhanced-plot-selection/', vinsdelux_views.enhanced_plot_selector, name='enhanced_plot_selector_direct'),
     path('vinsdelux/api/adoption-plans/', vinsdelux_views.api_adoption_plans, name='api_adoption_plans_direct'),
 ]
 

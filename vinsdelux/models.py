@@ -357,3 +357,220 @@ class VdlAdoptionPlanImage(models.Model):
                 is_primary=True
             ).exclude(pk=self.pk).update(is_primary=False)
         super().save(*args, **kwargs)
+
+
+# --- Plot Selection Models ---
+
+class PlotStatus(models.TextChoices):
+    AVAILABLE = 'available', _('Available')
+    RESERVED = 'reserved', _('Reserved')
+    UNAVAILABLE = 'unavailable', _('Unavailable')
+    ADOPTED = 'adopted', _('Adopted')
+
+class VdlPlot(models.Model):
+    """Individual vineyard plots available for adoption"""
+    
+    # Basic plot information
+    name = models.CharField(max_length=200, help_text="Plot name (e.g., 'Hillside Premier')")
+    plot_identifier = models.CharField(max_length=50, unique=True, help_text="Unique plot identifier (e.g., 'PLT-001')")
+    producer = models.ForeignKey(
+        VdlProducer,
+        on_delete=models.CASCADE,
+        related_name='plots',
+        help_text="The producer/vineyard this plot belongs to"
+    )
+    
+    # Geographic and physical characteristics
+    coordinates = models.JSONField(
+        default=dict,
+        help_text="GeoJSON coordinates for plot location. Format: {'type': 'Point', 'coordinates': [longitude, latitude]}"
+    )
+    plot_size = models.CharField(
+        max_length=50,
+        help_text="Plot size (e.g., '0.25 hectares', '2,500 sq meters')"
+    )
+    elevation = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="Plot elevation (e.g., '450m', '1,480 feet')"
+    )
+    
+    # Soil and environmental characteristics
+    soil_type = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Primary soil composition (e.g., 'Clay-limestone', 'Sandy loam')"
+    )
+    sun_exposure = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="Primary sun exposure (e.g., 'South-facing', 'East-facing slopes')"
+    )
+    microclimate_notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Additional notes about the plot's microclimate"
+    )
+    
+    # Viticulture information
+    grape_varieties = models.JSONField(
+        default=list,
+        help_text="List of grape varieties grown in this plot (e.g., ['Chardonnay', 'Pinot Noir'])"
+    )
+    vine_age = models.IntegerField(
+        blank=True,
+        null=True,
+        help_text="Average age of vines in years"
+    )
+    harvest_year = models.IntegerField(
+        blank=True,
+        null=True,
+        help_text="Expected harvest year for adoption plans"
+    )
+    
+    # Wine characteristics
+    wine_profile = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Expected wine characteristics from this plot"
+    )
+    expected_yield = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="Expected yield (e.g., '300 bottles', '25 cases')"
+    )
+    
+    # Availability and pricing
+    status = models.CharField(
+        max_length=20,
+        choices=PlotStatus.choices,
+        default=PlotStatus.AVAILABLE,
+        help_text="Current availability status of the plot"
+    )
+    base_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Base adoption price for this plot"
+    )
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_premium = models.BooleanField(
+        default=False,
+        help_text="Is this a premium plot with special characteristics?"
+    )
+    
+    # Associated adoption plans
+    adoption_plans = models.ManyToManyField(
+        VdlAdoptionPlan,
+        blank=True,
+        related_name='plots',
+        help_text="Adoption plans available for this plot"
+    )
+
+    class Meta:
+        verbose_name = "Vineyard Plot"
+        verbose_name_plural = "Vineyard Plots"
+        ordering = ['producer', 'plot_identifier']
+
+    def __str__(self):
+        return f"{self.name} ({self.plot_identifier}) - {self.producer.name}"
+    
+    @property
+    def latitude(self):
+        """Extract latitude from coordinates"""
+        if self.coordinates and 'coordinates' in self.coordinates:
+            return self.coordinates['coordinates'][1]  # GeoJSON format: [longitude, latitude]
+        return None
+    
+    @property
+    def longitude(self):
+        """Extract longitude from coordinates"""
+        if self.coordinates and 'coordinates' in self.coordinates:
+            return self.coordinates['coordinates'][0]  # GeoJSON format: [longitude, latitude]
+        return None
+    
+    @property
+    def is_available(self):
+        """Check if plot is available for adoption"""
+        return self.status == PlotStatus.AVAILABLE
+    
+    def get_primary_grape_variety(self):
+        """Get the primary grape variety"""
+        if self.grape_varieties and len(self.grape_varieties) > 0:
+            return self.grape_varieties[0]
+        return None
+    
+    def get_display_coordinates(self):
+        """Get formatted coordinates for display"""
+        if self.latitude and self.longitude:
+            return f"{self.latitude:.4f}, {self.longitude:.4f}"
+        return "Coordinates not set"
+
+
+class VdlPlotReservation(models.Model):
+    """Track plot reservations and selections"""
+    
+    plot = models.ForeignKey(
+        VdlPlot,
+        on_delete=models.CASCADE,
+        related_name='reservations'
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='plot_reservations'
+    )
+    adoption_plan = models.ForeignKey(
+        VdlAdoptionPlan,
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        help_text="Associated adoption plan if reservation proceeds to adoption"
+    )
+    
+    # Reservation details
+    reserved_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(
+        help_text="When this reservation expires if not converted to adoption"
+    )
+    is_confirmed = models.BooleanField(
+        default=False,
+        help_text="Has this reservation been confirmed as an adoption?"
+    )
+    confirmation_date = models.DateTimeField(
+        blank=True,
+        null=True
+    )
+    
+    # Additional reservation data
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="User notes or special requests"
+    )
+    session_data = models.JSONField(
+        default=dict,
+        help_text="Session data from the selection process"
+    )
+
+    class Meta:
+        verbose_name = "Plot Reservation"
+        verbose_name_plural = "Plot Reservations"
+        ordering = ['-reserved_at']
+        unique_together = ['plot', 'user']  # One reservation per user per plot
+
+    def __str__(self):
+        status = "Confirmed" if self.is_confirmed else "Pending"
+        return f"{self.user.username} - {self.plot.name} ({status})"
+    
+    @property
+    def is_expired(self):
+        """Check if reservation has expired"""
+        from django.utils import timezone
+        return timezone.now() > self.expires_at and not self.is_confirmed

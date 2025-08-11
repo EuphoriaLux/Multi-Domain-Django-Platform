@@ -9,7 +9,8 @@ from .models import (
     VdlUserProfile, VdlAddress, VdlCategory, VdlProducer,
     VdlCoffret, VdlAdoptionPlan, VdlProductImage,
     VdlOrder, VdlOrderItem, HomepageContent,
-    VdlBlogPost, VdlBlogPostCategory, VdlAdoptionPlanImage
+    VdlBlogPost, VdlBlogPostCategory, VdlAdoptionPlanImage,
+    VdlPlot, VdlPlotReservation, PlotStatus
 )
 
 # --- User Admin ---
@@ -161,3 +162,96 @@ class VdlBlogPostAdmin(admin.ModelAdmin):
 class HomepageContentAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return self.model.objects.count() == 0
+
+
+# --- Plot Selection Admin ---
+
+class VdlPlotReservationInline(admin.TabularInline):
+    model = VdlPlotReservation
+    extra = 0
+    fields = ('user', 'reserved_at', 'expires_at', 'is_confirmed', 'is_expired_status')
+    readonly_fields = ('reserved_at', 'is_expired_status')
+    
+    def is_expired_status(self, instance):
+        if instance.pk:
+            return "Expired" if instance.is_expired else "Active"
+        return "-"
+    is_expired_status.short_description = 'Status'
+
+
+@admin.register(VdlPlot)
+class VdlPlotAdmin(admin.ModelAdmin):
+    list_display = ('name', 'plot_identifier', 'producer', 'status', 'base_price', 'is_premium', 'is_available')
+    list_filter = ('status', 'is_premium', 'producer', 'grape_varieties')
+    search_fields = ('name', 'plot_identifier', 'producer__name', 'wine_profile')
+    readonly_fields = ('created_at', 'updated_at', 'latitude', 'longitude', 'display_coordinates', 'primary_grape_variety')
+    inlines = [VdlPlotReservationInline]
+    
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'plot_identifier', 'producer', 'status', 'is_premium')
+        }),
+        ('Geographic Information', {
+            'fields': ('coordinates', 'latitude', 'longitude', 'display_coordinates', 'plot_size', 'elevation'),
+            'classes': ('collapse',)
+        }),
+        ('Viticulture', {
+            'fields': ('soil_type', 'sun_exposure', 'microclimate_notes', 'grape_varieties', 'primary_grape_variety', 'vine_age', 'harvest_year'),
+            'classes': ('collapse',)
+        }),
+        ('Wine Characteristics', {
+            'fields': ('wine_profile', 'expected_yield'),
+            'classes': ('collapse',)
+        }),
+        ('Pricing & Availability', {
+            'fields': ('base_price', 'adoption_plans'),
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    filter_horizontal = ('adoption_plans',)
+    
+    def display_coordinates(self, obj):
+        """Display formatted coordinates"""
+        return obj.get_display_coordinates()
+    display_coordinates.short_description = 'Formatted Coordinates'
+    
+    def primary_grape_variety(self, obj):
+        """Display primary grape variety"""
+        return obj.get_primary_grape_variety() or "Not specified"
+    primary_grape_variety.short_description = 'Primary Grape'
+
+
+@admin.register(VdlPlotReservation)
+class VdlPlotReservationAdmin(admin.ModelAdmin):
+    list_display = ('plot', 'user', 'reserved_at', 'expires_at', 'is_confirmed', 'is_expired_status')
+    list_filter = ('is_confirmed', 'reserved_at', 'plot__producer')
+    search_fields = ('plot__name', 'plot__plot_identifier', 'user__username', 'user__email')
+    readonly_fields = ('reserved_at', 'is_expired_status')
+    raw_id_fields = ('plot', 'user', 'adoption_plan')
+    
+    fieldsets = (
+        (None, {
+            'fields': ('plot', 'user', 'adoption_plan')
+        }),
+        ('Reservation Details', {
+            'fields': ('reserved_at', 'expires_at', 'is_confirmed', 'confirmation_date', 'is_expired_status')
+        }),
+        ('Additional Information', {
+            'fields': ('notes', 'session_data'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def is_expired_status(self, obj):
+        """Display if reservation is expired"""
+        if obj.is_expired:
+            return format_html('<span style="color: red;">Expired</span>')
+        elif obj.is_confirmed:
+            return format_html('<span style="color: green;">Confirmed</span>')
+        else:
+            return format_html('<span style="color: orange;">Pending</span>')
+    is_expired_status.short_description = 'Status'

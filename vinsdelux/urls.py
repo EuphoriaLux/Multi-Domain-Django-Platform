@@ -22,14 +22,21 @@ urlpatterns = [
     path('journey/interactive/', views.journey_interactive_form, name='journey_interactive_form'),
     path('journey/test/', views.journey_test, name='journey_test'),
     
-    # API Endpoints
+    # Legacy API Endpoints (backward compatibility)
     path('api/adoption-plans/', views.api_adoption_plans, name='api_adoption_plans'),
     
-    # Plot Selector (standalone - main plot selection page)
+    # Plot Selection URLs
     path('journey/plot-selection/', views.plot_selector, name='plot_selector'),
+    path('journey/enhanced-plot-selection/', views.EnhancedPlotSelectionView.as_view(), name='enhanced_plot_selector'),
+    
+    # Plot API Endpoints
+    path('api/plots/', views.PlotListAPIView.as_view(), name='api_plot_list'),
+    path('api/plots/<int:id>/', views.PlotDetailAPIView.as_view(), name='api_plot_detail'),
+    path('api/plots/availability/', views.PlotAvailabilityAPIView.as_view(), name='api_plot_availability'),
+    path('api/plots/reserve/', views.PlotReservationAPIView.as_view(), name='api_plot_reserve'),
+    path('api/plots/selection/', views.PlotSelectionAPIView.as_view(), name='api_plot_selection'),
     
     # Journey step landing pages
-    # Note: journey_plot_selection removed as plot_selector now handles this
     path('journey/personalize-wine/', views.journey_step_personalize_wine, name='journey_personalize_wine'),
     path('journey/follow-production/', views.journey_step_follow_production, name='journey_follow_production'),
     path('journey/receive-taste/', views.journey_step_receive_taste, name='journey_receive_taste'),

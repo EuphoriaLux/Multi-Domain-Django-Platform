@@ -51,7 +51,7 @@
     </style>
     {% endblock %}
 </head>
-<body>   
+<body class="vinsdelux-page">   
     <header>
         <nav class="navbar navbar-expand-lg navbar-custom">
             <div class="container">
@@ -179,6 +179,33 @@
 
     <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
     
+    <!-- External Libraries -->
+    <!-- Leaflet.js for interactive maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Leaflet Marker Clustering -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    
+    <!-- GSAP for smooth animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollToPlugin.min.js"></script>
+    
+    <!-- VinsDelux Interactive Features -->
+    <!-- Enhanced map with premium visuals and interactions -->
+    <script src="{% static 'vinsdelux/js/enhanced-map.js' %}"></script>
+    <!-- Simple map functions for adoption plans -->
+    <script src="{% static 'vinsdelux/js/map-init-simple.js' %}"></script>
+    
+    <!-- Module-based features (commented out until properly configured) -->
+    <!-- <script type="module" src="{% static 'vinsdelux/js/animations.js' %}"></script>
+    <script type="module" src="{% static 'vinsdelux/js/plot-selection.js' %}"></script>
+    <script type="module" src="{% static 'vinsdelux/js/vineyard-map.js' %}"></script>
+    <script type="module" src="{% static 'vinsdelux/js/immersive-features.js' %}"></script>
+    <script type="module" src="{% static 'vinsdelux/js/app.js' %}"></script> -->
+    
     <!-- Futuristic Journey JavaScript -->
     <script src="{% static 'js/vdl-journey-futuristic.js' %}"></script>
     
@@ -189,6 +216,16 @@
     {% if debug %}
     <script src="{% static 'js/vdl-debug-console.js' %}"></script>
     {% endif %}
+    
+    <!-- Global Configuration -->
+    <script>
+        // Pass Django configuration to JavaScript
+        window.DEBUG_MODE = {% if debug %}true{% else %}false{% endif %};
+        window.LANGUAGE_CODE = "{{ LANGUAGE_CODE }}";
+        window.API_BASE_URL = "/api";
+        window.ENABLE_ANALYTICS = true;
+        window.MAX_PLOT_SELECTIONS = 5;
+    </script>
     
     {% block extra_js %}{% endblock %}
 </body>

@@ -1,96 +1,299 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VinsDelux - Wine Plot Selector</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-</head>
-<body>
+{% extends "vinsdelux/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Enhanced Plot Selection" %} - VinsDelux{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'css/vinsdelux-enhanced-plot-selector.css' %}" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<style>
+    /* Override with mockup style */
+    body {
+        background: #1a1a3e;
+    }
+    .plot-selector-container {
+        background: #1a1a3e;
+        color: white;
+    }
+    .map-wrapper {
+        padding: 40px 20px;
+    }
+    .page-title {
+        color: white;
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+        font-weight: 300;
+    }
+    .page-subtitle {
+        color: #9999cc;
+        font-size: 1rem;
+        margin-bottom: 30px;
+    }
+    
+    /* Feature Controls */
+    .feature-controls {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin: 30px 0;
+        flex-wrap: wrap;
+    }
+    
+    .feature-btn {
+        background: linear-gradient(135deg, #722F37 0%, #D4AF37 100%);
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 25px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(114, 47, 55, 0.3);
+    }
+    
+    .feature-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(114, 47, 55, 0.4);
+    }
+    
+    .feature-btn i {
+        font-size: 16px;
+    }
+    
+    /* Cart Sidebar */
+    .cart-sidebar {
+        position: fixed;
+        right: -400px;
+        top: 0;
+        width: 380px;
+        height: 100vh;
+        background: rgba(26, 26, 62, 0.98);
+        color: white;
+        z-index: 1000;
+        overflow-y: auto;
+        transition: right 0.4s ease;
+        box-shadow: -5px 0 20px rgba(0,0,0,0.5);
+    }
+    
+    .cart-sidebar.active {
+        right: 0;
+    }
+    
+    .sidebar-header {
+        padding: 20px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .close-sidebar {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 20px;
+        cursor: pointer;
+    }
+    
+    .selected-plots-list {
+        padding: 20px;
+        max-height: 50vh;
+        overflow-y: auto;
+    }
+    
+    .cart-summary {
+        padding: 20px;
+        border-top: 1px solid rgba(255,255,255,0.1);
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .cart-actions {
+        padding: 20px;
+        display: flex;
+        gap: 10px;
+    }
+    
+    .btn-secondary {
+        flex: 1;
+        background: #666;
+        color: white;
+        border: none;
+        padding: 12px;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+    
+    .btn-primary {
+        flex: 2;
+        background: linear-gradient(135deg, #722F37 0%, #D4AF37 100%);
+        color: white;
+        border: none;
+        padding: 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    
+    .btn-primary:disabled {
+        background: #555;
+        cursor: not-allowed;
+    }
+    
+    /* Vineyard Map Container */
+    .vineyard-map-container {
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    
+    /* Seasonal Timeline Section */
+    .seasonal-timeline-section {
+        margin: 40px 0;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .feature-controls {
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .feature-btn {
+            width: 200px;
+            justify-content: center;
+        }
+        
+        .cart-sidebar {
+            width: 100%;
+            right: -100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
     <div class="plot-selector-container">
+        <!-- Title Section -->
+        <div class="text-center">
+            <h1 class="page-title" data-animation="fadeInUp">MyWine</h1>
+            <p class="page-subtitle" data-animation="fadeInUp">{% trans "Please select a wine plot" %}</p>
+        </div>
+        
+        <!-- Interactive Feature Controls -->
+        <div class="feature-controls">
+            <button class="feature-btn virtual-tour-trigger" title="Virtual Tour">
+                <i class="fas fa-route"></i>
+                <span>Virtual Tour</span>
+            </button>
+            <button class="feature-btn seasonal-timeline-trigger" title="Seasonal Journey">
+                <i class="fas fa-calendar-alt"></i>
+                <span>Seasonal Journey</span>
+            </button>
+            <button class="feature-btn" id="toggleMapView" title="Toggle Map View">
+                <i class="fas fa-map"></i>
+                <span>Map View</span>
+            </button>
+        </div>
+        
         <!-- Main Map Container -->
         <div class="map-wrapper">
-            <!-- Map Controls -->
-            <div class="map-controls">
-                <button class="control-btn" id="zoomIn" title="Zoom In">
-                    <i class="fas fa-plus"></i>
-                </button>
-                <button class="control-btn" id="zoomOut" title="Zoom Out">
-                    <i class="fas fa-minus"></i>
-                </button>
-                <button class="control-btn" id="resetView" title="Reset View">
-                    <i class="fas fa-compress"></i>
-                </button>
-            </div>
-
-            <!-- Legend -->
-            <div class="map-legend">
-                <h4>Moselle Wine Regions</h4>
-                <div class="legend-item">
-                    <span class="legend-color" style="background: #8FBC8F;"></span>
-                    <span>Moselle Luxembourgeoise</span>
-                </div>
-                <div class="legend-item">
-                    <span class="legend-color" style="background: #F0D58C;"></span>
-                    <span>Moselle Luxembourgeoise</span>
-                </div>
-                <div class="legend-item">
-                    <span class="legend-color" style="background: #DDA0A0;"></span>
-                    <span>Lower Moselle</span>
-                </div>
-            </div>
 
             <!-- Main Map Canvas -->
             <div class="map-container" id="mapContainer">
-                <!-- SVG Map Background -->
-                <svg id="wineRegionMap" viewBox="0 0 800 1000" preserveAspectRatio="xMidYMid meet">
-                    <!-- Define gradients and patterns -->
-                    <defs>
-                        <pattern id="grapePattern" patternUnits="userSpaceOnUse" width="40" height="40">
-                            <text x="20" y="25" font-size="20" fill="#666" opacity="0.3">🍇</text>
-                        </pattern>
-                        
-                        <linearGradient id="riverGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" style="stop-color:#6CA0DC;stop-opacity:0.8" />
-                            <stop offset="50%" style="stop-color:#5090CC;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#6CA0DC;stop-opacity:0.8" />
-                        </linearGradient>
-                    </defs>
-
-                    <!-- Background -->
-                    <rect width="800" height="1000" fill="#F5E6D3"/>
-
-                    <!-- Moselle River -->
-                    <path d="M 50 0 Q 100 200 80 400 T 60 800 Q 100 900 150 1000" 
-                          stroke="url(#riverGradient)" stroke-width="40" fill="none" opacity="0.7"/>
+                <!-- SVG Map Luxembourg 12 Cantons -->
+                <svg id="wineRegionMap" viewBox="0 0 400 500" preserveAspectRatio="xMidYMid meet">
                     
-                    <!-- Wine Regions -->
-                    <!-- Upper Region - Moselle Luxembourgeoise (Yellow) -->
-                    <path id="upperRegion" d="M 200 50 L 600 50 L 650 200 L 550 350 L 200 350 Z" 
-                          fill="#F0D58C" stroke="#D4A574" stroke-width="2" opacity="0.8"/>
+                    <!-- Canton Clervaux (North) -->
+                    <g id="canton-clervaux" class="canton-group">
+                        <path d="M 120 20 L 200 20 L 210 80 L 150 100 L 100 80 Z" 
+                              fill="#4FC3F7" stroke="white" stroke-width="2" cursor="pointer"/>
+                        <text x="150" y="60" font-size="12" fill="white" text-anchor="middle" font-weight="bold">Clervaux</text>
+                    </g>
                     
-                    <!-- Middle Region - Moselle Luxembourgeoise (Green) -->
-                    <path id="middleRegion" d="M 180 350 L 550 350 L 500 600 L 150 600 Z" 
-                          fill="#8FBC8F" stroke="#7AA87A" stroke-width="2" opacity="0.8"/>
+                    <!-- Canton Wiltz (North-West) -->
+                    <g id="canton-wiltz" class="canton-group">
+                        <path d="M 50 80 L 100 80 L 150 100 L 140 160 L 80 150 L 40 120 Z" 
+                              fill="#E91E63" stroke="white" stroke-width="2" cursor="pointer"/>
+                        <text x="90" y="120" font-size="12" fill="white" text-anchor="middle" font-weight="bold">Wiltz</text>
+                    </g>
                     
-                    <!-- Lower Region - Lower Moselle (Pink) -->
-                    <path id="lowerRegion" d="M 150 600 L 500 600 L 550 950 L 200 950 Z" 
-                          fill="#DDA0A0" stroke="#CC9090" stroke-width="2" opacity="0.8"/>
-
-                    <!-- Region Labels -->
-                    <text x="400" y="150" font-size="24" font-weight="bold" text-anchor="middle" fill="#333">
-                        Luxembourg
-                    </text>
-                    <text x="350" y="475" font-size="18" text-anchor="middle" fill="#333">
-                        Moselle Luxembourgeoise
-                    </text>
-                    <text x="350" y="775" font-size="18" text-anchor="middle" fill="#333">
-                        Lower Moselle
-                    </text>
-                    <text x="100" y="500" font-size="16" text-anchor="middle" fill="#5090CC" 
-                          transform="rotate(-80 100 500)">
-                        Moselle
-                    </text>
+                    <!-- Canton Vianden (North-East) -->
+                    <g id="canton-vianden" class="canton-group">
+                        <path d="M 210 80 L 280 70 L 300 120 L 280 160 L 210 150 L 200 100 Z" 
+                              fill="#FF9800" stroke="white" stroke-width="2" cursor="pointer"/>
+                        <text x="250" y="120" font-size="12" fill="white" text-anchor="middle" font-weight="bold">Vianden</text>
+                    </g>
+                    
+                    <!-- Canton Diekirch (Center-North) -->
+                    <g id="canton-diekirch" class="canton-group">
+                        <path d="M 150 100 L 210 100 L 210 150 L 200 180 L 140 180 L 140 160 Z" 
+                              fill="#FFA726" stroke="white" stroke-width="2" cursor="pointer"/>
+                        <text x="175" y="140" font-size="12" fill="white" text-anchor="middle" font-weight="bold">Diekirch</text>
+                    </g>
+                    
+                    <!-- Canton Redange (West) -->
+                    <g id="canton-redange" class="canton-group">
+                        <path d="M 40 150 L 80 150 L 140 160 L 130 220 L 60 210 L 30 180 Z" 
+                              fill="#AB47BC" stroke="white" stroke-width="2" cursor="pointer"/>
+                        <text x="85" y="185" font-size="12" fill="white" text-anchor="middle" font-weight="bold">Redange</text>
+                    </g>
+                    
+                    <!-- Canton Mersch (Center) -->
+                    <g id="canton-mersch" class="canton-group">
+                        <path d="M 140 180 L 200 180 L 210 240 L 160 250 L 130 220 Z" 
+                              fill="#66BB6A" stroke="white" stroke-width="2" cursor="pointer"/>
+                        <text x="170" y="215" font-size="12" fill="white" text-anchor="middle" font-weight="bold">Mersch</text>
+                    </g>
+                    
+                    <!-- Canton Echternach (East) -->
+                    <g id="canton-echternach" class="canton-group">
+                        <path d="M 280 160 L 350 150 L 360 220 L 320 250 L 280 240 L 270 200 Z" 
+                              fill="#42A5F5" stroke="white" stroke-width="2" cursor="pointer"/>
+                        <text x="315" y="205" font-size="12" fill="white" text-anchor="middle" font-weight="bold">Echternach</text>
+                    </g>
+                    
+                    <!-- Canton Grevenmacher (East-Center) -->
+                    <g id="canton-grevenmacher" class="canton-group">
+                        <path d="M 210 180 L 280 200 L 280 240 L 260 280 L 210 270 L 210 240 Z" 
+                              fill="#9CCC65" stroke="white" stroke-width="2" cursor="pointer"/>
+                        <text x="245" y="230" font-size="10" fill="white" text-anchor="middle" font-weight="bold">Grevenmacher</text>
+                    </g>
+                    
+                    <!-- Canton Capellen (South-West) -->
+                    <g id="canton-capellen" class="canton-group">
+                        <path d="M 30 210 L 60 210 L 130 220 L 120 280 L 70 290 L 20 270 Z" 
+                              fill="#EF5350" stroke="white" stroke-width="2" cursor="pointer"/>
+                        <text x="75" y="250" font-size="12" fill="white" text-anchor="middle" font-weight="bold">Capellen</text>
+                    </g>
+                    
+                    <!-- Canton Luxembourg (Center-South) -->
+                    <g id="canton-luxembourg" class="canton-group">
+                        <path d="M 130 250 L 210 240 L 210 270 L 200 330 L 150 340 L 120 320 L 120 280 Z" 
+                              fill="#FFCA28" stroke="white" stroke-width="2" cursor="pointer"/>
+                        <text x="165" y="290" font-size="10" fill="white" text-anchor="middle" font-weight="bold">Luxembourg</text>
+                    </g>
+                    
+                    <!-- Canton Esch-sur-Alzette (South) -->
+                    <g id="canton-esch" class="canton-group">
+                        <path d="M 70 290 L 120 280 L 120 320 L 150 340 L 140 380 L 100 390 L 60 380 L 50 340 Z" 
+                              fill="#29B6F6" stroke="white" stroke-width="2" cursor="pointer"/>
+                        <text x="100" y="340" font-size="10" fill="white" text-anchor="middle" font-weight="bold">Esch-sur-Alzette</text>
+                    </g>
+                    
+                    <!-- Canton Remich (South-East) -->
+                    <g id="canton-remich" class="canton-group">
+                        <path d="M 200 330 L 260 320 L 280 360 L 260 400 L 200 390 L 180 360 Z" 
+                              fill="#CE93D8" stroke="white" stroke-width="2" cursor="pointer"/>
+                        <text x="230" y="365" font-size="12" fill="white" text-anchor="middle" font-weight="bold">Remich</text>
+                    </g>
+                    
+                    <!-- Plot markers will be added here by JavaScript -->
+                    <g id="plotMarkers"></g>
                 </svg>
 
                 <!-- Plot Grid Overlay -->
@@ -195,6 +398,151 @@
                 <p id="vineyardDetails"></p>
             </div>
         </div>
+        
+        <!-- Seasonal Timeline Section -->
+        <div id="seasonal-timeline" class="seasonal-timeline-section fade-in-element" data-animation="slideInUp">
+            <!-- Timeline will be populated by JavaScript -->
+        </div>
+        
+        <!-- Cart Sidebar -->
+        <div class="cart-sidebar" id="cart-sidebar">
+            <div class="sidebar-header">
+                <h3>Selected Plots <span class="selection-count">0</span></h3>
+                <button class="close-sidebar" onclick="document.getElementById('cart-sidebar').classList.remove('active')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="selected-plots-list">
+                <!-- Plot selection list will be populated here -->
+            </div>
+            
+            <div class="cart-summary">
+                <!-- Summary will be populated here -->
+            </div>
+            
+            <div class="cart-actions">
+                <button class="clear-cart-btn btn-secondary">
+                    <i class="fas fa-trash"></i> Clear All
+                </button>
+                <button class="proceed-checkout-btn btn-primary" disabled>
+                    <i class="fas fa-arrow-right"></i> Continue Journey
+                </button>
+            </div>
+        </div>
+        
+        <!-- Interactive Map Container (Leaflet) -->
+        <div id="vineyard-map" class="vineyard-map-container" style="display: none; height: 600px; margin: 20px 0;">
+            <!-- Leaflet map will be initialized here -->
+        </div>
     </div>
-</body>
-</html>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/vinsdelux-enhanced-plot-selector.js' %}"></script>
+<script>
+    // Pass Django data to JavaScript
+    const adoptionPlansData = {{ adoption_plans|safe|default:"[]" }};
+    const apiUrl = "{% url 'vinsdelux:api_adoption_plans' %}";
+    
+    // Initialize enhanced features when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize immersive features
+        if (typeof ImmersiveFeatures !== 'undefined') {
+            window.immersiveFeatures = new ImmersiveFeatures({
+                debug: window.DEBUG_MODE,
+                enableVirtualTour: true,
+                enableSeasonalTimeline: true,
+                enablePlotComparison: true,
+                enablePhotoGallery: true
+            });
+        }
+        
+        // Setup feature button interactions
+        document.getElementById('toggleMapView')?.addEventListener('click', function() {
+            const svgMap = document.getElementById('mapContainer');
+            const leafletMap = document.getElementById('vineyard-map');
+            
+            if (leafletMap.style.display === 'none') {
+                // Switch to Leaflet map
+                svgMap.style.display = 'none';
+                leafletMap.style.display = 'block';
+                this.innerHTML = '<i class="fas fa-map-marked"></i><span>SVG View</span>';
+                
+                // Initialize Leaflet map if not already done
+                if (window.vinsdeluxApp && window.vinsdeluxApp.components.vineyardMap) {
+                    setTimeout(() => {
+                        window.vinsdeluxApp.components.vineyardMap.map.invalidateSize();
+                    }, 300);
+                }
+            } else {
+                // Switch to SVG map
+                leafletMap.style.display = 'none';
+                svgMap.style.display = 'block';
+                this.innerHTML = '<i class="fas fa-map"></i><span>Map View</span>';
+            }
+        });
+        
+        // Cart sidebar toggle
+        document.addEventListener('click', function(e) {
+            if (e.target.matches('.cart-icon, .selection-count') || e.target.closest('.cart-icon')) {
+                document.getElementById('cart-sidebar').classList.add('active');
+            }
+        });
+        
+        // Add cart icon to navigation if it doesn't exist
+        const cartLink = document.querySelector('a[href*="Cart"]');
+        if (cartLink) {
+            cartLink.classList.add('cart-icon');
+            cartLink.innerHTML = '<i class="fas fa-shopping-cart me-1"></i>{% trans "Cart" %} <span class="cart-badge selection-count">0</span>';
+        }
+        
+        // Listen for plot selection events to update cart
+        document.addEventListener('plotSelector:plotSelected', function(e) {
+            // Open cart sidebar when first plot is selected
+            if (window.vinsdeluxApp && window.vinsdeluxApp.components.plotSelection) {
+                const selectedCount = window.vinsdeluxApp.components.plotSelection.getPlotCount();
+                if (selectedCount === 1) {
+                    setTimeout(() => {
+                        document.getElementById('cart-sidebar').classList.add('active');
+                    }, 500);
+                }
+            }
+        });
+        
+        // Add comparison button functionality to plot markers
+        document.querySelectorAll('.plot-marker').forEach(marker => {
+            const compareBtn = document.createElement('button');
+            compareBtn.className = 'compare-plot-btn';
+            compareBtn.innerHTML = '<i class="fas fa-balance-scale"></i>';
+            compareBtn.title = 'Compare this plot';
+            compareBtn.style.cssText = `
+                position: absolute;
+                top: -5px;
+                right: -5px;
+                background: #D4AF37;
+                border: none;
+                border-radius: 50%;
+                width: 25px;
+                height: 25px;
+                color: white;
+                cursor: pointer;
+                font-size: 12px;
+                opacity: 0;
+                transition: all 0.3s ease;
+            `;
+            
+            marker.style.position = 'relative';
+            marker.appendChild(compareBtn);
+            
+            marker.addEventListener('mouseenter', () => {
+                compareBtn.style.opacity = '1';
+            });
+            
+            marker.addEventListener('mouseleave', () => {
+                compareBtn.style.opacity = '0';
+            });
+        });
+    });
+</script>
+{% endblock %}

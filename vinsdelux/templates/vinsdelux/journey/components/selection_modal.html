@@ -1,0 +1,670 @@
+{% load static i18n %}
+
+<!--
+  Selection Confirmation Modal - Elegant confirmation modal for plot selection
+  Usage: {% include 'vinsdelux/journey/components/selection_modal.html' %}
+-->
+
+<!-- Selection Confirmation Modal -->
+<div class="modal fade" id="vdlSelectionModal" tabindex="-1" aria-labelledby="vdlSelectionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content vdl-modal-content">
+            <!-- Modal Header with Wine Theme -->
+            <div class="modal-header vdl-modal-header">
+                <div class="d-flex align-items-center">
+                    <div class="vdl-modal-icon">
+                        <i class="fas fa-wine-glass-alt"></i>
+                    </div>
+                    <div class="ms-3">
+                        <h4 class="modal-title vdl-heading-tertiary vdl-mb-0" id="vdlSelectionModalLabel">
+                            {% trans "Confirm Your Vineyard Selection" %}
+                        </h4>
+                        <p class="vdl-caption vdl-text-gold vdl-mb-0">
+                            {% trans "Review your chosen plots before proceeding" %}
+                        </p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close vdl-btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <!-- Modal Body -->
+            <div class="modal-body vdl-modal-body">
+                <!-- Selection Summary -->
+                <div class="vdl-selection-summary vdl-mb-xl">
+                    <div class="row align-items-center vdl-mb-lg">
+                        <div class="col-auto">
+                            <div class="vdl-summary-icon">
+                                <i class="fas fa-map-marked-alt"></i>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <h5 class="vdl-heading-tertiary vdl-mb-xs">{% trans "Your Selection Summary" %}</h5>
+                            <p class="vdl-body-small vdl-text-muted vdl-mb-0">
+                                {% trans "You have selected the following premium vineyard plots for adoption" %}
+                            </p>
+                        </div>
+                        <div class="col-auto">
+                            <div class="vdl-selection-badge">
+                                <span id="modal-plot-count">0</span> {% trans "plots" %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Selected Plots List -->
+                <div id="modal-selection-list" class="vdl-modal-list vdl-mb-xl">
+                    <!-- Dynamic content populated by JavaScript -->
+                </div>
+                
+                <!-- Total Price Section -->
+                <div class="vdl-price-summary vdl-mb-xl">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="vdl-body">{% trans "Total Annual Cost" %}</span>
+                                <span id="modal-total-price" class="vdl-heading-tertiary vdl-text-burgundy">€0</span>
+                            </div>
+                            <hr class="vdl-divider">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="vdl-body-small vdl-text-muted">{% trans "Includes vineyard management & wine production" %}</span>
+                                <span class="vdl-caption vdl-text-gold">{% trans "Premium Service" %}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Next Steps Info -->
+                <div class="vdl-next-steps">
+                    <div class="alert vdl-alert-info">
+                        <div class="d-flex">
+                            <div class="vdl-alert-icon">
+                                <i class="fas fa-info-circle"></i>
+                            </div>
+                            <div class="ms-3">
+                                <h6 class="vdl-alert-title">{% trans "What happens next?" %}</h6>
+                                <ul class="vdl-alert-list vdl-mb-0">
+                                    <li>{% trans "Choose your preferred adoption plan (Bronze, Silver, or Gold)" %}</li>
+                                    <li>{% trans "Complete your personal information and preferences" %}</li>
+                                    <li>{% trans "Receive your personalized vineyard welcome package" %}</li>
+                                    <li>{% trans "Begin your exclusive wine journey with regular updates" %}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Modal Footer -->
+            <div class="modal-footer vdl-modal-footer">
+                <div class="w-100">
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <button type="button" class="vdl-btn vdl-btn-secondary w-100" data-bs-dismiss="modal">
+                                <i class="fas fa-arrow-left me-2"></i>
+                                {% trans "Go Back" %}
+                            </button>
+                        </div>
+                        <div class="col-md-8">
+                            <button type="button" id="confirm-selection-modal" class="vdl-btn vdl-btn-primary w-100">
+                                <i class="fas fa-check me-2"></i>
+                                {% trans "Confirm Selection & Continue" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Plot Details Modal (for individual plot inspection) -->
+<div class="modal fade" id="vdlPlotDetailsModal" tabindex="-1" aria-labelledby="vdlPlotDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content vdl-modal-content">
+            <div class="modal-header vdl-modal-header">
+                <div class="d-flex align-items-center">
+                    <div class="vdl-modal-icon">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </div>
+                    <div class="ms-3">
+                        <h4 class="modal-title vdl-heading-tertiary vdl-mb-0" id="vdlPlotDetailsModalLabel">
+                            <!-- Dynamic plot name -->
+                        </h4>
+                        <p class="vdl-caption vdl-text-gold vdl-mb-0" id="plot-detail-coordinates">
+                            <!-- Dynamic coordinates -->
+                        </p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close vdl-btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body vdl-modal-body">
+                <div class="row g-4">
+                    <!-- Plot Image Gallery -->
+                    <div class="col-lg-6">
+                        <div class="vdl-plot-gallery">
+                            <div class="vdl-main-image">
+                                <img id="plot-detail-main-image" src="" alt="Plot view" class="img-fluid rounded">
+                            </div>
+                            <div class="vdl-thumbnail-row vdl-mt-md" id="plot-detail-thumbnails">
+                                <!-- Dynamic thumbnails -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Plot Information -->
+                    <div class="col-lg-6">
+                        <div class="vdl-plot-info">
+                            <!-- Terroir Details -->
+                            <div class="vdl-info-section vdl-mb-lg">
+                                <h5 class="vdl-info-title">
+                                    <i class="fas fa-mountain vdl-text-gold me-2"></i>
+                                    {% trans "Terroir Characteristics" %}
+                                </h5>
+                                <div class="row g-3">
+                                    <div class="col-6">
+                                        <div class="vdl-info-item">
+                                            <div class="vdl-info-label">{% trans "Soil Composition" %}</div>
+                                            <div class="vdl-info-value" id="plot-detail-soil">-</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="vdl-info-item">
+                                            <div class="vdl-info-label">{% trans "Sun Exposure" %}</div>
+                                            <div class="vdl-info-value" id="plot-detail-sun">-</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="vdl-info-item">
+                                            <div class="vdl-info-label">{% trans "Elevation" %}</div>
+                                            <div class="vdl-info-value" id="plot-detail-elevation">-</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="vdl-info-item">
+                                            <div class="vdl-info-label">{% trans "Plot Size" %}</div>
+                                            <div class="vdl-info-value" id="plot-detail-size">-</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Wine Profile -->
+                            <div class="vdl-info-section vdl-mb-lg">
+                                <h5 class="vdl-info-title">
+                                    <i class="fas fa-wine-glass-alt vdl-text-gold me-2"></i>
+                                    {% trans "Expected Wine Profile" %}
+                                </h5>
+                                <p id="plot-detail-wine-profile" class="vdl-info-description">-</p>
+                            </div>
+                            
+                            <!-- Pricing -->
+                            <div class="vdl-info-section">
+                                <h5 class="vdl-info-title">
+                                    <i class="fas fa-tag vdl-text-gold me-2"></i>
+                                    {% trans "Adoption Investment" %}
+                                </h5>
+                                <div class="vdl-price-display">
+                                    <div class="vdl-price-main" id="plot-detail-price">€0</div>
+                                    <div class="vdl-price-description">{% trans "Annual adoption fee includes full vineyard management, grape cultivation, wine production, and personalized bottles delivered to your door." %}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer vdl-modal-footer">
+                <button type="button" class="vdl-btn vdl-btn-secondary" data-bs-dismiss="modal">
+                    {% trans "Close" %}
+                </button>
+                <button type="button" id="add-plot-from-modal" class="vdl-btn vdl-btn-primary">
+                    <i class="fas fa-plus me-2"></i>
+                    {% trans "Add to Selection" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Component Styles -->
+<style>
+    /* Modal Enhancements */
+    .vdl-modal-content {
+        border: none;
+        border-radius: var(--vdl-radius-xl);
+        box-shadow: var(--vdl-shadow-dramatic);
+        overflow: hidden;
+    }
+    
+    .vdl-modal-header {
+        background: linear-gradient(135deg, var(--vdl-cream) 0%, var(--vdl-pearl) 100%);
+        border-bottom: 2px solid var(--vdl-gold-alpha-20);
+        padding: var(--vdl-space-xl);
+    }
+    
+    .vdl-modal-icon {
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, var(--vdl-burgundy), var(--vdl-burgundy-dark));
+        color: var(--vdl-gold);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-size: 1.5rem;
+        box-shadow: var(--vdl-shadow-medium);
+    }
+    
+    .vdl-btn-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        color: var(--vdl-burgundy);
+        opacity: 0.7;
+        transition: all var(--vdl-transition-fast);
+    }
+    
+    .vdl-btn-close:hover {
+        opacity: 1;
+        color: var(--vdl-burgundy);
+        transform: scale(1.1);
+    }
+    
+    .vdl-modal-body {
+        padding: var(--vdl-space-2xl);
+        background: var(--vdl-cream);
+    }
+    
+    .vdl-modal-footer {
+        background: linear-gradient(135deg, var(--vdl-pearl) 0%, var(--vdl-cream) 100%);
+        border-top: 1px solid var(--vdl-silver);
+        padding: var(--vdl-space-xl);
+    }
+    
+    /* Selection Summary */
+    .vdl-selection-summary {
+        background: var(--vdl-pearl);
+        border-radius: var(--vdl-radius-lg);
+        padding: var(--vdl-space-lg);
+    }
+    
+    .vdl-summary-icon {
+        width: 50px;
+        height: 50px;
+        background: var(--vdl-gold);
+        color: var(--vdl-burgundy);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-size: 1.25rem;
+    }
+    
+    .vdl-selection-badge {
+        background: var(--vdl-burgundy);
+        color: var(--vdl-cream);
+        padding: var(--vdl-space-sm) var(--vdl-space-lg);
+        border-radius: var(--vdl-radius-lg);
+        font-family: var(--vdl-font-sans);
+        font-weight: 600;
+        font-size: var(--vdl-text-sm);
+    }
+    
+    /* Modal List Items */
+    .vdl-modal-list-item {
+        background: white;
+        border: 1px solid var(--vdl-silver);
+        border-radius: var(--vdl-radius-lg);
+        padding: var(--vdl-space-lg);
+        margin-bottom: var(--vdl-space-md);
+        transition: all var(--vdl-transition-fast);
+    }
+    
+    .vdl-modal-list-item:hover {
+        border-color: var(--vdl-gold-alpha-90);
+        box-shadow: var(--vdl-shadow-soft);
+    }
+    
+    .vdl-modal-list-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    /* Price Summary */
+    .vdl-price-summary {
+        background: var(--vdl-pearl);
+        border-radius: var(--vdl-radius-lg);
+        padding: var(--vdl-space-lg);
+        border: 2px solid var(--vdl-gold-alpha-20);
+    }
+    
+    .vdl-divider {
+        border-color: var(--vdl-gold-alpha-20);
+        border-width: 1px;
+        margin: var(--vdl-space-md) 0;
+    }
+    
+    /* Alert Component */
+    .vdl-alert-info {
+        background: linear-gradient(135deg, var(--vdl-gold-alpha-20), var(--vdl-gold-alpha-10));
+        border: 1px solid var(--vdl-gold-alpha-90);
+        border-radius: var(--vdl-radius-lg);
+        padding: var(--vdl-space-lg);
+    }
+    
+    .vdl-alert-icon {
+        color: var(--vdl-gold);
+        font-size: 1.25rem;
+        flex-shrink: 0;
+    }
+    
+    .vdl-alert-title {
+        color: var(--vdl-burgundy);
+        font-family: var(--vdl-font-serif);
+        font-weight: 600;
+        margin-bottom: var(--vdl-space-sm);
+    }
+    
+    .vdl-alert-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .vdl-alert-list li {
+        position: relative;
+        padding-left: var(--vdl-space-lg);
+        margin-bottom: var(--vdl-space-xs);
+        color: var(--vdl-charcoal);
+        font-size: var(--vdl-text-sm);
+    }
+    
+    .vdl-alert-list li::before {
+        content: '\f00c';
+        font-family: 'Font Awesome 5 Free';
+        font-weight: 900;
+        position: absolute;
+        left: 0;
+        top: 0;
+        color: var(--vdl-gold);
+        font-size: 0.75rem;
+    }
+    
+    /* Plot Details Modal Specific */
+    .vdl-plot-gallery {
+        position: sticky;
+        top: var(--vdl-space-lg);
+    }
+    
+    .vdl-main-image img {
+        width: 100%;
+        height: 300px;
+        object-fit: cover;
+        border-radius: var(--vdl-radius-lg);
+    }
+    
+    .vdl-thumbnail-row {
+        display: flex;
+        gap: var(--vdl-space-sm);
+        justify-content: center;
+    }
+    
+    .vdl-thumbnail {
+        width: 60px;
+        height: 60px;
+        border-radius: var(--vdl-radius-md);
+        object-fit: cover;
+        cursor: pointer;
+        opacity: 0.7;
+        transition: all var(--vdl-transition-fast);
+        border: 2px solid transparent;
+    }
+    
+    .vdl-thumbnail:hover,
+    .vdl-thumbnail.active {
+        opacity: 1;
+        border-color: var(--vdl-gold);
+    }
+    
+    /* Info Sections */
+    .vdl-info-section {
+        border-bottom: 1px solid var(--vdl-silver);
+        padding-bottom: var(--vdl-space-lg);
+    }
+    
+    .vdl-info-section:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    
+    .vdl-info-title {
+        color: var(--vdl-burgundy);
+        font-family: var(--vdl-font-serif);
+        font-weight: 600;
+        margin-bottom: var(--vdl-space-md);
+    }
+    
+    .vdl-info-item {
+        background: var(--vdl-pearl);
+        border-radius: var(--vdl-radius-md);
+        padding: var(--vdl-space-md);
+    }
+    
+    .vdl-info-label {
+        font-size: var(--vdl-text-xs);
+        color: var(--vdl-ash);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: var(--vdl-space-xs);
+    }
+    
+    .vdl-info-value {
+        font-family: var(--vdl-font-serif);
+        font-weight: 600;
+        color: var(--vdl-burgundy);
+    }
+    
+    .vdl-info-description {
+        line-height: 1.6;
+        color: var(--vdl-charcoal);
+    }
+    
+    .vdl-price-display {
+        text-align: center;
+        padding: var(--vdl-space-lg);
+        background: var(--vdl-pearl);
+        border-radius: var(--vdl-radius-lg);
+    }
+    
+    .vdl-price-main {
+        font-family: var(--vdl-font-display);
+        font-size: var(--vdl-text-3xl);
+        font-weight: 700;
+        color: var(--vdl-burgundy);
+        margin-bottom: var(--vdl-space-sm);
+    }
+    
+    .vdl-price-description {
+        font-size: var(--vdl-text-sm);
+        color: var(--vdl-ash);
+        line-height: 1.5;
+    }
+    
+    /* Responsive Adjustments */
+    @media (max-width: 767.98px) {
+        .vdl-modal-header {
+            padding: var(--vdl-space-lg);
+        }
+        
+        .vdl-modal-body {
+            padding: var(--vdl-space-lg);
+        }
+        
+        .vdl-modal-footer {
+            padding: var(--vdl-space-lg);
+        }
+        
+        .vdl-modal-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 1.25rem;
+        }
+        
+        .vdl-main-image img {
+            height: 250px;
+        }
+        
+        .vdl-price-main {
+            font-size: var(--vdl-text-2xl);
+        }
+    }
+</style>
+
+<!-- Modal JavaScript Functions -->
+<script>
+    // Modal management functions
+    const VDLModal = {
+        selection: null,
+        plotDetails: null,
+        
+        init: function() {
+            // Initialize modals
+            this.selection = new bootstrap.Modal(document.getElementById('vdlSelectionModal'));
+            this.plotDetails = new bootstrap.Modal(document.getElementById('vdlPlotDetailsModal'));
+            
+            // Setup event listeners
+            this.setupEventListeners();
+        },
+        
+        setupEventListeners: function() {
+            // Confirm selection button
+            const confirmBtn = document.getElementById('confirm-selection-modal');
+            if (confirmBtn) {
+                confirmBtn.addEventListener('click', () => {
+                    this.confirmSelection();
+                });
+            }
+            
+            // Add plot from details modal
+            const addPlotBtn = document.getElementById('add-plot-from-modal');
+            if (addPlotBtn) {
+                addPlotBtn.addEventListener('click', () => {
+                    this.addPlotFromModal();
+                });
+            }
+        },
+        
+        showSelectionModal: function(plots) {
+            // Update modal content with selected plots
+            this.updateSelectionModal(plots);
+            this.selection.show();
+        },
+        
+        updateSelectionModal: function(plots) {
+            // Update plot count
+            const plotCount = document.getElementById('modal-plot-count');
+            if (plotCount) {
+                plotCount.textContent = plots.length;
+            }
+            
+            // Update plots list
+            const plotsList = document.getElementById('modal-selection-list');
+            if (plotsList && plots.length > 0) {
+                plotsList.innerHTML = plots.map(plot => `
+                    <div class="vdl-modal-list-item">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <img src="${plot.image || '{% static "images/vineyard-defaults/vineyard_01.jpg" %}'}" 
+                                     alt="${plot.name}" 
+                                     style="width: 60px; height: 60px; object-fit: cover; border-radius: var(--vdl-radius-md);">
+                            </div>
+                            <div class="col">
+                                <div class="vdl-body fw-bold vdl-mb-xs">${plot.name}</div>
+                                <div class="vdl-body-small vdl-text-muted">
+                                    ${plot.size} • ${plot.soil} • ${plot.sun}
+                                </div>
+                            </div>
+                            <div class="col-auto text-end">
+                                <div class="vdl-heading-tertiary vdl-text-burgundy">${plot.price}</div>
+                                <div class="vdl-caption">{% trans "per year" %}</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            // Update total price
+            this.updateTotalPrice(plots);
+        },
+        
+        updateTotalPrice: function(plots) {
+            const totalPrice = plots.reduce((sum, plot) => {
+                const price = parseFloat(plot.price.replace(/[€,]/g, '')) || 0;
+                return sum + price;
+            }, 0);
+            
+            const totalPriceElement = document.getElementById('modal-total-price');
+            if (totalPriceElement) {
+                totalPriceElement.textContent = `€${totalPrice.toLocaleString()}`;
+            }
+        },
+        
+        showPlotDetailsModal: function(plot) {
+            // Update modal content with plot details
+            this.updatePlotDetailsModal(plot);
+            this.plotDetails.show();
+        },
+        
+        updatePlotDetailsModal: function(plot) {
+            // Update title and coordinates
+            const title = document.getElementById('vdlPlotDetailsModalLabel');
+            const coordinates = document.getElementById('plot-detail-coordinates');
+            
+            if (title) title.textContent = plot.name;
+            if (coordinates) coordinates.textContent = `${plot.coordinates[0]}, ${plot.coordinates[1]}`;
+            
+            // Update main image
+            const mainImage = document.getElementById('plot-detail-main-image');
+            if (mainImage) {
+                mainImage.src = plot.image || '{% static "images/vineyard-defaults/vineyard_01.jpg" %}';
+            }
+            
+            // Update plot details
+            const details = {
+                'plot-detail-soil': plot.soil,
+                'plot-detail-sun': plot.sun,
+                'plot-detail-elevation': plot.elevation,
+                'plot-detail-size': plot.size,
+                'plot-detail-wine-profile': plot.wineProfile,
+                'plot-detail-price': plot.price
+            };
+            
+            Object.entries(details).forEach(([id, value]) => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = value || '-';
+            });
+        },
+        
+        confirmSelection: function() {
+            // Hide modal and trigger confirmation process
+            this.selection.hide();
+            confirmSelection(); // Call the global confirm function
+        },
+        
+        addPlotFromModal: function() {
+            // Add current plot to selection and hide modal
+            if (currentPlotData) {
+                addToSelection();
+                this.plotDetails.hide();
+            }
+        }
+    };
+    
+    // Initialize modals when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof bootstrap !== 'undefined') {
+            VDLModal.init();
+        }
+    });
+</script>

@@ -1,0 +1,464 @@
+{% load static i18n %}
+
+<!--
+  Loading States Component - Elegant loading animations for VinsDelux
+  Usage: {% include 'vinsdelux/journey/components/loading_states.html' with state='processing' message='Custom message' %}
+-->
+
+<!-- Full Screen Loading Overlay -->
+<div id="vdl-loading-overlay" class="vdl-loading-overlay {{ overlay_class|default:'d-none' }}">
+    <div class="vdl-loading-content">
+        <!-- Wine Glass Animation -->
+        <div class="vdl-wine-glass-container">
+            <div class="vdl-wine-glass">
+                <div class="vdl-wine-pour"></div>
+            </div>
+        </div>
+        
+        <!-- Loading Message -->
+        <h3 class="vdl-loading-title">
+            {{ message|default:_("Preparing Your Vineyard Experience") }}
+        </h3>
+        <p class="vdl-loading-subtitle">
+            {{ subtitle|default:_("Please wait while we process your selection...") }}
+        </p>
+        
+        <!-- Progress Dots -->
+        <div class="vdl-loading-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    </div>
+</div>
+
+<!-- Inline Loading States -->
+<div class="vdl-inline-loading {{ inline_class|default:'d-none' }}">
+    <!-- Skeleton Plot Cards -->
+    {% if state == 'loading-plots' %}
+        <div class="row g-4">
+            {% for i in "123"|make_list %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="vdl-skeleton-card">
+                        <div class="vdl-skeleton-image"></div>
+                        <div class="vdl-skeleton-content">
+                            <div class="vdl-skeleton-line vdl-skeleton-line-title"></div>
+                            <div class="vdl-skeleton-line vdl-skeleton-line-subtitle"></div>
+                            <div class="vdl-skeleton-metrics">
+                                <div class="vdl-skeleton-metric"></div>
+                                <div class="vdl-skeleton-metric"></div>
+                                <div class="vdl-skeleton-metric"></div>
+                            </div>
+                            <div class="vdl-skeleton-line vdl-skeleton-line-text"></div>
+                            <div class="vdl-skeleton-line vdl-skeleton-line-text"></div>
+                            <div class="vdl-skeleton-button"></div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    
+    <!-- Map Loading -->
+    {% if state == 'loading-map' %}
+        <div class="vdl-map-loading">
+            <div class="vdl-map-skeleton">
+                <div class="vdl-map-loading-overlay">
+                    <i class="fas fa-map vdl-wine-loading vdl-text-gold"></i>
+                    <h4 class="vdl-heading-tertiary vdl-mt-md">{% trans "Loading Vineyard Map" %}</h4>
+                    <p class="vdl-body-small vdl-text-muted">{% trans "Preparing interactive plot selection..." %}</p>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    
+    <!-- Selection Processing -->
+    {% if state == 'processing-selection' %}
+        <div class="vdl-processing-state text-center py-5">
+            <div class="vdl-wine-bottle-animation vdl-mb-lg">
+                <i class="fas fa-wine-bottle"></i>
+            </div>
+            <h4 class="vdl-heading-tertiary vdl-mb-md">{% trans "Processing Your Selection" %}</h4>
+            <p class="vdl-body">{% trans "We're preparing your adoption plan details..." %}</p>
+            <div class="vdl-progress-bar vdl-mt-lg">
+                <div class="vdl-progress-fill"></div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Component Styles -->
+<style>
+    /* Full Screen Loading Overlay */
+    .vdl-loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(145deg, var(--vdl-burgundy-alpha-90), var(--vdl-burgundy));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        backdrop-filter: blur(10px);
+    }
+    
+    .vdl-loading-content {
+        text-align: center;
+        color: var(--vdl-cream);
+        max-width: 400px;
+        padding: var(--vdl-space-2xl);
+    }
+    
+    /* Wine Glass Animation */
+    .vdl-wine-glass-container {
+        margin-bottom: var(--vdl-space-2xl);
+    }
+    
+    .vdl-wine-glass {
+        position: relative;
+        width: 80px;
+        height: 120px;
+        margin: 0 auto;
+    }
+    
+    .vdl-wine-glass::before {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 60px;
+        height: 80px;
+        border: 3px solid var(--vdl-gold);
+        border-bottom: none;
+        border-radius: 0 0 30px 30px;
+        clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+    }
+    
+    .vdl-wine-glass::after {
+        content: '';
+        position: absolute;
+        bottom: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40px;
+        height: 15px;
+        background: var(--vdl-gold);
+        border-radius: 2px;
+    }
+    
+    .vdl-wine-pour {
+        position: absolute;
+        bottom: 5px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 45px;
+        height: 0;
+        background: linear-gradient(to top, var(--vdl-burgundy), var(--vdl-burgundy-light));
+        border-radius: 0 0 25px 25px;
+        animation: vdl-wine-fill 3s ease-in-out infinite;
+    }
+    
+    @keyframes vdl-wine-fill {
+        0%, 20% {
+            height: 0;
+        }
+        40%, 80% {
+            height: 50px;
+        }
+        100% {
+            height: 0;
+        }
+    }
+    
+    /* Loading Text */
+    .vdl-loading-title {
+        font-family: var(--vdl-font-display);
+        font-size: var(--vdl-text-2xl);
+        font-weight: 600;
+        margin-bottom: var(--vdl-space-md);
+        color: var(--vdl-cream);
+    }
+    
+    .vdl-loading-subtitle {
+        font-family: var(--vdl-font-sans);
+        font-size: var(--vdl-text-base);
+        color: var(--vdl-cream);
+        opacity: 0.9;
+        margin-bottom: var(--vdl-space-xl);
+    }
+    
+    /* Loading Dots */
+    .vdl-loading-dots {
+        display: flex;
+        justify-content: center;
+        gap: var(--vdl-space-sm);
+    }
+    
+    .vdl-loading-dots span {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--vdl-gold);
+        animation: vdl-dot-bounce 1.5s ease-in-out infinite;
+    }
+    
+    .vdl-loading-dots span:nth-child(1) {
+        animation-delay: 0s;
+    }
+    
+    .vdl-loading-dots span:nth-child(2) {
+        animation-delay: 0.3s;
+    }
+    
+    .vdl-loading-dots span:nth-child(3) {
+        animation-delay: 0.6s;
+    }
+    
+    @keyframes vdl-dot-bounce {
+        0%, 60%, 100% {
+            transform: translateY(0);
+        }
+        30% {
+            transform: translateY(-20px);
+        }
+    }
+    
+    /* Skeleton Loading States */
+    .vdl-skeleton-card {
+        background: var(--vdl-cream);
+        border-radius: var(--vdl-radius-lg);
+        padding: var(--vdl-space-lg);
+        box-shadow: var(--vdl-shadow-soft);
+        margin-bottom: var(--vdl-space-lg);
+    }
+    
+    .vdl-skeleton-image {
+        width: 100%;
+        height: 200px;
+        background: linear-gradient(90deg, var(--vdl-silver) 25%, var(--vdl-pearl) 50%, var(--vdl-silver) 75%);
+        background-size: 200% 100%;
+        border-radius: var(--vdl-radius-md);
+        margin-bottom: var(--vdl-space-lg);
+        animation: vdl-skeleton-shimmer 2s ease-in-out infinite;
+    }
+    
+    .vdl-skeleton-content {
+        padding: var(--vdl-space-md);
+    }
+    
+    .vdl-skeleton-line {
+        height: 16px;
+        background: linear-gradient(90deg, var(--vdl-silver) 25%, var(--vdl-pearl) 50%, var(--vdl-silver) 75%);
+        background-size: 200% 100%;
+        border-radius: var(--vdl-radius-sm);
+        margin-bottom: var(--vdl-space-sm);
+        animation: vdl-skeleton-shimmer 2s ease-in-out infinite;
+    }
+    
+    .vdl-skeleton-line-title {
+        width: 80%;
+        height: 20px;
+    }
+    
+    .vdl-skeleton-line-subtitle {
+        width: 60%;
+        height: 14px;
+    }
+    
+    .vdl-skeleton-line-text {
+        width: 100%;
+        margin-bottom: var(--vdl-space-xs);
+    }
+    
+    .vdl-skeleton-line-text:nth-last-child(2) {
+        width: 75%;
+    }
+    
+    .vdl-skeleton-metrics {
+        display: flex;
+        gap: var(--vdl-space-sm);
+        margin: var(--vdl-space-lg) 0;
+    }
+    
+    .vdl-skeleton-metric {
+        flex: 1;
+        height: 50px;
+        background: linear-gradient(90deg, var(--vdl-silver) 25%, var(--vdl-pearl) 50%, var(--vdl-silver) 75%);
+        background-size: 200% 100%;
+        border-radius: var(--vdl-radius-md);
+        animation: vdl-skeleton-shimmer 2s ease-in-out infinite;
+    }
+    
+    .vdl-skeleton-button {
+        width: 100%;
+        height: 45px;
+        background: linear-gradient(90deg, var(--vdl-silver) 25%, var(--vdl-pearl) 50%, var(--vdl-silver) 75%);
+        background-size: 200% 100%;
+        border-radius: var(--vdl-radius-md);
+        margin-top: var(--vdl-space-lg);
+        animation: vdl-skeleton-shimmer 2s ease-in-out infinite;
+    }
+    
+    @keyframes vdl-skeleton-shimmer {
+        0% {
+            background-position: -200% 0;
+        }
+        100% {
+            background-position: 200% 0;
+        }
+    }
+    
+    /* Map Loading */
+    .vdl-map-skeleton {
+        position: relative;
+        width: 100%;
+        height: 600px;
+        background: var(--vdl-silver);
+        border-radius: var(--vdl-radius-xl);
+        overflow: hidden;
+    }
+    
+    .vdl-map-loading-overlay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: var(--vdl-ash);
+    }
+    
+    .vdl-map-loading-overlay i {
+        font-size: 4rem;
+        margin-bottom: var(--vdl-space-lg);
+    }
+    
+    /* Wine Bottle Animation */
+    .vdl-wine-bottle-animation {
+        font-size: 4rem;
+        color: var(--vdl-burgundy);
+    }
+    
+    .vdl-wine-bottle-animation i {
+        animation: vdl-bottle-swing 2s ease-in-out infinite;
+    }
+    
+    @keyframes vdl-bottle-swing {
+        0%, 100% {
+            transform: rotate(0deg);
+        }
+        25% {
+            transform: rotate(-10deg);
+        }
+        75% {
+            transform: rotate(10deg);
+        }
+    }
+    
+    /* Progress Bar */
+    .vdl-progress-bar {
+        width: 100%;
+        height: 8px;
+        background: var(--vdl-silver);
+        border-radius: var(--vdl-radius-sm);
+        overflow: hidden;
+    }
+    
+    .vdl-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--vdl-burgundy), var(--vdl-gold));
+        border-radius: var(--vdl-radius-sm);
+        animation: vdl-progress-fill 3s ease-in-out infinite;
+    }
+    
+    @keyframes vdl-progress-fill {
+        0% {
+            width: 0%;
+        }
+        50% {
+            width: 70%;
+        }
+        100% {
+            width: 100%;
+        }
+    }
+    
+    /* Responsive Adjustments */
+    @media (max-width: 767.98px) {
+        .vdl-wine-glass {
+            width: 60px;
+            height: 100px;
+        }
+        
+        .vdl-wine-glass::before {
+            width: 45px;
+            height: 65px;
+        }
+        
+        .vdl-wine-pour {
+            width: 35px;
+        }
+        
+        .vdl-loading-title {
+            font-size: var(--vdl-text-xl);
+        }
+        
+        .vdl-skeleton-metrics {
+            flex-direction: column;
+        }
+        
+        .vdl-skeleton-metric {
+            height: 40px;
+        }
+    }
+</style>
+
+<!-- Loading States JavaScript -->
+<script>
+    // Loading state management functions
+    const VDLLoading = {
+        show: function(message, subtitle) {
+            const overlay = document.getElementById('vdl-loading-overlay');
+            if (overlay) {
+                if (message) {
+                    const title = overlay.querySelector('.vdl-loading-title');
+                    if (title) title.textContent = message;
+                }
+                if (subtitle) {
+                    const sub = overlay.querySelector('.vdl-loading-subtitle');
+                    if (sub) sub.textContent = subtitle;
+                }
+                overlay.classList.remove('d-none');
+                document.body.style.overflow = 'hidden';
+            }
+        },
+        
+        hide: function() {
+            const overlay = document.getElementById('vdl-loading-overlay');
+            if (overlay) {
+                overlay.classList.add('d-none');
+                document.body.style.overflow = '';
+            }
+        },
+        
+        showInline: function(containerId, state) {
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = `
+                    <div class="vdl-inline-loading">
+                        <!-- Add appropriate loading state based on 'state' parameter -->
+                    </div>
+                `;
+            }
+        }
+    };
+    
+    // Auto-hide loading states after timeout (safety mechanism)
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            VDLLoading.hide();
+        }, 10000); // Hide after 10 seconds maximum
+    });
+</script>

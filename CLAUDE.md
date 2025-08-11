@@ -4,144 +4,294 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Entreprinder is a Django web application with multiple domains/apps that serves as a platform for entrepreneur networking and wine commerce. The project is designed to run on Azure App Service with PostgreSQL and includes three main applications:
-
-1. **Entreprinder** - Core entrepreneur networking platform with Tinder-like matching
-2. **Matching** - Handles the matching logic for entrepreneurs
-3. **VinsDelux** - Wine e-commerce platform with producers, products, and adoption plans
+Entreprinder is a multi-domain Django application serving three distinct platforms:
+1. **Entreprinder** (`entreprinder.app`) - Entrepreneur networking with Tinder-style matching
+2. **PowerUP** (`powerup.lu`) - Business platform variant for Luxembourg
+3. **VinsDelux** (`vinsdelux.com`) - Premium wine e-commerce with vineyard plot adoption
 
 ## Architecture
 
-- **Framework**: Django 5.1 with Python
-- **Database**: SQLite for development, PostgreSQL for production
-- **Authentication**: Django Allauth with LinkedIn OAuth2 integration
-- **Frontend**: Bootstrap 5 with crispy forms
-- **File Storage**: Local filesystem for development, Azure Blob Storage for production
-- **Internationalization**: Supports English, German, and French
+- **Framework**: Django 5.1 with Python 3.10+
+- **Database**: SQLite (dev), PostgreSQL (prod)
+- **Authentication**: Django Allauth with LinkedIn OAuth2
+- **Frontend**: Bootstrap 5, Crispy Forms, custom JavaScript for interactive features
+- **Storage**: Local filesystem (dev), Azure Blob Storage (prod)
 - **API**: Django REST Framework with JWT authentication
-
-## Key Applications
-
-### Entreprinder App
-- User profiles with LinkedIn integration
-- Industry and skill models for categorization
-- Entrepreneur matching system
-- Profile management with photo uploads
-
-### Matching App
-- Like/Dislike functionality
-- Match creation when mutual likes occur
-- Swipe interface for entrepreneur discovery
-
-### VinsDelux App
-- Wine producer profiles
-- Product catalog with image galleries
-- Adoption plans for wine subscriptions
-- User address management
+- **Deployment**: Azure App Service with WhiteNoise for static files
 
 ## Development Commands
 
-### Setup
+### Essential Commands
 ```bash
-# Install dependencies
-python -m pip install -r requirements.txt
-
-# Load environment variables (development only)
-# The app automatically loads .env file when not on Azure
-
-# Run migrations
-python manage.py migrate
-
-# Create superuser
-python manage.py createsuperuser
-
-# Start development server
+# Run development server
 python manage.py runserver
+
+# Run tests for specific app
+python manage.py test entreprinder
+python manage.py test matching
+python manage.py test vinsdelux
+
+# Run all tests
+python manage.py test
+
+# Check for issues with flake8
+flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 ```
 
-### Database
+### Database Management
 ```bash
-# Make migrations
+# Create and apply migrations
 python manage.py makemigrations
-
-# Apply migrations
 python manage.py migrate
 
-# Reset database (caution: data loss)
-python manage.py migrate --run-syncdb
+# Create superuser for admin access
+python manage.py createsuperuser
 ```
 
-### Static Files
+### VinsDelux Management Commands
 ```bash
-# Collect static files (for production)
-python manage.py collectstatic
+# Create Luxembourg wine producers
+python manage.py create_luxembourg_producers
+
+# Create sample vineyard plots
+python manage.py create_sample_plots
+
+# Update plot descriptions
+python manage.py update_plot_descriptions
+
+# Populate vineyard data
+python manage.py populate_vineyard_data
+
+# Create default images for products
+python manage.py create_default_images
+
+# Assign adoption plan images
+python manage.py assign_adoption_images
 ```
 
-### Management Commands
+### Entreprinder Management Commands
 ```bash
-# Create test entrepreneur profiles
+# Create test entrepreneur profiles for matching
 python manage.py create_test_profiles
-
-# Generate dummy data for VinsDelux
-python manage.py generate_dummy_data
-
-# Sync media to Azure (production)
-python manage.py sync_media_to_azure
 ```
 
-## URL Structure
+## URL Architecture
 
-The project uses internationalization patterns with language prefixes:
-- `/healthz/` - Health check endpoint
-- `/accounts/` - Authentication (outside i18n)
+The application uses domain-based routing (`azureproject/middleware.py`):
+- `vinsdelux.com` → VinsDelux app
+- `powerup.lu` → PowerUP variant
+- Default → Entreprinder app
+
+All apps support i18n with language prefixes (`/en/`, `/de/`, `/fr/`).
+
+Key endpoints:
+- `/healthz/` - Health check (no i18n)
+- `/accounts/` - Authentication (no i18n)
 - `/{lang}/admin/` - Django admin
-- `/{lang}/` - Entreprinder home
-- `/{lang}/matching/` - Matching interface
-- `/{lang}/vinsdelux/` - Wine platform
-- `/{lang}/vibe-coding/` - Additional app
+- `/journey/plot-selection/` - VinsDelux plot selector (direct access)
+- `/vinsdelux/api/adoption-plans/` - API endpoint (direct access)
+
+## High-Level Code Structure
+
+### Domain Routing System
+The `DomainRoutingMiddleware` in `azureproject/middleware.py` dynamically sets `request.urlconf` based on the domain, allowing different URL configurations per platform while sharing the same codebase.
+
+### VinsDelux Plot Selection System (Complete Architecture)
+
+#### Overview
+The plot selection system is the cornerstone of the VinsDelux wine adoption experience, allowing users to select vineyard plots for adoption. It has two implementations:
+1. **Basic Plot Selector** (`/journey/plot-selection/`) - Simple adoption plan browsing
+2. **Enhanced Plot Selector** (`/journey/enhanced-plot-selection/`) - Full plot selection with reservation system
+
+#### Data Model Relationships
+```
+VdlProducer (Vineyard/Winery)
+    ├── VdlPlot (Individual vineyard plots)
+    │   ├── Status: AVAILABLE, RESERVED, ADOPTED, UNAVAILABLE
+    │   ├── Geographic data (coordinates, elevation, soil)
+    │   ├── Viticulture info (grape varieties, vine age)
+    │   └── Many-to-Many → VdlAdoptionPlan
+    │
+    ├── VdlCoffret (Wine boxes - one-time purchase)
+    │   └── One-to-Many → VdlAdoptionPlan
+    │
+    └── VdlAdoptionPlan (Subscription plans)
+        ├── Associated with one VdlCoffret
+        ├── Many-to-Many → VdlPlot
+        └── Pricing, duration, benefits
+
+VdlPlotReservation (User selections)
+    ├── Links: User ↔ VdlPlot
+    ├── 24-hour expiration
+    └── Session data tracking
+```
+
+#### User Journey Flow
+
+##### Step 1: Plot Discovery
+- User lands on `/journey/plot-selection/` or `/journey/enhanced-plot-selection/`
+- System queries `VdlPlot.objects.filter(status=PlotStatus.AVAILABLE)`
+- Plots are displayed with:
+  - Producer information (vineyard name, region)
+  - Plot characteristics (size, elevation, soil type, sun exposure)
+  - Grape varieties and expected wine profile
+  - Associated adoption plans with pricing
+
+##### Step 2: Interactive Selection
+- **Basic Selector**: Browse adoption plans directly
+  - Filter by producer, region, price range
+  - View plan details (duration, coffrets per year, benefits)
+  
+- **Enhanced Selector**: Interactive plot selection
+  - Map visualization with plot locations (coordinates stored as GeoJSON)
+  - Plot cards with detailed information
+  - Real-time availability checking
+  - Cart system via `PlotSelection` JavaScript class
+
+##### Step 3: Data Persistence
+- **Authenticated Users**:
+  - Creates `VdlPlotReservation` records
+  - 24-hour reservation period
+  - Clears previous unconfirmed reservations
+  - Updates plot status to RESERVED
+  
+- **Guest Users**:
+  - Stores selections in Django session
+  - Keys: `selected_plots`, `plot_selection_timestamp`, `plot_selection_notes`
+  - Data persists for session duration
+
+##### Step 4: API Integration
+The system provides REST endpoints for dynamic interactions:
+- `GET /api/plots/` - List available plots with filters
+- `GET /api/plots/<id>/` - Plot details with adoption plans
+- `GET /api/plots/availability/` - Real-time availability stats
+- `POST /api/plots/reserve/` - Create reservations (authenticated)
+- `GET/POST /api/plots/selection/` - Manage current selection
+- `GET /api/adoption-plans/` - Filter and retrieve adoption plans
+
+#### Frontend JavaScript Architecture
+`static/vinsdelux/js/plot-selection.js` provides:
+- `PlotSelection` class for cart management
+- Session storage sync
+- Event-driven architecture:
+  - `vineyardMap:plotSelected`
+  - `plotSelector:plotSelected`
+  - `plotSelector:plotDeselected`
+- Maximum selection limits
+- Animation and notification system
+
+#### Key Implementation Details
+
+##### View Functions (`vinsdelux/views.py`)
+- `plot_selector()`: Basic view, returns adoption plans with related data
+- `EnhancedPlotSelectionView`: Class-based view
+  - GET: Prepares plot data JSON for frontend
+  - POST: Handles plot selection submission
+  - Creates reservations or session storage
+
+##### Data Validation
+- Plots must have `status=PlotStatus.AVAILABLE`
+- Adoption plans must have `is_available=True`
+- Reservations check for duplicate user-plot combinations
+- Expired reservations are handled via `is_expired` property
+
+##### Progressive Enhancement
+The system works without JavaScript:
+- Basic HTML forms for selection
+- Server-side filtering and pagination
+- JavaScript adds interactivity when available
+
+### Matching System Architecture
+- **Swipe Interface**: JavaScript-powered card swiping (`matching/templates/`)
+- **Match Logic**: Mutual likes create matches (`matching/models.py`)
+- **Profile Discovery**: Excludes already-interacted profiles
+
+### Authentication Flow
+1. LinkedIn OAuth via Allauth
+2. Custom adapter (`entreprinder/linkedin_adapter.py`) imports profile photos
+3. Signal handlers (`entreprinder/signals.py`) create user profiles
+4. JWT tokens for API access
 
 ## Environment Configuration
 
-The application automatically detects the environment:
-- **Local Development**: Uses `azureproject.settings` and loads `.env` file
-- **Azure Production**: Uses `azureproject.production` when `WEBSITE_HOSTNAME` is set
+### Required Environment Variables
+```bash
+# Database (PostgreSQL in production)
+DBNAME=<database-name>
+DBHOST=<database-hostname>
+DBUSER=<db-user-name>
+DBPASS=<db-password>
 
-Key environment variables:
-- `SECRET_KEY` - Django secret key
-- `AZURE_ACCOUNT_NAME` - Azure storage account
-- `AZURE_ACCOUNT_KEY` - Azure storage key
-- `EMAIL_HOST_*` - SMTP configuration for emails
+# Azure Storage (production only)
+AZURE_ACCOUNT_NAME=<storage-account>
+AZURE_ACCOUNT_KEY=<storage-key>
 
-## Model Architecture
+# Django
+SECRET_KEY=<django-secret-key>
 
-### Core Models
-- `User` (Django built-in) - Base user authentication
-- `EntrepreneurProfile` - Extended user profile with business info
-- `Industry` & `Skill` - Categorization models
-- `Match`, `Like`, `Dislike` - Matching system models
+# Email (optional)
+EMAIL_HOST=<smtp-server>
+EMAIL_HOST_USER=<email-user>
+EMAIL_HOST_PASSWORD=<email-password>
+```
 
-### VinsDelux Models
-- `VdlUserProfile` - Wine platform user extensions
-- `VdlAddress` - Address management
-- Product and producer models (see vinsdelux/models.py)
+## Testing Strategy
 
-## Key Features
+- **Unit Tests**: Each app has `tests.py` for model and view tests
+- **Frontend Tests**: Selenium-based tests in `vinsdelux/tests/test_frontend.py`
+- **CI/CD**: GitHub Actions runs tests on Python 3.10 and 3.11 with PostgreSQL
 
-- **Multi-language Support**: German, French, English
-- **LinkedIn OAuth**: Automatic profile photo import
-- **Swipe Interface**: Mobile-friendly entrepreneur matching
-- **Azure Integration**: Blob storage for media files
-- **Email System**: SMTP configuration for notifications
-- **Admin Interface**: Customized for profile management
+## Key Models
 
-## Testing
+### Entreprinder
+- `EntrepreneurProfile`: Extended user profile with business details
+- `Industry`, `Skill`: Categorization for matching
+- `Match`, `Like`, `Dislike`: Interaction tracking
 
-Test files are located in each app's `tests.py`. The project follows Django's standard testing framework.
+### VinsDelux
+- `VdlProducer`: Wine producers with map coordinates
+- `VdlPlot`: Vineyard plots with adoption status
+- `VdlAdoptionPlan`: Subscription plans with pricing tiers
+- `VdlCoffret`: Wine box products
 
-## Deployment
+## Azure Deployment
 
-The project is configured for Azure App Service deployment using:
-- `azure.yaml` - Azure Developer CLI configuration
-- `infra/` directory - Bicep infrastructure templates
-- `startup.sh` - Azure startup script
-- WhiteNoise for static file serving in production
+- **Infrastructure**: Bicep templates in `infra/`
+- **Configuration**: `azure.yaml` for Azure Developer CLI
+- **Settings**: `azureproject.production` auto-loads on Azure
+- **GitHub Actions**: Automated deployment workflows in `.github/workflows/`
+
+## Important Development Guidelines
+
+### Plot Selection System Expansion
+When extending the plot selection functionality:
+
+1. **Data Integrity**: Always work with existing model relationships
+   - Never create fictional data - all plots must have real producers
+   - Adoption plans must reference existing coffrets
+   - Use management commands to populate test data
+
+2. **Model Constraints**:
+   - `VdlPlot.status` must be one of: AVAILABLE, RESERVED, ADOPTED, UNAVAILABLE
+   - `VdlPlotReservation` enforces unique user-plot combinations
+   - Reservations expire after 24 hours (configurable in view)
+
+3. **API Response Format**: Maintain consistent JSON structure
+   ```python
+   {
+       'success': bool,
+       'message': str,
+       'data': {...},  # Main response data
+       'errors': [...]  # If applicable
+   }
+   ```
+
+4. **Session Management**:
+   - Guest users: Data stored in Django session
+   - Authenticated users: Data stored in database
+   - Always check both sources when retrieving selections
+
+5. **Frontend Events**: Use established event naming
+   - `vineyardMap:*` for map interactions
+   - `plotSelector:*` for selection UI
+   - `cart:*` for cart operations
