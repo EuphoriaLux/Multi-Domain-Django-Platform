@@ -1,0 +1,391 @@
+/**
+ * Enhanced Map Integration Styles
+ * Better alignment and visual integration with the webpage
+ */
+
+/* Map Container Styling */
+.vdl-map-section {
+    padding: 60px 0;
+    background: linear-gradient(180deg, #FAFAFA 0%, #F5F5F0 100%);
+}
+
+.vdl-map-wrapper {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(114, 47, 55, 0.08);
+    padding: 24px;
+    margin-bottom: 30px;
+}
+
+#vineyard-map {
+    height: 600px !important;
+    width: 100% !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+    border: 2px solid #F0F0F0;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* Map Title Section */
+.vdl-map-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.vdl-map-header h2 {
+    color: #722F37;
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    position: relative;
+    display: inline-block;
+}
+
+.vdl-map-header h2::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(90deg, #D4AF37 0%, #B8860B 100%);
+    border-radius: 2px;
+}
+
+.vdl-map-header p {
+    color: #666;
+    font-size: 1.1rem;
+    max-width: 600px;
+    margin: 20px auto 0;
+    line-height: 1.6;
+}
+
+/* Map Controls Enhancement */
+.vdl-map-controls {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.vdl-map-legend {
+    display: flex;
+    gap: 30px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.vdl-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    background: #F8F8F8;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.vdl-legend-item:hover {
+    background: #F0F0F0;
+    transform: translateY(-2px);
+}
+
+.vdl-legend-marker {
+    width: 24px;
+    height: 24px;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.vdl-legend-marker.available {
+    background: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%);
+    border: 2px solid #722F37;
+}
+
+.vdl-legend-marker.selected {
+    background: linear-gradient(135deg, #722F37 0%, #8B0000 100%);
+    border: 2px solid #D4AF37;
+}
+
+.vdl-legend-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: #444;
+}
+
+/* Info Cards Above Map */
+.vdl-map-info-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.vdl-info-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid #E8E8E8;
+    transition: all 0.3s ease;
+}
+
+.vdl-info-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(114, 47, 55, 0.12);
+    border-color: #D4AF37;
+}
+
+.vdl-info-card-icon {
+    width: 50px;
+    height: 50px;
+    margin: 0 auto 12px;
+    background: linear-gradient(135deg, #722F37 0%, #8B0000 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #D4AF37;
+    font-size: 22px;
+}
+
+.vdl-info-card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #722F37;
+    margin-bottom: 8px;
+}
+
+.vdl-info-card-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #D4AF37;
+}
+
+/* Sidebar Integration */
+.vdl-sidebar {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(114, 47, 55, 0.08);
+    padding: 30px;
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+}
+
+.vdl-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.vdl-sidebar::-webkit-scrollbar-track {
+    background: #F0F0F0;
+    border-radius: 3px;
+}
+
+.vdl-sidebar::-webkit-scrollbar-thumb {
+    background: #D4AF37;
+    border-radius: 3px;
+}
+
+/* Selected Producer Card */
+.vdl-selected-producer {
+    background: linear-gradient(135deg, #F8F5F0 0%, #FFF 100%);
+    border: 2px solid #D4AF37;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.vdl-selected-producer h4 {
+    color: #722F37;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.vdl-selected-producer p {
+    color: #666;
+    margin: 0;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 991px) {
+    .vdl-map-section {
+        padding: 40px 0;
+    }
+    
+    #vineyard-map {
+        height: 400px !important;
+    }
+    
+    .vdl-sidebar {
+        position: relative;
+        top: 0;
+        margin-top: 30px;
+        max-height: none;
+    }
+    
+    .vdl-map-header h2 {
+        font-size: 2rem;
+    }
+    
+    .vdl-map-info-cards {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 576px) {
+    #vineyard-map {
+        height: 350px !important;
+    }
+    
+    .vdl-map-wrapper {
+        padding: 16px;
+        border-radius: 12px;
+    }
+    
+    .vdl-map-legend {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .vdl-legend-item {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Animation for Map Load */
+.vdl-map-container {
+    animation: fadeInUp 0.8s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Floating Map Actions */
+.vdl-map-actions {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.vdl-map-action-btn {
+    background: white;
+    border: 2px solid #E8E8E8;
+    border-radius: 8px;
+    padding: 10px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.vdl-map-action-btn:hover {
+    background: #722F37;
+    color: white;
+    border-color: #722F37;
+    transform: scale(1.1);
+}
+
+.vdl-map-action-btn i {
+    font-size: 16px;
+}
+
+/* Producer Cards Grid (Alternative View) */
+.vdl-producers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+    margin-top: 30px;
+    padding: 20px;
+    background: white;
+    border-radius: 12px;
+}
+
+.vdl-producer-card {
+    background: white;
+    border: 2px solid #E8E8E8;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.vdl-producer-card:hover {
+    border-color: #D4AF37;
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(114, 47, 55, 0.15);
+}
+
+.vdl-producer-card.selected {
+    background: linear-gradient(135deg, #F8F5F0 0%, #FFF 100%);
+    border-color: #722F37;
+}
+
+.vdl-producer-card-icon {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 16px;
+    background: linear-gradient(135deg, #722F37 0%, #8B0000 100%);
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.vdl-producer-card-icon i {
+    color: #D4AF37;
+    font-size: 24px;
+    transform: rotate(45deg);
+}
+
+.vdl-producer-card h5 {
+    color: #722F37;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.vdl-producer-card p {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+
+.vdl-producer-card-price {
+    display: inline-block;
+    background: #F8F5F0;
+    padding: 8px 16px;
+    border-radius: 20px;
+    color: #722F37;
+    font-weight: 700;
+    font-size: 16px;
+}

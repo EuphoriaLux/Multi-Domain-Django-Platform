@@ -1147,9 +1147,36 @@
     <div class="container">
         <!-- Header -->
         <div class="selector-header">
-            <h1>{% trans "Select Your Vineyard Plot" %}</h1>
-            <p>{% trans "Choose from our exclusive collection of vineyard adoption plans. Each plot offers a unique terroir, producer story, and wine experience tailored to your preferences." %}</p>
+            <h1>{% trans "Select Your Adoption Plan" %}</h1>
+            <p>{% trans "Choose from our exclusive collection of vineyard adoption plans. Each plan offers a unique terroir, producer story, and wine experience tailored to your preferences." %}</p>
+            
+            <!-- Show selected producer/plots if coming from enhanced selector -->
+            <div id="selection-summary" class="alert alert-success mt-3" style="display: none;">
+                <i class="fas fa-check-circle"></i>
+                <strong>Selection Confirmed!</strong>
+                <span id="selection-details"></span>
+            </div>
         </div>
+        
+        <script>
+            // Check if user is coming from plot selection
+            document.addEventListener('DOMContentLoaded', function() {
+                const selectionData = sessionStorage.getItem('selected_producer_plots');
+                if (selectionData) {
+                    const data = JSON.parse(selectionData);
+                    const summaryDiv = document.getElementById('selection-summary');
+                    const detailsSpan = document.getElementById('selection-details');
+                    
+                    if (data.producer && data.plots) {
+                        detailsSpan.textContent = ` You've selected ${data.plots.length} plot(s) from ${data.producer.name}. Now choose an adoption plan that matches your selection.`;
+                        summaryDiv.style.display = 'block';
+                        
+                        // Optionally clear the data after showing
+                        // sessionStorage.removeItem('selected_producer_plots');
+                    }
+                }
+            });
+        </script>
 
         <!-- Filter Bar -->
         <div class="filter-bar">

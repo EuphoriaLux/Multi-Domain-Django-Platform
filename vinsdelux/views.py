@@ -4,8 +4,21 @@ from django.shortcuts import render, get_object_or_404
 from django.utils.text import slugify
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.views.generic import TemplateView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.utils.translation import gettext as _
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from django.urls import reverse
+from django.utils import timezone
+from datetime import timedelta
+import json
+import logging
 # Import only the models we actually need here
-from .models import VdlCoffret, VdlAdoptionPlan, HomepageContent, VdlCategory, VdlProducer
+from .models import VdlCoffret, VdlAdoptionPlan, HomepageContent, VdlCategory, VdlProducer, VdlPlot, VdlPlotReservation, PlotStatus
+
+logger = logging.getLogger(__name__)
 
 def home(request):
     """
@@ -180,7 +193,6 @@ def producer_detail(request, slug):
     }
     return render(request, 'vinsdelux/producer_detail.html', context)
 
-
 def plot_selector(request):
     """
     Standalone plot selector page for choosing adoption plans
@@ -209,6 +221,500 @@ def plot_selector(request):
     }
     
     return render(request, 'vinsdelux/plot_selector.html', context)
+
+
+class EnhancedPlotSelectionView(TemplateView):
+    """
+    Enhanced plot selection view for luxury wine plot selection experience
+    Handles both GET for display and POST for plot selections
+    """
+    template_name = 'vinsdelux/journey/enhanced_plot_selection.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Fetch available plots with all related data
+        plots = VdlPlot.objects.select_related('producer').prefetch_related(
+            'adoption_plans__images',
+            'adoption_plans__associated_coffret',
+            'reservations'
+        ).filter(status=PlotStatus.AVAILABLE)
+        
+        # Get unique regions and producers for filters
+        regions = list(plots.values_list('producer__region', flat=True).distinct())
+        regions = [r for r in regions if r]  # Remove None values
+        
+        producers = VdlProducer.objects.filter(
+            id__in=plots.values_list('producer_id', flat=True)
+        ).distinct()
+        
+        # Get adoption plans associated with available plots
+        adoption_plans = VdlAdoptionPlan.objects.select_related(
+            'producer', 'associated_coffret', 'category'
+        ).prefetch_related('images', 'plots').filter(
+            is_available=True,
+            plots__in=plots
+        ).distinct()
+        
+        # Prepare plot data for frontend
+        plot_data = []
+        for plot in plots:
+            plot_info = {
+                'id': plot.id,
+                'plot_identifier': plot.plot_identifier,
+                'name': plot.name,
+                'producer': {
+                    'id': plot.producer.id,
+                    'name': plot.producer.name,
+                    'region': plot.producer.region,
+                    'vineyard_size': plot.producer.vineyard_size,
+                    'elevation': plot.producer.elevation,
+                    'soil_type': plot.producer.soil_type,
+                    'sun_exposure': plot.producer.sun_exposure,
+                    'vineyard_features': plot.producer.vineyard_features,
+                },
+                'coordinates': plot.coordinates,
+                'latitude': plot.latitude,
+                'longitude': plot.longitude,
+                'plot_size': plot.plot_size,
+                'elevation': plot.elevation,
+                'soil_type': plot.soil_type,
+                'sun_exposure': plot.sun_exposure,
+                'grape_varieties': plot.grape_varieties,
+                'vine_age': plot.vine_age,
+                'harvest_year': plot.harvest_year,
+                'wine_profile': plot.wine_profile,
+                'expected_yield': plot.expected_yield,
+                'base_price': float(plot.base_price),
+                'status': plot.status,
+                'is_premium': plot.is_premium,
+                'is_available': plot.is_available,
+                'display_coordinates': plot.get_display_coordinates(),
+                'primary_grape_variety': plot.get_primary_grape_variety(),
+                'adoption_plans': [
+                    {
+                        'id': plan.id,
+                        'name': plan.name,
+                        'slug': plan.slug,
+                        'price': float(plan.price),
+                        'duration_months': plan.duration_months,
+                        'coffrets_per_year': plan.coffrets_per_year,
+                        'includes_visit': plan.includes_visit,
+                        'includes_medallion': plan.includes_medallion,
+                        'includes_club_membership': plan.includes_club_membership,
+                        'short_description': plan.short_description,
+                        'main_image': plan.main_image.url if plan.main_image else None,
+                    }
+                    for plan in plot.adoption_plans.filter(is_available=True)
+                ]
+            }
+            plot_data.append(plot_info)
+        
+        # Journey steps for progress indicator
+        journey_steps = [
+            {
+                'step': 1,
+                'title': _('Plot Selection'),
+                'description': _('Choose your vineyard plot'),
+                'is_current': True,
+                'is_completed': False,
+            },
+            {
+                'step': 2,
+                'title': _('Adoption Plan'),
+                'description': _('Select your plan'),
+                'is_current': False,
+                'is_completed': False,
+            },
+            {
+                'step': 3,
+                'title': _('Confirmation'),
+                'description': _('Confirm adoption'),
+                'is_current': False,
+                'is_completed': False,
+            }
+        ]
+        
+        context.update({
+            'plots': plots,
+            'plot_data': json.dumps(plot_data),  # JSON for JavaScript
+            'adoption_plans': adoption_plans,
+            'regions': regions,
+            'producers': producers,
+            'journey_steps': journey_steps,
+            'page_title': _('Select Your Vineyard Plot'),
+            'page_description': _('Choose from our exclusive collection of premium vineyard plots across renowned wine regions.'),
+        })
+        
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        """
+        Handle plot selection submissions
+        """
+        try:
+            data = json.loads(request.body)
+            selected_plots = data.get('selected_plots', [])
+            user_notes = data.get('notes', '')
+            
+            if not selected_plots:
+                return JsonResponse({
+                    'success': False,
+                    'error': _('No plots selected')
+                }, status=400)
+            
+            # Validate plots exist and are available
+            valid_plots = VdlPlot.objects.filter(
+                id__in=selected_plots,
+                status=PlotStatus.AVAILABLE
+            )
+            
+            if len(valid_plots) != len(selected_plots):
+                return JsonResponse({
+                    'success': False,
+                    'error': _('Some selected plots are no longer available')
+                }, status=400)
+            
+            # Store selection in session for logged-in users or return for guest users
+            if request.user.is_authenticated:
+                # Clear existing reservations for this user
+                VdlPlotReservation.objects.filter(user=request.user).delete()
+                
+                # Create new reservations
+                for plot in valid_plots:
+                    VdlPlotReservation.objects.create(
+                        plot=plot,
+                        user=request.user,
+                        expires_at=timezone.now() + timedelta(hours=24),  # 24-hour reservation
+                        notes=user_notes,
+                        session_data={
+                            'selection_timestamp': timezone.now().isoformat(),
+                            'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+                        }
+                    )
+            
+            # Store in session regardless of authentication status
+            request.session['selected_plots'] = selected_plots
+            request.session['plot_selection_timestamp'] = timezone.now().isoformat()
+            request.session['plot_selection_notes'] = user_notes
+            
+            return JsonResponse({
+                'success': True,
+                'message': _('Plots selected successfully'),
+                'selected_count': len(valid_plots),
+                'next_step_url': reverse('vinsdelux:adoption_plan_selection'),
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'error': _('Invalid request format')
+            }, status=400)
+        except Exception as e:
+            logger.error(f"Error in plot selection: {str(e)}")
+            return JsonResponse({
+                'success': False,
+                'error': _('An error occurred while processing your selection')
+            }, status=500)
+
+
+# --- REST API Views ---
+
+from rest_framework import generics, status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from django.utils import timezone
+from datetime import timedelta
+from .serializers import (
+    VdlPlotSerializer, VdlPlotListSerializer, VdlPlotReservationSerializer,
+    PlotReservationCreateSerializer, PlotAvailabilitySerializer,
+    PlotSelectionSerializer
+)
+
+
+class PlotListAPIView(generics.ListAPIView):
+    """
+    API endpoint for listing available plots
+    GET /api/plots/
+    """
+    serializer_class = VdlPlotListSerializer
+    permission_classes = [AllowAny]
+    
+    def get_queryset(self):
+        """Filter plots based on query parameters"""
+        queryset = VdlPlot.objects.select_related('producer').prefetch_related(
+            'adoption_plans'
+        ).filter(status=PlotStatus.AVAILABLE)
+        
+        # Filter by region
+        region = self.request.query_params.get('region')
+        if region:
+            queryset = queryset.filter(producer__region__icontains=region)
+        
+        # Filter by producer
+        producer_id = self.request.query_params.get('producer_id')
+        if producer_id:
+            queryset = queryset.filter(producer_id=producer_id)
+        
+        # Filter by price range
+        min_price = self.request.query_params.get('min_price')
+        max_price = self.request.query_params.get('max_price')
+        if min_price:
+            try:
+                queryset = queryset.filter(base_price__gte=float(min_price))
+            except ValueError:
+                pass
+        if max_price:
+            try:
+                queryset = queryset.filter(base_price__lte=float(max_price))
+            except ValueError:
+                pass
+        
+        # Filter by grape variety
+        grape_variety = self.request.query_params.get('grape_variety')
+        if grape_variety:
+            queryset = queryset.filter(grape_varieties__contains=[grape_variety])
+        
+        # Filter premium plots only
+        premium_only = self.request.query_params.get('premium_only')
+        if premium_only == 'true':
+            queryset = queryset.filter(is_premium=True)
+        
+        return queryset.order_by('producer__name', 'plot_identifier')
+
+
+class PlotDetailAPIView(generics.RetrieveAPIView):
+    """
+    API endpoint for retrieving plot details
+    GET /api/plots/<id>/
+    """
+    serializer_class = VdlPlotSerializer
+    permission_classes = [AllowAny]
+    lookup_field = 'id'
+    
+    def get_queryset(self):
+        return VdlPlot.objects.select_related('producer').prefetch_related(
+            'adoption_plans__associated_coffret',
+            'adoption_plans__category',
+            'reservations'
+        )
+
+
+class PlotAvailabilityAPIView(APIView):
+    """
+    API endpoint for checking plot availability
+    GET /api/plots/availability/
+    """
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        """Get availability statistics for all plots"""
+        total_plots = VdlPlot.objects.all()
+        
+        availability_data = {
+            'available_count': total_plots.filter(status=PlotStatus.AVAILABLE).count(),
+            'reserved_count': total_plots.filter(status=PlotStatus.RESERVED).count(),
+            'adopted_count': total_plots.filter(status=PlotStatus.ADOPTED).count(),
+            'total_count': total_plots.count(),
+            'last_updated': timezone.now()
+        }
+        
+        # Include available plots if requested
+        include_plots = request.query_params.get('include_plots', '').lower() == 'true'
+        if include_plots:
+            available_plots = total_plots.filter(status=PlotStatus.AVAILABLE).select_related('producer')[:20]
+            availability_data['available_plots'] = VdlPlotListSerializer(available_plots, many=True).data
+        else:
+            availability_data['available_plots'] = []
+        
+        serializer = PlotAvailabilitySerializer(availability_data)
+        return Response(serializer.data)
+
+
+class PlotReservationAPIView(APIView):
+    """
+    API endpoint for creating plot reservations
+    POST /api/plots/reserve/
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        """Create a new plot reservation"""
+        serializer = PlotReservationCreateSerializer(data=request.data)
+        if serializer.is_valid():
+            plot_ids = serializer.validated_data['plot_ids']
+            notes = serializer.validated_data.get('notes', '')
+            adoption_plan_id = serializer.validated_data.get('adoption_plan_id')
+            
+            # Get valid plots
+            plots = VdlPlot.objects.filter(id__in=plot_ids, status=PlotStatus.AVAILABLE)
+            
+            # Clear existing reservations for this user
+            VdlPlotReservation.objects.filter(user=request.user).delete()
+            
+            # Get adoption plan if specified
+            adoption_plan = None
+            if adoption_plan_id:
+                try:
+                    adoption_plan = VdlAdoptionPlan.objects.get(
+                        id=adoption_plan_id,
+                        is_available=True
+                    )
+                except VdlAdoptionPlan.DoesNotExist:
+                    return Response({
+                        'error': 'Adoption plan not found or not available'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Create new reservations
+            reservations = []
+            for plot in plots:
+                reservation = VdlPlotReservation.objects.create(
+                    plot=plot,
+                    user=request.user,
+                    adoption_plan=adoption_plan,
+                    expires_at=timezone.now() + timedelta(hours=24),
+                    notes=notes,
+                    session_data={
+                        'reservation_timestamp': timezone.now().isoformat(),
+                        'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+                        'ip_address': request.META.get('REMOTE_ADDR', ''),
+                    }
+                )
+                reservations.append(reservation)
+            
+            # Update plot status to reserved
+            plots.update(status=PlotStatus.RESERVED)
+            
+            # Return reservation details
+            reservation_data = VdlPlotReservationSerializer(reservations, many=True).data
+            
+            return Response({
+                'success': True,
+                'message': f'{len(reservations)} plot(s) reserved successfully',
+                'reservations': reservation_data,
+                'expires_at': reservations[0].expires_at if reservations else None
+            }, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PlotSelectionAPIView(APIView):
+    """
+    API endpoint for plot selection (session-based for guests, reservation-based for authenticated users)
+    GET /api/plots/selection/ - Get current selection
+    POST /api/plots/selection/ - Update selection
+    """
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        """Get current plot selection"""
+        if request.user.is_authenticated:
+            # Get reservations for authenticated users
+            reservations = VdlPlotReservation.objects.filter(
+                user=request.user,
+                is_confirmed=False
+            ).select_related('plot__producer').prefetch_related('plot__adoption_plans')
+            
+            plots_data = []
+            for reservation in reservations:
+                plot_data = VdlPlotListSerializer(reservation.plot).data
+                plot_data['reservation_id'] = reservation.id
+                plot_data['reserved_at'] = reservation.reserved_at
+                plot_data['expires_at'] = reservation.expires_at
+                plot_data['is_expired'] = reservation.is_expired
+                plots_data.append(plot_data)
+            
+            return Response({
+                'selected_plots': plots_data,
+                'selection_count': len(plots_data),
+                'source': 'reservations'
+            })
+        else:
+            # Get from session for guest users
+            selected_plot_ids = request.session.get('selected_plots', [])
+            if selected_plot_ids:
+                plots = VdlPlot.objects.filter(id__in=selected_plot_ids).select_related('producer')
+                plots_data = VdlPlotListSerializer(plots, many=True).data
+                
+                return Response({
+                    'selected_plots': plots_data,
+                    'selection_count': len(plots_data),
+                    'source': 'session',
+                    'selection_timestamp': request.session.get('plot_selection_timestamp')
+                })
+            else:
+                return Response({
+                    'selected_plots': [],
+                    'selection_count': 0,
+                    'source': 'session'
+                })
+    
+    def post(self, request):
+        """Update plot selection"""
+        serializer = PlotSelectionSerializer(data=request.data)
+        if serializer.is_valid():
+            selected_plots = serializer.validated_data['selected_plots']
+            user_notes = serializer.validated_data.get('user_notes', '')
+            
+            # Validate plots are available
+            plots = VdlPlot.objects.filter(id__in=selected_plots, status=PlotStatus.AVAILABLE)
+            if len(plots) != len(selected_plots):
+                return Response({
+                    'error': 'Some selected plots are not available'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if request.user.is_authenticated:
+                # Create or update reservations for authenticated users
+                VdlPlotReservation.objects.filter(user=request.user, is_confirmed=False).delete()
+                
+                reservations = []
+                for plot in plots:
+                    reservation = VdlPlotReservation.objects.create(
+                        plot=plot,
+                        user=request.user,
+                        expires_at=timezone.now() + timedelta(hours=24),
+                        notes=user_notes,
+                        session_data={
+                            'selection_timestamp': timezone.now().isoformat(),
+                            'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+                        }
+                    )
+                    reservations.append(reservation)
+                
+                return Response({
+                    'success': True,
+                    'message': f'{len(reservations)} plot(s) selected successfully',
+                    'selection_count': len(reservations),
+                    'reservations': VdlPlotReservationSerializer(reservations, many=True).data
+                }, status=status.HTTP_201_CREATED)
+            else:
+                # Store in session for guest users
+                request.session['selected_plots'] = selected_plots
+                request.session['plot_selection_timestamp'] = timezone.now().isoformat()
+                request.session['plot_selection_notes'] = user_notes
+                
+                plots_data = VdlPlotListSerializer(plots, many=True).data
+                
+                return Response({
+                    'success': True,
+                    'message': f'{len(plots)} plot(s) selected successfully',
+                    'selection_count': len(plots),
+                    'selected_plots': plots_data,
+                    'source': 'session'
+                })
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+def enhanced_plot_selector(request):
+    """
+    Backward compatibility wrapper for the enhanced plot selector
+    """
+    view = EnhancedPlotSelectionView()
+    view.request = request
+    return view.dispatch(request)
 
 
 def journey_interactive_form(request):
@@ -296,7 +802,6 @@ def journey_interactive_form(request):
     response['X-Frame-Options'] = 'SAMEORIGIN'
     return response
 
-
 def journey_test_runner(request):
     """
     Test runner page for the futuristic journey functionality.
@@ -340,7 +845,6 @@ def journey_test_runner(request):
         'client_journey_steps': client_journey_steps,
     }
     return render(request, 'vinsdelux/journey_test_runner.html', context)
-
 
 def journey_step_plot_selection(request):
     """
@@ -409,7 +913,6 @@ def journey_step_plot_selection(request):
         'next_step_title': 'Personalize Your Wine'
     }
     return render(request, 'vinsdelux/journey_step_detail.html', context)
-
 
 def journey_step_personalize_wine(request):
     """
@@ -482,7 +985,6 @@ def journey_step_personalize_wine(request):
         'next_step_title': 'Follow the Production'
     }
     return render(request, 'vinsdelux/journey_step_detail.html', context)
-
 
 def journey_step_follow_production(request):
     """
@@ -557,7 +1059,6 @@ def journey_step_follow_production(request):
     }
     return render(request, 'vinsdelux/journey_step_detail.html', context)
 
-
 def journey_step_receive_taste(request):
     """
     Landing page for Step 4: Receive and Taste
@@ -630,7 +1131,6 @@ def journey_step_receive_taste(request):
         'next_step_title': 'Create Your Legacy'
     }
     return render(request, 'vinsdelux/journey_step_detail.html', context)
-
 
 def journey_step_create_legacy(request):
     """

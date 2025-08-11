@@ -1,0 +1,643 @@
+/**
+ * Vins de Lux - Luxury Plot Selection Design System
+ * A sophisticated design foundation for premium wine estate experiences
+ * 
+ * Design Philosophy: Digital luxury that evokes the ritual of opening vintage wine
+ * Color Story: Deep burgundy (#722F37) represents tradition, gold (#D4AF37) signifies prestige
+ */
+
+/* ============================================================================
+   TYPOGRAPHY SYSTEM - Elegant serif hierarchy
+   ============================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Source+Serif+Pro:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap');
+
+/* Typography Variables */
+:root {
+  /* Primary Colors - Luxury Wine Palette */
+  --vdl-burgundy: #722F37;
+  --vdl-burgundy-light: #8B4049;
+  --vdl-burgundy-dark: #5A252A;
+  --vdl-burgundy-alpha-90: rgba(114, 47, 55, 0.9);
+  --vdl-burgundy-alpha-80: rgba(114, 47, 55, 0.8);
+  --vdl-burgundy-alpha-10: rgba(114, 47, 55, 0.1);
+  
+  --vdl-gold: #D4AF37;
+  --vdl-gold-light: #E6C45A;
+  --vdl-gold-dark: #B8941F;
+  --vdl-gold-alpha-90: rgba(212, 175, 55, 0.9);
+  --vdl-gold-alpha-20: rgba(212, 175, 55, 0.2);
+  
+  /* Supporting Colors */
+  --vdl-cream: #FAF7F2;
+  --vdl-pearl: #F5F1E8;
+  --vdl-charcoal: #2C2C2C;
+  --vdl-ash: #4A4A4A;
+  --vdl-silver: #E8E5E1;
+  
+  /* Typography Scale - Golden Ratio (1.618) Based */
+  --vdl-text-xs: 0.75rem;    /* 12px */
+  --vdl-text-sm: 0.875rem;   /* 14px */
+  --vdl-text-base: 1rem;     /* 16px */
+  --vdl-text-lg: 1.125rem;   /* 18px */
+  --vdl-text-xl: 1.25rem;    /* 20px */
+  --vdl-text-2xl: 1.618rem;  /* ~26px */
+  --vdl-text-3xl: 2.058rem;  /* ~33px */
+  --vdl-text-4xl: 3.236rem;  /* ~52px */
+  --vdl-text-5xl: 5.236rem;  /* ~84px */
+  
+  /* Spacing System - Golden Ratio Progression */
+  --vdl-space-xs: 0.25rem;   /* 4px */
+  --vdl-space-sm: 0.5rem;    /* 8px */
+  --vdl-space-md: 0.75rem;   /* 12px */
+  --vdl-space-lg: 1rem;      /* 16px */
+  --vdl-space-xl: 1.618rem;  /* ~26px */
+  --vdl-space-2xl: 2.618rem; /* ~42px */
+  --vdl-space-3xl: 4.236rem; /* ~68px */
+  --vdl-space-4xl: 6.854rem; /* ~110px */
+  
+  /* Font Families */
+  --vdl-font-display: 'Playfair Display', 'Times New Roman', serif;
+  --vdl-font-serif: 'Source Serif Pro', 'Georgia', serif;
+  --vdl-font-sans: 'Inter', 'Helvetica Neue', sans-serif;
+  
+  /* Shadows - Sophisticated depth */
+  --vdl-shadow-soft: 0 2px 8px rgba(114, 47, 55, 0.08);
+  --vdl-shadow-medium: 0 4px 16px rgba(114, 47, 55, 0.12);
+  --vdl-shadow-hard: 0 8px 32px rgba(114, 47, 55, 0.16);
+  --vdl-shadow-dramatic: 0 12px 48px rgba(114, 47, 55, 0.24);
+  
+  /* Border Radius */
+  --vdl-radius-sm: 4px;
+  --vdl-radius-md: 8px;
+  --vdl-radius-lg: 12px;
+  --vdl-radius-xl: 16px;
+  
+  /* Transitions */
+  --vdl-transition-fast: 200ms ease-out;
+  --vdl-transition-standard: 350ms ease-out;
+  --vdl-transition-slow: 500ms ease-out;
+}
+
+/* ============================================================================
+   BASE TYPOGRAPHY
+   ============================================================================ */
+
+.vdl-h1,
+.vdl-heading-display {
+  font-family: var(--vdl-font-display);
+  font-size: var(--vdl-text-4xl);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--vdl-burgundy);
+  margin-bottom: var(--vdl-space-xl);
+}
+
+.vdl-h2,
+.vdl-heading-primary {
+  font-family: var(--vdl-font-display);
+  font-size: var(--vdl-text-3xl);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--vdl-burgundy);
+  margin-bottom: var(--vdl-space-lg);
+}
+
+.vdl-h3,
+.vdl-heading-secondary {
+  font-family: var(--vdl-font-serif);
+  font-size: var(--vdl-text-2xl);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--vdl-burgundy);
+  margin-bottom: var(--vdl-space-md);
+}
+
+.vdl-h4,
+.vdl-heading-tertiary {
+  font-family: var(--vdl-font-serif);
+  font-size: var(--vdl-text-xl);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--vdl-ash);
+  margin-bottom: var(--vdl-space-md);
+}
+
+.vdl-body-large {
+  font-family: var(--vdl-font-serif);
+  font-size: var(--vdl-text-lg);
+  line-height: 1.6;
+  color: var(--vdl-charcoal);
+}
+
+.vdl-body,
+.vdl-body-regular {
+  font-family: var(--vdl-font-sans);
+  font-size: var(--vdl-text-base);
+  line-height: 1.6;
+  color: var(--vdl-charcoal);
+}
+
+.vdl-body-small {
+  font-family: var(--vdl-font-sans);
+  font-size: var(--vdl-text-sm);
+  line-height: 1.5;
+  color: var(--vdl-ash);
+}
+
+.vdl-caption {
+  font-family: var(--vdl-font-sans);
+  font-size: var(--vdl-text-xs);
+  line-height: 1.4;
+  color: var(--vdl-ash);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================================================
+   LUXURY COMPONENT STYLES
+   ============================================================================ */
+
+/* Premium Button System */
+.vdl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vdl-space-sm);
+  padding: var(--vdl-space-md) var(--vdl-space-xl);
+  border: 2px solid transparent;
+  border-radius: var(--vdl-radius-md);
+  font-family: var(--vdl-font-sans);
+  font-size: var(--vdl-text-base);
+  font-weight: 500;
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all var(--vdl-transition-standard);
+  position: relative;
+  overflow: hidden;
+}
+
+.vdl-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left var(--vdl-transition-slow);
+}
+
+.vdl-btn:hover::before {
+  left: 100%;
+}
+
+.vdl-btn-primary {
+  background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-dark) 100%);
+  color: var(--vdl-cream);
+  box-shadow: var(--vdl-shadow-medium);
+}
+
+.vdl-btn-primary:hover {
+  background: linear-gradient(135deg, var(--vdl-burgundy-light) 0%, var(--vdl-burgundy) 100%);
+  box-shadow: var(--vdl-shadow-hard);
+  transform: translateY(-2px);
+}
+
+.vdl-btn-secondary {
+  background: transparent;
+  color: var(--vdl-burgundy);
+  border-color: var(--vdl-burgundy);
+}
+
+.vdl-btn-secondary:hover {
+  background: var(--vdl-burgundy);
+  color: var(--vdl-cream);
+}
+
+.vdl-btn-accent {
+  background: linear-gradient(135deg, var(--vdl-gold) 0%, var(--vdl-gold-dark) 100%);
+  color: var(--vdl-burgundy);
+  box-shadow: var(--vdl-shadow-medium);
+}
+
+.vdl-btn-accent:hover {
+  background: linear-gradient(135deg, var(--vdl-gold-light) 0%, var(--vdl-gold) 100%);
+  box-shadow: var(--vdl-shadow-hard);
+  transform: translateY(-2px);
+}
+
+/* Luxury Card System */
+.vdl-card {
+  background: var(--vdl-cream);
+  border-radius: var(--vdl-radius-lg);
+  box-shadow: var(--vdl-shadow-soft);
+  padding: var(--vdl-space-2xl);
+  transition: all var(--vdl-transition-standard);
+  position: relative;
+  overflow: hidden;
+}
+
+.vdl-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--vdl-burgundy) 0%, var(--vdl-gold) 100%);
+}
+
+.vdl-card:hover {
+  box-shadow: var(--vdl-shadow-medium);
+  transform: translateY(-4px);
+}
+
+.vdl-card-premium {
+  background: linear-gradient(145deg, var(--vdl-cream) 0%, var(--vdl-pearl) 100%);
+  border: 1px solid var(--vdl-gold-alpha-20);
+}
+
+.vdl-card-premium::before {
+  background: var(--vdl-gold);
+  height: 6px;
+}
+
+.vdl-card-header {
+  margin-bottom: var(--vdl-space-lg);
+  padding-bottom: var(--vdl-space-lg);
+  border-bottom: 1px solid var(--vdl-silver);
+}
+
+.vdl-card-body {
+  margin-bottom: var(--vdl-space-lg);
+}
+
+.vdl-card-footer {
+  padding-top: var(--vdl-space-lg);
+  border-top: 1px solid var(--vdl-silver);
+}
+
+/* ============================================================================
+   PLOT SELECTION SPECIFIC COMPONENTS
+   ============================================================================ */
+
+/* Hero Section with Video Background */
+.vdl-hero {
+  position: relative;
+  height: 100vh;
+  min-height: 600px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: linear-gradient(145deg, var(--vdl-burgundy-alpha-90), var(--vdl-burgundy-alpha-80)), 
+              url('/static/images/vineyard-defaults/vineyard_01.jpg') center/cover;
+}
+
+.vdl-hero-video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: translate(-50%, -50%);
+  z-index: -1;
+}
+
+.vdl-hero-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(145deg, var(--vdl-burgundy-alpha-80), var(--vdl-burgundy-alpha-90));
+  z-index: 1;
+}
+
+.vdl-hero-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  color: var(--vdl-cream);
+  max-width: 800px;
+  padding: var(--vdl-space-2xl);
+}
+
+.vdl-hero-title {
+  font-family: var(--vdl-font-display);
+  font-size: var(--vdl-text-5xl);
+  font-weight: 700;
+  line-height: 1.1;
+  margin-bottom: var(--vdl-space-xl);
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.vdl-hero-subtitle {
+  font-family: var(--vdl-font-serif);
+  font-size: var(--vdl-text-xl);
+  line-height: 1.6;
+  margin-bottom: var(--vdl-space-2xl);
+  opacity: 0.9;
+}
+
+/* Interactive Map Container */
+.vdl-map-section {
+  padding: var(--vdl-space-4xl) 0;
+  background: var(--vdl-pearl);
+}
+
+.vdl-map-container {
+  position: relative;
+  height: 600px;
+  border-radius: var(--vdl-radius-xl);
+  overflow: hidden;
+  box-shadow: var(--vdl-shadow-dramatic);
+  border: 4px solid var(--vdl-gold-alpha-20);
+}
+
+#vineyard-map {
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
+}
+
+.vdl-map-overlay {
+  position: absolute;
+  top: var(--vdl-space-lg);
+  left: var(--vdl-space-lg);
+  background: var(--vdl-cream);
+  padding: var(--vdl-space-lg);
+  border-radius: var(--vdl-radius-lg);
+  box-shadow: var(--vdl-shadow-medium);
+  z-index: 1000;
+  max-width: 300px;
+}
+
+/* Plot Details Sidebar */
+.vdl-sidebar {
+  position: sticky;
+  top: var(--vdl-space-2xl);
+  background: var(--vdl-cream);
+  border-radius: var(--vdl-radius-xl);
+  box-shadow: var(--vdl-shadow-hard);
+  padding: var(--vdl-space-2xl);
+  height: fit-content;
+}
+
+.vdl-sidebar-header {
+  text-align: center;
+  margin-bottom: var(--vdl-space-2xl);
+  padding-bottom: var(--vdl-space-lg);
+  border-bottom: 2px solid var(--vdl-gold-alpha-20);
+}
+
+.vdl-plot-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vdl-space-sm);
+  background: var(--vdl-gold-alpha-20);
+  color: var(--vdl-burgundy);
+  padding: var(--vdl-space-sm) var(--vdl-space-lg);
+  border-radius: var(--vdl-radius-lg);
+  font-family: var(--vdl-font-sans);
+  font-weight: 600;
+  margin-top: var(--vdl-space-md);
+}
+
+.vdl-selection-cart {
+  margin-bottom: var(--vdl-space-2xl);
+}
+
+.vdl-cart-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--vdl-space-md);
+  background: var(--vdl-pearl);
+  border-radius: var(--vdl-radius-md);
+  margin-bottom: var(--vdl-space-sm);
+  transition: all var(--vdl-transition-fast);
+}
+
+.vdl-cart-item:hover {
+  background: var(--vdl-gold-alpha-20);
+}
+
+.vdl-remove-item {
+  background: none;
+  border: none;
+  color: var(--vdl-burgundy);
+  cursor: pointer;
+  padding: var(--vdl-space-xs);
+  border-radius: var(--vdl-radius-sm);
+  transition: all var(--vdl-transition-fast);
+}
+
+.vdl-remove-item:hover {
+  background: var(--vdl-burgundy);
+  color: var(--vdl-cream);
+}
+
+/* ============================================================================
+   ANIMATION CLASSES
+   ============================================================================ */
+
+/* Wine Glass Loading Animation */
+@keyframes vdl-wine-pour {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-10deg) scale(1.05); }
+  50% { transform: rotate(0deg) scale(1); }
+  75% { transform: rotate(10deg) scale(1.05); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+
+.vdl-wine-loading {
+  display: inline-block;
+  animation: vdl-wine-pour 2s ease-in-out infinite;
+}
+
+/* Fade In Animations */
+.vdl-fade-in {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all var(--vdl-transition-slow);
+}
+
+.vdl-fade-in.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.vdl-fade-in-delay-1 {
+  transition-delay: 0.1s;
+}
+
+.vdl-fade-in-delay-2 {
+  transition-delay: 0.2s;
+}
+
+.vdl-fade-in-delay-3 {
+  transition-delay: 0.3s;
+}
+
+/* Luxury Hover Effects */
+.vdl-hover-lift {
+  transition: all var(--vdl-transition-standard);
+}
+
+.vdl-hover-lift:hover {
+  transform: translateY(-8px);
+  box-shadow: var(--vdl-shadow-dramatic);
+}
+
+.vdl-hover-glow {
+  transition: all var(--vdl-transition-standard);
+}
+
+.vdl-hover-glow:hover {
+  box-shadow: 0 0 20px var(--vdl-gold-alpha-90);
+}
+
+/* ============================================================================
+   RESPONSIVE DESIGN SYSTEM
+   ============================================================================ */
+
+/* Large Desktop - 1200px+ */
+@media (min-width: 1200px) {
+  .vdl-hero-title {
+    font-size: 6rem;
+  }
+  
+  .vdl-container-xl {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 var(--vdl-space-2xl);
+  }
+}
+
+/* Desktop - 992px to 1199px */
+@media (max-width: 1199.98px) {
+  .vdl-hero-title {
+    font-size: var(--vdl-text-4xl);
+  }
+  
+  .vdl-sidebar {
+    position: relative;
+    top: 0;
+    margin-top: var(--vdl-space-2xl);
+  }
+}
+
+/* Tablet - 768px to 991px */
+@media (max-width: 991.98px) {
+  .vdl-hero {
+    height: 70vh;
+    min-height: 500px;
+  }
+  
+  .vdl-hero-title {
+    font-size: var(--vdl-text-3xl);
+  }
+  
+  .vdl-map-container {
+    height: 400px;
+  }
+  
+  .vdl-card {
+    padding: var(--vdl-space-xl);
+  }
+}
+
+/* Mobile Large - 576px to 767px */
+@media (max-width: 767.98px) {
+  .vdl-hero-title {
+    font-size: var(--vdl-text-2xl);
+  }
+  
+  .vdl-hero-content {
+    padding: var(--vdl-space-lg);
+  }
+  
+  .vdl-map-overlay {
+    position: relative;
+    top: 0;
+    left: 0;
+    margin-bottom: var(--vdl-space-lg);
+    max-width: none;
+  }
+  
+  .vdl-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Mobile - 575px and below */
+@media (max-width: 575.98px) {
+  :root {
+    --vdl-space-4xl: 3rem;
+    --vdl-space-3xl: 2rem;
+    --vdl-space-2xl: 1.5rem;
+  }
+  
+  .vdl-hero {
+    height: 60vh;
+    min-height: 400px;
+  }
+  
+  .vdl-map-container {
+    height: 300px;
+  }
+  
+  .vdl-card {
+    padding: var(--vdl-space-lg);
+    border-radius: var(--vdl-radius-md);
+  }
+  
+  .vdl-sidebar {
+    padding: var(--vdl-space-lg);
+  }
+}
+
+/* ============================================================================
+   UTILITY CLASSES
+   ============================================================================ */
+
+.vdl-text-center { text-align: center; }
+.vdl-text-left { text-align: left; }
+.vdl-text-right { text-align: right; }
+
+.vdl-text-burgundy { color: var(--vdl-burgundy); }
+.vdl-text-gold { color: var(--vdl-gold); }
+.vdl-text-cream { color: var(--vdl-cream); }
+.vdl-text-charcoal { color: var(--vdl-charcoal); }
+
+.vdl-bg-burgundy { background-color: var(--vdl-burgundy); }
+.vdl-bg-gold { background-color: var(--vdl-gold); }
+.vdl-bg-cream { background-color: var(--vdl-cream); }
+.vdl-bg-pearl { background-color: var(--vdl-pearl); }
+
+.vdl-mb-0 { margin-bottom: 0; }
+.vdl-mb-xs { margin-bottom: var(--vdl-space-xs); }
+.vdl-mb-sm { margin-bottom: var(--vdl-space-sm); }
+.vdl-mb-md { margin-bottom: var(--vdl-space-md); }
+.vdl-mb-lg { margin-bottom: var(--vdl-space-lg); }
+.vdl-mb-xl { margin-bottom: var(--vdl-space-xl); }
+.vdl-mb-2xl { margin-bottom: var(--vdl-space-2xl); }
+
+.vdl-d-none { display: none; }
+.vdl-d-block { display: block; }
+.vdl-d-flex { display: flex; }
+.vdl-d-grid { display: grid; }
+
+/* Development Helper - Remove in production */
+.vdl-debug {
+  outline: 2px dashed var(--vdl-gold);
+  background: var(--vdl-gold-alpha-20);
+}
