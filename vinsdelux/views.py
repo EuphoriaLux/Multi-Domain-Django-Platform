@@ -119,7 +119,7 @@ def coffret_list(request):
         'current_category': category_filter,
         'current_producer': producer_filter,
     }
-    return render(request, 'vinsdelux/coffret_list.html', context)
+    return render(request, 'vinsdelux/products/coffret_list.html', context)
 
 
 def coffret_detail(request, slug):
@@ -146,7 +146,7 @@ def coffret_detail(request, slug):
         'adoption_plans': adoption_plans,
         'related_coffrets': related_coffrets,
     }
-    return render(request, 'vinsdelux/coffret_detail.html', context)
+    return render(request, 'vinsdelux/products/coffret_detail.html', context)
 
 
 def adoption_plan_detail(request, slug):
@@ -163,7 +163,7 @@ def adoption_plan_detail(request, slug):
     context = {
         'adoption_plan': adoption_plan,
     }
-    return render(request, 'vinsdelux/adoption_plan_detail.html', context)
+    return render(request, 'vinsdelux/products/adoption_plan_detail.html', context)
 
 
 def producer_list(request):
@@ -175,7 +175,7 @@ def producer_list(request):
     context = {
         'producers': producers,
     }
-    return render(request, 'vinsdelux/producer_list.html', context)
+    return render(request, 'vinsdelux/products/producer_list.html', context)
 
 
 def producer_detail(request, slug):
@@ -191,7 +191,7 @@ def producer_detail(request, slug):
         'coffrets': coffrets,
         'adoption_plans': adoption_plans,
     }
-    return render(request, 'vinsdelux/producer_detail.html', context)
+    return render(request, 'vinsdelux/products/producer_detail.html', context)
 
 def plot_selector(request):
     """
@@ -220,7 +220,7 @@ def plot_selector(request):
         'producers': producers,
     }
     
-    return render(request, 'vinsdelux/plot_selector.html', context)
+    return render(request, 'vinsdelux/journey/plot_selector.html', context)
 
 
 class EnhancedPlotSelectionView(TemplateView):
@@ -797,7 +797,7 @@ def journey_interactive_form(request):
         'adoption_plans': adoption_plans,
         'plot_data': json.dumps(plot_data),  # Convert to JSON string for JavaScript
     }
-    response = render(request, 'vinsdelux/journey_interactive_form.html', context)
+    response = render(request, 'vinsdelux/journey/interactive_form.html', context)
     # Allow iframe embedding for test purposes
     response['X-Frame-Options'] = 'SAMEORIGIN'
     return response
@@ -844,7 +844,7 @@ def journey_test_runner(request):
     context = {
         'client_journey_steps': client_journey_steps,
     }
-    return render(request, 'vinsdelux/journey_test_runner.html', context)
+    return render(request, 'vinsdelux/testing/test_runner.html', context)
 
 def journey_step_plot_selection(request):
     """
@@ -912,7 +912,7 @@ def journey_step_plot_selection(request):
         'next_step_url': 'vinsdelux:journey_personalize_wine',
         'next_step_title': 'Personalize Your Wine'
     }
-    return render(request, 'vinsdelux/journey_step_detail.html', context)
+    return render(request, 'vinsdelux/journey/step_detail.html', context)
 
 def journey_step_personalize_wine(request):
     """
@@ -984,7 +984,7 @@ def journey_step_personalize_wine(request):
         'next_step_url': 'vinsdelux:journey_follow_production',
         'next_step_title': 'Follow the Production'
     }
-    return render(request, 'vinsdelux/journey_step_detail.html', context)
+    return render(request, 'vinsdelux/journey/step_detail.html', context)
 
 def journey_step_follow_production(request):
     """
@@ -1057,7 +1057,7 @@ def journey_step_follow_production(request):
         'next_step_url': 'vinsdelux:journey_receive_taste',
         'next_step_title': 'Receive and Taste'
     }
-    return render(request, 'vinsdelux/journey_step_detail.html', context)
+    return render(request, 'vinsdelux/journey/step_detail.html', context)
 
 def journey_step_receive_taste(request):
     """
@@ -1130,7 +1130,7 @@ def journey_step_receive_taste(request):
         'next_step_url': 'vinsdelux:journey_create_legacy',
         'next_step_title': 'Create Your Legacy'
     }
-    return render(request, 'vinsdelux/journey_step_detail.html', context)
+    return render(request, 'vinsdelux/journey/step_detail.html', context)
 
 def journey_step_create_legacy(request):
     """
@@ -1211,7 +1211,7 @@ def journey_step_create_legacy(request):
         'prev_step_title': 'Receive and Taste',
         'is_final_step': True
     }
-    return render(request, 'vinsdelux/journey_step_detail.html', context)
+    return render(request, 'vinsdelux/journey/step_detail.html', context)
 
 def api_adoption_plans(request):
     """
@@ -1351,7 +1351,7 @@ def journey_test(request):
     """
     Test suite for debugging the interactive journey game
     """
-    response = render(request, 'vinsdelux/journey_test.html')
+    response = render(request, 'vinsdelux/testing/test_suite.html')
     # Allow iframe for testing purposes only on this specific view
     response['X-Frame-Options'] = 'SAMEORIGIN'
     return response

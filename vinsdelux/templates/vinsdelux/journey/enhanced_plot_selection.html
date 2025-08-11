@@ -38,10 +38,11 @@
     <link rel="preload" href="{% static 'fontawesome/css/all.min.css' %}" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}"></noscript>
     
-    <!-- Vins de Lux Design System -->
+    <!-- Vins de Lux Enhanced Design System -->
     <link rel="stylesheet" href="{% static 'css/enhanced-plot-selector.css' %}">
     <link rel="stylesheet" href="{% static 'vinsdelux/css/adoption-plans.css' %}">
-    <link rel="stylesheet" href="{% static 'vinsdelux/css/vineyard-map.css' %}">
+    <link rel="stylesheet" href="{% static 'vinsdelux/css/enhanced-map-integration.css' %}">
+    <link rel="stylesheet" href="{% static 'vinsdelux/css/enhanced-mobile-experience.css' %}">
     
     <!-- Leaflet MarkerCluster CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
@@ -402,9 +403,10 @@
     <!-- AOS (Animate On Scroll) Library -->
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
     
-    <!-- Import our custom map and selection classes -->
+    <!-- Import our enhanced map and selection classes -->
     <script src="{% static 'vinsdelux/js/vineyard-map.js' %}"></script>
     <script src="{% static 'vinsdelux/js/plot-selection.js' %}"></script>
+    <script src="{% static 'vinsdelux/js/luxury-map-interactions.js' %}"></script>
     <script src="{% static 'vinsdelux/js/producer-plot-selector.js' %}"></script>
     <script src="{% static 'vinsdelux/js/producer-map-connector.js' %}"></script>
     <script src="{% static 'vinsdelux/js/producer-selector-fix.js' %}"></script>
@@ -461,7 +463,7 @@
         
         function initializeMapAndSelection() {
             try {
-                console.log('Initializing VineyardMap...');
+                console.log('🍷 Initializing Enhanced Vineyard Map Experience...');
                 
                 // Check if VineyardMap class exists
                 if (typeof VineyardMap === 'undefined') {
@@ -486,19 +488,31 @@
                     onPlotHover: handleMapPlotHover,
                     onMapReady: () => {
                         console.log('✓ Vineyard map initialized successfully');
+                        
+                        // Initialize luxury interactions after map is ready
+                        if (typeof LuxuryMapInteractions !== 'undefined') {
+                            window.luxuryInteractions = new LuxuryMapInteractions(vineyardMap, plotSelection, {
+                                animationDuration: 350,
+                                enableParallax: true,
+                                enableSoundEffects: false
+                            });
+                            console.log('✨ Luxury interactions initialized');
+                        }
                     }
                 });
             } catch (error) {
                 console.error('ERROR initializing map:', error);
-                // Show error message to user
+                // Show elegant error message to user
                 const mapContainer = document.getElementById('vineyard-map');
                 if (mapContainer) {
                     mapContainer.innerHTML = `
-                        <div style="padding: 40px; text-align: center; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px;">
-                            <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #856404; margin-bottom: 20px;"></i>
-                            <h3 style="color: #856404;">Map Loading Error</h3>
-                            <p>Unable to load the interactive map. Please refresh the page or try again later.</p>
-                            <p style="font-size: 12px; color: #666;">Error: ${error.message}</p>
+                        <div style="padding: 40px; text-align: center; background: linear-gradient(135deg, var(--vdl-cream) 0%, var(--vdl-pearl) 100%); border: 2px solid var(--vdl-gold-alpha-25); border-radius: 16px;">
+                            <i class="fas fa-wine-glass-alt" style="font-size: 48px; color: var(--vdl-burgundy); margin-bottom: 20px; opacity: 0.7;"></i>
+                            <h3 style="color: var(--vdl-burgundy); font-family: var(--vdl-font-display); margin-bottom: 15px;">Vineyard Map Unavailable</h3>
+                            <p style="color: var(--vdl-slate); margin-bottom: 20px;">We're experiencing difficulties loading your vineyard exploration experience.</p>
+                            <button onclick="location.reload()" class="vdl-btn vdl-btn-primary" style="margin-top: 10px;">
+                                <i class="fas fa-sync-alt"></i> Try Again
+                            </button>
                         </div>
                     `;
                 }
