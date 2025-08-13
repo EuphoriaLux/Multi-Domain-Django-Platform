@@ -388,26 +388,31 @@ class PixelWarMobile {
                 }
             } else if (response.status === 429) {
                 // Rate limited
+                console.log('Rate limit response:', data);
+                
                 if (data.limit_info) {
                     if (data.limit_info.placed_this_minute >= data.limit_info.max_per_minute) {
                         // Pixel limit reached
-                        const resetTime = Math.ceil(data.cooldown_remaining);
+                        const resetTime = Math.ceil(data.cooldown_remaining || 60);
                         this.showNotification(
                             `⏱️ Limit reached! Reset in ${resetTime}s (${data.limit_info.max_per_minute}/min max)`, 
                             'error'
                         );
                         this.pixelsRemaining = 0;
                         this.updatePixelsRemaining();
+                        
+                        // Show detailed limit info in confirmation dialog
+                        this.showLimitReachedDialog(data.limit_info, resetTime);
                     } else {
                         // Cooldown active
-                        const cooldownTime = Math.ceil(data.cooldown_remaining);
-                        this.showNotification(`⏳ Cooldown: ${cooldownTime}s`, 'error');
+                        const cooldownTime = Math.ceil(data.cooldown_remaining || this.cooldownSeconds);
+                        this.showNotification(`⏳ Please wait ${cooldownTime}s before placing another pixel`, 'error');
                     }
                     
                     // Show registration prompt for anonymous users
                     if (!data.limit_info.is_registered) {
                         setTimeout(() => {
-                            this.showNotification('💡 Join to get 5 pixels/min!', 'info');
+                            this.showRegistrationPrompt();
                         }, 2000);
                     }
                 }
@@ -415,6 +420,9 @@ class PixelWarMobile {
                 // Set cooldown timer
                 if (data.cooldown_remaining) {
                     this.startCooldown(data.cooldown_remaining);
+                } else if (data.error === 'Cooldown active') {
+                    // Fallback if cooldown_remaining is not provided
+                    this.startCooldown(this.cooldownSeconds);
                 }
                 
                 // Error haptic feedback
@@ -654,6 +662,77 @@ class PixelWarMobile {
         
         // Redraw canvas without preview
         this.redraw();
+    }
+    
+    showLimitReachedDialog(limitInfo, resetTime) {
+        const dialog = document.createElement('div');
+        dialog.className = 'limit-reached-dialog';
+        dialog.innerHTML = `
+            <div class="dialog-content">
+                <h3>⏱️ Pixel Limit Reached</h3>
+                <p>You've placed <strong>${limitInfo.placed_this_minute}/${limitInfo.max_per_minute}</strong> pixels this minute.</p>
+                <p>Reset in: <span class="countdown">${resetTime}s</span></p>
+                ${!limitInfo.is_registered ? `
+                    <div class="upgrade-prompt">
+                        <p><strong>Want more pixels?</strong></p>
+                        <p>Registered users get:</p>
+                        <ul>
+                            <li>5 pixels per minute (vs 2)</li>
+                            <li>12s cooldown (vs 30s)</li>
+                        </ul>
+                        <a href="/accounts/signup/" class="btn-register">Join Now - It's Free!</a>
+                    </div>
+                ` : ''}
+                <button onclick="this.parentElement.parentElement.remove()" class="btn-close">OK</button>
+            </div>
+        `;
+        document.body.appendChild(dialog);
+        
+        // Update countdown
+        let timeLeft = resetTime;
+        const countdownEl = dialog.querySelector('.countdown');
+        const countdownInterval = setInterval(() => {
+            timeLeft--;
+            if (timeLeft <= 0) {
+                clearInterval(countdownInterval);
+                dialog.remove();
+                this.pixelsRemaining = limitInfo.max_per_minute;
+                this.updatePixelsRemaining();
+                this.showNotification('✅ Pixel limit reset! You can place again.', 'success');
+            } else {
+                countdownEl.textContent = `${timeLeft}s`;
+            }
+        }, 1000);
+    }
+    
+    showRegistrationPrompt() {
+        const prompt = document.createElement('div');
+        prompt.className = 'registration-prompt-mobile';
+        prompt.innerHTML = `
+            <div class="prompt-content">
+                <button class="close-btn" onclick="this.parentElement.parentElement.remove()">✕</button>
+                <h4>💡 Get More Pixels!</h4>
+                <div class="benefits">
+                    <div class="benefit">
+                        <span class="icon">🎨</span>
+                        <span>5 pixels/minute</span>
+                    </div>
+                    <div class="benefit">
+                        <span class="icon">⚡</span>
+                        <span>Faster cooldown</span>
+                    </div>
+                </div>
+                <a href="/accounts/signup/" class="btn-join">Join Free</a>
+            </div>
+        `;
+        document.body.appendChild(prompt);
+        
+        // Auto-hide after 8 seconds
+        setTimeout(() => {
+            if (prompt.parentElement) {
+                prompt.remove();
+            }
+        }, 8000);
     }
     
     // Visual feedback methods
