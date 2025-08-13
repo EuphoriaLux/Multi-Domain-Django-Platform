@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'vibe_coding/css/pixel_war.css' %}">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+{% endblock %}
+
+{% block content %}
+<div class="pixel-war-container">
+    <header class="pixel-war-header">
+        <h1>🎨 Lux Pixel War</h1>
+        <p class="subtitle">{% trans "Collaborate or compete - Every pixel counts!" %}</p>
+    </header>
+
+    <div class="mobile-container">
+        <!-- Controls Sidebar (Desktop) / Top Section (Mobile) -->
+        <div class="controls-sidebar">
+            <!-- Color Selection -->
+            <div class="color-section">
+                <h3>{% trans "Choose Color" %}</h3>
+                <div class="color-palette">
+                    <div class="color-grid">
+                        <button class="color-btn" data-color="#FF0000" style="background-color: #FF0000" aria-label="Red"></button>
+                        <button class="color-btn" data-color="#FFA500" style="background-color: #FFA500" aria-label="Orange"></button>
+                        <button class="color-btn" data-color="#FFFF00" style="background-color: #FFFF00" aria-label="Yellow"></button>
+                        <button class="color-btn" data-color="#00FF00" style="background-color: #00FF00" aria-label="Green"></button>
+                        <button class="color-btn" data-color="#00FFFF" style="background-color: #00FFFF" aria-label="Cyan"></button>
+                        <button class="color-btn" data-color="#0000FF" style="background-color: #0000FF" aria-label="Blue"></button>
+                        <button class="color-btn" data-color="#FF00FF" style="background-color: #FF00FF" aria-label="Magenta"></button>
+                        <button class="color-btn" data-color="#800080" style="background-color: #800080" aria-label="Purple"></button>
+                        <button class="color-btn" data-color="#FFC0CB" style="background-color: #FFC0CB" aria-label="Pink"></button>
+                        <button class="color-btn" data-color="#A52A2A" style="background-color: #A52A2A" aria-label="Brown"></button>
+                        <button class="color-btn" data-color="#808080" style="background-color: #808080" aria-label="Gray"></button>
+                        <button class="color-btn" data-color="#90EE90" style="background-color: #90EE90" aria-label="Light Green"></button>
+                        <button class="color-btn" data-color="#FFD700" style="background-color: #FFD700" aria-label="Gold"></button>
+                        <button class="color-btn" data-color="#4169E1" style="background-color: #4169E1" aria-label="Royal Blue"></button>
+                        <button class="color-btn" data-color="#FFFFFF" style="background-color: #FFFFFF" aria-label="White"></button>
+                        <button class="color-btn" data-color="#000000" style="background-color: #000000" aria-label="Black"></button>
+                    </div>
+                    <div class="custom-color">
+                        <label for="colorPicker">{% trans "Custom:" %}</label>
+                        <input type="color" id="colorPicker" value="#000000" aria-label="Custom color picker">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Cards -->
+            <div class="info-section">
+                <div class="info-card">
+                    <h3>{% trans "Canvas Info" %}</h3>
+                    <p>
+                        <span>{% trans "Size:" %}</span>
+                        <span id="canvasSize">{{ canvas.width }} × {{ canvas.height }}</span>
+                    </p>
+                    <p>
+                        <span>{% trans "Status:" %}</span>
+                        <span id="status" class="status-active">
+                            {% if canvas.is_active %}{% trans "Active" %}{% else %}{% trans "Inactive" %}{% endif %}
+                        </span>
+                    </p>
+                    
+                    <div class="cooldown-info">
+                        <h4>{% trans "Pixel Limits" %}</h4>
+                        {% if is_authenticated %}
+                            <div class="user-tier registered">
+                                <span class="tier-badge">{% trans "Member" %}</span>
+                                <strong>{{ canvas.registered_pixels_per_minute }} pixels/min</strong>
+                                <small>{% trans "Cooldown:" %} {{ canvas.registered_cooldown_seconds }}s</small>
+                            </div>
+                        {% else %}
+                            <div class="user-tier anonymous">
+                                <span class="tier-badge">{% trans "Guest" %}</span>
+                                <strong>{{ canvas.anonymous_pixels_per_minute }} pixels/min</strong>
+                                <small>{% trans "Cooldown:" %} {{ canvas.anonymous_cooldown_seconds }}s</small>
+                            </div>
+                            <div class="register-incentive">
+                                <p class="incentive-text">
+                                    <strong>{% trans "Want more pixels?" %}</strong>
+                                    <span class="highlight">{{ canvas.registered_pixels_per_minute }} pixels/min</span>
+                                </p>
+                                <a href="{% url 'account_signup' %}" class="btn-register">{% trans "Join Now" %}</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="info-card">
+                    <h3>{% trans "Your Stats" %}</h3>
+                    {% if is_authenticated %}
+                        <p>
+                            <span>{% trans "Player:" %}</span>
+                            <span class="username">{{ request.user.username }}</span>
+                        </p>
+                        {% if user_stats %}
+                            <p>
+                                <span>{% trans "Total:" %}</span>
+                                <span class="stat-value">{{ user_stats.total_pixels_placed }}</span>
+                            </p>
+                        {% endif %}
+                    {% else %}
+                        <p>
+                            <span>{% trans "Player:" %}</span>
+                            <span class="username">{% trans "Guest" %}</span>
+                        </p>
+                        <p class="login-prompt">{% trans "Login to track stats!" %}</p>
+                    {% endif %}
+                    <p>
+                        <span>{% trans "Color:" %}</span>
+                        <span id="selectedColor" style="display: inline-block; width: 20px; height: 20px; background-color: #000000; border: 1px solid #ccc; border-radius: 4px;"></span>
+                    </p>
+                    <p>
+                        <span>{% trans "Next in:" %}</span>
+                        <span id="cooldownTimer" style="font-weight: bold;">Ready</span>
+                    </p>
+                    <p>
+                        <span>{% trans "Remaining:" %}</span>
+                        <span id="pixelsRemaining" style="font-weight: bold;">-</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Canvas -->
+            <div class="canvas-section">
+                <div class="canvas-wrapper">
+                    <div class="zoom-controls">
+                        <button id="zoomIn" class="zoom-btn" aria-label="Zoom in">➕</button>
+                        <button id="zoomOut" class="zoom-btn" aria-label="Zoom out">➖</button>
+                        <button id="zoomReset" class="zoom-btn" aria-label="Reset zoom">🔄</button>
+                    </div>
+                    <div class="canvas-container" id="canvasContainer">
+                        <canvas id="pixelCanvas" 
+                                width="{{ canvas.width }}" 
+                                height="{{ canvas.height }}" 
+                                data-canvas-id="{{ canvas.id }}"
+                                role="img"
+                                aria-label="Pixel canvas grid">
+                        </canvas>
+                        <div class="pixel-tooltip" id="pixelTooltip" role="tooltip"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Feed -->
+        <div class="activity-section">
+            <h3>{% trans "Recent Activity" %}</h3>
+            <div id="activityList" class="activity-list" role="log" aria-live="polite">
+                <p class="loading">{% trans "Loading activity..." %}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notification Toast -->
+<div id="notification" class="notification" role="alert" aria-live="assertive"></div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const CANVAS_CONFIG = {
+        id: {{ canvas.id }},
+        width: {{ canvas.width }},
+        height: {{ canvas.height }},
+        anonymousCooldown: {{ canvas.anonymous_cooldown_seconds }},
+        registeredCooldown: {{ canvas.registered_cooldown_seconds }},
+        anonymousPixelsPerMinute: {{ canvas.anonymous_pixels_per_minute }},
+        registeredPixelsPerMinute: {{ canvas.registered_pixels_per_minute }},
+        isAuthenticated: {% if is_authenticated %}true{% else %}false{% endif %}
+    };
+</script>
+<script src="{% static 'vibe_coding/js/pixel_war_mobile.js' %}"></script>
+{% endblock %}

@@ -19,6 +19,8 @@ def health_check_view(request):
 
 from vinsdelux import views as vinsdelux_views
 
+from vibe_coding import views as vibe_coding_views
+
 urlpatterns = [
     path('healthz/', health_check_view, name='healthz'), # Added health check endpoint
     path('i18n/', include('django.conf.urls.i18n')),
@@ -28,6 +30,11 @@ urlpatterns = [
     path('journey/plot-selection/', vinsdelux_views.plot_selector, name='plot_selector_direct'),
     path('journey/enhanced-plot-selection/', vinsdelux_views.enhanced_plot_selector, name='enhanced_plot_selector_direct'),
     path('vinsdelux/api/adoption-plans/', vinsdelux_views.api_adoption_plans, name='api_adoption_plans_direct'),
+    # Add vibe_coding API URLs outside i18n_patterns
+    path('vibe-coding/api/canvas-state/', vibe_coding_views.get_canvas_state, name='canvas_state_api'),
+    path('vibe-coding/api/canvas-state/<int:canvas_id>/', vibe_coding_views.get_canvas_state, name='canvas_state_by_id_api'),
+    path('vibe-coding/api/place-pixel/', vibe_coding_views.place_pixel, name='place_pixel_api'),
+    path('vibe-coding/api/pixel-history/', vibe_coding_views.get_pixel_history, name='pixel_history_api'),
 ]
 
 urlpatterns += i18n_patterns(
