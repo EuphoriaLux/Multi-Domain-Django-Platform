@@ -23,6 +23,13 @@ class PixelWarMobile {
         this.cooldownEndTime = null;
         this.pixelsRemaining = null;
         
+        // Preview state
+        this.previewX = null;
+        this.previewY = null;
+        this.previewActive = false;
+        this.magnifierCanvas = null;
+        this.magnifierCtx = null;
+        
         // API configuration
         this.apiBaseUrl = '';
         
@@ -36,11 +43,41 @@ class PixelWarMobile {
     init() {
         this.setupCanvas();
         this.setupEventListeners();
+        this.setupMobileHelpers();
         this.loadCanvasState();
         this.startUpdateLoop();
         this.loadRecentActivity();
         this.updatePixelsRemaining();
         this.detectColorScheme();
+    }
+    
+    setupMobileHelpers() {
+        // Add auto-zoom on first tap for better precision
+        if (this.isTouchDevice && this.zoom === 1) {
+            this.autoZoomEnabled = true;
+        }
+        
+        // Add grid overlay toggle button for mobile
+        if (this.isTouchDevice) {
+            this.addGridToggleButton();
+        }
+    }
+    
+    addGridToggleButton() {
+        const button = document.createElement('button');
+        button.id = 'gridToggle';
+        button.className = 'grid-toggle-btn';
+        button.innerHTML = '⊞ Grid';
+        button.addEventListener('click', () => {
+            this.gridVisible = !this.gridVisible;
+            button.classList.toggle('active', this.gridVisible);
+            this.redraw();
+        });
+        
+        const canvasSection = document.querySelector('.canvas-section');
+        if (canvasSection) {
+            canvasSection.appendChild(button);
+        }
     }
     
     detectColorScheme() {
@@ -147,11 +184,39 @@ class PixelWarMobile {
         // Check if it was a tap (not a drag)
         if (!this.isDragging && Date.now() - this.touchStartTime < 300) {
             const rect = this.canvas.getBoundingClientRect();
-            const x = Math.floor((this.touchStartX - rect.left) / (this.pixelSize * this.zoom) - this.offsetX);
-            const y = Math.floor((this.touchStartY - rect.top) / (this.pixelSize * this.zoom) - this.offsetY);
+            let x = Math.floor((this.touchStartX - rect.left) / (this.pixelSize * this.zoom) - this.offsetX);
+            let y = Math.floor((this.touchStartY - rect.top) / (this.pixelSize * this.zoom) - this.offsetY);
+            
+            // Auto-zoom for better precision on first tap
+            if (this.autoZoomEnabled && this.zoom < 2) {
+                // Calculate center position for zoom
+                const centerX = x;
+                const centerY = y;
+                
+                // Zoom in to 2.5x
+                this.zoom = 2.5;
+                
+                // Adjust offset to center on tapped pixel
+                this.offsetX = -(centerX - this.config.width / (2 * this.zoom));
+                this.offsetY = -(centerY - this.config.height / (2 * this.zoom));
+                
+                // Redraw with new zoom
+                this.redraw();
+                
+                // Recalculate position with new zoom
+                x = Math.floor((this.touchStartX - rect.left) / (this.pixelSize * this.zoom) - this.offsetX);
+                y = Math.floor((this.touchStartY - rect.top) / (this.pixelSize * this.zoom) - this.offsetY);
+                
+                // Disable auto-zoom after first use
+                this.autoZoomEnabled = false;
+                
+                // Show notification about zoom
+                this.showNotification('Zoomed in for precision. Pinch to adjust.', 'info');
+            }
             
             if (x >= 0 && x < this.config.width && y >= 0 && y < this.config.height) {
-                this.placePixel(x, y);
+                // Instead of immediately placing, show preview
+                this.showPixelPreview(x, y);
             }
         }
         
@@ -367,6 +432,228 @@ class PixelWarMobile {
         
         // Remove placing animation
         this.removePlacingAnimation();
+    }
+    
+    // New mobile-optimized pixel selection methods
+    showPixelPreview(x, y) {
+        // Clear any existing preview
+        this.clearPreview();
+        
+        // Store preview coordinates
+        this.previewX = x;
+        this.previewY = y;
+        this.previewActive = true;
+        
+        // Create confirmation UI
+        this.createConfirmationUI(x, y);
+        
+        // Show magnified preview
+        this.showMagnifier(x, y);
+        
+        // Redraw with preview highlight
+        this.redraw();
+        
+        // Add preview overlay
+        this.drawPreviewOverlay(x, y);
+        
+        // Haptic feedback
+        if (navigator.vibrate) {
+            navigator.vibrate(30);
+        }
+    }
+    
+    createConfirmationUI(x, y) {
+        // Remove existing confirmation UI
+        const existingUI = document.getElementById('pixelConfirmation');
+        if (existingUI) {
+            existingUI.remove();
+        }
+        
+        // Create confirmation dialog
+        const confirmUI = document.createElement('div');
+        confirmUI.id = 'pixelConfirmation';
+        confirmUI.className = 'pixel-confirmation';
+        confirmUI.innerHTML = `
+            <div class="confirmation-header">
+                <div class="pixel-coords">Position: (${x}, ${y})</div>
+                <div class="pixel-color-preview" style="background-color: ${this.selectedColor}"></div>
+            </div>
+            <div class="confirmation-buttons">
+                <button id="confirmPixel" class="btn-confirm">
+                    <span>✓</span>
+                    Place Pixel
+                </button>
+                <button id="cancelPixel" class="btn-cancel">
+                    <span>✗</span>
+                    Cancel
+                </button>
+            </div>
+            <div class="confirmation-hint">Tap ✓ to confirm or ✗ to reselect</div>
+        `;
+        
+        document.body.appendChild(confirmUI);
+        
+        // Add event listeners
+        document.getElementById('confirmPixel').addEventListener('click', () => {
+            this.confirmPixelPlacement();
+        });
+        
+        document.getElementById('cancelPixel').addEventListener('click', () => {
+            this.clearPreview();
+        });
+        
+        // Auto-hide after 10 seconds
+        setTimeout(() => {
+            if (this.previewActive) {
+                this.clearPreview();
+            }
+        }, 10000);
+    }
+    
+    showMagnifier(x, y) {
+        // Create magnifier overlay
+        const magnifier = document.createElement('div');
+        magnifier.id = 'pixelMagnifier';
+        magnifier.className = 'pixel-magnifier';
+        
+        // Create mini canvas for magnified view
+        const magCanvas = document.createElement('canvas');
+        magCanvas.width = 150;
+        magCanvas.height = 150;
+        const magCtx = magCanvas.getContext('2d');
+        
+        // Draw magnified area (5x5 grid around selected pixel)
+        const gridSize = 5;
+        const magPixelSize = 30;
+        
+        for (let dy = -2; dy <= 2; dy++) {
+            for (let dx = -2; dx <= 2; dx++) {
+                const px = x + dx;
+                const py = y + dy;
+                
+                if (px >= 0 && px < this.config.width && py >= 0 && py < this.config.height) {
+                    const pixel = this.pixels[`${px},${py}`];
+                    magCtx.fillStyle = pixel ? pixel.color : '#ffffff';
+                } else {
+                    magCtx.fillStyle = '#f0f0f0';
+                }
+                
+                magCtx.fillRect(
+                    (dx + 2) * magPixelSize,
+                    (dy + 2) * magPixelSize,
+                    magPixelSize,
+                    magPixelSize
+                );
+                
+                // Draw grid
+                magCtx.strokeStyle = '#ddd';
+                magCtx.strokeRect(
+                    (dx + 2) * magPixelSize,
+                    (dy + 2) * magPixelSize,
+                    magPixelSize,
+                    magPixelSize
+                );
+            }
+        }
+        
+        // Highlight selected pixel
+        magCtx.strokeStyle = this.selectedColor;
+        magCtx.lineWidth = 3;
+        magCtx.strokeRect(2 * magPixelSize, 2 * magPixelSize, magPixelSize, magPixelSize);
+        
+        // Add preview of new color
+        magCtx.fillStyle = this.selectedColor;
+        magCtx.globalAlpha = 0.7;
+        magCtx.fillRect(2 * magPixelSize, 2 * magPixelSize, magPixelSize, magPixelSize);
+        
+        magnifier.appendChild(magCanvas);
+        
+        // Position magnifier
+        const rect = this.canvas.getBoundingClientRect();
+        const pixelScreenX = rect.left + (x + this.offsetX) * this.pixelSize * this.zoom;
+        const pixelScreenY = rect.top + (y + this.offsetY) * this.pixelSize * this.zoom;
+        
+        // Position above the selected pixel if possible
+        magnifier.style.left = Math.min(Math.max(10, pixelScreenX - 75), window.innerWidth - 160) + 'px';
+        magnifier.style.top = Math.max(10, pixelScreenY - 170) + 'px';
+        
+        document.body.appendChild(magnifier);
+    }
+    
+    drawPreviewOverlay(x, y) {
+        this.ctx.save();
+        
+        // Draw a pulsing border around the selected pixel
+        const time = Date.now() / 1000;
+        const pulse = Math.sin(time * 4) * 0.3 + 0.7;
+        
+        const pixelX = (x + this.offsetX) * this.pixelSize * this.zoom;
+        const pixelY = (y + this.offsetY) * this.pixelSize * this.zoom;
+        const size = this.pixelSize * this.zoom;
+        
+        // Draw preview color with transparency
+        this.ctx.fillStyle = this.selectedColor;
+        this.ctx.globalAlpha = 0.6;
+        this.ctx.fillRect(pixelX, pixelY, size, size);
+        
+        // Draw pulsing border
+        this.ctx.strokeStyle = this.selectedColor;
+        this.ctx.lineWidth = 2;
+        this.ctx.globalAlpha = pulse;
+        this.ctx.strokeRect(pixelX - 1, pixelY - 1, size + 2, size + 2);
+        
+        // Draw corner markers for better visibility
+        this.ctx.globalAlpha = 1;
+        this.ctx.fillStyle = '#000';
+        const markerSize = 3;
+        
+        // Top-left
+        this.ctx.fillRect(pixelX - markerSize, pixelY - markerSize, markerSize, markerSize);
+        // Top-right
+        this.ctx.fillRect(pixelX + size, pixelY - markerSize, markerSize, markerSize);
+        // Bottom-left
+        this.ctx.fillRect(pixelX - markerSize, pixelY + size, markerSize, markerSize);
+        // Bottom-right
+        this.ctx.fillRect(pixelX + size, pixelY + size, markerSize, markerSize);
+        
+        this.ctx.restore();
+        
+        // Continue animation if preview is active
+        if (this.previewActive) {
+            requestAnimationFrame(() => {
+                if (this.previewActive && this.previewX === x && this.previewY === y) {
+                    this.redraw();
+                    this.drawPreviewOverlay(x, y);
+                }
+            });
+        }
+    }
+    
+    confirmPixelPlacement() {
+        if (this.previewX !== null && this.previewY !== null) {
+            this.placePixel(this.previewX, this.previewY);
+            this.clearPreview();
+        }
+    }
+    
+    clearPreview() {
+        this.previewActive = false;
+        this.previewX = null;
+        this.previewY = null;
+        
+        // Remove UI elements
+        const confirmUI = document.getElementById('pixelConfirmation');
+        if (confirmUI) {
+            confirmUI.remove();
+        }
+        
+        const magnifier = document.getElementById('pixelMagnifier');
+        if (magnifier) {
+            magnifier.remove();
+        }
+        
+        // Redraw canvas without preview
+        this.redraw();
     }
     
     // Visual feedback methods
