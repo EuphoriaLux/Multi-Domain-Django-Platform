@@ -416,6 +416,140 @@ body {
     background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
 }
 
+/* Mobile Pixel Selection UI */
+.pixel-confirmation {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.98);
+    border-radius: 20px;
+    padding: 15px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    z-index: 10000;
+    min-width: 280px;
+    animation: slideUp 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+@keyframes slideUp {
+    from {
+        bottom: -100px;
+        opacity: 0;
+    }
+    to {
+        bottom: 20px;
+        opacity: 1;
+    }
+}
+
+.confirmation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.pixel-coords {
+    font-weight: 600;
+    font-size: 16px;
+    color: #333;
+}
+
+.pixel-color-preview {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: 2px solid #333;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.confirmation-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.confirmation-buttons button {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.btn-confirm {
+    background: linear-gradient(135deg, #4caf50, #45a049);
+    color: white;
+}
+
+.btn-confirm:active {
+    transform: scale(0.95);
+}
+
+.btn-cancel {
+    background: #f5f5f5;
+    color: #666;
+}
+
+.btn-cancel:active {
+    transform: scale(0.95);
+}
+
+.confirmation-hint {
+    text-align: center;
+    font-size: 12px;
+    color: #999;
+}
+
+/* Pixel Magnifier */
+.pixel-magnifier {
+    position: fixed;
+    background: white;
+    border-radius: 15px;
+    padding: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    z-index: 9999;
+    animation: popIn 0.2s ease;
+    pointer-events: none;
+}
+
+.pixel-magnifier canvas {
+    display: block;
+    border-radius: 10px;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+}
+
+@keyframes popIn {
+    from {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Canvas shake animation for errors */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
 /* Pixel Tooltip - Mobile Optimized */
 .pixel-tooltip {
     position: fixed;
@@ -554,6 +688,53 @@ body {
     * {
         animation: none !important;
         transition: none !important;
+    }
+}
+
+/* Grid Toggle Button */
+.grid-toggle-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    padding: 8px 15px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    z-index: 100;
+    transition: all 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.grid-toggle-btn:active {
+    transform: scale(0.95);
+}
+
+.grid-toggle-btn.active {
+    background: #4caf50;
+    color: white;
+    border-color: #45a049;
+}
+
+/* Enhanced Mobile Touch Targets */
+@media (max-width: 768px) {
+    .color-btn {
+        min-width: 44px;
+        min-height: 44px;
+        margin: 2px;
+    }
+    
+    .zoom-controls button {
+        min-width: 44px;
+        min-height: 44px;
+        font-size: 20px;
+    }
+    
+    .confirmation-buttons button {
+        min-height: 48px;
+        font-size: 16px;
     }
 }
 
