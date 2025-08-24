@@ -1,0 +1,123 @@
+/**
+ * Adoption Plan Selection Styles
+ */
+
+.adoption-plan-card {
+    border: 2px solid #E8E8E8;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    background: white;
+    overflow: hidden;
+}
+
+.adoption-plan-card:hover {
+    border-color: #D4AF37;
+    box-shadow: 0 8px 24px rgba(114, 47, 55, 0.15);
+    transform: translateY(-4px);
+}
+
+.adoption-plan-card .card-body {
+    padding: 2rem;
+}
+
+.adoption-plan-card .card-title {
+    color: #722F37;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+
+.adoption-plan-card .card-text {
+    color: #666;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+}
+
+.adoption-plan-card ul li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #F0F0F0;
+    color: #444;
+}
+
+.adoption-plan-card ul li:last-child {
+    border-bottom: none;
+}
+
+.adoption-plan-card ul li strong {
+    color: #722F37;
+    margin-right: 0.5rem;
+}
+
+.select-plan-btn {
+    background: linear-gradient(135deg, #722F37 0%, #8B0000 100%);
+    border: none;
+    color: white;
+    padding: 0.75rem 2rem;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.select-plan-btn:hover {
+    background: linear-gradient(135deg, #8B0000 0%, #722F37 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(114, 47, 55, 0.3);
+}
+
+.select-plan-btn:disabled {
+    background: #28a745;
+    cursor: not-allowed;
+}
+
+/* Progress Steps */
+.progress-step {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #E8E8E8;
+    color: #999;
+    text-align: center;
+    line-height: 40px;
+    font-weight: 600;
+    margin: 0 1rem;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.progress-step.active {
+    background: #D4AF37;
+    color: white;
+    box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.2);
+}
+
+.progress-step.completed {
+    background: #28a745;
+    color: white;
+}
+
+.progress-step.completed::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* Smooth transitions */
+#adoption-plan-section {
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+#adoption-plan-section[style*="block"] {
+    opacity: 1;
+}
+
+/* Selected producer display */
+#selected-producer-display .alert {
+    border-left: 4px solid #28a745;
+    background: rgba(40, 167, 69, 0.1);
+}
