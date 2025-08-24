@@ -59,12 +59,27 @@ class UserPixelCooldown(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     canvas = models.ForeignKey(PixelCanvas, on_delete=models.CASCADE)
     last_placed = models.DateTimeField(auto_now=True)
-    session_key = models.CharField(max_length=100, null=True, blank=True)
+    session_key = models.CharField(max_length=100, null=True, blank=True, db_index=True)
     pixels_placed_last_minute = models.IntegerField(default=0)
     last_minute_reset = models.DateTimeField(auto_now_add=True, null=True)
     
     class Meta:
-        unique_together = ('user', 'canvas', 'session_key')
+        # Fix: Better constraint that handles both anonymous and registered users
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'canvas'],
+                condition=models.Q(user__isnull=False),
+                name='unique_user_canvas'
+            ),
+            models.UniqueConstraint(
+                fields=['session_key', 'canvas'],
+                condition=models.Q(session_key__isnull=False),
+                name='unique_session_canvas'
+            )
+        ]
+        indexes = [
+            models.Index(fields=['canvas', 'last_placed']),
+        ]
         
     def get_cooldown_seconds(self):
         if self.user:

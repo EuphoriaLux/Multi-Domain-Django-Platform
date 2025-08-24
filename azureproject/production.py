@@ -139,6 +139,90 @@ SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 #    }
 # }
 
-# Basic logging configuration to output INFO level messages to the console
+# Logging configuration - reduce verbosity in production
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'filters': {
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'WARNING',  # Only log WARNING and above to console
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple'
+        },
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': '/tmp/django.log',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'WARNING',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'WARNING',  # Only WARNING and above for Django
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',  # Only ERROR for request handling
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'ERROR',  # No SQL query logging
+            'propagate': False,
+        },
+        'azure': {
+            'handlers': ['console'],
+            'level': 'WARNING',  # Reduce Azure SDK logging
+            'propagate': False,
+        },
+        # Silence noisy Azure middleware logs
+        'Microsoft': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'Microsoft.AspNetCore': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'MiddlewareConsoleLogs': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}
+
+# Set Azure App Service logging level via environment variable
+import logging
+# This affects the Azure middleware logs
+if 'WEBSITE_HOSTNAME' in os.environ:
+    # Suppress Azure's verbose logging
+    logging.getLogger('azure').setLevel(logging.WARNING)
+    logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
+    # Set root logger to WARNING to suppress Trace and Debug logs
+    logging.root.setLevel(logging.WARNING)
 
 

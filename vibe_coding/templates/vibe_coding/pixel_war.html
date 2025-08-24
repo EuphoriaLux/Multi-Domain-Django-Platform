@@ -1,12 +1,28 @@
 {% extends "base.html" %}
 {% load static %}
 {% load i18n %}
+{% load vite_tags %}
 
 {% block title %}{{ page_title }}{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'vibe_coding/css/pixel_war.css' %}">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<style>
+    /* Override base template container constraints for Pixel Wars */
+    main.container {
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin-top: 0 !important;
+    }
+    
+    @media (min-width: 1024px) {
+        main.container {
+            width: 100vw !important;
+            max-width: 100vw !important;
+        }
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -17,8 +33,29 @@
     </header>
 
     <div class="mobile-container">
-        <!-- Controls Sidebar (Desktop) / Top Section (Mobile) -->
-        <div class="controls-sidebar">
+        <!-- Mobile Top Controls Bar (Hidden on Desktop) -->
+        <div class="mobile-controls-bar" id="mobileTopControls" style="display: none;">
+            <div class="controls-row">
+                <button id="mobileMenuToggle" class="menu-toggle-btn" aria-label="Toggle menu">
+                    <span class="menu-icon">☰</span>
+                </button>
+                <div class="quick-color-selector">
+                    <button class="quick-color" data-color="#FF0000" style="background: #FF0000"></button>
+                    <button class="quick-color" data-color="#00FF00" style="background: #00FF00"></button>
+                    <button class="quick-color" data-color="#0000FF" style="background: #0000FF"></button>
+                    <button class="quick-color" data-color="#FFFF00" style="background: #FFFF00"></button>
+                    <button class="quick-color" data-color="#000000" style="background: #000000"></button>
+                    <button class="quick-color" data-color="#FFFFFF" style="background: #FFFFFF; border: 1px solid #ccc;"></button>
+                    <button class="quick-color-more" id="moreColorsBtn">+</button>
+                </div>
+                <div class="status-indicator">
+                    <span id="mobilePixelsRemaining" class="pixels-counter">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Controls Sidebar (Desktop) / Slide Menu (Mobile) -->
+        <div class="controls-sidebar" id="controlsSidebar">
             <!-- Color Selection -->
             <div class="color-section">
                 <h3>{% trans "Choose Color" %}</h3>
@@ -129,10 +166,19 @@
             <!-- Canvas -->
             <div class="canvas-section">
                 <div class="canvas-wrapper">
-                    <div class="zoom-controls">
-                        <button id="zoomIn" class="zoom-btn" aria-label="Zoom in">➕</button>
-                        <button id="zoomOut" class="zoom-btn" aria-label="Zoom out">➖</button>
-                        <button id="zoomReset" class="zoom-btn" aria-label="Reset zoom">🔄</button>
+                    <!-- Desktop Controls -->
+                    <div class="desktop-canvas-controls">
+                        <div class="zoom-controls">
+                            <button id="zoomInDesktop" class="zoom-btn desktop-only" aria-label="Zoom in">➕</button>
+                            <button id="zoomOutDesktop" class="zoom-btn desktop-only" aria-label="Zoom out">➖</button>
+                            <button id="zoomResetDesktop" class="zoom-btn desktop-only" aria-label="Reset zoom">🔄</button>
+                        </div>
+                        <div class="nav-controls">
+                            <button id="navTopLeft" class="nav-btn desktop-only" aria-label="Go to top-left" title="Top-left corner">↖</button>
+                            <button id="navTopRight" class="nav-btn desktop-only" aria-label="Go to top-right" title="Top-right corner">↗</button>
+                            <button id="navBottomLeft" class="nav-btn desktop-only" aria-label="Go to bottom-left" title="Bottom-left corner">↙</button>
+                            <button id="navBottomRight" class="nav-btn desktop-only" aria-label="Go to bottom-right" title="Bottom-right corner">↘</button>
+                        </div>
                     </div>
                     <div class="canvas-container" id="canvasContainer">
                         <canvas id="pixelCanvas" 
@@ -143,6 +189,52 @@
                                 aria-label="Pixel canvas grid">
                         </canvas>
                         <div class="pixel-tooltip" id="pixelTooltip" role="tooltip"></div>
+                        <div class="pixel-crosshair" id="pixelCrosshair"></div>
+                    </div>
+                    
+                    <!-- Mobile Canvas Controls (Hidden on Desktop) -->
+                    <div class="mobile-canvas-controls" style="display: none;">
+                        <div class="corner-nav-grid">
+                            <button class="corner-nav-btn" data-corner="top-left" aria-label="Top left corner">
+                                <span class="corner-icon">↖</span>
+                            </button>
+                            <button class="corner-nav-btn" data-corner="top-right" aria-label="Top right corner">
+                                <span class="corner-icon">↗</span>
+                            </button>
+                            <button class="corner-nav-btn" data-corner="center" aria-label="Center view">
+                                <span class="corner-icon">⊙</span>
+                            </button>
+                            <button class="corner-nav-btn" data-corner="bottom-left" aria-label="Bottom left corner">
+                                <span class="corner-icon">↙</span>
+                            </button>
+                            <button class="corner-nav-btn" data-corner="bottom-right" aria-label="Bottom right corner">
+                                <span class="corner-icon">↘</span>
+                            </button>
+                        </div>
+                        
+                        <div class="zoom-control-bar">
+                            <button id="zoomOut" class="zoom-btn" aria-label="Zoom out">
+                                <span>−</span>
+                            </button>
+                            <div class="zoom-indicator">
+                                <span id="zoomLevel">100%</span>
+                            </div>
+                            <button id="zoomIn" class="zoom-btn" aria-label="Zoom in">
+                                <span>+</span>
+                            </button>
+                        </div>
+                        
+                        <div class="canvas-tools">
+                            <button id="gridToggle" class="tool-btn" aria-label="Toggle grid">
+                                <span class="tool-icon">⊞</span>
+                            </button>
+                            <button id="crosshairToggle" class="tool-btn" aria-label="Toggle crosshair">
+                                <span class="tool-icon">⊕</span>
+                            </button>
+                            <button id="minimapToggle" class="tool-btn" aria-label="Toggle minimap">
+                                <span class="tool-icon">🗺</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -156,7 +248,33 @@
             </div>
         </div>
     </div>
+    
+    <!-- Mobile Slide-out Menu Overlay -->
+    <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
 </div>
+
+<!-- Mobile Bottom Action Bar (Hidden on Desktop) -->
+<div class="mobile-action-bar" id="mobileActionBar" style="display: none;">
+    <div class="action-bar-content">
+        <div class="selected-color-display">
+            <span class="label">Color:</span>
+            <div id="selectedColorMobile" class="color-preview"></div>
+        </div>
+        <button id="placePixelBtn" class="place-pixel-btn" disabled>
+            <span class="btn-text">Place Pixel</span>
+            <span class="cooldown-text" id="cooldownDisplay">Ready</span>
+        </button>
+        <div class="pixels-info">
+            <span class="label">Pixels:</span>
+            <span id="pixelsRemainingMobile">0</span>
+        </div>
+    </div>
+</div>
+
+<!-- Fullscreen Toggle Button (Desktop Only) -->
+<button id="fullscreenToggle" class="fullscreen-toggle" aria-label="Toggle fullscreen canvas" title="Toggle fullscreen canvas">
+    ⛶
+</button>
 
 <!-- Notification Toast -->
 <div id="notification" class="notification" role="alert" aria-live="assertive"></div>
@@ -176,5 +294,52 @@
         isAuthenticated: {% if is_authenticated %}true{% else %}false{% endif %}
     };
 </script>
-<script src="{% static 'vibe_coding/js/pixel_war_mobile.js' %}"></script>
+{% comment %} Load Pixel War using Vite build system {% endcomment %}
+{% vite_asset 'pixel-war-refactored' %}
+
+{% comment %} Pixel War initialization happens automatically via bundled script {% endcomment %}
+
+<script>
+    // Setup responsive controls after page loads
+    (function() {
+        var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+        
+        function setupControls() {
+            if (isMobile) {
+                // Show mobile controls
+                document.querySelectorAll('.mobile-controls-bar, .mobile-canvas-controls, .mobile-action-bar').forEach(function(el) {
+                    if (el) el.style.display = '';
+                });
+                // Hide desktop controls
+                document.querySelectorAll('.desktop-canvas-controls').forEach(function(el) {
+                    if (el) el.style.display = 'none';
+                });
+            } else {
+                // Hide mobile controls on desktop
+                document.querySelectorAll('.mobile-controls-bar, .mobile-canvas-controls, .mobile-action-bar').forEach(function(el) {
+                    if (el) el.style.display = 'none';
+                });
+                // Show desktop controls
+                document.querySelectorAll('.desktop-canvas-controls').forEach(function(el) {
+                    if (el) el.style.display = '';
+                });
+            }
+        }
+        
+        // Setup controls when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupControls);
+        } else {
+            setupControls();
+        }
+        
+        // Handle responsive changes
+        window.addEventListener('resize', function() {
+            var newIsMobile = window.innerWidth < 768;
+            if (newIsMobile !== isMobile) {
+                location.reload(); // Reload to switch between mobile/desktop layout
+            }
+        });
+    })();
+</script>
 {% endblock %}

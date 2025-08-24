@@ -53,6 +53,74 @@ def pixel_war(request):
     return render(request, 'vibe_coding/pixel_war.html', context)
 
 
+@ensure_csrf_cookie
+def pixel_war_optimized(request):
+    """
+    Optimized version of Pixel War with better performance
+    """
+    canvas, created = PixelCanvas.objects.get_or_create(
+        name="Lux Pixel War",
+        defaults={
+            'width': 100, 
+            'height': 100, 
+            'anonymous_cooldown_seconds': 30,
+            'registered_cooldown_seconds': 12,
+            'registered_pixels_per_minute': 5,
+            'anonymous_pixels_per_minute': 2
+        }
+    )
+    
+    # Get user stats if authenticated
+    user_stats = None
+    if request.user.is_authenticated:
+        user_stats, created_stats = UserPixelStats.objects.get_or_create(
+            user=request.user,
+            canvas=canvas
+        )
+    
+    context = {
+        'canvas': canvas,
+        'page_title': _('Lux Pixel War - Optimized'),
+        'is_authenticated': request.user.is_authenticated,
+        'user_stats': user_stats,
+    }
+    return render(request, 'vibe_coding/pixel_war_optimized.html', context)
+
+
+@ensure_csrf_cookie
+def pixel_war_pixi(request):
+    """
+    PixiJS WebGL version of Pixel War for maximum performance
+    """
+    canvas, created = PixelCanvas.objects.get_or_create(
+        name="Lux Pixel War",
+        defaults={
+            'width': 100, 
+            'height': 100, 
+            'anonymous_cooldown_seconds': 30,
+            'registered_cooldown_seconds': 12,
+            'registered_pixels_per_minute': 5,
+            'anonymous_pixels_per_minute': 2
+        }
+    )
+    
+    # Get user stats if authenticated
+    user_stats = None
+    if request.user.is_authenticated:
+        user_stats, created_stats = UserPixelStats.objects.get_or_create(
+            user=request.user,
+            canvas=canvas
+        )
+    
+    context = {
+        'canvas': canvas,
+        'page_title': _('Lux Pixel War - PixiJS'),
+        'is_authenticated': request.user.is_authenticated,
+        'user_stats': user_stats,
+    }
+    return render(request, 'vibe_coding/pixel_war_pixi.html', context)
+
+
 def get_canvas_state(request, canvas_id=None):
     """
     Get the current state of the canvas
@@ -124,25 +192,55 @@ def place_pixel(request):
             request.session.create()
             session_key = request.session.session_key
         
-        # Get or create cooldown record
-        if request.user.is_authenticated:
-            cooldown, created = UserPixelCooldown.objects.get_or_create(
-                user=request.user,
-                canvas=canvas,
-                session_key=None,
-                defaults={'pixels_placed_last_minute': 0}
-            )
-            cooldown_seconds = canvas.registered_cooldown_seconds
-            max_pixels_per_minute = canvas.registered_pixels_per_minute
-        else:
-            cooldown, created = UserPixelCooldown.objects.get_or_create(
-                user=None,
-                canvas=canvas,
-                session_key=session_key,
-                defaults={'pixels_placed_last_minute': 0}
-            )
-            cooldown_seconds = canvas.anonymous_cooldown_seconds
-            max_pixels_per_minute = canvas.anonymous_pixels_per_minute
+        # Get or create cooldown record with better error handling
+        try:
+            if request.user.is_authenticated:
+                # For authenticated users, explicitly set session_key to None
+                cooldown, created = UserPixelCooldown.objects.get_or_create(
+                    user=request.user,
+                    canvas=canvas,
+                    defaults={'session_key': None, 'pixels_placed_last_minute': 0}
+                )
+                cooldown_seconds = canvas.registered_cooldown_seconds
+                max_pixels_per_minute = canvas.registered_pixels_per_minute
+            else:
+                # For anonymous users, use session key
+                cooldown, created = UserPixelCooldown.objects.get_or_create(
+                    user=None,
+                    canvas=canvas,
+                    session_key=session_key,
+                    defaults={'pixels_placed_last_minute': 0}
+                )
+                cooldown_seconds = canvas.anonymous_cooldown_seconds
+                max_pixels_per_minute = canvas.anonymous_pixels_per_minute
+        except UserPixelCooldown.MultipleObjectsReturned:
+            # Handle the case where duplicates exist (shouldn't happen but safety first)
+            if request.user.is_authenticated:
+                # Get all duplicates and keep only the most recent one
+                cooldowns = UserPixelCooldown.objects.filter(
+                    user=request.user,
+                    canvas=canvas
+                ).order_by('-last_placed')
+                cooldown = cooldowns.first()
+                # Delete the duplicates
+                if cooldowns.count() > 1:
+                    cooldowns.exclude(id=cooldown.id).delete()
+                cooldown_seconds = canvas.registered_cooldown_seconds
+                max_pixels_per_minute = canvas.registered_pixels_per_minute
+            else:
+                # Get all duplicates and keep only the most recent one
+                cooldowns = UserPixelCooldown.objects.filter(
+                    user=None,
+                    canvas=canvas,
+                    session_key=session_key
+                ).order_by('-last_placed')
+                cooldown = cooldowns.first()
+                # Delete the duplicates
+                if cooldowns.count() > 1:
+                    cooldowns.exclude(id=cooldown.id).delete()
+                cooldown_seconds = canvas.anonymous_cooldown_seconds
+                max_pixels_per_minute = canvas.anonymous_pixels_per_minute
+            created = False
         
         # Check if minute counter needs reset
         time_since_minute_reset = timezone.now() - cooldown.last_minute_reset
@@ -164,21 +262,8 @@ def place_pixel(request):
                 }
             }, status=429)
         
-        # Check cooldown
-        if not created:
-            time_since_last = timezone.now() - cooldown.last_placed
-            cooldown_remaining = cooldown_seconds - time_since_last.total_seconds()
-            
-            if cooldown_remaining > 0:
-                return JsonResponse({
-                    'error': 'Cooldown active',
-                    'cooldown_remaining': int(cooldown_remaining),
-                    'limit_info': {
-                        'max_per_minute': max_pixels_per_minute,
-                        'placed_this_minute': cooldown.pixels_placed_last_minute,
-                        'is_registered': request.user.is_authenticated
-                    }
-                }, status=429)
+        # Remove per-pixel cooldown - only check per-minute rate limit
+        # Users can place all their remaining pixels without waiting between them
         
         # Update cooldown
         cooldown.last_placed = timezone.now()
@@ -224,7 +309,7 @@ def place_pixel(request):
                 'placed_by': pixel.placed_by.username if pixel.placed_by else 'Anonymous'
             },
             'cooldown_info': {
-                'cooldown_seconds': cooldown_seconds,
+                'cooldown_seconds': 0,  # No cooldown between pixels
                 'pixels_remaining': max_pixels_per_minute - cooldown.pixels_placed_last_minute,
                 'is_registered': request.user.is_authenticated
             }
