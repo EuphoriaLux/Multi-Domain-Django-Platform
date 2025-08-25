@@ -10,6 +10,7 @@ import { PixelWarConfig } from '../config/pixel-war-config.js';
 import { PixelWarAPI, APIError } from '../api/pixel-war-api.js';
 import { CanvasRenderer } from '../rendering/canvas-renderer.js';
 import InputHandler from '../input/input-handler.js';
+import GestureHandler from '../input/gesture-handler.js';
 import { RateLimiter } from './rate-limiter.js';
 import NotificationManager from './notification-manager.js';
 
@@ -33,7 +34,18 @@ export class PixelWar {
         // Initialize modules
         this.api = new PixelWarAPI();
         this.renderer = new CanvasRenderer(this.canvas, config);
-        this.inputHandler = new InputHandler(this.canvas, config);
+        
+        // Use GestureHandler for better mobile touch handling
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+        
+        if (isMobile) {
+            this.inputHandler = new GestureHandler(this.canvas, config);
+            console.log('🤚 Using GestureHandler for mobile device');
+        } else {
+            this.inputHandler = new InputHandler(this.canvas, config);
+            console.log('🖱️ Using InputHandler for desktop device');
+        }
+        
         this.rateLimiter = new RateLimiter(
             config.isAuthenticated ? config.registeredPixelsPerMinute : config.anonymousPixelsPerMinute,
             config.isAuthenticated ? config.registeredCooldown : config.anonymousCooldown
@@ -96,7 +108,7 @@ export class PixelWar {
     }
 
     setupEventHandlers() {
-        // Input events
+        // Input events - support both legacy and gesture handlers
         this.inputHandler.addEventListener('click', (e) => {
             const coords = this.screenToCanvas(e.detail.x, e.detail.y);
             if (coords && this.isValidCoordinate(coords.x, coords.y)) {
@@ -118,6 +130,21 @@ export class PixelWar {
             }
         });
 
+        // Handle pan events from both gesture and input handlers
+        this.inputHandler.addEventListener('pan', (e) => {
+            if (e.detail.offsetX !== undefined && e.detail.offsetY !== undefined) {
+                // Direct offset from GestureHandler
+                this.offsetX = e.detail.offsetX;
+                this.offsetY = e.detail.offsetY;
+                this.constrainOffsets();
+                
+                if (!e.detail.isMomentum) {
+                    this.render();
+                }
+            }
+        });
+
+        // Legacy drag event support
         this.inputHandler.addEventListener('drag', (e) => {
             const pixelSize = PixelWarConfig.canvas.defaultPixelSize;
             // Fixed coordinate system: invert deltas for intuitive panning
@@ -207,8 +234,23 @@ export class PixelWar {
             }
         });
 
+        // Handle zoom events from both gesture and input handlers
         this.inputHandler.addEventListener('zoom', (e) => {
-            this.adjustZoom(e.detail.delta, e.detail.x, e.detail.y);
+            if (e.detail.zoom !== undefined) {
+                // Direct zoom value from GestureHandler
+                this.zoom = e.detail.zoom;
+                this.constrainZoom();
+                
+                // Update input handler state
+                if (this.inputHandler.updateViewState) {
+                    this.inputHandler.updateViewState(this.zoom, this.offsetX, this.offsetY);
+                }
+                
+                this.render();
+            } else if (e.detail.delta !== undefined) {
+                // Legacy delta zoom from InputHandler
+                this.adjustZoom(e.detail.delta, e.detail.x, e.detail.y);
+            }
         });
 
         this.inputHandler.addEventListener('pan', (e) => {
@@ -369,9 +411,16 @@ export class PixelWar {
     
     // Sync view state (zoom, offsets) with input handler for coordinate calculations
     syncViewState() {
-        this.inputHandler.zoom = this.zoom;
-        this.inputHandler.offsetX = this.offsetX;
-        this.inputHandler.offsetY = this.offsetY;
+        // Sync state with both old and new input handlers
+        if (this.inputHandler.updateViewState) {
+            // GestureHandler method
+            this.inputHandler.updateViewState(this.zoom, this.offsetX, this.offsetY);
+        } else {
+            // Legacy InputHandler properties
+            this.inputHandler.zoom = this.zoom;
+            this.inputHandler.offsetX = this.offsetX;
+            this.inputHandler.offsetY = this.offsetY;
+        }
     }
 
     // Helper method to calculate effective viewport dimensions consistently
@@ -750,6 +799,14 @@ export class PixelWar {
             // Start smooth zoom animation
             this.startAnimation();
         }
+    }
+
+    constrainZoom() {
+        const dynamicMinZoom = this.calculateMinZoom();
+        this.zoom = Math.max(
+            dynamicMinZoom,
+            Math.min(PixelWarConfig.canvas.maxZoom, this.zoom)
+        );
     }
 
     initializeZoom() {

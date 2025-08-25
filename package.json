@@ -13,13 +13,14 @@
     "start": "concurrently \"npm run build:watch\" \"npm run django:dev\""
   },
   "dependencies": {
+    "@use-gesture/vanilla": "^10.3.1",
     "hammerjs": "^2.0.8",
     "pixi-viewport": "^6.0.3",
     "pixi.js": "^8.12.0"
   },
   "devDependencies": {
-    "vite": "^7.1.3",
+    "@types/hammerjs": "^2.0.45",
     "concurrently": "^9.0.1",
-    "@types/hammerjs": "^2.0.45"
+    "vite": "^7.1.3"
   }
 }

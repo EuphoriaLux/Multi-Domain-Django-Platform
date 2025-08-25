@@ -41,6 +41,104 @@ body {
     100% { transform: translate(20px, 20px); }
 }
 
+/* Gesture Handler Confirmation Modal */
+.pixel-confirmation-gesture {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 10000 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 20px !important;
+    animation: fadeIn 0.2s ease !important;
+}
+
+.pixel-confirmation-gesture .confirmation-backdrop {
+    position: absolute !important;
+    inset: 0 !important;
+    background: rgba(0, 0, 0, 0.6) !important;
+    backdrop-filter: blur(2px) !important;
+}
+
+.pixel-confirmation-gesture .confirmation-card {
+    position: relative !important;
+    background: white !important;
+    border-radius: 16px !important;
+    padding: 24px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+    text-align: center !important;
+    min-width: 280px !important;
+    max-width: 90vw !important;
+    transform: translateY(0) !important;
+    animation: slideUp 0.3s ease !important;
+}
+
+.pixel-confirmation-gesture .confirmation-card h4 {
+    margin: 0 0 16px 0 !important;
+    color: #333 !important;
+    font-size: 18px !important;
+    font-weight: 600 !important;
+}
+
+.pixel-confirmation-gesture .confirmation-card p {
+    margin: 8px 0 !important;
+    color: #666 !important;
+    font-size: 14px !important;
+}
+
+.pixel-confirmation-gesture .confirmation-actions {
+    display: flex !important;
+    gap: 12px !important;
+    margin-top: 20px !important;
+}
+
+.pixel-confirmation-gesture .confirmation-actions button {
+    flex: 1 !important;
+    padding: 12px 16px !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.pixel-confirmation-gesture .btn-confirm {
+    background: #4caf50 !important;
+    color: white !important;
+}
+
+.pixel-confirmation-gesture .btn-confirm:hover {
+    background: #45a049 !important;
+    transform: translateY(-1px) !important;
+}
+
+.pixel-confirmation-gesture .btn-cancel {
+    background: #f44336 !important;
+    color: white !important;
+}
+
+.pixel-confirmation-gesture .btn-cancel:hover {
+    background: #da190b !important;
+    transform: translateY(-1px) !important;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
 /* Header - Mobile First */
 .pixel-war-header {
     text-align: center;
@@ -95,7 +193,7 @@ body {
     border-radius: 0;
     padding: 0;
     box-shadow: none;
-    overflow: visible; /* Allow canvas to pan beyond wrapper bounds */
+    overflow: hidden; /* Contain canvas within wrapper bounds */
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -105,7 +203,7 @@ body {
     width: 100%;
     flex: 1;
     min-height: 300px;
-    overflow: visible; /* Allow panning beyond container bounds */
+    overflow: hidden; /* Keep canvas contained within bounds */
     border-radius: 0;
     position: relative;
     background: white;
@@ -1196,7 +1294,7 @@ body {
         align-items: center;
         justify-content: center;
         background: #f0f0f0;
-        overflow: hidden;  /* Prevent scrolling outside grid */
+        overflow: hidden; /* Keep content within container */
         position: relative;
     }
     
@@ -1666,9 +1764,9 @@ body {
         -webkit-user-select: none;
         user-select: none;
         touch-action: none;
-        /* Prevent any unintended offsets that cause drift */
+        /* Ensure proper positioning to prevent drift */
         position: relative;
-        overflow: visible; /* Allow canvas content to be visible during pan */
+        overflow: hidden; /* Keep canvas content within bounds */
     }
     
     /* Prevent iOS bounce scrolling but allow scrolling */
@@ -1808,74 +1906,7 @@ body {
     }
 }
 
-/* Minimap */
-.minimap-container {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    background: rgba(255, 255, 255, 0.95);
-    border: 2px solid #333;
-    border-radius: 8px;
-    padding: 5px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    z-index: 100;
-    transition: transform 0.3s ease;
-}
-
-.minimap-container.collapsed {
-    transform: translateX(calc(100% - 40px));
-}
-
-.minimap-container canvas {
-    display: block;
-    cursor: pointer;
-    image-rendering: pixelated;
-    image-rendering: -moz-crisp-edges;
-    image-rendering: crisp-edges;
-}
-
-.minimap-viewport {
-    position: absolute;
-    border: 2px solid #ff0000;
-    background: rgba(255, 0, 0, 0.1);
-    pointer-events: none;
-    transition: all 0.1s ease;
-}
-
-.minimap-toggle {
-    position: absolute;
-    top: 5px;
-    left: -35px;
-    width: 30px;
-    height: 30px;
-    background: #fff;
-    border: 2px solid #333;
-    border-radius: 4px 0 0 4px;
-    border-right: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-}
-
-.minimap-toggle:hover {
-    background: #f0f0f0;
-}
-
-/* Mobile minimap */
-.mobile-minimap {
-    bottom: 80px;
-    right: 10px;
-    padding: 3px;
-    max-width: 120px;
-    max-height: 120px;
-}
-
-.mobile-minimap canvas {
-    max-width: 100px;
-    max-height: 100px;
-}
+/* Minimap styles removed for performance */
 
 /* Improved navigation controls */
 .nav-controls {
@@ -1990,16 +2021,7 @@ body {
         border-bottom-color: rgba(255, 255, 255, 0.1);
     }
     
-    .minimap-container {
-        background: rgba(40, 40, 40, 0.95);
-        border-color: #555;
-    }
-    
-    .minimap-toggle {
-        background: #333;
-        border-color: #555;
-        color: #e0e0e0;
-    }
+    /* Minimap dark mode styles removed */
     
     .nav-btn,
     .grid-toggle-btn {
