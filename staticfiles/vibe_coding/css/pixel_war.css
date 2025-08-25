@@ -115,7 +115,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid #e0e0e0;
+    /* border: 2px solid #e0e0e0; REMOVED - was causing canvas sizing issues */
 }
 
 #pixelCanvas {
@@ -125,7 +125,7 @@ body {
     image-rendering: crisp-edges;
     display: block;
     background: white;
-    border: 1px solid #ddd;
+    /* border: 1px solid #ddd; REMOVED - was causing 1002x1002 instead of 1000x1000 */
     touch-action: none;  /* Ensure touch events work on the canvas */
     user-select: none;   /* Prevent text selection on touch */
     -webkit-user-select: none;
@@ -1757,7 +1757,7 @@ body {
         image-rendering: pixelated;
         image-rendering: -moz-crisp-edges;
         image-rendering: crisp-edges;
-        transform-origin: center;
+        transform-origin: top left;
     }
     
     .info-card {

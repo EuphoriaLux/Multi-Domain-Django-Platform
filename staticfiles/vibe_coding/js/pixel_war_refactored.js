@@ -15,7 +15,9 @@ const PixelWarConfig = {
     animation: {
         friction: 0.92,
         smoothness: 0.15,
-        momentumThreshold: 0.5
+        momentumThreshold: 0.5,
+        maxFPS: 60,
+        throttleMs: 16  // ~60fps throttling
     },
     api: {
         updateInterval: 2000,
@@ -170,58 +172,200 @@ class CanvasRenderer {
     }
 
     render(offsetX, offsetY, zoom, showGrid) {
-        const isDirty = this.dirtyRegions.size > 0;
-        
-        if (!isDirty) return;
-
-        // Clear and setup transform
+        // Clear canvas first
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Calculate viewport in grid coordinates (pixels in the grid)
+        const viewportX = -offsetX;
+        const viewportY = -offsetY;
+        const viewportWidth = this.canvas.width / (zoom * this.pixelSize);
+        const viewportHeight = this.canvas.height / (zoom * this.pixelSize);
+        const margin = Math.max(10, Math.ceil(50 / zoom)); // Dynamic margin based on zoom
+
+        // Setup transform
         this.ctx.save();
         this.ctx.scale(zoom, zoom);
         this.ctx.translate(offsetX * this.pixelSize, offsetY * this.pixelSize);
 
-        // Draw background
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.fillRect(0, 0, this.width * this.pixelSize, this.height * this.pixelSize);
+        // Draw the outside/void area background (before pixel map area)
+        this.drawVoidBackground(viewportX, viewportY, viewportWidth, viewportHeight, zoom);
 
-        // Draw pixels
-        for (const key in this.pixels) {
-            const [x, y] = key.split(',').map(Number);
-            this.ctx.fillStyle = this.pixels[key].color;
-            this.ctx.fillRect(
-                x * this.pixelSize,
-                y * this.pixelSize,
-                this.pixelSize,
-                this.pixelSize
-            );
+        // Draw pixel map background - only the actual canvas area
+        this.ctx.fillStyle = '#ffffff';
+        const bgStartX = Math.max(0, Math.floor(viewportX - margin));
+        const bgStartY = Math.max(0, Math.floor(viewportY - margin));
+        const bgEndX = Math.min(this.width, Math.ceil(viewportX + viewportWidth + margin));
+        const bgEndY = Math.min(this.height, Math.ceil(viewportY + viewportHeight + margin));
+        
+        const bgX = bgStartX * this.pixelSize;
+        const bgY = bgStartY * this.pixelSize;
+        const bgWidth = (bgEndX - bgStartX) * this.pixelSize;
+        const bgHeight = (bgEndY - bgStartY) * this.pixelSize;
+        
+        this.ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
+        
+        // Draw pixel map border
+        this.drawPixelMapBorder(zoom);
+
+        // Calculate pixel range to render
+        const startX = Math.max(0, Math.floor(viewportX - margin));
+        const endX = Math.min(this.width, Math.ceil(viewportX + viewportWidth + margin));
+        const startY = Math.max(0, Math.floor(viewportY - margin));
+        const endY = Math.min(this.height, Math.ceil(viewportY + viewportHeight + margin));
+
+        // Batch pixel rendering for better performance
+        this.ctx.beginPath();
+        for (let x = startX; x < endX; x++) {
+            for (let y = startY; y < endY; y++) {
+                const key = `${x},${y}`;
+                if (this.pixels[key]) {
+                    this.ctx.fillStyle = this.pixels[key].color;
+                    this.ctx.fillRect(
+                        x * this.pixelSize,
+                        y * this.pixelSize,
+                        this.pixelSize,
+                        this.pixelSize
+                    );
+                }
+            }
         }
 
-        // Draw grid if needed
+        // Draw grid if needed - only visible portion
         if (showGrid && zoom > PixelWarConfig.canvas.gridThreshold) {
-            this.drawGrid();
+            this.drawOptimizedGrid(startX, endX, startY, endY, zoom);
         }
 
         this.ctx.restore();
         this.dirtyRegions.clear();
     }
 
+    drawOptimizedGrid(startX, endX, startY, endY, zoom = 1) {
+        // Adjust grid opacity and line width based on zoom level
+        const opacity = Math.min(0.5, Math.max(0.1, (zoom - 0.5) * 0.4));
+        const lineWidth = Math.max(0.5, Math.min(2, zoom * 0.5));
+        
+        this.ctx.strokeStyle = `rgba(200, 200, 200, ${opacity})`;
+        this.ctx.lineWidth = lineWidth;
+
+        // Draw vertical lines - only visible portion
+        this.ctx.beginPath();
+        for (let x = startX; x <= endX; x++) {
+            const lineX = x * this.pixelSize;
+            this.ctx.moveTo(lineX, startY * this.pixelSize);
+            this.ctx.lineTo(lineX, endY * this.pixelSize);
+        }
+        this.ctx.stroke();
+
+        // Draw horizontal lines - only visible portion
+        this.ctx.beginPath();
+        for (let y = startY; y <= endY; y++) {
+            const lineY = y * this.pixelSize;
+            this.ctx.moveTo(startX * this.pixelSize, lineY);
+            this.ctx.lineTo(endX * this.pixelSize, lineY);
+        }
+        this.ctx.stroke();
+    }
+
+    // Keep old method for compatibility
     drawGrid() {
-        this.ctx.strokeStyle = 'rgba(200, 200, 200, 0.3)';
-        this.ctx.lineWidth = 0.5;
+        this.drawOptimizedGrid(0, this.width, 0, this.height);
+    }
 
-        for (let x = 0; x <= this.width; x++) {
+    drawVoidBackground(viewportX, viewportY, viewportWidth, viewportHeight, zoom) {
+        // Draw a distinct pattern/color for the area outside the pixel map
+        const voidAreas = this.calculateVoidAreas(viewportX, viewportY, viewportWidth, viewportHeight);
+        
+        // Create a subtle checkered pattern for the void area
+        const patternSize = Math.max(20, 50 / zoom); // Scale pattern with zoom
+        
+        this.ctx.fillStyle = '#f0f0f0'; // Light gray base
+        
+        voidAreas.forEach(area => {
+            // Fill base color
+            this.ctx.fillRect(area.x * this.pixelSize, area.y * this.pixelSize, 
+                             area.width * this.pixelSize, area.height * this.pixelSize);
+            
+            // Add diagonal stripes pattern
+            this.ctx.save();
+            this.ctx.fillStyle = '#e8e8e8';
             this.ctx.beginPath();
-            this.ctx.moveTo(x * this.pixelSize, 0);
-            this.ctx.lineTo(x * this.pixelSize, this.height * this.pixelSize);
-            this.ctx.stroke();
-        }
+            
+            // Draw diagonal stripes
+            for (let x = area.x * this.pixelSize - patternSize; x < (area.x + area.width) * this.pixelSize + patternSize; x += patternSize * 2) {
+                for (let y = area.y * this.pixelSize - patternSize; y < (area.y + area.height) * this.pixelSize + patternSize; y += patternSize * 2) {
+                    this.ctx.rect(x, y, patternSize, patternSize);
+                }
+            }
+            this.ctx.fill();
+            this.ctx.restore();
+        });
+    }
 
-        for (let y = 0; y <= this.height; y++) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(0, y * this.pixelSize);
-            this.ctx.lineTo(this.width * this.pixelSize, y * this.pixelSize);
-            this.ctx.stroke();
+    calculateVoidAreas(viewportX, viewportY, viewportWidth, viewportHeight) {
+        const areas = [];
+        
+        // Calculate which parts of the viewport are outside the pixel map (0,0 to width,height)
+        const viewportRight = viewportX + viewportWidth;
+        const viewportBottom = viewportY + viewportHeight;
+        
+        // Left void area (viewport extends beyond left edge of map)
+        if (viewportX < 0) {
+            areas.push({
+                x: viewportX,
+                y: Math.max(viewportY, 0),
+                width: Math.min(-viewportX, viewportWidth),
+                height: Math.min(viewportHeight, Math.max(0, Math.min(this.height, viewportBottom) - Math.max(0, viewportY)))
+            });
         }
+        
+        // Right void area (viewport extends beyond right edge of map)
+        if (viewportRight > this.width) {
+            areas.push({
+                x: this.width,
+                y: Math.max(viewportY, 0),
+                width: viewportRight - this.width,
+                height: Math.min(viewportHeight, Math.max(0, Math.min(this.height, viewportBottom) - Math.max(0, viewportY)))
+            });
+        }
+        
+        // Top void area (viewport extends beyond top edge of map)
+        if (viewportY < 0) {
+            areas.push({
+                x: viewportX,
+                y: viewportY,
+                width: viewportWidth,
+                height: -viewportY
+            });
+        }
+        
+        // Bottom void area (viewport extends beyond bottom edge of map)
+        if (viewportBottom > this.height) {
+            areas.push({
+                x: viewportX,
+                y: this.height,
+                width: viewportWidth,
+                height: viewportBottom - this.height
+            });
+        }
+        
+        return areas;
+    }
+
+    drawPixelMapBorder(zoom) {
+        // Draw a clear border around the pixel map
+        this.ctx.strokeStyle = '#333333';
+        this.ctx.lineWidth = Math.max(2, 4 / zoom); // Scale border with zoom but keep visible
+        this.ctx.setLineDash([]);
+        
+        // Draw border rectangle around the entire pixel map
+        this.ctx.strokeRect(0, 0, this.width * this.pixelSize, this.height * this.pixelSize);
+        
+        // Add a subtle inner shadow effect
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+        this.ctx.lineWidth = Math.max(1, 2 / zoom);
+        this.ctx.strokeRect(-this.ctx.lineWidth, -this.ctx.lineWidth, 
+                           (this.width * this.pixelSize) + (this.ctx.lineWidth * 2), 
+                           (this.height * this.pixelSize) + (this.ctx.lineWidth * 2));
     }
 
     drawPixelPreview(x, y, color, zoom, offsetX, offsetY) {
@@ -261,6 +405,16 @@ class InputHandler extends EventTarget {
         // Touch state
         this.touches = new Map();
         this.lastTouchDistance = 0;
+        this.touchMode = localStorage.getItem('pixelWarTouchMode') || 'tap';
+        this.longPressTimer = null;
+        this.isDragging = false;
+        this.touchStartTime = 0;
+        this.selectedPixelX = null;
+        this.selectedPixelY = null;
+        
+        // Performance throttling (minimal for mobile responsiveness)
+        this.lastEventTime = 0;
+        this.throttleDelay = 1; // Minimal throttling for immediate response
     }
 
     setupEventListeners() {
@@ -292,6 +446,13 @@ class InputHandler extends EventTarget {
     }
 
     handleMouseMove(e) {
+        // Throttle mouse move events for better performance
+        const now = performance.now();
+        if (now - this.lastEventTime < this.throttleDelay) {
+            return;
+        }
+        this.lastEventTime = now;
+        
         if (this.isDragging) {
             this.updateDrag(e.clientX, e.clientY);
         } else {
@@ -338,16 +499,43 @@ class InputHandler extends EventTarget {
     handleTouchStart(e) {
         e.preventDefault();
         
+        // Stop any ongoing momentum
+        if (this.animationFrame) {
+            cancelAnimationFrame(this.animationFrame);
+            this.animationFrame = null;
+        }
+        
         if (e.touches.length === 1) {
             const touch = e.touches[0];
+            this.isDragging = false;
+            this.touchStartTime = Date.now();
+            
+            // Clear any existing touch data
+            this.touches.clear();
+            
             this.touches.set(touch.identifier, {
                 startX: touch.clientX,
                 startY: touch.clientY,
                 currentX: touch.clientX,
                 currentY: touch.clientY,
-                startTime: Date.now()
+                startTime: Date.now(),
+                lastMoveTime: Date.now()
             });
+            
+            // Start long press timer for precision mode
+            if (this.touchMode === 'precision') {
+                this.clearLongPressTimer();
+                this.longPressTimer = setTimeout(() => {
+                    if (!this.isDragging) {
+                        this.handleLongPress(touch.clientX, touch.clientY);
+                    }
+                }, 400); // 400ms for long press
+            }
         } else if (e.touches.length === 2) {
+            // Multi-touch: clear single touch and start pinch
+            this.clearLongPressTimer();
+            this.isDragging = false;
+            this.touches.clear();
             this.lastTouchDistance = this.getTouchDistance(e.touches[0], e.touches[1]);
         }
     }
@@ -355,41 +543,87 @@ class InputHandler extends EventTarget {
     handleTouchMove(e) {
         e.preventDefault();
         
+        // Minimal throttling for maximum responsiveness on mobile
+        const now = performance.now();
+        if (now - this.lastEventTime < 2) { // Aggressive reduction to 2ms for immediate response
+            return;
+        }
+        this.lastEventTime = now;
+        
         if (e.touches.length === 1) {
             const touch = e.touches[0];
             const touchData = this.touches.get(touch.identifier);
             
             if (touchData) {
+                const deltaX = touch.clientX - touchData.currentX;
+                const deltaY = touch.clientY - touchData.currentY;
+                
+                // Update current position
                 touchData.currentX = touch.clientX;
                 touchData.currentY = touch.clientY;
                 
-                const moveDistance = Math.sqrt(
-                    Math.pow(touch.clientX - touchData.startX, 2) +
+                // Calculate total movement from start
+                const totalMoveDistance = Math.sqrt(
+                    Math.pow(touch.clientX - touchData.startX, 2) + 
                     Math.pow(touch.clientY - touchData.startY, 2)
                 );
                 
-                if (moveDistance > 5) {
+                // Start dragging if moved more than 3px (ultra sensitive threshold)
+                if (totalMoveDistance > 3 && !this.isDragging) {
+                    this.isDragging = true;
+                    this.clearLongPressTimer();
+                }
+                
+                // Send drag events immediately once dragging started (no minimum movement)
+                if (this.isDragging && (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1)) {
+                    // Enhanced mobile sensitivity
                     this.dispatchEvent(new CustomEvent('touchdrag', {
-                        detail: {
-                            deltaX: touch.clientX - touchData.currentX,
-                            deltaY: touch.clientY - touchData.currentY
+                        detail: { 
+                            deltaX: deltaX * 2.5, // Maximum sensitivity for immediate response
+                            deltaY: deltaY * 2.5,
+                            isMobile: true,
+                            totalDistance: totalMoveDistance
                         }
                     }));
+                    
+                    // Debug logging for touch issues
+                    if (Math.random() < 0.01) { // Only log 1% of events to avoid spam
+                        console.log('📱 Touch Drag:', {
+                            deltaX: deltaX.toFixed(2),
+                            deltaY: deltaY.toFixed(2),
+                            enhanced: (deltaX * 1.8).toFixed(2) + ',' + (deltaY * 1.8).toFixed(2),
+                            totalDistance: totalMoveDistance.toFixed(2)
+                        });
+                    }
                 }
             }
         } else if (e.touches.length === 2) {
+            this.clearLongPressTimer();
+            this.isDragging = false; // Stop single-finger dragging
+            
             const distance = this.getTouchDistance(e.touches[0], e.touches[1]);
+            
+            // Calculate the center point between the two touches
+            const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            
             if (this.lastTouchDistance) {
                 const scale = distance / this.lastTouchDistance;
                 this.dispatchEvent(new CustomEvent('pinchzoom', {
-                    detail: { scale }
+                    detail: { 
+                        scale,
+                        centerX,
+                        centerY
+                    }
                 }));
-                this.lastTouchDistance = distance;
             }
+            this.lastTouchDistance = distance;
         }
     }
 
     handleTouchEnd(e) {
+        this.clearLongPressTimer();
+        
         if (e.changedTouches.length === 1) {
             const touch = e.changedTouches[0];
             const touchData = this.touches.get(touch.identifier);
@@ -401,18 +635,43 @@ class InputHandler extends EventTarget {
                     Math.pow(touchData.currentY - touchData.startY, 2)
                 );
                 
-                if (duration < 300 && distance < 5) {
-                    this.dispatchEvent(new CustomEvent('tap', {
-                        detail: { x: touchData.startX, y: touchData.startY }
-                    }));
+                console.log('📱 Touch End:', {
+                    duration: duration + 'ms',
+                    distance: distance.toFixed(2) + 'px',
+                    isDragging: this.isDragging,
+                    touchMode: this.touchMode
+                });
+                
+                // Quick tap detection (not a drag) - more lenient thresholds
+                if (duration < 500 && distance < 15 && !this.isDragging) {
+                    if (this.touchMode === 'tap') {
+                        // Direct tap mode - place pixel immediately
+                        console.log('🎯 Tap mode - placing pixel directly');
+                        this.dispatchEvent(new CustomEvent('tap', {
+                            detail: { x: touchData.startX, y: touchData.startY }
+                        }));
+                    } else {
+                        // Precision mode - show preview
+                        console.log('🎯 Precision mode - showing preview');
+                        this.handlePixelPreview(touchData.startX, touchData.startY);
+                    }
+                } else if (this.isDragging) {
+                    console.log('🖐️ Drag gesture completed');
+                } else {
+                    console.log('❓ Touch gesture not recognized:', { duration, distance, isDragging: this.isDragging });
                 }
                 
                 this.touches.delete(touch.identifier);
             }
         }
         
+        // Reset dragging state
+        this.isDragging = false;
+        
+        // Reset pinch zoom state
         if (e.touches.length === 0) {
             this.lastTouchDistance = 0;
+            this.touches.clear(); // Clear all remaining touch data
         }
     }
 
@@ -420,6 +679,219 @@ class InputHandler extends EventTarget {
         const dx = touch1.clientX - touch2.clientX;
         const dy = touch1.clientY - touch2.clientY;
         return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    clearLongPressTimer() {
+        if (this.longPressTimer) {
+            clearTimeout(this.longPressTimer);
+            this.longPressTimer = null;
+        }
+    }
+    
+    handleLongPress(clientX, clientY) {
+        // Enhanced long press for precision mode
+        const rect = this.canvas.getBoundingClientRect();
+        const canvasX = clientX - rect.left;
+        const canvasY = clientY - rect.top;
+        
+        // Use the same coordinate calculation as the main app
+        const pixelSize = PixelWarConfig.canvas.defaultPixelSize;
+        const x = Math.floor((canvasX / (pixelSize * this.zoom)) + (-this.offsetX));
+        const y = Math.floor((canvasY / (pixelSize * this.zoom)) + (-this.offsetY));
+        
+        console.log('🔥 Long press coordinates:', {x, y});
+        
+        if (x >= 0 && x < this.config.width && y >= 0 && y < this.config.height) {
+            this.showPixelPreview(x, y, true);
+            
+            // Haptic feedback for long press
+            if (navigator.vibrate) {
+                navigator.vibrate([50, 30, 50]); // Double buzz pattern
+            }
+        }
+    }
+    
+    handlePixelPreview(clientX, clientY) {
+        const rect = this.canvas.getBoundingClientRect();
+        const canvasX = clientX - rect.left;
+        const canvasY = clientY - rect.top;
+        
+        // Use the same coordinate calculation as the main app
+        const pixelSize = PixelWarConfig.canvas.defaultPixelSize;
+        const x = Math.floor((canvasX / (pixelSize * this.zoom)) + (-this.offsetX));
+        const y = Math.floor((canvasY / (pixelSize * this.zoom)) + (-this.offsetY));
+        
+        console.log('🎯 Pixel preview coordinates:', {
+            clientX, clientY, 
+            canvasX, canvasY,
+            pixelSize, zoom: this.zoom,
+            offsetX: this.offsetX, offsetY: this.offsetY,
+            calculatedX: x, calculatedY: y,
+            canvasSize: `${this.config.width}x${this.config.height}`
+        });
+        
+        if (x >= 0 && x < this.config.width && y >= 0 && y < this.config.height) {
+            this.showPixelPreview(x, y, false);
+        } else {
+            console.log('❌ Coordinates out of bounds:', {x, y});
+        }
+    }
+    
+    showPixelPreview(x, y, isLongPress = false) {
+        // Store selected coordinates
+        this.selectedPixelX = x;
+        this.selectedPixelY = y;
+        
+        // Visual feedback - highlight the pixel
+        this.highlightPixel(x, y);
+        
+        // Show confirmation UI
+        this.showPixelConfirmation(x, y, isLongPress);
+        
+        // Light haptic feedback
+        if (navigator.vibrate && !isLongPress) {
+            navigator.vibrate(25);
+        }
+    }
+    
+    highlightPixel(x, y) {
+        // Draw highlight overlay on the selected pixel
+        const ctx = this.canvas.getContext('2d');
+        ctx.save();
+        
+        const pixelX = (x + this.offsetX) * this.pixelSize * this.zoom;
+        const pixelY = (y + this.offsetY) * this.pixelSize * this.zoom;
+        const size = this.pixelSize * this.zoom;
+        
+        // Draw animated selection border
+        ctx.strokeStyle = '#FFD700'; // Gold color
+        ctx.lineWidth = Math.max(2, this.zoom);
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(pixelX, pixelY, size, size);
+        
+        // Add semi-transparent overlay
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+        ctx.fillRect(pixelX, pixelY, size, size);
+        
+        ctx.restore();
+        
+        // Auto-clear highlight after 3 seconds
+        setTimeout(() => {
+            this.render();
+        }, 3000);
+    }
+    
+    showPixelConfirmation(x, y, isLongPress) {
+        console.log('📱 Creating pixel confirmation modal for:', {x, y, selectedColor: this.selectedColor});
+        
+        // Remove existing confirmation
+        const existing = document.getElementById('pixelConfirmation');
+        if (existing) {
+            existing.remove();
+        }
+        
+        // Create modal element
+        const modal = document.createElement('div');
+        modal.className = 'pixel-confirmation-mobile';
+        modal.id = 'pixelConfirmation';
+        modal.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(0, 0, 0, 0.8) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 99999 !important;
+            animation: fadeIn 0.2s ease !important;
+        `;
+        
+        modal.innerHTML = `
+            <div class="confirmation-content" style="
+                background: white !important;
+                border-radius: 16px !important;
+                padding: 24px !important;
+                margin: 20px !important;
+                max-width: 300px !important;
+                text-align: center !important;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important;
+            ">
+                <h4 style="margin: 0 0 16px 0; color: #333; font-size: 18px;">🎯 Pixel Selection</h4>
+                <p style="margin: 8px 0; color: #666; font-size: 14px;">Position: (${x}, ${y})</p>
+                <p style="margin: 8px 0; color: #666; font-size: 14px;">Color: <span style="color: ${this.selectedColor}; font-weight: bold;">${this.selectedColor}</span></p>
+                <div class="confirmation-buttons" style="display: flex; gap: 12px; margin-top: 20px;">
+                    <button class="btn-confirm" style="
+                        flex: 1; padding: 12px 16px; border: none; border-radius: 8px;
+                        font-weight: 600; font-size: 14px; cursor: pointer;
+                        background: #4caf50; color: white;
+                        transition: all 0.2s ease;
+                    ">✓ Place Pixel</button>
+                    <button class="btn-cancel" style="
+                        flex: 1; padding: 12px 16px; border: none; border-radius: 8px;
+                        font-weight: 600; font-size: 14px; cursor: pointer;
+                        background: #f44336; color: white;
+                        transition: all 0.2s ease;
+                    ">✕ Cancel</button>
+                </div>
+            </div>
+        `;
+        
+        // Add event listeners directly to avoid window.pixelWar issues
+        const confirmBtn = modal.querySelector('.btn-confirm');
+        const cancelBtn = modal.querySelector('.btn-cancel');
+        
+        confirmBtn.addEventListener('click', () => {
+            console.log('✅ Confirm button clicked');
+            this.confirmPixelPlacement();
+        });
+        
+        cancelBtn.addEventListener('click', () => {
+            console.log('❌ Cancel button clicked');
+            this.cancelPixelPreview();
+        });
+        
+        // Add to body
+        document.body.appendChild(modal);
+        
+        // Add touch/click outside to close
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.cancelPixelPreview();
+            }
+        });
+        
+        console.log('📱 Modal created and added to DOM');
+    }
+    
+    confirmPixelPlacement() {
+        console.log('🎯 Confirming pixel placement:', {x: this.selectedPixelX, y: this.selectedPixelY});
+        if (this.selectedPixelX !== null && this.selectedPixelY !== null) {
+            this.dispatchEvent(new CustomEvent('pixelplace', {
+                detail: { 
+                    x: this.selectedPixelX, 
+                    y: this.selectedPixelY 
+                }
+            }));
+        }
+        this.cancelPixelPreview();
+    }
+    
+    cancelPixelPreview() {
+        console.log('❌ Canceling pixel preview');
+        this.selectedPixelX = null;
+        this.selectedPixelY = null;
+        
+        // Remove confirmation UI
+        const confirmation = document.getElementById('pixelConfirmation');
+        if (confirmation) {
+            confirmation.remove();
+            console.log('📱 Modal removed from DOM');
+        }
+        
+        // Re-render to remove highlight
+        this.render();
     }
 
     handleKeyDown(e) {
@@ -493,6 +965,8 @@ class RateLimiter {
         this.cooldownSeconds = cooldownSeconds;
         this.pixelsRemaining = maxPixelsPerMinute;
         this.lastResetTime = Date.now();
+        this.lastPlacementTime = 0;
+        this.cooldownActive = false;
     }
 
     canPlace() {
@@ -504,6 +978,8 @@ class RateLimiter {
         this.checkReset();
         if (this.pixelsRemaining > 0) {
             this.pixelsRemaining--;
+            this.lastPlacementTime = Date.now();
+            this.cooldownActive = true;
             return true;
         }
         return false;
@@ -528,7 +1004,34 @@ class RateLimiter {
     updateFromServer(cooldownInfo) {
         if (cooldownInfo) {
             this.pixelsRemaining = cooldownInfo.pixels_remaining;
+            // Update server-side cooldown status
+            if (cooldownInfo.cooldown_remaining > 0) {
+                this.cooldownActive = true;
+                this.lastPlacementTime = Date.now() - ((this.cooldownSeconds - cooldownInfo.cooldown_remaining) * 1000);
+            }
         }
+    }
+
+    // Get remaining cooldown time in seconds
+    getCooldownRemaining() {
+        if (!this.cooldownActive) return 0;
+        
+        const now = Date.now();
+        const timeSincePlacement = (now - this.lastPlacementTime) / 1000;
+        const remaining = this.cooldownSeconds - timeSincePlacement;
+        
+        if (remaining <= 0) {
+            this.cooldownActive = false;
+            return 0;
+        }
+        
+        return remaining;
+    }
+
+    // Check if user can place a pixel (considering both per-minute limit and individual cooldown)
+    canPlacePixel() {
+        this.checkReset();
+        return this.pixelsRemaining > 0 && this.getCooldownRemaining() === 0;
     }
 }
 
@@ -557,18 +1060,55 @@ class NotificationManager {
         return container;
     }
 
-    show(message, type = 'info', duration = 3000) {
+    show(message, type = 'info', duration = 10000) {
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
         notification.textContent = message;
         notification.style.cssText = `
             padding: 12px 20px;
-            border-radius: 4px;
+            border-radius: 6px;
             color: white;
             font-size: 14px;
-            animation: slideIn 0.3s ease;
+            font-weight: 500;
+            margin-bottom: 8px;
             cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 320px;
+            word-wrap: break-word;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border-left: 4px solid rgba(255,255,255,0.3);
         `;
+        
+        // Add CSS animations to document if not already present
+        if (!document.getElementById('notification-styles')) {
+            const style = document.createElement('style');
+            style.id = 'notification-styles';
+            style.textContent = `
+                @keyframes notificationSlideIn {
+                    from {
+                        opacity: 0;
+                        transform: translateX(100%);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateX(0);
+                    }
+                }
+                @keyframes notificationSlideOut {
+                    from {
+                        opacity: 1;
+                        transform: translateX(0);
+                    }
+                    to {
+                        opacity: 0;
+                        transform: translateX(100%);
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
 
         // Set background color based on type
         const colors = {
@@ -579,24 +1119,61 @@ class NotificationManager {
         };
         notification.style.backgroundColor = colors[type] || colors.info;
 
+        // Double-click to dismiss (prevent accidental dismissal)
+        let clickCount = 0;
         notification.addEventListener('click', () => {
-            this.remove(notification);
+            clickCount++;
+            if (clickCount === 1) {
+                setTimeout(() => clickCount = 0, 1000); // Reset after 1 second
+                // Show dismiss hint
+                const originalText = notification.textContent;
+                notification.textContent = 'Click again to dismiss - ' + originalText;
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        notification.textContent = originalText;
+                    }
+                }, 2000);
+            } else if (clickCount === 2) {
+                this.remove(notification);
+            }
         });
 
         this.container.appendChild(notification);
+        
+        // Trigger slide-in animation after element is in DOM
+        requestAnimationFrame(() => {
+            notification.style.opacity = '1';
+            notification.style.transform = 'translateX(0)';
+        });
 
-        setTimeout(() => {
-            this.remove(notification);
+        // Auto-remove after duration
+        const autoRemoveTimer = setTimeout(() => {
+            if (notification.parentElement) {
+                this.remove(notification);
+            }
         }, duration);
+        
+        // Store timer for potential early cancellation
+        notification.dataset.autoRemoveTimer = autoRemoveTimer;
     }
 
     remove(notification) {
-        notification.style.animation = 'slideOut 0.3s ease';
+        if (!notification.parentElement) return; // Already removed
+        
+        // Cancel auto-remove timer if manually removing
+        if (notification.dataset.autoRemoveTimer) {
+            clearTimeout(parseInt(notification.dataset.autoRemoveTimer));
+        }
+        
+        // Animate out
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateX(100%)';
+        
         setTimeout(() => {
             if (notification.parentElement) {
                 notification.remove();
             }
-        }, 300);
+        }, 400); // Match transition duration
     }
 }
 
@@ -627,6 +1204,9 @@ class PixelWar {
         this.offsetY = 0;
         this.targetOffsetX = 0;
         this.targetOffsetY = 0;
+        
+        // Mobile optimization
+        this.mobileConstraintTimeout = null;
         this.velocityX = 0;
         this.velocityY = 0;
         this.selectedColor = '#000000';
@@ -634,6 +1214,7 @@ class PixelWar {
         // Animation
         this.animationFrame = null;
         this.updateInterval = null;
+        this.lastFrameTime = 0;
 
         this.init();
     }
@@ -654,6 +1235,9 @@ class PixelWar {
 
             // Setup UI controls
             this.setupUIControls();
+            
+            // Set proper initial zoom based on canvas size
+            this.initializeZoom();
 
             this.isRunning = true;
             this.notifications.show('Canvas ready!', 'success');
@@ -667,15 +1251,22 @@ class PixelWar {
         // Input events
         this.inputHandler.addEventListener('click', (e) => {
             const coords = this.screenToCanvas(e.detail.x, e.detail.y);
-            if (this.isValidCoordinate(coords.x, coords.y)) {
+            if (coords && this.isValidCoordinate(coords.x, coords.y)) {
                 this.placePixel(coords.x, coords.y);
             }
         });
 
         this.inputHandler.addEventListener('tap', (e) => {
             const coords = this.screenToCanvas(e.detail.x, e.detail.y);
-            if (this.isValidCoordinate(coords.x, coords.y)) {
+            if (coords && this.isValidCoordinate(coords.x, coords.y)) {
                 this.placePixel(coords.x, coords.y);
+            }
+        });
+        
+        // Handle precision mode pixel placement
+        this.inputHandler.addEventListener('pixelplace', (e) => {
+            if (this.isValidCoordinate(e.detail.x, e.detail.y)) {
+                this.placePixel(e.detail.x, e.detail.y);
             }
         });
 
@@ -691,8 +1282,48 @@ class PixelWar {
             this.startAnimation();
         });
 
+        // Handle touch drag events (mobile) with enhanced sensitivity
+        this.inputHandler.addEventListener('touchdrag', (e) => {
+            const pixelSize = PixelWarConfig.canvas.defaultPixelSize;
+            
+            // Enhanced mobile sensitivity - use the improved delta values
+            const deltaX = e.detail.deltaX || 0;
+            const deltaY = e.detail.deltaY || 0;
+            const isMobile = e.detail.isMobile || false;
+            
+            // Apply mobile-optimized movement with immediate response
+            const movementDivisor = pixelSize * this.zoom;
+            this.targetOffsetX += deltaX / movementDivisor;
+            this.targetOffsetY += deltaY / movementDivisor;
+            
+            // Calculate velocity for momentum
+            this.velocityX = deltaX / 8; // Faster velocity calculation
+            this.velocityY = deltaY / 8;
+            
+            // Apply constraints immediately for mobile - no delays!
+            if (isMobile) {
+                this.constrainOffsets(true); // Pass mobile flag
+            } else {
+                // Delay constraints only for desktop to allow overshoot
+                clearTimeout(this.mobileConstraintTimeout);
+                this.mobileConstraintTimeout = setTimeout(() => {
+                    this.constrainOffsets();
+                }, 50); // Reduced delay
+            }
+            
+            // Immediate response for all devices - no animation delays
+            this.startAnimation();
+        });
+
         this.inputHandler.addEventListener('dragend', () => {
-            if (Math.abs(this.velocityX) > 1 || Math.abs(this.velocityY) > 1) {
+            // Clear mobile constraint timeout and apply final constraints
+            clearTimeout(this.mobileConstraintTimeout);
+            
+            // Always apply constraints immediately on drag end
+            this.constrainOffsets();
+            
+            if (Math.abs(this.velocityX) > 2 || Math.abs(this.velocityY) > 2) {
+                // Only apply momentum for significant velocity
                 this.applyMomentum();
             }
         });
@@ -717,7 +1348,7 @@ class PixelWar {
         });
 
         this.inputHandler.addEventListener('pinchzoom', (e) => {
-            this.adjustZoom((e.detail.scale - 1) * 0.5);
+            this.adjustZoom((e.detail.scale - 1) * 0.5, e.detail.centerX, e.detail.centerY);
         });
 
         this.inputHandler.addEventListener('keydown', (e) => {
@@ -768,6 +1399,9 @@ class PixelWar {
                 this.selectedColor = e.target.value;
             });
         }
+        
+        // Setup mobile touch mode toggle
+        this.setupTouchModeToggle();
 
         // Zoom controls
         const zoomIn = document.getElementById('zoomIn');
@@ -777,18 +1411,50 @@ class PixelWar {
         if (zoomIn) zoomIn.addEventListener('click', () => this.adjustZoom(0.2));
         if (zoomOut) zoomOut.addEventListener('click', () => this.adjustZoom(-0.2));
         if (zoomReset) zoomReset.addEventListener('click', () => this.resetView());
+        
+        // Corner navigation buttons for mobile
+        const cornerButtons = document.querySelectorAll('[data-corner]');
+        cornerButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const corner = e.target.closest('[data-corner]').dataset.corner;
+                this.navigateToCorner(corner);
+            });
+        });
     }
 
     screenToCanvas(screenX, screenY) {
         const rect = this.canvas.getBoundingClientRect();
+        
+        // Validate inputs and rect
+        if (!rect.width || !rect.height || isNaN(screenX) || isNaN(screenY)) {
+            console.warn('❌ Invalid screenToCanvas inputs:', { screenX, screenY, rect });
+            return null;
+        }
+        
+        // Account for CSS borders and padding
+        const computedStyle = getComputedStyle(this.canvas);
+        const borderLeft = parseFloat(computedStyle.borderLeftWidth) || 0;
+        const borderTop = parseFloat(computedStyle.borderTopWidth) || 0;
+        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+        const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+        
         const pixelSize = PixelWarConfig.canvas.defaultPixelSize;
         
-        const canvasX = (screenX - rect.left) / (pixelSize * this.zoom);
-        const canvasY = (screenY - rect.top) / (pixelSize * this.zoom);
+        // More precise calculation with proper offset handling
+        const adjustedX = screenX - rect.left - borderLeft - paddingLeft;
+        const adjustedY = screenY - rect.top - borderTop - paddingTop;
+        
+        // Use Math.round instead of Math.floor for better precision
+        const canvasX = Math.round(adjustedX / (pixelSize * this.zoom));
+        const canvasY = Math.round(adjustedY / (pixelSize * this.zoom));
+        
+        // Apply offset and clamp to bounds
+        const finalX = Math.max(0, Math.min(this.config.width - 1, canvasX - Math.round(this.offsetX)));
+        const finalY = Math.max(0, Math.min(this.config.height - 1, canvasY - Math.round(this.offsetY)));
         
         return {
-            x: Math.floor(canvasX - this.offsetX),
-            y: Math.floor(canvasY - this.offsetY)
+            x: finalX,
+            y: finalY
         };
     }
 
@@ -796,56 +1462,257 @@ class PixelWar {
         return x >= 0 && x < this.config.width && y >= 0 && y < this.config.height;
     }
 
-    constrainOffsets() {
+    // Helper method to calculate effective viewport dimensions consistently
+    getEffectiveViewport(forceMobile = false) {
+        const rect = this.canvas.getBoundingClientRect();
+        const isMobile = forceMobile || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+        
+        let effectiveWidth = rect.width;
+        let effectiveHeight = rect.height;
+        
+        // Debug removed to prevent spam
+        
+        if (isMobile) {
+            // Get actual rendered dimensions of mobile UI elements - but be more conservative
+            const mobileTopControls = document.querySelector('.mobile-controls-bar');
+            const mobileActionBar = document.querySelector('.mobile-action-bar');
+            
+            let topControlsHeight = 0;
+            let bottomControlsHeight = 0;
+            
+            if (mobileTopControls && getComputedStyle(mobileTopControls).display !== 'none') {
+                topControlsHeight = mobileTopControls.offsetHeight;
+            }
+            if (mobileActionBar && getComputedStyle(mobileActionBar).display !== 'none') {
+                bottomControlsHeight = mobileActionBar.offsetHeight;
+            }
+            
+            // Only subtract actual visible UI heights, no arbitrary margins
+            effectiveHeight -= (topControlsHeight + bottomControlsHeight);
+            
+            // DO NOT subtract width - the canvas should use full width
+            // effectiveWidth -= 20; // REMOVED - this was causing the centering issue
+            
+            // Debug removed to prevent spam
+        }
+        
+        return {
+            width: Math.max(100, effectiveWidth), // Minimum viable dimensions
+            height: Math.max(100, effectiveHeight),
+            isMobile
+        };
+    }
+
+    constrainOffsets(forceMobile = false) {
+        const { width: effectiveWidth, height: effectiveHeight, isMobile } = this.getEffectiveViewport(forceMobile);
+        const pixelSize = PixelWarConfig.canvas.defaultPixelSize;
+        
+        const viewportWidth = effectiveWidth / (pixelSize * this.zoom);
+        const viewportHeight = effectiveHeight / (pixelSize * this.zoom);
+        
+        this.targetOffsetX = this.constrainOffset(this.targetOffsetX, this.config.width, viewportWidth, isMobile);
+        this.targetOffsetY = this.constrainOffset(this.targetOffsetY, this.config.height, viewportHeight, isMobile);
+        
+        // Debug logging for offset calculation - reduced frequency
+        if (Math.random() < 0.001) { // Log 0.1% of the time to reduce spam
+            console.log('🎯 Offset Debug:', {
+                zoom: this.zoom.toFixed(3),
+                viewportSize: `${viewportWidth.toFixed(1)}x${viewportHeight.toFixed(1)}`,
+                mapSize: `${this.config.width}x${this.config.height}`,
+                canFitWidth: viewportWidth >= this.config.width,
+                canFitHeight: viewportHeight >= this.config.height,
+                targetOffsets: `${this.targetOffsetX.toFixed(2)}, ${this.targetOffsetY.toFixed(2)}`,
+                currentOffsets: `${this.offsetX.toFixed(2)}, ${this.offsetY.toFixed(2)}`,
+                isMobile
+            });
+        }
+    }
+
+    constrainOffset(offset, gridSize, viewportSize, isMobile = false) {
+        if (viewportSize >= gridSize) {
+            // When zoomed out far enough to see the whole grid, center it properly
+            // Let me think through this step by step:
+            // 1. Canvas transform: ctx.translate(offsetX * pixelSize, offsetY * pixelSize)
+            // 2. viewportX in render = -offsetX (line 179)  
+            // 3. To center a small grid in a large viewport, we want the grid to start at position (viewportSize - gridSize) / 2
+            // 4. Since viewportX represents where we're "looking" in grid coordinates, and viewportX = -offsetX
+            // 5. If we want to look at grid position (viewportSize - gridSize) / 2, then -offsetX = (viewportSize - gridSize) / 2
+            // 6. Therefore: offsetX = -(viewportSize - gridSize) / 2
+            
+            const centeredOffset = -(viewportSize - gridSize) / 2;
+            // Only log centering debug occasionally to avoid spam
+            if (Math.random() < 0.1) {
+                console.log(`🎯 CENTERING: viewport=${viewportSize.toFixed(1)}, grid=${gridSize}, offset=${centeredOffset.toFixed(2)}`);
+            }
+            return centeredOffset;
+        }
+        
+        // When zoomed in, constrain to grid boundaries
+        let minOffset = -(gridSize - viewportSize);
+        let maxOffset = 0;
+        
+        if (isMobile) {
+            // Simplified mobile constraints - allow 50% overshoot for easier navigation
+            const mobileMargin = viewportSize * 0.5;
+            const mobileMinOffset = minOffset - mobileMargin;
+            const mobileMaxOffset = maxOffset + mobileMargin;
+            
+            // Simple clamp with mobile-friendly margins
+            return Math.max(mobileMinOffset, Math.min(mobileMaxOffset, offset));
+        }
+        
+        // Desktop: strict constraints
+        return Math.max(minOffset, Math.min(maxOffset, offset));
+    }
+
+    calculateMinZoom() {
+        // Calculate minimum zoom to fit entire map in viewport
+        const { width: effectiveWidth, height: effectiveHeight, isMobile } = this.getEffectiveViewport();
+        const pixelSize = PixelWarConfig.canvas.defaultPixelSize;
+        
+        const mapPixelWidth = this.config.width * pixelSize;
+        const mapPixelHeight = this.config.height * pixelSize;
+        
+        const zoomToFitWidth = effectiveWidth / mapPixelWidth;
+        const zoomToFitHeight = effectiveHeight / mapPixelHeight;
+        
+        // Use the smaller zoom to ensure entire map fits, with a small margin for safety
+        const calculatedMinZoom = Math.min(zoomToFitWidth, zoomToFitHeight);
+        // Add 5% margin to ensure the full map is visible with void area around it
+        const finalMinZoom = Math.max(calculatedMinZoom * 0.95, 0.05);
+        
+        console.log('🔍 Zoom Calculation:', {
+            canvasRect: `${document.getElementById('pixelCanvas').getBoundingClientRect().width}x${document.getElementById('pixelCanvas').getBoundingClientRect().height}`,
+            effectiveSize: `${effectiveWidth}x${effectiveHeight}`,
+            mapSize: `${this.config.width}x${this.config.height}`,
+            mapPixelSize: `${mapPixelWidth}x${mapPixelHeight}`,
+            zoomToFitWidth: zoomToFitWidth.toFixed(3),
+            zoomToFitHeight: zoomToFitHeight.toFixed(3),
+            calculatedMinZoom: calculatedMinZoom.toFixed(3),
+            finalMinZoom: finalMinZoom.toFixed(3),
+            isMobile
+        });
+        
+        // Allow full zoom out to show entire map, minimum constraint is very low
+        return finalMinZoom;
+    }
+
+    updateZoomIndicator() {
+        const zoomIndicator = document.getElementById('zoomLevel');
+        if (zoomIndicator) {
+            zoomIndicator.textContent = Math.round(this.zoom * 100) + '%';
+        }
+    }
+
+    adjustZoom(delta, centerX = null, centerY = null) {
+        const oldZoom = this.zoom;
+        const dynamicMinZoom = this.calculateMinZoom();
+        
+        this.zoom = Math.max(
+            dynamicMinZoom,
+            Math.min(PixelWarConfig.canvas.maxZoom, this.zoom + delta)
+        );
+        
+        if (this.zoom !== oldZoom) {
+            if (centerX !== null && centerY !== null) {
+                // Zoom toward point
+                const coords = this.screenToCanvas(centerX, centerY);
+                const zoomRatio = this.zoom / oldZoom;
+                
+                this.offsetX = (coords.x + this.offsetX) * zoomRatio - coords.x;
+                this.offsetY = (coords.y + this.offsetY) * zoomRatio - coords.y;
+                
+                this.targetOffsetX = this.offsetX;
+                this.targetOffsetY = this.offsetY;
+            }
+            
+            // Always constrain offsets after zoom change
+            this.constrainOffsets();
+            
+            // Update current offsets to match targets for immediate effect
+            this.offsetX = this.targetOffsetX;
+            this.offsetY = this.targetOffsetY;
+            
+            // Update zoom indicator
+            this.updateZoomIndicator();
+        }
+        
+        this.render();
+    }
+
+    initializeZoom() {
+        // Set initial zoom to ensure entire map is visible
+        const dynamicMinZoom = this.calculateMinZoom();
+        
+        // Use the minimum zoom needed to show the entire map
+        // If dynamicMinZoom > 1.0, it means at 100% zoom the map doesn't fit entirely
+        this.zoom = dynamicMinZoom;
+        
+        console.log('🎯 Initial Zoom Setup:', {
+            defaultZoom: PixelWarConfig.canvas.defaultZoom,
+            calculatedMinZoom: dynamicMinZoom.toFixed(3),
+            selectedZoom: this.zoom.toFixed(3),
+            reason: this.zoom === dynamicMinZoom ? 'Using calculated min zoom to fit map' : 'Using default zoom'
+        });
+        
+        // Force center the map initially
+        this.navigateToCorner('center');
+        this.updateZoomIndicator();
+    }
+
+    navigateToCorner(corner) {
         const rect = this.canvas.getBoundingClientRect();
         const pixelSize = PixelWarConfig.canvas.defaultPixelSize;
         const viewportWidth = rect.width / (pixelSize * this.zoom);
         const viewportHeight = rect.height / (pixelSize * this.zoom);
         
-        this.targetOffsetX = this.constrainOffset(this.targetOffsetX, this.config.width, viewportWidth);
-        this.targetOffsetY = this.constrainOffset(this.targetOffsetY, this.config.height, viewportHeight);
-    }
-
-    constrainOffset(offset, gridSize, viewportSize) {
-        if (viewportSize >= gridSize) {
-            return (viewportSize - gridSize) / 2;
+        let targetX, targetY;
+        
+        switch(corner) {
+            case 'top-left':
+                targetX = 0;
+                targetY = 0;
+                break;
+            case 'top-right':
+                targetX = -(this.config.width - viewportWidth);
+                targetY = 0;
+                break;
+            case 'bottom-left':
+                targetX = 0;
+                targetY = -(this.config.height - viewportHeight);
+                break;
+            case 'bottom-right':
+                targetX = -(this.config.width - viewportWidth);
+                targetY = -(this.config.height - viewportHeight);
+                break;
+            case 'center':
+                targetX = -(this.config.width - viewportWidth) / 2;
+                targetY = -(this.config.height - viewportHeight) / 2;
+                break;
+            default:
+                return;
         }
         
-        const minOffset = -(gridSize - viewportSize);
-        const maxOffset = 0;
+        // Smooth animation to corner
+        this.targetOffsetX = targetX;
+        this.targetOffsetY = targetY;
+        this.startAnimation();
         
-        return Math.max(minOffset, Math.min(maxOffset, offset));
-    }
-
-    adjustZoom(delta, centerX = null, centerY = null) {
-        const oldZoom = this.zoom;
-        this.zoom = Math.max(
-            PixelWarConfig.canvas.minZoom,
-            Math.min(PixelWarConfig.canvas.maxZoom, this.zoom + delta)
-        );
-        
-        if (this.zoom !== oldZoom && centerX !== null && centerY !== null) {
-            // Zoom toward point
-            const coords = this.screenToCanvas(centerX, centerY);
-            const zoomRatio = this.zoom / oldZoom;
-            
-            this.offsetX = (coords.x + this.offsetX) * zoomRatio - coords.x;
-            this.offsetY = (coords.y + this.offsetY) * zoomRatio - coords.y;
-            
-            this.targetOffsetX = this.offsetX;
-            this.targetOffsetY = this.offsetY;
-        }
-        
-        this.constrainOffsets();
-        this.render();
+        this.notifications.show(`Navigating to ${corner} corner`, 'info', 3000);
     }
 
     resetView() {
-        this.zoom = PixelWarConfig.canvas.defaultZoom;
+        const dynamicMinZoom = this.calculateMinZoom();
+        // Reset to show entire map
+        this.zoom = dynamicMinZoom;
         this.offsetX = 0;
         this.offsetY = 0;
         this.targetOffsetX = 0;
         this.targetOffsetY = 0;
+        this.constrainOffsets();
+        this.offsetX = this.targetOffsetX;
+        this.offsetY = this.targetOffsetY;
+        this.updateZoomIndicator();
         this.render();
     }
 
@@ -856,9 +1723,21 @@ class PixelWar {
     }
 
     animate() {
-        // Smooth interpolation
-        this.offsetX += (this.targetOffsetX - this.offsetX) * PixelWarConfig.animation.smoothness;
-        this.offsetY += (this.targetOffsetY - this.offsetY) * PixelWarConfig.animation.smoothness;
+        const now = performance.now();
+        const deltaTime = now - (this.lastFrameTime || now);
+        this.lastFrameTime = now;
+        
+        // Frame rate limiting
+        const targetFrameTime = 1000 / PixelWarConfig.animation.maxFPS;
+        if (deltaTime < targetFrameTime) {
+            this.animationFrame = requestAnimationFrame(() => this.animate());
+            return;
+        }
+        
+        // Smooth interpolation with time-based animation - more responsive
+        const smoothness = Math.min(0.3, deltaTime / 16); // Increased from 0.15 to 0.3 for faster response
+        this.offsetX += (this.targetOffsetX - this.offsetX) * smoothness;
+        this.offsetY += (this.targetOffsetY - this.offsetY) * smoothness;
         
         this.render();
         
@@ -899,13 +1778,32 @@ class PixelWar {
 
     render() {
         const showGrid = this.zoom > PixelWarConfig.canvas.gridThreshold;
+        
+        // Debug rendering values occasionally
+        if (Math.random() < 0.001) { // Log 0.1% of renders to avoid spam
+            console.log('🖼️ RENDER DEBUG:', {
+                zoom: this.zoom.toFixed(3),
+                offsetX: this.offsetX.toFixed(2),
+                offsetY: this.offsetY.toFixed(2),
+                targetOffsetX: this.targetOffsetX.toFixed(2),
+                targetOffsetY: this.targetOffsetY.toFixed(2),
+                canvasRect: `${this.canvas.getBoundingClientRect().width}x${this.canvas.getBoundingClientRect().height}`,
+                mapSize: `${this.config.width}x${this.config.height}`
+            });
+        }
+        
         this.renderer.render(this.offsetX, this.offsetY, this.zoom, showGrid);
     }
 
     async placePixel(x, y) {
-        if (!this.rateLimiter.canPlace()) {
-            const timeLeft = Math.ceil(this.rateLimiter.getTimeUntilReset());
-            this.notifications.show(`Rate limit reached. Reset in ${timeLeft}s`, 'warning');
+        if (!this.rateLimiter.canPlacePixel()) {
+            const cooldownRemaining = this.rateLimiter.getCooldownRemaining();
+            if (cooldownRemaining > 0) {
+                this.notifications.show(`Wait ${Math.ceil(cooldownRemaining)}s before placing another pixel`, 'warning');
+            } else {
+                const timeLeft = Math.ceil(this.rateLimiter.getTimeUntilReset());
+                this.notifications.show(`Rate limit reached. Reset in ${timeLeft}s`, 'warning');
+            }
             return;
         }
 
@@ -987,17 +1885,77 @@ class PixelWar {
     }
 
     updateUI() {
-        const timer = document.getElementById('cooldownTimer');
-        const remaining = document.getElementById('pixelsRemaining');
+        const cooldownRemaining = this.rateLimiter.getCooldownRemaining();
+        const pixelsRemaining = this.rateLimiter.pixelsRemaining;
+        const timeUntilReset = this.rateLimiter.getTimeUntilReset();
+        const canPlace = this.rateLimiter.canPlacePixel();
         
+        // Update cooldown timer
+        const timer = document.getElementById('cooldownTimer');
         if (timer) {
-            timer.textContent = this.rateLimiter.pixelsRemaining > 0 ? 'Ready' : 'Limit reached';
-            timer.style.color = this.rateLimiter.pixelsRemaining > 0 ? '#4caf50' : '#ff6b6b';
+            if (cooldownRemaining > 0) {
+                const seconds = Math.ceil(cooldownRemaining);
+                timer.textContent = `⏱️ Next pixel in ${seconds}s`;
+                timer.style.color = '#ff9800'; // Orange for waiting
+                
+                // Add progress bar if container exists
+                const progressBar = timer.parentElement?.querySelector('.cooldown-progress');
+                if (progressBar) {
+                    const progress = ((this.rateLimiter.cooldownSeconds - cooldownRemaining) / this.rateLimiter.cooldownSeconds) * 100;
+                    progressBar.style.width = `${progress}%`;
+                }
+            } else if (pixelsRemaining > 0) {
+                timer.textContent = '✅ Ready to place pixel!';
+                timer.style.color = '#4caf50'; // Green for ready
+                
+                const progressBar = timer.parentElement?.querySelector('.cooldown-progress');
+                if (progressBar) {
+                    progressBar.style.width = '100%';
+                }
+            } else {
+                const minutes = Math.ceil(timeUntilReset / 60);
+                const seconds = Math.ceil(timeUntilReset % 60);
+                timer.textContent = `⏳ Limit reached - Reset in ${minutes > 0 ? minutes + 'm ' : ''}${seconds}s`;
+                timer.style.color = '#ff6b6b'; // Red for limit reached
+            }
         }
         
+        // Update pixels remaining counter
+        const remaining = document.getElementById('pixelsRemaining');
         if (remaining) {
-            remaining.textContent = `${this.rateLimiter.pixelsRemaining}/${this.rateLimiter.maxPixelsPerMinute}`;
-            remaining.style.color = this.rateLimiter.pixelsRemaining > 0 ? '#4caf50' : '#ff6b6b';
+            remaining.innerHTML = `
+                <div class="pixels-info">
+                    <div class="pixels-count">
+                        <span class="current">${pixelsRemaining}</span>
+                        <span class="separator">/</span>
+                        <span class="max">${this.rateLimiter.maxPixelsPerMinute}</span>
+                        <span class="label">pixels</span>
+                    </div>
+                    ${
+                        timeUntilReset > 0 && pixelsRemaining < this.rateLimiter.maxPixelsPerMinute ?
+                        `<div class="reset-timer">Reset in ${Math.ceil(timeUntilReset)}s</div>` :
+                        ''
+                    }
+                </div>
+            `;
+            remaining.className = `pixels-remaining ${
+                canPlace ? 'ready' : 
+                cooldownRemaining > 0 ? 'cooldown' : 
+                'limit-reached'
+            }`;
+        }
+        
+        // Update any place pixel button
+        const placeButton = document.getElementById('placePixelBtn');
+        if (placeButton) {
+            placeButton.disabled = !canPlace;
+            if (cooldownRemaining > 0) {
+                placeButton.textContent = `Wait ${Math.ceil(cooldownRemaining)}s`;
+            } else if (pixelsRemaining > 0) {
+                placeButton.textContent = 'Place Pixel';
+            } else {
+                placeButton.textContent = 'Limit Reached';
+            }
         }
     }
 
@@ -1009,12 +1967,350 @@ class PixelWar {
     }
 
     startUpdateLoop() {
+        // Update UI more frequently for smooth countdown
+        this.uiUpdateInterval = setInterval(() => {
+            this.updateUI();
+        }, 100); // Update every 100ms for smooth countdown
+        
+        // Update canvas state less frequently
         this.updateInterval = setInterval(async () => {
             await this.loadCanvasState();
             await this.loadRecentActivity();
             this.rateLimiter.checkReset();
-            this.updateUI();
         }, PixelWarConfig.api.updateInterval);
+    }
+    
+    setupTouchModeToggle() {
+        // Comprehensive mobile/touch device detection
+        const forceShow = localStorage.getItem('forceMobileMode') === 'true';
+        const isTouchDevice = 'ontouchstart' in window || 
+                            navigator.maxTouchPoints > 0 ||
+                            /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                            window.matchMedia('(max-width: 768px)').matches ||
+                            forceShow;
+        
+        console.log('🔍 Device Detection:', {
+            ontouchstart: 'ontouchstart' in window,
+            maxTouchPoints: navigator.maxTouchPoints,
+            userAgent: navigator.userAgent,
+            screenWidth: window.screen.width,
+            isMobile: window.matchMedia('(max-width: 768px)').matches,
+            forceShow: forceShow,
+            isTouchDevice: isTouchDevice
+        });
+        
+        if (!isTouchDevice) {
+            console.log('❌ Touch mode toggle hidden - not a touch device');
+            return; // Only show on touch devices
+        }
+        
+        console.log('✅ Touch mode toggle enabled - touch device detected');
+        
+        // Add diagnostic function to window for debugging
+        window.debugTouch = () => {
+            console.log('📱 Touch Debug Info:', {
+                isDragging: this.isDragging,
+                touchMode: this.touchMode,
+                activeTouches: this.touches.size,
+                animationFrame: !!this.animationFrame,
+                longPressTimer: !!this.longPressTimer
+            });
+        };
+        
+        // Add comprehensive centering debug function
+        window.debugCentering = () => {
+            const { width: effectiveWidth, height: effectiveHeight, isMobile } = this.getEffectiveViewport();
+            const pixelSize = PixelWarConfig.canvas.defaultPixelSize;
+            
+            const viewportWidth = effectiveWidth / (pixelSize * this.zoom);
+            const viewportHeight = effectiveHeight / (pixelSize * this.zoom);
+            
+            const canFitWidth = viewportWidth >= this.config.width;
+            const canFitHeight = viewportHeight >= this.config.height;
+            
+            const expectedOffsetX = canFitWidth ? -(viewportWidth - this.config.width) / 2 : this.targetOffsetX;
+            const expectedOffsetY = canFitHeight ? -(viewportHeight - this.config.height) / 2 : this.targetOffsetY;
+            
+            console.log('🎯 COMPREHENSIVE CENTERING DEBUG:', {
+                viewport: {
+                    effective: `${effectiveWidth}x${effectiveHeight}`,
+                    inGridUnits: `${viewportWidth.toFixed(2)}x${viewportHeight.toFixed(2)}`,
+                    canFit: `width: ${canFitWidth}, height: ${canFitHeight}`
+                },
+                map: {
+                    size: `${this.config.width}x${this.config.height}`,
+                    pixelSize: pixelSize
+                },
+                zoom: {
+                    current: this.zoom.toFixed(3),
+                    minCalculated: this.calculateMinZoom().toFixed(3)
+                },
+                offsets: {
+                    current: `${this.offsetX.toFixed(2)}, ${this.offsetY.toFixed(2)}`,
+                    target: `${this.targetOffsetX.toFixed(2)}, ${this.targetOffsetY.toFixed(2)}`,
+                    expected: `${expectedOffsetX.toFixed(2)}, ${expectedOffsetY.toFixed(2)}`,
+                    matches: `X: ${Math.abs(this.targetOffsetX - expectedOffsetX) < 0.1}, Y: ${Math.abs(this.targetOffsetY - expectedOffsetY) < 0.1}`
+                },
+                rendering: {
+                    viewportX: (-this.offsetX).toFixed(2),
+                    viewportY: (-this.offsetY).toFixed(2),
+                    translation: `${(this.offsetX * pixelSize).toFixed(1)}, ${(this.offsetY * pixelSize).toFixed(1)}`
+                }
+            });
+            
+            // Test the centering calculation directly
+            console.log('🧮 MANUAL CENTERING TEST:');
+            if (canFitWidth) {
+                const testOffsetX = -(viewportWidth - this.config.width) / 2;
+                console.log(`Width centering: viewport=${viewportWidth.toFixed(2)}, grid=${this.config.width}, offset=${testOffsetX.toFixed(2)}`);
+            }
+            if (canFitHeight) {
+                const testOffsetY = -(viewportHeight - this.config.height) / 2;
+                console.log(`Height centering: viewport=${viewportHeight.toFixed(2)}, grid=${this.config.height}, offset=${testOffsetY.toFixed(2)}`);
+            }
+        };
+        
+        // Add full debug function to understand the issue
+        window.fullDebug = () => {
+            console.log('🔍 FULL MAP DEBUG:');
+            const { width: effectiveWidth, height: effectiveHeight, isMobile } = this.getEffectiveViewport();
+            const pixelSize = PixelWarConfig.canvas.defaultPixelSize;
+            
+            const viewportWidth = effectiveWidth / (pixelSize * this.zoom);
+            const viewportHeight = effectiveHeight / (pixelSize * this.zoom);
+            
+            const dynamicMinZoom = this.calculateMinZoom();
+            
+            console.log('📐 Viewport Analysis:', {
+                canvas: {
+                    rect: `${this.canvas.getBoundingClientRect().width}x${this.canvas.getBoundingClientRect().height}`,
+                    internal: `${this.canvas.width}x${this.canvas.height}`
+                },
+                effective: `${effectiveWidth}x${effectiveHeight}`,
+                map: `${this.config.width}x${this.config.height}`,
+                zoom: {
+                    current: this.zoom,
+                    calculated: dynamicMinZoom,
+                    percentage: Math.round(this.zoom * 100) + '%'
+                },
+                viewport: {
+                    inGridUnits: `${viewportWidth.toFixed(2)}x${viewportHeight.toFixed(2)}`,
+                    shouldFitMap: {
+                        width: viewportWidth >= this.config.width,
+                        height: viewportHeight >= this.config.height
+                    }
+                },
+                offsets: {
+                    current: `${this.offsetX.toFixed(2)}, ${this.offsetY.toFixed(2)}`,
+                    target: `${this.targetOffsetX.toFixed(2)}, ${this.targetOffsetY.toFixed(2)}`
+                }
+            });
+            
+            // Check if viewport can actually fit the map
+            if (viewportWidth < this.config.width) {
+                console.log('❌ WIDTH PROBLEM: Viewport width ' + viewportWidth.toFixed(2) + ' < map width ' + this.config.width);
+                console.log('   Need zoom <= ' + (effectiveWidth / (this.config.width * pixelSize)).toFixed(3));
+            }
+            if (viewportHeight < this.config.height) {
+                console.log('❌ HEIGHT PROBLEM: Viewport height ' + viewportHeight.toFixed(2) + ' < map height ' + this.config.height);
+                console.log('   Need zoom <= ' + (effectiveHeight / (this.config.height * pixelSize)).toFixed(3));
+            }
+        };
+        
+        // Force correct canvas size
+        window.fixCanvasSize = () => {
+            console.log('🔧 FIXING CANVAS SIZE');
+            const pixelSize = PixelWarConfig.canvas.defaultPixelSize;
+            const correctWidth = this.config.width * pixelSize; // Should be 1000
+            const correctHeight = this.config.height * pixelSize; // Should be 1000
+            
+            console.log('Before fix:', {
+                canvasRect: `${this.canvas.getBoundingClientRect().width}x${this.canvas.getBoundingClientRect().height}`,
+                canvasInternal: `${this.canvas.width}x${this.canvas.height}`,
+                shouldBe: `${correctWidth}x${correctHeight}`
+            });
+            
+            // Force correct canvas dimensions
+            this.canvas.width = correctWidth;
+            this.canvas.height = correctHeight;
+            this.canvas.style.width = correctWidth + 'px';
+            this.canvas.style.height = correctHeight + 'px';
+            
+            // Also fix renderer canvas
+            this.renderer.canvas.width = correctWidth;
+            this.renderer.canvas.height = correctHeight;
+            this.renderer.offscreenCanvas.width = correctWidth;
+            this.renderer.offscreenCanvas.height = correctHeight;
+            
+            console.log('After fix:', {
+                canvasRect: `${this.canvas.getBoundingClientRect().width}x${this.canvas.getBoundingClientRect().height}`,
+                canvasInternal: `${this.canvas.width}x${this.canvas.height}`
+            });
+            
+            // Recalculate zoom and center
+            this.initializeZoom();
+            this.render();
+            console.log('✅ Canvas size fixed and recentered');
+        };
+        
+        // Add manual centering fix function
+        window.fixCentering = () => {
+            console.log('🔧 MANUAL CENTERING FIX');
+            const { width: effectiveWidth, height: effectiveHeight } = this.getEffectiveViewport();
+            const pixelSize = PixelWarConfig.canvas.defaultPixelSize;
+            
+            const viewportWidth = effectiveWidth / (pixelSize * this.zoom);
+            const viewportHeight = effectiveHeight / (pixelSize * this.zoom);
+            
+            // Force correct centering calculation
+            if (viewportWidth >= this.config.width) {
+                this.targetOffsetX = -(viewportWidth - this.config.width) / 2;
+                this.offsetX = this.targetOffsetX;
+                console.log(`✅ Width centered: offset=${this.offsetX.toFixed(2)}`);
+            }
+            
+            if (viewportHeight >= this.config.height) {
+                this.targetOffsetY = -(viewportHeight - this.config.height) / 2;
+                this.offsetY = this.targetOffsetY;
+                console.log(`✅ Height centered: offset=${this.offsetY.toFixed(2)}`);
+            }
+            
+            this.render();
+            console.log('🎯 Manual centering applied');
+        };
+        
+        // Add zoom debug function
+        window.debugZoom = () => {
+            const rect = this.canvas.getBoundingClientRect();
+            const pixelSize = PixelWarConfig.canvas.defaultPixelSize;
+            const viewportWidth = rect.width / (pixelSize * this.zoom);
+            const viewportHeight = rect.height / (pixelSize * this.zoom);
+            
+            console.log('🔍 FULL ZOOM DEBUG:', {
+                canvasRect: `${rect.width}x${rect.height}`,
+                zoom: this.zoom,
+                pixelSize: pixelSize,
+                mapSize: `${this.config.width}x${this.config.height}`,
+                viewportInGridUnits: `${viewportWidth.toFixed(1)}x${viewportHeight.toFixed(1)}`,
+                canFitMap: `width: ${viewportWidth >= this.config.width}, height: ${viewportHeight >= this.config.height}`,
+                currentOffsets: `${this.offsetX.toFixed(2)}, ${this.offsetY.toFixed(2)}`,
+                targetOffsets: `${this.targetOffsetX.toFixed(2)}, ${this.targetOffsetY.toFixed(2)}`,
+                calculatedMinZoom: this.calculateMinZoom(),
+                expectedCenterOffsets: {
+                    x: viewportWidth >= this.config.width ? (-(viewportWidth - this.config.width) / 2).toFixed(2) : 'N/A',
+                    y: viewportHeight >= this.config.height ? (-(viewportHeight - this.config.height) / 2).toFixed(2) : 'N/A'
+                }
+            });
+            
+            // Force recalculate constraints
+            this.constrainOffsets();
+            console.log('After constrainOffsets:', {
+                newTargetOffsets: `${this.targetOffsetX.toFixed(2)}, ${this.targetOffsetY.toFixed(2)}`
+            });
+        };
+        
+        // Add zoom to fit function for testing
+        window.zoomToFit = () => {
+            console.log('🎯 ZOOM TO FIT TEST');
+            const dynamicMinZoom = this.calculateMinZoom();
+            this.zoom = dynamicMinZoom;
+            
+            console.log('📐 Before constrainOffsets:', {
+                zoom: this.zoom,
+                offsetX: this.offsetX,
+                offsetY: this.offsetY
+            });
+            
+            this.offsetX = 0;
+            this.offsetY = 0;
+            this.targetOffsetX = 0;
+            this.targetOffsetY = 0;
+            this.constrainOffsets();
+            
+            console.log('📐 After constrainOffsets:', {
+                targetOffsetX: this.targetOffsetX,
+                targetOffsetY: this.targetOffsetY
+            });
+            
+            this.offsetX = this.targetOffsetX;
+            this.offsetY = this.targetOffsetY;
+            this.updateZoomIndicator();
+            this.render();
+            console.log('✅ Zoom set to fit entire map, offsets applied');
+        };
+        
+        // Add force center function for testing
+        window.forceCenter = () => {
+            const rect = this.canvas.getBoundingClientRect();
+            const pixelSize = PixelWarConfig.canvas.defaultPixelSize;
+            const viewportWidth = rect.width / (pixelSize * this.zoom);
+            const viewportHeight = rect.height / (pixelSize * this.zoom);
+            
+            // Manually calculate and apply center offsets
+            if (viewportWidth >= this.config.width) {
+                this.targetOffsetX = -(viewportWidth - this.config.width) / 2;
+                this.offsetX = this.targetOffsetX;
+            }
+            if (viewportHeight >= this.config.height) {
+                this.targetOffsetY = -(viewportHeight - this.config.height) / 2;
+                this.offsetY = this.targetOffsetY;
+            }
+            
+            console.log('🎯 FORCE CENTERED:', {
+                appliedOffsets: `${this.offsetX.toFixed(2)}, ${this.offsetY.toFixed(2)}`,
+                viewportSize: `${viewportWidth.toFixed(1)}x${viewportHeight.toFixed(1)}`
+            });
+            
+            this.render();
+        };
+        
+        // Create touch mode toggle button
+        const toggleContainer = document.createElement('div');
+        toggleContainer.className = 'touch-mode-toggle';
+        toggleContainer.innerHTML = `
+            <button id="touchModeBtn" class="touch-mode-btn">
+                <span class="mode-icon">👆</span>
+                <span class="mode-text">Tap Mode</span>
+            </button>
+        `;
+        
+        // Add to canvas controls area
+        const canvasSection = document.querySelector('.canvas-section') || document.querySelector('.pixel-war-container') || document.body;
+        canvasSection.appendChild(toggleContainer);
+        
+        // Set up event listener
+        const btn = document.getElementById('touchModeBtn');
+        if (btn) {
+            btn.addEventListener('click', () => {
+                this.inputHandler.touchMode = this.inputHandler.touchMode === 'tap' ? 'precision' : 'tap';
+                localStorage.setItem('pixelWarTouchMode', this.inputHandler.touchMode);
+                this.updateTouchModeButton();
+            });
+        }
+        
+        this.updateTouchModeButton();
+    }
+    
+    updateTouchModeButton() {
+        const btn = document.getElementById('touchModeBtn');
+        if (btn) {
+            const icon = btn.querySelector('.mode-icon');
+            const text = btn.querySelector('.mode-text');
+            
+            if (this.inputHandler.touchMode === 'precision') {
+                icon.textContent = '🎯';
+                text.textContent = 'Precision Mode';
+                btn.classList.add('precision');
+                btn.style.backgroundColor = '#ff9800';
+                btn.style.color = 'white';
+            } else {
+                icon.textContent = '👆';
+                text.textContent = 'Tap Mode';
+                btn.classList.remove('precision');
+                btn.style.backgroundColor = '#4caf50';
+                btn.style.color = 'white';
+            }
+        }
     }
 
     destroy() {
@@ -1027,6 +2323,10 @@ class PixelWar {
             clearInterval(this.updateInterval);
         }
         
+        if (this.uiUpdateInterval) {
+            clearInterval(this.uiUpdateInterval);
+        }
+        
         this.inputHandler.destroy();
         this.isRunning = false;
     }
@@ -1035,6 +2335,212 @@ class PixelWar {
 // Add CSS animations
 const style = document.createElement('style');
 style.textContent = `
+    /* Enhanced Cooldown UI Styles */
+    .cooldown-progress {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #4caf50, #8bc34a);
+        transition: width 0.1s ease-out;
+        border-radius: 0 0 4px 4px;
+    }
+    
+    #cooldownTimer {
+        position: relative;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.2s ease;
+        overflow: hidden;
+    }
+    
+    .pixels-remaining {
+        padding: 8px 12px;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+    }
+    
+    .pixels-remaining.ready {
+        background-color: #e8f5e8;
+        border: 2px solid #4caf50;
+    }
+    
+    .pixels-remaining.cooldown {
+        background-color: #fff3e0;
+        border: 2px solid #ff9800;
+    }
+    
+    .pixels-remaining.limit-reached {
+        background-color: #ffebee;
+        border: 2px solid #ff6b6b;
+    }
+    
+    .pixels-info {
+        text-align: center;
+    }
+    
+    .pixels-count {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+    
+    .pixels-count .current {
+        color: #2196f3;
+        font-size: 22px;
+    }
+    
+    .pixels-count .separator {
+        color: #666;
+        margin: 0 2px;
+    }
+    
+    .pixels-count .max {
+        color: #666;
+    }
+    
+    .pixels-count .label {
+        color: #888;
+        font-size: 12px;
+        margin-left: 4px;
+    }
+    
+    .reset-timer {
+        font-size: 11px;
+        color: #666;
+        font-style: italic;
+    }
+    
+    /* Mobile Touch Mode Toggle Styles */
+    .touch-mode-toggle {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+    }
+    
+    .touch-mode-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 20px;
+        background: #4caf50;
+        color: white;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+    }
+    
+    .touch-mode-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    
+    .touch-mode-btn.precision {
+        background: #ff9800;
+    }
+    
+    .mode-icon {
+        font-size: 16px;
+    }
+    
+    .mode-text {
+        font-size: 12px;
+        white-space: nowrap;
+    }
+    
+    /* Mobile Pixel Confirmation Modal */
+    .pixel-confirmation-mobile {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        animation: fadeIn 0.2s ease;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    .confirmation-content {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        margin: 20px;
+        max-width: 300px;
+        text-align: center;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    
+    .confirmation-content h4 {
+        margin: 0 0 16px 0;
+        color: #333;
+        font-size: 18px;
+    }
+    
+    .confirmation-content p {
+        margin: 8px 0;
+        color: #666;
+        font-size: 14px;
+    }
+    
+    .confirmation-buttons {
+        display: flex;
+        gap: 12px;
+        margin-top: 20px;
+    }
+    
+    .btn-confirm, .btn-cancel {
+        flex: 1;
+        padding: 12px 16px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-confirm {
+        background: #4caf50;
+        color: white;
+    }
+    
+    .btn-confirm:hover {
+        background: #45a049;
+        transform: translateY(-1px);
+    }
+    
+    .btn-cancel {
+        background: #f44336;
+        color: white;
+    }
+    
+    .btn-cancel:hover {
+        background: #da190b;
+        transform: translateY(-1px);
+    }
+    
+    /* Hide touch mode toggle on desktop */
+    @media (hover: hover) and (pointer: fine) {
+        .touch-mode-toggle {
+            display: none;
+        }
+    }
+
     @keyframes slideIn {
         from {
             transform: translateX(100%);
@@ -1077,6 +2583,11 @@ if (document.readyState === 'loading') {
         window.pixelWar = new PixelWar('pixelCanvas', CANVAS_CONFIG);
     }
 }
+
+// Make PixelWar available globally for debugging and manual initialization
+window.PixelWar = PixelWar;
+window.PixelWarConfig = PixelWarConfig;
+window.PixelWarAPI = PixelWarAPI;
 
 // Export for module usage (commented out for regular script usage)
 // If you want to use this as a module, uncomment the line below:

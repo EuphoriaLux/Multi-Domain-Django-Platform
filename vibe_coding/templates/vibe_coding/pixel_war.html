@@ -46,7 +46,7 @@
                     <button class="quick-color" data-color="#FFFF00" style="background: #FFFF00"></button>
                     <button class="quick-color" data-color="#000000" style="background: #000000"></button>
                     <button class="quick-color" data-color="#FFFFFF" style="background: #FFFFFF; border: 1px solid #ccc;"></button>
-                    <button class="quick-color-more" id="moreColorsBtn">+</button>
+                    <button class="quick-color-more" id="moreColorsBtn" onclick="PixelWarColorManager.showEnhancedPalette()">+</button>
                 </div>
                 <div class="status-indicator">
                     <span id="mobilePixelsRemaining" class="pixels-counter">0</span>
@@ -234,6 +234,9 @@
                             <button id="minimapToggle" class="tool-btn" aria-label="Toggle minimap">
                                 <span class="tool-icon">🗺</span>
                             </button>
+                            <button id="centerViewBtn" class="tool-btn" aria-label="Center view" onclick="PixelWarNavigation.centerView()">
+                                <span class="tool-icon">⊙</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -276,6 +279,189 @@
     ⛶
 </button>
 
+<!-- Mobile Onboarding System -->
+<div id="mobileOnboarding" class="mobile-onboarding-overlay" style="display: none;">
+    <div class="onboarding-container">
+        <!-- Step 1: Welcome -->
+        <div class="onboarding-step" data-step="1">
+            <div class="step-header">
+                <h3>🎨 Welcome to Lux Pixel War!</h3>
+                <p>Let's learn the mobile controls in 30 seconds</p>
+            </div>
+            <div class="step-content">
+                <div class="welcome-features">
+                    <div class="feature-item">
+                        <div class="feature-icon">👆</div>
+                        <div class="feature-text">
+                            <strong>Touch & Paint</strong><br>
+                            <span>Tap to place pixels instantly</span>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">🎯</div>
+                        <div class="feature-text">
+                            <strong>Precision Mode</strong><br>
+                            <span>Preview before placing</span>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">🎨</div>
+                        <div class="feature-text">
+                            <strong>Quick Colors</strong><br>
+                            <span>Fast color switching</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="step-actions">
+                <button class="btn-skip" onclick="PixelWarOnboarding.skip()">Skip Tutorial</button>
+                <button class="btn-next" onclick="PixelWarOnboarding.nextStep()">Let's Start!</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Touch Controls -->
+        <div class="onboarding-step" data-step="2" style="display: none;">
+            <div class="step-header">
+                <h3>👆 Touch Controls</h3>
+                <p>Learn how to navigate and interact</p>
+            </div>
+            <div class="step-content">
+                <div class="gesture-demo">
+                    <div class="demo-canvas">
+                        <div class="demo-finger" id="demoFinger"></div>
+                        <div class="demo-action-text" id="demoActionText">Tap to place pixels</div>
+                    </div>
+                    <div class="gesture-list">
+                        <div class="gesture-item active" data-gesture="tap">
+                            <span class="gesture-icon">👆</span>
+                            <span class="gesture-label">Tap to place pixel</span>
+                        </div>
+                        <div class="gesture-item" data-gesture="drag">
+                            <span class="gesture-icon">✋</span>
+                            <span class="gesture-label">Drag to pan around</span>
+                        </div>
+                        <div class="gesture-item" data-gesture="pinch">
+                            <span class="gesture-icon">🤏</span>
+                            <span class="gesture-label">Pinch to zoom in/out</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="step-actions">
+                <button class="btn-back" onclick="PixelWarOnboarding.previousStep()">Back</button>
+                <button class="btn-next" onclick="PixelWarOnboarding.nextStep()">Got it!</button>
+            </div>
+        </div>
+
+        <!-- Step 3: Modes & Features -->
+        <div class="onboarding-step" data-step="3" style="display: none;">
+            <div class="step-header">
+                <h3>🎯 Touch Modes</h3>
+                <p>Choose your preferred interaction style</p>
+            </div>
+            <div class="step-content">
+                <div class="mode-comparison">
+                    <div class="mode-card tap-mode">
+                        <div class="mode-header">
+                            <div class="mode-icon">⚡</div>
+                            <h4>Tap Mode</h4>
+                            <span class="mode-badge fast">Fast</span>
+                        </div>
+                        <div class="mode-description">
+                            <p>Instant pixel placement</p>
+                            <ul>
+                                <li>✓ Quick and responsive</li>
+                                <li>✓ Great for filling areas</li>
+                                <li>⚠ May place accidentally</li>
+                            </ul>
+                        </div>
+                        <button class="mode-select-btn" onclick="PixelWarOnboarding.selectMode('tap')">Try Tap Mode</button>
+                    </div>
+                    <div class="mode-card precision-mode">
+                        <div class="mode-header">
+                            <div class="mode-icon">🎯</div>
+                            <h4>Precision Mode</h4>
+                            <span class="mode-badge accurate">Accurate</span>
+                        </div>
+                        <div class="mode-description">
+                            <p>Preview before placing</p>
+                            <ul>
+                                <li>✓ No accidental pixels</li>
+                                <li>✓ Perfect placement</li>
+                                <li>⚠ Slightly slower</li>
+                            </ul>
+                        </div>
+                        <button class="mode-select-btn" onclick="PixelWarOnboarding.selectMode('precision')">Try Precision</button>
+                    </div>
+                </div>
+            </div>
+            <div class="step-actions">
+                <button class="btn-back" onclick="PixelWarOnboarding.previousStep()">Back</button>
+                <button class="btn-finish" onclick="PixelWarOnboarding.finish()">Start Playing!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Indicator -->
+    <div class="onboarding-progress">
+        <div class="progress-dots">
+            <div class="progress-dot active" data-step="1"></div>
+            <div class="progress-dot" data-step="2"></div>
+            <div class="progress-dot" data-step="3"></div>
+        </div>
+        <div class="progress-text">
+            <span id="progressText">Step 1 of 3</span>
+        </div>
+    </div>
+</div>
+
+<!-- Touch Mode Indicator -->
+<div id="touchModeIndicator" class="touch-mode-indicator" style="display: none;">
+    <div class="mode-display">
+        <div class="mode-icon-container">
+            <span id="modeIcon" class="mode-icon">⚡</span>
+        </div>
+        <div class="mode-info">
+            <span id="modeLabel" class="mode-label">Tap Mode</span>
+            <span id="modeDescription" class="mode-description">Instant placement</span>
+        </div>
+        <button id="switchModeBtn" class="switch-mode-btn" onclick="PixelWarModeManager.toggleMode()">
+            <span class="switch-icon">🔄</span>
+        </button>
+    </div>
+    <div class="mode-help-tip" id="modeHelpTip" style="display: none;">
+        <p>💡 <strong>Tip:</strong> <span id="modeHelpText">Tap anywhere to place pixels instantly!</span></p>
+    </div>
+</div>
+
+<!-- Enhanced Color Palette -->
+<div id="enhancedColorPalette" class="enhanced-color-palette" style="display: none;">
+    <div class="palette-header">
+        <span class="palette-title">Quick Colors</span>
+        <button class="palette-close" onclick="PixelWarColorManager.hideEnhancedPalette()">×</button>
+    </div>
+    <div class="color-sections">
+        <div class="quick-colors-expanded">
+            <button class="color-btn-enhanced" data-color="#FF0000" style="background: #FF0000" aria-label="Red"></button>
+            <button class="color-btn-enhanced" data-color="#FF8C00" style="background: #FF8C00" aria-label="Orange"></button>
+            <button class="color-btn-enhanced" data-color="#FFD700" style="background: #FFD700" aria-label="Gold"></button>
+            <button class="color-btn-enhanced" data-color="#32CD32" style="background: #32CD32" aria-label="Lime"></button>
+            <button class="color-btn-enhanced" data-color="#00CED1" style="background: #00CED1" aria-label="Turquoise"></button>
+            <button class="color-btn-enhanced" data-color="#4169E1" style="background: #4169E1" aria-label="Royal Blue"></button>
+            <button class="color-btn-enhanced" data-color="#8A2BE2" style="background: #8A2BE2" aria-label="Blue Violet"></button>
+            <button class="color-btn-enhanced" data-color="#FF1493" style="background: #FF1493" aria-label="Deep Pink"></button>
+            <button class="color-btn-enhanced" data-color="#000000" style="background: #000000" aria-label="Black"></button>
+            <button class="color-btn-enhanced" data-color="#FFFFFF" style="background: #FFFFFF; border: 1px solid #ccc;" aria-label="White"></button>
+        </div>
+        <div class="recent-colors" id="recentColorsSection">
+            <div class="section-label">Recently Used</div>
+            <div class="recent-colors-list" id="recentColorsList">
+                <!-- Recent colors will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Notification Toast -->
 <div id="notification" class="notification" role="alert" aria-live="assertive"></div>
 
@@ -294,10 +480,21 @@
         isAuthenticated: {% if is_authenticated %}true{% else %}false{% endif %}
     };
 </script>
-{% comment %} Load Pixel War using Vite build system {% endcomment %}
-{% vite_asset 'pixel-war-refactored' %}
+{% comment %} Load Pixel War using Vite build system (modular) {% endcomment %}
+{% vite_asset 'pixel-war-app' %}
 
 {% comment %} Pixel War initialization happens automatically via bundled script {% endcomment %}
+<script>
+    // Ensure mobile classes are available globally for onclick handlers
+    // This runs after the bundled script loads
+    document.addEventListener('DOMContentLoaded', function() {
+        // Mobile classes should already be available via pixel-war-app.js
+        // This is just a fallback check
+        if (typeof window.PixelWarOnboarding === 'undefined') {
+            console.warn('Mobile classes not found - falling back to module imports');
+        }
+    });
+</script>
 
 <script>
     // Setup responsive controls after page loads

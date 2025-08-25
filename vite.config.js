@@ -8,18 +8,18 @@ export default defineConfig({
     outDir: 'vibe_coding/static/vibe_coding/js/dist',
     emptyOutDir: true,
     
-    // Entry point for active pixel war implementation
+    // Entry point for modular pixel war implementation
     rollupOptions: {
       input: {
-        'pixel-war-refactored': resolve(__dirname, 'vibe_coding/static/vibe_coding/js/pixel_war_refactored.js')
+        'pixel-war-app': resolve(__dirname, 'vibe_coding/static/vibe_coding/js/pixel_war/pixel-war-app.js')
       },
       output: {
-        // Generate separate chunks for heavy dependencies
-        manualChunks: {
-          'pixi-core': ['pixi.js'],
-          'pixi-viewport': ['pixi-viewport'],
-          'mobile-helpers': ['hammerjs']
-        },
+        // Generate separate chunks for heavy dependencies (disabled as these packages aren't used)
+        // manualChunks: {
+        //   'pixi-core': ['pixi.js'],
+        //   'pixi-viewport': ['pixi-viewport'],
+        //   'mobile-helpers': ['hammerjs']
+        // },
         // Ensure proper naming for Django static files
         entryFileNames: '[name].bundle.js',
         chunkFileNames: '[name]-[hash].chunk.js',
@@ -51,12 +51,8 @@ export default defineConfig({
   
   // Dependency optimization
   optimizeDeps: {
-    include: [
-      'pixi.js',
-      'pixi-viewport',
-      'hammerjs'
-    ],
-    // Pre-bundle heavy dependencies
+    // Currently no external dependencies used in pixel war
+    // include: ['pixi.js', 'pixi-viewport', 'hammerjs'],
     force: true
   },
   
