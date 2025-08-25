@@ -67,11 +67,18 @@ class GestureHandler extends EventTarget {
         const gridHeight = this.config.height;
         
         console.log('📐 calculateBounds debug:', {
-            canvasSize: `${rect.width}x${rect.height}`,
+            canvasActualSize: `${rect.width}x${rect.height}`,
+            canvasAttributeSize: `${this.canvas.width}x${this.canvas.height}`,
             zoom: this.zoom,
             pixelSize,
             viewportInGrid: `${viewportWidth.toFixed(2)}x${viewportHeight.toFixed(2)}`,
             gridSize: `${gridWidth}x${gridHeight}`,
+            configDebug: {
+                gridWidth: this.config.gridWidth,
+                gridHeight: this.config.gridHeight,
+                width: this.config.width,
+                height: this.config.height
+            },
             viewportLargerThanGrid: viewportWidth >= gridWidth && viewportHeight >= gridHeight
         });
         

@@ -121,6 +121,108 @@ def pixel_war_pixi(request):
     return render(request, 'vibe_coding/pixel_war_pixi.html', context)
 
 
+@ensure_csrf_cookie
+def pixel_war_ts(request):
+    """
+    TypeScript version of Pixel War with enhanced mobile navigation
+    """
+    canvas, created = PixelCanvas.objects.get_or_create(
+        name="Lux Pixel War",
+        defaults={
+            'width': 100, 
+            'height': 100, 
+            'anonymous_cooldown_seconds': 30,
+            'registered_cooldown_seconds': 12,
+            'registered_pixels_per_minute': 5,
+            'anonymous_pixels_per_minute': 2
+        }
+    )
+    
+    # Get user stats if authenticated
+    user_stats = None
+    if request.user.is_authenticated:
+        user_stats, created_stats = UserPixelStats.objects.get_or_create(
+            user=request.user,
+            canvas=canvas
+        )
+    
+    context = {
+        'canvas': canvas,
+        'page_title': _('Lux Pixel War - TypeScript'),
+        'is_authenticated': request.user.is_authenticated,
+        'user_stats': user_stats,
+    }
+    return render(request, 'vibe_coding/pixel_war_ts.html', context)
+
+
+@ensure_csrf_cookie
+def pixel_war_react(request):
+    """
+    React version of Pixel War with modern component-based architecture
+    """
+    canvas, created = PixelCanvas.objects.get_or_create(
+        name="Lux Pixel War",
+        defaults={
+            'width': 100, 
+            'height': 100, 
+            'anonymous_cooldown_seconds': 30,
+            'registered_cooldown_seconds': 12,
+            'registered_pixels_per_minute': 5,
+            'anonymous_pixels_per_minute': 2
+        }
+    )
+    
+    # Get user stats if authenticated
+    user_stats = None
+    if request.user.is_authenticated:
+        user_stats, created_stats = UserPixelStats.objects.get_or_create(
+            user=request.user,
+            canvas=canvas
+        )
+    
+    context = {
+        'canvas': canvas,
+        'page_title': _('Lux Pixel War - React'),
+        'is_authenticated': request.user.is_authenticated,
+        'user_stats': user_stats,
+    }
+    return render(request, 'vibe_coding/pixel_war_react.html', context)
+
+
+@ensure_csrf_cookie
+def pixel_war_demo(request):
+    """
+    Demo page showcasing both desktop and mobile React versions
+    """
+    canvas, created = PixelCanvas.objects.get_or_create(
+        name="Lux Pixel War",
+        defaults={
+            'width': 100, 
+            'height': 100, 
+            'anonymous_cooldown_seconds': 30,
+            'registered_cooldown_seconds': 12,
+            'registered_pixels_per_minute': 5,
+            'anonymous_pixels_per_minute': 2
+        }
+    )
+    
+    # Get user stats if authenticated
+    user_stats = None
+    if request.user.is_authenticated:
+        user_stats, created_stats = UserPixelStats.objects.get_or_create(
+            user=request.user,
+            canvas=canvas
+        )
+    
+    context = {
+        'canvas': canvas,
+        'page_title': _('Pixel Wars React Demo'),
+        'is_authenticated': request.user.is_authenticated,
+        'user_stats': user_stats,
+    }
+    return render(request, 'vibe_coding/pixel_war_demo.html', context)
+
+
 def get_canvas_state(request, canvas_id=None):
     """
     Get the current state of the canvas

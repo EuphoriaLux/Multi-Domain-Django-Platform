@@ -106,8 +106,11 @@ function autoInit() {
         const config = {
             id: parseInt(canvasId),  // Use 'id' instead of 'canvasId' for consistency with original
             canvasId: parseInt(canvasId),  // Keep both for compatibility
-            width: parseInt(canvas.width) || parseInt(canvas.getAttribute('width')) || 200,
-            height: parseInt(canvas.height) || parseInt(canvas.getAttribute('height')) || 200,
+            // Use Django config first, fall back to canvas attributes
+            ...(window.CANVAS_CONFIG || {}),
+            // DEPRECATED: Don't override with canvas HTML dimensions 
+            // width: parseInt(canvas.width) || parseInt(canvas.getAttribute('width')) || 200,
+            // height: parseInt(canvas.height) || parseInt(canvas.getAttribute('height')) || 200,
             ...(window.pixelWarConfig || {})
         };
         
