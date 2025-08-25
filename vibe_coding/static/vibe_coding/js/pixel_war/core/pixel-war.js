@@ -30,6 +30,23 @@ export class PixelWar {
 
         this.config = config;
         this.isRunning = false;
+        
+        // Debug the actual config received
+        console.log('🔎 Config Debug:', JSON.stringify(config, null, 2));
+        
+        // Add dimension helpers to handle old/new config formats
+        // CRITICAL: Ensure we always use 100x100 grid regardless of config
+        this.gridWidth = 100;   // Fixed grid size
+        this.gridHeight = 100;  // Fixed grid size
+        this.pixelSize = 10;    // Fixed pixel size (1000/100)
+        
+        console.log('📏 Final dimensions:', {
+            gridWidth: this.gridWidth,
+            gridHeight: this.gridHeight, 
+            pixelSize: this.pixelSize,
+            configWidth: this.config.width,
+            configGridWidth: this.config.gridWidth
+        });
 
         // Initialize modules
         this.api = new PixelWarAPI();
@@ -76,13 +93,24 @@ export class PixelWar {
         this.updateInterval = null;
         this.lastFrameTime = 0;
 
+        // Force correct grid dimensions for backwards compatibility 
+        // Override any incorrect values that might come from config
+        this.config.width = this.gridWidth;   // Ensure all code sees 100
+        this.config.height = this.gridHeight; // Ensure all code sees 100
+        
         this.init();
     }
 
     async init() {
         try {
-            // Setup renderer
-            this.renderer.setup(this.config.width, this.config.height, PixelWarConfig.canvas.defaultPixelSize);
+            // Setup renderer with corrected configuration
+            console.log('🎯 Canvas setup:', {
+                canvasSize: `${this.canvas.width}x${this.canvas.height}`,
+                gridSize: `${this.gridWidth}x${this.gridHeight}`,
+                pixelSize: this.pixelSize
+            });
+            
+            this.renderer.setup(this.gridWidth, this.gridHeight, this.pixelSize);
 
             // Setup event listeners
             this.setupEventHandlers();

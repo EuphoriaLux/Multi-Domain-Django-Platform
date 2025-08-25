@@ -8,10 +8,11 @@ export default defineConfig({
     outDir: 'vibe_coding/static/vibe_coding/js/dist',
     emptyOutDir: true,
     
-    // Entry point for modular pixel war implementation
+    // Entry points for both JS and TS implementations
     rollupOptions: {
       input: {
-        'pixel-war-app': resolve(__dirname, 'vibe_coding/static/vibe_coding/js/pixel_war/pixel-war-app.js')
+        'pixel-war-app': resolve(__dirname, 'vibe_coding/static/vibe_coding/js/pixel_war/pixel-war-app.js'),
+        'pixel-war-ts-app': resolve(__dirname, 'vibe_coding/static/vibe_coding/ts/pixel_war_ts/pixel-war-ts-app.ts')
       },
       output: {
         // Generate separate chunks for heavy dependencies (disabled as these packages aren't used)

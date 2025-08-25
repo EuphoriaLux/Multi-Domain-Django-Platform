@@ -173,18 +173,15 @@
                             <button id="zoomOutDesktop" class="zoom-btn desktop-only" aria-label="Zoom out">➖</button>
                             <button id="zoomResetDesktop" class="zoom-btn desktop-only" aria-label="Reset zoom">🔄</button>
                         </div>
-                        <div class="nav-controls">
-                            <button id="navTopLeft" class="nav-btn desktop-only" aria-label="Go to top-left" title="Top-left corner">↖</button>
-                            <button id="navTopRight" class="nav-btn desktop-only" aria-label="Go to top-right" title="Top-right corner">↗</button>
-                            <button id="navBottomLeft" class="nav-btn desktop-only" aria-label="Go to bottom-left" title="Bottom-left corner">↙</button>
-                            <button id="navBottomRight" class="nav-btn desktop-only" aria-label="Go to bottom-right" title="Bottom-right corner">↘</button>
-                        </div>
+                        <!-- Desktop navigation controls removed -->
                     </div>
                     <div class="canvas-container" id="canvasContainer">
                         <canvas id="pixelCanvas" 
-                                width="{{ canvas.width }}" 
-                                height="{{ canvas.height }}" 
+                                width="1000" 
+                                height="1000" 
                                 data-canvas-id="{{ canvas.id }}"
+                                data-grid-width="{{ canvas.width }}"
+                                data-grid-height="{{ canvas.height }}"
                                 role="img"
                                 aria-label="Pixel canvas grid">
                         </canvas>
@@ -194,23 +191,7 @@
                     
                     <!-- Mobile Canvas Controls (Hidden on Desktop) -->
                     <div class="mobile-canvas-controls" style="display: none;">
-                        <div class="corner-nav-grid">
-                            <button class="corner-nav-btn" data-corner="top-left" aria-label="Top left corner">
-                                <span class="corner-icon">↖</span>
-                            </button>
-                            <button class="corner-nav-btn" data-corner="top-right" aria-label="Top right corner">
-                                <span class="corner-icon">↗</span>
-                            </button>
-                            <button class="corner-nav-btn" data-corner="center" aria-label="Center view">
-                                <span class="corner-icon">⊙</span>
-                            </button>
-                            <button class="corner-nav-btn" data-corner="bottom-left" aria-label="Bottom left corner">
-                                <span class="corner-icon">↙</span>
-                            </button>
-                            <button class="corner-nav-btn" data-corner="bottom-right" aria-label="Bottom right corner">
-                                <span class="corner-icon">↘</span>
-                            </button>
-                        </div>
+                        <!-- Corner navigation removed - unnecessary for mobile UX -->
                         
                         <div class="zoom-control-bar">
                             <button id="zoomOut" class="zoom-btn" aria-label="Zoom out">
@@ -469,8 +450,11 @@
 <script>
     const CANVAS_CONFIG = {
         id: {{ canvas.id }},
-        width: {{ canvas.width }},
-        height: {{ canvas.height }},
+        gridWidth: {{ canvas.width }},
+        gridHeight: {{ canvas.height }},
+        canvasWidth: 1000,
+        canvasHeight: 1000,
+        pixelSize: 10, // 1000/100 = 10 pixels per grid cell
         anonymousCooldown: {{ canvas.anonymous_cooldown_seconds }},
         registeredCooldown: {{ canvas.registered_cooldown_seconds }},
         anonymousPixelsPerMinute: {{ canvas.anonymous_pixels_per_minute }},

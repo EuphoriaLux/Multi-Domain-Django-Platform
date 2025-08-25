@@ -20,7 +20,9 @@
   },
   "devDependencies": {
     "@types/hammerjs": "^2.0.45",
+    "@types/node": "^24.3.0",
     "concurrently": "^9.0.1",
+    "typescript": "^5.9.2",
     "vite": "^7.1.3"
   }
 }
