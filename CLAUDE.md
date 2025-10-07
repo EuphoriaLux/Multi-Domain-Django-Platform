@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Entreprinder is a multi-domain Django application serving three distinct platforms:
+Entreprinder is a multi-domain Django application serving four distinct platforms:
 1. **Entreprinder** (`entreprinder.app`) - Entrepreneur networking with Tinder-style matching
 2. **PowerUP** (`powerup.lu`) - Business platform variant for Luxembourg
 3. **VinsDelux** (`vinsdelux.com`) - Premium wine e-commerce with vineyard plot adoption
+4. **Crush.lu** (`crush.lu`) - Privacy-focused dating platform with event-based meetups
 
 ## Architecture
 
@@ -75,12 +76,22 @@ python manage.py assign_adoption_images
 python manage.py create_test_profiles
 ```
 
+### Crush.lu Management Commands
+```bash
+# Create Crush Coach profiles
+python manage.py create_crush_coaches
+
+# Create sample meetup events
+python manage.py create_sample_events
+```
+
 ## URL Architecture
 
 The application uses domain-based routing (`azureproject/middleware.py`):
 - `vinsdelux.com` → VinsDelux app
 - `powerup.lu` → PowerUP variant
-- Default → Entreprinder app
+- `crush.lu` → Crush.lu dating platform
+- Default → Entreprinder app (PowerUP fallback)
 
 All apps support i18n with language prefixes (`/en/`, `/de/`, `/fr/`).
 
@@ -254,6 +265,14 @@ EMAIL_HOST_PASSWORD=<email-password>
 - `VdlAdoptionPlan`: Subscription plans with pricing tiers
 - `VdlCoffret`: Wine box products
 
+### Crush.lu
+- `CrushProfile`: User profiles with privacy controls and approval status
+- `CrushCoach`: Coach profiles for onboarding/review
+- `ProfileSubmission`: Profile review workflow with statuses (pending/approved/rejected/revision)
+- `MeetupEvent`: Speed dating and social events
+- `EventRegistration`: User event RSVPs with waitlist support
+- `CoachSession`: Coach-user interaction tracking
+
 ## Azure Deployment
 
 - **Infrastructure**: Bicep templates in `infra/`
@@ -295,3 +314,177 @@ When extending the plot selection functionality:
    - `vineyardMap:*` for map interactions
    - `plotSelector:*` for selection UI
    - `cart:*` for cart operations
+
+### Crush.lu System Architecture
+
+The Crush.lu platform is a privacy-first, event-based dating platform specifically designed for Luxembourg's small community. Unlike traditional swipe-based dating apps, Crush.lu focuses on real-world connections through organized meetup events.
+
+#### Core Philosophy
+- **Privacy First**: Small community considerations with profile anonymization options
+- **Coach-Curated**: Human review ensures authentic, respectful profiles
+- **Event-Driven**: No endless browsing - meet people at organized events
+- **Gen Z/Millennial Focus**: Modern language and approach to dating
+
+#### User Onboarding Flow
+
+1. **Registration** (`crush_lu/views.py:signup`)
+   - Custom signup form extending `UserCreationForm`
+   - Email as username for simplicity
+   - First name, last name, email, password
+
+2. **Profile Creation** (`crush_lu/views.py:create_profile`)
+   - Comprehensive profile form with:
+     - Date of birth (18+ validation)
+     - Gender, location, phone
+     - Bio and interests
+     - Up to 3 photos
+     - Privacy settings (name display, age display, photo blur)
+   - Creates `CrushProfile` instance
+   - Automatically creates `ProfileSubmission` for review
+
+3. **Coach Assignment** (`ProfileSubmission.assign_coach()`)
+   - Auto-assigns to available coach with lowest workload
+   - Coaches have `max_active_reviews` limit
+   - Tracks pending, approved, rejected, revision statuses
+
+4. **Profile Review** (Coach dashboard)
+   - Coaches access pending submissions
+   - Can approve, reject, or request revisions
+   - Provides feedback to users
+   - Updates `is_approved` status on profile
+
+5. **Event Access**
+   - Only approved profiles can register for events
+   - Browse upcoming speed dating, mixers, activity meetups
+   - Registration with dietary restrictions and special requests
+   - Waitlist functionality when events are full
+
+#### Data Models Architecture
+
+**CrushProfile**:
+- Linked to Django User (OneToOne)
+- Privacy controls: `show_full_name`, `show_exact_age`, `blur_photos`
+- Properties: `age`, `age_range`, `display_name`
+- Status: `is_approved`, `is_active`, `approved_at`
+
+**ProfileSubmission**:
+- Tracks review workflow
+- Status choices: pending, approved, rejected, revision
+- Links profile to assigned coach
+- Stores `coach_notes` (internal) and `feedback_to_user` (visible to user)
+- Auto-assignment via `assign_coach()` method
+
+**MeetupEvent**:
+- Event types: speed_dating, mixer, activity, themed
+- Capacity management: `max_participants`, min/max age
+- Registration deadline and fees
+- Properties: `is_registration_open`, `is_full`, `spots_remaining`
+- Methods: `get_confirmed_count()`, `get_waitlist_count()`
+
+**EventRegistration**:
+- Status workflow: pending → confirmed/waitlist → attended/no_show
+- Payment tracking: `payment_confirmed`, `payment_date`
+- Unique constraint on (event, user)
+- Additional info: dietary restrictions, special requests
+
+#### Key Views and Logic
+
+**Public Views**:
+- `home()`: Landing page with upcoming events
+- `about()`, `how_it_works()`: Information pages
+- `event_list()`: Browse all published events
+- `event_detail()`: Individual event information
+
+**Authenticated User Views**:
+- `dashboard()`: User dashboard with profile status and event registrations
+- `create_profile()`, `edit_profile()`: Profile management
+- `event_register()`: Register for events (requires approved profile)
+- `event_cancel()`: Cancel event registration
+
+**Coach Views** (requires `CrushCoach` object):
+- `coach_dashboard()`: View pending and recent reviews
+- `coach_review_profile()`: Review and approve/reject profiles
+- `coach_sessions()`: View coaching sessions history
+
+#### Privacy and Safety Features
+
+1. **Display Name Control**: Users choose between full name or first name only
+2. **Age Display Options**: Exact age or age range (18-24, 25-29, etc.)
+3. **Photo Blurring**: Option to blur photos until mutual interest
+4. **Profile Approval**: All profiles reviewed before going live
+5. **18+ Only**: Date of birth validation in forms
+6. **Event-Only Interaction**: No direct messaging - connections happen at events
+
+#### Management Commands
+
+**`create_crush_coaches`**:
+- Creates 3 sample coach profiles (Marie, Thomas, Sophie)
+- Assigns specializations (young professionals, students, 35+)
+- Sets default password: `crushcoach2025`
+- Configures workload limits
+
+**`create_sample_events`**:
+- Creates 6 diverse sample events
+- Various types: speed dating, mixers, activity meetups, themed events
+- Different locations across Luxembourg
+- Age ranges and capacity limits
+- Registration fees from free to €25
+
+#### Development Best Practices
+
+When working on Crush.lu:
+
+1. **Privacy First**: Always consider privacy implications
+   - Never expose more user data than explicitly allowed by privacy settings
+   - Respect `show_full_name`, `show_exact_age`, `blur_photos` flags
+   - Use `display_name` property instead of direct name access
+
+2. **Approval Workflow**: Maintain profile approval integrity
+   - Check `is_approved` before allowing event registration
+   - Ensure `ProfileSubmission` is created for all new profiles
+   - Auto-assign coaches using `assign_coach()` method
+
+3. **Event Management**: 
+   - Respect capacity limits via `is_full` property
+   - Handle waitlist logic when events reach capacity
+   - Check `is_registration_open` before allowing registrations
+   - Enforce registration deadlines
+
+4. **Coach Workload**: 
+   - Never exceed coach's `max_active_reviews`
+   - Use `can_accept_reviews()` method before assignment
+   - Balance workload across available coaches
+
+5. **Age Validation**: 
+   - Always validate 18+ in forms
+   - Use `age` property (calculated from DOB) instead of storing age
+   - Respect event age ranges (`min_age`, `max_age`)
+
+#### URL Structure (crush.lu domain)
+
+```
+/                           - Landing page
+/about/                     - About Crush.lu
+/how-it-works/             - How it works page
+/signup/                    - User registration
+/create-profile/            - Profile creation (after signup)
+/profile-submitted/         - Confirmation page
+/dashboard/                 - User dashboard
+/profile/edit/              - Edit profile
+/events/                    - Event list
+/events/<id>/               - Event detail
+/events/<id>/register/      - Register for event
+/events/<id>/cancel/        - Cancel registration
+/coach/dashboard/           - Coach dashboard
+/coach/review/<id>/         - Review profile submission
+/coach/sessions/            - Coach sessions
+```
+
+#### Frontend Design
+
+- Bootstrap 5 with custom CSS variables
+- Color scheme: Purple (#9B59B6) and Pink (#FF6B9D) gradients
+- Responsive design with mobile-first approach
+- Card-based layouts for events and profiles
+- Custom `.btn-crush-primary` button style with gradient and hover effects
+- Emoji-enhanced UX for visual appeal to younger audience

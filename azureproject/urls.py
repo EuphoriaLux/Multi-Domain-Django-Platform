@@ -35,6 +35,10 @@ urlpatterns = [
     path('vibe-coding/api/canvas-state/<int:canvas_id>/', vibe_coding_views.get_canvas_state, name='canvas_state_by_id_api'),
     path('vibe-coding/api/place-pixel/', vibe_coding_views.place_pixel, name='place_pixel_api'),
     path('vibe-coding/api/pixel-history/', vibe_coding_views.get_pixel_history, name='pixel_history_api'),
+    # Add direct access to road trip music game
+    path('road-trip-music/', vibe_coding_views.road_trip_music_game, name='road_trip_music_game_direct'),
+    # Add Crush.lu URLs for local development (accessible via /crush/)
+    path('crush/', include('crush_lu.urls', namespace='crush_lu')),
 ]
 
 urlpatterns += i18n_patterns(

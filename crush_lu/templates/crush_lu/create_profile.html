@@ -1,0 +1,1368 @@
+{% extends 'crush_lu/base.html' %}
+
+{% block title %}Create Your Profile - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="profile-creation-wrapper">
+    <div class="container py-4">
+        <!-- Progress Header -->
+        <div class="progress-header text-center mb-5">
+            {% if is_editing %}
+                <h1 class="display-6 mb-3">Edit Your Profile 💕</h1>
+                <p class="lead text-muted">Update your profile information</p>
+            {% else %}
+                <h1 class="display-6 mb-3">Welcome to Crush! 💕</h1>
+                <p class="lead text-muted">Let's create your profile in just a few steps</p>
+            {% endif %}
+
+            <!-- Progress Tracker -->
+            <div class="profile-progress-tracker mt-4">
+                <div class="progress-step active" data-step="1">
+                    <div class="step-circle">1</div>
+                    <div class="step-label">Basic Info</div>
+                </div>
+                <div class="progress-line"></div>
+                <div class="progress-step" data-step="2">
+                    <div class="step-circle">2</div>
+                    <div class="step-label">About You</div>
+                </div>
+                <div class="progress-line"></div>
+                <div class="progress-step" data-step="3">
+                    <div class="step-circle">3</div>
+                    <div class="step-label">Photos</div>
+                </div>
+                <div class="progress-line"></div>
+                <div class="progress-step" data-step="4">
+                    <div class="step-circle">4</div>
+                    <div class="step-label">Review</div>
+                </div>
+            </div>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" id="profileForm" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    {{ form.non_field_errors }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endif %}
+
+            <!-- Step 1: Basic Information -->
+            <div class="form-step active" data-step="1">
+                <div class="step-card">
+                    <div class="card-icon">📋</div>
+                    <h3 class="card-title">Basic Information</h3>
+                    <p class="card-subtitle">Let's start with the essentials</p>
+
+                    <!-- Phone Number (MOST IMPORTANT) -->
+                    <div class="form-group-modern mb-4 priority-field">
+                        <label for="{{ form.phone_number.id_for_label }}">
+                            <i class="bi bi-phone"></i> Phone Number *
+                            <span class="badge bg-danger ms-2">Required</span>
+                        </label>
+                        <input type="tel"
+                               name="phone_number"
+                               id="{{ form.phone_number.id_for_label }}"
+                               class="form-control form-control-lg"
+                               placeholder="+352 XX XX XX XX"
+                               value="{{ profile.phone_number|default:'' }}"
+                               required>
+                        <small class="form-text">
+                            <i class="bi bi-shield-check text-success"></i>
+                            Required for coach screening and event coordination
+                        </small>
+                        {% if form.phone_number.errors %}
+                            <div class="invalid-feedback d-block">{{ form.phone_number.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Date of Birth -->
+                    <div class="form-group-modern mb-4">
+                        <label for="{{ form.date_of_birth.id_for_label }}">
+                            <i class="bi bi-calendar"></i> Date of Birth *
+                        </label>
+                        {{ form.date_of_birth }}
+                        <small class="form-text">Must be 18+ to join</small>
+                        {% if form.date_of_birth.errors %}
+                            <div class="invalid-feedback d-block">{{ form.date_of_birth.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Gender Selection (Card-based) -->
+                    <div class="form-group-modern mb-4">
+                        <label class="mb-3">
+                            <i class="bi bi-person"></i> Gender *
+                        </label>
+                        <div class="gender-card-selection">
+                            <input type="radio" name="gender" value="M" id="gender_m" class="d-none gender-radio" {% if profile.gender == 'M' %}checked{% endif %} required>
+                            <label for="gender_m" class="gender-card">
+                                <div class="gender-icon">👨</div>
+                                <div class="gender-label">Male</div>
+                            </label>
+
+                            <input type="radio" name="gender" value="F" id="gender_f" class="d-none gender-radio" {% if profile.gender == 'F' %}checked{% endif %}>
+                            <label for="gender_f" class="gender-card">
+                                <div class="gender-icon">👩</div>
+                                <div class="gender-label">Female</div>
+                            </label>
+
+                            <input type="radio" name="gender" value="NB" id="gender_nb" class="d-none gender-radio" {% if profile.gender == 'NB' %}checked{% endif %}>
+                            <label for="gender_nb" class="gender-card">
+                                <div class="gender-icon">🧑</div>
+                                <div class="gender-label">Non-binary</div>
+                            </label>
+
+                            <input type="radio" name="gender" value="O" id="gender_o" class="d-none gender-radio" {% if profile.gender == 'O' %}checked{% endif %}>
+                            <label for="gender_o" class="gender-card">
+                                <div class="gender-icon">✨</div>
+                                <div class="gender-label">Other</div>
+                            </label>
+                        </div>
+                        {% if form.gender.errors %}
+                            <div class="invalid-feedback d-block">{{ form.gender.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Location -->
+                    <div class="form-group-modern mb-4">
+                        <label for="{{ form.location.id_for_label }}">
+                            <i class="bi bi-geo-alt"></i> Location in Luxembourg *
+                        </label>
+                        <select name="location" id="{{ form.location.id_for_label }}" class="form-select form-select-lg" required>
+                            <option value="">Select your city...</option>
+                            <option value="Luxembourg City" {% if profile.location == 'Luxembourg City' %}selected{% endif %}>Luxembourg City</option>
+                            <option value="Esch-sur-Alzette" {% if profile.location == 'Esch-sur-Alzette' %}selected{% endif %}>Esch-sur-Alzette</option>
+                            <option value="Differdange" {% if profile.location == 'Differdange' %}selected{% endif %}>Differdange</option>
+                            <option value="Dudelange" {% if profile.location == 'Dudelange' %}selected{% endif %}>Dudelange</option>
+                            <option value="Ettelbruck" {% if profile.location == 'Ettelbruck' %}selected{% endif %}>Ettelbruck</option>
+                            <option value="Diekirch" {% if profile.location == 'Diekirch' %}selected{% endif %}>Diekirch</option>
+                            <option value="Wiltz" {% if profile.location == 'Wiltz' %}selected{% endif %}>Wiltz</option>
+                            <option value="Echternach" {% if profile.location == 'Echternach' %}selected{% endif %}>Echternach</option>
+                            <option value="Grevenmacher" {% if profile.location == 'Grevenmacher' %}selected{% endif %}>Grevenmacher</option>
+                            <option value="Other" {% if profile.location == 'Other' %}selected{% endif %}>Other</option>
+                        </select>
+                        {% if form.location.errors %}
+                            <div class="invalid-feedback d-block">{{ form.location.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <button type="button" class="btn btn-crush-primary btn-lg w-100 mt-4 next-step">
+                        Continue <i class="bi bi-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: About You -->
+            <div class="form-step" data-step="2">
+                <div class="step-card">
+                    <div class="card-icon">✍️</div>
+                    <h3 class="card-title">About You</h3>
+                    <p class="card-subtitle">Share what makes you unique (optional)</p>
+
+                    <!-- Bio (Optional) -->
+                    <div class="form-group-modern mb-4">
+                        <label for="{{ form.bio.id_for_label }}">
+                            <i class="bi bi-chat-heart"></i> Bio
+                            <span class="badge bg-secondary ms-2">Optional</span>
+                        </label>
+                        <textarea name="bio"
+                                  id="{{ form.bio.id_for_label }}"
+                                  class="form-control"
+                                  rows="4"
+                                  maxlength="500"
+                                  placeholder="Tell us about yourself... What do you love? What makes you smile? (Optional)">{{ profile.bio|default:"" }}</textarea>
+                        <div class="char-counter">
+                            <span id="bioCounter">{{ profile.bio|length|default:"0" }}</span>/500 characters
+                        </div>
+                        {% if form.bio.errors %}
+                            <div class="invalid-feedback d-block">{{ form.bio.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Interest Categories (Card-based) -->
+                    <div class="form-group-modern mb-4">
+                        <label class="mb-3">
+                            <i class="bi bi-star"></i> Interest Categories
+                            <span class="badge bg-secondary ms-2">Optional</span>
+                        </label>
+                        <div class="interest-categories">
+                            <input type="checkbox" name="interest_category" value="sports" id="interest_sports" class="d-none interest-checkbox">
+                            <label for="interest_sports" class="interest-card">
+                                <div class="interest-icon">⚽</div>
+                                <div class="interest-label">Sports & Fitness</div>
+                            </label>
+
+                            <input type="checkbox" name="interest_category" value="arts" id="interest_arts" class="d-none interest-checkbox">
+                            <label for="interest_arts" class="interest-card">
+                                <div class="interest-icon">🎨</div>
+                                <div class="interest-label">Arts & Culture</div>
+                            </label>
+
+                            <input type="checkbox" name="interest_category" value="food" id="interest_food" class="d-none interest-checkbox">
+                            <label for="interest_food" class="interest-card">
+                                <div class="interest-icon">🍷</div>
+                                <div class="interest-label">Food & Wine</div>
+                            </label>
+
+                            <input type="checkbox" name="interest_category" value="outdoors" id="interest_outdoors" class="d-none interest-checkbox">
+                            <label for="interest_outdoors" class="interest-card">
+                                <div class="interest-icon">🏔️</div>
+                                <div class="interest-label">Outdoors & Travel</div>
+                            </label>
+
+                            <input type="checkbox" name="interest_category" value="business" id="interest_business" class="d-none interest-checkbox">
+                            <label for="interest_business" class="interest-card">
+                                <div class="interest-icon">💼</div>
+                                <div class="interest-label">Business & Tech</div>
+                            </label>
+                        </div>
+                        <small class="form-text d-block mt-2">Select all that apply, or skip to continue</small>
+                    </div>
+
+                    <!-- Custom Interests Text (Optional) -->
+                    <div class="form-group-modern mb-4">
+                        <label for="{{ form.interests.id_for_label }}">
+                            <i class="bi bi-pencil"></i> Or write your own interests
+                        </label>
+                        <textarea name="interests"
+                                  id="{{ form.interests.id_for_label }}"
+                                  class="form-control"
+                                  rows="2"
+                                  maxlength="300"
+                                  placeholder="e.g., hiking, photography, cooking...">{{ profile.interests|default:"" }}</textarea>
+                        <div class="char-counter">
+                            <span id="interestsCounter">{{ profile.interests|length|default:"0" }}</span>/300 characters
+                        </div>
+                        {% if form.interests.errors %}
+                            <div class="invalid-feedback d-block">{{ form.interests.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Looking For (Card-based) -->
+                    <div class="form-group-modern mb-4">
+                        <label class="mb-3">
+                            <i class="bi bi-heart"></i> What are you looking for? *
+                        </label>
+                        <div class="looking-for-cards">
+                            <input type="radio" name="looking_for" value="friends" id="looking_friends" class="d-none looking-radio" {% if profile.looking_for == 'friends' %}checked{% endif %} required>
+                            <label for="looking_friends" class="looking-card">
+                                <div class="looking-icon">👋</div>
+                                <div class="looking-label">New Friends</div>
+                            </label>
+
+                            <input type="radio" name="looking_for" value="dating" id="looking_dating" class="d-none looking-radio" {% if profile.looking_for == 'dating' %}checked{% endif %}>
+                            <label for="looking_dating" class="looking-card">
+                                <div class="looking-icon">💕</div>
+                                <div class="looking-label">Dating</div>
+                            </label>
+
+                            <input type="radio" name="looking_for" value="both" id="looking_both" class="d-none looking-radio" {% if profile.looking_for == 'both' %}checked{% endif %}>
+                            <label for="looking_both" class="looking-card">
+                                <div class="looking-icon">🌟</div>
+                                <div class="looking-label">Both</div>
+                            </label>
+
+                            <input type="radio" name="looking_for" value="networking" id="looking_networking" class="d-none looking-radio" {% if profile.looking_for == 'networking' %}checked{% endif %}>
+                            <label for="looking_networking" class="looking-card">
+                                <div class="looking-icon">🤝</div>
+                                <div class="looking-label">Networking</div>
+                            </label>
+                        </div>
+                        {% if form.looking_for.errors %}
+                            <div class="invalid-feedback d-block">{{ form.looking_for.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="button-group mt-4">
+                        <button type="button" class="btn btn-outline-secondary btn-lg prev-step">
+                            <i class="bi bi-arrow-left"></i> Back
+                        </button>
+                        <button type="button" class="btn btn-crush-primary btn-lg next-step">
+                            Continue <i class="bi bi-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Photos -->
+            <div class="form-step" data-step="3">
+                <div class="step-card">
+                    <div class="card-icon">📸</div>
+                    <h3 class="card-title">Add Photos</h3>
+                    <p class="card-subtitle">Upload at least one photo (optional but recommended)</p>
+
+                    <div class="photo-upload-grid">
+                        <!-- Photo 1 -->
+                        <div class="photo-upload-box">
+                            <input type="file" name="photo_1" id="photo1" accept="image/*" class="d-none photo-input">
+                            <label for="photo1" class="photo-label">
+                                <div class="photo-preview" id="preview1">
+                                    <i class="bi bi-camera photo-icon"></i>
+                                    <span class="photo-text">Add Photo 1</span>
+                                </div>
+                            </label>
+                            <button type="button" class="btn btn-sm btn-danger remove-photo d-none" data-target="photo1">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+
+                        <!-- Photo 2 -->
+                        <div class="photo-upload-box">
+                            <input type="file" name="photo_2" id="photo2" accept="image/*" class="d-none photo-input">
+                            <label for="photo2" class="photo-label">
+                                <div class="photo-preview" id="preview2">
+                                    <i class="bi bi-camera photo-icon"></i>
+                                    <span class="photo-text">Add Photo 2</span>
+                                </div>
+                            </label>
+                            <button type="button" class="btn btn-sm btn-danger remove-photo d-none" data-target="photo2">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+
+                        <!-- Photo 3 -->
+                        <div class="photo-upload-box">
+                            <input type="file" name="photo_3" id="photo3" accept="image/*" class="d-none photo-input">
+                            <label for="photo3" class="photo-label">
+                                <div class="photo-preview" id="preview3">
+                                    <i class="bi bi-camera photo-icon"></i>
+                                    <span class="photo-text">Add Photo 3</span>
+                                </div>
+                            </label>
+                            <button type="button" class="btn btn-sm btn-danger remove-photo d-none" data-target="photo3">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info mt-3">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Tip:</strong> Use clear photos where your face is visible. Avoid group photos!
+                    </div>
+
+                    <!-- Privacy Settings -->
+                    <div class="privacy-section mt-4">
+                        <h5 class="mb-3"><i class="bi bi-shield-lock"></i> Privacy Settings</h5>
+
+                        <div class="privacy-toggle mb-3">
+                            <input type="checkbox" name="show_full_name" id="{{ form.show_full_name.id_for_label }}" class="form-check-input">
+                            <label for="{{ form.show_full_name.id_for_label }}" class="form-check-label">
+                                Show my full name <small class="text-muted">(otherwise only first name)</small>
+                            </label>
+                        </div>
+
+                        <div class="privacy-toggle mb-3">
+                            <input type="checkbox" name="show_exact_age" id="{{ form.show_exact_age.id_for_label }}" class="form-check-input" checked>
+                            <label for="{{ form.show_exact_age.id_for_label }}" class="form-check-label">
+                                Show my exact age <small class="text-muted">(otherwise show age range)</small>
+                            </label>
+                        </div>
+
+                        <div class="privacy-toggle mb-3">
+                            <input type="checkbox" name="blur_photos" id="{{ form.blur_photos.id_for_label }}" class="form-check-input">
+                            <label for="{{ form.blur_photos.id_for_label }}" class="form-check-label">
+                                Blur my photos until mutual interest
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="button-group mt-4">
+                        <button type="button" class="btn btn-outline-secondary btn-lg prev-step">
+                            <i class="bi bi-arrow-left"></i> Back
+                        </button>
+                        <button type="button" class="btn btn-crush-primary btn-lg next-step">
+                            Continue <i class="bi bi-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: Review & Submit -->
+            <div class="form-step" data-step="4">
+                <div class="step-card">
+                    <div class="card-icon">✅</div>
+                    <h3 class="card-title">Review & Submit</h3>
+                    <p class="card-subtitle">Almost done! Review your information</p>
+
+                    <div class="review-summary">
+                        <div class="summary-item">
+                            <i class="bi bi-phone text-primary"></i>
+                            <div>
+                                <strong>Phone Number:</strong>
+                                <span id="review-phone">Not provided</span>
+                            </div>
+                        </div>
+                        <div class="summary-item">
+                            <i class="bi bi-calendar text-primary"></i>
+                            <div>
+                                <strong>Date of Birth:</strong>
+                                <span id="review-dob">Not provided</span>
+                            </div>
+                        </div>
+                        <div class="summary-item">
+                            <i class="bi bi-person text-primary"></i>
+                            <div>
+                                <strong>Gender:</strong>
+                                <span id="review-gender">Not selected</span>
+                            </div>
+                        </div>
+                        <div class="summary-item">
+                            <i class="bi bi-geo-alt text-primary"></i>
+                            <div>
+                                <strong>Location:</strong>
+                                <span id="review-location">Not selected</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- What Happens Next -->
+                    <div class="next-steps-info mt-4">
+                        <h5 class="mb-3"><i class="bi bi-hourglass-split"></i> What Happens Next?</h5>
+
+                        <div class="timeline-item">
+                            <div class="timeline-marker">1</div>
+                            <div class="timeline-content">
+                                <strong>Profile Submitted</strong>
+                                <p>Your profile is sent to our Crush Coach team</p>
+                            </div>
+                        </div>
+
+                        <div class="timeline-item">
+                            <div class="timeline-marker">2</div>
+                            <div class="timeline-content">
+                                <strong>Coach Review</strong>
+                                <p>A coach will review your profile within 24-48 hours</p>
+                            </div>
+                        </div>
+
+                        <div class="timeline-item">
+                            <div class="timeline-marker">3</div>
+                            <div class="timeline-content">
+                                <strong>Screening Call</strong>
+                                <p>Your coach will call you to discuss your profile and goals</p>
+                            </div>
+                        </div>
+
+                        <div class="timeline-item">
+                            <div class="timeline-marker">4</div>
+                            <div class="timeline-content">
+                                <strong>Profile Approved</strong>
+                                <p>You can start attending events and making connections!</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-success mt-4">
+                        <i class="bi bi-shield-check"></i>
+                        <strong>Privacy First:</strong> Your phone number will only be used by your coach for screening. It won't be shared with other members without your consent.
+                    </div>
+
+                    <div class="button-group mt-4">
+                        <button type="button" class="btn btn-outline-secondary btn-lg prev-step">
+                            <i class="bi bi-arrow-left"></i> Back
+                        </button>
+                        <button type="submit" class="btn btn-crush-primary btn-lg">
+                            <i class="bi bi-check-circle"></i> Submit Profile
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+/* Mobile-First Profile Creation Styles */
+.profile-creation-wrapper {
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(255, 107, 157, 0.05));
+    min-height: 100vh;
+    padding-bottom: 3rem;
+}
+
+/* Progress Tracker */
+.profile-progress-tracker {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+.progress-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+
+.step-circle {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: #e9ecef;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+}
+
+.progress-step.active .step-circle {
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    color: white;
+    box-shadow: 0 4px 15px rgba(155, 89, 182, 0.4);
+}
+
+.progress-step.completed .step-circle {
+    background: #28a745;
+    color: white;
+}
+
+.step-label {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.progress-step.active .step-label {
+    color: #9B59B6;
+    font-weight: 600;
+}
+
+.progress-line {
+    width: 60px;
+    height: 3px;
+    background: #e9ecef;
+    margin: 0 0.5rem;
+    position: relative;
+    top: -20px;
+}
+
+.progress-step.completed + .progress-line {
+    background: #28a745;
+}
+
+/* Form Steps */
+.form-step {
+    display: none;
+}
+
+.form-step.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Step Cards */
+.step-card {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    max-width: 650px;
+    margin: 0 auto;
+}
+
+.card-icon {
+    font-size: 4rem;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.card-title {
+    text-align: center;
+    font-size: 1.75rem;
+    font-weight: bold;
+    color: #2C3E50;
+    margin-bottom: 0.5rem;
+}
+
+.card-subtitle {
+    text-align: center;
+    color: #6c757d;
+    margin-bottom: 2rem;
+}
+
+/* Modern Form Groups */
+.form-group-modern {
+    margin-bottom: 1.5rem;
+}
+
+.form-group-modern label {
+    font-weight: 600;
+    color: #2C3E50;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.form-group-modern label i {
+    margin-right: 0.5rem;
+    color: #9B59B6;
+}
+
+.form-control, .form-select {
+    border-radius: 12px;
+    border: 2px solid #e9ecef;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #9B59B6;
+    box-shadow: 0 0 0 0.2rem rgba(155, 89, 182, 0.15);
+}
+
+.form-control-lg {
+    padding: 1rem 1.25rem;
+    font-size: 1.1rem;
+}
+
+/* Priority Field Highlighting */
+.priority-field {
+    border-left: 4px solid #FF6B9D;
+    padding-left: 1rem;
+    background: rgba(255, 107, 157, 0.05);
+    border-radius: 12px;
+    padding: 1rem;
+}
+
+/* Gender Card Selection */
+.gender-card-selection {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+}
+
+.gender-card {
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    padding: 1.5rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: white;
+}
+
+.gender-card:hover {
+    border-color: #9B59B6;
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(155, 89, 182, 0.2);
+}
+
+.gender-radio:checked + .gender-card {
+    border-color: #9B59B6;
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(255, 107, 157, 0.1));
+    box-shadow: 0 4px 15px rgba(155, 89, 182, 0.3);
+}
+
+.gender-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.gender-label {
+    font-weight: 600;
+    color: #2C3E50;
+    font-size: 0.95rem;
+}
+
+/* Looking For Cards */
+.looking-for-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+}
+
+.looking-card {
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    padding: 1.5rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.looking-card:hover {
+    border-color: #FF6B9D;
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(255, 107, 157, 0.2);
+}
+
+.looking-radio:checked + .looking-card {
+    border-color: #FF6B9D;
+    background: linear-gradient(135deg, rgba(255, 107, 157, 0.1), rgba(155, 89, 182, 0.1));
+    box-shadow: 0 4px 15px rgba(255, 107, 157, 0.3);
+}
+
+.looking-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.looking-label {
+    font-weight: 600;
+    color: #2C3E50;
+    font-size: 0.95rem;
+}
+
+/* Interest Category Cards */
+.interest-categories {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+}
+
+.interest-card {
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    padding: 1.25rem 0.75rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.interest-card:hover {
+    border-color: #9B59B6;
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(155, 89, 182, 0.2);
+}
+
+.interest-checkbox:checked + .interest-card {
+    border-color: #9B59B6;
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.15), rgba(255, 107, 157, 0.15));
+    box-shadow: 0 4px 15px rgba(155, 89, 182, 0.3);
+}
+
+.interest-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.interest-label {
+    font-weight: 600;
+    color: #2C3E50;
+    font-size: 0.85rem;
+    line-height: 1.2;
+}
+
+/* Character Counter */
+.char-counter {
+    text-align: right;
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+/* Photo Upload */
+.photo-upload-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.photo-upload-box {
+    position: relative;
+}
+
+.photo-label {
+    display: block;
+    cursor: pointer;
+}
+
+.photo-preview {
+    border: 3px dashed #e9ecef;
+    border-radius: 12px;
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.photo-preview:hover {
+    border-color: #9B59B6;
+    background: rgba(155, 89, 182, 0.05);
+}
+
+.photo-icon {
+    font-size: 2.5rem;
+    color: #9B59B6;
+    margin-bottom: 0.5rem;
+}
+
+.photo-text {
+    color: #6c757d;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.photo-preview.has-image {
+    border-style: solid;
+    border-color: #28a745;
+}
+
+.photo-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.remove-photo {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+}
+
+/* Privacy Toggles */
+.privacy-section {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 12px;
+}
+
+.privacy-toggle {
+    display: flex;
+    align-items: center;
+}
+
+.privacy-toggle .form-check-input {
+    width: 24px;
+    height: 24px;
+    margin-right: 1rem;
+    cursor: pointer;
+}
+
+.privacy-toggle label {
+    cursor: pointer;
+    margin-bottom: 0;
+    font-weight: 500;
+}
+
+/* Button Group */
+.button-group {
+    display: flex;
+    gap: 1rem;
+}
+
+.button-group .btn {
+    flex: 1;
+}
+
+/* Review Summary */
+.review-summary {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.summary-item {
+    display: flex;
+    align-items: start;
+    gap: 1rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.summary-item:last-child {
+    margin-bottom: 0;
+}
+
+.summary-item i {
+    font-size: 1.5rem;
+    margin-top: 0.25rem;
+}
+
+.summary-item strong {
+    display: block;
+    margin-bottom: 0.25rem;
+    color: #2C3E50;
+}
+
+.summary-item span {
+    color: #6c757d;
+}
+
+/* Next Steps Timeline */
+.next-steps-info {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 12px;
+}
+
+.timeline-item {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+}
+
+.timeline-item:last-child {
+    margin-bottom: 0;
+}
+
+.timeline-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 16px;
+    top: 40px;
+    width: 2px;
+    height: calc(100% + 1rem);
+    background: #e9ecef;
+}
+
+.timeline-marker {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.timeline-content {
+    flex: 1;
+}
+
+.timeline-content strong {
+    display: block;
+    color: #2C3E50;
+    margin-bottom: 0.25rem;
+}
+
+.timeline-content p {
+    color: #6c757d;
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 576px) {
+    .step-card {
+        padding: 1.5rem 1rem;
+    }
+
+    .card-icon {
+        font-size: 3rem;
+    }
+
+    .card-title {
+        font-size: 1.5rem;
+    }
+
+    .profile-progress-tracker {
+        flex-wrap: wrap;
+    }
+
+    .progress-line {
+        display: none;
+    }
+
+    .step-circle {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+
+    .step-label {
+        font-size: 0.75rem;
+    }
+
+    .gender-card-selection {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .looking-for-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .button-group {
+        flex-direction: column;
+    }
+}
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Multi-step form management
+{% if current_step %}
+    // Resume from last completed step - move to NEXT step to continue
+    const stepMap = {'step1': 2, 'step2': 3, 'step3': 4, 'completed': 4, 'submitted': 4};
+    let currentStep = stepMap['{{ current_step }}'] || 1;
+
+    // Debug logging for troubleshooting
+    console.log('Loading profile - completion_status:', '{{ current_step }}');
+    console.log('Mapped to step:', currentStep);
+{% else %}
+    let currentStep = 1;
+    console.log('Starting new profile at step 1');
+{% endif %}
+const totalSteps = 4;
+const isEditing = {{ is_editing|lower|default:"false" }};
+console.log('Editing mode:', isEditing, 'Has profile:', {% if profile %}true{% else %}false{% endif %});
+
+// Character counters
+document.getElementById('{{ form.bio.id_for_label }}')?.addEventListener('input', function() {
+    document.getElementById('bioCounter').textContent = this.value.length;
+});
+
+document.getElementById('{{ form.interests.id_for_label }}')?.addEventListener('input', function() {
+    document.getElementById('interestsCounter').textContent = this.value.length;
+});
+
+// Interest categories - combine checked categories with custom text
+document.querySelectorAll('.interest-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+        updateInterestsField();
+    });
+});
+
+function updateInterestsField() {
+    const selectedCategories = Array.from(document.querySelectorAll('.interest-checkbox:checked'))
+        .map(cb => cb.nextElementSibling.querySelector('.interest-label').textContent);
+
+    const interestsField = document.getElementById('{{ form.interests.id_for_label }}');
+    const customText = interestsField.value.trim();
+
+    // If user has custom text, don't override it - categories are supplementary
+    // They will be combined during form submission
+}
+
+// Photo preview
+document.querySelectorAll('.photo-input').forEach(input => {
+    input.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            const previewId = 'preview' + input.id.slice(-1);
+            const preview = document.getElementById(previewId);
+            const removeBtn = input.parentElement.querySelector('.remove-photo');
+
+            reader.onload = function(e) {
+                preview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+                preview.classList.add('has-image');
+                removeBtn.classList.remove('d-none');
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+});
+
+// Remove photo
+document.querySelectorAll('.remove-photo').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const targetId = this.dataset.target;
+        const input = document.getElementById(targetId);
+        const previewId = 'preview' + targetId.slice(-1);
+        const preview = document.getElementById(previewId);
+
+        input.value = '';
+        preview.innerHTML = `
+            <i class="bi bi-camera photo-icon"></i>
+            <span class="photo-text">Add Photo ${targetId.slice(-1)}</span>
+        `;
+        preview.classList.remove('has-image');
+        this.classList.add('d-none');
+    });
+});
+
+// Step navigation
+function updateStep(newStep) {
+    if (newStep < 1 || newStep > totalSteps) return;
+
+    // Hide current step
+    document.querySelector(`.form-step[data-step="${currentStep}"]`).classList.remove('active');
+    document.querySelector(`.progress-step[data-step="${currentStep}"]`).classList.remove('active');
+
+    // Mark completed steps
+    if (newStep > currentStep) {
+        document.querySelector(`.progress-step[data-step="${currentStep}"]`).classList.add('completed');
+    }
+
+    // Show new step
+    currentStep = newStep;
+    document.querySelector(`.form-step[data-step="${currentStep}"]`).classList.add('active');
+    document.querySelector(`.progress-step[data-step="${currentStep}"]`).classList.add('active');
+
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Update review if on last step
+    if (currentStep === 4) {
+        updateReview();
+    }
+}
+
+// Next step buttons
+document.querySelectorAll('.next-step').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        if (validateCurrentStep()) {
+            // Save data after each step
+            if (currentStep === 1) {
+                await saveStep1();
+            } else if (currentStep === 2) {
+                await saveStep2();
+            }
+            updateStep(currentStep + 1);
+        }
+    });
+});
+
+// Previous step buttons
+document.querySelectorAll('.prev-step').forEach(btn => {
+    btn.addEventListener('click', function() {
+        updateStep(currentStep - 1);
+    });
+});
+
+// Validation
+function validateCurrentStep() {
+    const currentStepEl = document.querySelector(`.form-step[data-step="${currentStep}"]`);
+    const requiredFields = currentStepEl.querySelectorAll('[required]');
+    let isValid = true;
+
+    requiredFields.forEach(field => {
+        if (field.type === 'radio') {
+            const radioGroup = currentStepEl.querySelectorAll(`[name="${field.name}"]`);
+            const isChecked = Array.from(radioGroup).some(radio => radio.checked);
+            if (!isChecked) {
+                isValid = false;
+                alert('Please select an option for ' + field.name.replace(/_/g, ' '));
+            }
+        } else if (!field.value.trim()) {
+            isValid = false;
+            field.focus();
+            alert('Please fill in all required fields');
+            return false;
+        }
+    });
+
+    return isValid;
+}
+
+// Update review summary
+function updateReview() {
+    const phoneNumber = document.querySelector('[name="phone_number"]').value || 'Not provided';
+    const dob = document.querySelector('[name="date_of_birth"]').value || 'Not provided';
+    const gender = document.querySelector('[name="gender"]:checked')?.nextElementSibling.querySelector('.gender-label')?.textContent || 'Not selected';
+    const location = document.querySelector('[name="location"]').value || 'Not selected';
+
+    document.getElementById('review-phone').textContent = phoneNumber;
+    document.getElementById('review-dob').textContent = dob;
+    document.getElementById('review-gender').textContent = gender;
+    document.getElementById('review-location').textContent = location;
+}
+
+// Form submission - combine interests before submitting
+document.getElementById('profileForm').addEventListener('submit', function(e) {
+    // Combine selected interest categories with custom text
+    const selectedCategories = Array.from(document.querySelectorAll('.interest-checkbox:checked'))
+        .map(cb => cb.nextElementSibling.querySelector('.interest-label').textContent);
+
+    const customInterests = document.querySelector('[name="interests"]').value.trim();
+
+    // Combine categories and custom interests
+    let finalInterests = '';
+    if (selectedCategories.length > 0) {
+        finalInterests = selectedCategories.join(', ');
+    }
+    if (customInterests) {
+        finalInterests = finalInterests ? `${finalInterests}, ${customInterests}` : customInterests;
+    }
+
+    // Update the interests field with combined value
+    document.querySelector('[name="interests"]').value = finalInterests;
+
+    // Only validate if we're NOT on the final review step (step 4)
+    // Step 4 has no required fields, it's just a review
+    if (currentStep !== 4 && !validateCurrentStep()) {
+        e.preventDefault();
+    }
+});
+
+// AJAX save functions
+async function saveStep1() {
+    const data = {
+        phone_number: document.querySelector('[name="phone_number"]').value,
+        date_of_birth: document.querySelector('[name="date_of_birth"]').value,
+        gender: document.querySelector('[name="gender"]:checked')?.value,
+        location: document.querySelector('[name="location"]').value
+    };
+
+    try {
+        const response = await fetch('{% url "crush_lu:save_profile_step1" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Show success notification
+            showNotification('✅ Basic info saved! A coach will contact you soon.', 'success');
+
+            // Mark step 1 as saved
+            localStorage.setItem('crush_profile_step1_saved', 'true');
+        } else {
+            showNotification('❌ Error saving: ' + result.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error saving Step 1:', error);
+        showNotification('❌ Network error. Please try again.', 'error');
+    }
+}
+
+async function saveStep2() {
+    // Combine selected interest categories with custom text
+    const selectedCategories = Array.from(document.querySelectorAll('.interest-checkbox:checked'))
+        .map(cb => cb.nextElementSibling.querySelector('.interest-label').textContent);
+
+    const customInterests = document.querySelector('[name="interests"]').value.trim();
+
+    // Combine categories and custom interests
+    let finalInterests = '';
+    if (selectedCategories.length > 0) {
+        finalInterests = selectedCategories.join(', ');
+    }
+    if (customInterests) {
+        finalInterests = finalInterests ? `${finalInterests}, ${customInterests}` : customInterests;
+    }
+
+    const data = {
+        bio: document.querySelector('[name="bio"]').value,
+        interests: finalInterests,
+        looking_for: document.querySelector('[name="looking_for"]:checked')?.value
+    };
+
+    try {
+        const response = await fetch('{% url "crush_lu:save_profile_step2" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showNotification('✅ About section saved!', 'success');
+        }
+    } catch (error) {
+        console.error('Error saving Step 2:', error);
+    }
+}
+
+// Notification system
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(notification);
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        notification.remove();
+    }, 5000);
+}
+
+// Initialize on page load
+window.addEventListener('load', async function() {
+    // If editing or resuming, mark previous steps as completed and show current step
+    if (currentStep > 1) {
+        // Mark all previous steps as completed
+        for (let i = 1; i < currentStep; i++) {
+            document.querySelector(`.progress-step[data-step="${i}"]`)?.classList.add('completed');
+        }
+
+        // Hide step 1 and show the current step
+        document.querySelector(`.form-step[data-step="1"]`)?.classList.remove('active');
+        document.querySelector(`.progress-step[data-step="1"]`)?.classList.remove('active');
+
+        document.querySelector(`.form-step[data-step="${currentStep}"]`)?.classList.add('active');
+        document.querySelector(`.progress-step[data-step="${currentStep}"]`)?.classList.add('active');
+
+        showNotification(`👋 Welcome back! Continue with Step ${currentStep}.`, 'info');
+    }
+
+    // Check for profile progress (for new profiles)
+    if (!isEditing) {
+        try {
+            const response = await fetch('{% url "crush_lu:get_profile_progress" %}');
+            const progress = await response.json();
+
+            if (progress.exists && progress.completion_status !== 'submitted' && currentStep === 1) {
+                const stepNum = parseInt(progress.completion_status.replace('step', '')) || 1;
+                if (stepNum > 1) {
+                    showNotification(`👋 Welcome back! You can continue from Step ${stepNum}.`, 'info');
+                }
+            }
+        } catch (error) {
+            console.error('Error checking progress:', error);
+        }
+    }
+});
+
+function getStepNumber(status) {
+    const statusMap = {
+        'step1': 2,
+        'step2': 3,
+        'step3': 4,
+        'completed': 4
+    };
+    return statusMap[status] || 1;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,227 @@
+{% extends 'crush_lu/base.html' %}
+
+{% block title %}Screening Calls - Coach Dashboard{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="bi bi-telephone"></i> Screening Calls Dashboard
+            </h1>
+            <p class="lead text-muted">Manage phone screenings for new profile submissions</p>
+        </div>
+    </div>
+
+    <!-- Pending Screening Calls -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0">
+                        <i class="bi bi-hourglass-split"></i> Pending Screening Calls
+                        <span class="badge bg-danger">{{ pending_calls|length }}</span>
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if pending_calls %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>User</th>
+                                        <th>Phone Number</th>
+                                        <th>Profile Started</th>
+                                        <th>Completion Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for profile in pending_calls %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ profile.user.first_name }} {{ profile.user.last_name }}</strong><br>
+                                                <small class="text-muted">{{ profile.user.email }}</small>
+                                            </td>
+                                            <td>
+                                                <a href="tel:{{ profile.phone_number }}" class="btn btn-sm btn-success">
+                                                    <i class="bi bi-telephone-fill"></i> {{ profile.phone_number }}
+                                                </a>
+                                            </td>
+                                            <td>
+                                                <small>{{ profile.created_at|timesince }} ago</small>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info">{{ profile.get_completion_status_display }}</span>
+                                            </td>
+                                            <td>
+                                                <button type="button"
+                                                        class="btn btn-primary btn-sm"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#completeModal{{ profile.id }}">
+                                                    <i class="bi bi-check-circle"></i> Mark Complete
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-check-circle text-success" style="font-size: 4rem;"></i>
+                            <h4 class="mt-3">All caught up!</h4>
+                            <p class="text-muted">No pending screening calls at the moment.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Completed Screening Calls -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-check-circle-fill"></i> Recently Completed Screenings
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if completed_calls %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>User</th>
+                                        <th>Phone</th>
+                                        <th>Completed</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for profile in completed_calls %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ profile.user.first_name }} {{ profile.user.last_name }}</strong>
+                                            </td>
+                                            <td>{{ profile.phone_number }}</td>
+                                            <td>
+                                                <small>{{ profile.screening_call_scheduled|timesince }} ago</small>
+                                            </td>
+                                            <td>
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-secondary"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#notesModal{{ profile.id }}">
+                                                    <i class="bi bi-eye"></i> View Notes
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No completed screenings yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Section -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h5><i class="bi bi-info-circle"></i> Screening Call Guidelines</h5>
+                    <ul class="mb-0">
+                        <li>Call users within 24-48 hours of profile creation</li>
+                        <li>Verify identity and explain the Crush.lu process</li>
+                        <li>Discuss their goals and expectations</li>
+                        <li>Educate about event-based connections and privacy</li>
+                        <li>Answer any questions they might have</li>
+                        <li>Set expectations for profile approval timeline</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals for Pending Calls (Outside tables to prevent flickering) -->
+{% for profile in pending_calls %}
+    <div class="modal fade" id="completeModal{{ profile.id }}" tabindex="-1" aria-labelledby="completeModalLabel{{ profile.id }}" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="completeModalLabel{{ profile.id }}">Complete Screening Call</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="post" action="{% url 'crush_lu:coach_mark_screening_complete' profile.id %}">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <strong>User:</strong> {{ profile.user.first_name }} {{ profile.user.last_name }}<br>
+                            <strong>Phone:</strong> {{ profile.phone_number }}<br>
+                            <strong>Email:</strong> {{ profile.user.email }}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="screening_notes{{ profile.id }}" class="form-label">
+                                Screening Notes *
+                            </label>
+                            <textarea name="screening_notes"
+                                      id="screening_notes{{ profile.id }}"
+                                      class="form-control"
+                                      rows="5"
+                                      placeholder="Notes from the call: impressions, concerns, next steps..."
+                                      required></textarea>
+                            <small class="form-text text-muted">
+                                Record your impressions and any important information from the call
+                            </small>
+                        </div>
+
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle"></i>
+                            By completing this screening, the user will be notified that their profile review is in progress.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Mark as Complete
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+
+<!-- Modals for Completed Calls Notes -->
+{% for profile in completed_calls %}
+    <div class="modal fade" id="notesModal{{ profile.id }}" tabindex="-1" aria-labelledby="notesModalLabel{{ profile.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="notesModalLabel{{ profile.id }}">Screening Notes</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>User:</strong> {{ profile.user.first_name }} {{ profile.user.last_name }}</p>
+                    <p><strong>Completed:</strong> {{ profile.screening_call_scheduled|date:"M d, Y g:i A" }}</p>
+                    <hr>
+                    <h6>Notes:</h6>
+                    <p class="text-muted">{{ profile.screening_notes|default:"No notes recorded"|linebreaks }}</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+{% endblock %}

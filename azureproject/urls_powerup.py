@@ -15,7 +15,9 @@ urlpatterns = [
     path('healthz/', health_check_view, name='healthz_powerup'), # Add health check endpoint
     # Include the i18n URLs so that {% url 'set_language' %} works
     path('i18n/', include('django.conf.urls.i18n')),
-    
+    # Add Crush.lu URLs for local development
+    path('crush/', include('crush_lu.urls', namespace='crush_lu')),
+
     # You can also map set_language directly if you prefer:
     # path('set_language/', include('django.conf.urls.i18n')),
 ]

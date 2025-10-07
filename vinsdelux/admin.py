@@ -17,11 +17,200 @@ from .models import (
 class VdlUserProfileInline(admin.StackedInline):
     model = VdlUserProfile
     can_delete = False
-    verbose_name_plural = 'User Profile'
+    verbose_name_plural = 'VinsDelux Profile'
+    fields = ('phone_number', 'default_shipping_address', 'default_billing_address')
+
+# Dynamic inlines for other app profiles
+class EntrepreneurProfileInline(admin.StackedInline):
+    """Show EntrepreneurProfile if exists"""
+    from entreprinder.models import EntrepreneurProfile
+    model = EntrepreneurProfile
+    can_delete = False
+    verbose_name_plural = 'PowerUP / Entreprinder Profile'
+    fields = ('bio', 'company', 'industry', 'location', 'linkedin_profile')
+    readonly_fields = ('bio', 'company', 'industry', 'location', 'linkedin_profile')
+    extra = 0
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+class CrushProfileInline(admin.StackedInline):
+    """Show CrushProfile if exists"""
+    from crush_lu.models import CrushProfile
+    model = CrushProfile
+    can_delete = False
+    verbose_name_plural = 'Crush.lu Dating Profile'
+    fields = ('phone_number', 'gender', 'location', 'bio', 'is_approved', 'approved_at', 'completion_status')
+    readonly_fields = ('is_approved', 'approved_at', 'completion_status')
+    extra = 0
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+class CrushCoachInline(admin.StackedInline):
+    """Show CrushCoach if exists"""
+    from crush_lu.models import CrushCoach
+    model = CrushCoach
+    can_delete = False
+    verbose_name_plural = 'Crush.lu Coach Status'
+    fields = ('bio', 'specializations', 'is_active', 'max_active_reviews')
+    extra = 0
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 class UserAdmin(BaseUserAdmin):
-    inlines = (VdlUserProfileInline,)
-    list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff')
+    inlines = (EntrepreneurProfileInline, CrushProfileInline, CrushCoachInline, VdlUserProfileInline)
+    list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff',
+                    'has_entreprinder_profile', 'has_crush_profile', 'has_vinsdelux_profile', 'is_crush_coach',
+                    'profile_count')
+    list_filter = BaseUserAdmin.list_filter + ('is_staff', 'is_active', 'date_joined')
+
+    # Add search by profile status
+    search_fields = ('username', 'email', 'first_name', 'last_name')
+
+    def profile_count(self, obj):
+        """Count total number of profiles across all apps"""
+        count = 0
+        try:
+            if obj.entrepreneurprofile:
+                count += 1
+        except:
+            pass
+        try:
+            if obj.crushprofile:
+                count += 1
+        except:
+            pass
+        try:
+            if obj.vdluserprofile:
+                count += 1
+        except:
+            pass
+        try:
+            if obj.crushcoach:
+                count += 1
+        except:
+            pass
+
+        if count >= 3:
+            return format_html('<strong style="color: green;">{} profiles</strong>', count)
+        elif count >= 2:
+            return format_html('<strong style="color: orange;">{} profiles</strong>', count)
+        elif count == 1:
+            return format_html('{} profile', count)
+        else:
+            return format_html('<span style="color: red;">No profiles</span>')
+    profile_count.short_description = '📊 Total Profiles'
+
+    def has_entreprinder_profile(self, obj):
+        """Check if user has Entreprinder/PowerUP profile"""
+        try:
+            return obj.entrepreneurprofile is not None
+        except:
+            return False
+    has_entreprinder_profile.boolean = True
+    has_entreprinder_profile.short_description = '👔 PowerUP'
+
+    def has_crush_profile(self, obj):
+        """Check if user has Crush.lu dating profile"""
+        try:
+            return obj.crushprofile is not None
+        except:
+            return False
+    has_crush_profile.boolean = True
+    has_crush_profile.short_description = '💕 Crush.lu'
+
+    def has_vinsdelux_profile(self, obj):
+        """Check if user has VinsDelux profile"""
+        try:
+            return obj.vdluserprofile is not None
+        except:
+            return False
+    has_vinsdelux_profile.boolean = True
+    has_vinsdelux_profile.short_description = '🍷 VinsDelux'
+
+    def is_crush_coach(self, obj):
+        """Check if user is an active Crush.lu coach"""
+        try:
+            return obj.crushcoach.is_active if obj.crushcoach else False
+        except:
+            return False
+    is_crush_coach.boolean = True
+    is_crush_coach.short_description = '🎯 Coach'
+
+    # Add custom readonly fields to detail page
+    readonly_fields = ('get_profile_summary',)
+
+    def get_profile_summary(self, obj):
+        """Display a summary of all profiles this user has"""
+        from django.utils.safestring import mark_safe
+
+        summary = '<div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">'
+        summary += '<h3 style="margin-top: 0;">User Profile Summary</h3>'
+        summary += '<table style="width: 100%; border-collapse: collapse;">'
+
+        # Check PowerUP profile
+        try:
+            if obj.entrepreneurprofile:
+                summary += '<tr style="background: #e8f5e9;"><td style="padding: 8px; border: 1px solid #ddd;"><strong>👔 PowerUP/Entreprinder</strong></td>'
+                summary += f'<td style="padding: 8px; border: 1px solid #ddd;">✅ Active<br><small>Company: {obj.entrepreneurprofile.company or "Not set"}</small></td></tr>'
+            else:
+                summary += '<tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>👔 PowerUP/Entreprinder</strong></td>'
+                summary += '<td style="padding: 8px; border: 1px solid #ddd;">❌ No profile</td></tr>'
+        except:
+            summary += '<tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>👔 PowerUP/Entreprinder</strong></td>'
+            summary += '<td style="padding: 8px; border: 1px solid #ddd;">❌ No profile</td></tr>'
+
+        # Check Crush.lu profile
+        try:
+            if obj.crushprofile:
+                approval_status = "Approved ✓" if obj.crushprofile.is_approved else "Pending review"
+                summary += '<tr style="background: #fce4ec;"><td style="padding: 8px; border: 1px solid #ddd;"><strong>💕 Crush.lu</strong></td>'
+                summary += f'<td style="padding: 8px; border: 1px solid #ddd;">✅ Active<br><small>{approval_status} | Status: {obj.crushprofile.completion_status}</small></td></tr>'
+            else:
+                summary += '<tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>💕 Crush.lu</strong></td>'
+                summary += '<td style="padding: 8px; border: 1px solid #ddd;">❌ No profile</td></tr>'
+        except:
+            summary += '<tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>💕 Crush.lu</strong></td>'
+            summary += '<td style="padding: 8px; border: 1px solid #ddd;">❌ No profile</td></tr>'
+
+        # Check Crush Coach status
+        try:
+            if obj.crushcoach:
+                coach_status = "Active 🎯" if obj.crushcoach.is_active else "Inactive"
+                summary += '<tr style="background: #fff3e0;"><td style="padding: 8px; border: 1px solid #ddd;"><strong>🎯 Crush Coach</strong></td>'
+                summary += f'<td style="padding: 8px; border: 1px solid #ddd;">{coach_status}<br><small>Reviews: {obj.crushcoach.get_active_reviews_count()}/{obj.crushcoach.max_active_reviews}</small></td></tr>'
+            else:
+                summary += '<tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>🎯 Crush Coach</strong></td>'
+                summary += '<td style="padding: 8px; border: 1px solid #ddd;">❌ Not a coach</td></tr>'
+        except:
+            summary += '<tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>🎯 Crush Coach</strong></td>'
+            summary += '<td style="padding: 8px; border: 1px solid #ddd;">❌ Not a coach</td></tr>'
+
+        # Check VinsDelux profile
+        try:
+            if obj.vdluserprofile:
+                summary += '<tr style="background: #f3e5f5;"><td style="padding: 8px; border: 1px solid #ddd;"><strong>🍷 VinsDelux</strong></td>'
+                summary += f'<td style="padding: 8px; border: 1px solid #ddd;">✅ Active<br><small>Phone: {obj.vdluserprofile.phone_number or "Not set"}</small></td></tr>'
+            else:
+                summary += '<tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>🍷 VinsDelux</strong></td>'
+                summary += '<td style="padding: 8px; border: 1px solid #ddd;">❌ No profile</td></tr>'
+        except:
+            summary += '<tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>🍷 VinsDelux</strong></td>'
+            summary += '<td style="padding: 8px; border: 1px solid #ddd;">❌ No profile</td></tr>'
+
+        summary += '</table></div>'
+        return mark_safe(summary)
+    get_profile_summary.short_description = 'Cross-Platform Profile Status'
+
+    # Add fieldsets to organize the detail view
+    fieldsets = BaseUserAdmin.fieldsets + (
+        ('Cross-Platform Profile Overview', {
+            'fields': ('get_profile_summary',),
+            'description': 'View all profiles this user has created across PowerUP, Crush.lu, VinsDelux, and Coach status.'
+        }),
+    )
 
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)

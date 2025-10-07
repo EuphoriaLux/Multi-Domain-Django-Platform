@@ -8,6 +8,8 @@ from azureproject.urls import health_check_view # Import health check view
 urlpatterns = [
     path('healthz/', health_check_view, name='healthz_vinsdelux'), # Add health check endpoint
     path('admin/', admin.site.urls), # Add admin URLs
+    # Add Crush.lu URLs for local development
+    path('crush/', include('crush_lu.urls', namespace='crush_lu')),
     path('', include('vinsdelux.urls')), # Route root to vinsdelux app's URLs
     path('vibe/', vibe_views.index, name='vinsdelux_vibe'), # Keep other specific routes
     # Add other vinsdelux.com specific routes here

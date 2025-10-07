@@ -28,7 +28,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.178.184']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.178.184', 'crush.lu', 'www.crush.lu']
 
 if 'CODESPACE_NAME' in os.environ:
     CSRF_TRUSTED_ORIGINS = [f'https://{os.getenv("CODESPACE_NAME")}-8000.{os.getenv("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")}']
@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'vibe_coding',
     'vinsdelux',
+    'crush_lu',
 ]
 
 
@@ -73,6 +74,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',  # Ensure correct placement
+    'azureproject.middleware.DomainURLRoutingMiddleware',  # Domain-based routing
 ]
 
 
@@ -100,6 +102,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'django.template.context_processors.i18n',  # Ensure this line is present
+                'crush_lu.context_processors.crush_user_context',  # Crush.lu user context
             ],
             # 'builtins': [ # Simplify builtins to only include allauth account tags
             #     'allauth.account.templatetags.account',

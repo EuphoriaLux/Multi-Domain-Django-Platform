@@ -1,0 +1,482 @@
+{% extends 'crush_lu/base.html' %}
+
+{% block title %}How It Works - Crush.lu{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Hero Section */
+    .how-it-works-hero {
+        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+        color: white;
+        padding: 4rem 1rem;
+        text-align: center;
+        margin: -1rem -1rem 3rem -1rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .how-it-works-hero::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        opacity: 0.5;
+    }
+
+    .how-it-works-hero h1 {
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        font-weight: 700;
+        margin-bottom: 1rem;
+        position: relative;
+        z-index: 1;
+    }
+
+    .how-it-works-hero p {
+        font-size: clamp(1rem, 2.5vw, 1.25rem);
+        opacity: 0.95;
+        max-width: 600px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Step Cards */
+    .step-card {
+        border: none;
+        border-radius: 20px;
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        height: 100%;
+        background: white;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+        position: relative;
+    }
+
+    .step-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 24px rgba(155, 89, 182, 0.15);
+    }
+
+    .step-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        font-weight: bold;
+        margin: 0 auto 1.5rem;
+        box-shadow: 0 8px 16px rgba(155, 89, 182, 0.3);
+        animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+    }
+
+    .step-card:nth-child(1) .step-icon { animation-delay: 0s; }
+    .step-card:nth-child(2) .step-icon { animation-delay: 0.2s; }
+    .step-card:nth-child(3) .step-icon { animation-delay: 0.4s; }
+    .step-card:nth-child(4) .step-icon { animation-delay: 0.6s; }
+
+    .step-card h3 {
+        font-size: clamp(1.25rem, 3vw, 1.5rem);
+        margin-bottom: 1rem;
+        color: #2C3E50;
+        font-weight: 600;
+    }
+
+    .step-card p {
+        color: #6c757d;
+        line-height: 1.7;
+        font-size: clamp(0.95rem, 2vw, 1rem);
+    }
+
+    .step-number {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        color: white;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1.1rem;
+        opacity: 0.2;
+    }
+
+    /* Timeline connector for desktop */
+    @media (min-width: 768px) {
+        .step-timeline {
+            position: relative;
+        }
+
+        .step-timeline::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, #9B59B6, #FF6B9D);
+            transform: translateY(-50%);
+            z-index: -1;
+            opacity: 0.2;
+        }
+    }
+
+    /* Privacy Section */
+    .privacy-section {
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(255, 107, 157, 0.05));
+        border-radius: 25px;
+        padding: 3rem 2rem;
+        margin: 3rem 0;
+        border: 2px solid rgba(155, 89, 182, 0.1);
+    }
+
+    .privacy-section h2 {
+        text-align: center;
+        margin-bottom: 2.5rem;
+        font-size: clamp(1.75rem, 4vw, 2.5rem);
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .feature-list {
+        list-style: none;
+        padding: 0;
+    }
+
+    .feature-list li {
+        padding: 0.75rem 0;
+        padding-left: 2.5rem;
+        position: relative;
+        font-size: clamp(0.95rem, 2vw, 1.05rem);
+        line-height: 1.6;
+    }
+
+    .feature-list li::before {
+        content: '✓';
+        position: absolute;
+        left: 0;
+        top: 0.75rem;
+        width: 28px;
+        height: 28px;
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 0.9rem;
+    }
+
+    .feature-column {
+        margin-bottom: 2rem;
+    }
+
+    .feature-column h5 {
+        font-size: clamp(1.1rem, 2.5vw, 1.3rem);
+        margin-bottom: 1.5rem;
+        color: #2C3E50;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .feature-icon {
+        font-size: 1.5rem;
+    }
+
+    /* CTA Section */
+    .cta-section {
+        text-align: center;
+        padding: 4rem 1rem;
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.08), rgba(255, 107, 157, 0.08));
+        border-radius: 25px;
+        margin: 3rem 0;
+    }
+
+    .cta-section h2 {
+        font-size: clamp(1.75rem, 4vw, 2.5rem);
+        margin-bottom: 1.5rem;
+        color: #2C3E50;
+    }
+
+    .cta-section p {
+        font-size: clamp(1rem, 2.5vw, 1.25rem);
+        color: #6c757d;
+        margin-bottom: 2rem;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    /* Stats Section */
+    .stats-section {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 2rem;
+        margin: 3rem 0;
+    }
+
+    .stat-card {
+        text-align: center;
+        padding: 2rem 1rem;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        transition: transform 0.3s ease;
+    }
+
+    .stat-card:hover {
+        transform: scale(1.05);
+    }
+
+    .stat-number {
+        font-size: clamp(2rem, 5vw, 3rem);
+        font-weight: 700;
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+        color: #6c757d;
+        font-size: clamp(0.9rem, 2vw, 1rem);
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 767px) {
+        .step-card {
+            margin-bottom: 1.5rem;
+        }
+
+        .privacy-section {
+            padding: 2rem 1.5rem;
+        }
+
+        .feature-list li {
+            font-size: 0.95rem;
+        }
+    }
+
+    /* Scroll animations */
+    .fade-in {
+        opacity: 0;
+        transform: translateY(30px);
+        transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    .fade-in.visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="how-it-works-hero">
+    <h1>How Crush.lu Works</h1>
+    <p>Your journey to meaningful connections starts here. No endless swiping, just real events with real people.</p>
+</div>
+
+<!-- Stats Section -->
+<div class="stats-section fade-in">
+    <div class="stat-card">
+        <div class="stat-number">4</div>
+        <div class="stat-label">Simple Steps</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">24-48h</div>
+        <div class="stat-label">Profile Review</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">100%</div>
+        <div class="stat-label">Verified Profiles</div>
+    </div>
+</div>
+
+<!-- Steps Section -->
+<div class="row g-4 mb-5 step-timeline fade-in">
+    <div class="col-md-6 col-lg-3">
+        <div class="step-card">
+            <div class="step-number">1</div>
+            <div class="card-body p-4 text-center">
+                <div class="step-icon">
+                    📝
+                </div>
+                <h3>Create Your Profile</h3>
+                <p>
+                    Share who you are, what you love, and what you're looking for. Add photos and let your personality shine through. Authenticity is key!
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="step-card">
+            <div class="step-number">2</div>
+            <div class="card-body p-4 text-center">
+                <div class="step-icon">
+                    🎯
+                </div>
+                <h3>Meet Your Coach</h3>
+                <p>
+                    A dedicated Crush Coach reviews your profile, provides personalized feedback, and ensures our community stays authentic and respectful.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="step-card">
+            <div class="step-number">3</div>
+            <div class="card-body p-4 text-center">
+                <div class="step-icon">
+                    🎉
+                </div>
+                <h3>Browse Events</h3>
+                <p>
+                    Once approved, explore speed dating nights, social mixers, themed events, and outdoor adventures. Find what excites you!
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="step-card">
+            <div class="step-number">4</div>
+            <div class="card-body p-4 text-center">
+                <div class="step-icon">
+                    💕
+                </div>
+                <h3>Make Connections</h3>
+                <p>
+                    Show up, be yourself, and meet amazing people face-to-face. Real relationships start with real conversations.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Privacy & Safety Section -->
+<div class="privacy-section fade-in">
+    <h2>Privacy & Safety First</h2>
+    <div class="row">
+        <div class="col-md-6 feature-column">
+            <h5>
+                <span class="feature-icon">🔒</span>
+                Your Privacy Matters
+            </h5>
+            <ul class="feature-list">
+                <li>Control what information you share</li>
+                <li>Show full name or just first name</li>
+                <li>Blur photos until mutual interest</li>
+                <li>No public profiles browsing</li>
+                <li>Event-based connections only</li>
+            </ul>
+        </div>
+        <div class="col-md-6 feature-column">
+            <h5>
+                <span class="feature-icon">✅</span>
+                Community Standards
+            </h5>
+            <ul class="feature-list">
+                <li>All profiles reviewed by coaches</li>
+                <li>Zero tolerance for inappropriate behavior</li>
+                <li>Respectful, inclusive environment</li>
+                <li>18+ only, verified ages</li>
+                <li>Safe, organized meetup spaces</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Why Different Section -->
+<div class="row g-4 mb-5 fade-in">
+    <div class="col-12">
+        <h2 class="text-center mb-4" style="font-size: clamp(1.75rem, 4vw, 2.5rem);">Why Crush.lu is Different</h2>
+    </div>
+    <div class="col-md-4">
+        <div class="text-center p-4">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🚫</div>
+            <h5>No Endless Swiping</h5>
+            <p class="text-muted">We focus on quality over quantity. Real events, real people.</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="text-center p-4">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">👥</div>
+            <h5>Human-Curated</h5>
+            <p class="text-muted">Every profile reviewed by real coaches, not algorithms.</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="text-center p-4">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🇱🇺</div>
+            <h5>Luxembourg-Focused</h5>
+            <p class="text-muted">Built for our small community with privacy in mind.</p>
+        </div>
+    </div>
+</div>
+
+<!-- CTA Section -->
+<div class="cta-section fade-in">
+    <h2>Ready to Meet Your Crush?</h2>
+    <p>Join Luxembourg's most authentic way to meet new people and make real connections.</p>
+    <a href="{% url 'crush_lu:signup' %}" class="btn btn-crush-primary btn-lg" style="padding: 1rem 3rem; font-size: 1.1rem;">
+        Get Started Now
+    </a>
+    <div class="mt-4">
+        <small class="text-muted">
+            No credit card required • Free to join • Cancel anytime
+        </small>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Intersection Observer for scroll animations
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+            }
+        });
+    }, observerOptions);
+
+    // Observe all fade-in elements
+    document.querySelectorAll('.fade-in').forEach(el => {
+        observer.observe(el);
+    });
+
+    // Add stagger effect to step cards
+    document.querySelectorAll('.step-card').forEach((card, index) => {
+        card.style.animationDelay = `${index * 0.1}s`;
+    });
+</script>
+{% endblock %}

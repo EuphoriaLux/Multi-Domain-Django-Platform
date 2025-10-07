@@ -21,6 +21,8 @@ class DomainURLRoutingMiddleware:
     """
     Middleware that sets request.urlconf based on the HTTP host.
     - For powerup.lu (or www.powerup.lu), use the powerup URL configuration.
+    - For vinsdelux.com (or www.vinsdelux.com), use the vinsdelux URL configuration.
+    - For crush.lu (or www.crush.lu), use the crush URL configuration.
     - Otherwise, fallback to powerup (default).
     """
     def __init__(self, get_response):
@@ -36,6 +38,9 @@ class DomainURLRoutingMiddleware:
         elif host in ['vinsdelux.com', 'www.vinsdelux.com']:
             request.urlconf = 'azureproject.urls_vinsdelux'
             logger.info(f"DomainURLRoutingMiddleware: Routing to urls_vinsdelux for host: {host}")
+        elif host in ['crush.lu', 'www.crush.lu']:
+            request.urlconf = 'azureproject.urls_crush'
+            logger.info(f"DomainURLRoutingMiddleware: Routing to urls_crush for host: {host}")
         else:
             # Fallback to powerup if no match, or choose a different default if appropriate
             request.urlconf = 'azureproject.urls_powerup' # Fallback

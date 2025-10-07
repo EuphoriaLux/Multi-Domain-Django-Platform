@@ -11,6 +11,7 @@ urlpatterns = [
     path('pixel-war/ts/', views.pixel_war_ts, name='pixel_war_ts'),
     path('pixel-war/react/', views.pixel_war_react, name='pixel_war_react'),
     path('pixel-war/demo/', views.pixel_war_demo, name='pixel_war_demo'),
+    path('road-trip-music-game/', views.road_trip_music_game, name='road_trip_music_game'),
     path('api/canvas-state/', views.get_canvas_state, name='canvas_state'),
     path('api/canvas-state/<int:canvas_id>/', views.get_canvas_state, name='canvas_state_by_id'),
     path('api/place-pixel/', views.place_pixel, name='place_pixel'),
