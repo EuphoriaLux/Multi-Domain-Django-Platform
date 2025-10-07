@@ -181,7 +181,8 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
   resource webAppSettings 'config' = {
     name: 'appsettings'
     properties: {
-      SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
+      SCM_DO_BUILD_DURING_DEPLOYMENT: 'false'
+      ENABLE_ORYX_BUILD: 'true'
       AZURE_POSTGRESQL_CONNECTIONSTRING: 'dbname=${pythonAppDatabase.name} host=${postgresServer.name}.postgres.database.azure.com port=5432 sslmode=require user=${postgresServer.properties.administratorLogin} password=${databasePassword}'
       SECRET_KEY: secretKey
       CUSTOM_DOMAINS: 'www.powerup.lu,powerup.lu,vinsdelux.com,www.vinsdelux.com'
@@ -190,8 +191,10 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       AZURE_ACCOUNT_NAME: storageAccount.name
       AZURE_ACCOUNT_KEY: storageAccount.listKeys().keys[0].value
       AZURE_CONTAINER_NAME: mediaContainerName
-      // Complete deployment with media and data (new unified approach)
-      DEPLOY_MEDIA_AND_DATA: 'true'
+      // Deployment flags - set to false for faster deployments
+      // Set INITIAL_DEPLOYMENT=true manually in portal for first deployment only
+      DEPLOY_MEDIA_AND_DATA: 'false'
+      INITIAL_DEPLOYMENT: 'false'
       // Legacy options (kept for backward compatibility)
       SYNC_MEDIA_TO_AZURE: 'false'
       POPULATE_SAMPLE_DATA: 'false'

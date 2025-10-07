@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from . import views_profile
+from . import api_views
 
 app_name = 'crush_lu'
 
@@ -35,6 +36,29 @@ urlpatterns = [
     path('events/<int:event_id>/', views.event_detail, name='event_detail'),
     path('events/<int:event_id>/register/', views.event_register, name='event_register'),
     path('events/<int:event_id>/cancel/', views.event_cancel, name='event_cancel'),
+
+    # Event Activity Voting (Phase 1)
+    path('events/<int:event_id>/voting/lobby/', views.event_voting_lobby, name='event_voting_lobby'),
+    path('events/<int:event_id>/voting/', views.event_activity_vote, name='event_activity_vote'),
+    path('events/<int:event_id>/voting/results/', views.event_voting_results, name='event_voting_results'),
+
+    # Presentations (Phase 2)
+    path('events/<int:event_id>/presentations/', views.event_presentations, name='event_presentations'),
+    path('events/<int:event_id>/presentations/rate/<int:presenter_id>/', views.submit_presentation_rating, name='submit_presentation_rating'),
+    path('events/<int:event_id>/presentations/my-scores/', views.my_presentation_scores, name='my_presentation_scores'),
+    path('api/events/<int:event_id>/presentations/current/', views.get_current_presenter_api, name='get_current_presenter_api'),
+
+    # Coach Presentation Controls
+    path('coach/events/<int:event_id>/presentations/control/', views.coach_presentation_control, name='coach_presentation_control'),
+    path('coach/events/<int:event_id>/presentations/advance/', views.coach_advance_presentation, name='coach_advance_presentation'),
+
+    # Voting Demo/Guided Tour
+    path('voting-demo/', views.voting_demo, name='voting_demo'),
+
+    # Event Activity Voting API
+    path('api/events/<int:event_id>/voting/status/', api_views.voting_status_api, name='voting_status_api'),
+    path('api/events/<int:event_id>/voting/submit/', api_views.submit_vote_api, name='submit_vote_api'),
+    path('api/events/<int:event_id>/voting/results/', api_views.voting_results_api, name='voting_results_api'),
 
     # Coach dashboard
     path('coach/dashboard/', views.coach_dashboard, name='coach_dashboard'),

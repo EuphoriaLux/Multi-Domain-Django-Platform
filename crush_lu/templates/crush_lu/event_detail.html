@@ -65,6 +65,29 @@
                     </p>
                 </div>
 
+                <div class="mb-4">
+                    <h5>🎯 How The Event Works</h5>
+                    <div class="alert alert-info">
+                        <p class="mb-2"><strong>Interactive Activity Voting:</strong></p>
+                        <ul class="mb-0">
+                            <li>15 minutes after the event starts, you'll vote on which activity format to do</li>
+                            <li>Choose from Speed Dating, 90-Second Presentations, or Mystery Event</li>
+                            <li>Voting lasts 30 minutes - everyone participates!</li>
+                            <li>The winning activity determines how the event flows</li>
+                            <li>After the event, connect with people you clicked with</li>
+                        </ul>
+                        {% if user.is_authenticated and user_registration %}
+                            {% if user_registration.status in 'confirmed,attended' %}
+                            <div class="mt-3">
+                                <a href="{% url 'crush_lu:event_voting_lobby' event.id %}" class="btn btn-sm btn-primary">
+                                    Access Voting Lobby
+                                </a>
+                            </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+
                 <hr class="my-4">
 
                 {% if user.is_authenticated %}

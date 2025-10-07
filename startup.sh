@@ -1,8 +1,15 @@
 # startup.sh is used by infra/resources.bicep to automate database migrations and isn't used by the sample application
-python manage.py migrate
+echo "🚀 Starting deployment..."
 
-# Complete deployment with media and data
-if [ "$DEPLOY_MEDIA_AND_DATA" = "true" ]; then
+# Run migrations with no-input for faster execution
+python manage.py migrate --no-input
+
+# Only deploy media/data on initial deployment or when explicitly needed
+# Set INITIAL_DEPLOYMENT=true in Azure portal only for first deployment
+if [ "$INITIAL_DEPLOYMENT" = "true" ]; then
+    echo "📦 Initial deployment - setting up media and data..."
+    python manage.py deploy_media_and_data --force-refresh
+elif [ "$DEPLOY_MEDIA_AND_DATA" = "true" ]; then
     echo "🚀 Deploying complete media and data setup..."
     python manage.py deploy_media_and_data --force-refresh
 fi
@@ -15,10 +22,13 @@ fi
 
 if [ "$POPULATE_SAMPLE_DATA" = "true" ]; then
     echo "🍷 Auto-populating sample data with images..."
-    pip install requests Pillow
     python manage.py populate_with_images --force-refresh
 fi
 
-gunicorn --workers 2 --threads 4 --timeout 60 --access-logfile \
+echo "✅ Migrations complete. Starting Gunicorn..."
+
+# Optimized Gunicorn settings for faster startup and better performance
+gunicorn --workers 2 --threads 4 --timeout 120 --access-logfile \
     '-' --error-logfile '-' --bind=0.0.0.0:8000 \
-     --chdir=/home/site/wwwroot azureproject.wsgi
+    --preload \
+    --chdir=/home/site/wwwroot azureproject.wsgi
