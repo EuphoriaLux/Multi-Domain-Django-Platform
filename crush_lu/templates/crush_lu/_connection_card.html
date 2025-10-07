@@ -1,0 +1,68 @@
+<div class="col-12">
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="d-flex align-items-center">
+                <!-- Profile Photo -->
+                <div class="me-3">
+                    {% if other_user.crushprofile.photo_1 %}
+                        <img src="{{ other_user.crushprofile.photo_1.url }}"
+                             alt="{{ other_user.first_name }}"
+                             class="rounded-circle"
+                             style="width: 60px; height: 60px; object-fit: cover;">
+                    {% else %}
+                        <div class="rounded-circle bg-gradient-primary d-flex align-items-center justify-content-center"
+                             style="width: 60px; height: 60px;">
+                            <span class="text-white">{{ other_user.first_name|first }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Info -->
+                <div class="flex-grow-1">
+                    <h5 class="mb-1">{{ other_user.first_name }}</h5>
+                    <p class="text-muted small mb-2">
+                        <i class="bi bi-calendar-event"></i> {{ connection.event.title }}
+                    </p>
+
+                    <!-- Status Badge -->
+                    {% if connection.status == 'accepted' %}
+                        <span class="badge bg-info">
+                            <i class="bi bi-clock"></i> Assigned to Coach
+                            {% if connection.assigned_coach %}
+                                ({{ connection.assigned_coach.user.first_name }})
+                            {% endif %}
+                        </span>
+                    {% elif connection.status == 'coach_reviewing' %}
+                        <span class="badge bg-primary">
+                            <i class="bi bi-person-check"></i> Coach Reviewing
+                        </span>
+                    {% elif connection.status == 'coach_approved' %}
+                        <span class="badge bg-warning text-dark">
+                            <i class="bi bi-check-circle"></i> Pending Your Consent
+                        </span>
+                    {% elif connection.status == 'shared' %}
+                        <span class="badge bg-success">
+                            <i class="bi bi-check-all"></i> Contacts Shared!
+                        </span>
+                    {% endif %}
+                </div>
+
+                <!-- Action Button -->
+                <div class="ms-3">
+                    <a href="{% url 'crush_lu:connection_detail' connection.id %}"
+                       class="btn btn-outline-primary">
+                        View Details
+                        <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    color: white;
+}
+</style>

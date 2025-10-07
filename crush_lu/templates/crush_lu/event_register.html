@@ -1,0 +1,78 @@
+{% extends 'crush_lu/base.html' %}
+
+{% block title %}Register for {{ event.title }} - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-body p-5">
+                <h2 class="text-center mb-4">Register for Event</h2>
+
+                <div class="card mb-4" style="background-color: #f8f9fa;">
+                    <div class="card-body">
+                        <h5>{{ event.title }}</h5>
+                        <p class="mb-2">
+                            <small>
+                                📅 {{ event.date_time|date:"D, M j, Y" }} at {{ event.date_time|date:"g:i A" }}<br>
+                                📍 {{ event.location }}
+                            </small>
+                        </p>
+                        {% if event.registration_fee > 0 %}
+                            <p class="mb-0"><strong>Fee: €{{ event.registration_fee }}</strong></p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if event.is_full %}
+                    <div class="alert alert-warning">
+                        This event is full. You will be added to the waitlist.
+                    </div>
+                {% endif %}
+
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label for="{{ form.dietary_restrictions.id_for_label }}" class="form-label">
+                            Dietary Restrictions
+                        </label>
+                        {{ form.dietary_restrictions }}
+                        <small class="form-text text-muted">e.g., vegetarian, gluten-free</small>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="{{ form.special_requests.id_for_label }}" class="form-label">
+                            Special Requests or Questions
+                        </label>
+                        {{ form.special_requests }}
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-crush-primary btn-lg">
+                            {% if event.is_full %}
+                                Join Waitlist
+                            {% else %}
+                                Confirm Registration
+                            {% endif %}
+                        </button>
+                        <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn btn-outline-secondary">
+                            Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    input[type="text"],
+    textarea {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+    }
+</style>
+{% endblock %}

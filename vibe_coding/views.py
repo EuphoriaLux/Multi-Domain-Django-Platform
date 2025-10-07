@@ -448,3 +448,13 @@ def get_pixel_history(request):
         'success': True,
         'history': history_data
     })
+
+
+def road_trip_music_game(request):
+    """
+    Renders the Road Trip Discovery Game with Music Integration
+    """
+    context = {
+        'page_title': _('Road Trip Discovery with Music - 90 Minutes to Connection')
+    }
+    return render(request, 'vibe_coding/road_trip_music_game.html', context)

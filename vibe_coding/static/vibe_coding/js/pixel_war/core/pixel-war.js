@@ -88,6 +88,10 @@ export class PixelWar {
         // Navigation state
         this.isIntentionalNavigation = false;
 
+        // Hover/Preview state
+        this.hoveredPixel = { x: null, y: null };
+        this.previewPixel = { x: null, y: null };
+
         // Animation
         this.animationFrame = null;
         this.updateInterval = null;
@@ -303,7 +307,7 @@ export class PixelWar {
         this.inputHandler.addEventListener('keydown', (e) => {
             const moveSpeed = 50 / (PixelWarConfig.canvas.defaultPixelSize * this.zoom);
             let keyHandled = false;
-            
+
             switch(e.detail.key) {
                 case 'ArrowUp':
                     this.targetOffsetY -= moveSpeed;
@@ -335,12 +339,26 @@ export class PixelWar {
                     keyHandled = true;
                     break;
             }
-            
+
             // Only update constraints and animation if a movement/zoom key was actually pressed
             if (keyHandled) {
                 this.constrainOffsets();
                 this.startAnimation();
             }
+        });
+
+        // Mouse hover for pixel preview
+        this.canvas.addEventListener('mousemove', (e) => {
+            const coords = this.screenToCanvas(e.clientX, e.clientY);
+            if (coords && this.isValidCoordinate(coords.x, coords.y)) {
+                this.updateHoverPreview(coords.x, coords.y);
+            } else {
+                this.clearHoverPreview();
+            }
+        });
+
+        this.canvas.addEventListener('mouseleave', () => {
+            this.clearHoverPreview();
         });
     }
 
@@ -384,34 +402,39 @@ export class PixelWar {
 
     screenToCanvas(screenX, screenY) {
         const rect = this.canvas.getBoundingClientRect();
-        
+
         // Validate inputs and rect
         if (!rect.width || !rect.height || isNaN(screenX) || isNaN(screenY)) {
             console.warn('❌ Invalid screenToCanvas inputs:', { screenX, screenY, rect });
             return null;
         }
-        
+
         // Account for CSS borders and padding
         const computedStyle = getComputedStyle(this.canvas);
         const borderLeft = parseFloat(computedStyle.borderLeftWidth) || 0;
         const borderTop = parseFloat(computedStyle.borderTopWidth) || 0;
         const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
         const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
-        
+
         const pixelSize = PixelWarConfig.canvas.defaultPixelSize;
-        
+
         // More precise calculation with proper offset handling
         const adjustedX = screenX - rect.left - borderLeft - paddingLeft;
         const adjustedY = screenY - rect.top - borderTop - paddingTop;
-        
-        // Use Math.round instead of Math.floor for better precision
-        const canvasX = Math.round(adjustedX / (pixelSize * this.zoom));
-        const canvasY = Math.round(adjustedY / (pixelSize * this.zoom));
-        
-        // Apply offset and clamp to bounds
-        const finalX = Math.max(0, Math.min(this.config.width - 1, canvasX - Math.round(this.offsetX)));
-        const finalY = Math.max(0, Math.min(this.config.height - 1, canvasY - Math.round(this.offsetY)));
-        
+
+        // IMPROVED: Use Math.floor for consistent pixel-edge alignment
+        // This ensures clicks always map to the same pixel regardless of sub-pixel position
+        const canvasX = Math.floor(adjustedX / (pixelSize * this.zoom));
+        const canvasY = Math.floor(adjustedY / (pixelSize * this.zoom));
+
+        // Apply offset - use precise offset values before clamping
+        const gridX = canvasX - this.offsetX;
+        const gridY = canvasY - this.offsetY;
+
+        // Clamp to valid grid bounds with proper rounding
+        const finalX = Math.max(0, Math.min(this.config.width - 1, Math.floor(gridX)));
+        const finalY = Math.max(0, Math.min(this.config.height - 1, Math.floor(gridY)));
+
         return {
             x: finalX,
             y: finalY
@@ -1057,7 +1080,7 @@ export class PixelWar {
 
     render() {
         const showGrid = this.zoom > PixelWarConfig.canvas.gridThreshold;
-        
+
         // Debug rendering values occasionally
         if (Math.random() < 0.001) { // Log 0.1% of renders to avoid spam
             console.log('🖼️ RENDER DEBUG:', {
@@ -1070,11 +1093,99 @@ export class PixelWar {
                 mapSize: `${this.config.width}x${this.config.height}`
             });
         }
-        
+
         // Sync view state with input handler for accurate coordinate conversion
         this.syncViewState();
-        
+
         this.renderer.render(this.offsetX, this.offsetY, this.zoom, showGrid);
+
+        // Render hover preview on top
+        if (this.hoveredPixel.x !== null && this.hoveredPixel.y !== null) {
+            this.renderHoverPreview();
+        }
+    }
+
+    updateHoverPreview(x, y) {
+        // Only update if pixel changed
+        if (this.hoveredPixel.x !== x || this.hoveredPixel.y !== y) {
+            this.hoveredPixel = { x, y };
+            this.updateTooltip(x, y);
+            this.render(); // Re-render to show preview
+        }
+    }
+
+    clearHoverPreview() {
+        if (this.hoveredPixel.x !== null || this.hoveredPixel.y !== null) {
+            this.hoveredPixel = { x: null, y: null };
+            this.hideTooltip();
+            this.render(); // Re-render to clear preview
+        }
+    }
+
+    renderHoverPreview() {
+        const { x, y } = this.hoveredPixel;
+        const pixelSize = PixelWarConfig.canvas.defaultPixelSize;
+
+        // Convert grid coordinates to screen coordinates
+        const screenX = (x + this.offsetX) * pixelSize * this.zoom;
+        const screenY = (y + this.offsetY) * pixelSize * this.zoom;
+        const size = pixelSize * this.zoom;
+
+        const ctx = this.canvas.getContext('2d');
+        ctx.save();
+
+        // Draw preview outline with subtle fill
+        ctx.fillStyle = this.selectedColor;
+        ctx.globalAlpha = 0.3;
+        ctx.fillRect(screenX, screenY, size, size);
+
+        // Draw highlighted border
+        ctx.strokeStyle = this.selectedColor;
+        ctx.lineWidth = Math.max(2, 3 / this.zoom);
+        ctx.globalAlpha = 0.8;
+        ctx.strokeRect(screenX, screenY, size, size);
+
+        // Add inner glow effect at higher zoom levels
+        if (this.zoom > 2) {
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.5;
+            ctx.strokeRect(screenX + 1, screenY + 1, size - 2, size - 2);
+        }
+
+        ctx.restore();
+    }
+
+    updateTooltip(x, y) {
+        const tooltip = document.getElementById('pixelTooltip');
+        if (!tooltip) return;
+
+        // Check if pixel already exists
+        const key = `${x},${y}`;
+        const existingPixel = this.renderer.pixels[key];
+
+        let tooltipText = `X: ${x}, Y: ${y}`;
+        if (existingPixel) {
+            tooltipText += ` (${existingPixel.placed_by || 'Unknown'})`;
+        }
+
+        tooltip.textContent = tooltipText;
+        tooltip.style.display = 'block';
+
+        // Position tooltip near cursor
+        const pixelSize = PixelWarConfig.canvas.defaultPixelSize;
+        const screenX = (x + this.offsetX) * pixelSize * this.zoom;
+        const screenY = (y + this.offsetY) * pixelSize * this.zoom;
+
+        tooltip.style.left = `${screenX + 10}px`;
+        tooltip.style.top = `${screenY - 25}px`;
+    }
+
+    hideTooltip() {
+        const tooltip = document.getElementById('pixelTooltip');
+        if (tooltip) {
+            tooltip.style.display = 'none';
+        }
     }
 
     async placePixel(x, y) {

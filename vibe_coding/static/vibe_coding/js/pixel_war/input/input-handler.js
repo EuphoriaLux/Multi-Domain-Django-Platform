@@ -38,9 +38,11 @@ class InputHandler extends EventTarget {
             longPressTimer: null,
             touchStartTime: 0,
             selectedPixelX: null,
-            selectedPixelY: null
+            selectedPixelY: null,
+            tapDebounceTimer: null,
+            lastTapTime: 0
         };
-        
+
         // Performance throttling (minimal for mobile responsiveness)
         this.lastEventTime = 0;
         this.throttleDelay = 1; // Minimal throttling for immediate response
@@ -202,36 +204,37 @@ class InputHandler extends EventTarget {
                 
                 // Calculate total movement from start
                 const totalMoveDistance = Math.sqrt(
-                    Math.pow(touch.clientX - touchData.startX, 2) + 
+                    Math.pow(touch.clientX - touchData.startX, 2) +
                     Math.pow(touch.clientY - touchData.startY, 2)
                 );
-                
-                // Start dragging if moved more than 3px (ultra sensitive threshold)
-                if (totalMoveDistance > 3 && !this.isDragging) {
-                    this.isDragging = true;
+
+                // IMPROVED: Increase threshold to 8px to prevent accidental pixel placement
+                // This gives users more room for slight finger movement before triggering pan
+                if (totalMoveDistance > 8 && !this.inputState.isDragging) {
+                    this.inputState.isDragging = true;
                     this.clearLongPressTimer();
                 }
                 
                 // Send drag events immediately once dragging started (no minimum movement)
                 if (this.inputState.isDragging && (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1)) {
-                    // Optimized mobile sensitivity for better control
+                    // IMPROVED: Reduced sensitivity from 1.5x to 1.2x for better control
                     this.dispatchEvent(new CustomEvent('touchdrag', {
-                        detail: { 
-                            deltaX: deltaX * 1.5, // Balanced sensitivity
-                            deltaY: deltaY * 1.5, // Balanced sensitivity
+                        detail: {
+                            deltaX: deltaX * 1.2, // Better control with reduced sensitivity
+                            deltaY: deltaY * 1.2, // Better control with reduced sensitivity
                             isMobile: true,
                             shiftKey: this.inputState.shiftPressed,
                             ctrlKey: this.inputState.ctrlPressed,
                             totalDistance: totalMoveDistance
                         }
                     }));
-                    
+
                     // Debug logging for touch issues
                     if (Math.random() < 0.01) { // Only log 1% of events to avoid spam
                         console.log('📱 Touch Drag:', {
                             deltaX: deltaX.toFixed(2),
                             deltaY: deltaY.toFixed(2),
-                            enhanced: (deltaX * 1.8).toFixed(2) + ',' + (deltaY * 1.8).toFixed(2),
+                            enhanced: (deltaX * 1.2).toFixed(2) + ',' + (deltaY * 1.2).toFixed(2),
                             totalDistance: totalMoveDistance.toFixed(2)
                         });
                     }
@@ -278,35 +281,47 @@ class InputHandler extends EventTarget {
                 console.log('📱 Touch End:', {
                     duration: duration + 'ms',
                     distance: distance.toFixed(2) + 'px',
-                    isDragging: this.isDragging,
-                    touchMode: this.touchMode
+                    isDragging: this.inputState.isDragging,
+                    touchMode: this.touchState.touchMode
                 });
-                
-                // Quick tap detection (not a drag) - more lenient thresholds
-                if (duration < 500 && distance < 15 && !this.isDragging) {
-                    if (this.touchMode === 'tap') {
-                        // Direct tap mode - place pixel immediately
-                        console.log('🎯 Tap mode - placing pixel directly');
-                        this.dispatchEvent(new CustomEvent('tap', {
-                            detail: { x: touchData.startX, y: touchData.startY }
-                        }));
+
+                // IMPROVED: Better tap detection with stricter thresholds
+                // Increased distance threshold from 15px to 20px to be more forgiving
+                // Added debounce to prevent accidental double-taps
+                const now = Date.now();
+                const timeSinceLastTap = now - this.touchState.lastTapTime;
+
+                if (duration < 500 && distance < 20 && !this.inputState.isDragging) {
+                    // Add 100ms debounce to prevent accidental rapid taps
+                    if (timeSinceLastTap > 100) {
+                        this.touchState.lastTapTime = now;
+
+                        if (this.touchState.touchMode === 'tap') {
+                            // Direct tap mode - place pixel immediately
+                            console.log('🎯 Tap mode - placing pixel directly');
+                            this.dispatchEvent(new CustomEvent('tap', {
+                                detail: { x: touchData.startX, y: touchData.startY }
+                            }));
+                        } else {
+                            // Precision mode - show preview
+                            console.log('🎯 Precision mode - showing preview');
+                            this.handlePixelPreview(touchData.startX, touchData.startY);
+                        }
                     } else {
-                        // Precision mode - show preview
-                        console.log('🎯 Precision mode - showing preview');
-                        this.handlePixelPreview(touchData.startX, touchData.startY);
+                        console.log('⏱️ Tap debounced - too soon after last tap');
                     }
-                } else if (this.isDragging) {
+                } else if (this.inputState.isDragging) {
                     console.log('🖐️ Drag gesture completed');
                 } else {
-                    console.log('❓ Touch gesture not recognized:', { duration, distance, isDragging: this.isDragging });
+                    console.log('❓ Touch gesture not recognized:', { duration, distance, isDragging: this.inputState.isDragging });
                 }
-                
-                this.touches.delete(touch.identifier);
+
+                this.touchState.touches.delete(touch.identifier);
             }
         }
-        
+
         // Reset dragging state
-        this.isDragging = false;
+        this.inputState.isDragging = false;
         
         // Reset pinch zoom state
         if (e.touches.length === 0) {

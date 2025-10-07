@@ -1,0 +1,109 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+
+{% block title %}Request Connection{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <!-- Header -->
+            <div class="text-center mb-4">
+                <h1 class="display-6 mb-3">Request Connection 💕</h1>
+                <p class="text-muted">{{ event.title }}</p>
+            </div>
+
+            <!-- Profile Card -->
+            <div class="card mb-4 shadow">
+                <div class="card-body text-center py-4">
+                    {% if recipient.crushprofile.photo_1 %}
+                        <img src="{{ recipient.crushprofile.photo_1.url }}"
+                             alt="{{ recipient.first_name }}"
+                             class="rounded-circle mb-3"
+                             style="width: 120px; height: 120px; object-fit: cover;">
+                    {% else %}
+                        <div class="rounded-circle bg-gradient-primary d-inline-flex align-items-center justify-content-center mb-3"
+                             style="width: 120px; height: 120px;">
+                            <span class="text-white fs-1">{{ recipient.first_name|first }}</span>
+                        </div>
+                    {% endif %}
+
+                    <h3 class="mb-1">{{ recipient.first_name }}</h3>
+                    <p class="text-muted mb-3">{{ recipient.crushprofile.get_age_range }}</p>
+
+                    {% if recipient.crushprofile.interests %}
+                        <div class="mb-3">
+                            <small class="text-muted">
+                                <i class="bi bi-star"></i> {{ recipient.crushprofile.interests }}
+                            </small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Connection Request Form -->
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <h5 class="card-title mb-3">Add a note (optional)</h5>
+                    <p class="text-muted small mb-4">
+                        Help {{ recipient.first_name }} remember your conversation!
+                        This will be visible to your Crush Coach.
+                    </p>
+
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="mb-4">
+                            <label for="note" class="form-label">What did you talk about?</label>
+                            <textarea class="form-control"
+                                      id="note"
+                                      name="note"
+                                      rows="4"
+                                      placeholder="We talked about hiking in Mullerthal..."
+                                      maxlength="500"></textarea>
+                            <div class="form-text">Optional - helps jog their memory</div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <h6><i class="bi bi-info-circle"></i> What happens next?</h6>
+                            <ul class="mb-0 small">
+                                <li>{{ recipient.first_name }} will be notified of your request</li>
+                                <li>If they accept (or already requested you!), a Crush Coach will facilitate</li>
+                                <li>You'll both need to consent before contact info is shared</li>
+                            </ul>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-gradient-primary btn-lg">
+                                <i class="bi bi-heart"></i> Send Connection Request
+                            </button>
+                            <a href="{% url 'crush_lu:event_attendees' event.id %}"
+                               class="btn btn-outline-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    color: white;
+}
+
+.btn-gradient-primary {
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    border: none;
+    color: white;
+}
+
+.btn-gradient-primary:hover {
+    background: linear-gradient(135deg, #8E44AD, #E74C3C);
+    color: white;
+}
+</style>
+{% endblock %}

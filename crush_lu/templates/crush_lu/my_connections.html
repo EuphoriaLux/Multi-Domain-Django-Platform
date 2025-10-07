@@ -1,0 +1,188 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+
+{% block title %}My Connections{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Header -->
+            <div class="text-center mb-5">
+                <h1 class="display-5 mb-3">My Connections 💕</h1>
+                <p class="lead text-muted">Track your connection requests and active connections</p>
+            </div>
+
+            <!-- Received Requests (Pending Action) -->
+            {% if received_requests %}
+                <div class="mb-5">
+                    <h3 class="mb-4">
+                        <i class="bi bi-inbox"></i> Requests You've Received
+                        <span class="badge bg-danger">{{ received_requests|length }}</span>
+                    </h3>
+
+                    <div class="row g-3">
+                        {% for connection in received_requests %}
+                            <div class="col-12">
+                                <div class="card shadow-sm">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center">
+                                            <!-- Profile Photo -->
+                                            <div class="me-3">
+                                                {% if connection.requester.crushprofile.photo_1 %}
+                                                    <img src="{{ connection.requester.crushprofile.photo_1.url }}"
+                                                         alt="{{ connection.requester.first_name }}"
+                                                         class="rounded-circle"
+                                                         style="width: 60px; height: 60px; object-fit: cover;">
+                                                {% else %}
+                                                    <div class="rounded-circle bg-gradient-primary d-flex align-items-center justify-content-center"
+                                                         style="width: 60px; height: 60px;">
+                                                        <span class="text-white">{{ connection.requester.first_name|first }}</span>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+
+                                            <!-- Info -->
+                                            <div class="flex-grow-1">
+                                                <h5 class="mb-1">{{ connection.requester.first_name }} wants to connect</h5>
+                                                <p class="text-muted small mb-1">
+                                                    <i class="bi bi-calendar-event"></i> From {{ connection.event.title }}
+                                                </p>
+                                                {% if connection.requester_note %}
+                                                    <p class="small mb-0">
+                                                        <i class="bi bi-chat-left-quote"></i> "{{ connection.requester_note }}"
+                                                    </p>
+                                                {% endif %}
+                                            </div>
+
+                                            <!-- Actions -->
+                                            <div class="ms-3">
+                                                <div class="d-flex gap-2">
+                                                    <a href="{% url 'crush_lu:respond_connection' connection.id 'accept' %}"
+                                                       class="btn btn-success">
+                                                        <i class="bi bi-check-circle"></i> Accept
+                                                    </a>
+                                                    <a href="{% url 'crush_lu:respond_connection' connection.id 'decline' %}"
+                                                       class="btn btn-outline-secondary">
+                                                        Decline
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Active Connections -->
+            {% if active_connections %}
+                <div class="mb-5">
+                    <h3 class="mb-4">
+                        <i class="bi bi-people"></i> Active Connections
+                    </h3>
+
+                    <div class="row g-3">
+                        {% for connection in active_connections %}
+                            {% if connection.requester == request.user %}
+                                {% with other_user=connection.recipient %}
+                                    {% include 'crush_lu/_connection_card.html' %}
+                                {% endwith %}
+                            {% else %}
+                                {% with other_user=connection.requester %}
+                                    {% include 'crush_lu/_connection_card.html' %}
+                                {% endwith %}
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Sent Requests -->
+            {% if sent_requests %}
+                <div class="mb-5">
+                    <h3 class="mb-4">
+                        <i class="bi bi-send"></i> Requests You've Sent
+                    </h3>
+
+                    <div class="row g-3">
+                        {% for connection in sent_requests %}
+                            {% if connection.status == 'pending' %}
+                                <div class="col-12">
+                                    <div class="card shadow-sm">
+                                        <div class="card-body">
+                                            <div class="d-flex align-items-center">
+                                                <!-- Profile Photo -->
+                                                <div class="me-3">
+                                                    {% if connection.recipient.crushprofile.photo_1 %}
+                                                        <img src="{{ connection.recipient.crushprofile.photo_1.url }}"
+                                                             alt="{{ connection.recipient.first_name }}"
+                                                             class="rounded-circle"
+                                                             style="width: 60px; height: 60px; object-fit: cover;">
+                                                    {% else %}
+                                                        <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center"
+                                                             style="width: 60px; height: 60px;">
+                                                            <span class="text-white">{{ connection.recipient.first_name|first }}</span>
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+
+                                                <!-- Info -->
+                                                <div class="flex-grow-1">
+                                                    <h5 class="mb-1">{{ connection.recipient.first_name }}</h5>
+                                                    <p class="text-muted small mb-0">
+                                                        <i class="bi bi-calendar-event"></i> {{ connection.event.title }}
+                                                    </p>
+                                                    <span class="badge bg-warning text-dark mt-2">
+                                                        <i class="bi bi-clock"></i> Waiting for response
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Empty State -->
+            {% if not received_requests and not active_connections and not sent_requests %}
+                <div class="text-center py-5">
+                    <div class="mb-4">
+                        <span style="font-size: 6rem;">💕</span>
+                    </div>
+                    <h3>No connections yet</h3>
+                    <p class="text-muted mb-4">
+                        Attend an event and connect with people you meet!
+                    </p>
+                    <a href="{% url 'crush_lu:event_list' %}" class="btn btn-gradient-primary">
+                        <i class="bi bi-calendar-event"></i> Browse Events
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    color: white;
+}
+
+.btn-gradient-primary {
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    border: none;
+    color: white;
+}
+
+.btn-gradient-primary:hover {
+    background: linear-gradient(135deg, #8E44AD, #E74C3C);
+    color: white;
+}
+</style>
+{% endblock %}
