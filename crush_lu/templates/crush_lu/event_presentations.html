@@ -1,0 +1,385 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+
+{% block title %}Presentations - {{ event.title }} - Crush.lu{% endblock %}
+
+{% block extra_css %}
+<style>
+    .presentation-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .presenter-card {
+        border: 3px solid #9B59B6;
+        border-radius: 20px;
+        padding: 3rem;
+        margin-bottom: 2rem;
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.05) 0%, rgba(255, 107, 157, 0.05) 100%);
+        box-shadow: 0 8px 24px rgba(155, 89, 182, 0.2);
+    }
+
+    .presenter-name {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #9B59B6;
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+
+    .presentation-timer {
+        font-size: 5rem;
+        font-weight: bold;
+        text-align: center;
+        color: #FF6B9D;
+        margin: 2rem 0;
+        font-family: 'Courier New', monospace;
+    }
+
+    .presentation-timer.warning {
+        color: #FFA500;
+        animation: pulse 1s infinite;
+    }
+
+    .presentation-timer.danger {
+        color: #FF0000;
+        animation: pulse 0.5s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    .star-rating {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        margin: 2rem 0;
+    }
+
+    .star-rating input[type="radio"] {
+        display: none;
+    }
+
+    .star-rating label {
+        font-size: 3rem;
+        color: #ddd;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .star-rating label:hover,
+    .star-rating label:hover ~ label,
+    .star-rating input[type="radio"]:checked ~ label {
+        color: #FFD700;
+        transform: scale(1.2);
+    }
+
+    .progress-bar-container {
+        background: #e9ecef;
+        border-radius: 10px;
+        height: 30px;
+        margin-bottom: 2rem;
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        height: 100%;
+        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+        transition: width 0.5s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+    }
+
+    .presentation-style-banner {
+        background: linear-gradient(135deg, #FF6B9D 0%, #9B59B6 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 15px;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .next-presenter-card {
+        background: #f8f9fa;
+        border: 2px solid #e9ecef;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+    }
+
+    .rating-submitted {
+        background: #d4edda;
+        border: 2px solid #28a745;
+        color: #155724;
+        padding: 1rem;
+        border-radius: 10px;
+        text-align: center;
+        margin-top: 1rem;
+    }
+
+    .presenting-indicator {
+        background: linear-gradient(135deg, #FF6B9D 0%, #9B59B6 100%);
+        color: white;
+        padding: 1rem;
+        border-radius: 10px;
+        text-align: center;
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin-bottom: 2rem;
+        animation: glow 2s infinite;
+    }
+
+    @keyframes glow {
+        0%, 100% { box-shadow: 0 0 10px rgba(255, 107, 157, 0.5); }
+        50% { box-shadow: 0 0 20px rgba(155, 89, 182, 0.8); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10 presentation-container">
+        <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn btn-outline-secondary mb-3">
+            ← Back to Event
+        </a>
+
+        <div class="card">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <h1 class="display-5">🎤 Presentation Round</h1>
+                    <p class="lead text-muted">{{ event.title }}</p>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="progress-bar-container">
+                    <div class="progress-bar" style="width: {{ completed_presentations|add:1 }}0%;">
+                        {{ completed_presentations }} / {{ total_presentations }} Completed
+                    </div>
+                </div>
+
+                <!-- Presentation Style Banner -->
+                {% if winning_style %}
+                <div class="presentation-style-banner">
+                    <h4 class="mb-0">📋 Presentation Style: <strong>{{ winning_style.display_name }}</strong></h4>
+                    <small>{{ winning_style.description }}</small>
+                </div>
+                {% endif %}
+
+                {% if current_presentation %}
+                    <!-- Current Presenter -->
+                    {% if is_presenting %}
+                    <div class="presenting-indicator">
+                        🌟 You're Currently Presenting! 🌟
+                    </div>
+                    {% endif %}
+
+                    <div class="presenter-card">
+                        <div class="presenter-name">
+                            {{ current_presentation.user.crushprofile.display_name }}
+                        </div>
+
+                        <!-- 90 Second Timer -->
+                        <div class="presentation-timer" id="timer">
+                            90
+                        </div>
+
+                        {% if not is_presenting %}
+                        <!-- Star Rating (only for non-presenters) -->
+                        <div class="text-center">
+                            <h4 class="mb-3">Rate this presentation</h4>
+                            <p class="text-muted">Your rating is completely anonymous</p>
+
+                            {% if user_has_rated %}
+                            <div class="rating-submitted">
+                                ✓ You've rated this presenter. Thanks!
+                            </div>
+                            {% else %}
+                            <form id="rating-form" data-presenter-id="{{ current_presentation.user.id }}">
+                                {% csrf_token %}
+                                <div class="star-rating">
+                                    <input type="radio" name="rating" value="5" id="star5">
+                                    <label for="star5">★</label>
+                                    <input type="radio" name="rating" value="4" id="star4">
+                                    <label for="star4">★</label>
+                                    <input type="radio" name="rating" value="3" id="star3">
+                                    <label for="star3">★</label>
+                                    <input type="radio" name="rating" value="2" id="star2">
+                                    <label for="star2">★</label>
+                                    <input type="radio" name="rating" value="1" id="star1">
+                                    <label for="star1">★</label>
+                                </div>
+                                <button type="submit" class="btn btn-crush-primary btn-lg mt-3" disabled id="submit-rating-btn">
+                                    Submit Rating
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <div class="alert alert-info text-center">
+                            <strong>💡 Tip:</strong> Take your time, be yourself, and have fun!
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% if next_presentation %}
+                    <div class="next-presenter-card">
+                        <h5 class="text-muted">👀 Up Next:</h5>
+                        <p class="mb-0"><strong>{{ next_presentation.user.crushprofile.display_name }}</strong></p>
+                    </div>
+                    {% endif %}
+
+                {% else %}
+                    <!-- No current presenter -->
+                    {% if completed_presentations == total_presentations and total_presentations > 0 %}
+                    <!-- All presentations completed -->
+                    <div class="alert alert-success text-center">
+                        <h4>🎉 All Presentations Completed!</h4>
+                        <p class="mb-3">Great job everyone! All {{ total_presentations }} presentations are done.</p>
+                        <a href="{% url 'crush_lu:my_presentation_scores' event.id %}" class="btn btn-crush-primary btn-lg">
+                            View Your Personal Scores
+                        </a>
+                        <p class="mt-3 text-muted small">Your scores are completely private - only you can see them!</p>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning text-center">
+                        <h4>Waiting for presentations to begin...</h4>
+                        <p class="mb-0">The coach will start the presentation round shortly.</p>
+                    </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Store current presenter ID to detect changes
+let currentPresenterId = {% if current_presentation %}{{ current_presentation.user.id }}{% else %}null{% endif %};
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Poll server every 3 seconds to check for presenter changes
+    const pollInterval = setInterval(async () => {
+        try {
+            const response = await fetch('{% url "crush_lu:get_current_presenter_api" event.id %}');
+            const data = await response.json();
+
+            if (data.has_presenter) {
+                // Check if presenter changed
+                if (currentPresenterId !== data.presenter_id) {
+                    console.log('Presenter changed! Reloading...');
+                    location.reload();
+                }
+            } else if (data.all_completed) {
+                // All presentations completed, reload to show completion message
+                console.log('All presentations completed! Reloading...');
+                location.reload();
+            } else if (currentPresenterId !== null) {
+                // Presenter ended but next one hasn't started yet
+                console.log('Waiting for next presenter...');
+                location.reload();
+            }
+        } catch (error) {
+            console.error('Error polling presenter status:', error);
+        }
+    }, 3000); // Poll every 3 seconds
+
+    {% if current_presentation %}
+    // Server-synced 90-second countdown timer
+    {% if current_presentation.started_at %}
+    // Calculate time remaining based on server start time
+    const startTime = new Date('{{ current_presentation.started_at.isoformat }}');
+    const now = new Date();
+    const elapsedSeconds = Math.floor((now - startTime) / 1000);
+    let timeRemaining = Math.max(0, 90 - elapsedSeconds);
+    {% else %}
+    // No start time yet, start from 90
+    let timeRemaining = 90;
+    {% endif %}
+
+    const timerDisplay = document.getElementById('timer');
+    timerDisplay.textContent = timeRemaining;
+
+    const timerInterval = setInterval(() => {
+        timeRemaining--;
+        if (timeRemaining < 0) timeRemaining = 0;
+        timerDisplay.textContent = timeRemaining;
+
+        // Change color based on time remaining
+        if (timeRemaining <= 10) {
+            timerDisplay.classList.add('danger');
+            timerDisplay.classList.remove('warning');
+        } else if (timeRemaining <= 30) {
+            timerDisplay.classList.add('warning');
+        }
+
+        if (timeRemaining <= 0) {
+            clearInterval(timerInterval);
+            timerDisplay.textContent = 'TIME!';
+            // Auto-refresh to next presenter after 3 seconds
+            setTimeout(() => {
+                location.reload();
+            }, 3000);
+        }
+    }, 1000);
+
+    {% if not is_presenting and not user_has_rated %}
+    // Star rating functionality
+    const ratingForm = document.getElementById('rating-form');
+    const ratingInputs = document.querySelectorAll('input[name="rating"]');
+    const submitBtn = document.getElementById('submit-rating-btn');
+
+    ratingInputs.forEach(input => {
+        input.addEventListener('change', () => {
+            submitBtn.disabled = false;
+        });
+    });
+
+    ratingForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const selectedRating = document.querySelector('input[name="rating"]:checked');
+        if (!selectedRating) return;
+
+        const presenterId = ratingForm.dataset.presenterId;
+        const csrfToken = '{{ csrf_token }}';
+        const ratingUrl = `{% url 'crush_lu:submit_presentation_rating' event.id 0 %}`.replace('/0/', `/${presenterId}/`);
+
+        try {
+            const response = await fetch(ratingUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrfToken
+                },
+                body: `rating=${selectedRating.value}`
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Replace form with success message
+                ratingForm.innerHTML = `
+                    <div class="rating-submitted">
+                        ✓ ${data.message}
+                    </div>
+                `;
+            } else {
+                alert(data.error || 'Failed to submit rating');
+            }
+        } catch (error) {
+            console.error('Error submitting rating:', error);
+            alert('Failed to submit rating. Please try again.');
+        }
+    });
+    {% endif %}
+    {% endif %}
+});
+</script>
+{% endblock %}

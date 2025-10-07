@@ -1,0 +1,538 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+
+{% block title %}Voting System Demo - Crush.lu{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Tour overlay */
+    .tour-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 9998;
+        display: none;
+    }
+
+    .tour-overlay.active {
+        display: block;
+    }
+
+    /* Tour tooltip */
+    .tour-tooltip {
+        position: absolute;
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+        max-width: 400px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        z-index: 9999;
+        display: none;
+    }
+
+    .tour-tooltip.active {
+        display: block;
+    }
+
+    .tour-tooltip h3 {
+        color: #9B59B6;
+        margin-bottom: 1rem;
+    }
+
+    .tour-tooltip-buttons {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .tour-highlight {
+        position: relative;
+        z-index: 10000;
+        box-shadow: 0 0 0 99999px rgba(0, 0, 0, 0.7);
+    }
+
+    /* Demo sections */
+    .demo-section {
+        border: 2px solid #e9ecef;
+        border-radius: 15px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        background: white;
+    }
+
+    .demo-section.active {
+        border-color: #9B59B6;
+        box-shadow: 0 8px 24px rgba(155, 89, 182, 0.2);
+    }
+
+    .activity-group-card {
+        border: 2px solid #e9ecef;
+        border-radius: 15px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .variant-option-item {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .variant-option-item:hover {
+        border-color: #9B59B6;
+        background-color: rgba(155, 89, 182, 0.05);
+    }
+
+    .variant-option-item:has(input:checked) {
+        border-color: #9B59B6;
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.15) 0%, rgba(255, 107, 157, 0.15) 100%);
+        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.2);
+    }
+
+    .variant-radio {
+        width: 1.5rem;
+        height: 1.5rem;
+        cursor: pointer;
+    }
+
+    .countdown-demo {
+        background: linear-gradient(135deg, #FF6B9D 0%, #9B59B6 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        text-align: center;
+    }
+
+    .timer-display {
+        font-size: 3rem;
+        font-weight: bold;
+        font-family: monospace;
+    }
+
+    .results-preview {
+        border: 2px solid #FFD700;
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 165, 0, 0.1) 100%);
+        border-radius: 15px;
+        padding: 2rem;
+        margin-bottom: 1rem;
+    }
+
+    .progress-bar-demo {
+        height: 30px;
+        border-radius: 15px;
+        background-color: #e9ecef;
+        overflow: hidden;
+        margin-top: 1rem;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+        transition: width 0.5s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tour-overlay" id="tourOverlay"></div>
+<div class="tour-tooltip" id="tourTooltip">
+    <h3 id="tourTitle"></h3>
+    <p id="tourText"></p>
+    <div class="tour-tooltip-buttons">
+        <button class="btn btn-outline-secondary" id="tourPrev">← Previous</button>
+        <button class="btn btn-crush-primary" id="tourNext">Next →</button>
+    </div>
+</div>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="text-center mb-5">
+                <h1 class="display-4">🎯 Voting System Demo</h1>
+                <p class="lead text-muted">Learn how event voting works at Crush.lu</p>
+                <button class="btn btn-crush-primary btn-lg" id="startTour">
+                    Start Guided Tour
+                </button>
+            </div>
+
+            <!-- Step 1: Event Timing -->
+            <div class="demo-section" id="step-timing">
+                <h2 class="mb-4">⏰ Step 1: Voting Timeline</h2>
+                <div class="countdown-demo">
+                    <h3 class="mb-3">Event Day Timeline</h3>
+                    <div class="row text-center">
+                        <div class="col-md-4 mb-3">
+                            <div class="fs-1">🎉</div>
+                            <strong>Event Starts</strong>
+                            <p class="mb-0 small">e.g., 7:00 PM</p>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="fs-1">🗳️</div>
+                            <strong>Voting Opens</strong>
+                            <p class="mb-0 small">15 min later (7:15 PM)</p>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="fs-1">🏆</div>
+                            <strong>Voting Closes</strong>
+                            <p class="mb-0 small">30 min to vote (7:45 PM)</p>
+                        </div>
+                    </div>
+                    <div class="alert alert-light mt-3 mb-0">
+                        <strong>Countdown Timer:</strong> You'll see a live countdown on your phone showing exactly how much time remains to vote!
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Activity Options -->
+            <div class="demo-section" id="step-options">
+                <h2 class="mb-4">🎭 Step 2: Choose Your Activity</h2>
+                <p class="text-muted mb-4">You'll vote on ONE activity from these options. The winning activity determines how the evening unfolds!</p>
+
+                <form id="demoVoteForm">
+                    <!-- Speed Dating -->
+                    <div class="activity-group-card" id="group-speed-dating">
+                        <h3 class="text-primary mb-3">💕 Speed Dating</h3>
+                        <p class="text-muted mb-3">Quick 3-5 minute conversations in organized formats</p>
+
+                        <div class="variant-option-item">
+                            <input class="form-check-input variant-radio" type="radio" name="demo_vote" id="demo-random" value="random">
+                            <label class="form-check-label w-100" for="demo-random">
+                                <strong>Random Order</strong>: Classic speed dating with random pairing. Perfect for meeting diverse people!
+                            </label>
+                        </div>
+
+                        <div class="variant-option-item">
+                            <input class="form-check-input variant-radio" type="radio" name="demo_vote" id="demo-alphabetic" value="alphabetic">
+                            <label class="form-check-label w-100" for="demo-alphabetic">
+                                <strong>Alphabetic Order</strong>: Organized by first name. Creates natural conversation starters!
+                            </label>
+                        </div>
+
+                        <div class="variant-option-item">
+                            <input class="form-check-input variant-radio" type="radio" name="demo_vote" id="demo-hair" value="hair">
+                            <label class="form-check-label w-100" for="demo-hair">
+                                <strong>By Hair Color</strong>: A playful twist that creates fun icebreakers!
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Presentations -->
+                    <div class="activity-group-card" id="group-presentations">
+                        <h3 class="text-primary mb-3">🎤 90 Second Presentations</h3>
+                        <p class="text-muted mb-3">Everyone introduces themselves in creative ways</p>
+
+                        <div class="variant-option-item">
+                            <input class="form-check-input variant-radio" type="radio" name="demo_vote" id="demo-music" value="music">
+                            <label class="form-check-label w-100" for="demo-music">
+                                <strong>With Favorite Music</strong>: Introduce yourself while your song plays!
+                            </label>
+                        </div>
+
+                        <div class="variant-option-item">
+                            <input class="form-check-input variant-radio" type="radio" name="demo_vote" id="demo-questions" value="questions">
+                            <label class="form-check-label w-100" for="demo-questions">
+                                <strong>5 Predefined Questions</strong>: Fun questions everyone answers!
+                            </label>
+                        </div>
+
+                        <div class="variant-option-item">
+                            <input class="form-check-input variant-radio" type="radio" name="demo_vote" id="demo-picture" value="picture">
+                            <label class="form-check-label w-100" for="demo-picture">
+                                <strong>Share Picture & Story</strong>: Show a favorite photo and tell its story!
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Mystery -->
+                    <div class="activity-group-card" id="group-mystery">
+                        <h3 class="text-primary mb-3">🎭 Mystery Event</h3>
+                        <p class="text-muted mb-3">Trust the coaches with a surprise activity!</p>
+
+                        <div class="variant-option-item">
+                            <input class="form-check-input variant-radio" type="radio" name="demo_vote" id="demo-mystery" value="mystery">
+                            <label class="form-check-label w-100" for="demo-mystery">
+                                We've prepared a surprise designed to help you connect in unexpected ways. Adventure awaits!
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="text-center">
+                        <button type="button" class="btn btn-crush-primary btn-lg px-5" id="demoSubmitBtn" disabled>
+                            Submit My Vote
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Step 3: Results -->
+            <div class="demo-section" id="step-results">
+                <h2 class="mb-4">📊 Step 3: See Results & Winner</h2>
+                <p class="text-muted mb-4">After voting closes, you'll see live results with vote counts and percentages!</p>
+
+                <div class="results-preview">
+                    <div class="text-center mb-3">
+                        <h3>🏆 Winner: Speed Dating - Random Order</h3>
+                        <p class="text-muted mb-0">The activity with the most votes wins!</p>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Speed Dating - Random Order</strong>
+                    <div class="progress-bar-demo">
+                        <div class="progress-fill" style="width: 45%;">15 votes (45%)</div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Presentations - With Music</strong>
+                    <div class="progress-bar-demo">
+                        <div class="progress-fill" style="width: 30%;">10 votes (30%)</div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Mystery Event</strong>
+                    <div class="progress-bar-demo">
+                        <div class="progress-fill" style="width: 25%;">8 votes (25%)</div>
+                    </div>
+                </div>
+
+                <div class="alert alert-success mt-4">
+                    <strong>What happens next?</strong> The winning activity starts! In this example, you'd begin speed dating in random order with 3-5 minute conversations.
+                </div>
+            </div>
+
+            <!-- Step 4: Post-Event -->
+            <div class="demo-section" id="step-connections">
+                <h2 class="mb-4">💕 Step 4: Make Connections</h2>
+                <p class="text-muted mb-4">After the event, you can request connections with people you clicked with!</p>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>✓ You Can:</h5>
+                        <ul>
+                            <li>View all event attendees</li>
+                            <li>Send connection requests</li>
+                            <li>Get coach-facilitated introductions</li>
+                            <li>Exchange contact info with mutual matches</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>🔒 Privacy Protected:</h5>
+                        <ul>
+                            <li>Only attendees can see each other</li>
+                            <li>Coach reviews all connections</li>
+                            <li>Both people must consent</li>
+                            <li>No info shared without permission</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-5">
+                <button class="btn btn-outline-primary btn-lg me-3" id="restartTour">
+                    🔄 Replay Tour
+                </button>
+                <a href="{% url 'crush_lu:event_list' %}" class="btn btn-crush-primary btn-lg">
+                    Browse Events →
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+class VotingTour {
+    constructor() {
+        this.currentStep = 0;
+        this.steps = [
+            {
+                title: "Welcome to Event Voting! 🎉",
+                text: "At Crush.lu events, YOU decide the activity! This tour shows how voting works on event day.",
+                target: null,
+                highlight: null
+            },
+            {
+                title: "The Timeline ⏰",
+                text: "Voting opens 15 minutes after the event starts and lasts 30 minutes. You'll see a live countdown timer on your phone showing exactly how much time remains!",
+                target: "step-timing",
+                highlight: "step-timing"
+            },
+            {
+                title: "Choose Your Activity 🎭",
+                text: "You'll see 3 main activity types, each with different variants. Select ONE option from all the choices - the one with the most votes wins!",
+                target: "step-options",
+                highlight: "step-options"
+            },
+            {
+                title: "Speed Dating Options 💕",
+                text: "If you prefer quick conversations, choose one of the Speed Dating variants. Each offers a different way to organize the rounds!",
+                target: "group-speed-dating",
+                highlight: "group-speed-dating"
+            },
+            {
+                title: "Presentation Options 🎤",
+                text: "Prefer something creative? Choose a presentation style where everyone gets 90 seconds to introduce themselves in unique ways!",
+                target: "group-presentations",
+                highlight: "group-presentations"
+            },
+            {
+                title: "Mystery Event 🎭",
+                text: "Feeling adventurous? Trust our coaches with a surprise activity designed to create unexpected connections!",
+                target: "group-mystery",
+                highlight: "group-mystery"
+            },
+            {
+                title: "Submit Your Vote ✓",
+                text: "Try selecting an option now! Once you pick one, the submit button activates. You can change your vote anytime before voting closes.",
+                target: "demoVoteForm",
+                highlight: "demoSubmitBtn"
+            },
+            {
+                title: "Live Results 📊",
+                text: "After voting closes, see how everyone voted! The winning activity is announced and you can see the vote breakdown with percentages.",
+                target: "step-results",
+                highlight: "step-results"
+            },
+            {
+                title: "Make Connections After 💕",
+                text: "When the event ends, you can connect with people you clicked with. Our coaches help facilitate introductions while protecting everyone's privacy!",
+                target: "step-connections",
+                highlight: "step-connections"
+            },
+            {
+                title: "You're Ready! 🎉",
+                text: "That's how voting works! On event day, simply open the voting link on your phone when it's time. Questions? Ask a coach at the event!",
+                target: null,
+                highlight: null
+            }
+        ];
+
+        this.init();
+    }
+
+    init() {
+        document.getElementById('startTour').addEventListener('click', () => this.start());
+        document.getElementById('restartTour').addEventListener('click', () => this.start());
+        document.getElementById('tourNext').addEventListener('click', () => this.next());
+        document.getElementById('tourPrev').addEventListener('click', () => this.prev());
+        document.getElementById('tourOverlay').addEventListener('click', () => this.end());
+
+        // Enable submit button when radio is selected
+        document.querySelectorAll('input[name="demo_vote"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                document.getElementById('demoSubmitBtn').disabled = false;
+            });
+        });
+
+        // Demo submit
+        document.getElementById('demoSubmitBtn').addEventListener('click', () => {
+            alert('✓ Vote submitted! In the real event, you\'d now see the results page.');
+        });
+    }
+
+    start() {
+        this.currentStep = 0;
+        this.show();
+    }
+
+    show() {
+        const step = this.steps[this.currentStep];
+        const tooltip = document.getElementById('tourTooltip');
+        const overlay = document.getElementById('tourOverlay');
+
+        // Update text
+        document.getElementById('tourTitle').textContent = step.title;
+        document.getElementById('tourText').textContent = step.text;
+
+        // Update buttons
+        document.getElementById('tourPrev').style.display = this.currentStep === 0 ? 'none' : 'block';
+        document.getElementById('tourNext').textContent = this.currentStep === this.steps.length - 1 ? 'Finish' : 'Next →';
+
+        // Remove previous highlights
+        document.querySelectorAll('.tour-highlight').forEach(el => {
+            el.classList.remove('tour-highlight');
+        });
+        document.querySelectorAll('.demo-section.active').forEach(el => {
+            el.classList.remove('active');
+        });
+
+        // Show overlay and tooltip
+        overlay.classList.add('active');
+        tooltip.classList.add('active');
+
+        // Position tooltip and highlight
+        if (step.target) {
+            const target = document.getElementById(step.target);
+            const rect = target.getBoundingClientRect();
+
+            tooltip.style.top = (rect.top + window.scrollY - 250) + 'px';
+            tooltip.style.left = Math.max(20, (rect.left + rect.width / 2 - 200)) + 'px';
+
+            // Scroll into view
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.classList.add('active');
+        } else {
+            // Center tooltip
+            tooltip.style.top = '50%';
+            tooltip.style.left = '50%';
+            tooltip.style.transform = 'translate(-50%, -50%)';
+        }
+
+        if (step.highlight) {
+            const highlight = document.getElementById(step.highlight);
+            if (highlight) {
+                setTimeout(() => {
+                    highlight.classList.add('tour-highlight');
+                }, 300);
+            }
+        }
+    }
+
+    next() {
+        if (this.currentStep < this.steps.length - 1) {
+            this.currentStep++;
+            this.show();
+        } else {
+            this.end();
+        }
+    }
+
+    prev() {
+        if (this.currentStep > 0) {
+            this.currentStep--;
+            this.show();
+        }
+    }
+
+    end() {
+        document.getElementById('tourOverlay').classList.remove('active');
+        document.getElementById('tourTooltip').classList.remove('active');
+        document.querySelectorAll('.tour-highlight').forEach(el => {
+            el.classList.remove('tour-highlight');
+        });
+        document.querySelectorAll('.demo-section.active').forEach(el => {
+            el.classList.remove('active');
+        });
+    }
+}
+
+// Initialize tour when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    new VotingTour();
+});
+</script>
+{% endblock %}

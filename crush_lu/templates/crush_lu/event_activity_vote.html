@@ -1,0 +1,236 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+
+{% block title %}Vote on Activities - {{ event.title }} - Crush.lu{% endblock %}
+
+{% block extra_css %}
+<style>
+    .activity-group-card {
+        border: 2px solid #e9ecef;
+        border-radius: 15px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        transition: all 0.3s ease;
+    }
+
+    .activity-group-card:hover {
+        border-color: #d0d0d0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .variant-options {
+        margin-top: 1.5rem;
+    }
+
+    .variant-option-item {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .variant-option-item:hover {
+        border-color: #9B59B6;
+        background-color: rgba(155, 89, 182, 0.05);
+    }
+
+    .variant-option-item:has(input:checked) {
+        border-color: #9B59B6;
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.15) 0%, rgba(255, 107, 157, 0.15) 100%);
+        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.2);
+    }
+
+    .variant-radio {
+        width: 1.5rem;
+        height: 1.5rem;
+        cursor: pointer;
+    }
+
+    .form-check-label {
+        cursor: pointer;
+        margin-left: 0.5rem;
+    }
+
+    .countdown-banner {
+        background: linear-gradient(135deg, #FF6B9D 0%, #9B59B6 100%);
+        color: white;
+        padding: 1rem;
+        border-radius: 15px;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .countdown-timer {
+        font-size: 2.5rem;
+        font-weight: bold;
+    }
+
+    .section-header {
+        color: #9B59B6;
+        border-bottom: 2px solid #9B59B6;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .category-badge {
+        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: bold;
+        display: inline-block;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hidden data for JavaScript -->
+<div id="event-id-data" data-event-id="{{ event.id }}" style="display: none;"></div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <a href="{% url 'crush_lu:event_voting_lobby' event.id %}" class="btn btn-outline-secondary mb-3">
+            ← Back to Lobby
+        </a>
+
+        <div class="card">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <h1 class="display-5">Vote for Event Activities</h1>
+                    <p class="lead text-muted">{{ event.title }}</p>
+                </div>
+
+                <div class="countdown-banner">
+                    <p class="mb-1">Time Remaining to Vote:</p>
+                    <div class="countdown-timer" id="time-remaining">
+                        {{ voting_session.time_remaining|floatformat:0 }}s
+                    </div>
+                </div>
+
+                {% if has_voted_both %}
+                <div class="alert alert-info">
+                    <strong>✓ Current Votes:</strong><br>
+                    Presentation Style: <strong>{{ presentation_vote.selected_option.display_name }}</strong><br>
+                    Speed Dating Twist: <strong>{{ twist_vote.selected_option.display_name }}</strong><br>
+                    <small class="text-muted">You can change your votes anytime before voting closes.</small>
+                </div>
+                {% elif presentation_vote or twist_vote %}
+                <div class="alert alert-warning">
+                    <strong>⚠️ Incomplete!</strong> You must vote on BOTH categories to submit.
+                    {% if presentation_vote %}<br>✓ You've voted on Presentation Style.{% endif %}
+                    {% if twist_vote %}<br>✓ You've voted on Speed Dating Twist.{% endif %}
+                </div>
+                {% endif %}
+
+                <form id="vote-form" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" id="presentation-option-id" name="presentation_option_id" value="{{ presentation_vote.selected_option.id|default:'' }}">
+                    <input type="hidden" id="twist-option-id" name="twist_option_id" value="{{ twist_vote.selected_option.id|default:'' }}">
+
+                    <div class="alert alert-primary mb-4">
+                        <strong>📋 Vote on TWO Categories:</strong> You must vote on both your presentation style AND speed dating twist!
+                    </div>
+
+                    <!-- CATEGORY 1: Presentation Style (Phase 2) -->
+                    <div class="activity-group-card">
+                        <div class="category-badge">Category 1 of 2</div>
+                        <h3 class="section-header">🎤 Presentation Style (Phase 2 - Mandatory)</h3>
+                        <p class="text-muted mb-3">Everyone will present for 90 seconds. Choose how YOU want to introduce yourself!</p>
+
+                        <div class="variant-options">
+                            {% for option in presentation_style_options %}
+                            <div class="form-check variant-option-item">
+                                <input class="form-check-input variant-radio presentation-radio"
+                                       type="radio"
+                                       name="presentation_choice"
+                                       id="presentation-{{ option.id }}"
+                                       value="{{ option.id }}"
+                                       {% if presentation_vote and presentation_vote.selected_option.id == option.id %}checked{% endif %}
+                                       data-option-id="{{ option.id }}"
+                                       data-category="presentation">
+                                <label class="form-check-label w-100" for="presentation-{{ option.id }}">
+                                    <strong>{{ option.display_name }}</strong>: {{ option.description }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- CATEGORY 2: Speed Dating Twist (Phase 3) -->
+                    <div class="activity-group-card">
+                        <div class="category-badge">Category 2 of 2</div>
+                        <h3 class="section-header">💕 Speed Dating Twist (Phase 3)</h3>
+                        <p class="text-muted mb-3">After presentations, you'll do speed dating with matched pairs. Choose a fun twist!</p>
+
+                        <div class="variant-options">
+                            {% for option in speed_dating_twist_options %}
+                            <div class="form-check variant-option-item">
+                                <input class="form-check-input variant-radio twist-radio"
+                                       type="radio"
+                                       name="twist_choice"
+                                       id="twist-{{ option.id }}"
+                                       value="{{ option.id }}"
+                                       {% if twist_vote and twist_vote.selected_option.id == option.id %}checked{% endif %}
+                                       data-option-id="{{ option.id }}"
+                                       data-category="twist">
+                                <label class="form-check-label w-100" for="twist-{{ option.id }}">
+                                    <strong>{{ option.display_name }}</strong>: {{ option.description }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="text-center mt-4">
+                        <button type="submit" id="submit-vote-btn" class="btn btn-crush-primary btn-lg px-5"
+                                {% if not has_voted_both and not presentation_vote and not twist_vote %}disabled{% endif %}>
+                            {% if has_voted_both %}Update My Votes{% else %}Submit My Votes{% endif %}
+                        </button>
+                    </div>
+                </form>
+
+                <div class="alert alert-warning mt-4">
+                    <strong>Remember:</strong> You can change your votes at any time before the voting period ends!
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'crush_lu/js/event-voting.js' %}"></script>
+<script>
+// Update JavaScript to handle two categories
+document.addEventListener('DOMContentLoaded', () => {
+    const presentationRadios = document.querySelectorAll('.presentation-radio');
+    const twistRadios = document.querySelectorAll('.twist-radio');
+    const submitBtn = document.getElementById('submit-vote-btn');
+    const presentationHidden = document.getElementById('presentation-option-id');
+    const twistHidden = document.getElementById('twist-option-id');
+
+    function checkBothSelected() {
+        const presentationSelected = presentationHidden.value !== '';
+        const twistSelected = twistHidden.value !== '';
+        submitBtn.disabled = !(presentationSelected && twistSelected);
+    }
+
+    presentationRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            presentationHidden.value = e.target.value;
+            checkBothSelected();
+        });
+    });
+
+    twistRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            twistHidden.value = e.target.value;
+            checkBothSelected();
+        });
+    });
+});
+</script>
+{% endblock %}

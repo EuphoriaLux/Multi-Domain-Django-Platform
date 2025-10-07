@@ -1,0 +1,229 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+
+{% block title %}My Presentation Scores - {{ event.title }} - Crush.lu{% endblock %}
+
+{% block extra_css %}
+<style>
+    .scores-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .score-card {
+        border: 3px solid #9B59B6;
+        border-radius: 20px;
+        padding: 3rem;
+        margin-bottom: 2rem;
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.05) 0%, rgba(255, 107, 157, 0.05) 100%);
+        text-align: center;
+    }
+
+    .big-score {
+        font-size: 6rem;
+        font-weight: bold;
+        color: #9B59B6;
+        margin: 2rem 0;
+    }
+
+    .rank-display {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #FF6B9D;
+        margin: 1rem 0;
+    }
+
+    .rating-bar {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1rem;
+        gap: 1rem;
+    }
+
+    .rating-label {
+        min-width: 80px;
+        font-weight: bold;
+        color: #9B59B6;
+    }
+
+    .rating-progress {
+        flex: 1;
+        height: 30px;
+        background: #e9ecef;
+        border-radius: 15px;
+        overflow: hidden;
+    }
+
+    .rating-progress-fill {
+        height: 100%;
+        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        transition: width 0.5s ease;
+    }
+
+    .rating-count {
+        min-width: 50px;
+        text-align: right;
+        font-weight: bold;
+    }
+
+    .individual-ratings {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        justify-content: center;
+        margin: 2rem 0;
+    }
+
+    .rating-bubble {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
+    }
+
+    .privacy-notice {
+        background: #f8f9fa;
+        border-left: 4px solid #9B59B6;
+        padding: 1rem;
+        margin: 2rem 0;
+    }
+
+    .medal {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10 scores-container">
+        <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn btn-outline-secondary mb-3">
+            ← Back to Event
+        </a>
+
+        <div class="card">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <h1 class="display-5">🎤 Your Presentation Scores</h1>
+                    <p class="lead text-muted">{{ event.title }}</p>
+                </div>
+
+                <div class="privacy-notice">
+                    <strong>🔒 Privacy Notice:</strong> These scores are completely private and only visible to you.
+                    No one else can see how you were rated or by whom. Ratings were submitted anonymously.
+                </div>
+
+                {% if rating_count > 0 %}
+                <div class="score-card">
+                    {% if user_rank == 1 %}
+                    <div class="medal">🥇</div>
+                    {% elif user_rank == 2 %}
+                    <div class="medal">🥈</div>
+                    {% elif user_rank == 3 %}
+                    <div class="medal">🥉</div>
+                    {% endif %}
+
+                    <h3 class="text-muted mb-2">Your Average Score</h3>
+                    <div class="big-score">{{ average_score|floatformat:2 }}</div>
+                    <p class="text-muted">out of 5.0 stars</p>
+
+                    <div class="rank-display">
+                        Ranked #{{ user_rank }} of {{ total_participants }}
+                    </div>
+
+                    <p class="text-muted mt-3">
+                        Based on {{ rating_count }} rating{{ rating_count|pluralize }}
+                    </p>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h4 class="mb-3">Rating Distribution</h4>
+                        {% for stars, count in rating_distribution.items reversed %}
+                        <div class="rating-bar">
+                            <div class="rating-label">
+                                {{ stars }} ★
+                            </div>
+                            <div class="rating-progress">
+                                <div class="rating-progress-fill"
+                                     style="width: {% if rating_count > 0 %}{% widthratio count rating_count 100 %}{% else %}0{% endif %}%">
+                                    {% if count > 0 %}{{ count }}{% endif %}
+                                </div>
+                            </div>
+                            <div class="rating-count">
+                                {% if rating_count > 0 %}{% widthratio count rating_count 100 %}{% else %}0{% endif %}%
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <h4 class="mb-3">Individual Ratings</h4>
+                        <p class="text-muted small">Each bubble represents one rating you received (sorted high to low)</p>
+                        <div class="individual-ratings">
+                            {% for rating in individual_ratings %}
+                            <div class="rating-bubble">{{ rating }}★</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-4 text-center">
+                    <h5>What's Next?</h5>
+                    <p class="mb-3">These scores were used to create optimal pairs for Phase 3: Speed Dating!</p>
+                    <p class="mb-0">The matching algorithm pairs people based on mutual high ratings.</p>
+                </div>
+
+                {% else %}
+                <div class="alert alert-warning text-center">
+                    <h4>No Ratings Received</h4>
+                    <p class="mb-0">You didn't receive any ratings during this event, or presentations haven't been completed yet.</p>
+                </div>
+                {% endif %}
+
+                <div class="text-center mt-4">
+                    <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn btn-crush-primary btn-lg">
+                        Continue to Speed Dating
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Animate the score display
+document.addEventListener('DOMContentLoaded', () => {
+    const bigScore = document.querySelector('.big-score');
+    if (bigScore) {
+        const finalScore = parseFloat(bigScore.textContent);
+        let currentScore = 0;
+        const increment = finalScore / 50;
+
+        const animation = setInterval(() => {
+            currentScore += increment;
+            if (currentScore >= finalScore) {
+                currentScore = finalScore;
+                clearInterval(animation);
+            }
+            bigScore.textContent = currentScore.toFixed(2);
+        }, 20);
+    }
+});
+</script>
+{% endblock %}
