@@ -205,6 +205,9 @@ ACCOUNT_FORMS = {'signup': 'entreprinder.forms.CustomSignupForm'}
 ACCOUNT_SIGNUP_REDIRECT_URL = '/profile/'  # Redirect to profile page after signup
 
 # Email backend Configuration (using SMTP)
+# NOTE: For domain-specific email configuration (crush.lu, vinsdelux.com, etc.),
+# use the send_domain_email() function from azureproject.email_utils
+# This default configuration is used for powerup.lu and as fallback
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'mail.power-up.lu')  # SMTP server address
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', 465))          # SMTP port (465 for SSL)
@@ -215,6 +218,11 @@ EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'True').lower() == 'true' # Use SSL s
 
 # Default email address for outgoing mail
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
+
+# Domain-specific email configurations
+# Crush.lu uses M365: Set CRUSH_EMAIL_HOST_USER=noreply@crush.lu, CRUSH_EMAIL_HOST_PASSWORD=<app-password>
+# VinsDelux can use VINSDELUX_EMAIL_* variables for custom configuration
+# See azureproject/email_utils.py for implementation
 
 CORS_ALLOWED_ORIGINS = [
 ]
