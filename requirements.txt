@@ -8,10 +8,14 @@ django-allauth==0.63.6
 Pillow==10.4.0
 django-crispy-forms==2.3
 crispy-bootstrap5==2024.2
-requests==2.26.0
+requests==2.31.0
+msal==1.28.0
 djangorestframework-simplejwt==5.4.0
 PyJWT == 2.10.1
 django-cors-headers==4.6.0
 django-storages==1.14.2
 azure-storage-blob==12.25.1
 olefile==0.47
+msal==1.28.0
+msgraph-core==1.0.0
+requests==2.31.0

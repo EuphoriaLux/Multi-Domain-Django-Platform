@@ -20,6 +20,16 @@ from .forms import (
     CoachSessionForm, EventRegistrationForm
 )
 from .decorators import crush_login_required
+from .email_helpers import (
+    send_profile_submission_confirmation,
+    send_coach_assignment_notification,
+    send_profile_approved_notification,
+    send_profile_revision_request,
+    send_profile_rejected_notification,
+    send_event_registration_confirmation,
+    send_event_waitlist_notification,
+    send_event_cancellation_confirmation,
+)
 
 
 # Authentication views
@@ -90,7 +100,9 @@ def signup(request):
         if form.is_valid():
             user = form.save()
             messages.success(request, 'Account created! Please complete your profile.')
-            # Log the user in
+            # Log the user in - set backend attribute for compatibility with social auth
+            # This allows both standard signup and future OAuth (LinkedIn, Google, etc.)
+            user.backend = 'django.contrib.auth.backends.ModelBackend'
             from django.contrib.auth import login
             login(request, user)
             return redirect('crush_lu:create_profile')
@@ -132,6 +144,24 @@ def create_profile(request):
             # Create profile submission for coach review
             submission = ProfileSubmission.objects.create(profile=profile)
             submission.assign_coach()
+
+            # Send confirmation email to user
+            try:
+                send_profile_submission_confirmation(request.user, request)
+            except Exception as e:
+                # Log error but don't block the flow
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to send profile submission confirmation: {e}")
+
+            # Send notification to assigned coach if one was assigned
+            if submission.assigned_coach:
+                try:
+                    send_coach_assignment_notification(submission.assigned_coach, submission, request)
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Failed to send coach assignment notification: {e}")
 
             messages.success(request, 'Profile submitted for review!')
             return redirect('crush_lu:profile_submitted')
@@ -196,6 +226,23 @@ def edit_profile(request):
             )
             if created:
                 submission.assign_coach()
+
+                # Send confirmation email to user
+                try:
+                    send_profile_submission_confirmation(request.user, request)
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Failed to send profile submission confirmation: {e}")
+
+                # Send notification to assigned coach if one was assigned
+                if submission.assigned_coach:
+                    try:
+                        send_coach_assignment_notification(submission.assigned_coach, submission, request)
+                    except Exception as e:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Failed to send coach assignment notification: {e}")
 
             messages.success(request, 'Profile submitted for review!')
             return redirect('crush_lu:profile_submitted')
@@ -369,6 +416,18 @@ def event_register(request, event_id):
                 messages.success(request, 'Successfully registered for the event!')
 
             registration.save()
+
+            # Send confirmation or waitlist email
+            try:
+                if registration.status == 'confirmed':
+                    send_event_registration_confirmation(registration, request)
+                elif registration.status == 'waitlist':
+                    send_event_waitlist_notification(registration, request)
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to send event registration email: {e}")
+
             return redirect('crush_lu:dashboard')
     else:
         form = EventRegistrationForm()
@@ -394,6 +453,15 @@ def event_cancel(request, event_id):
         registration.status = 'cancelled'
         registration.save()
         messages.success(request, 'Your registration has been cancelled.')
+
+        # Send cancellation confirmation email
+        try:
+            send_event_cancellation_confirmation(request.user, event, request)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send event cancellation confirmation: {e}")
+
         return redirect('crush_lu:dashboard')
 
     context = {
@@ -454,18 +522,56 @@ def coach_review_profile(request, submission_id):
             submission = form.save(commit=False)
             submission.reviewed_at = timezone.now()
 
-            # Update profile approval status
+            # Update profile approval status and send notifications
             if submission.status == 'approved':
                 submission.profile.is_approved = True
                 submission.profile.approved_at = timezone.now()
                 submission.profile.save()
                 messages.success(request, 'Profile approved!')
+
+                # Send approval notification to user
+                try:
+                    send_profile_approved_notification(
+                        submission.profile,
+                        request,
+                        coach_notes=submission.feedback_to_user
+                    )
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Failed to send profile approval notification: {e}")
+
             elif submission.status == 'rejected':
                 submission.profile.is_approved = False
                 submission.profile.save()
                 messages.info(request, 'Profile rejected.')
+
+                # Send rejection notification to user
+                try:
+                    send_profile_rejected_notification(
+                        submission.profile,
+                        request,
+                        reason=submission.feedback_to_user
+                    )
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Failed to send profile rejection notification: {e}")
+
             elif submission.status == 'revision':
                 messages.info(request, 'Revision requested.')
+
+                # Send revision request to user
+                try:
+                    send_profile_revision_request(
+                        submission.profile,
+                        request,
+                        feedback=submission.feedback_to_user
+                    )
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Failed to send profile revision request: {e}")
 
             submission.save()
             return redirect('crush_lu:coach_dashboard')
