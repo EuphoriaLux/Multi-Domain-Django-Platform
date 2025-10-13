@@ -1,0 +1,40 @@
+{% extends "crush_lu/emails/base_email.html" %}
+
+{% block title %}Added to Waitlist - Crush.lu{% endblock %}
+
+{% block header_title %}You're on the Waitlist{% endblock %}
+
+{% block content %}
+<h2>Hey {{ registration.user.first_name }}!</h2>
+
+<p>Thanks for your interest in <strong>{{ event.title }}</strong>!</p>
+
+<p>The event is currently full, but we've added you to the waitlist. If a spot opens up, you'll be notified immediately.</p>
+
+<div class="info-box">
+    <strong>Event Details:</strong>
+    <ul style="margin: 10px 0;">
+        <li><strong>Event:</strong> {{ event.title }}</li>
+        <li><strong>Date:</strong> {{ event.date_time|date:"l, F j, Y" }}</li>
+        <li><strong>Time:</strong> {{ event.date_time|date:"g:i A" }}</li>
+        <li><strong>Location:</strong> {{ event.location }}</li>
+        <li><strong>Your Waitlist Position:</strong> {{ event.get_waitlist_count }}</li>
+    </ul>
+</div>
+
+<p><strong>What happens next:</strong></p>
+<ul>
+    <li>If someone cancels, you'll be automatically moved to confirmed</li>
+    <li>You'll receive an email if your status changes</li>
+    <li>Check back closer to the event date for updates</li>
+</ul>
+
+<a href="https://crush.lu/events/" class="button">Browse Other Events</a>
+
+<p>We host events regularly, so keep an eye out for more opportunities!</p>
+
+<p>
+    Hope to see you soon!<br>
+    <strong>The Crush.lu Team</strong>
+</p>
+{% endblock %}

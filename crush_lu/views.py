@@ -7,6 +7,9 @@ from django.utils import timezone
 from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .models import (
     CrushProfile, CrushCoach, ProfileSubmission,
@@ -21,6 +24,7 @@ from .forms import (
 )
 from .decorators import crush_login_required
 from .email_helpers import (
+    send_welcome_email,
     send_profile_submission_confirmation,
     send_coach_assignment_notification,
     send_profile_approved_notification,
@@ -94,18 +98,52 @@ def how_it_works(request):
 
 # Onboarding
 def signup(request):
-    """User registration"""
+    """
+    User registration with Allauth integration
+    Supports both manual signup and social login (LinkedIn, Google, etc.)
+    """
     if request.method == 'POST':
         form = CrushSignupForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            messages.success(request, 'Account created! Please complete your profile.')
-            # Log the user in - set backend attribute for compatibility with social auth
-            # This allows both standard signup and future OAuth (LinkedIn, Google, etc.)
-            user.backend = 'django.contrib.auth.backends.ModelBackend'
-            from django.contrib.auth import login
-            login(request, user)
-            return redirect('crush_lu:create_profile')
+            try:
+                # Allauth's save() method handles EmailAddress creation automatically
+                # This will raise IntegrityError if email/username already exists
+                user = form.save(request)
+
+                # Send welcome email immediately after account creation
+                try:
+                    result = send_welcome_email(user, request)
+                    logger.info(f"✅ Welcome email sent to {user.email}: {result}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to send welcome email to {user.email}: {e}", exc_info=True)
+                    # Don't block signup if email fails
+
+                messages.success(request, 'Account created! Check your email and complete your profile.')
+                # Log the user in - set backend for multi-auth compatibility
+                user.backend = 'django.contrib.auth.backends.ModelBackend'
+                login(request, user)
+                return redirect('crush_lu:create_profile')
+
+            except Exception as e:
+                # Handle duplicate email/username errors
+                logger.error(f"❌ Signup failed for email: {e}", exc_info=True)
+
+                # Check if it's a duplicate email error
+                error_msg = str(e).lower()
+                if 'unique' in error_msg or 'duplicate' in error_msg or 'already exists' in error_msg:
+                    messages.error(
+                        request,
+                        'An account with this email already exists. '
+                        'Please <a href="/crush/login/">login</a> or use a different email.'
+                    )
+                else:
+                    messages.error(
+                        request,
+                        'An error occurred while creating your account. Please try again.'
+                    )
+
+                # Re-render the form with the error
+                return render(request, 'crush_lu/signup.html', {'form': form})
     else:
         form = CrushSignupForm()
 
@@ -124,63 +162,148 @@ def create_profile(request):
         # Either no coach record, or coach is inactive - allow profile creation
         pass
 
-    # Check if profile already exists
-    try:
-        profile = CrushProfile.objects.get(user=request.user)
-        messages.info(request, 'You already have a profile. You can edit it here.')
-        return redirect('crush_lu:edit_profile')
-    except CrushProfile.DoesNotExist:
-        pass
-
+    # If it's a POST request, process the form submission first
     if request.method == 'POST':
-        form = CrushProfileForm(request.POST, request.FILES)
+        # Get existing profile if it exists (from Steps 1-2 AJAX saves)
+        try:
+            existing_profile = CrushProfile.objects.get(user=request.user)
+            form = CrushProfileForm(request.POST, request.FILES, instance=existing_profile)
+        except CrushProfile.DoesNotExist:
+            form = CrushProfileForm(request.POST, request.FILES)
+
         if form.is_valid():
             profile = form.save(commit=False)
             profile.user = request.user
             # Mark profile as completed and submitted
             profile.completion_status = 'submitted'
+
+            # Cancel screening call since profile is now complete
+            # Screening call is only needed to help incomplete profiles
+            profile.needs_screening_call = False
+            logger.info(f"Profile completed - screening call no longer needed for {request.user.email}")
+
             profile.save()
+            logger.info(f"Profile submitted for review: {request.user.email}")
 
             # Create profile submission for coach review
+            # Coach will do screening call during review process
             submission = ProfileSubmission.objects.create(profile=profile)
             submission.assign_coach()
 
             # Send confirmation email to user
             try:
-                send_profile_submission_confirmation(request.user, request)
+                result = send_profile_submission_confirmation(request.user, request)
+                logger.info(f"✅ Profile submission email sent to {request.user.email}: {result}")
             except Exception as e:
                 # Log error but don't block the flow
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.error(f"Failed to send profile submission confirmation: {e}")
+                logger.error(f"❌ Failed to send profile submission confirmation to {request.user.email}: {e}", exc_info=True)
+                # Also show warning message to user
+                messages.warning(request, 'Profile submitted! (Email notification may have failed - check your spam folder)')
 
             # Send notification to assigned coach if one was assigned
-            if submission.assigned_coach:
+            if submission.coach:
                 try:
-                    send_coach_assignment_notification(submission.assigned_coach, submission, request)
+                    result = send_coach_assignment_notification(submission.coach, submission, request)
+                    logger.info(f"✅ Coach assignment email sent to {submission.coach.user.email}: {result}")
                 except Exception as e:
-                    import logging
-                    logger = logging.getLogger(__name__)
-                    logger.error(f"Failed to send coach assignment notification: {e}")
+                    logger.error(f"❌ Failed to send coach assignment notification: {e}", exc_info=True)
 
             messages.success(request, 'Profile submitted for review!')
             return redirect('crush_lu:profile_submitted')
-    else:
-        form = CrushProfileForm()
+        else:
+            # CRITICAL: Log validation errors
+            logger.error(f"❌ Profile form validation failed for user {request.user.email}")
+            logger.error(f"❌ Form errors: {form.errors.as_json()}")
 
-    return render(request, 'crush_lu/create_profile.html', {'form': form})
+            # Show user-friendly error messages
+            for field, errors in form.errors.items():
+                for error in errors:
+                    if field == '__all__':
+                        messages.error(request, f"Form error: {error}")
+                    else:
+                        messages.error(request, f"{field.replace('_', ' ').title()}: {error}")
+
+            # When validation fails, show Step 4 (review step) so user can see errors
+            # and resubmit from the review screen
+            context = {
+                'form': form,
+                'current_step': 'step3',  # Show review step where submit button is
+            }
+            return render(request, 'crush_lu/create_profile.html', context)
+
+    # GET request - check if profile already exists and redirect accordingly
+    try:
+        profile = CrushProfile.objects.get(user=request.user)
+
+        # If profile is submitted, show status page instead of edit form
+        if profile.completion_status == 'submitted':
+            messages.info(request, 'Your profile has been submitted. Check the status below.')
+            return redirect('crush_lu:profile_submitted')
+        else:
+            # Incomplete profile - allow editing to continue
+            messages.info(request, 'Continue completing your profile.')
+            return redirect('crush_lu:edit_profile')
+    except CrushProfile.DoesNotExist:
+        # No profile yet - show creation form
+        form = CrushProfileForm()
+        return render(request, 'crush_lu/create_profile.html', {'form': form})
 
 
 @crush_login_required
-def edit_profile(request):
-    """Edit existing profile - uses same multi-step form as create"""
+def edit_profile_simple(request):
+    """Simple single-page edit for approved profiles"""
     # Check if user is an ACTIVE coach
     try:
         coach = CrushCoach.objects.get(user=request.user, is_active=True)
         messages.error(request, 'Coaches cannot edit dating profiles. You have an active coach account.')
         return redirect('crush_lu:coach_dashboard')
     except CrushCoach.DoesNotExist:
-        # Either no coach record, or coach is inactive - allow profile editing
+        pass
+
+    # Get existing profile
+    try:
+        profile = CrushProfile.objects.get(user=request.user)
+    except CrushProfile.DoesNotExist:
+        messages.info(request, 'You need to create a profile first.')
+        return redirect('crush_lu:create_profile')
+
+    # Only approved profiles use this simple edit page
+    if not profile.is_approved:
+        messages.warning(request, 'Your profile must be approved before using quick edit.')
+        return redirect('crush_lu:edit_profile')
+
+    if request.method == 'POST':
+        form = CrushProfileForm(request.POST, request.FILES, instance=profile)
+        if form.is_valid():
+            profile = form.save(commit=False)
+            # Keep approved status - this is just an edit
+            profile.save()
+            messages.success(request, 'Profile updated successfully!')
+            return redirect('crush_lu:dashboard')
+        else:
+            # Show validation errors
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field.replace('_', ' ').title()}: {error}")
+    else:
+        form = CrushProfileForm(instance=profile)
+
+    context = {
+        'form': form,
+        'profile': profile,
+    }
+    return render(request, 'crush_lu/edit_profile_simple.html', context)
+
+
+@crush_login_required
+def edit_profile(request):
+    """Edit existing profile - routes to appropriate edit flow"""
+    # Check if user is an ACTIVE coach
+    try:
+        coach = CrushCoach.objects.get(user=request.user, is_active=True)
+        messages.error(request, 'Coaches cannot edit dating profiles. You have an active coach account.')
+        return redirect('crush_lu:coach_dashboard')
+    except CrushCoach.DoesNotExist:
         pass
 
     # Try to get existing profile, redirect to create if doesn't exist
@@ -190,27 +313,28 @@ def edit_profile(request):
         messages.info(request, 'You need to create a profile first.')
         return redirect('crush_lu:create_profile')
 
-    # Check if profile is already submitted and pending approval
+    # ROUTING LOGIC: Determine which edit flow to use
+
+    # 1. If profile is approved → use simple single-page edit
+    if profile.is_approved:
+        return edit_profile_simple(request)
+
+    # 2. If profile is submitted and under review → redirect to status page
     if profile.completion_status == 'submitted':
         try:
-            submission = ProfileSubmission.objects.get(profile=profile)
-            # If pending or under review, redirect to status page
+            submission = ProfileSubmission.objects.filter(profile=profile).latest('submitted_at')
+            # If pending or under review, can't edit
             if submission.status in ['pending', 'under_review']:
                 messages.info(request, 'Your profile is currently under review. You\'ll be notified once it\'s approved.')
                 return redirect('crush_lu:profile_submitted')
-            # If rejected, allow editing
-            elif submission.status == 'rejected':
-                messages.warning(request, 'Your profile was not approved. Please review the feedback and update your profile.')
-                # Continue to allow editing
-            # If approved, they shouldn't be editing via this form
-            elif submission.status == 'approved':
-                messages.success(request, 'Your profile is already approved!')
-                return redirect('crush_lu:dashboard')
+            # If rejected or needs revision, allow multi-step editing with feedback
+            elif submission.status in ['rejected', 'revision']:
+                messages.warning(request, 'Your profile needs updates. Please review the coach feedback below.')
+                # Fall through to multi-step edit with feedback context
         except ProfileSubmission.DoesNotExist:
-            # Profile marked as submitted but no submission record - allow editing
             pass
 
-    # Use the same multi-step template as create, but with editing mode
+    # 3. Default: Use multi-step form for incomplete or rejected profiles
     if request.method == 'POST':
         form = CrushProfileForm(request.POST, request.FILES, instance=profile)
         if form.is_valid():
@@ -228,35 +352,54 @@ def edit_profile(request):
                 submission.assign_coach()
 
                 # Send confirmation email to user
+                import logging
+                logger = logging.getLogger(__name__)
+
                 try:
-                    send_profile_submission_confirmation(request.user, request)
+                    result = send_profile_submission_confirmation(request.user, request)
+                    logger.info(f"✅ Profile submission email sent to {request.user.email}: {result}")
                 except Exception as e:
-                    import logging
-                    logger = logging.getLogger(__name__)
-                    logger.error(f"Failed to send profile submission confirmation: {e}")
+                    logger.error(f"❌ Failed to send profile submission confirmation to {request.user.email}: {e}", exc_info=True)
+                    messages.warning(request, 'Profile submitted! (Email notification may have failed)')
 
                 # Send notification to assigned coach if one was assigned
-                if submission.assigned_coach:
+                if submission.coach:
                     try:
-                        send_coach_assignment_notification(submission.assigned_coach, submission, request)
+                        result = send_coach_assignment_notification(submission.coach, submission, request)
+                        logger.info(f"✅ Coach assignment email sent to {submission.coach.user.email}: {result}")
                     except Exception as e:
-                        import logging
-                        logger = logging.getLogger(__name__)
-                        logger.error(f"Failed to send coach assignment notification: {e}")
+                        logger.error(f"❌ Failed to send coach assignment notification: {e}", exc_info=True)
 
             messages.success(request, 'Profile submitted for review!')
             return redirect('crush_lu:profile_submitted')
     else:
         form = CrushProfileForm(instance=profile)
 
-    # When editing an existing profile, ALWAYS start from step 1
-    # This allows users to review and edit all sections
-    # The auto-advance logic (step1 -> step2) is only for NEW profile creation
+    # Get latest submission for feedback context
+    latest_submission = None
+    try:
+        latest_submission = ProfileSubmission.objects.filter(profile=profile).latest('submitted_at')
+    except ProfileSubmission.DoesNotExist:
+        pass
+
+    # Determine which step to show based on submission status
+    current_step_to_show = None
+    if latest_submission and latest_submission.status in ['rejected', 'revision']:
+        # For rejected profiles, start from Step 1 so they can review everything
+        current_step_to_show = None  # This will default to step 1 in JavaScript
+    elif profile.completion_status == 'submitted':
+        # If submitted but no rejection, default to None (step 1)
+        current_step_to_show = None
+    else:
+        # Resume from where they left off for incomplete profiles
+        current_step_to_show = profile.completion_status
+
     context = {
         'form': form,
         'profile': profile,
         'is_editing': True,
-        'current_step': None  # Always start at step 1 when editing
+        'current_step': current_step_to_show,
+        'submission': latest_submission,  # Pass submission for feedback display
     }
     return render(request, 'crush_lu/create_profile.html', context)
 
@@ -502,6 +645,33 @@ def coach_dashboard(request):
 
 
 @crush_login_required
+def coach_mark_review_call_complete(request, submission_id):
+    """Mark screening call as complete during profile review"""
+    try:
+        coach = CrushCoach.objects.get(user=request.user, is_active=True)
+    except CrushCoach.DoesNotExist:
+        messages.error(request, 'You do not have coach access.')
+        return redirect('crush_lu:dashboard')
+
+    submission = get_object_or_404(
+        ProfileSubmission,
+        id=submission_id,
+        coach=coach
+    )
+
+    if request.method == 'POST':
+        submission.review_call_completed = True
+        submission.review_call_date = timezone.now()
+        submission.review_call_notes = request.POST.get('call_notes', '')
+        submission.save()
+
+        messages.success(request, f'✅ Screening call marked complete for {submission.profile.user.first_name}. You can now approve the profile.')
+        return redirect('crush_lu:coach_review_profile', submission_id=submission.id)
+
+    return redirect('crush_lu:coach_review_profile', submission_id=submission.id)
+
+
+@crush_login_required
 def coach_review_profile(request, submission_id):
     """Review a profile submission"""
     try:
@@ -524,6 +694,17 @@ def coach_review_profile(request, submission_id):
 
             # Update profile approval status and send notifications
             if submission.status == 'approved':
+                # REQUIRE screening call before approval
+                if not submission.review_call_completed:
+                    messages.error(request, '⚠️ You must complete a screening call before approving this profile.')
+                    form = ProfileReviewForm(instance=submission)
+                    context = {
+                        'coach': coach,
+                        'submission': submission,
+                        'form': form,
+                    }
+                    return render(request, 'crush_lu/coach_review_profile.html', context)
+
                 submission.profile.is_approved = True
                 submission.profile.approved_at = timezone.now()
                 submission.profile.save()

@@ -1,0 +1,211 @@
+"""
+Secure media serving views for Crush.lu
+Handles photo access with authentication and privacy checks
+"""
+
+from django.shortcuts import get_object_or_404
+from django.http import HttpResponse, HttpResponseForbidden, Http404
+from django.contrib.auth.decorators import login_required
+from django.conf import settings
+from django.core.exceptions import PermissionDenied
+from PIL import Image, ImageFilter
+import os
+import logging
+
+from .models import CrushProfile
+
+logger = logging.getLogger(__name__)
+
+
+def can_view_profile_photo(viewer, profile_owner):
+    """
+    Determine if viewer can see profile_owner's photos
+
+    Rules:
+    - Owner can always see their own photos
+    - Coaches can see all photos (for review)
+    - Approved profiles: visible to other approved users
+    - Unapproved profiles: only visible to owner and coaches
+    - Blur setting: respected for non-mutual connections
+
+    Args:
+        viewer: User object of the person viewing
+        profile_owner: CrushProfile object being viewed
+
+    Returns:
+        dict with 'allowed' (bool) and 'blur' (bool)
+    """
+    # Owner can always see their own photos
+    if viewer == profile_owner.user:
+        return {'allowed': True, 'blur': False}
+
+    # Check if viewer is a coach
+    try:
+        from .models import CrushCoach
+        coach = CrushCoach.objects.get(user=viewer, is_active=True)
+        # Coaches can see all photos unblurred (for review)
+        return {'allowed': True, 'blur': False}
+    except CrushCoach.DoesNotExist:
+        pass
+
+    # Profile must be approved for others to see
+    if not profile_owner.is_approved:
+        return {'allowed': False, 'blur': False}
+
+    # Check if viewer has an approved profile
+    try:
+        viewer_profile = CrushProfile.objects.get(user=viewer)
+        if not viewer_profile.is_approved:
+            return {'allowed': False, 'blur': False}
+    except CrushProfile.DoesNotExist:
+        return {'allowed': False, 'blur': False}
+
+    # Check blur_photos privacy setting
+    should_blur = profile_owner.blur_photos
+
+    # TODO: Add logic to check for mutual connections/matches
+    # If there's a mutual connection, set should_blur = False
+
+    return {'allowed': True, 'blur': should_blur}
+
+
+def apply_blur_to_image(image_path):
+    """
+    Apply blur effect to an image file
+
+    Args:
+        image_path: Path to image file
+
+    Returns:
+        PIL Image object with blur applied
+    """
+    try:
+        img = Image.open(image_path)
+        # Apply Gaussian blur
+        blurred = img.filter(ImageFilter.GaussianBlur(radius=20))
+        return blurred
+    except Exception as e:
+        logger.error(f"Error blurring image {image_path}: {e}")
+        raise
+
+
+@login_required
+def serve_profile_photo(request, user_id, photo_field):
+    """
+    Serve profile photos with authentication and privacy checks
+
+    URL: /crush/media/profile/{user_id}/{photo_field}/
+    Where photo_field is: photo_1, photo_2, or photo_3
+
+    Args:
+        user_id: ID of the profile owner
+        photo_field: Which photo field (photo_1, photo_2, photo_3)
+
+    Returns:
+        Image file or 403/404 error
+    """
+    # Validate photo_field
+    if photo_field not in ['photo_1', 'photo_2', 'photo_3']:
+        raise Http404("Invalid photo field")
+
+    # Get the profile
+    profile = get_object_or_404(CrushProfile, user_id=user_id)
+
+    # Check permissions
+    permission = can_view_profile_photo(request.user, profile)
+    if not permission['allowed']:
+        logger.warning(
+            f"User {request.user.id} denied access to {profile.user.id}'s {photo_field}"
+        )
+        raise PermissionDenied("You don't have permission to view this photo")
+
+    # Get the photo field
+    photo = getattr(profile, photo_field)
+    if not photo:
+        raise Http404("Photo not found")
+
+    # AZURE BLOB STORAGE: Generate SAS URL and redirect
+    if hasattr(settings, 'AZURE_ACCOUNT_NAME') and settings.AZURE_ACCOUNT_NAME:
+        # Generate time-limited SAS URL
+        from .storage import CrushProfilePhotoStorage
+        storage = CrushProfilePhotoStorage()
+
+        # Get secure URL with SAS token
+        secure_url = storage.url(photo.name, expire=1800)  # 30 min expiry
+
+        # For blurred photos, we need to fetch and process
+        if permission['blur']:
+            # TODO: Implement blur for Azure
+            # For now, add blur indicator to URL or serve warning
+            logger.info(f"Blur requested for Azure photo: {photo.name}")
+
+        # Redirect to Azure with SAS token
+        from django.shortcuts import redirect
+        return redirect(secure_url)
+
+    # LOCAL FILESYSTEM: Serve directly with optional blur
+    else:
+        photo_path = photo.path
+
+        # Check if file exists
+        if not os.path.exists(photo_path):
+            raise Http404("Photo file not found")
+
+        # Apply blur if needed
+        if permission['blur']:
+            try:
+                img = apply_blur_to_image(photo_path)
+                response = HttpResponse(content_type='image/jpeg')
+                img.save(response, 'JPEG', quality=85)
+                return response
+            except Exception as e:
+                logger.error(f"Error serving blurred photo: {e}")
+                raise Http404("Error processing photo")
+
+        # Serve original photo
+        try:
+            with open(photo_path, 'rb') as f:
+                content_type = 'image/jpeg'
+                if photo_path.lower().endswith('.png'):
+                    content_type = 'image/png'
+                elif photo_path.lower().endswith('.webp'):
+                    content_type = 'image/webp'
+
+                response = HttpResponse(f.read(), content_type=content_type)
+                response['Content-Disposition'] = 'inline'
+                return response
+        except Exception as e:
+            logger.error(f"Error serving photo {photo_path}: {e}")
+            raise Http404("Error loading photo")
+
+
+def get_profile_photo_url(profile, photo_field, request=None):
+    """
+    Helper function to generate the correct photo URL
+
+    Use this in templates and views instead of accessing photo.url directly
+
+    Args:
+        profile: CrushProfile instance
+        photo_field: Which photo ('photo_1', 'photo_2', 'photo_3')
+        request: Optional request object (for building absolute URLs)
+
+    Returns:
+        URL string to the photo (through the secure view)
+    """
+    from django.urls import reverse
+
+    if not getattr(profile, photo_field):
+        return None
+
+    # Generate URL through the secure view
+    url = reverse('crush_lu:serve_profile_photo', kwargs={
+        'user_id': profile.user.id,
+        'photo_field': photo_field
+    })
+
+    # Build absolute URL if request provided
+    if request:
+        return request.build_absolute_uri(url)
+
+    return url

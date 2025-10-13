@@ -1,0 +1,39 @@
+{% extends "crush_lu/emails/base_email.html" %}
+
+{% block title %}New Profile Review - Crush.lu{% endblock %}
+
+{% block header_title %}New Profile Review Assignment{% endblock %}
+
+{% block content %}
+<h2>Hey {{ coach.user.first_name }}!</h2>
+
+<p>You've been assigned a new profile to review:</p>
+
+<div class="info-box">
+    <strong>Profile Details:</strong>
+    <ul style="margin: 10px 0;">
+        <li><strong>Name:</strong> {{ submission.profile.user.get_full_name }}</li>
+        <li><strong>Age:</strong> {{ submission.profile.age }} years old</li>
+        <li><strong>Location:</strong> {{ submission.profile.location }}</li>
+        <li><strong>Submitted:</strong> {{ submission.created_at|date:"F j, Y g:i A" }}</li>
+    </ul>
+</div>
+
+<a href="https://crush.lu/coach/review/{{ submission.id }}/" class="button">Review Profile</a>
+
+<p><strong>Review Checklist:</strong></p>
+<ul>
+    <li>✓ Profile photos are clear and appropriate</li>
+    <li>✓ Bio is genuine and respectful</li>
+    <li>✓ Age verification (18+)</li>
+    <li>✓ No inappropriate content or red flags</li>
+    <li>✓ Completed all required fields</li>
+</ul>
+
+<p>Please review within 24-48 hours to ensure a great experience for new members.</p>
+
+<p>
+    Thanks for your help!<br>
+    <strong>The Crush.lu Team</strong>
+</p>
+{% endblock %}

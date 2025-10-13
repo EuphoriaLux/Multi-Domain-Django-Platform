@@ -2,6 +2,15 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta
+import os
+
+# Conditional import of private storage for production
+if os.getenv('AZURE_ACCOUNT_NAME'):
+    from .storage import CrushProfilePhotoStorage
+    crush_photo_storage = CrushProfilePhotoStorage()
+else:
+    # In development, use default storage
+    crush_photo_storage = None
 
 
 class CrushCoach(models.Model):
@@ -93,10 +102,25 @@ class CrushProfile(models.Model):
         blank=True
     )
 
-    # Photos
-    photo_1 = models.ImageField(upload_to='crush_profiles/', blank=True, null=True)
-    photo_2 = models.ImageField(upload_to='crush_profiles/', blank=True, null=True)
-    photo_3 = models.ImageField(upload_to='crush_profiles/', blank=True, null=True)
+    # Photos (using private storage in production with SAS tokens)
+    photo_1 = models.ImageField(
+        upload_to='crush_profiles/',
+        blank=True,
+        null=True,
+        storage=crush_photo_storage
+    )
+    photo_2 = models.ImageField(
+        upload_to='crush_profiles/',
+        blank=True,
+        null=True,
+        storage=crush_photo_storage
+    )
+    photo_3 = models.ImageField(
+        upload_to='crush_profiles/',
+        blank=True,
+        null=True,
+        storage=crush_photo_storage
+    )
 
     # Privacy Settings
     show_full_name = models.BooleanField(
@@ -185,6 +209,21 @@ class ProfileSubmission(models.Model):
     feedback_to_user = models.TextField(
         blank=True,
         help_text="Feedback shown to user if revision needed"
+    )
+
+    # Screening call during review (required before approval)
+    review_call_completed = models.BooleanField(
+        default=False,
+        help_text="Coach must complete screening call before approving profile"
+    )
+    review_call_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When coach completed the screening call"
+    )
+    review_call_notes = models.TextField(
+        blank=True,
+        help_text="Notes from coach's screening call during review"
     )
 
     # Timestamps

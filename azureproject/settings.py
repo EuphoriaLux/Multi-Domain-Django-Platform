@@ -67,14 +67,14 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Ensure correct placement
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'azureproject.middleware.DomainURLRoutingMiddleware',  # Domain-based routing (before LocaleMiddleware)
+    'django.middleware.locale.LocaleMiddleware',  # Placement matters
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.middleware.locale.LocaleMiddleware',  # Placement matters
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',  # Ensure correct placement
-    'azureproject.middleware.DomainURLRoutingMiddleware',  # Domain-based routing
 ]
 
 
@@ -192,7 +192,6 @@ ACCOUNT_EMAIL_VERIFICATION = "optional"  # Changed from mandatory
 ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = True
 ACCOUNT_SESSION_REMEMBER = True
 
-LOGIN_REDIRECT_URL = '/'  # or wherever you want users to go after login
 LOGIN_REDIRECT_URL = '/profile/'
 
 SOCIALACCOUNT_LOGIN_ON_GET = True
@@ -207,6 +206,7 @@ ACCOUNT_SIGNUP_REDIRECT_URL = '/profile/'  # Redirect to profile page after sign
 # Email backend Configuration (using SMTP)
 # NOTE: For domain-specific email configuration (crush.lu, vinsdelux.com, etc.),
 # use the send_domain_email() function from azureproject.email_utils
+# The send_domain_email() automatically uses console backend in DEBUG mode
 # This default configuration is used for powerup.lu and as fallback
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'mail.power-up.lu')  # SMTP server address
@@ -217,10 +217,11 @@ EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'True').lower() == 'true' # Use SSL s
 # EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'False').lower() == 'true' # Use TLS if port was 587
 
 # Default email address for outgoing mail
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'noreply@powerup.lu')
 
 # Domain-specific email configurations
-# Crush.lu uses M365: Set CRUSH_EMAIL_HOST_USER=noreply@crush.lu, CRUSH_EMAIL_HOST_PASSWORD=<app-password>
+# Crush.lu uses Microsoft Graph API (SMTP disabled by M365)
+#   Set CRUSH_GRAPH_TENANT_ID, CRUSH_GRAPH_CLIENT_ID, CRUSH_GRAPH_CLIENT_SECRET
 # VinsDelux can use VINSDELUX_EMAIL_* variables for custom configuration
 # See azureproject/email_utils.py for implementation
 
@@ -229,7 +230,7 @@ CORS_ALLOWED_ORIGINS = [
 
 
 
-ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'http' if DEBUG else 'https'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (

@@ -38,15 +38,18 @@ USE_X_FORWARDED_HOST = True
 # Trust X-Forwarded-Proto header for SSL detection
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-DEBUG = True
+DEBUG = False
+
+# Override authentication protocol for production (always HTTPS)
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
 
 # WhiteNoise configuration and Middleware list
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'azureproject.redirect_www_middleware.RedirectWWWToRootDomainMiddleware',
-    'azureproject.middleware.DomainURLRoutingMiddleware',  # <-- Added multi-domain routing middleware
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'azureproject.middleware.DomainURLRoutingMiddleware',  # <-- Multi-domain routing (before LocaleMiddleware)
     'django.middleware.locale.LocaleMiddleware',
     'azureproject.middleware.ForceAdminToEnglishMiddleware', # Force admin to English
     'django.middleware.common.CommonMiddleware',
@@ -58,7 +61,8 @@ MIDDLEWARE = [
 ]
 
 # Set default URL configuration; this will be overridden by our middleware as needed.
-ROOT_URLCONF = 'azureproject.urls_default'
+# Using powerup as default to match middleware fallback behavior
+ROOT_URLCONF = 'azureproject.urls_powerup'
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
@@ -125,6 +129,25 @@ CACHES = {
 }
 
 SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
+
+# Override session settings from base settings.py
+SESSION_COOKIE_AGE = 86400  # 24 hours
+SESSION_REMEMBER_ME = True
+
+# Override login redirect (matches settings.py)
+LOGIN_REDIRECT_URL = '/profile/'
+ACCOUNT_SIGNUP_REDIRECT_URL = '/profile/'
+
+# Security settings for production
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+
+# Cookie security (only over HTTPS)
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
 
 # Uncomment and configure the following if you wish to use cache-backed sessions:
 # SESSION_ENGINE = "django.contrib.sessions.backends.cache"

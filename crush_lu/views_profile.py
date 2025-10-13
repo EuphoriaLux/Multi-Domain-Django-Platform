@@ -8,9 +8,12 @@ from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from django.db import transaction
 import json
+import logging
 
 from .models import CrushProfile, CrushCoach, ProfileSubmission
 from .decorators import crush_login_required
+
+logger = logging.getLogger(__name__)
 
 
 @crush_login_required
@@ -33,9 +36,42 @@ def save_profile_step1(request):
         # Get or create profile
         profile, created = CrushProfile.objects.get_or_create(user=request.user)
 
+        # Validate date of birth
+        date_of_birth = data.get('date_of_birth')
+        if date_of_birth:
+            from datetime import datetime
+            try:
+                dob = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
+
+                # Calculate age
+                today = timezone.now().date()
+                age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+                # Validate age range
+                if age < 18:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'You must be at least 18 years old to join Crush.lu'
+                    }, status=400)
+
+                if age > 99:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Please enter a valid date of birth'
+                    }, status=400)
+
+            except ValueError:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid date format. Please use YYYY-MM-DD'
+                }, status=400)
+
+        # Check if this is the first time completing Step 1
+        is_first_time = profile.completion_status != 'step1'
+
         # Update basic info
         profile.phone_number = data.get('phone_number', '').strip()
-        profile.date_of_birth = data.get('date_of_birth')
+        profile.date_of_birth = date_of_birth
         profile.gender = data.get('gender', '')
         profile.location = data.get('location', '')
 
@@ -45,9 +81,13 @@ def save_profile_step1(request):
 
         profile.save()
 
+        # Note: Welcome email was already sent after signup
+        # No need to send another email here
+        logger.info(f"✅ Step 1 saved for {request.user.email}")
+
         return JsonResponse({
             'success': True,
-            'message': 'Basic info saved! A coach will contact you soon.',
+            'message': 'Basic info saved! Continue to complete your profile.',
             'profile_id': profile.id,
             'needs_call': True
         })
@@ -68,10 +108,27 @@ def save_profile_step2(request):
 
         profile = CrushProfile.objects.get(user=request.user)
 
+        # Validate looking_for is provided
+        looking_for = data.get('looking_for', '').strip()
+        if not looking_for:
+            return JsonResponse({
+                'success': False,
+                'error': 'Please select what you\'re looking for'
+            }, status=400)
+
+        # Validate looking_for is a valid choice
+        from .models import CrushProfile as ProfileModel
+        valid_choices = [choice[0] for choice in ProfileModel.LOOKING_FOR_CHOICES]
+        if looking_for not in valid_choices:
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid selection for "looking for"'
+            }, status=400)
+
         # Update profile content
         profile.bio = data.get('bio', '').strip()
         profile.interests = data.get('interests', '').strip()
-        profile.looking_for = data.get('looking_for', 'friends')
+        profile.looking_for = looking_for
         profile.completion_status = 'step2'
 
         profile.save()

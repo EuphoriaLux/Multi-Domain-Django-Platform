@@ -1,0 +1,34 @@
+{% extends "crush_lu/emails/base_email.html" %}
+
+{% block title %}Profile Needs Updates - Crush.lu{% endblock %}
+
+{% block header_title %}Profile Review Feedback{% endblock %}
+
+{% block content %}
+<h2>Hey {{ first_name }},</h2>
+
+<p>Thanks for your interest in Crush.lu! Our team has reviewed your profile and we'd love to see a few updates before approval.</p>
+
+<div class="info-box">
+    <strong>Feedback from your coach:</strong>
+    <p>{{ feedback }}</p>
+</div>
+
+<p><strong>What to do next:</strong></p>
+<ul>
+    <li>Review the feedback above</li>
+    <li>Update your profile with the requested changes</li>
+    <li>Resubmit for review</li>
+</ul>
+
+<a href="https://crush.lu/profile/edit/" class="button">Update Profile</a>
+
+<p>Don't worry - most profiles need small tweaks to ensure the best experience for everyone. We're here to help create a community where everyone feels comfortable and respected.</p>
+
+<p>If you have any questions about the feedback, feel free to reach out!</p>
+
+<p>
+    Best,<br>
+    <strong>The Crush.lu Team</strong>
+</p>
+{% endblock %}
