@@ -49,6 +49,26 @@
                 </div>
             {% endif %}
 
+            {% if form.errors %}
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <strong>❌ Please fix the following errors:</strong>
+                    <ul class="mb-0 mt-2">
+                        {% for field, errors in form.errors.items %}
+                            {% for error in errors %}
+                                <li>
+                                    {% if field == '__all__' %}
+                                        {{ error }}
+                                    {% else %}
+                                        <strong>{{ field|title }}:</strong> {{ error }}
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endif %}
+
             <!-- Step 1: Basic Information -->
             <div class="form-step active" data-step="1">
                 <div class="step-card">
@@ -1139,12 +1159,18 @@ document.querySelectorAll('.next-step').forEach(btn => {
     btn.addEventListener('click', async function() {
         if (validateCurrentStep()) {
             // Save data after each step
+            let canProceed = true;
+
             if (currentStep === 1) {
-                await saveStep1();
+                canProceed = await saveStep1();
             } else if (currentStep === 2) {
-                await saveStep2();
+                canProceed = await saveStep2();
             }
-            updateStep(currentStep + 1);
+
+            // Only advance to next step if save was successful
+            if (canProceed) {
+                updateStep(currentStep + 1);
+            }
         }
     });
 });
@@ -1248,12 +1274,15 @@ async function saveStep1() {
 
             // Mark step 1 as saved
             localStorage.setItem('crush_profile_step1_saved', 'true');
+            return true;  // Success - allow advancing to next step
         } else {
-            showNotification('❌ Error saving: ' + result.error, 'error');
+            showNotification('❌ Error: ' + result.error, 'error');
+            return false;  // Validation failed - stay on current step
         }
     } catch (error) {
         console.error('Error saving Step 1:', error);
         showNotification('❌ Network error. Please try again.', 'error');
+        return false;  // Error - stay on current step
     }
 }
 
@@ -1293,9 +1322,15 @@ async function saveStep2() {
 
         if (result.success) {
             showNotification('✅ About section saved!', 'success');
+            return true;  // Success - allow advancing
+        } else {
+            showNotification('❌ Error: ' + (result.error || 'Failed to save'), 'error');
+            return false;  // Error - stay on current step
         }
     } catch (error) {
         console.error('Error saving Step 2:', error);
+        showNotification('❌ Network error. Please try again.', 'error');
+        return false;  // Error - stay on current step
     }
 }
 

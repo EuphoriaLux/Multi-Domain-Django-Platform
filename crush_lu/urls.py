@@ -1,11 +1,15 @@
 from django.urls import path
 from . import views
 from . import views_profile
+from . import views_media
 from . import api_views
 
 app_name = 'crush_lu'
 
 urlpatterns = [
+    # Secure media serving
+    path('media/profile/<int:user_id>/<str:photo_field>/', views_media.serve_profile_photo, name='serve_profile_photo'),
+
     # Landing and public pages
     path('', views.home, name='home'),
     path('about/', views.about, name='about'),
@@ -30,6 +34,7 @@ urlpatterns = [
     # User dashboard
     path('dashboard/', views.dashboard, name='dashboard'),
     path('profile/edit/', views.edit_profile, name='edit_profile'),
+    path('profile/edit-simple/', views.edit_profile_simple, name='edit_profile_simple'),
 
     # Events
     path('events/', views.event_list, name='event_list'),
@@ -63,6 +68,7 @@ urlpatterns = [
     # Coach dashboard
     path('coach/dashboard/', views.coach_dashboard, name='coach_dashboard'),
     path('coach/review/<int:submission_id>/', views.coach_review_profile, name='coach_review_profile'),
+    path('coach/review/<int:submission_id>/call-complete/', views.coach_mark_review_call_complete, name='coach_mark_review_call_complete'),
     path('coach/sessions/', views.coach_sessions, name='coach_sessions'),
 
     # Coach screening calls

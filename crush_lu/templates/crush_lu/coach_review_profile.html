@@ -73,6 +73,37 @@
     </div>
 
     <div class="col-lg-4">
+        <!-- Screening Call Status -->
+        <div class="card mb-3">
+            <div class="card-header {% if submission.review_call_completed %}bg-success text-white{% else %}bg-warning text-dark{% endif %}">
+                <h6 class="mb-0">
+                    {% if submission.review_call_completed %}
+                        ✅ Screening Call Completed
+                    {% else %}
+                        ⚠️ Screening Call Required
+                    {% endif %}
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if submission.review_call_completed %}
+                    <p class="small mb-2"><strong>Completed:</strong> {{ submission.review_call_date|date:"M d, Y g:i A" }}</p>
+                    <p class="small mb-0"><strong>Notes:</strong> {{ submission.review_call_notes|default:"No notes recorded" }}</p>
+                {% else %}
+                    <p class="small mb-3">📞 You must complete a screening call with <strong>{{ profile.user.first_name }}</strong> before approving this profile.</p>
+                    <p class="small mb-2"><strong>Phone:</strong> {{ profile.phone_number }}</p>
+                    <form method="post" action="{% url 'crush_lu:coach_mark_review_call_complete' submission.id %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label small">Call Notes:</label>
+                            <textarea name="call_notes" class="form-control form-control-sm" rows="3" placeholder="Notes from screening call..." required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-success w-100">Mark Call Complete</button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Review Decision -->
         <div class="card">
             <div class="card-header">
                 <h5 class="mb-0">Review Decision</h5>
@@ -111,6 +142,7 @@
             <div class="card-body">
                 <h6>Review Guidelines</h6>
                 <ul class="small mb-0">
+                    <li><strong>Complete screening call first!</strong></li>
                     <li>Check for appropriate content</li>
                     <li>Verify photos are clear and appropriate</li>
                     <li>Ensure bio is genuine and respectful</li>

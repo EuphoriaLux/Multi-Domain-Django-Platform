@@ -12,11 +12,17 @@ from .models import (
 
 @admin.register(CrushCoach)
 class CrushCoachAdmin(admin.ModelAdmin):
-    list_display = ('user', 'specializations', 'is_active', 'max_active_reviews', 'created_at', 'has_dating_profile')
+    list_display = ('user', 'get_email', 'specializations', 'is_active', 'max_active_reviews', 'created_at', 'has_dating_profile')
     list_filter = ('is_active', 'created_at')
     search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name')
     readonly_fields = ('created_at',)
     actions = ['deactivate_coach_allow_dating', 'deactivate_coaches', 'activate_coaches']
+
+    def get_email(self, obj):
+        """Display coach's email address"""
+        return obj.user.email
+    get_email.short_description = 'Email'
+    get_email.admin_order_field = 'user__email'  # Allow sorting by email
 
     def has_dating_profile(self, obj):
         """Check if this coach also has a dating profile"""
@@ -46,8 +52,8 @@ class CrushCoachAdmin(admin.ModelAdmin):
 
 @admin.register(CrushProfile)
 class CrushProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'age', 'gender', 'location', 'is_approved', 'is_active', 'created_at', 'is_coach')
-    list_filter = ('is_approved', 'is_active', 'gender', 'created_at')
+    list_display = ('user', 'get_email', 'age', 'gender', 'location', 'screening_call_completed', 'is_approved', 'is_active', 'created_at', 'is_coach')
+    list_filter = ('is_approved', 'is_active', 'screening_call_completed', 'gender', 'created_at')
     search_fields = ('user__username', 'user__email', 'location', 'bio')
     readonly_fields = ('created_at', 'updated_at', 'approved_at')
     actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles']
@@ -64,6 +70,16 @@ class CrushProfileAdmin(admin.ModelAdmin):
         ('Privacy Settings', {
             'fields': ('show_full_name', 'show_exact_age', 'blur_photos')
         }),
+        ('Screening Call', {
+            'fields': ('needs_screening_call', 'screening_call_completed', 'screening_call_scheduled', 'screening_notes'),
+            'classes': ('collapse',),
+            'description': 'Coach screening call tracking (after Step 1)'
+        }),
+        ('Profile Completion', {
+            'fields': ('completion_status',),
+            'classes': ('collapse',),
+            'description': 'Track which step of profile creation user completed'
+        }),
         ('Status', {
             'fields': ('is_approved', 'is_active', 'approved_at')
         }),
@@ -71,6 +87,12 @@ class CrushProfileAdmin(admin.ModelAdmin):
             'fields': ('created_at', 'updated_at')
         }),
     )
+
+    def get_email(self, obj):
+        """Display user's email address"""
+        return obj.user.email
+    get_email.short_description = 'Email'
+    get_email.admin_order_field = 'user__email'  # Allow sorting by email
 
     def is_coach(self, obj):
         """Check if this user is also a coach"""
@@ -134,13 +156,17 @@ class CrushProfileAdmin(admin.ModelAdmin):
 
 @admin.register(ProfileSubmission)
 class ProfileSubmissionAdmin(admin.ModelAdmin):
-    list_display = ('profile', 'coach', 'status', 'submitted_at', 'reviewed_at')
-    list_filter = ('status', 'submitted_at', 'reviewed_at')
+    list_display = ('profile', 'coach', 'status', 'review_call_completed', 'submitted_at', 'reviewed_at')
+    list_filter = ('status', 'review_call_completed', 'submitted_at', 'reviewed_at')
     search_fields = ('profile__user__username', 'coach__user__username')
     readonly_fields = ('submitted_at',)
     fieldsets = (
         ('Submission Details', {
             'fields': ('profile', 'coach', 'status')
+        }),
+        ('Screening Call (During Review)', {
+            'fields': ('review_call_completed', 'review_call_date', 'review_call_notes'),
+            'description': 'Coach must complete screening call before approving profile'
         }),
         ('Review', {
             'fields': ('coach_notes', 'feedback_to_user')

@@ -223,6 +223,46 @@ The system works without JavaScript:
 3. Signal handlers (`entreprinder/signals.py`) create user profiles
 4. JWT tokens for API access
 
+## Storage Architecture
+
+The application uses a **dual-storage strategy** for Azure Blob Storage:
+
+### 1. Public CDN Storage (Media Files)
+- **Container**: `AZURE_CONTAINER_NAME` (e.g., `media`)
+- **Access Level**: Public (anonymous read access)
+- **Usage**: Wine images, vineyard photos, general media assets
+- **Configuration**: Configured via `STORAGES["default"]` in [azureproject/production.py](azureproject/production.py)
+- **URLs**: Direct public URLs without authentication
+
+### 2. Private Storage (Crush.lu Profile Photos)
+- **Container**: `crush-profiles-private` (hardcoded)
+- **Access Level**: Private (no anonymous access)
+- **Usage**: User profile photos on Crush.lu platform
+- **Configuration**: Custom storage backend in [crush_lu/storage.py](crush_lu/storage.py)
+- **URLs**: Time-limited SAS tokens (default: 1 hour expiration)
+- **Security**: Prevents unauthorized access and photo scraping
+
+### Storage Backend Classes
+
+**`CrushProfilePhotoStorage`** ([crush_lu/storage.py:56](crush_lu/storage.py#L56)):
+- Extends `PrivateAzureStorage`
+- Generates SAS tokens with read-only permissions
+- Unique UUID-based filenames prevent enumeration
+- 30-minute token expiration for profile photos
+- Format: `https://{account}.blob.core.windows.net/crush-profiles-private/{path}?{sas_token}`
+
+**Implementation in Models** ([crush_lu/models.py:106-123](crush_lu/models.py#L106)):
+```python
+# Conditional storage: private in production, default in development
+photo_1 = models.ImageField(storage=crush_photo_storage)
+```
+
+### Azure Setup for Private Photos
+1. Create container: `crush-profiles-private`
+2. Set access level to **Private (no anonymous access)**
+3. Use same `AZURE_ACCOUNT_NAME` and `AZURE_ACCOUNT_KEY`
+4. Photos automatically served with SAS tokens in production
+
 ## Environment Configuration
 
 ### Required Environment Variables

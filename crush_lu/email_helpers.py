@@ -8,9 +8,45 @@ from django.utils.html import strip_tags
 from azureproject.email_utils import send_domain_email, get_domain_from_email
 
 
+def send_welcome_email(user, request):
+    """
+    Send welcome email immediately after account creation.
+    Guides user to complete their profile.
+
+    Args:
+        user: User object
+        request: Django request object for domain detection
+
+    Returns:
+        int: Number of emails sent (1 on success, 0 on failure)
+    """
+    subject = "Welcome to Crush.lu! 🎉 Complete Your Profile"
+
+    # Build profile URL
+    protocol = 'https' if request.is_secure() else 'http'
+    domain = request.get_host()
+    profile_url = f"{protocol}://{domain}/create-profile/"
+
+    html_message = render_to_string('crush_lu/emails/welcome.html', {
+        'user': user,
+        'first_name': user.first_name,
+        'profile_url': profile_url,
+    })
+    plain_message = strip_tags(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[user.email],
+        request=request,
+        fail_silently=False,
+    )
+
+
 def send_profile_submission_confirmation(user, request):
     """
-    Send confirmation email to user after profile submission.
+    Send confirmation email to user after FULL profile submission (Step 4).
 
     Args:
         user: User object
