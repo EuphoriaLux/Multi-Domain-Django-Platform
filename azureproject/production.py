@@ -19,11 +19,12 @@ ALLOWED_HOSTS += [domain.strip() for domain in CUSTOM_DOMAINS if domain.strip()]
 # Add custom allowed hosts from environment variable
 ALLOWED_HOSTS += [host.strip() for host in os.environ.get('ALLOWED_HOSTS_ENV', '').split(',') if host.strip()]
 
-# Add health check IPs - allow all 169.254.* ranges for Azure health checks
+# Add health check IPs from environment variable
 health_check_ips = [ip.strip() for ip in os.environ.get('HEALTH_CHECK_IPS', '').split(',') if ip.strip()]
 ALLOWED_HOSTS += health_check_ips
-# Add Azure internal IPs for health checks
-ALLOWED_HOSTS += ['169.254.129.4', '169.254.129.6', '169.254.129.1']
+
+# Note: Azure internal IPs (169.254.*) and localhost are dynamically handled by AzureInternalIPMiddleware
+# which adds them to ALLOWED_HOSTS on-demand to support Application Insights health checks
 
 
 
@@ -46,13 +47,15 @@ ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
 # WhiteNoise configuration and Middleware list
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'azureproject.redirect_www_middleware.AzureInternalIPMiddleware',  # Handle Azure internal IPs first
     'azureproject.redirect_www_middleware.RedirectWWWToRootDomainMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'azureproject.middleware.DomainURLRoutingMiddleware',  # <-- Multi-domain routing (before LocaleMiddleware)
     'django.middleware.locale.LocaleMiddleware',
-    'azureproject.middleware.ForceAdminToEnglishMiddleware', # Force admin to English
-    'django.middleware.common.CommonMiddleware',
+    'django.middleware.common.CommonMiddleware',  # MUST be before CurrentSiteMiddleware
+    'django.contrib.sites.middleware.CurrentSiteMiddleware',  # Detect site based on domain (after CommonMiddleware)
+    'azureproject.middleware.DomainURLRoutingMiddleware',  # Multi-domain routing
+    'azureproject.middleware.ForceAdminToEnglishMiddleware',  # Force admin to English
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -73,7 +76,7 @@ STATICFILES_DIRS = [
 ]
 
 
-SITE_ID = 1
+#SITE_ID = 1
 
 # Django 4.2+ STORAGES configuration
 STORAGES = {

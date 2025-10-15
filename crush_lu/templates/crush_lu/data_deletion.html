@@ -1,0 +1,215 @@
+{% extends 'crush_lu/base.html' %}
+
+{% block title %}Data Deletion - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body p-5">
+                <h1 class="mb-4">Data Deletion Request</h1>
+                <p class="text-muted mb-4"><small>Last Updated: January 14, 2025</small></p>
+
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Your Right to Erasure</strong><br>
+                    Under GDPR and Luxembourg data protection laws, you have the right to request deletion of your personal data.
+                </div>
+
+                <h3>1. What Gets Deleted</h3>
+                <p>
+                    When you request account deletion, the following data is permanently removed:
+                </p>
+                <ul>
+                    <li><strong>Account Information:</strong> Email, name, date of birth, phone number</li>
+                    <li><strong>Profile Data:</strong> Bio, interests, location, gender</li>
+                    <li><strong>Photos:</strong> All profile photos stored on Azure Blob Storage</li>
+                    <li><strong>Event Registrations:</strong> Your registration history and preferences</li>
+                    <li><strong>Connection Messages:</strong> All messages exchanged through the platform</li>
+                    <li><strong>Voting Records:</strong> Event activity votes and preferences</li>
+                    <li><strong>Session Data:</strong> Authentication tokens and session information</li>
+                </ul>
+
+                <h3>2. What May Be Retained</h3>
+                <p>
+                    For legal, safety, and operational reasons, we may retain certain anonymized or aggregated data:
+                </p>
+                <ul>
+                    <li><strong>Event Attendance Records:</strong> Anonymized attendance logs for safety and capacity planning</li>
+                    <li><strong>Coach Notes:</strong> Internal coach notes (without identifying information) for platform improvement</li>
+                    <li><strong>Moderation Records:</strong> Reports of policy violations for safety purposes</li>
+                    <li><strong>Financial Records:</strong> Payment transaction records required by law (up to 7 years)</li>
+                    <li><strong>Backup Systems:</strong> Data in automated backups (deleted within 90 days)</li>
+                </ul>
+
+                <h3>3. Impact on Other Users</h3>
+                <p>
+                    After your account is deleted:
+                </p>
+                <ul>
+                    <li>Your profile will no longer be visible to other users</li>
+                    <li>Pending connections will be cancelled</li>
+                    <li>Event registrations will be removed (coaches will be notified if needed)</li>
+                    <li>Other users will see "User Deleted" instead of your name in past interactions</li>
+                </ul>
+
+                <h3>4. How to Request Deletion</h3>
+
+                <h5>Option 1: Delete Through Your Account (Recommended)</h5>
+                {% if user.is_authenticated %}
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Warning:</strong> Account deletion is permanent and cannot be undone.
+                </div>
+                <ol>
+                    <li>Go to your <a href="{% url 'crush_lu:dashboard' %}">Dashboard</a></li>
+                    <li>Click on "Account Settings"</li>
+                    <li>Scroll to "Delete Account" section</li>
+                    <li>Click "Delete My Account" and confirm</li>
+                </ol>
+                {% else %}
+                <p>
+                    <a href="{% url 'crush_lu:login' %}" class="btn btn-crush-primary">Login to Delete Account</a>
+                </p>
+                {% endif %}
+
+                <h5>Option 2: Email Request</h5>
+                <p>
+                    If you cannot access your account, send an email to <strong>privacy@crush.lu</strong> with:
+                </p>
+                <ul>
+                    <li>Subject line: "Data Deletion Request"</li>
+                    <li>Your full name</li>
+                    <li>Email address associated with your account</li>
+                    <li>Date of birth (for verification)</li>
+                    <li>Reason for deletion (optional)</li>
+                </ul>
+
+                <h5>Option 3: Facebook App Data Deletion</h5>
+                <p>
+                    If you signed up using Facebook, you can also request deletion through Facebook:
+                </p>
+                <ol>
+                    <li>Go to your Facebook Settings</li>
+                    <li>Navigate to "Apps and Websites"</li>
+                    <li>Find "Crush.lu" in the list</li>
+                    <li>Click "Remove" and follow Facebook's instructions</li>
+                    <li>We will be notified and delete your data within 30 days</li>
+                </ol>
+                <p>
+                    <strong>Callback URL for Facebook:</strong> <code>https://crush.lu/data-deletion/</code>
+                </p>
+
+                <h3>5. Deletion Timeline</h3>
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Data Type</th>
+                            <th>Deletion Timeline</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Active Database Records</td>
+                            <td>Immediate (within 24 hours)</td>
+                        </tr>
+                        <tr>
+                            <td>Profile Photos (Azure Blob Storage)</td>
+                            <td>Within 7 days</td>
+                        </tr>
+                        <tr>
+                            <td>Backup Systems</td>
+                            <td>Within 90 days</td>
+                        </tr>
+                        <tr>
+                            <td>Anonymized Analytics</td>
+                            <td>Retained (no personal identifiers)</td>
+                        </tr>
+                        <tr>
+                            <td>Legal Compliance Records</td>
+                            <td>Up to 7 years (as required by law)</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>6. Verification Process</h3>
+                <p>
+                    To protect your privacy and prevent unauthorized deletion requests, we may ask you to verify your identity:
+                </p>
+                <ul>
+                    <li>Login to your account (if accessible)</li>
+                    <li>Provide answers to security questions</li>
+                    <li>Confirm via registered email address</li>
+                    <li>Provide photo ID (in cases of suspicious activity)</li>
+                </ul>
+
+                <h3>7. Alternatives to Deletion</h3>
+                <p>
+                    If you're not ready for permanent deletion, consider these options:
+                </p>
+                <ul>
+                    <li><strong>Deactivate Account:</strong> Temporarily hide your profile without deletion</li>
+                    <li><strong>Adjust Privacy Settings:</strong> Control who can see your information</li>
+                    <li><strong>Unsubscribe from Emails:</strong> Stop receiving notifications</li>
+                    <li><strong>Take a Break:</strong> Keep your account but stop using the platform</li>
+                </ul>
+
+                <h3>8. Reactivation Policy</h3>
+                <p>
+                    Once your account is deleted, it cannot be recovered. If you wish to use Crush.lu again, you must:
+                </p>
+                <ul>
+                    <li>Create a new account with a new email address</li>
+                    <li>Complete profile creation and coach review again</li>
+                    <li>Your previous event history and connections will not be restored</li>
+                </ul>
+
+                <h3>9. Contact Information</h3>
+                <p>
+                    For questions about data deletion or privacy concerns:
+                </p>
+                <ul class="list-unstyled">
+                    <li><strong>Email:</strong> <a href="mailto:privacy@crush.lu">privacy@crush.lu</a></li>
+                    <li><strong>Subject:</strong> "Data Deletion Request" or "Privacy Inquiry"</li>
+                    <li><strong>Response Time:</strong> Within 48 hours</li>
+                </ul>
+
+                <h3>10. Your Rights</h3>
+                <p>
+                    In addition to deletion, you have the right to:
+                </p>
+                <ul>
+                    <li><strong>Access:</strong> Request a copy of your data (send email to privacy@crush.lu)</li>
+                    <li><strong>Rectification:</strong> Correct inaccurate information (edit in account settings)</li>
+                    <li><strong>Restriction:</strong> Limit how we process your data</li>
+                    <li><strong>Portability:</strong> Receive your data in a machine-readable format</li>
+                    <li><strong>Objection:</strong> Object to certain types of data processing</li>
+                </ul>
+
+                <hr class="my-4">
+
+                <div class="alert alert-secondary text-center">
+                    <p class="mb-3">
+                        <strong>Need Help?</strong><br>
+                        Our team is here to assist with any privacy concerns or technical issues.
+                    </p>
+                    <a href="mailto:privacy@crush.lu" class="btn btn-crush-primary">
+                        <i class="bi bi-envelope me-2"></i>Contact Privacy Team
+                    </a>
+                </div>
+
+                <div class="text-center mt-4">
+                    <p class="text-muted mb-3">
+                        <small>
+                            For more information, see our
+                            <a href="{% url 'crush_lu:privacy_policy' %}">Privacy Policy</a> and
+                            <a href="{% url 'crush_lu:terms_of_service' %}">Terms of Service</a>.
+                        </small>
+                    </p>
+                    <a href="{% url 'crush_lu:home' %}" class="btn btn-outline-secondary">Back to Home</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

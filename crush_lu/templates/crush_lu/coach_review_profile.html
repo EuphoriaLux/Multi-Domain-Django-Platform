@@ -21,9 +21,9 @@
 
                 <div class="row mb-3">
                     <div class="col-md-6">
-                        <p><strong>Age:</strong> {{ profile.age }} ({{ profile.date_of_birth }})</p>
-                        <p><strong>Gender:</strong> {{ profile.get_gender_display }}</p>
-                        <p><strong>Location:</strong> {{ profile.location }}</p>
+                        <p><strong>Age:</strong> {% if profile.age %}{{ profile.age }}{% else %}Not set{% endif %} {% if profile.date_of_birth %}({{ profile.date_of_birth }}){% endif %}</p>
+                        <p><strong>Gender:</strong> {{ profile.get_gender_display|default:"Not set" }}</p>
+                        <p><strong>Location:</strong> {{ profile.location|default:"Not set" }}</p>
                     </div>
                     <div class="col-md-6">
                         <p><strong>Phone:</strong> {{ profile.phone_number|default:"Not provided" }}</p>

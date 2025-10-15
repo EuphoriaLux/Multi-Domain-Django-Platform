@@ -150,6 +150,8 @@ class CrushProfile(models.Model):
 
     @property
     def age(self):
+        if not self.date_of_birth:
+            return None
         today = timezone.now().date()
         return today.year - self.date_of_birth.year - (
             (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day)
@@ -158,6 +160,8 @@ class CrushProfile(models.Model):
     @property
     def age_range(self):
         age = self.age
+        if age is None:
+            return "Not specified"
         if age < 25:
             return "18-24"
         elif age < 30:

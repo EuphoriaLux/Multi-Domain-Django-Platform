@@ -13,8 +13,8 @@
     <strong>Profile Details:</strong>
     <ul style="margin: 10px 0;">
         <li><strong>Name:</strong> {{ submission.profile.user.get_full_name }}</li>
-        <li><strong>Age:</strong> {{ submission.profile.age }} years old</li>
-        <li><strong>Location:</strong> {{ submission.profile.location }}</li>
+        <li><strong>Age:</strong> {% if submission.profile.age %}{{ submission.profile.age }} years old{% else %}Not provided{% endif %}</li>
+        <li><strong>Location:</strong> {{ submission.profile.location|default:"Not provided" }}</li>
         <li><strong>Submitted:</strong> {{ submission.created_at|date:"F j, Y g:i A" }}</li>
     </ul>
 </div>

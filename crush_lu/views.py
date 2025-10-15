@@ -96,6 +96,21 @@ def how_it_works(request):
     return render(request, 'crush_lu/how_it_works.html')
 
 
+def privacy_policy(request):
+    """Privacy policy page"""
+    return render(request, 'crush_lu/privacy_policy.html')
+
+
+def terms_of_service(request):
+    """Terms of service page"""
+    return render(request, 'crush_lu/terms_of_service.html')
+
+
+def data_deletion_request(request):
+    """Data deletion instructions page"""
+    return render(request, 'crush_lu/data_deletion.html')
+
+
 # Onboarding
 def signup(request):
     """
@@ -390,6 +405,9 @@ def edit_profile(request):
     elif profile.completion_status == 'submitted':
         # If submitted but no rejection, default to None (step 1)
         current_step_to_show = None
+    elif profile.completion_status == 'step1' and not profile.date_of_birth and not profile.gender and not profile.location:
+        # For brand new profiles (e.g., from Facebook signup) with no data filled yet
+        current_step_to_show = None  # Start at step 1
     else:
         # Resume from where they left off for incomplete profiles
         current_step_to_show = profile.completion_status

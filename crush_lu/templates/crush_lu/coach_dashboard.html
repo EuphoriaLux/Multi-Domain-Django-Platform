@@ -61,7 +61,7 @@
                                 <h6 class="mb-1">{{ submission.profile.user.get_full_name }}</h6>
                                 <p class="mb-1 text-muted">
                                     <small>
-                                        {{ submission.profile.age }} years old | {{ submission.profile.location }}<br>
+                                        {% if submission.profile.age %}{{ submission.profile.age }} years old{% else %}Age not set{% endif %} | {{ submission.profile.location|default:"Location not set" }}<br>
                                         {{ submission.profile.get_looking_for_display }}
                                     </small>
                                 </p>
