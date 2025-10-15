@@ -15,6 +15,11 @@ urlpatterns = [
     path('about/', views.about, name='about'),
     path('how-it-works/', views.how_it_works, name='how_it_works'),
 
+    # Legal pages
+    path('privacy-policy/', views.privacy_policy, name='privacy_policy'),
+    path('terms-of-service/', views.terms_of_service, name='terms_of_service'),
+    path('data-deletion/', views.data_deletion_request, name='data_deletion'),
+
     # Authentication
     path('login/', views.crush_login, name='login'),
     path('logout/', views.crush_logout, name='logout'),

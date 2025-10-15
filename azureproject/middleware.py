@@ -38,9 +38,14 @@ class DomainURLRoutingMiddleware:
         elif host in ['vinsdelux.com', 'www.vinsdelux.com']:
             request.urlconf = 'azureproject.urls_vinsdelux'
             logger.info(f"DomainURLRoutingMiddleware: Routing to urls_vinsdelux for host: {host}")
-        elif host in ['crush.lu', 'www.crush.lu']:
+        elif host in ['crush.lu', 'www.crush.lu', 'localhost', '127.0.0.1']:
+            # Route localhost and 127.0.0.1 to Crush for development testing
             request.urlconf = 'azureproject.urls_crush'
             logger.info(f"DomainURLRoutingMiddleware: Routing to urls_crush for host: {host}")
+        elif host.endswith('.azurewebsites.net'):
+            # Azure App Service hostname - use powerup URLs (will be redirected by RedirectWWWToRootDomainMiddleware)
+            request.urlconf = 'azureproject.urls_powerup'
+            logger.info(f"DomainURLRoutingMiddleware: Azure hostname detected, routing to urls_powerup for host: {host}")
         else:
             # Fallback to powerup if no match, or choose a different default if appropriate
             request.urlconf = 'azureproject.urls_powerup' # Fallback

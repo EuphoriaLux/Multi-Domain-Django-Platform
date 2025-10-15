@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount',
     'allauth.socialaccount.providers.openid_connect',
     'allauth.socialaccount.providers.linkedin_oauth2',
+    'allauth.socialaccount.providers.facebook',
     'entreprinder',
     'crispy_forms',
     'crispy_bootstrap5',
@@ -60,21 +61,22 @@ INSTALLED_APPS = [
     'crush_lu',
 ]
 
-
-SITE_ID = 1
+# SITE_ID must NOT be set - CurrentSiteMiddleware determines site dynamically per request
+# Setting SITE_ID would force all domains to use the same Site object
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Ensure correct placement
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'azureproject.middleware.DomainURLRoutingMiddleware',  # Domain-based routing (before LocaleMiddleware)
-    'django.middleware.locale.LocaleMiddleware',  # Placement matters
-    'django.middleware.common.CommonMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
+    'django.middleware.common.CommonMiddleware',  # MUST be before CurrentSiteMiddleware
+    'django.contrib.sites.middleware.CurrentSiteMiddleware',  # Detect site based on domain (after CommonMiddleware)
+    'azureproject.middleware.DomainURLRoutingMiddleware',  # Multi-domain routing
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',  # Ensure correct placement
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 
@@ -196,12 +198,41 @@ LOGIN_REDIRECT_URL = '/profile/'
 
 SOCIALACCOUNT_LOGIN_ON_GET = True
 
+# Don't send email verification for social account signups (email already verified by provider)
+SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
 
-# Use CustomSignupForm
+# Social account provider settings
+SOCIALACCOUNT_PROVIDERS = {
+    'facebook': {
+        'METHOD': 'oauth2',
+        'SCOPE': ['email', 'public_profile'],  # Only basic permissions (no app review needed)
+        'AUTH_PARAMS': {'auth_type': 'reauthenticate'},
+        'FIELDS': [
+            'id',
+            'email',
+            'name',
+            'first_name',
+            'last_name',
+            'picture',
+            # Note: birthday, gender, location require Facebook App Review
+            # See: https://developers.facebook.com/docs/facebook-login/permissions
+        ],
+        'EXCHANGE_TOKEN': True,
+        'VERIFIED_EMAIL': False,
+        'VERSION': 'v24.0',
+    }
+}
+
+
+# Use CustomSignupForm for Entreprinder (will be overridden by adapters for other domains)
 ACCOUNT_FORMS = {'signup': 'entreprinder.forms.CustomSignupForm'}
 
 # Specify where to redirect after successful sign-up
 ACCOUNT_SIGNUP_REDIRECT_URL = '/profile/'  # Redirect to profile page after signup
+
+# Allauth adapters
+SOCIALACCOUNT_ADAPTER = 'crush_lu.adapter.CrushSocialAccountAdapter'
+ACCOUNT_ADAPTER = 'crush_lu.adapter.CrushAccountAdapter'
 
 # Email backend Configuration (using SMTP)
 # NOTE: For domain-specific email configuration (crush.lu, vinsdelux.com, etc.),

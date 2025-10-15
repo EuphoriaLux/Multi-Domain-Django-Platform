@@ -5,6 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Crush.lu - Meet New People{% endblock %}</title>
 
+    <!-- Favicon -->
+    {% load static %}
+    <link rel="icon" type="image/x-icon" href="{% static 'crush_lu/crush_favicon.ico' %}">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://crush.lu{{ request.path }}">
+    <meta property="og:title" content="{% block og_title %}Crush.lu - Meet New People in Luxembourg{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Privacy-first dating platform for Luxembourg. Meet real people at organized events - no endless swiping, just authentic connections.{% endblock %}">
+    <meta property="og:image" content="{% block og_image %}https://crush.lu{% static 'crush_lu/crush_social_preview.jpg' %}{% endblock %}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="fb:app_id" content="1170910678282435">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://crush.lu{{ request.path }}">
+    <meta property="twitter:title" content="{% block twitter_title %}Crush.lu - Meet New People in Luxembourg{% endblock %}">
+    <meta property="twitter:description" content="{% block twitter_description %}Privacy-first dating platform for Luxembourg. Meet real people at organized events - no endless swiping, just authentic connections.{% endblock %}">
+    <meta property="twitter:image" content="{% block twitter_image %}https://crush.lu{% static 'crush_lu/crush_social_preview.jpg' %}{% endblock %}">
+
+    <!-- Additional SEO -->
+    <meta name="description" content="{% block meta_description %}Privacy-first dating platform for Luxembourg. Coach-curated profiles and event-based meetups for authentic connections.{% endblock %}">
+    <meta name="keywords" content="{% block meta_keywords %}dating luxembourg, meetups luxembourg, singles events, crush.lu, dating events{% endblock %}">
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
@@ -270,7 +295,7 @@
                     <h5>💕 Crush.lu</h5>
                     <p>Meet new people. Make real connections.</p>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <h6>Quick Links</h6>
                     <ul class="list-unstyled">
                         <li><a href="{% url 'crush_lu:about' %}" class="text-white-50">About Us</a></li>
@@ -278,7 +303,15 @@
                         <li><a href="{% url 'crush_lu:event_list' %}" class="text-white-50">Events</a></li>
                     </ul>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <h6>Legal</h6>
+                    <ul class="list-unstyled">
+                        <li><a href="{% url 'crush_lu:privacy_policy' %}" class="text-white-50">Privacy Policy</a></li>
+                        <li><a href="{% url 'crush_lu:terms_of_service' %}" class="text-white-50">Terms of Service</a></li>
+                        <li><a href="{% url 'crush_lu:data_deletion' %}" class="text-white-50">Data Deletion</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-3">
                     <h6>Privacy First</h6>
                     <p class="text-white-50">Your privacy matters. All profiles are reviewed by our Crush Coaches.</p>
                 </div>
