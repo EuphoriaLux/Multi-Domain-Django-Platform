@@ -6,8 +6,70 @@ from .models import (
     CoachSession, MeetupEvent, EventRegistration,
     EventConnection, ConnectionMessage,
     GlobalActivityOption, EventActivityOption, EventActivityVote, EventVotingSession,
-    PresentationQueue, PresentationRating, SpeedDatingPair
+    PresentationQueue, PresentationRating, SpeedDatingPair,
+    SpecialUserExperience
 )
+
+
+@admin.register(SpecialUserExperience)
+class SpecialUserExperienceAdmin(admin.ModelAdmin):
+    list_display = (
+        'first_name', 'last_name', 'is_active',
+        'custom_welcome_title', 'animation_style',
+        'auto_approve_profile', 'vip_badge',
+        'trigger_count', 'last_triggered_at'
+    )
+    list_filter = ('is_active', 'animation_style', 'auto_approve_profile', 'vip_badge', 'skip_waitlist')
+    search_fields = ('first_name', 'last_name', 'custom_welcome_title', 'custom_welcome_message')
+    readonly_fields = ('created_at', 'updated_at', 'last_triggered_at', 'trigger_count')
+    actions = ['activate_experiences', 'deactivate_experiences']
+
+    fieldsets = (
+        ('👤 User Matching', {
+            'fields': ('first_name', 'last_name', 'is_active'),
+            'description': 'User must match BOTH first name AND last name (case-insensitive)'
+        }),
+        ('🎨 Custom Welcome Experience', {
+            'fields': (
+                'custom_welcome_title',
+                'custom_welcome_message',
+                'custom_theme_color',
+                'animation_style',
+                'custom_landing_url',
+            ),
+            'description': 'Customize the special welcome page appearance'
+        }),
+        ('⭐ VIP Features & Permissions', {
+            'fields': (
+                'auto_approve_profile',
+                'skip_waitlist',
+                'vip_badge',
+            ),
+            'description': 'Special permissions and features for this user'
+        }),
+        ('📊 Tracking & Analytics', {
+            'fields': (
+                'trigger_count',
+                'last_triggered_at',
+            ),
+            'classes': ('collapse',),
+            'description': 'Track how often this special experience has been used'
+        }),
+        ('🗓️ Metadata', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',),
+        }),
+    )
+
+    @admin.action(description='✅ Activate selected experiences')
+    def activate_experiences(self, request, queryset):
+        updated = queryset.update(is_active=True)
+        django_messages.success(request, f"Activated {updated} special experience(s)")
+
+    @admin.action(description='❌ Deactivate selected experiences')
+    def deactivate_experiences(self, request, queryset):
+        updated = queryset.update(is_active=False)
+        django_messages.success(request, f"Deactivated {updated} special experience(s)")
 
 
 @admin.register(CrushCoach)
