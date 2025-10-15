@@ -13,6 +13,110 @@ else:
     crush_photo_storage = None
 
 
+class SpecialUserExperience(models.Model):
+    """
+    Admin-configurable special user experience for VIP/special users.
+    When a user with matching first_name and last_name logs in,
+    they receive a personalized, unique Crush.lu experience.
+    """
+    first_name = models.CharField(
+        max_length=150,
+        help_text="First name to match (case-insensitive)"
+    )
+    last_name = models.CharField(
+        max_length=150,
+        help_text="Last name to match (case-insensitive)"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Enable/disable this special experience"
+    )
+
+    # Customization options
+    custom_welcome_title = models.CharField(
+        max_length=200,
+        default="Welcome to Your Special Journey",
+        help_text="Custom welcome message title"
+    )
+    custom_welcome_message = models.TextField(
+        default="Something magical awaits you...",
+        help_text="Custom welcome message body"
+    )
+    custom_theme_color = models.CharField(
+        max_length=7,
+        default="#FF1493",
+        help_text="Hex color code for custom theme (e.g., #FF1493 for deep pink)"
+    )
+    animation_style = models.CharField(
+        max_length=20,
+        choices=[
+            ('hearts', 'Floating Hearts'),
+            ('stars', 'Sparkling Stars'),
+            ('roses', 'Falling Rose Petals'),
+            ('fireworks', 'Fireworks'),
+            ('aurora', 'Aurora Borealis'),
+        ],
+        default='hearts',
+        help_text="Animation effect on welcome screen"
+    )
+
+    # Auto-approve and special permissions
+    auto_approve_profile = models.BooleanField(
+        default=True,
+        help_text="Automatically approve this user's profile (skip coach review)"
+    )
+    skip_waitlist = models.BooleanField(
+        default=True,
+        help_text="Skip event waitlists - always get confirmed spot"
+    )
+    vip_badge = models.BooleanField(
+        default=True,
+        help_text="Display VIP badge on profile"
+    )
+
+    # Custom landing page URL (optional)
+    custom_landing_url = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Optional: Custom landing page path (e.g., 'special-welcome')"
+    )
+
+    # Tracking
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_triggered_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Last time this special experience was triggered"
+    )
+    trigger_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of times this experience has been triggered"
+    )
+
+    class Meta:
+        verbose_name = "Special User Experience"
+        verbose_name_plural = "Special User Experiences"
+        unique_together = ['first_name', 'last_name']
+
+    def __str__(self):
+        return f"Special Experience for {self.first_name} {self.last_name}"
+
+    def matches_user(self, user):
+        """Check if this special experience matches the given user"""
+        return (
+            self.is_active and
+            user.first_name.lower() == self.first_name.lower() and
+            user.last_name.lower() == self.last_name.lower()
+        )
+
+    def trigger(self):
+        """Mark this experience as triggered"""
+        self.last_triggered_at = timezone.now()
+        self.trigger_count += 1
+        self.save(update_fields=['last_triggered_at', 'trigger_count'])
+
+
 class CrushCoach(models.Model):
     """Crush coaches who review and approve profiles"""
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -58,6 +162,7 @@ class CrushProfile(models.Model):
     ]
 
     COMPLETION_STATUS_CHOICES = [
+        ('not_started', 'Not Started'),
         ('step1', 'Step 1: Basic Info Saved'),
         ('step2', 'Step 2: About You Saved'),
         ('step3', 'Step 3: Photos Saved'),
@@ -71,7 +176,7 @@ class CrushProfile(models.Model):
     completion_status = models.CharField(
         max_length=20,
         choices=COMPLETION_STATUS_CHOICES,
-        default='step1',
+        default='not_started',
         help_text="Track which step user completed"
     )
     needs_screening_call = models.BooleanField(

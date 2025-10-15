@@ -4,10 +4,11 @@ Signal handlers for Crush.lu app
 
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.contrib.auth.signals import user_logged_in
 from allauth.socialaccount.signals import pre_social_login, social_account_updated
 from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth.models import User
-from .models import MeetupEvent, EventActivityOption, CrushProfile
+from .models import MeetupEvent, EventActivityOption, CrushProfile, SpecialUserExperience
 import logging
 from datetime import datetime
 import requests
@@ -228,12 +229,70 @@ def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
         if extra_data.get('location', {}).get('name') and not profile.location:
             profile.location = extra_data['location']['name']
 
-        # Ensure completion_status starts at step1 for new Facebook signups
-        if profile_created:
-            profile.completion_status = 'step1'
+        # Don't set completion_status - let model default handle it
+        # The view will detect empty profiles and start at step 1
 
         profile.save()
         logger.info(f"Updated CrushProfile from Facebook data in post_save")
 
     except Exception as e:
         logger.error(f"Error in SocialAccount post_save handler: {str(e)}", exc_info=True)
+
+
+@receiver(user_logged_in)
+def check_special_user_experience(sender, request, user, **kwargs):
+    """
+    Check if the logged-in user matches a special user experience configuration.
+    If matched, activate the special experience in the session.
+    Only processes for crush.lu domain.
+    """
+    # Only process for crush.lu domain
+    host = request.get_host().split(':')[0].lower()
+    if host not in ['crush.lu', 'www.crush.lu', 'localhost', '127.0.0.1']:
+        return
+
+    try:
+        # Check if there's a matching special experience
+        special_experience = SpecialUserExperience.objects.filter(
+            first_name__iexact=user.first_name,
+            last_name__iexact=user.last_name,
+            is_active=True
+        ).first()
+
+        if special_experience:
+            # Activate special experience in session
+            request.session['special_experience_active'] = True
+            request.session['special_experience_id'] = special_experience.id
+            request.session['special_experience_data'] = {
+                'welcome_title': special_experience.custom_welcome_title,
+                'welcome_message': special_experience.custom_welcome_message,
+                'theme_color': special_experience.custom_theme_color,
+                'animation_style': special_experience.animation_style,
+                'vip_badge': special_experience.vip_badge,
+                'custom_landing_url': special_experience.custom_landing_url,
+            }
+
+            # Track the trigger
+            special_experience.trigger()
+
+            # Auto-approve profile if configured
+            if special_experience.auto_approve_profile:
+                try:
+                    profile = CrushProfile.objects.get(user=user)
+                    if not profile.is_approved:
+                        profile.is_approved = True
+                        profile.approved_at = timezone.now()
+                        profile.save()
+                        logger.info(f"Auto-approved profile for special user: {user.email}")
+                except CrushProfile.DoesNotExist:
+                    pass
+
+            logger.info(f"✨ Special experience activated for {user.first_name} {user.last_name}")
+        else:
+            # Clear any existing special experience from session
+            request.session.pop('special_experience_active', None)
+            request.session.pop('special_experience_id', None)
+            request.session.pop('special_experience_data', None)
+
+    except Exception as e:
+        logger.error(f"Error in check_special_user_experience handler: {str(e)}", exc_info=True)

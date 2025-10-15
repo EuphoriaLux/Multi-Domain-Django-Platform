@@ -41,6 +41,9 @@ urlpatterns = [
     path('profile/edit/', views.edit_profile, name='edit_profile'),
     path('profile/edit-simple/', views.edit_profile_simple, name='edit_profile_simple'),
 
+    # Special user experience
+    path('special-welcome/', views.special_welcome, name='special_welcome'),
+
     # Events
     path('events/', views.event_list, name='event_list'),
     path('events/<int:event_id>/', views.event_detail, name='event_detail'),

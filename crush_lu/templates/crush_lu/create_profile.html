@@ -1048,7 +1048,7 @@
 // Multi-step form management
 {% if current_step %}
     // Resume from last completed step - move to NEXT step to continue
-    const stepMap = {'step1': 2, 'step2': 3, 'step3': 4, 'completed': 4, 'submitted': 4};
+    const stepMap = {'not_started': 1, 'step1': 2, 'step2': 3, 'step3': 4, 'completed': 4, 'submitted': 4};
     let currentStep = stepMap['{{ current_step }}'] || 1;
 
     // Debug logging for troubleshooting

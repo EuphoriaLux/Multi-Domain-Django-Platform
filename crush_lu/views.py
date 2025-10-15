@@ -16,7 +16,8 @@ from .models import (
     MeetupEvent, EventRegistration, CoachSession,
     EventConnection, ConnectionMessage,
     EventActivityOption, EventActivityVote, EventVotingSession,
-    PresentationQueue, PresentationRating, SpeedDatingPair
+    PresentationQueue, PresentationRating, SpeedDatingPair,
+    SpecialUserExperience
 )
 from .forms import (
     CrushSignupForm, CrushProfileForm, ProfileReviewForm,
@@ -40,6 +41,9 @@ from .email_helpers import (
 def crush_login(request):
     """Crush.lu specific login view"""
     if request.user.is_authenticated:
+        # Check if special experience is active
+        if request.session.get('special_experience_active'):
+            return redirect('crush_lu:special_welcome')
         return redirect('crush_lu:dashboard')
 
     if request.method == 'POST':
@@ -51,6 +55,11 @@ def crush_login(request):
             if user is not None:
                 login(request, user)
                 messages.success(request, f'Welcome back, {user.first_name or user.username}!')
+
+                # Check if special experience is active (set by signal)
+                if request.session.get('special_experience_active'):
+                    return redirect('crush_lu:special_welcome')
+
                 # Redirect to next parameter or dashboard
                 next_url = request.GET.get('next', 'crush_lu:dashboard')
                 return redirect(next_url)
@@ -405,8 +414,12 @@ def edit_profile(request):
     elif profile.completion_status == 'submitted':
         # If submitted but no rejection, default to None (step 1)
         current_step_to_show = None
-    elif profile.completion_status == 'step1' and not profile.date_of_birth and not profile.gender and not profile.location:
-        # For brand new profiles (e.g., from Facebook signup) with no data filled yet
+    elif profile.completion_status == 'not_started':
+        # Brand new profiles (e.g., Facebook signup) that haven't completed any steps
+        current_step_to_show = None  # Start at step 1
+    elif profile.completion_status == 'step1' and (not profile.date_of_birth or not profile.phone_number):
+        # For incomplete Step 1 profiles (missing required fields)
+        # Phone number and date_of_birth are required for Step 1 completion
         current_step_to_show = None  # Start at step 1
     else:
         # Resume from where they left off for incomplete profiles
@@ -1688,3 +1701,43 @@ def get_current_presenter_api(request, event_id):
 def voting_demo(request):
     """Interactive demo of the voting system for new users"""
     return render(request, 'crush_lu/voting_demo.html')
+
+
+# Special User Experience View
+@crush_login_required
+def special_welcome(request):
+    """
+    Special welcome page for VIP users with custom animations and experience.
+    Only accessible if special_experience_active is set in session.
+    """
+    # Check if special experience is active in session
+    if not request.session.get('special_experience_active'):
+        messages.warning(request, 'This page is not available.')
+        return redirect('crush_lu:dashboard')
+
+    # Get special experience data from session
+    special_experience_data = request.session.get('special_experience_data', {})
+
+    # Get the full SpecialUserExperience object for complete data
+    special_experience_id = request.session.get('special_experience_id')
+    try:
+        special_experience = SpecialUserExperience.objects.get(
+            id=special_experience_id,
+            is_active=True
+        )
+    except SpecialUserExperience.DoesNotExist:
+        # Clear session data if experience is not found or inactive
+        request.session.pop('special_experience_active', None)
+        request.session.pop('special_experience_id', None)
+        request.session.pop('special_experience_data', None)
+        messages.warning(request, 'This special experience is no longer available.')
+        return redirect('crush_lu:dashboard')
+
+    context = {
+        'special_experience': special_experience,
+    }
+
+    # Mark session as viewed (only show once per login)
+    request.session['special_experience_viewed'] = True
+
+    return render(request, 'crush_lu/special_welcome.html', context)
