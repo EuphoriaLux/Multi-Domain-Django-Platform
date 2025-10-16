@@ -1,0 +1,767 @@
+{% extends "crush_lu/journey/journey_base.html" %}
+{% load static %}
+
+{% block extra_journey_css %}
+<style>
+    /* Romantic Background Enhancement */
+    body {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        position: relative;
+        overflow-x: hidden;
+    }
+
+    /* Floating Hearts Animation */
+    @keyframes float-hearts {
+        0% {
+            transform: translateY(100vh) rotate(0deg);
+            opacity: 0;
+        }
+        10% {
+            opacity: 0.3;
+        }
+        90% {
+            opacity: 0.3;
+        }
+        100% {
+            transform: translateY(-100px) rotate(360deg);
+            opacity: 0;
+        }
+    }
+
+    .heart-bg {
+        position: fixed;
+        width: 30px;
+        height: 30px;
+        opacity: 0.2;
+        pointer-events: none;
+        z-index: 0;
+        animation: float-hearts linear infinite;
+    }
+
+    /* Journey Header */
+    .journey-header {
+        text-align: center;
+        margin: 40px 0;
+        position: relative;
+        z-index: 1;
+    }
+
+    .journey-title {
+        font-size: 3.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #FF6B9D, #C850C0, #9B59B6, #FF6B9D);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        background-size: 300% 300%;
+        animation: shimmer 4s ease infinite;
+        text-shadow: 0 0 40px rgba(255, 107, 157, 0.4);
+        letter-spacing: 2px;
+        margin-bottom: 15px;
+    }
+
+    @keyframes shimmer {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+    }
+
+    .journey-subtitle {
+        font-size: 1.4rem;
+        opacity: 0.9;
+        font-style: italic;
+        color: #FFB6C1;
+        margin-top: 10px;
+    }
+
+    .journey-subtitle::before {
+        content: '✨ ';
+    }
+
+    .journey-subtitle::after {
+        content: ' ✨';
+    }
+
+    /* Progress Bar Enhancement */
+    .journey-progress-bar {
+        position: relative;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        height: 35px;
+        max-width: 600px;
+        margin: 30px auto;
+        overflow: hidden;
+        border: 2px solid rgba(255, 107, 157, 0.3);
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .journey-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #FF6B9D, #C850C0, #9B59B6);
+        background-size: 200% 100%;
+        animation: progress-shimmer 3s ease infinite;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding-right: 15px;
+        font-weight: bold;
+        font-size: 1rem;
+        color: white;
+        transition: width 1s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .journey-progress-fill::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+        animation: progress-shine 2s infinite;
+    }
+
+    @keyframes progress-shimmer {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+    }
+
+    @keyframes progress-shine {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+
+    /* Stats Cards Enhancement */
+    .journey-stats {
+        display: flex;
+        justify-content: center;
+        gap: 30px;
+        margin: 40px auto;
+        max-width: 800px;
+        flex-wrap: wrap;
+    }
+
+    .stat-card {
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(15px);
+        border-radius: 20px;
+        padding: 25px 35px;
+        text-align: center;
+        border: 2px solid rgba(255, 107, 157, 0.3);
+        transition: all 0.4s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(45deg, transparent, rgba(255, 107, 157, 0.1), transparent);
+        transform: rotate(45deg);
+        transition: all 0.6s ease;
+    }
+
+    .stat-card:hover::before {
+        transform: rotate(45deg) translate(50%, 50%);
+    }
+
+    .stat-card:hover {
+        transform: translateY(-10px);
+        border-color: var(--journey-secondary);
+        box-shadow: 0 15px 40px rgba(255, 107, 157, 0.4);
+    }
+
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #FF6B9D, #C850C0);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        position: relative;
+        z-index: 1;
+    }
+
+    .stat-label {
+        font-size: 0.95rem;
+        opacity: 0.8;
+        margin-top: 8px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Chapter Path */
+    .chapter-path {
+        position: relative;
+        max-width: 1000px;
+        margin: 80px auto;
+        padding: 40px 0;
+    }
+
+    /* Romantic Connecting Path */
+    .chapter-path::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 6px;
+        background: linear-gradient(
+            90deg,
+            rgba(155, 89, 182, 0.2) 0%,
+            rgba(255, 107, 157, 0.6) 50%,
+            rgba(155, 89, 182, 0.2) 100%
+        );
+        transform: translateY(-50%);
+        z-index: 0;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(255, 107, 157, 0.3);
+    }
+
+    /* Chapter Nodes */
+    .chapter-node {
+        position: relative;
+        margin: 80px 0;
+        display: flex;
+        align-items: center;
+        z-index: 1;
+    }
+
+    .chapter-node:nth-child(even) {
+        flex-direction: row-reverse;
+    }
+
+    .chapter-icon-wrapper {
+        position: relative;
+        width: 140px;
+        height: 140px;
+        flex-shrink: 0;
+    }
+
+    .chapter-icon {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3.5rem;
+        font-weight: 800;
+        border: 5px solid;
+        background: rgba(26, 26, 46, 0.95);
+        backdrop-filter: blur(15px);
+        position: relative;
+        transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        cursor: pointer;
+    }
+
+    /* Locked State - Romantic Lock */
+    .chapter-locked .chapter-icon {
+        border-color: rgba(255, 255, 255, 0.15);
+        background: rgba(26, 26, 46, 0.6);
+    }
+
+    .romantic-lock {
+        position: relative;
+        width: 60px;
+        height: 70px;
+    }
+
+    .lock-body {
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 50px;
+        height: 45px;
+        background: linear-gradient(135deg, #4a4a4a, #2a2a2a);
+        border-radius: 8px;
+        box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+    }
+
+    .lock-shackle {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40px;
+        height: 40px;
+        border: 6px solid #4a4a4a;
+        border-bottom: none;
+        border-radius: 20px 20px 0 0;
+    }
+
+    .lock-heart {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #555;
+        font-size: 1.2rem;
+    }
+
+    /* Unlocked State */
+    .chapter-unlocked .chapter-icon {
+        border-color: var(--journey-primary);
+        color: var(--journey-primary);
+        box-shadow: 0 0 30px rgba(155, 89, 182, 0.6);
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.2), rgba(200, 80, 192, 0.2));
+    }
+
+    /* Current Chapter */
+    .chapter-current .chapter-icon {
+        border-color: var(--journey-secondary);
+        color: var(--journey-secondary);
+        box-shadow: 0 0 40px rgba(255, 107, 157, 0.9), 0 0 60px rgba(255, 107, 157, 0.5);
+        animation: pulse-romantic 2s ease-in-out infinite;
+        background: linear-gradient(135deg, rgba(255, 107, 157, 0.3), rgba(200, 80, 192, 0.3));
+    }
+
+    /* Completed State */
+    .chapter-completed .chapter-icon {
+        border-color: var(--journey-success);
+        color: var(--journey-success);
+        box-shadow: 0 0 30px rgba(46, 204, 113, 0.6);
+        background: linear-gradient(135deg, rgba(46, 204, 113, 0.2), rgba(39, 174, 96, 0.2));
+    }
+
+    @keyframes pulse-romantic {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 40px rgba(255, 107, 157, 0.9), 0 0 60px rgba(255, 107, 157, 0.5);
+        }
+        50% {
+            transform: scale(1.08);
+            box-shadow: 0 0 50px rgba(255, 107, 157, 1), 0 0 80px rgba(255, 107, 157, 0.7);
+        }
+    }
+
+    /* Chapter Info Card Enhancement */
+    .chapter-info {
+        flex: 1;
+        margin: 0 40px;
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        padding: 30px;
+        border: 2px solid rgba(255, 107, 157, 0.2);
+        transition: all 0.4s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .chapter-info::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(135deg, #FF6B9D, #C850C0, #9B59B6);
+        border-radius: 20px;
+        opacity: 0;
+        transition: opacity 0.4s ease;
+        z-index: -1;
+    }
+
+    .chapter-unlocked .chapter-info:hover::before,
+    .chapter-current .chapter-info:hover::before {
+        opacity: 0.3;
+    }
+
+    .chapter-unlocked .chapter-info:hover,
+    .chapter-current .chapter-info:hover {
+        background: rgba(255, 255, 255, 0.12);
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 15px 40px rgba(255, 107, 157, 0.4);
+    }
+
+    .chapter-info h3 {
+        font-size: 1.8rem;
+        margin-bottom: 12px;
+        color: var(--journey-light);
+        font-weight: 700;
+    }
+
+    .chapter-theme {
+        font-size: 1rem;
+        opacity: 0.8;
+        margin-bottom: 15px;
+        font-style: italic;
+        color: #FFB6C1;
+    }
+
+    .chapter-theme::before {
+        content: '💫 ';
+    }
+
+    .chapter-difficulty {
+        display: inline-block;
+        padding: 6px 16px;
+        border-radius: 15px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-top: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .difficulty-easy {
+        background: rgba(46, 204, 113, 0.25);
+        border: 2px solid rgba(46, 204, 113, 0.6);
+        color: #2ecc71;
+    }
+
+    .difficulty-medium {
+        background: rgba(243, 156, 18, 0.25);
+        border: 2px solid rgba(243, 156, 18, 0.6);
+        color: #f39c12;
+    }
+
+    .difficulty-hard {
+        background: rgba(231, 76, 60, 0.25);
+        border: 2px solid rgba(231, 76, 60, 0.6);
+        color: #e74c3c;
+    }
+
+    .chapter-btn {
+        display: inline-block;
+        margin-top: 20px;
+        padding: 12px 30px;
+        border-radius: 30px;
+        background: linear-gradient(135deg, #FF6B9D, #C850C0);
+        color: white;
+        text-decoration: none;
+        font-weight: 700;
+        transition: all 0.3s ease;
+        border: none;
+        font-size: 1rem;
+        letter-spacing: 0.5px;
+        box-shadow: 0 5px 15px rgba(255, 107, 157, 0.3);
+    }
+
+    .chapter-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(255, 107, 157, 0.5);
+        color: white;
+        text-decoration: none;
+    }
+
+    .chapter-btn:disabled,
+    .chapter-btn.disabled {
+        background: rgba(255, 255, 255, 0.15);
+        cursor: not-allowed;
+        color: rgba(255, 255, 255, 0.4);
+        box-shadow: none;
+    }
+
+    /* Completion Badge */
+    .completion-badge {
+        position: absolute;
+        top: -15px;
+        right: -15px;
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #2ecc71, #27ae60);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        box-shadow: 0 5px 20px rgba(46, 204, 113, 0.6);
+        border: 3px solid #1a1a2e;
+        animation: bounce-in 0.6s ease;
+    }
+
+    @keyframes bounce-in {
+        0% { transform: scale(0); }
+        50% { transform: scale(1.2); }
+        100% { transform: scale(1); }
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .journey-title {
+            font-size: 2.2rem;
+        }
+
+        .journey-subtitle {
+            font-size: 1.1rem;
+        }
+
+        .chapter-path {
+            padding-left: 10px;
+        }
+
+        .chapter-path::before {
+            left: 60px;
+            right: auto;
+            width: 3px;
+            height: calc(100% - 80px);
+            top: 40px;
+            transform: none;
+            border-radius: 3px;
+            background: linear-gradient(
+                180deg,
+                rgba(155, 89, 182, 0.2) 0%,
+                rgba(255, 107, 157, 0.4) 50%,
+                rgba(155, 89, 182, 0.2) 100%
+            );
+        }
+
+        .chapter-node {
+            flex-direction: row !important;
+            margin: 40px 0;
+        }
+
+        .chapter-icon-wrapper {
+            width: 100px;
+            height: 100px;
+        }
+
+        .chapter-icon {
+            font-size: 2.5rem;
+        }
+
+        .romantic-lock {
+            width: 50px;
+            height: 60px;
+        }
+
+        .lock-body {
+            width: 40px;
+            height: 35px;
+        }
+
+        .lock-shackle {
+            width: 30px;
+            height: 30px;
+            border-width: 5px;
+        }
+
+        .lock-heart {
+            font-size: 1rem;
+        }
+
+        .chapter-info {
+            margin: 0 0 0 25px;
+            padding: 20px;
+        }
+
+        .chapter-info h3 {
+            font-size: 1.3rem;
+        }
+
+        .stat-card {
+            padding: 20px 25px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+        }
+
+        .completion-badge {
+            width: 40px;
+            height: 40px;
+            font-size: 1.3rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block journey_content %}
+<!-- Floating Hearts Background -->
+<div id="hearts-container"></div>
+
+<!-- Journey Header -->
+<div class="journey-header animate-fade-in">
+    <h1 class="journey-title">{{ journey.journey_name }}</h1>
+    <p class="journey-subtitle">Your personalized adventure awaits</p>
+</div>
+
+<!-- Progress Bar -->
+<div class="journey-progress-bar animate-fade-in" style="animation-delay: 0.2s;">
+    <div class="journey-progress-fill" style="width: {{ completion_percentage }}%;">
+        {{ completion_percentage }}%
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="journey-stats animate-fade-in" style="animation-delay: 0.3s;">
+    <div class="stat-card">
+        <div class="stat-value">{{ journey_progress.current_chapter }}</div>
+        <div class="stat-label">Current Chapter</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ journey_progress.total_points }}</div>
+        <div class="stat-label">Total Points</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ completion_percentage }}%</div>
+        <div class="stat-label">Completion</div>
+    </div>
+</div>
+
+<!-- Chapter Path -->
+<div class="chapter-path">
+    {% for chapter_item in chapters %}
+    <div class="chapter-node animate-fade-in
+        {% if chapter_item.is_completed %}chapter-completed{% elif chapter_item.is_current %}chapter-current{% elif chapter_item.is_unlocked %}chapter-unlocked{% else %}chapter-locked{% endif %}"
+        style="animation-delay: {{ forloop.counter|add:3|stringformat:'.1f' }}s;">
+
+        <div class="chapter-icon-wrapper">
+            <div class="chapter-icon">
+                {% if chapter_item.is_locked %}
+                    <div class="romantic-lock">
+                        <div class="lock-shackle"></div>
+                        <div class="lock-body">
+                            <div class="lock-heart">💔</div>
+                        </div>
+                    </div>
+                {% else %}
+                    {{ chapter_item.chapter.chapter_number }}
+                {% endif %}
+            </div>
+            {% if chapter_item.is_completed %}
+            <div class="completion-badge">
+                <i class="bi bi-heart-fill"></i>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="chapter-info">
+            <h3>{{ chapter_item.chapter.title }}</h3>
+            <div class="chapter-theme">{{ chapter_item.chapter.theme }}</div>
+            <div>
+                <span class="chapter-difficulty difficulty-{{ chapter_item.chapter.difficulty }}">
+                    {{ chapter_item.chapter.get_difficulty_display }}
+                </span>
+                <span class="ms-2" style="opacity: 0.7;">
+                    ⏱️ ~{{ chapter_item.chapter.estimated_duration }} min
+                </span>
+            </div>
+
+            {% if chapter_item.is_completed %}
+                <div class="mt-3" style="color: var(--journey-success); font-weight: 600;">
+                    <i class="bi bi-trophy-fill"></i>
+                    {{ chapter_item.points_earned }} points earned
+                </div>
+                <a href="{% url 'crush_lu:chapter_view' chapter_item.chapter.chapter_number %}"
+                   class="chapter-btn">
+                    💕 Revisit Chapter
+                </a>
+            {% elif chapter_item.is_unlocked %}
+                <a href="{% url 'crush_lu:chapter_view' chapter_item.chapter.chapter_number %}"
+                   class="chapter-btn">
+                    {% if chapter_item.is_current %}💖 Continue Journey{% else %}✨ Start Chapter{% endif %}
+                </a>
+            {% else %}
+                <button class="chapter-btn disabled" disabled>
+                    🔒 Locked
+                </button>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Completion Message -->
+{% if journey_progress.is_completed %}
+<div class="text-center my-5 animate-fade-in">
+    <div style="animation-delay: 0.3s;">
+        <h2 style="font-size: 3rem; margin-bottom: 30px; background: linear-gradient(135deg, #FF6B9D, #C850C0); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            🎉 Journey Complete! 🎉
+        </h2>
+        <p style="font-size: 1.4rem; opacity: 0.9; margin-bottom: 40px;">
+            You've conquered all {{ journey.total_chapters }} chapters!
+        </p>
+        <a href="{% url 'crush_lu:certificate_view' %}"
+           class="chapter-btn"
+           style="font-size: 1.3rem; padding: 18px 50px;">
+            <i class="bi bi-award-fill"></i> View Your Certificate
+        </a>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_journey_js %}
+<script>
+    // Create floating hearts background
+    function createFloatingHearts() {
+        const container = document.getElementById('hearts-container');
+        const heartSymbols = ['💕', '💖', '💗', '💓', '💝', '❤️'];
+
+        for (let i = 0; i < 15; i++) {
+            const heart = document.createElement('div');
+            heart.className = 'heart-bg';
+            heart.textContent = heartSymbols[Math.floor(Math.random() * heartSymbols.length)];
+            heart.style.left = Math.random() * 100 + '%';
+            heart.style.animationDuration = (Math.random() * 10 + 15) + 's';
+            heart.style.animationDelay = Math.random() * 5 + 's';
+            heart.style.fontSize = (Math.random() * 20 + 15) + 'px';
+            container.appendChild(heart);
+        }
+    }
+
+    // Smooth scroll to current chapter on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        createFloatingHearts();
+
+        const currentChapter = document.querySelector('.chapter-current');
+        if (currentChapter) {
+            setTimeout(() => {
+                currentChapter.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            }, 800);
+        }
+    });
+
+    // Enhanced hover effects
+    document.querySelectorAll('.chapter-unlocked, .chapter-current').forEach(node => {
+        const icon = node.querySelector('.chapter-icon');
+
+        node.addEventListener('mouseenter', function() {
+            icon.style.transform = 'scale(1.15) rotate(5deg)';
+        });
+
+        node.addEventListener('mouseleave', function() {
+            icon.style.transform = 'scale(1) rotate(0deg)';
+        });
+    });
+
+    // Add sparkle effect on hover
+    document.querySelectorAll('.chapter-unlocked .chapter-icon, .chapter-current .chapter-icon').forEach(icon => {
+        icon.addEventListener('mouseenter', function() {
+            if (!this.querySelector('.sparkle')) {
+                const sparkle = document.createElement('div');
+                sparkle.className = 'sparkle';
+                sparkle.textContent = '✨';
+                sparkle.style.position = 'absolute';
+                sparkle.style.top = '0';
+                sparkle.style.right = '0';
+                sparkle.style.fontSize = '1.5rem';
+                sparkle.style.animation = 'spin 1s linear infinite';
+                this.appendChild(sparkle);
+            }
+        });
+    });
+</script>
+
+<style>
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+</style>
+{% endblock %}

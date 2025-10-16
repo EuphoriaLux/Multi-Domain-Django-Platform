@@ -1709,11 +1709,14 @@ def special_welcome(request):
     """
     Special welcome page for VIP users with custom animations and experience.
     Only accessible if special_experience_active is set in session.
+
+    If a journey is configured for this user, redirect to journey_map instead.
     """
     # Check if special experience is active in session
     if not request.session.get('special_experience_active'):
         messages.warning(request, 'This page is not available.')
-        return redirect('crush_lu:dashboard')
+        # Redirect to home instead of dashboard (special users don't need profiles)
+        return redirect('crush_lu:home')
 
     # Get special experience data from session
     special_experience_data = request.session.get('special_experience_data', {})
@@ -1731,7 +1734,24 @@ def special_welcome(request):
         request.session.pop('special_experience_id', None)
         request.session.pop('special_experience_data', None)
         messages.warning(request, 'This special experience is no longer available.')
-        return redirect('crush_lu:dashboard')
+        return redirect('crush_lu:home')
+
+    # ============================================================================
+    # NEW: Check if journey is configured - redirect to journey map if it exists
+    # ============================================================================
+    try:
+        from .models import JourneyConfiguration
+        journey_config = JourneyConfiguration.objects.get(
+            special_experience=special_experience,
+            is_active=True
+        )
+        # Journey exists - redirect to journey map
+        logger.info(f"🎮 Redirecting {request.user.username} to journey: {journey_config.journey_name}")
+        return redirect('crush_lu:journey_map')
+    except JourneyConfiguration.DoesNotExist:
+        # No journey configured - show simple welcome page
+        pass
+    # ============================================================================
 
     context = {
         'special_experience': special_experience,

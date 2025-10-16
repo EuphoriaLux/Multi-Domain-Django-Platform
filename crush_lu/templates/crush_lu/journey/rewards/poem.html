@@ -1,0 +1,216 @@
+{% extends "crush_lu/journey/journey_base.html" %}
+{% load static %}
+
+{% block extra_journey_css %}
+<style>
+    .reward-container {
+        max-width: 800px;
+        margin: 60px auto;
+    }
+
+    .reward-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(20px);
+        border-radius: 25px;
+        padding: 50px;
+        border: 2px solid rgba(255, 215, 0, 0.3);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .reward-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(
+            45deg,
+            transparent,
+            rgba(255, 215, 0, 0.1),
+            transparent
+        );
+        animation: shimmer 3s infinite;
+    }
+
+    @keyframes shimmer {
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .reward-content {
+        position: relative;
+        z-index: 1;
+    }
+
+    .reward-icon {
+        text-align: center;
+        font-size: 4rem;
+        margin-bottom: 20px;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-10px);
+        }
+    }
+
+    .reward-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-align: center;
+        background: linear-gradient(135deg, #FFD700, #FFA500);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 40px;
+    }
+
+    .poem-content {
+        font-size: 1.3rem;
+        line-height: 2;
+        font-family: 'Georgia', serif;
+        font-style: italic;
+        text-align: center;
+        white-space: pre-line;
+        padding: 40px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 15px;
+        border-left: 4px solid rgba(255, 215, 0, 0.5);
+        color: #f8f9fa;
+    }
+
+    .signature {
+        text-align: right;
+        font-size: 1.2rem;
+        margin-top: 30px;
+        font-style: italic;
+        opacity: 0.9;
+    }
+
+    .continue-btn {
+        display: block;
+        width: fit-content;
+        margin: 40px auto 0;
+        padding: 15px 40px;
+        border-radius: 25px;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        color: white;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+        text-align: center;
+    }
+
+    .continue-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(155, 89, 182, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+
+    /* Sparkle Animation */
+    .sparkle {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: white;
+        border-radius: 50%;
+        animation: sparkle 2s infinite;
+    }
+
+    @keyframes sparkle {
+        0%, 100% {
+            opacity: 0;
+            transform: scale(0);
+        }
+        50% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .reward-card {
+            padding: 30px 20px;
+        }
+
+        .reward-title {
+            font-size: 2rem;
+        }
+
+        .poem-content {
+            font-size: 1.1rem;
+            padding: 25px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block journey_content %}
+<div class="reward-container animate-fade-in">
+    <!-- Back Button -->
+    <div class="text-center mb-4">
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
+            <i class="bi bi-arrow-left"></i> Back to Chapter
+        </a>
+    </div>
+
+    <div class="reward-card">
+        <!-- Sparkles -->
+        <div class="sparkle" style="top: 10%; left: 20%; animation-delay: 0s;"></div>
+        <div class="sparkle" style="top: 30%; right: 15%; animation-delay: 0.5s;"></div>
+        <div class="sparkle" style="bottom: 20%; left: 30%; animation-delay: 1s;"></div>
+        <div class="sparkle" style="top: 60%; right: 25%; animation-delay: 1.5s;"></div>
+
+        <div class="reward-content">
+            <div class="reward-icon">
+                📜
+            </div>
+
+            <h1 class="reward-title">{{ reward.title }}</h1>
+
+            <div class="poem-content">
+                {{ reward.message }}
+            </div>
+
+            <div class="signature">
+                — With all my heart 💜
+            </div>
+
+            <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="continue-btn">
+                Continue Your Journey <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Create more sparkles with JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const card = document.querySelector('.reward-card');
+    const sparkleCount = 20;
+
+    for (let i = 0; i < sparkleCount; i++) {
+        const sparkle = document.createElement('div');
+        sparkle.className = 'sparkle';
+        sparkle.style.top = Math.random() * 100 + '%';
+        sparkle.style.left = Math.random() * 100 + '%';
+        sparkle.style.animationDelay = Math.random() * 2 + 's';
+        card.appendChild(sparkle);
+    }
+});
+</script>
+{% endblock %}

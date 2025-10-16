@@ -3,6 +3,8 @@ from . import views
 from . import views_profile
 from . import views_media
 from . import api_views
+from . import views_journey
+from . import api_journey
 
 app_name = 'crush_lu'
 
@@ -89,4 +91,24 @@ urlpatterns = [
     path('connections/', views.my_connections, name='my_connections'),
     path('connections/<int:connection_id>/', views.connection_detail, name='connection_detail'),
     path('connections/<int:connection_id>/<str:action>/', views.respond_connection, name='respond_connection'),
+
+    # ============================================================================
+    # INTERACTIVE JOURNEY SYSTEM - "The Wonderland of You"
+    # ============================================================================
+
+    # Journey Views
+    path('journey/', views_journey.journey_map, name='journey_map'),
+    path('journey/chapter/<int:chapter_number>/', views_journey.chapter_view, name='chapter_view'),
+    path('journey/chapter/<int:chapter_number>/challenge/<int:challenge_id>/', views_journey.challenge_view, name='challenge_view'),
+    path('journey/reward/<int:reward_id>/', views_journey.reward_view, name='reward_view'),
+    path('journey/certificate/', views_journey.certificate_view, name='certificate_view'),
+
+    # Journey API Endpoints
+    path('api/journey/submit-challenge/', api_journey.submit_challenge, name='api_submit_challenge'),
+    path('api/journey/unlock-hint/', api_journey.unlock_hint, name='api_unlock_hint'),
+    path('api/journey/progress/', api_journey.get_progress, name='api_get_progress'),
+    path('api/journey/save-state/', api_journey.save_state, name='api_save_state'),
+    path('api/journey/final-response/', api_journey.record_final_response, name='api_record_final_response'),
+    path('api/journey/unlock-puzzle-piece/', api_journey.unlock_puzzle_piece, name='api_unlock_puzzle_piece'),
+    path('api/journey/reward-progress/<int:reward_id>/', api_journey.get_reward_progress, name='api_get_reward_progress'),
 ]

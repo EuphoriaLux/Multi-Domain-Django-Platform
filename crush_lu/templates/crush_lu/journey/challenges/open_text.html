@@ -1,0 +1,415 @@
+{% extends "crush_lu/journey/journey_base.html" %}
+{% load static %}
+
+{% block extra_journey_css %}
+<style>
+    .challenge-container {
+        max-width: 800px;
+        margin: 40px auto;
+    }
+
+    .challenge-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(15px);
+        border-radius: 20px;
+        padding: 40px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .challenge-type-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        border-radius: 20px;
+        background: rgba(155, 89, 182, 0.3);
+        border: 1px solid rgba(155, 89, 182, 0.5);
+        margin-bottom: 20px;
+        font-weight: bold;
+    }
+
+    .question-text {
+        font-size: 1.5rem;
+        line-height: 1.8;
+        margin: 30px 0;
+        text-align: center;
+        font-weight: 600;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .instruction-text {
+        text-align: center;
+        font-size: 1rem;
+        opacity: 0.8;
+        margin-bottom: 30px;
+        font-style: italic;
+    }
+
+    .text-input-container {
+        margin: 30px 0;
+        position: relative;
+    }
+
+    .text-input {
+        width: 100%;
+        min-height: 200px;
+        padding: 20px;
+        font-size: 1.1rem;
+        line-height: 1.8;
+        border-radius: 15px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.05);
+        color: white;
+        resize: vertical;
+        transition: all 0.3s ease;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .text-input:focus {
+        outline: none;
+        border-color: var(--journey-primary);
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 0 30px rgba(155, 89, 182, 0.3);
+    }
+
+    .text-input::placeholder {
+        color: rgba(255, 255, 255, 0.4);
+        font-style: italic;
+    }
+
+    .char-counter {
+        text-align: right;
+        font-size: 0.9rem;
+        opacity: 0.6;
+        margin-top: 10px;
+    }
+
+    .char-counter.warning {
+        color: #f39c12;
+        opacity: 1;
+    }
+
+    .char-counter.error {
+        color: #e74c3c;
+        opacity: 1;
+    }
+
+    .submit-btn {
+        width: 100%;
+        padding: 18px;
+        font-size: 1.3rem;
+        font-weight: bold;
+        border-radius: 15px;
+        border: none;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 30px;
+    }
+
+    .submit-btn:hover:not(:disabled) {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(155, 89, 182, 0.5);
+    }
+
+    .submit-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .message-box {
+        padding: 25px;
+        border-radius: 15px;
+        margin: 25px 0;
+        display: none;
+    }
+
+    .message-box.success {
+        background: rgba(46, 204, 113, 0.2);
+        border: 2px solid rgba(46, 204, 113, 0.5);
+        color: white;
+    }
+
+    .message-box.active {
+        display: block;
+        animation: fadeInUp 0.5s ease;
+    }
+
+    .personal-message {
+        font-size: 1.2rem;
+        line-height: 1.6;
+        font-style: italic;
+        margin: 20px 0;
+        padding: 20px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+        border-left: 4px solid var(--journey-secondary);
+    }
+
+    .points-display {
+        text-align: center;
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--journey-secondary);
+        margin: 20px 0;
+    }
+
+    .writing-prompt {
+        background: rgba(255, 215, 0, 0.1);
+        border: 2px solid rgba(255, 215, 0, 0.3);
+        border-radius: 15px;
+        padding: 20px;
+        margin: 20px 0;
+    }
+
+    .writing-prompt h4 {
+        color: #FFD700;
+        margin-bottom: 15px;
+        font-size: 1.1rem;
+    }
+
+    .writing-prompt ul {
+        margin: 0;
+        padding-left: 20px;
+        opacity: 0.9;
+    }
+
+    .writing-prompt li {
+        margin: 8px 0;
+    }
+
+    /* Typewriter effect for placeholder */
+    @keyframes blink {
+        0%, 50%, 100% { opacity: 1; }
+        25%, 75% { opacity: 0; }
+    }
+
+    .cursor {
+        animation: blink 1s infinite;
+    }
+
+    @media (max-width: 768px) {
+        .question-text {
+            font-size: 1.2rem;
+        }
+
+        .text-input {
+            min-height: 150px;
+            font-size: 1rem;
+            padding: 15px;
+        }
+
+        .challenge-card {
+            padding: 25px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block journey_content %}
+<div class="challenge-container animate-fade-in">
+    <!-- Back Button -->
+    <div class="mb-4">
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
+            <i class="bi bi-arrow-left"></i> Back to Chapter
+        </a>
+    </div>
+
+    <div class="challenge-card">
+        <div class="challenge-type-badge">
+            <i class="bi bi-pencil-fill"></i> Open Response
+        </div>
+
+        <div class="points-display">
+            💎 {{ challenge.points_awarded }} Points
+        </div>
+
+        <!-- Question -->
+        <div class="question-text">
+            {{ challenge.question }}
+        </div>
+
+        <div class="instruction-text">
+            Share your thoughts freely - there are no wrong answers ✨
+        </div>
+
+        {% if existing_attempt %}
+        <!-- Already Completed -->
+        <div class="message-box success active">
+            <h3><i class="bi bi-check-circle-fill"></i> Already Submitted!</h3>
+            <p>You've already shared your response and earned <strong>{{ existing_attempt.points_earned }} points</strong>.</p>
+
+            <div class="personal-message">
+                {{ challenge.success_message|linebreaks }}
+            </div>
+
+            <div class="mt-3" style="padding: 20px; background: rgba(255, 255, 255, 0.05); border-radius: 10px;">
+                <strong>Your Response:</strong>
+                <div style="margin-top: 10px; font-style: italic; opacity: 0.9;">
+                    "{{ existing_attempt.user_answer }}"
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
+                    Continue to Next Challenge <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+        {% else %}
+        <!-- Writing Prompts (optional help) -->
+        <div class="writing-prompt">
+            <h4>💭 Not sure what to write? Consider:</h4>
+            <ul>
+                <li>What immediately comes to mind?</li>
+                <li>How does this question make you feel?</li>
+                <li>What would you want someone to know about your answer?</li>
+            </ul>
+        </div>
+
+        <!-- Text Input -->
+        <div id="inputSection" class="text-input-container">
+            <textarea
+                id="textInput"
+                class="text-input"
+                placeholder="Start typing your thoughts here..."
+                maxlength="2000"
+                rows="8"
+            ></textarea>
+            <div id="charCounter" class="char-counter">
+                <span id="charCount">0</span> / 2000 characters
+            </div>
+        </div>
+
+        <button id="submitBtn" class="submit-btn" disabled>
+            <i class="bi bi-send-fill"></i> Submit Response
+        </button>
+
+        <!-- Message Box -->
+        <div id="messageBox" class="message-box"></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_journey_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const challengeId = {{ challenge.id }};
+    const textInput = document.getElementById('textInput');
+    const submitBtn = document.getElementById('submitBtn');
+    const messageBox = document.getElementById('messageBox');
+    const charCount = document.getElementById('charCount');
+    const charCounter = document.getElementById('charCounter');
+
+    if (textInput) {
+        // Character counter
+        textInput.addEventListener('input', function() {
+            const length = this.value.length;
+            charCount.textContent = length;
+
+            // Enable submit button if there's meaningful content (at least 10 characters)
+            if (length >= 10) {
+                submitBtn.removeAttribute('disabled');
+                submitBtn.innerHTML = '<i class="bi bi-send-fill"></i> Submit Response';
+            } else {
+                submitBtn.setAttribute('disabled', 'disabled');
+                submitBtn.innerHTML = '<i class="bi bi-send-fill"></i> Submit Response (min 10 characters)';
+            }
+
+            // Color coding for character count
+            charCounter.classList.remove('warning', 'error');
+            if (length > 1800) {
+                charCounter.classList.add('error');
+            } else if (length > 1500) {
+                charCounter.classList.add('warning');
+            }
+        });
+
+        // Auto-focus on input
+        setTimeout(() => {
+            textInput.focus();
+        }, 500);
+    }
+
+    // Submit answer
+    if (submitBtn) {
+        submitBtn.addEventListener('click', function() {
+            const answer = textInput.value.trim();
+
+            if (answer.length < 10) {
+                showMessage('Please write at least 10 characters to share your thoughts.', 'error');
+                return;
+            }
+
+            submitBtn.setAttribute('disabled', 'disabled');
+            submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Submitting...';
+
+            fetch('{% url "crush_lu:api_submit_challenge" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    challenge_id: challengeId,
+                    answer: answer
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.is_correct) {
+                    // Answer submitted successfully
+                    const isQuestionnaire = {{ chapter.chapter_number }} in [2, 4, 5];
+                    const title = isQuestionnaire
+                        ? '<i class="bi bi-heart-fill"></i> Thank you for sharing!'
+                        : '<i class="bi bi-check-circle-fill"></i> Submitted!';
+
+                    messageBox.innerHTML = `
+                        <h3>${title}</h3>
+                        <div class="personal-message">${data.success_message}</div>
+                        <div class="mt-3">
+                            <strong>🏆 Points Earned: ${data.points_earned}</strong>
+                        </div>
+                        <div class="mt-4">
+                            <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
+                                Continue <i class="bi bi-arrow-right"></i>
+                            </a>
+                        </div>
+                    `;
+                    messageBox.className = 'message-box success active';
+
+                    // Hide input section
+                    document.getElementById('inputSection').style.display = 'none';
+                    submitBtn.style.display = 'none';
+                    document.querySelector('.writing-prompt')?.remove();
+
+                } else {
+                    // Shouldn't happen with open text
+                    submitBtn.removeAttribute('disabled');
+                    submitBtn.innerHTML = '<i class="bi bi-send-fill"></i> Submit Response';
+                    showMessage('Something went wrong. Please try again.', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                submitBtn.removeAttribute('disabled');
+                submitBtn.innerHTML = '<i class="bi bi-send-fill"></i> Submit Response';
+                showMessage('An error occurred. Please try again.', 'error');
+            });
+        });
+    }
+
+    function showMessage(text, type) {
+        messageBox.innerHTML = `<div>${text}</div>`;
+        messageBox.className = `message-box ${type} active`;
+        setTimeout(() => {
+            messageBox.classList.remove('active');
+        }, 3000);
+    }
+});
+</script>
+{% endblock %}

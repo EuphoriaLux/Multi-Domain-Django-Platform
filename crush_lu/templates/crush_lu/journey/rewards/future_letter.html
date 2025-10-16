@@ -1,0 +1,364 @@
+{% extends "crush_lu/journey/journey_base.html" %}
+{% load static %}
+
+{% block extra_journey_css %}
+<style>
+    .reward-container {
+        max-width: 900px;
+        margin: 60px auto;
+    }
+
+    /* Envelope Animation */
+    .envelope-wrapper {
+        perspective: 1000px;
+        margin-bottom: 40px;
+    }
+
+    .envelope {
+        width: 300px;
+        height: 200px;
+        margin: 0 auto 40px;
+        position: relative;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% {
+            transform: translateY(0) rotateY(0deg);
+        }
+        50% {
+            transform: translateY(-15px) rotateY(5deg);
+        }
+    }
+
+    .envelope-flap {
+        width: 0;
+        height: 0;
+        border-left: 150px solid transparent;
+        border-right: 150px solid transparent;
+        border-top: 100px solid rgba(255, 215, 0, 0.3);
+        position: absolute;
+        top: 0;
+        left: 0;
+        transform-origin: top;
+        animation: flap-open 2s ease forwards;
+        animation-delay: 0.5s;
+    }
+
+    @keyframes flap-open {
+        0% {
+            transform: rotateX(0deg);
+        }
+        100% {
+            transform: rotateX(-180deg);
+        }
+    }
+
+    .envelope-body {
+        width: 300px;
+        height: 150px;
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.2));
+        border: 2px solid rgba(255, 215, 0, 0.4);
+        border-radius: 5px;
+        position: absolute;
+        bottom: 0;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .envelope-seal {
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #FF6B9D, #C850C0);
+        border-radius: 50%;
+        position: absolute;
+        top: 60px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        box-shadow: 0 5px 15px rgba(255, 107, 157, 0.5);
+        border: 3px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .letter-paper {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 50px;
+        margin: 40px auto;
+        max-width: 700px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        position: relative;
+        animation: slide-up 1s ease forwards;
+        animation-delay: 2s;
+        opacity: 0;
+        transform: translateY(50px);
+    }
+
+    @keyframes slide-up {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .paper-texture {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image:
+            repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 31px,
+                rgba(0, 0, 0, 0.03) 31px,
+                rgba(0, 0, 0, 0.03) 32px
+            );
+        pointer-events: none;
+        border-radius: 15px;
+    }
+
+    .letter-header {
+        text-align: center;
+        margin-bottom: 30px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .letter-date {
+        font-style: italic;
+        color: #666;
+        margin-bottom: 10px;
+    }
+
+    .letter-title {
+        font-size: 2rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #FF6B9D, #C850C0);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 30px;
+    }
+
+    .letter-content {
+        font-size: 1.2rem;
+        line-height: 2;
+        font-family: 'Georgia', serif;
+        color: #333;
+        white-space: pre-line;
+        text-align: left;
+        position: relative;
+        z-index: 1;
+    }
+
+    .letter-content p {
+        margin-bottom: 20px;
+    }
+
+    .letter-signature {
+        margin-top: 40px;
+        text-align: right;
+        font-style: italic;
+        color: #666;
+        font-size: 1.1rem;
+    }
+
+    .letter-closing {
+        text-align: right;
+        margin-top: 20px;
+        font-family: 'Brush Script MT', cursive;
+        font-size: 1.5rem;
+        color: #9B59B6;
+    }
+
+    .postscript {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px dashed #ccc;
+        font-style: italic;
+        color: #666;
+        font-size: 1rem;
+    }
+
+    .continue-btn {
+        display: block;
+        width: fit-content;
+        margin: 40px auto 0;
+        padding: 15px 40px;
+        border-radius: 25px;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        color: white;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+        text-align: center;
+        position: relative;
+        z-index: 1;
+    }
+
+    .continue-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(155, 89, 182, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+
+    /* Floating hearts around letter */
+    .heart-decoration {
+        position: absolute;
+        font-size: 1.5rem;
+        opacity: 0.2;
+        animation: float-hearts 4s infinite ease-in-out;
+    }
+
+    @keyframes float-hearts {
+        0%, 100% { transform: translateY(0) rotate(0deg); }
+        50% { transform: translateY(-20px) rotate(10deg); }
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .envelope {
+            width: 200px;
+            height: 133px;
+        }
+
+        .envelope-flap {
+            border-left: 100px solid transparent;
+            border-right: 100px solid transparent;
+            border-top: 67px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .envelope-body {
+            width: 200px;
+            height: 100px;
+        }
+
+        .envelope-seal {
+            width: 40px;
+            height: 40px;
+            font-size: 1.2rem;
+            top: 40px;
+        }
+
+        .letter-paper {
+            padding: 30px 20px;
+        }
+
+        .letter-title {
+            font-size: 1.5rem;
+        }
+
+        .letter-content {
+            font-size: 1.1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block journey_content %}
+<div class="reward-container animate-fade-in">
+    <!-- Back Button -->
+    <div class="text-center mb-4">
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
+            <i class="bi bi-arrow-left"></i> Back to Chapter
+        </a>
+    </div>
+
+    <!-- Envelope Animation -->
+    <div class="envelope-wrapper">
+        <div class="envelope">
+            <div class="envelope-flap"></div>
+            <div class="envelope-body"></div>
+            <div class="envelope-seal">💌</div>
+        </div>
+    </div>
+
+    <!-- Letter Paper -->
+    <div class="letter-paper">
+        <div class="paper-texture"></div>
+
+        <!-- Floating heart decorations -->
+        <div class="heart-decoration" style="top: 20px; right: 30px; animation-delay: 0s;">💕</div>
+        <div class="heart-decoration" style="bottom: 40px; left: 20px; animation-delay: 1s;">💖</div>
+        <div class="heart-decoration" style="top: 50%; right: 10px; animation-delay: 2s;">💗</div>
+
+        <div class="letter-header">
+            <div class="letter-date">
+                {% now "F j, Y" %}
+            </div>
+            <h1 class="letter-title">{{ reward.title }}</h1>
+        </div>
+
+        <div class="letter-content">
+            {{ reward.message }}
+        </div>
+
+        <div class="letter-signature">
+            <div class="letter-closing">
+                With love,
+            </div>
+            <div style="margin-top: 10px; font-size: 1.3rem; color: #9B59B6;">
+                💜
+            </div>
+        </div>
+
+        {% if reward.photo %}
+        <div class="postscript">
+            <strong>P.S.</strong> I've included something special for you below...
+            <div style="margin-top: 20px; text-align: center;">
+                <img src="{{ reward.photo.url }}" alt="Special Memory"
+                     style="max-width: 100%; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.3);">
+            </div>
+        </div>
+        {% endif %}
+
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="continue-btn">
+            Continue Your Journey <i class="bi bi-arrow-right"></i>
+        </a>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Add some sparkle effects
+    const paper = document.querySelector('.letter-paper');
+
+    function createSparkle() {
+        const sparkle = document.createElement('div');
+        sparkle.textContent = '✨';
+        sparkle.style.position = 'absolute';
+        sparkle.style.left = Math.random() * 100 + '%';
+        sparkle.style.top = Math.random() * 100 + '%';
+        sparkle.style.fontSize = Math.random() * 20 + 15 + 'px';
+        sparkle.style.opacity = '0';
+        sparkle.style.transition = 'opacity 0.5s';
+        sparkle.style.pointerEvents = 'none';
+        paper.appendChild(sparkle);
+
+        setTimeout(() => {
+            sparkle.style.opacity = '0.3';
+        }, 100);
+
+        setTimeout(() => {
+            sparkle.style.opacity = '0';
+            setTimeout(() => sparkle.remove(), 500);
+        }, 2000);
+    }
+
+    // Create sparkles periodically
+    setInterval(createSparkle, 3000);
+
+    // Initial sparkles
+    for (let i = 0; i < 3; i++) {
+        setTimeout(createSparkle, i * 1000);
+    }
+});
+</script>
+{% endblock %}
