@@ -1,0 +1,434 @@
+{% extends "crush_lu/journey/journey_base.html" %}
+{% load static %}
+
+{% block extra_journey_css %}
+<style>
+    .challenge-container {
+        max-width: 800px;
+        margin: 40px auto;
+    }
+
+    .challenge-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(15px);
+        border-radius: 20px;
+        padding: 40px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .challenge-type-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        border-radius: 20px;
+        background: rgba(155, 89, 182, 0.3);
+        border: 1px solid rgba(155, 89, 182, 0.5);
+        margin-bottom: 20px;
+        font-weight: bold;
+    }
+
+    .question-text {
+        font-size: 1.3rem;
+        line-height: 1.8;
+        margin: 30px 0;
+        text-align: center;
+    }
+
+    .timeline-container {
+        margin: 40px 0;
+        position: relative;
+    }
+
+    .timeline-line {
+        position: absolute;
+        left: 30px;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: linear-gradient(180deg, var(--journey-primary), var(--journey-secondary));
+        border-radius: 2px;
+    }
+
+    .timeline-items {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .timeline-item {
+        position: relative;
+        padding: 20px 20px 20px 70px;
+        margin: 15px 0;
+        background: rgba(255, 255, 255, 0.05);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-radius: 15px;
+        cursor: move;
+        transition: all 0.3s ease;
+        user-select: none;
+    }
+
+    .timeline-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateX(5px);
+    }
+
+    .timeline-item.dragging {
+        opacity: 0.5;
+        transform: scale(0.95);
+    }
+
+    .timeline-item.drag-over {
+        border-color: var(--journey-primary);
+        background: rgba(155, 89, 182, 0.2);
+    }
+
+    .timeline-number {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1.2rem;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .timeline-text {
+        font-size: 1.1rem;
+        line-height: 1.6;
+    }
+
+    .drag-handle {
+        position: absolute;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        opacity: 0.5;
+        font-size: 1.5rem;
+    }
+
+    .instruction-box {
+        background: rgba(255, 215, 0, 0.1);
+        border: 2px solid rgba(255, 215, 0, 0.3);
+        border-radius: 10px;
+        padding: 20px;
+        margin: 20px 0;
+        text-align: center;
+    }
+
+    .submit-btn {
+        width: 100%;
+        padding: 15px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        border-radius: 10px;
+        border: none;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 20px;
+    }
+
+    .submit-btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(155, 89, 182, 0.4);
+    }
+
+    .submit-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .message-box {
+        padding: 20px;
+        border-radius: 10px;
+        margin: 20px 0;
+        display: none;
+    }
+
+    .message-box.success {
+        background: rgba(46, 204, 113, 0.2);
+        border: 2px solid rgba(46, 204, 113, 0.5);
+        color: white;
+    }
+
+    .message-box.error {
+        background: rgba(231, 76, 60, 0.2);
+        border: 2px solid rgba(231, 76, 60, 0.5);
+        color: white;
+    }
+
+    .message-box.active {
+        display: block;
+        animation: fadeInUp 0.5s ease;
+    }
+
+    .points-display {
+        text-align: center;
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--journey-secondary);
+        margin: 20px 0;
+    }
+
+    @media (max-width: 768px) {
+        .timeline-item {
+            padding: 15px 15px 15px 60px;
+        }
+
+        .timeline-text {
+            font-size: 1rem;
+        }
+
+        .drag-handle {
+            right: 10px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block journey_content %}
+<div class="challenge-container animate-fade-in">
+    <!-- Back Button -->
+    <div class="mb-4">
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
+            <i class="bi bi-arrow-left"></i> Back to Chapter
+        </a>
+    </div>
+
+    <div class="challenge-card">
+        <div class="challenge-type-badge">
+            <i class="bi bi-clock-history"></i> Timeline Challenge
+        </div>
+
+        <div class="points-display">
+            💎 {{ challenge.points_awarded }} Points
+        </div>
+
+        <!-- Question -->
+        <div class="question-text">
+            {{ challenge.question }}
+        </div>
+
+        {% if existing_attempt %}
+        <!-- Already Completed -->
+        <div class="message-box success active">
+            <h3><i class="bi bi-check-circle-fill"></i> Already Completed!</h3>
+            <p>You already sorted this timeline correctly and earned <strong>{{ existing_attempt.points_earned }} points</strong>.</p>
+            <div class="mt-3">
+                <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
+                    Continue to Next Challenge <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+        {% else %}
+        <!-- Instructions -->
+        <div class="instruction-box">
+            <i class="bi bi-hand-index"></i> Drag and drop the events to arrange them in chronological order
+        </div>
+
+        <!-- Timeline -->
+        <div class="timeline-container">
+            <div class="timeline-line"></div>
+            <ul class="timeline-items" id="timelineItems">
+                {% for event in challenge.options.events %}
+                <li class="timeline-item" draggable="true" data-original-index="{{ forloop.counter0 }}">
+                    <div class="timeline-number">{{ forloop.counter }}</div>
+                    <div class="timeline-text">{{ event }}</div>
+                    <div class="drag-handle">⋮⋮</div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <button id="submitBtn" class="submit-btn">
+            Submit Timeline <i class="bi bi-arrow-right-circle-fill"></i>
+        </button>
+
+        <!-- Message Box -->
+        <div id="messageBox" class="message-box"></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_journey_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const challengeId = {{ challenge.id }};
+    const submitBtn = document.getElementById('submitBtn');
+    const messageBox = document.getElementById('messageBox');
+    const timelineItems = document.getElementById('timelineItems');
+
+    let draggedElement = null;
+
+    // Add drag and drop event listeners
+    const items = timelineItems.querySelectorAll('.timeline-item');
+
+    items.forEach(item => {
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragover', handleDragOver);
+        item.addEventListener('drop', handleDrop);
+        item.addEventListener('dragenter', handleDragEnter);
+        item.addEventListener('dragleave', handleDragLeave);
+        item.addEventListener('dragend', handleDragEnd);
+    });
+
+    function handleDragStart(e) {
+        draggedElement = this;
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDragOver(e) {
+        if (e.preventDefault) {
+            e.preventDefault();
+        }
+        e.dataTransfer.dropEffect = 'move';
+        return false;
+    }
+
+    function handleDragEnter(e) {
+        if (this !== draggedElement) {
+            this.classList.add('drag-over');
+        }
+    }
+
+    function handleDragLeave(e) {
+        this.classList.remove('drag-over');
+    }
+
+    function handleDrop(e) {
+        if (e.stopPropagation) {
+            e.stopPropagation();
+        }
+
+        if (draggedElement !== this) {
+            // Get all items
+            const allItems = Array.from(timelineItems.children);
+            const draggedIndex = allItems.indexOf(draggedElement);
+            const targetIndex = allItems.indexOf(this);
+
+            // Reorder
+            if (draggedIndex < targetIndex) {
+                this.parentNode.insertBefore(draggedElement, this.nextSibling);
+            } else {
+                this.parentNode.insertBefore(draggedElement, this);
+            }
+
+            // Update numbers
+            updateNumbers();
+        }
+
+        this.classList.remove('drag-over');
+        return false;
+    }
+
+    function handleDragEnd(e) {
+        this.classList.remove('dragging');
+
+        // Remove all drag-over classes
+        items.forEach(item => {
+            item.classList.remove('drag-over');
+        });
+    }
+
+    function updateNumbers() {
+        const items = timelineItems.querySelectorAll('.timeline-item');
+        items.forEach((item, index) => {
+            item.querySelector('.timeline-number').textContent = index + 1;
+        });
+    }
+
+    // Submit answer
+    submitBtn.addEventListener('click', function() {
+        const items = timelineItems.querySelectorAll('.timeline-item');
+        const order = Array.from(items).map(item => item.dataset.originalIndex);
+        const answer = order.join(',');
+
+        submitBtn.setAttribute('disabled', 'disabled');
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Checking...';
+
+        fetch('{% url "crush_lu:api_submit_challenge" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                challenge_id: challengeId,
+                answer: answer
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.is_correct) {
+                // Correct order!
+                messageBox.innerHTML = `
+                    <h3><i class="bi bi-check-circle-fill"></i> Perfect!</h3>
+                    <div style="font-size: 1.2rem; margin: 20px 0;">${data.success_message}</div>
+                    <div class="mt-3">
+                        <strong>🏆 Points Earned: ${data.points_earned}</strong>
+                    </div>
+                    <div class="mt-4">
+                        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
+                            Continue <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
+                `;
+                messageBox.className = 'message-box success active';
+
+                // Disable dragging
+                items.forEach(item => {
+                    item.draggable = false;
+                    item.style.cursor = 'default';
+                });
+                submitBtn.style.display = 'none';
+
+            } else {
+                // Wrong order
+                messageBox.innerHTML = '<i class="bi bi-x-circle"></i> Not quite right. Try rearranging the events!';
+                messageBox.className = 'message-box error active';
+
+                submitBtn.removeAttribute('disabled');
+                submitBtn.innerHTML = 'Submit Timeline <i class="bi bi-arrow-right-circle-fill"></i>';
+
+                // Hide error after 3 seconds
+                setTimeout(() => {
+                    messageBox.classList.remove('active');
+                }, 3000);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            messageBox.innerHTML = '<i class="bi bi-exclamation-triangle"></i> An error occurred. Please try again.';
+            messageBox.className = 'message-box error active';
+
+            submitBtn.removeAttribute('disabled');
+            submitBtn.innerHTML = 'Submit Timeline <i class="bi bi-arrow-right-circle-fill"></i>';
+        });
+    });
+
+    // Shuffle items initially for challenge
+    function shuffleItems() {
+        const items = Array.from(timelineItems.children);
+        // Fisher-Yates shuffle
+        for (let i = items.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            timelineItems.appendChild(items[j]);
+        }
+        updateNumbers();
+    }
+
+    // Shuffle on load
+    shuffleItems();
+});
+</script>
+{% endblock %}

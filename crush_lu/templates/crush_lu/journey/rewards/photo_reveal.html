@@ -1,0 +1,626 @@
+{% extends "crush_lu/journey/journey_base.html" %}
+{% load static %}
+
+{% block extra_journey_css %}
+<style>
+    .reward-container {
+        max-width: 1000px;
+        margin: 60px auto;
+    }
+
+    .reward-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(20px);
+        border-radius: 25px;
+        padding: 50px;
+        border: 2px solid rgba(255, 215, 0, 0.3);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .reward-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(
+            45deg,
+            transparent,
+            rgba(255, 215, 0, 0.1),
+            transparent
+        );
+        animation: shimmer 3s infinite;
+    }
+
+    @keyframes shimmer {
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .reward-content {
+        position: relative;
+        z-index: 1;
+    }
+
+    .reward-icon {
+        text-align: center;
+        font-size: 4rem;
+        margin-bottom: 20px;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-10px);
+        }
+    }
+
+    .reward-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-align: center;
+        background: linear-gradient(135deg, #FFD700, #FFA500);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 20px;
+    }
+
+    .reward-message {
+        text-align: center;
+        font-size: 1.2rem;
+        opacity: 0.9;
+        margin-bottom: 40px;
+        font-style: italic;
+    }
+
+    /* Jigsaw Puzzle */
+    .puzzle-container {
+        position: relative;
+        max-width: 600px;
+        margin: 40px auto;
+        aspect-ratio: 1;
+    }
+
+    .puzzle-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: repeat(4, 1fr);
+        gap: 2px;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 15px;
+        padding: 2px;
+        position: relative;
+    }
+
+    .puzzle-piece {
+        background-size: 400% 400%;
+        background-position: 0 0;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .puzzle-piece.locked {
+        filter: brightness(0.3) blur(3px);
+    }
+
+    .puzzle-piece.unlocked {
+        filter: brightness(1) blur(0);
+        animation: piece-reveal 0.5s ease;
+    }
+
+    @keyframes piece-reveal {
+        0% {
+            filter: brightness(0.3) blur(3px);
+            transform: scale(0.8);
+        }
+        100% {
+            filter: brightness(1) blur(0);
+            transform: scale(1);
+        }
+    }
+
+    .puzzle-piece:hover:not(.unlocked) {
+        transform: scale(1.05);
+        border-color: var(--journey-primary);
+        box-shadow: 0 0 20px rgba(155, 89, 182, 0.5);
+    }
+
+    .puzzle-piece-number {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 2rem;
+        font-weight: bold;
+        color: white;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    .puzzle-piece.locked:hover .puzzle-piece-number {
+        opacity: 1;
+    }
+
+    .puzzle-piece.unlocked .puzzle-piece-number {
+        display: none;
+    }
+
+    .puzzle-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.5s;
+        pointer-events: none;
+        border-radius: 15px;
+    }
+
+    .puzzle-overlay.show {
+        opacity: 1;
+    }
+
+    .puzzle-complete-message {
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        padding: 30px 50px;
+        border-radius: 20px;
+        font-size: 2rem;
+        font-weight: bold;
+        color: white;
+        text-align: center;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        animation: bounce-in 0.8s ease;
+    }
+
+    @keyframes bounce-in {
+        0% { transform: scale(0); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+
+    .progress-bar {
+        width: 100%;
+        max-width: 600px;
+        height: 30px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        margin: 30px auto;
+        overflow: hidden;
+        border: 2px solid rgba(255, 215, 0, 0.3);
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #FFD700, #FFA500);
+        width: 0%;
+        transition: width 0.5s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: white;
+    }
+
+    .instruction-text {
+        text-align: center;
+        font-size: 1.1rem;
+        opacity: 0.8;
+        margin-bottom: 20px;
+    }
+
+    .continue-btn {
+        width: fit-content;
+        padding: 15px 40px;
+        border-radius: 25px;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        color: white;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+        text-align: center;
+        border: none;
+        cursor: pointer;
+    }
+
+    .continue-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(155, 89, 182, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .reward-card {
+            padding: 30px 20px;
+        }
+
+        .reward-title {
+            font-size: 2rem;
+        }
+
+        .puzzle-container {
+            max-width: 90vw;
+        }
+
+        .puzzle-piece-number {
+            font-size: 1.5rem;
+        }
+
+        .puzzle-complete-message {
+            font-size: 1.5rem;
+            padding: 20px 30px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block journey_content %}
+<div class="reward-container animate-fade-in">
+    <!-- Back Button -->
+    <div class="text-center mb-4">
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
+            <i class="bi bi-arrow-left"></i> Back to Chapter
+        </a>
+    </div>
+
+    <div class="reward-card">
+        <div class="reward-content">
+            <div class="reward-icon">
+                🧩
+            </div>
+
+            <h1 class="reward-title">{{ reward.title }}</h1>
+
+            <div class="reward-message">
+                {{ reward.message }}
+            </div>
+
+            <div class="instruction-text">
+                Click on pieces to unlock them! Each piece costs <strong>50 points</strong> 💎
+            </div>
+
+            <!-- Points Display -->
+            <div class="text-center mb-3">
+                <span class="badge" style="background: linear-gradient(135deg, #FFD700, #FFA500); font-size: 1.2rem; padding: 10px 20px;">
+                    <i class="bi bi-star-fill"></i> <span id="currentPoints">Loading...</span> Points
+                </span>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill">0%</div>
+            </div>
+
+            <!-- Puzzle Grid -->
+            <div class="puzzle-container">
+                <div class="puzzle-grid" id="puzzleGrid">
+                    <!-- Pieces will be generated by JavaScript -->
+                </div>
+                <div class="puzzle-overlay" id="puzzleOverlay">
+                    <div class="puzzle-complete-message">
+                        🎉 Photo Revealed! 🎉
+                    </div>
+                </div>
+            </div>
+
+            <div id="completionButtons" style="display: none; text-align: center;">
+                <a href="#" id="downloadBtn" class="continue-btn" style="display: inline-block; margin: 20px 10px;">
+                    <i class="bi bi-download"></i> Download Photo
+                </a>
+                <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="continue-btn" style="display: inline-block; margin: 20px 10px;">
+                    Continue Your Journey <i class="bi bi-arrow-right"></i>
+                </a>
+                <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; margin-top: 10px; font-style: italic;">
+                    💡 Tip: Download this special memory to keep forever!
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const puzzleGrid = document.getElementById('puzzleGrid');
+    const progressFill = document.getElementById('progressFill');
+    const puzzleOverlay = document.getElementById('puzzleOverlay');
+    const completionButtons = document.getElementById('completionButtons');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const currentPointsEl = document.getElementById('currentPoints');
+
+    const rewardId = {{ reward.id }};
+    const totalPieces = 16;
+    let unlockedPieces = [];
+    let currentPoints = 0;
+
+    // Get the photo URL
+    {% if reward.photo %}
+    const photoUrl = '{{ reward.photo.url }}';
+    {% else %}
+    const photoUrl = 'https://via.placeholder.com/600x600/9B59B6/FFFFFF?text=Special+Memory';
+    {% endif %}
+
+    // Load existing progress from server
+    await loadProgress();
+
+    // Create puzzle pieces
+    for (let i = 0; i < totalPieces; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'puzzle-piece';
+        piece.dataset.index = i;
+
+        const row = Math.floor(i / 4);
+        const col = i % 4;
+
+        piece.style.backgroundImage = `url('${photoUrl}')`;
+        piece.style.backgroundPosition = `${col * 33.33}% ${row * 33.33}%`;
+
+        const number = document.createElement('div');
+        number.className = 'puzzle-piece-number';
+        number.textContent = i + 1;
+        piece.appendChild(number);
+
+        // Check if already unlocked
+        if (unlockedPieces.includes(i)) {
+            piece.classList.add('unlocked');
+        } else {
+            piece.classList.add('locked');
+            piece.addEventListener('click', () => unlockPiece(piece, i));
+        }
+
+        puzzleGrid.appendChild(piece);
+    }
+
+    // Update progress bar
+    updateProgress();
+
+    async function loadProgress() {
+        try {
+            // Construct URL dynamically
+            const url = `/api/journey/reward-progress/${rewardId}/`;
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.success) {
+                unlockedPieces = data.unlocked_pieces || [];
+                currentPoints = data.current_points || 0;
+                currentPointsEl.textContent = currentPoints;
+
+                // Check if already completed
+                if (data.is_completed) {
+                    setTimeout(() => {
+                        puzzleOverlay.classList.add('show');
+                        completionButtons.style.display = 'block';
+                    }, 500);
+                }
+            } else {
+                currentPointsEl.textContent = '0';
+            }
+        } catch (error) {
+            console.error('Error loading progress:', error);
+            currentPointsEl.textContent = '?';
+        }
+    }
+
+    async function unlockPiece(piece, index) {
+        if (piece.classList.contains('unlocked')) return;
+
+        // Confirm if user wants to spend points
+        if (!confirm(`Unlock this piece for 50 points?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch('{% url "crush_lu:api_unlock_puzzle_piece" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    reward_id: rewardId,
+                    piece_index: index
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Unlock the piece visually
+                piece.classList.remove('locked');
+                piece.classList.add('unlocked');
+                piece.removeEventListener('click', unlockPiece);
+
+                // Update points display
+                currentPoints = data.points_remaining;
+                currentPointsEl.textContent = currentPoints;
+
+                // Update unlocked pieces
+                unlockedPieces = data.unlocked_pieces;
+
+                // Update progress
+                updateProgress();
+
+                // Show success message
+                showNotification(`✨ Piece unlocked! -50 points`, 'success');
+
+                // Check if complete
+                if (data.is_completed) {
+                    setTimeout(() => {
+                        puzzleOverlay.classList.add('show');
+                        completionButtons.style.display = 'block';
+                        createConfetti();
+                    }, 500);
+                }
+            } else {
+                // Show error message
+                if (data.insufficient_points) {
+                    showNotification(`❌ Not enough points! You need ${data.points_needed} points.`, 'error');
+                } else if (data.already_unlocked) {
+                    showNotification('ℹ️ This piece is already unlocked', 'info');
+                } else {
+                    showNotification(`❌ ${data.message}`, 'error');
+                }
+            }
+        } catch (error) {
+            console.error('Error unlocking piece:', error);
+            showNotification('❌ An error occurred. Please try again.', 'error');
+        }
+    }
+
+    function updateProgress() {
+        const progress = Math.round((unlockedPieces.length / totalPieces) * 100);
+        progressFill.style.width = progress + '%';
+        progressFill.textContent = progress + '%';
+    }
+
+    function showNotification(message, type) {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#17a2b8'};
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-weight: bold;
+            z-index: 99999;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        `;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
+
+    function createConfetti() {
+        const colors = ['#FFD700', '#FF6B9D', '#C850C0', '#9B59B6'];
+        for (let i = 0; i < 50; i++) {
+            setTimeout(() => {
+                const confetti = document.createElement('div');
+                confetti.style.position = 'fixed';
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.top = '-10px';
+                confetti.style.width = '10px';
+                confetti.style.height = '10px';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.transform = 'rotate(' + Math.random() * 360 + 'deg)';
+                confetti.style.opacity = Math.random();
+                confetti.style.zIndex = '9999';
+                confetti.style.pointerEvents = 'none';
+                document.body.appendChild(confetti);
+
+                let pos = -10;
+                let rotation = Math.random() * 360;
+                const fall = setInterval(() => {
+                    pos += 5;
+                    rotation += 10;
+                    confetti.style.top = pos + 'px';
+                    confetti.style.transform = 'rotate(' + rotation + 'deg)';
+
+                    if (pos > window.innerHeight) {
+                        clearInterval(fall);
+                        confetti.remove();
+                    }
+                }, 30);
+            }, i * 50);
+        }
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Download functionality
+    downloadBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+
+        try {
+            // Fetch the image
+            const response = await fetch(photoUrl);
+            const blob = await response.blob();
+
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'special-memory.jpg';
+            document.body.appendChild(a);
+            a.click();
+
+            // Cleanup
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            showNotification('✅ Photo downloaded successfully!', 'success');
+        } catch (error) {
+            console.error('Download error:', error);
+            showNotification('❌ Download failed. Please try right-clicking the image.', 'error');
+        }
+    });
+});
+</script>
+
+<style>
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+}
+</style>
+{% endblock %}

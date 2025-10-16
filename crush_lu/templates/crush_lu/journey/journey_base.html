@@ -1,0 +1,207 @@
+{% extends "crush_lu/base.html" %}
+{% load static %}
+
+{% block title %}{{ journey.journey_name }} - Crush.lu{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Journey Base Styles */
+    :root {
+        --journey-primary: #9B59B6;
+        --journey-secondary: #FF6B9D;
+        --journey-success: #2ecc71;
+        --journey-warning: #f39c12;
+        --journey-dark: #1a1a2e;
+        --journey-light: #f8f9fa;
+    }
+
+    body {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        min-height: 100vh;
+        color: var(--journey-light);
+    }
+
+    .journey-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    /* Progress Bar */
+    .journey-progress-bar {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        height: 30px;
+        margin: 20px 0;
+        overflow: hidden;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .journey-progress-fill {
+        background: linear-gradient(90deg, var(--journey-primary), var(--journey-secondary));
+        height: 100%;
+        transition: width 1s ease;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding: 0 10px;
+        font-weight: bold;
+        font-size: 0.9rem;
+    }
+
+    /* Stats Display */
+    .journey-stats {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        margin: 30px 0;
+        flex-wrap: wrap;
+    }
+
+    .stat-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 20px 30px;
+        text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.8;
+        margin-top: 5px;
+    }
+
+    /* Animations */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes shimmer {
+        0%, 100% {
+            background-position: 0% 50%;
+        }
+        50% {
+            background-position: 100% 50%;
+        }
+    }
+
+    .animate-fade-in {
+        animation: fadeInUp 0.6s ease-out;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .journey-container {
+            padding: 10px;
+        }
+
+        .journey-stats {
+            gap: 10px;
+        }
+
+        .stat-card {
+            padding: 15px 20px;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+        }
+    }
+</style>
+{% block extra_journey_css %}{% endblock %}
+{% endblock %}
+
+{% block content %}
+<div class="journey-container animate-fade-in">
+    {% block journey_content %}
+    <!-- Journey-specific content goes here -->
+    {% endblock %}
+</div>
+
+<!-- Journey State Manager -->
+<script>
+    // CSRF token helper
+    function getCsrfToken() {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, 10) === ('csrftoken=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(10));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Journey state tracking
+    const journeyState = {
+        startTime: Date.now(),
+        lastSaveTime: Date.now(),
+        totalTimeSeconds: {{ journey_progress.total_time_seconds }},
+        currentPoints: {{ journey_progress.total_points }},
+    };
+
+    // Auto-save journey state every 30 seconds
+    setInterval(() => {
+        const now = Date.now();
+        const timeIncrement = Math.floor((now - journeyState.lastSaveTime) / 1000);
+
+        if (timeIncrement > 0) {
+            fetch('{% url "crush_lu:api_save_state" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({
+                    time_increment: timeIncrement
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    journeyState.lastSaveTime = now;
+                    journeyState.totalTimeSeconds = data.total_time;
+                    console.log('⏱️ Journey state saved');
+                }
+            })
+            .catch(error => console.error('Error saving state:', error));
+        }
+    }, 30000); // Every 30 seconds
+
+    // Save on page unload
+    window.addEventListener('beforeunload', () => {
+        const timeIncrement = Math.floor((Date.now() - journeyState.lastSaveTime) / 1000);
+        if (timeIncrement > 0) {
+            // Use sendBeacon for reliable save on page unload
+            const formData = new FormData();
+            formData.append('time_increment', timeIncrement);
+            formData.append('csrfmiddlewaretoken', getCsrfToken());
+            navigator.sendBeacon('{% url "crush_lu:api_save_state" %}', formData);
+        }
+    });
+</script>
+
+{% block extra_journey_js %}{% endblock %}
+{% endblock %}
