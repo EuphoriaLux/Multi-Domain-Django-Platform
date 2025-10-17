@@ -336,6 +336,7 @@ def save_state(request):
 def record_final_response(request):
     """
     Record user's response to the final chapter (Yes/Thinking).
+    Sends email notification to journey creator.
     """
     try:
         data = json.loads(request.body)
@@ -349,7 +350,7 @@ def record_final_response(request):
 
         journey_progress = JourneyProgress.objects.filter(
             user=request.user
-        ).first()
+        ).select_related('journey__special_experience').first()
 
         if not journey_progress:
             return JsonResponse({
@@ -371,6 +372,51 @@ def record_final_response(request):
         logger.info(
             f"💖 {request.user.username} responded '{response_choice}' to final chapter"
         )
+
+        # Send email notification
+        try:
+            from django.core.mail import send_mail
+            from django.conf import settings
+
+            user_name = f"{request.user.first_name} {request.user.last_name}"
+            response_text = "Yes, let's see where this goes 💫" if response_choice == 'yes' else "I need to think about this ✨"
+
+            subject = f"🎉 {user_name} completed the journey!"
+            message = f"""
+            Great news! {user_name} just completed "The Wonderland of You" journey!
+
+            Final Response: {response_text}
+            Completed: {journey_progress.completed_at.strftime('%B %d, %Y at %I:%M %p')}
+            Total Points Earned: {journey_progress.total_points}
+            Time Spent: {journey_progress.total_time_seconds // 60} minutes
+
+            Journey Details:
+            - Journey Name: {journey_progress.journey.journey_name}
+            - Chapters Completed: {journey_progress.journey.total_chapters}
+            - Completion Percentage: {journey_progress.completion_percentage}%
+
+            View full details in the admin panel:
+            https://crush.lu/en/admin/crush_lu/journeyprogress/{journey_progress.id}/change/
+
+            ---
+            This is an automated notification from Crush.lu Journey System
+            """
+
+            # Send to admin email (configure in settings)
+            recipient_email = getattr(settings, 'JOURNEY_NOTIFICATION_EMAIL', settings.DEFAULT_FROM_EMAIL)
+
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [recipient_email],
+                fail_silently=True  # Don't break the response if email fails
+            )
+
+            logger.info(f"📧 Sent journey completion email for {user_name}")
+        except Exception as email_error:
+            logger.error(f"❌ Failed to send email notification: {email_error}", exc_info=True)
+            # Continue anyway - email failure shouldn't break the response
 
         return JsonResponse({
             'success': True,

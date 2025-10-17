@@ -46,6 +46,7 @@ ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
 
 # WhiteNoise configuration and Middleware list
 MIDDLEWARE = [
+    'azureproject.middleware.HealthCheckMiddleware',  # MUST be first - bypasses all other middleware for /healthz/
     'django.middleware.security.SecurityMiddleware',
     'azureproject.redirect_www_middleware.AzureInternalIPMiddleware',  # Handle Azure internal IPs first
     'azureproject.redirect_www_middleware.RedirectWWWToRootDomainMiddleware',

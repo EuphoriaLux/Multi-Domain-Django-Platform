@@ -123,8 +123,10 @@ def journey_map(request):
 
     except Exception as e:
         logger.error(f"❌ Error loading journey map: {e}", exc_info=True)
-        messages.error(request, 'An error occurred loading your journey.')
-        return redirect('crush_lu:dashboard')
+        messages.error(request, 'An error occurred loading your journey. Please contact support if this persists.')
+        # For special journey users, redirect to home, not dashboard
+        # They may not have a regular Crush profile
+        return redirect('crush_lu:home')
 
 
 @crush_login_required
@@ -218,7 +220,8 @@ def chapter_view(request, chapter_number):
 
     except Exception as e:
         logger.error(f"❌ Error loading chapter {chapter_number}: {e}", exc_info=True)
-        messages.error(request, 'An error occurred loading this chapter.')
+        messages.error(request, f'An error occurred loading Chapter {chapter_number}. Please try again or contact support.')
+        # Always redirect back to journey map on chapter errors
         return redirect('crush_lu:journey_map')
 
 
@@ -279,8 +282,9 @@ def challenge_view(request, chapter_number, challenge_id):
         return render(request, template_name, context)
 
     except Exception as e:
-        logger.error(f"❌ Error loading challenge: {e}", exc_info=True)
-        messages.error(request, 'An error occurred loading this challenge.')
+        logger.error(f"❌ Error loading challenge {challenge_id} in chapter {chapter_number}: {e}", exc_info=True)
+        messages.error(request, 'An error occurred loading this challenge. Please try again.')
+        # Redirect back to chapter view so user can try another challenge
         return redirect('crush_lu:chapter_view', chapter_number=chapter_number)
 
 
@@ -328,8 +332,9 @@ def reward_view(request, reward_id):
         return render(request, template_name, context)
 
     except Exception as e:
-        logger.error(f"❌ Error loading reward: {e}", exc_info=True)
-        messages.error(request, 'An error occurred loading this reward.')
+        logger.error(f"❌ Error loading reward {reward_id}: {e}", exc_info=True)
+        messages.error(request, 'An error occurred loading this reward. Please try again.')
+        # Redirect to journey map so user can see all available rewards
         return redirect('crush_lu:journey_map')
 
 
@@ -371,6 +376,7 @@ def certificate_view(request):
         return render(request, 'crush_lu/journey/certificate.html', context)
 
     except Exception as e:
-        logger.error(f"❌ Error generating certificate: {e}", exc_info=True)
-        messages.error(request, 'An error occurred generating your certificate.')
+        logger.error(f"❌ Error generating certificate for {request.user.username}: {e}", exc_info=True)
+        messages.error(request, 'An error occurred generating your certificate. Please contact support.')
+        # Redirect to journey map so user can still access the journey
         return redirect('crush_lu:journey_map')

@@ -59,12 +59,14 @@ INSTALLED_APPS = [
     'vibe_coding',
     'vinsdelux',
     'crush_lu',
+    'finops_hub',
 ]
 
 # SITE_ID must NOT be set - CurrentSiteMiddleware determines site dynamically per request
 # Setting SITE_ID would force all domains to use the same Site object
 
 MIDDLEWARE = [
+    'azureproject.middleware.HealthCheckMiddleware',  # MUST be first - bypasses all other middleware for /healthz/
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -206,7 +208,7 @@ SOCIALACCOUNT_PROVIDERS = {
     'facebook': {
         'METHOD': 'oauth2',
         'SCOPE': ['email', 'public_profile'],  # Only basic permissions (no app review needed)
-        'AUTH_PARAMS': {'auth_type': 'reauthenticate'},
+        'AUTH_PARAMS': {'auth_type': 'rerequest'},  # Smoother UX - only re-prompt for declined permissions
         'FIELDS': [
             'id',
             'email',
