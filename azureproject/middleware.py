@@ -1,7 +1,26 @@
 # azureproject/middleware.py
 import logging
 from django.utils import translation
+from django.http import HttpResponse
+
 logger = logging.getLogger(__name__)
+
+
+class HealthCheckMiddleware:
+    """
+    Bypass all middleware and Sites framework for health check endpoint.
+    This prevents Azure health checks from failing due to missing Site objects.
+    MUST be placed FIRST in MIDDLEWARE list.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Immediately return OK for health checks, bypassing all other middleware
+        if request.path in ['/healthz/', '/healthz']:
+            return HttpResponse("OK", status=200, content_type="text/plain")
+        return self.get_response(request)
+
 
 class ForceAdminToEnglishMiddleware:
     def __init__(self, get_response):
@@ -38,10 +57,14 @@ class DomainURLRoutingMiddleware:
         elif host in ['vinsdelux.com', 'www.vinsdelux.com']:
             request.urlconf = 'azureproject.urls_vinsdelux'
             logger.info(f"DomainURLRoutingMiddleware: Routing to urls_vinsdelux for host: {host}")
-        elif host in ['crush.lu', 'www.crush.lu', 'localhost', '127.0.0.1']:
-            # Route localhost and 127.0.0.1 to Crush for development testing
+        elif host in ['crush.lu', 'www.crush.lu']:
+            # Route crush.lu domain to Crush URLs
             request.urlconf = 'azureproject.urls_crush'
             logger.info(f"DomainURLRoutingMiddleware: Routing to urls_crush for host: {host}")
+        elif host in ['localhost', '127.0.0.1']:
+            # Route localhost to PowerUP (default for development)
+            request.urlconf = 'azureproject.urls_powerup'
+            logger.info(f"DomainURLRoutingMiddleware: Routing to urls_powerup for localhost development: {host}")
         elif host.endswith('.azurewebsites.net'):
             # Azure App Service hostname - use powerup URLs (will be redirected by RedirectWWWToRootDomainMiddleware)
             request.urlconf = 'azureproject.urls_powerup'

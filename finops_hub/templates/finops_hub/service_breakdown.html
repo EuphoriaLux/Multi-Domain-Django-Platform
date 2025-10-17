@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}FinOps Hub - Services{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'finops_hub/css/finops.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h2">FinOps Hub - Service Breakdown</h1>
+            <p class="text-muted">Azure service-level cost analysis</p>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'finops_hub:dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Services</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="filter-panel">
+                <form method="get" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="days" class="form-label">Time Period</label>
+                        <select name="days" id="days" class="form-select">
+                            <option value="7" {% if period.days == 7 %}selected{% endif %}>Last 7 days</option>
+                            <option value="30" {% if period.days == 30 %}selected{% endif %}>Last 30 days</option>
+                            <option value="60" {% if period.days == 60 %}selected{% endif %}>Last 60 days</option>
+                            <option value="90" {% if period.days == 90 %}selected{% endif %}>Last 90 days</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="subscription" class="form-label">Subscription</label>
+                        <select name="subscription" id="subscription" class="form-select">
+                            <option value="">All Subscriptions</option>
+                            {% for sub in available_subscriptions %}
+                            <option value="{{ sub }}" {% if subscription == sub %}selected{% endif %}>{{ sub }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary">Apply Filter</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Service Chart -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Top 10 Services by Cost</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="serviceChart" height="60"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Services Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">All Services</h5>
+                    {% if subscription %}
+                    <span class="badge bg-info">Filtered: {{ subscription }}</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Service Name</th>
+                                    <th>Category</th>
+                                    <th class="text-end">Total Cost (EUR)</th>
+                                    <th class="text-end">Records</th>
+                                    <th class="text-end">% of Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for service in services_table %}
+                                <tr class="service-item">
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>
+                                        <strong>{{ service.service_name }}</strong>
+                                    </td>
+                                    <td>
+                                        {% if service.service_category %}
+                                        <span class="badge bg-light text-dark">{{ service.service_category }}</span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        <span class="cost-amount">€{{ service.total_cost|floatformat:2 }}</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <span class="badge bg-secondary">{{ service.record_count }}</span>
+                                    </td>
+                                    <td class="text-end">
+                                        {% widthratio service.total_cost total_cost 100 as percentage %}
+                                        <small class="text-muted">{{ percentage|floatformat:1 }}%</small>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">No service data available for this period</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <a href="{% url 'finops_hub:dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
+            <a href="{% url 'finops_hub:subscriptions' %}" class="btn btn-outline-primary">View Subscriptions</a>
+            <a href="{% url 'finops_hub:resources' %}" class="btn btn-outline-primary">View Resources</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{% static 'finops_hub/js/finops_charts.js' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const services = {{ services|safe }};
+
+        if (services && services.length > 0) {
+            renderServiceChart(services);
+        }
+    });
+
+    function renderServiceChart(services) {
+        const labels = services.map(s => s.service_name);
+        const costs = services.map(s => parseFloat(s.total_cost));
+
+        const ctx = document.getElementById('serviceChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Cost (EUR)',
+                    data: costs,
+                    backgroundColor: 'rgba(75, 192, 192, 0.8)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '€' + value.toFixed(2);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -240,6 +240,45 @@
         text-decoration: none;
     }
 
+    /* Final Response Buttons (Chapter 6) */
+    .final-response-btn {
+        padding: 20px 40px;
+        border-radius: 30px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        min-width: 280px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .final-response-yes {
+        background: linear-gradient(135deg, #FF6B9D, #C850C0);
+        color: white;
+    }
+
+    .final-response-yes:hover {
+        transform: translateY(-5px) scale(1.05);
+        box-shadow: 0 15px 40px rgba(255, 107, 157, 0.5);
+    }
+
+    .final-response-thinking {
+        background: linear-gradient(135deg, #9B59B6, #667eea);
+        color: white;
+    }
+
+    .final-response-thinking:hover {
+        transform: translateY(-5px) scale(1.05);
+        box-shadow: 0 15px 40px rgba(155, 89, 182, 0.5);
+    }
+
+    .final-response-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
     /* Mobile Responsive */
     @media (max-width: 768px) {
         .chapter-title {
@@ -262,6 +301,12 @@
         .chapter-navigation {
             flex-direction: column;
             gap: 10px;
+        }
+
+        .final-response-btn {
+            min-width: 100%;
+            padding: 18px 30px;
+            font-size: 1.1rem;
         }
     }
 </style>
@@ -341,6 +386,44 @@
     <h2>Chapter Complete!</h2>
     <p class="completion-text">{{ chapter.completion_message|linebreaks }}</p>
 
+    <!-- Chapter 6 Final Response (Special Handling) -->
+    {% if chapter.chapter_number == 6 and not journey_progress.final_response %}
+    <div id="finalResponseSection" style="margin-top: 40px;">
+        <div style="background: rgba(255, 107, 157, 0.1); border: 2px solid rgba(255, 107, 157, 0.3); border-radius: 20px; padding: 40px; margin-top: 30px;">
+            <h3 style="font-size: 1.8rem; margin-bottom: 20px; color: var(--journey-primary);">💫 The Final Question 💫</h3>
+            <p style="font-size: 1.3rem; line-height: 1.8; margin-bottom: 30px;">
+                {{ journey_progress.journey.final_message|linebreaks }}
+            </p>
+            <p style="font-size: 1.2rem; font-weight: bold; margin-bottom: 30px;">
+                Will you give this a chance?
+            </p>
+            <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+                <button onclick="submitFinalResponse('yes')" class="final-response-btn final-response-yes" id="btnYes">
+                    <i class="bi bi-heart-fill"></i> Yes, let's see where this goes 💫
+                </button>
+                <button onclick="submitFinalResponse('thinking')" class="final-response-btn final-response-thinking" id="btnThinking">
+                    <i class="bi bi-hourglass-split"></i> I need to think about this ✨
+                </button>
+            </div>
+            <div id="responseStatus" style="margin-top: 20px; font-size: 1.1rem;"></div>
+        </div>
+    </div>
+    {% elif chapter.chapter_number == 6 and journey_progress.final_response %}
+    <div style="margin-top: 30px; padding: 30px; background: rgba(46, 204, 113, 0.1); border: 2px solid rgba(46, 204, 113, 0.3); border-radius: 20px;">
+        <h3 style="margin-bottom: 15px;">💖 Your Response</h3>
+        <p style="font-size: 1.2rem;">
+            {% if journey_progress.final_response == 'yes' %}
+                You chose: <strong>"Yes, let's see where this goes 💫"</strong>
+            {% else %}
+                You chose: <strong>"I need to think about this ✨"</strong>
+            {% endif %}
+        </p>
+        <p style="font-size: 0.9rem; opacity: 0.8; margin-top: 10px;">
+            Responded on {{ journey_progress.final_response_at|date:"F j, Y \a\t g:i A" }}
+        </p>
+    </div>
+    {% endif %}
+
     <!-- Show Rewards -->
     {% if rewards %}
     <div style="margin-top: 30px;">
@@ -399,5 +482,77 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Chapter {{ chapter.chapter_number }} loaded');
 });
+
+// Final Response Submission (Chapter 6)
+async function submitFinalResponse(response) {
+    const btnYes = document.getElementById('btnYes');
+    const btnThinking = document.getElementById('btnThinking');
+    const statusDiv = document.getElementById('responseStatus');
+
+    // Disable both buttons
+    btnYes.disabled = true;
+    btnThinking.disabled = true;
+
+    // Show loading message
+    statusDiv.innerHTML = '<i class="bi bi-hourglass-split"></i> Submitting your response...';
+    statusDiv.style.color = 'var(--journey-secondary)';
+
+    try {
+        // Get CSRF token from cookie
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+
+        const apiResponse = await fetch('{% url "crush_lu:api_record_final_response" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ response: response })
+        });
+
+        const data = await apiResponse.json();
+
+        if (data.success) {
+            // Show success message
+            statusDiv.innerHTML = '<i class="bi bi-check-circle-fill"></i> Thank you for your response! 💖';
+            statusDiv.style.color = 'var(--journey-success)';
+
+            // Reload page after 2 seconds to show the confirmed response
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            // Show error
+            statusDiv.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> ' + (data.message || 'An error occurred. Please try again.');
+            statusDiv.style.color = 'var(--journey-error)';
+
+            // Re-enable buttons
+            btnYes.disabled = false;
+            btnThinking.disabled = false;
+        }
+    } catch (error) {
+        console.error('Error submitting final response:', error);
+        statusDiv.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Network error. Please check your connection and try again.';
+        statusDiv.style.color = 'var(--journey-error)';
+
+        // Re-enable buttons
+        btnYes.disabled = false;
+        btnThinking.disabled = false;
+    }
+}
 </script>
 {% endblock %}

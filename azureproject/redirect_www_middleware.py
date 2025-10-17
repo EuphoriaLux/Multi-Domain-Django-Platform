@@ -31,6 +31,10 @@ class RedirectWWWToRootDomainMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        # Skip redirects for health check endpoint
+        if request.path == '/healthz/' or request.path == '/healthz':
+            return self.get_response(request)
+
         # Get host directly from META to avoid ALLOWED_HOSTS validation
         # This allows us to redirect before Django validates the host
         host = request.META.get('HTTP_HOST', '').split(':')[0].lower()
@@ -38,7 +42,11 @@ class RedirectWWWToRootDomainMiddleware:
         if not host:
             return self.get_response(request)
 
-        # Redirect Azure App Service hostname to powerup.lu
+        # Skip redirects for Azure internal IPs (health checks, monitoring)
+        if host.startswith('169.254.') or host == 'localhost':
+            return self.get_response(request)
+
+        # Redirect Azure App Service hostname to powerup.lu (except health checks)
         if host.endswith('.azurewebsites.net'):
             # Preserve the path and query string
             new_url = f'https://powerup.lu{request.get_full_path()}'
