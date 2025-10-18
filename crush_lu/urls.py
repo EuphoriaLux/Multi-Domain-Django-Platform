@@ -46,6 +46,10 @@ urlpatterns = [
     # Special user experience
     path('special-welcome/', views.special_welcome, name='special_welcome'),
 
+    # Private Invitation System (PUBLIC ACCESS)
+    path('invite/<uuid:code>/', views.invitation_landing, name='invitation_landing'),
+    path('invite/<uuid:code>/accept/', views.invitation_accept, name='invitation_accept'),
+
     # Events
     path('events/', views.event_list, name='event_list'),
     path('events/<int:event_id>/', views.event_detail, name='event_detail'),
@@ -81,9 +85,18 @@ urlpatterns = [
     path('coach/review/<int:submission_id>/call-complete/', views.coach_mark_review_call_complete, name='coach_mark_review_call_complete'),
     path('coach/sessions/', views.coach_sessions, name='coach_sessions'),
 
+    # Coach invitation management
+    path('coach/event/<int:event_id>/invitations/', views.coach_manage_invitations, name='coach_manage_invitations'),
+
     # Coach screening calls
     path('coach/screening/', views_profile.coach_screening_dashboard, name='coach_screening_dashboard'),
     path('coach/screening/<int:profile_id>/complete/', views_profile.coach_mark_screening_complete, name='coach_mark_screening_complete'),
+
+    # Coach journey management
+    path('coach/journeys/', views.coach_journey_dashboard, name='coach_journey_dashboard'),
+    path('coach/journeys/<int:journey_id>/edit/', views.coach_edit_journey, name='coach_edit_journey'),
+    path('coach/journeys/challenge/<int:challenge_id>/edit/', views.coach_edit_challenge, name='coach_edit_challenge'),
+    path('coach/journeys/progress/<int:progress_id>/', views.coach_view_user_progress, name='coach_view_user_progress'),
 
     # Post-event connections
     path('events/<int:event_id>/attendees/', views.event_attendees, name='event_attendees'),
