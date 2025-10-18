@@ -284,7 +284,6 @@ def get_progress(request):
 
 
 @crush_login_required
-@crush_login_required
 @require_http_methods(["POST"])
 def save_state(request):
     """

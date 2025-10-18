@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta
 import os
+import uuid
 
 # Conditional import of private storage for production
 if os.getenv('AZURE_ACCOUNT_NAME'):
@@ -311,7 +312,7 @@ class ProfileSubmission(models.Model):
         null=True,
         blank=True
     )
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
 
     # Review details
     coach_notes = models.TextField(blank=True, help_text="Internal notes from coach")
@@ -427,6 +428,36 @@ class MeetupEvent(models.Model):
     is_published = models.BooleanField(default=False)
     is_cancelled = models.BooleanField(default=False)
 
+    # Private Invitation Event Settings
+    is_private_invitation = models.BooleanField(
+        default=False,
+        help_text="Private invitation-only event (visible only to invited guests)"
+    )
+    invitation_code = models.CharField(
+        max_length=100,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text="Unique code for this private event"
+    )
+    invitation_expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When invitations for this event expire"
+    )
+    max_invited_guests = models.PositiveIntegerField(
+        default=20,
+        help_text="Maximum invited guests for private event"
+    )
+
+    # Invited Existing Users (for private events)
+    invited_users = models.ManyToManyField(
+        User,
+        blank=True,
+        related_name='invited_to_events',
+        help_text="Existing users invited to this private event (no external invitation needed)"
+    )
+
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -478,7 +509,7 @@ class EventRegistration(models.Model):
 
     event = models.ForeignKey(MeetupEvent, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
 
     # Additional info
     dietary_restrictions = models.CharField(max_length=200, blank=True)
@@ -503,6 +534,121 @@ class EventRegistration(models.Model):
     def can_make_connections(self):
         """Only attendees can make post-event connections"""
         return self.status == 'attended'
+
+
+class EventInvitation(models.Model):
+    """
+    Private invitation for exclusive events.
+    Tracks invitations sent to guests for invitation-only events.
+    """
+
+    STATUS_CHOICES = [
+        ('pending', 'Invitation Sent'),
+        ('accepted', 'Accepted'),
+        ('declined', 'Declined'),
+        ('attended', 'Attended'),
+        ('expired', 'Expired'),
+    ]
+
+    APPROVAL_CHOICES = [
+        ('pending_approval', 'Awaiting Approval'),
+        ('approved', 'Approved to Attend'),
+        ('rejected', 'Rejected'),
+    ]
+
+    event = models.ForeignKey(MeetupEvent, on_delete=models.CASCADE, related_name='invitations')
+    guest_email = models.EmailField(help_text="Guest's email address")
+    guest_first_name = models.CharField(max_length=100, help_text="Guest's first name")
+    guest_last_name = models.CharField(max_length=100, help_text="Guest's last name")
+
+    # Link to Special User Experience (optional - for VIP treatment)
+    special_user = models.ForeignKey(
+        SpecialUserExperience,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='event_invitations',
+        help_text="Link this invitation to a Special User for VIP treatment (auto-fills from name/email match)"
+    )
+
+    # Invitation details
+    invitation_code = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        help_text="Unique invitation code (UUID)"
+    )
+    invited_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='invitations_sent',
+        help_text="Coach/admin who sent the invitation"
+    )
+
+    # Status tracking
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        help_text="Invitation status"
+    )
+    approval_status = models.CharField(
+        max_length=20,
+        choices=APPROVAL_CHOICES,
+        default='pending_approval',
+        help_text="Approval status (coach must approve before attendance)"
+    )
+
+    # Created user after acceptance
+    created_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='received_invitation',
+        help_text="User account created when invitation was accepted"
+    )
+
+    # Timestamps
+    invitation_sent_at = models.DateTimeField(auto_now_add=True)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    # Admin notes
+    approval_notes = models.TextField(
+        blank=True,
+        help_text="Internal notes about approval/rejection"
+    )
+    coach_notes = models.TextField(
+        blank=True,
+        help_text="Coach notes about the guest"
+    )
+
+    class Meta:
+        ordering = ['-invitation_sent_at']
+        verbose_name = "Event Invitation"
+        verbose_name_plural = "Event Invitations"
+
+    def __str__(self):
+        return f"{self.guest_first_name} {self.guest_last_name} → {self.event.title} ({self.get_status_display()})"
+
+    def save(self, *args, **kwargs):
+        """Generate invitation code on first save (handled by default now)"""
+        super().save(*args, **kwargs)
+
+    @property
+    def is_expired(self):
+        """Check if invitation has expired"""
+        if self.event.invitation_expires_at and timezone.now() > self.event.invitation_expires_at:
+            return True
+        return False
+
+    @property
+    def invitation_url(self):
+        """Generate the full invitation URL"""
+        from django.urls import reverse
+        return reverse('crush_lu:invitation_landing', kwargs={'code': self.invitation_code})
 
 
 class EventConnection(models.Model):
@@ -823,7 +969,11 @@ class JourneyChallenge(models.Model):
 
     correct_answer = models.TextField(
         blank=True,
-        help_text="The correct answer (leave blank for open-ended/questionnaire challenges)"
+        help_text=(
+            "The correct answer for QUIZ mode. "
+            "**LEAVE BLANK for QUESTIONNAIRE mode** (all answers accepted & saved for review). "
+            "Chapters 2/4/5 and types 'open_text'/'would_you_rather' auto-detect questionnaire mode."
+        )
     )
     alternative_answers = models.JSONField(
         default=list,
@@ -900,12 +1050,14 @@ class JourneyReward(models.Model):
     audio_file = models.FileField(
         upload_to='journey_rewards/audio/',
         blank=True,
-        null=True
+        null=True,
+        storage=crush_photo_storage if crush_photo_storage else None
     )
     video_file = models.FileField(
         upload_to='journey_rewards/video/',
         blank=True,
-        null=True
+        null=True,
+        storage=crush_photo_storage if crush_photo_storage else None
     )
 
     # For puzzles
