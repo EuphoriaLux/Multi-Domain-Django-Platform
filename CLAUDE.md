@@ -2,6 +2,179 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## General Development Guidelines
+
+**IMPORTANT - Documentation Policy**:
+- **DO NOT** automatically create or update documentation files (README.md, docs/, etc.) after completing tasks
+- **DO NOT** proactively suggest creating documentation unless explicitly requested
+- Only create/update documentation when the user specifically asks for it
+- Focus on writing working code, not documentation, unless instructed otherwise
+- If asked to document something, be concise and only document what's necessary
+
+## Recommended Development Agents
+
+This project uses specialized Claude agents for specific development tasks. Agents are defined in `.claude/agents/` and provide focused expertise for common development scenarios.
+
+### Existing Agents
+
+**css-expert** (`.claude/agents/css-expert.md`)
+- Use for: Styling tasks, responsive design, Bootstrap customization, UI modernization
+- Expertise: Bootstrap 5, CSS Grid, Flexbox, animations, responsive design
+- Context: Understands all four platforms (Entreprinder, VinsDelux, Crush.lu, PowerUP) and their styling approaches
+- Best for: Creating new components, debugging layout issues, implementing modern CSS features
+
+**javascript-expert** (`.claude/agents/javascript-expert.md`)
+- Use for: Frontend JavaScript development, API integrations, interactive features
+- Expertise: ES6+, React/Vue/Angular, async programming, DOM manipulation
+- Best for: Swipe interfaces, plot selection systems, journey challenges, event voting systems
+
+**visual-ui-debugger** (`.claude/agents/visual-ui-debugger.md`)
+- Use for: Analyzing screenshots of UI issues, identifying visual bugs
+- Expertise: CSS debugging, layout analysis, responsive design issues
+- Best for: When you have screenshots showing styling problems
+
+### Recommended Additional Agents to Create
+
+**django-expert**
+- **Purpose**: Django backend development, models, views, URL routing, middleware
+- **When to use**: Creating new models, implementing views, debugging ORM queries, authentication flows
+- **Expertise areas**:
+  - Django 5.1+ features and best practices
+  - Multi-domain architecture with URL routing
+  - Django Allauth and OAuth2 integration
+  - Model relationships and migrations
+  - Class-based views vs function views
+  - Django REST Framework API development
+  - Middleware development
+  - Signal handlers and lifecycle hooks
+  - Django admin customization
+- **Project context**: Should understand domain routing, i18n, Azure deployment
+
+**email-template-expert**
+- **Purpose**: HTML email template creation with Django template syntax
+- **When to use**: Creating new notification emails, improving email design
+- **Expertise areas**:
+  - HTML email best practices (table-based layouts)
+  - Inline CSS for email clients
+  - Email client compatibility (Outlook, Gmail, Apple Mail)
+  - Responsive email design
+  - Django template inheritance for emails
+  - Plain text alternatives
+  - Email testing strategies
+- **Project context**: Should understand Crush.lu email system, Microsoft Graph backend, existing email templates
+
+**azure-deployment-expert**
+- **Purpose**: Azure infrastructure, deployment, and production issues
+- **When to use**: Deployment problems, Azure configuration, production debugging
+- **Expertise areas**:
+  - Azure App Service configuration
+  - Azure Blob Storage (public and private containers)
+  - PostgreSQL Azure Database
+  - Bicep infrastructure as code
+  - Azure Developer CLI (azd)
+  - WhiteNoise static file serving
+  - Environment variable management
+  - Azure Application Insights
+  - Health check endpoints
+  - Production vs development settings
+- **Project context**: Should understand multi-domain setup, middleware requirements, storage strategy
+
+**database-expert**
+- **Purpose**: Database modeling, migrations, query optimization
+- **When to use**: Complex queries, model design, migration issues, performance optimization
+- **Expertise areas**:
+  - PostgreSQL-specific features and optimization
+  - Django ORM query optimization (select_related, prefetch_related)
+  - Complex model relationships (ManyToMany, ForeignKey, OneToOne)
+  - Migration strategies and conflict resolution
+  - Database indexing and performance
+  - JSON fields for flexible data (JourneyProgress, event metadata)
+  - Transaction management
+  - Data integrity and constraints
+- **Project context**: Should understand existing model architecture across all four platforms
+
+**api-expert**
+- **Purpose**: REST API development with Django REST Framework
+- **When to use**: Creating/updating APIs, debugging API issues, JWT authentication
+- **Expertise areas**:
+  - Django REST Framework serializers, viewsets, routers
+  - JWT authentication and token management
+  - API versioning strategies
+  - Pagination and filtering
+  - CORS configuration
+  - API documentation (OpenAPI/Swagger)
+  - Rate limiting and throttling
+  - Error handling and validation
+  - JSON response formatting
+- **Project context**: Should understand VinsDelux plot selection API, Crush.lu journey API
+
+**testing-expert**
+- **Purpose**: Writing tests, test-driven development, CI/CD
+- **When to use**: Creating unit tests, integration tests, fixing failing tests
+- **Expertise areas**:
+  - Django TestCase and pytest
+  - Model testing strategies
+  - View and API testing
+  - Test fixtures and factories
+  - Selenium/Playwright for frontend testing
+  - Mock objects and patching
+  - Test coverage analysis
+  - CI/CD with GitHub Actions
+  - Testing email functionality
+  - Testing multi-domain routing
+- **Project context**: Should understand existing test structure, domain-specific test requirements
+
+**security-expert**
+- **Purpose**: Security reviews, authentication, authorization, data privacy
+- **When to use**: Security audits, privacy features, authentication issues
+- **Expertise areas**:
+  - CSRF protection
+  - XSS prevention
+  - SQL injection prevention
+  - Authentication best practices
+  - Authorization and permissions
+  - Privacy controls (Crush.lu photo privacy, profile approval)
+  - SAS token generation and validation
+  - Invitation token security
+  - Session management
+  - Password policies and reset flows
+- **Project context**: Should understand Crush.lu privacy features, private storage, invitation system
+
+**migration-expert**
+- **Purpose**: Data migrations, version upgrades, refactoring assistance
+- **When to use**: Upgrading Django/Python versions, major refactoring, data migrations
+- **Expertise areas**:
+  - Django migrations (data migrations vs schema migrations)
+  - Backward compatibility strategies
+  - Zero-downtime deployments
+  - Dependency upgrades
+  - Breaking change mitigation
+  - Rollback strategies
+  - Database backup and restore
+- **Project context**: Should understand multi-app architecture, production constraints
+
+### Creating Custom Agents
+
+To create a new agent, add a markdown file in `.claude/agents/`:
+
+```markdown
+---
+name: agent-name
+description: Short description of when to use this agent
+model: sonnet  # or haiku for faster, cheaper tasks
+---
+
+[Agent instructions and expertise areas]
+```
+
+**Agent Best Practices**:
+- Keep agent descriptions clear and specific
+- Include examples of when to use the agent
+- Provide project context in the agent prompt
+- Reference existing code patterns and conventions
+- Balance between general expertise and project-specific knowledge
+- Use `model: sonnet` for complex tasks, `model: haiku` for simple tasks
+
 ## Project Overview
 
 Entreprinder is a multi-domain Django application serving four distinct platforms:
@@ -83,15 +256,23 @@ python manage.py create_crush_coaches
 
 # Create sample meetup events
 python manage.py create_sample_events
+
+# Create Wonderland journey (interactive experience)
+python manage.py create_wonderland_journey
+
+# Populate global activity options for event voting
+python manage.py populate_global_activity_options
 ```
 
 ## URL Architecture
 
-The application uses domain-based routing (`azureproject/middleware.py`):
-- `vinsdelux.com` → VinsDelux app
-- `powerup.lu` → PowerUP variant
-- `crush.lu` → Crush.lu dating platform
-- Default → Entreprinder app (PowerUP fallback)
+The application uses domain-based routing via `DomainURLRoutingMiddleware` (`azureproject/middleware.py`):
+- `vinsdelux.com` → VinsDelux app (`azureproject/urls_vinsdelux.py`)
+- `powerup.lu` → PowerUP variant (`azureproject/urls_powerup.py`)
+- `crush.lu` → Crush.lu dating platform (`azureproject/urls_crush.py`)
+- `localhost` → Crush.lu (development default)
+- `*.azurewebsites.net` → PowerUP (Azure hostname)
+- Default → PowerUP (`azureproject/urls_default.py`)
 
 All apps support i18n with language prefixes (`/en/`, `/de/`, `/fr/`).
 
@@ -105,7 +286,54 @@ Key endpoints:
 ## High-Level Code Structure
 
 ### Domain Routing System
-The `DomainRoutingMiddleware` in `azureproject/middleware.py` dynamically sets `request.urlconf` based on the domain, allowing different URL configurations per platform while sharing the same codebase.
+
+The application uses multiple middleware components to handle multi-domain architecture and production requirements.
+
+#### DomainURLRoutingMiddleware
+(`azureproject/middleware.py`)
+
+Dynamically sets `request.urlconf` based on the HTTP host, allowing different URL configurations per platform while sharing the same codebase:
+- Inspects `request.get_host()` to determine domain
+- Sets appropriate `request.urlconf` for each domain
+- Logs routing decisions for debugging
+- Handles Azure App Service hostnames (`*.azurewebsites.net`)
+- Routes `localhost` to Crush.lu for development
+
+#### HealthCheckMiddleware
+(`azureproject/middleware.py`)
+
+**Must be placed FIRST in MIDDLEWARE list** to bypass all middleware for health checks:
+- Immediately returns HTTP 200 for `/healthz/` endpoint
+- Prevents Azure health checks from failing due to missing Site objects
+- Bypasses Sites framework, authentication, and all other middleware
+- Critical for Azure App Service health monitoring
+
+#### RedirectWWWToRootDomainMiddleware
+(`azureproject/redirect_www_middleware.py`)
+
+Redirects `www.` subdomains to root domains with 301 permanent redirects:
+- `www.powerup.lu` → `powerup.lu`
+- `www.vinsdelux.com` → `vinsdelux.com`
+- `www.crush.lu` → `crush.lu`
+- Skips redirect for `/healthz/` endpoint
+- Preserves path and query parameters during redirect
+
+#### AzureInternalIPMiddleware
+(`azureproject/redirect_www_middleware.py`)
+
+Handles Azure internal IPs for Application Insights:
+- Allows `169.254.*.*` (Azure internal IPs) to bypass ALLOWED_HOSTS
+- Dynamically adds internal hosts to ALLOWED_HOSTS
+- Required for OpenTelemetry autoinstrumentation health checks
+- Prevents DisallowedHost errors in production
+
+#### ForceAdminToEnglishMiddleware
+(`azureproject/middleware.py`)
+
+Forces Django admin interface to English:
+- Activates English translation for all `/admin/` paths
+- Sets `request.LANGUAGE_CODE = 'en'`
+- Ensures consistent admin experience regardless of user language preference
 
 ### VinsDelux Plot Selection System (Complete Architecture)
 
@@ -280,11 +508,41 @@ AZURE_ACCOUNT_KEY=<storage-key>
 # Django
 SECRET_KEY=<django-secret-key>
 
-# Email (optional)
+# Email - Option 1: SMTP (traditional)
 EMAIL_HOST=<smtp-server>
 EMAIL_HOST_USER=<email-user>
 EMAIL_HOST_PASSWORD=<email-password>
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+
+# Email - Option 2: Microsoft Graph API (recommended for Microsoft 365)
+GRAPH_TENANT_ID=<azure-ad-tenant-id>
+GRAPH_CLIENT_ID=<app-registration-client-id>
+GRAPH_CLIENT_SECRET=<app-registration-secret>
+GRAPH_FROM_EMAIL=noreply@crush.lu
 ```
+
+### Email Backend Configuration
+
+The application supports two email backends:
+
+**1. Microsoft Graph API Backend** (Recommended for production)
+- Modern approach for Microsoft 365 email
+- More reliable than SMTP for Azure-hosted apps
+- Uses app-only authentication (client credentials flow)
+- Implemented in `azureproject/graph_email_backend.py`
+- Requires MSAL library and Azure AD app registration
+- Set in production: `EMAIL_BACKEND = 'azureproject.graph_email_backend.GraphEmailBackend'`
+
+**2. SMTP Backend** (Standard Django)
+- Traditional SMTP email sending
+- Works with any SMTP server
+- Set in development: `EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'`
+
+**Console Backend** (Development only)
+- Outputs emails to console instead of sending
+- Useful for local testing without email server
+- Set: `EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'`
 
 ## Testing Strategy
 
@@ -309,9 +567,18 @@ EMAIL_HOST_PASSWORD=<email-password>
 - `CrushProfile`: User profiles with privacy controls and approval status
 - `CrushCoach`: Coach profiles for onboarding/review
 - `ProfileSubmission`: Profile review workflow with statuses (pending/approved/rejected/revision)
-- `MeetupEvent`: Speed dating and social events
+- `MeetupEvent`: Speed dating and social events with invitation system
 - `EventRegistration`: User event RSVPs with waitlist support
+- `EventInvitation`: Private invitation system for exclusive events
+- `EventConnection`: Post-event mutual connections between users
+- `ConnectionMessage`: Direct messaging after mutual event connections
 - `CoachSession`: Coach-user interaction tracking
+- `JourneyConfiguration`: Interactive multi-chapter journey experiences
+- `JourneyChapter`: Individual chapters within a journey
+- `JourneyChallenge`: Interactive challenges (riddles, puzzles, etc.)
+- `JourneyReward`: Unlockable rewards (poems, photos, letters)
+- `JourneyProgress`: User progress tracking through journeys
+- `SpecialUserExperience`: Personalized experiences linked to users
 
 ## Azure Deployment
 
@@ -495,30 +762,230 @@ When working on Crush.lu:
    - Use `can_accept_reviews()` method before assignment
    - Balance workload across available coaches
 
-5. **Age Validation**: 
+5. **Age Validation**:
    - Always validate 18+ in forms
    - Use `age` property (calculated from DOB) instead of storing age
    - Respect event age ranges (`min_age`, `max_age`)
 
+6. **Journey System**:
+   - Journeys linked via `SpecialUserExperience` (1-to-1 with User)
+   - Always maintain chapter ordering (`chapter_number` field)
+   - Challenge answers validated server-side (never trust client)
+   - Rewards unlock only when chapter requirements met
+   - Use `JourneyProgress` model to track user state
+   - JSON fields store completed challenges and unlocked rewards
+
+7. **Invitation System**:
+   - Check `is_private_invitation` before displaying event publicly
+   - Validate `invitation_token` for external guest access
+   - Check `invitation_expires_at` before accepting invitations
+   - Convert external guests to full users on acceptance
+   - Send appropriate email template based on user status
+
+8. **Connection System**:
+   - Only show attendee lists after event completion
+   - Enforce mutual connection requirement
+   - Messages only between users with "connected" status
+   - Respect privacy settings in connection displays
+   - Track `is_read` status for message notifications
+
 #### URL Structure (crush.lu domain)
 
 ```
-/                           - Landing page
-/about/                     - About Crush.lu
-/how-it-works/             - How it works page
-/signup/                    - User registration
-/create-profile/            - Profile creation (after signup)
-/profile-submitted/         - Confirmation page
-/dashboard/                 - User dashboard
-/profile/edit/              - Edit profile
-/events/                    - Event list
-/events/<id>/               - Event detail
-/events/<id>/register/      - Register for event
-/events/<id>/cancel/        - Cancel registration
-/coach/dashboard/           - Coach dashboard
-/coach/review/<id>/         - Review profile submission
-/coach/sessions/            - Coach sessions
+/                                          - Landing page
+/about/                                    - About Crush.lu
+/how-it-works/                            - How it works page
+/signup/                                   - User registration
+/create-profile/                           - Profile creation (after signup)
+/profile-submitted/                        - Confirmation page
+/dashboard/                                - User dashboard
+/profile/edit/                             - Edit profile
+
+# Events
+/events/                                   - Event list
+/events/<id>/                              - Event detail
+/events/<id>/register/                     - Register for event
+/events/<id>/cancel/                       - Cancel registration
+/events/<id>/attendees/                    - View attendees (post-event)
+/events/<id>/vote/                         - Vote on event activities
+/events/<id>/presentations/                - Event presentations (coach control)
+
+# Connections (post-event)
+/connections/                              - View mutual connections
+/connections/<id>/                         - Connection detail with messaging
+
+# Journey System
+/journey/                                  - Journey map/overview
+/journey/chapter/<num>/                    - Chapter view
+/journey/chapter/<num>/challenge/<id>/     - Interactive challenge
+/journey/reward/<id>/                      - View reward (poem, photo, letter)
+/journey/certificate/                      - Journey completion certificate
+
+# Coach Panel
+/coach/dashboard/                          - Coach dashboard
+/coach/review/<id>/                        - Review profile submission
+/coach/sessions/                           - Coach sessions
+/coach/journeys/                           - Journey management
+/coach/journeys/<id>/edit/                 - Edit journey
+/coach/journeys/challenge/<id>/edit/       - Edit challenge
+/coach/journeys/progress/<id>/             - View user progress
+/coach/invitations/                        - Manage event invitations
+/coach/screening/                          - Event screening dashboard
+
+# API Endpoints
+/api/journey/submit-challenge/             - Submit challenge answer
+/api/journey/unlock-hint/                  - Unlock challenge hint
+/api/journey/progress/                     - Get journey progress
 ```
+
+#### Journey System Architecture
+
+The Journey System is an interactive storytelling and gamification feature that creates personalized, multi-chapter experiences for users (e.g., Alice in Wonderland themed journey).
+
+**Data Model Flow**:
+```
+SpecialUserExperience (1-to-1 with User)
+    └── JourneyConfiguration
+        └── JourneyChapter (ordered by chapter_number)
+            ├── JourneyChallenge (interactive puzzles)
+            │   └── Types: riddle, multiple_choice, word_scramble,
+            │       timeline_sort, would_you_rather, open_text
+            └── JourneyReward (unlockable content)
+                └── Types: poem, photo_reveal, future_letter
+
+JourneyProgress (tracks user's journey state)
+    ├── current_chapter
+    ├── completed_challenges (JSON)
+    ├── unlocked_rewards (JSON)
+    ├── completed (boolean)
+    └── completed_at (timestamp)
+```
+
+**Key Features**:
+- **Progressive Unlocking**: Chapters unlock sequentially as challenges are completed
+- **Hint System**: Users can unlock hints (tracked via API)
+- **Multiple Challenge Types**: Riddles, puzzles, interactive games
+- **Reward System**: Poems, photo reveals, personalized letters
+- **Certificate Generation**: Completion certificate for finished journeys
+- **Coach Management**: Coaches can create/edit journeys and track user progress
+
+**Implementation Files**:
+- Models: `crush_lu/models.py` (Journey* classes)
+- Views: `crush_lu/views_journey.py`
+- API: `crush_lu/api_journey.py`
+- Templates: `crush_lu/templates/crush_lu/journey/`
+- Challenge Templates: `crush_lu/templates/crush_lu/journey/challenges/`
+- Reward Templates: `crush_lu/templates/crush_lu/journey/rewards/`
+
+#### Event Invitation System
+
+Crush.lu supports both public and private invitation-only events.
+
+**Private Event Features**:
+- `is_private_invitation` flag on `MeetupEvent`
+- `invitation_code` for general access to private events
+- `invitation_expires_at` for time-limited invitations
+- `special_users` ManyToMany field for direct invitations to existing users
+
+**EventInvitation Model**:
+- Tracks individual invitations to external guests (non-users)
+- Status workflow: pending → accepted/declined/expired
+- `is_external_guest` flag for non-registered users
+- External guests provide: email, first_name, phone
+- Generates unique `invitation_token` for secure access
+- Converts to user registration when accepted
+
+**Invitation Flow**:
+1. Coach creates private event with invitation settings
+2. Coach sends invitations via `/coach/invitations/`
+3. Guests receive email with invitation link and token
+4. External guests land on invitation acceptance page
+5. System creates user account + profile for accepted invitations
+6. Auto-registers new user for the event
+
+**Email Notifications**:
+- `existing_user_invitation.html` - For registered users
+- `external_guest_invitation.html` - For non-users
+- `invitation_approved.html` - Confirmation of acceptance
+- `invitation_rejected.html` - Declined invitation
+
+#### Post-Event Connection System
+
+After events, users can form mutual connections and communicate.
+
+**EventConnection Model**:
+- Links two users who attended the same event
+- Status: pending → connected/declined
+- Mutual interest required (both users must connect)
+- `connected_at` timestamp tracking
+- Associated with the `MeetupEvent` where they met
+
+**ConnectionMessage Model**:
+- Direct messaging between connected users
+- `sender` and `recipient` fields
+- `is_read` tracking for unread messages
+- Belongs to an `EventConnection`
+- Messages only visible if connection is mutual
+
+**Connection Flow**:
+1. After event, users can view attendees list (`/events/<id>/attendees/`)
+2. Users can request connections with other attendees
+3. If mutual interest, status changes to "connected"
+4. Connected users can exchange messages via `/connections/<id>/`
+5. Dashboard shows all connections and unread message count
+
+**Privacy Considerations**:
+- Attendee lists only visible post-event
+- Connection requests respect privacy settings
+- Messages only between mutually connected users
+- Display names follow user's privacy preferences
+
+#### Coach Admin Panel
+
+Custom Django admin integration for Crush coaches with analytics dashboard.
+
+**Admin Dashboard** (`crush_lu/admin_views.py:crush_admin_dashboard`):
+- Accessible via custom admin template override
+- Comprehensive analytics across all platform areas:
+  - User metrics (total, active, approved, pending)
+  - Event metrics (upcoming, registrations, attendance rates)
+  - Connection metrics (total connections, messages, response rates)
+  - Journey metrics (active journeys, completion rates, challenge performance)
+  - Coach workload (pending reviews, session counts)
+
+**Custom Admin Templates**:
+- `crush_lu/templates/admin/index.html` - Dashboard integration
+- `crush_lu/templates/admin/crush_lu/` - Model-specific admin pages
+- Override standard Django admin with Crush.lu branding
+
+**Access Control**:
+- Only active `CrushCoach` users and superusers
+- Non-coach users receive 403 Forbidden
+- Dashboard respects coach permissions and specializations
+
+#### Email Notification System
+
+Comprehensive email notification system using Django templates.
+
+**Email Templates** (`crush_lu/templates/crush_lu/emails/`):
+- `base_email.html` - Base template with Crush.lu branding
+- `welcome.html` - Welcome new users
+- `profile_submission_confirmation.html` - Profile submitted
+- `profile_approved.html` - Profile approved by coach
+- `profile_rejected.html` - Profile rejected with feedback
+- `profile_revision_request.html` - Revision requested
+- `coach_assignment.html` - Coach assigned notification
+- `event_registration_confirmation.html` - Event registration confirmed
+- `event_reminder.html` - Upcoming event reminder
+- `event_waitlist.html` - Moved to/from waitlist
+- `event_cancellation.html` - Event cancelled
+
+**Email Helpers** (`crush_lu/email_helpers.py`, `crush_lu/email_notifications.py`):
+- Centralized email sending functions
+- Template rendering with context
+- HTML and plain text versions
+- Integration with Django's email backend
+- Support for Microsoft Graph email backend (production)
 
 #### Frontend Design
 
@@ -528,3 +995,4 @@ When working on Crush.lu:
 - Card-based layouts for events and profiles
 - Custom `.btn-crush-primary` button style with gradient and hover effects
 - Emoji-enhanced UX for visual appeal to younger audience
+- Custom CSS in `static/crush_lu/css/` for journey, admin, and event styling
