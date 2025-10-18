@@ -1,0 +1,185 @@
+{% extends "crush_lu/base.html" %}
+{% load static %}
+
+{% block title %}Edit Journey - {{ journey.journey_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chapter-card {
+        border: 1px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        background: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .chapter-header {
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    .challenge-item {
+        padding: 15px;
+        border-left: 4px solid #9B59B6;
+        background: #f8f9fa;
+        margin-bottom: 15px;
+        border-radius: 4px;
+    }
+    .challenge-meta {
+        display: flex;
+        gap: 15px;
+        margin-top: 10px;
+        flex-wrap: wrap;
+    }
+    .challenge-badge {
+        padding: 5px 12px;
+        border-radius: 15px;
+        font-size: 0.85em;
+        font-weight: 600;
+    }
+    .btn-edit-challenge {
+        background: #9B59B6;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+    }
+    .btn-edit-challenge:hover {
+        background: #8E44AD;
+        color: white;
+        transform: translateY(-2px);
+    }
+    .reward-item {
+        padding: 10px;
+        background: #fff3e0;
+        border-left: 4px solid #FF6B9D;
+        border-radius: 4px;
+        margin-bottom: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>
+                <i class="bi bi-pencil-square"></i> {{ journey.journey_name }}
+            </h2>
+            <p class="text-muted">
+                For: <strong>{{ journey.special_experience.first_name }} {{ journey.special_experience.last_name }}</strong> |
+                {{ journey.total_chapters }} Chapters | ~{{ journey.estimated_duration_minutes }} minutes
+            </p>
+        </div>
+    </div>
+
+    {% for chapter in chapters %}
+    <div class="chapter-card">
+        <div class="chapter-header">
+            <h3 class="mb-1">
+                <i class="bi bi-book"></i> Chapter {{ chapter.chapter_number }}: {{ chapter.title }}
+            </h3>
+            <p class="mb-0 opacity-75">{{ chapter.theme }}</p>
+        </div>
+
+        <div class="mb-4">
+            <h5>Story Introduction</h5>
+            <p class="text-muted">{{ chapter.story_introduction }}</p>
+        </div>
+
+        {% if chapter.challenges.all %}
+        <div class="challenges-section mb-4">
+            <h5><i class="bi bi-puzzle"></i> Challenges ({{ chapter.challenges.count }})</h5>
+
+            {% for challenge in chapter.challenges.all %}
+            <div class="challenge-item">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <h6>
+                            <span class="badge bg-secondary">{{ challenge.challenge_order }}</span>
+                            {{ challenge.get_challenge_type_display }}
+                        </h6>
+                        <p class="mb-2"><strong>Question:</strong> {{ challenge.question|truncatewords:20 }}</p>
+
+                        <div class="challenge-meta">
+                            <span class="challenge-badge bg-primary text-white">
+                                <i class="bi bi-trophy"></i> {{ challenge.points_awarded }} pts
+                            </span>
+
+                            {# Mode indicator: Quiz vs Questionnaire #}
+                            {% if chapter.chapter_number in '245'|make_list or challenge.challenge_type == 'open_text' or challenge.challenge_type == 'would_you_rather' or not challenge.correct_answer %}
+                                <span class="challenge-badge bg-info text-white">
+                                    <i class="bi bi-chat-dots"></i> Questionnaire Mode
+                                </span>
+                            {% else %}
+                                <span class="challenge-badge bg-success text-white">
+                                    <i class="bi bi-check-circle"></i> Quiz Mode
+                                </span>
+                            {% endif %}
+
+                            {% if challenge.hint_1 or challenge.hint_2 or challenge.hint_3 %}
+                            <span class="challenge-badge bg-warning text-dark">
+                                <i class="bi bi-lightbulb"></i>
+                                {% if challenge.hint_1 %}1{% endif %}
+                                {% if challenge.hint_2 %} 2{% endif %}
+                                {% if challenge.hint_3 %} 3{% endif %}
+                                Hints
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        <a href="{% url 'crush_lu:coach_edit_challenge' challenge.id %}" class="btn btn-edit-challenge">
+                            <i class="bi bi-pencil"></i> Edit
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted">No challenges in this chapter yet.</p>
+        {% endif %}
+
+        {% if chapter.rewards.all %}
+        <div class="rewards-section">
+            <h5><i class="bi bi-gift"></i> Rewards ({{ chapter.rewards.count }})</h5>
+            {% for reward in chapter.rewards.all %}
+            <div class="reward-item">
+                <strong>{{ reward.title }}</strong>
+                <span class="badge bg-warning text-dark ms-2">{{ reward.get_reward_type_display }}</span>
+                {% if reward.photo %}
+                    <i class="bi bi-image text-success ms-2" title="Has photo"></i>
+                {% endif %}
+                {% if reward.audio_file %}
+                    <i class="bi bi-music-note text-success ms-2" title="Has audio"></i>
+                {% endif %}
+                {% if reward.video_file %}
+                    <i class="bi bi-camera-video text-success ms-2" title="Has video"></i>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="mt-3">
+            <h6>Completion Message</h6>
+            <p class="text-muted fst-italic">"{{ chapter.completion_message }}"</p>
+        </div>
+    </div>
+    {% endfor %}
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <a href="{% url 'crush_lu:coach_journey_dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Journeys
+            </a>
+            <a href="/admin/crush_lu/journeyconfiguration/{{ journey.id }}/change/" class="btn btn-outline-primary">
+                <i class="bi bi-gear"></i> Advanced Settings
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

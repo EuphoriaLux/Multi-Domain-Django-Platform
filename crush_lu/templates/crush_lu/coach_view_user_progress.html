@@ -1,0 +1,204 @@
+{% extends "crush_lu/base.html" %}
+{% load static %}
+
+{% block title %}User Progress - {{ progress.user.username }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .progress-header {
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        color: white;
+        padding: 30px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+    }
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin: 20px 0;
+    }
+    .stat-card {
+        background: rgba(255,255,255,0.2);
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+    }
+    .stat-number {
+        font-size: 2.5em;
+        font-weight: bold;
+    }
+    .stat-label {
+        font-size: 0.9em;
+        opacity: 0.9;
+    }
+    .answer-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .answer-header {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    .answer-correct {
+        border-left: 5px solid #28a745;
+    }
+    .answer-incorrect {
+        border-left: 5px solid #dc3545;
+    }
+    .answer-questionnaire {
+        border-left: 5px solid #17a2b8;
+    }
+    .answer-text {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 10px 0;
+        font-size: 1.1em;
+    }
+    .chapter-section {
+        margin-bottom: 40px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="progress-header">
+        <h2 class="mb-3">
+            <i class="bi bi-person-circle"></i> {{ progress.user.username }}'s Journey Progress
+        </h2>
+        <p class="mb-2"><strong>Journey:</strong> {{ progress.journey.journey_name }}</p>
+        <p class="mb-0">
+            <i class="bi bi-calendar"></i> Started: {{ progress.started_at|date:"M d, Y" }} |
+            <i class="bi bi-clock"></i> Last Activity: {{ progress.last_activity|date:"M d, Y H:i" }}
+        </p>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">{{ progress.current_chapter }}/{{ progress.journey.total_chapters }}</div>
+                <div class="stat-label">Current Chapter</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ progress.completion_percentage }}%</div>
+                <div class="stat-label">Completion</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ progress.total_points }}</div>
+                <div class="stat-label">Total Points</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">
+                    {% if progress.is_completed %}
+                        <i class="bi bi-check-circle"></i>
+                    {% else %}
+                        <i class="bi bi-hourglass-split"></i>
+                    {% endif %}
+                </div>
+                <div class="stat-label">
+                    {% if progress.is_completed %}Completed{% else %}In Progress{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h3 class="mb-4"><i class="bi bi-chat-dots"></i> User Answers & Responses</h3>
+
+    {% if all_attempts %}
+        {% regroup all_attempts by chapter_progress.chapter as chapter_groups %}
+
+        {% for chapter_group in chapter_groups %}
+        <div class="chapter-section">
+            <h4 class="text-muted">
+                <i class="bi bi-book"></i> Chapter {{ chapter_group.grouper.chapter_number }}: {{ chapter_group.grouper.title }}
+            </h4>
+
+            {% for attempt in chapter_group.list %}
+            <div class="answer-card {% if attempt.is_correct %}answer-correct{% elif attempt.challenge.correct_answer %}answer-incorrect{% else %}answer-questionnaire{% endif %}">
+                <div class="answer-header">
+                    <div class="flex-grow-1">
+                        <h5>
+                            {% if attempt.is_correct %}
+                                <i class="bi bi-check-circle text-success"></i>
+                            {% elif attempt.challenge.correct_answer %}
+                                <i class="bi bi-x-circle text-danger"></i>
+                            {% else %}
+                                <i class="bi bi-chat-dots text-info"></i>
+                            {% endif %}
+                            {{ attempt.challenge.get_challenge_type_display }}
+                        </h5>
+                        <p class="mb-0 text-muted">Challenge {{ attempt.challenge.challenge_order }}</p>
+                    </div>
+                    <div class="text-end">
+                        <div class="badge bg-primary">{{ attempt.points_earned }} points</div>
+                        {% if attempt.hints_used %}
+                            <div class="badge bg-warning text-dark mt-1">
+                                <i class="bi bi-lightbulb"></i> {{ attempt.hints_used|length }} hints used
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Question:</strong>
+                    <p class="mt-1">{{ attempt.challenge.question }}</p>
+                </div>
+
+                <div class="mb-3">
+                    <strong>User's Answer:</strong>
+                    <div class="answer-text">
+                        {{ attempt.user_answer }}
+                    </div>
+                </div>
+
+                {% if attempt.challenge.correct_answer %}
+                <div class="mb-2">
+                    <strong>Expected Answer:</strong>
+                    <span class="badge bg-success">{{ attempt.challenge.correct_answer }}</span>
+                </div>
+                {% endif %}
+
+                <div class="text-muted small">
+                    <i class="bi bi-clock"></i> Answered: {{ attempt.attempted_at|date:"M d, Y H:i" }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No challenge attempts recorded yet.
+        </div>
+    {% endif %}
+
+    {% if progress.final_response %}
+    <div class="answer-card answer-correct">
+        <div class="answer-header">
+            <h5><i class="bi bi-heart"></i> Final Response</h5>
+        </div>
+        <div class="answer-text">
+            <strong>Response:</strong> {{ progress.get_final_response_display }}
+        </div>
+        <div class="text-muted small">
+            <i class="bi bi-clock"></i> Responded: {{ progress.final_response_at|date:"M d, Y H:i" }}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="mt-4">
+        <a href="{% url 'crush_lu:coach_journey_dashboard' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Journeys
+        </a>
+        <a href="/admin/crush_lu/journeyprogress/{{ progress.id }}/change/" class="btn btn-outline-primary">
+            <i class="bi bi-gear"></i> Advanced View
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,174 @@
+{% extends "crush_lu/base.html" %}
+{% load static %}
+
+{% block title %}Journey Management - Coach Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .journey-card {
+        border: 1px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        background: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .journey-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #9B59B6;
+    }
+    .journey-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin: 15px 0;
+    }
+    .stat-box {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+    }
+    .stat-number {
+        font-size: 2em;
+        font-weight: bold;
+        color: #9B59B6;
+    }
+    .stat-label {
+        font-size: 0.9em;
+        color: #666;
+    }
+    .progress-list {
+        margin-top: 15px;
+    }
+    .progress-item {
+        padding: 10px;
+        border-left: 3px solid #9B59B6;
+        background: #f8f9fa;
+        margin-bottom: 10px;
+        border-radius: 4px;
+    }
+    .btn-edit-journey {
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 25px;
+        font-weight: 600;
+    }
+    .btn-edit-journey:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="bi bi-map"></i> Journey Management Dashboard
+            </h2>
+            <p class="text-muted">Manage all active Wonderland Journey experiences and monitor user progress.</p>
+        </div>
+    </div>
+
+    {% if journeys_with_progress %}
+        {% for item in journeys_with_progress %}
+        <div class="journey-card">
+            <div class="journey-header">
+                <div>
+                    <h3>{{ item.journey.journey_name }}</h3>
+                    <p class="text-muted mb-0">
+                        For: <strong>{{ item.journey.special_experience.first_name }} {{ item.journey.special_experience.last_name }}</strong>
+                    </p>
+                    <p class="text-muted mb-0">
+                        <i class="bi bi-calendar"></i> {{ item.journey.total_chapters }} Chapters |
+                        <i class="bi bi-clock"></i> ~{{ item.journey.estimated_duration_minutes }} minutes
+                    </p>
+                </div>
+                <div>
+                    <a href="{% url 'crush_lu:coach_edit_journey' item.journey.id %}" class="btn btn-edit-journey">
+                        <i class="bi bi-pencil-square"></i> Edit Journey
+                    </a>
+                </div>
+            </div>
+
+            <div class="journey-stats">
+                <div class="stat-box">
+                    <div class="stat-number">{{ item.total_users }}</div>
+                    <div class="stat-label">Total Users</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">{{ item.completed_users }}</div>
+                    <div class="stat-label">Completed</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">{{ item.journey.chapters.count }}</div>
+                    <div class="stat-label">Chapters</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">
+                        {% with total_challenges=0 %}
+                            {% for chapter in item.journey.chapters.all %}
+                                {% with total_challenges=total_challenges|add:chapter.challenges.count %}{% endwith %}
+                            {% endfor %}
+                            {{ total_challenges }}
+                        {% endwith %}
+                    </div>
+                    <div class="stat-label">Challenges</div>
+                </div>
+            </div>
+
+            {% if item.recent_progress %}
+            <div class="progress-list">
+                <h5>Recent User Activity</h5>
+                {% for progress in item.recent_progress %}
+                <div class="progress-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ progress.user.username }}</strong>
+                            <span class="badge bg-secondary">Chapter {{ progress.current_chapter }}</span>
+                            {% if progress.is_completed %}
+                                <span class="badge bg-success">✅ Completed</span>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <span class="text-muted">{{ progress.total_points }} pts</span>
+                            <a href="{% url 'crush_lu:coach_view_user_progress' progress.id %}" class="btn btn-sm btn-outline-primary ms-2">
+                                <i class="bi bi-eye"></i> View Progress
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted mt-3">No users have started this journey yet.</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No active journeys found. Create a journey from the Special User Experience admin panel.
+        </div>
+    {% endif %}
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <a href="{% url 'crush_lu:coach_dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Coach Dashboard
+            </a>
+            <a href="/admin/crush_lu/specialuserexperience/" class="btn btn-outline-primary">
+                <i class="bi bi-plus-circle"></i> Create New Journey
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
