@@ -313,9 +313,22 @@
         <div class="postscript">
             <strong>P.S.</strong> I've included something special for you below...
             <div style="margin-top: 20px; text-align: center;">
-                <img src="{{ reward.photo.url }}" alt="Special Memory"
+                <img src="{{ reward.photo.url|safe }}" alt="Special Memory"
                      style="max-width: 100%; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.3);">
             </div>
+        </div>
+        {% endif %}
+
+        {% if reward.audio_file %}
+        <div style="margin-top: 30px; padding-top: 30px; border-top: 1px dashed rgba(255, 255, 255, 0.3); text-align: center;">
+            <p style="font-size: 1.1rem; margin-bottom: 15px; font-style: italic; color: #f8f9fa;">
+                <i class="bi bi-music-note-beamed"></i> A special voice message for you...
+            </p>
+            <audio controls style="width: 100%; max-width: 500px; border-radius: 10px;">
+                <source src="{{ reward.audio_file.url|safe }}" type="audio/mpeg">
+                <source src="{{ reward.audio_file.url|safe }}" type="audio/mp3">
+                Your browser does not support the audio element.
+            </audio>
         </div>
         {% endif %}
 
