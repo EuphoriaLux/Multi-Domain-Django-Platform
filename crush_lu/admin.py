@@ -4,7 +4,7 @@ from django.db import transaction
 from django.utils.html import format_html
 from .models import (
     CrushCoach, CrushProfile, ProfileSubmission,
-    CoachSession, MeetupEvent, EventRegistration,
+    CoachSession, MeetupEvent, EventRegistration, EventInvitation,
     EventConnection, ConnectionMessage,
     GlobalActivityOption, EventActivityOption, EventActivityVote, EventVotingSession,
     PresentationQueue, PresentationRating, SpeedDatingPair,
@@ -20,9 +20,72 @@ from .models import (
 # ============================================================================
 
 class CrushLuAdminSite(admin.AdminSite):
-    site_header = '💕 Crush.lu Administration'
-    site_title = 'Crush.lu Admin'
-    index_title = 'Welcome to Crush.lu Management'
+    site_header = '💕 Crush.lu Coach Panel'
+    site_title = 'Crush.lu Coach Panel'
+    index_title = 'Welcome to Crush.lu Coach Management'
+
+    def has_permission(self, request):
+        """
+        Custom permission check: Only Crush coaches can access this admin panel.
+        Superusers can always access.
+
+        Note: We override the default is_staff check to allow coaches access.
+        """
+        # Superusers always have access
+        if request.user.is_superuser:
+            return True
+
+        # Check if user is authenticated
+        if not request.user.is_authenticated:
+            return False
+
+        # Check if user is an active Crush coach
+        try:
+            coach = request.user.crushcoach
+            # Grant access to active coaches even if they're not staff
+            if coach.is_active:
+                return True
+        except:
+            pass
+
+        # Fallback to default staff check
+        return request.user.is_active and request.user.is_staff
+
+    def has_module_perms(self, request, app_label):
+        """
+        Allow coaches to see all Crush.lu models.
+        """
+        if not self.has_permission(request):
+            return False
+
+        # Coaches can see crush_lu app
+        if app_label == 'crush_lu':
+            return True
+
+        # Superusers can see everything
+        if request.user.is_superuser:
+            return True
+
+        # Default Django permission check for other apps
+        return super().has_module_perms(request, app_label)
+
+    def index(self, request, extra_context=None):
+        """
+        Override index to add custom dashboard link and analytics.
+        """
+        extra_context = extra_context or {}
+        extra_context['show_dashboard_link'] = True
+        extra_context['dashboard_url'] = '/crush-admin/dashboard/'
+
+        # Add coach information to context
+        try:
+            coach = request.user.crushcoach
+            extra_context['is_coach'] = True
+            extra_context['coach_name'] = request.user.get_full_name() or request.user.username
+        except:
+            extra_context['is_coach'] = False
+
+        return super().index(request, extra_context)
 
     def get_app_list(self, request, app_label=None):
         """
@@ -66,27 +129,75 @@ class CrushLuAdminSite(admin.AdminSite):
             'connectionmessage': {'order': 31, 'icon': '💌', 'group': 'Connections'},
         }
 
-        # Apply custom ordering
+        # Create grouped app list - transform single crush_lu app into multiple sections
+        new_app_list = []
+
         for app in app_list:
             if app['app_label'] == 'crush_lu':
+                # Group models by category
+                groups = {}
+
                 for model in app['models']:
                     model_name = model['object_name'].lower()
-                    if model_name in custom_order:
-                        config = custom_order[model_name]
+
+                    # Handle the special case where object_name doesn't match the key
+                    # Map known variations
+                    model_key = model_name
+                    if model_key == 'specialuserexperience':
+                        model_key = 'special_user_experience'
+
+                    if model_key in custom_order:
+                        config = custom_order[model_key]
                         model['_order'] = config['order']
-                        model['_group'] = config['group']
-                        # Add icon to model name
+                        group_name = config['group']
+
+                        # Add icon to model name only if it doesn't already have one
                         icon = config['icon']
-                        model['name'] = f"{icon} {model['name']}"
+                        if not model['name'].startswith(icon):
+                            # Remove any existing numbering (e.g., "2. Journey Configurations" -> "Journey Configurations")
+                            clean_name = model['name']
+                            if '. ' in clean_name and clean_name.split('. ')[0].isdigit():
+                                clean_name = '. '.join(clean_name.split('. ')[1:])
 
-                # Sort models by custom order
-                app['models'].sort(key=lambda x: x.get('_order', 999))
+                            # Add sequential number and icon
+                            model_number = config['order']
+                            model['name'] = f"{icon} {model_number}. {clean_name}"
 
-        return app_list
+                        # Add to appropriate group
+                        if group_name not in groups:
+                            groups[group_name] = []
+                        groups[group_name].append(model)
+
+                # Create separate "app" entry for each group
+                group_order = [
+                    ('✨ Special Journey System', 'Special Journey System'),
+                    ('👥 Users & Profiles', 'Users & Profiles'),
+                    ('🎉 Events & Meetups', 'Events & Meetups'),
+                    ('💕 Connections', 'Connections'),
+                ]
+
+                for display_name, group_key in group_order:
+                    if group_key in groups:
+                        # Sort models within each group
+                        groups[group_key].sort(key=lambda x: x.get('_order', 999))
+
+                        # Create a fake "app" for this group
+                        new_app_list.append({
+                            'name': display_name,
+                            'app_label': f'crush_lu_{group_key.lower().replace(" ", "_").replace("&", "and")}',
+                            'app_url': '#',
+                            'has_module_perms': True,
+                            'models': groups[group_key],
+                        })
+            else:
+                # Keep other apps as-is
+                new_app_list.append(app)
+
+        return new_app_list
 
 
 # Use custom admin site
-# admin_site = CrushLuAdminSite(name='crush_admin')
+crush_admin_site = CrushLuAdminSite(name='crush_admin')
 
 
 # ============================================================================
@@ -94,7 +205,6 @@ class CrushLuAdminSite(admin.AdminSite):
 # ============================================================================
 
 
-@admin.register(SpecialUserExperience)
 class SpecialUserExperienceAdmin(admin.ModelAdmin):
     """
     ✨ SPECIAL JOURNEY SYSTEM - VIP Experience Configuration
@@ -106,12 +216,12 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
         'first_name', 'last_name', 'is_active',
         'custom_welcome_title', 'animation_style',
         'auto_approve_profile', 'vip_badge',
-        'trigger_count', 'last_triggered_at'
+        'has_journey', 'trigger_count', 'last_triggered_at'
     )
     list_filter = ('is_active', 'animation_style', 'auto_approve_profile', 'vip_badge', 'skip_waitlist')
     search_fields = ('first_name', 'last_name', 'custom_welcome_title', 'custom_welcome_message')
-    readonly_fields = ('created_at', 'updated_at', 'last_triggered_at', 'trigger_count')
-    actions = ['activate_experiences', 'deactivate_experiences']
+    readonly_fields = ('created_at', 'updated_at', 'last_triggered_at', 'trigger_count', 'get_journey_status')
+    actions = ['activate_experiences', 'deactivate_experiences', 'generate_wonderland_journey']
 
     fieldsets = (
         ('👤 User Matching', {
@@ -136,6 +246,10 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
             ),
             'description': 'Special permissions and features for this user'
         }),
+        ('🗺️ Journey Status', {
+            'fields': ('get_journey_status',),
+            'description': 'View or generate the Wonderland Journey for this user'
+        }),
         ('📊 Tracking & Analytics', {
             'fields': (
                 'trigger_count',
@@ -150,6 +264,48 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
         }),
     )
 
+    def has_journey(self, obj):
+        """Check if journey has been created"""
+        try:
+            # Force database query instead of relying on cached attribute
+            journey_exists = JourneyConfiguration.objects.filter(special_experience=obj).exists()
+            return journey_exists
+        except Exception:
+            return False
+    has_journey.boolean = True
+    has_journey.short_description = '🗺️ Has Journey'
+
+    def get_journey_status(self, obj):
+        """Display journey status with generation button"""
+        try:
+            journey = obj.journey
+            chapter_count = journey.chapters.count()
+            challenge_count = sum(chapter.challenges.count() for chapter in journey.chapters.all())
+            return format_html(
+                '<div style="padding: 10px; background: #e8f5e9; border-radius: 5px;">'
+                '<strong>✅ Journey Created:</strong> {}<br>'
+                '<strong>Chapters:</strong> {}<br>'
+                '<strong>Challenges:</strong> {}<br>'
+                '<strong>Status:</strong> {}<br>'
+                '<a href="/admin/crush_lu/journeyconfiguration/{}/change/" '
+                'class="button" style="margin-top: 10px;">View/Edit Journey</a>'
+                '</div>',
+                journey.journey_name,
+                chapter_count,
+                challenge_count,
+                'Active' if journey.is_active else 'Inactive',
+                journey.id
+            )
+        except JourneyConfiguration.DoesNotExist:
+            return format_html(
+                '<div style="padding: 10px; background: #fff3e0; border-radius: 5px;">'
+                '<strong>⚠️ No Journey Created Yet</strong><br>'
+                '<p>Use the "Generate Wonderland Journey" action to create one.</p>'
+                '<p><strong>Tip:</strong> Select this experience and choose the action from the dropdown above.</p>'
+                '</div>'
+            )
+    get_journey_status.short_description = 'Journey Status'
+
     @admin.action(description='✅ Activate selected experiences')
     def activate_experiences(self, request, queryset):
         updated = queryset.update(is_active=True)
@@ -160,13 +316,106 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
         updated = queryset.update(is_active=False)
         django_messages.success(request, f"Deactivated {updated} special experience(s)")
 
+    @admin.action(description='🎭 Generate Wonderland Journey (with customization)')
+    def generate_wonderland_journey(self, request, queryset):
+        """Generate the complete Wonderland Journey for selected user(s)"""
+        from django.shortcuts import render, redirect
+        from django.http import HttpResponseRedirect
+        from django.urls import reverse
+
+        if queryset.count() != 1:
+            django_messages.error(request, "Please select exactly ONE special experience to generate a journey for.")
+            return
+
+        special_exp = queryset.first()
+
+        # Debug: Print POST data
+        print(f"DEBUG: POST data: {request.POST}")
+        print(f"DEBUG: confirm_generation: {request.POST.get('confirm_generation')}")
+
+        # Check if journey already exists using a database query
+        existing_journey = JourneyConfiguration.objects.filter(special_experience=special_exp).first()
+        if existing_journey:
+            django_messages.warning(
+                request,
+                f"Journey already exists for {special_exp.first_name} {special_exp.last_name}. "
+                f"Delete the existing journey first if you want to recreate it."
+            )
+            return
+
+        # If this is a POST request with form data, generate the journey
+        if request.POST.get('confirm_generation'):
+            date_met = request.POST.get('date_met', '2024-10-15')
+            location_met = request.POST.get('location_met', 'Café de Paris')
+
+            try:
+                from datetime import date
+                from crush_lu.management.commands.create_wonderland_journey import Command
+
+                # Create command instance
+                command = Command()
+
+                # Parse date
+                parsed_date = date.fromisoformat(date_met)
+
+                # Create Journey Configuration
+                journey = JourneyConfiguration.objects.create(
+                    special_experience=special_exp,
+                    is_active=True,
+                    journey_name='The Wonderland of You',
+                    total_chapters=6,
+                    estimated_duration_minutes=90,
+                    date_first_met=parsed_date,
+                    location_first_met=location_met,
+                    certificate_enabled=True,
+                    final_message=(
+                        f"You've completed every challenge and discovered every secret. "
+                        f"But there's one thing I haven't said clearly enough: "
+                        f"You're extraordinary, and I'd be honored if you'd let me prove it to you, "
+                        f"one real moment at a time."
+                    ),
+                )
+
+                # Create all chapters using the command's methods
+                command.create_all_chapters(journey, parsed_date, location_met, special_exp.first_name)
+
+                django_messages.success(
+                    request,
+                    f"✨ Successfully generated Wonderland Journey for {special_exp.first_name} {special_exp.last_name}! "
+                    f"Journey includes 6 chapters with all challenges and rewards."
+                )
+
+                # Redirect back to the special user experience list
+                changelist_url = reverse('admin:crush_lu_specialuserexperience_changelist')
+                return HttpResponseRedirect(changelist_url)
+
+            except Exception as e:
+                import traceback
+                error_detail = traceback.format_exc()
+                django_messages.error(request, f"Error generating journey: {str(e)}")
+                print(f"Error details: {error_detail}")  # Log to console for debugging
+
+                changelist_url = reverse('admin:crush_lu_specialuserexperience_changelist')
+                return HttpResponseRedirect(changelist_url)
+
+        # Show customization form
+        context = {
+            'special_exp': special_exp,
+            'opts': self.model._meta,
+            'has_permission': True,
+            'site_title': 'Generate Wonderland Journey',
+            'site_header': 'Crush.lu Admin',
+            'title': f'Generate Journey for {special_exp.first_name} {special_exp.last_name}',
+        }
+
+        return render(request, 'admin/crush_lu/generate_journey_form.html', context)
+
 
 # ============================================================================
 # USER PROFILES & ONBOARDING - Profile Management
 # ============================================================================
 
 
-@admin.register(CrushCoach)
 class CrushCoachAdmin(admin.ModelAdmin):
     list_display = ('user', 'get_email', 'specializations', 'is_active', 'max_active_reviews', 'created_at', 'has_dating_profile')
     list_filter = ('is_active', 'created_at')
@@ -206,13 +455,12 @@ class CrushCoachAdmin(admin.ModelAdmin):
         django_messages.success(request, f"Activated {updated} coach(es)")
 
 
-@admin.register(CrushProfile)
 class CrushProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'get_email', 'age', 'gender', 'location', 'screening_call_completed', 'is_approved', 'is_active', 'created_at', 'is_coach')
     list_filter = ('is_approved', 'is_active', 'screening_call_completed', 'gender', 'created_at')
     search_fields = ('user__username', 'user__email', 'location', 'bio')
     readonly_fields = ('created_at', 'updated_at', 'approved_at')
-    actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles']
+    actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'export_profiles_csv']
     fieldsets = (
         ('User Information', {
             'fields': ('user', 'date_of_birth', 'gender', 'phone_number', 'location')
@@ -309,8 +557,62 @@ class CrushProfileAdmin(admin.ModelAdmin):
         updated = queryset.update(is_active=False)
         django_messages.success(request, f"Deactivated {updated} profile(s)")
 
+    @admin.action(description='📊 Export selected profiles to CSV')
+    def export_profiles_csv(self, request, queryset):
+        """Export selected profiles to CSV"""
+        import csv
+        from django.http import HttpResponse
+        from datetime import datetime
 
-@admin.register(ProfileSubmission)
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="crush_profiles_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+
+        writer = csv.writer(response)
+        # Header row
+        writer.writerow([
+            'Username',
+            'Email',
+            'First Name',
+            'Last Name',
+            'Age',
+            'Gender',
+            'Location',
+            'Phone',
+            'Is Approved',
+            'Is Active',
+            'Approved Date',
+            'Created Date',
+            'Completion Status',
+            'Screening Call Completed',
+        ])
+
+        # Data rows
+        for profile in queryset.select_related('user'):
+            writer.writerow([
+                profile.user.username,
+                profile.user.email,
+                profile.user.first_name,
+                profile.user.last_name,
+                profile.age,
+                profile.gender,
+                profile.location,
+                profile.phone_number,
+                'Yes' if profile.is_approved else 'No',
+                'Yes' if profile.is_active else 'No',
+                profile.approved_at.strftime('%Y-%m-%d %H:%M') if profile.approved_at else 'Not yet',
+                profile.created_at.strftime('%Y-%m-%d %H:%M'),
+                profile.completion_status,
+                'Yes' if profile.screening_call_completed else 'No',
+            ])
+
+        django_messages.success(
+            request,
+            f"Exported {queryset.count()} profile(s) to CSV."
+        )
+
+        return response
+
+
 class ProfileSubmissionAdmin(admin.ModelAdmin):
     list_display = ('profile', 'coach', 'status', 'review_call_completed', 'submitted_at', 'reviewed_at')
     list_filter = ('status', 'review_call_completed', 'submitted_at', 'reviewed_at')
@@ -333,7 +635,6 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
     )
 
 
-@admin.register(CoachSession)
 class CoachSessionAdmin(admin.ModelAdmin):
     list_display = ('coach', 'user', 'session_type', 'scheduled_at', 'completed_at', 'created_at')
     list_filter = ('session_type', 'scheduled_at', 'completed_at')
@@ -349,6 +650,18 @@ class EventRegistrationInline(admin.TabularInline):
     readonly_fields = ('registered_at',)
     can_delete = False
     show_change_link = True
+
+
+# Inline admin for Event Invitations (Private Events)
+class EventInvitationInline(admin.TabularInline):
+    model = EventInvitation
+    extra = 0
+    fields = ('guest_email', 'guest_first_name', 'guest_last_name', 'status', 'approval_status', 'invitation_sent_at')
+    readonly_fields = ('invitation_sent_at', 'invitation_code')
+    can_delete = True
+    show_change_link = True
+    verbose_name = "Private Invitation"
+    verbose_name_plural = "Private Invitations"
 
 
 # Inline admin for Voting Session
@@ -391,24 +704,24 @@ class SpeedDatingPairInline(admin.TabularInline):
 # ============================================================================
 
 
-@admin.register(MeetupEvent)
 class MeetupEventAdmin(admin.ModelAdmin):
     list_display = (
         'title', 'event_type', 'date_time', 'location',
         'get_registration_count', 'get_confirmed_count', 'get_waitlist_count',
         'max_participants', 'get_spots_remaining',
-        'get_voting_status', 'is_published', 'is_cancelled'
+        'is_private_invitation', 'get_invited_users_count', 'get_voting_status', 'is_published', 'is_cancelled'
     )
-    list_filter = ('event_type', 'is_published', 'is_cancelled', 'date_time')
+    list_filter = ('event_type', 'is_published', 'is_cancelled', 'is_private_invitation', 'date_time')
     search_fields = ('title', 'description', 'location', 'address')
     readonly_fields = (
-        'created_at', 'updated_at',
+        'created_at', 'updated_at', 'invitation_code',
         'get_registration_count', 'get_confirmed_count', 'get_waitlist_count',
         'get_spots_remaining', 'get_revenue',
         'get_voting_status', 'get_presentation_status', 'get_speed_dating_status'
     )
-    inlines = [EventRegistrationInline, EventVotingSessionInline, PresentationQueueInline, SpeedDatingPairInline]
+    inlines = [EventRegistrationInline, EventInvitationInline, EventVotingSessionInline, PresentationQueueInline, SpeedDatingPairInline]
     actions = ['publish_events', 'unpublish_events', 'cancel_events']
+    filter_horizontal = ('invited_users',)  # Nice widget for ManyToMany field
 
     fieldsets = (
         ('Event Information', {
@@ -422,6 +735,11 @@ class MeetupEventAdmin(admin.ModelAdmin):
         }),
         ('Registration', {
             'fields': ('registration_deadline', 'registration_fee')
+        }),
+        ('✨ Private Invitation Settings', {
+            'fields': ('is_private_invitation', 'invited_users', 'invitation_code', 'max_invited_guests', 'invitation_expires_at'),
+            'classes': ('collapse',),
+            'description': 'Configure this event as invitation-only. You can invite existing users directly OR send external guest invitations (managed via EventInvitation inline below)'
         }),
         ('📊 Event Statistics', {
             'fields': (
@@ -447,8 +765,16 @@ class MeetupEventAdmin(admin.ModelAdmin):
     # Custom display methods
     def get_registration_count(self, obj):
         """Total registrations (all statuses)"""
-        return obj.registrations.count()
+        return obj.eventregistration_set.count()
     get_registration_count.short_description = '📝 Total Registrations'
+
+    def get_invited_users_count(self, obj):
+        """Count of directly invited existing users"""
+        count = obj.invited_users.count()
+        if count > 0:
+            return f"👥 {count}"
+        return "-"
+    get_invited_users_count.short_description = 'Invited Users'
 
     def get_confirmed_count(self, obj):
         """Confirmed registrations only"""
@@ -473,7 +799,7 @@ class MeetupEventAdmin(admin.ModelAdmin):
 
     def get_revenue(self, obj):
         """Calculate total revenue from confirmed payments"""
-        confirmed = obj.registrations.filter(payment_confirmed=True).count()
+        confirmed = obj.eventregistration_set.filter(payment_confirmed=True).count()
         revenue = confirmed * obj.registration_fee
         return f"€{revenue:.2f} ({confirmed} paid)"
     get_revenue.short_description = '💰 Revenue'
@@ -550,7 +876,6 @@ class MeetupEventAdmin(admin.ModelAdmin):
         django_messages.success(request, f"Cancelled {updated} event(s)")
 
 
-@admin.register(EventRegistration)
 class EventRegistrationAdmin(admin.ModelAdmin):
     list_display = ('user', 'event', 'status', 'payment_confirmed', 'registered_at')
     list_filter = ('status', 'payment_confirmed', 'registered_at')
@@ -572,12 +897,221 @@ class EventRegistrationAdmin(admin.ModelAdmin):
     )
 
 
+class EventInvitationAdmin(admin.ModelAdmin):
+    """
+    ✨ PRIVATE EVENT INVITATIONS - Manage VIP Guest Invitations
+
+    Send and manage private invitations for exclusive events.
+    Track invitation status, approvals, and guest account creation.
+    """
+    list_display = (
+        'get_guest_name', 'guest_email', 'event', 'status', 'approval_status',
+        'invitation_sent_at', 'invited_by', 'has_special_user', 'get_invitation_link'
+    )
+    list_filter = ('status', 'approval_status', 'invitation_sent_at', 'event', 'special_user')
+    search_fields = (
+        'guest_email', 'guest_first_name', 'guest_last_name',
+        'event__title', 'invited_by__username',
+        'special_user__first_name', 'special_user__last_name'
+    )
+    readonly_fields = (
+        'invitation_code', 'invitation_sent_at', 'accepted_at', 'approved_at',
+        'get_invitation_link', 'get_status_display'
+    )
+    actions = ['approve_guests', 'reject_guests', 'resend_invitations']
+
+    fieldsets = (
+        ('👤 Guest Information', {
+            'fields': ('guest_first_name', 'guest_last_name', 'guest_email')
+        }),
+        ('🎉 Event Details', {
+            'fields': ('event', 'invited_by')
+        }),
+        ('✨ Special User VIP Treatment', {
+            'fields': ('special_user',),
+            'classes': ('collapse',),
+            'description': 'Link this invitation to a Special User Experience for VIP treatment (auto-approval, custom journey, etc.)'
+        }),
+        ('📧 Invitation Status', {
+            'fields': (
+                'status', 'invitation_code', 'get_invitation_link',
+                'invitation_sent_at', 'accepted_at'
+            ),
+            'description': 'Track invitation delivery and guest response'
+        }),
+        ('✅ Approval Workflow', {
+            'fields': (
+                'approval_status', 'approval_notes', 'approved_at'
+            ),
+            'description': 'Coach approval for guests to attend the event'
+        }),
+        ('👥 User Account', {
+            'fields': ('created_user',),
+            'description': 'Linked user account (created when guest accepts invitation)'
+        }),
+        ('📊 Status Overview', {
+            'fields': ('get_status_display',),
+            'classes': ('collapse',),
+            'description': 'Complete invitation lifecycle status'
+        }),
+    )
+
+    # Custom display methods
+    def get_guest_name(self, obj):
+        """Display guest's full name"""
+        return f"{obj.guest_first_name} {obj.guest_last_name}"
+    get_guest_name.short_description = 'Guest Name'
+    get_guest_name.admin_order_field = 'guest_first_name'
+
+    def has_special_user(self, obj):
+        """Display if linked to Special User Experience"""
+        return obj.special_user is not None
+    has_special_user.boolean = True
+    has_special_user.short_description = '✨ VIP'
+
+    def get_invitation_link(self, obj):
+        """Display clickable invitation link"""
+        if obj.invitation_code:
+            # Build absolute URL
+            from django.urls import reverse
+            url = f"https://crush.lu{reverse('crush_lu:invitation_landing', kwargs={'code': obj.invitation_code})}"
+            return format_html(
+                '<a href="{}" target="_blank" style="color: #9B59B6; font-weight: bold;">'
+                '📧 View Invitation Page</a><br>'
+                '<small style="color: #666; font-family: monospace;">{}</small>',
+                url, url
+            )
+        return "N/A"
+    get_invitation_link.short_description = 'Invitation Link'
+
+    def get_status_display(self, obj):
+        """Display comprehensive status with visual indicators"""
+        status_html = '<div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">'
+
+        # Invitation Status
+        status_colors = {
+            'pending': '#ffc107',
+            'accepted': '#0dcaf0',
+            'declined': '#6c757d',
+            'attended': '#28a745',
+            'expired': '#dc3545',
+        }
+        status_color = status_colors.get(obj.status, '#6c757d')
+        status_html += f'<p><strong>Invitation:</strong> <span style="color: {status_color}; font-weight: bold;">● {obj.get_status_display()}</span></p>'
+
+        # Approval Status
+        approval_colors = {
+            'pending_approval': '#ffc107',
+            'approved': '#28a745',
+            'rejected': '#dc3545',
+        }
+        approval_color = approval_colors.get(obj.approval_status, '#6c757d')
+        status_html += f'<p><strong>Approval:</strong> <span style="color: {approval_color}; font-weight: bold;">● {obj.get_approval_status_display()}</span></p>'
+
+        # Expiration check
+        if obj.is_expired:
+            status_html += '<p style="color: #dc3545;"><strong>⚠️ EXPIRED</strong></p>'
+
+        # User account
+        if obj.created_user:
+            status_html += f'<p><strong>Account Created:</strong> ✅ {obj.created_user.username}</p>'
+        else:
+            status_html += '<p><strong>Account:</strong> ❌ Not yet created</p>'
+
+        status_html += '</div>'
+        return format_html(status_html)
+    get_status_display.short_description = 'Complete Status'
+
+    # Admin actions
+    @admin.action(description='✅ Approve selected guests')
+    def approve_guests(self, request, queryset):
+        """Approve guests to attend the event and send notification emails"""
+        from django.utils import timezone
+        from crush_lu.email_notifications import send_invitation_approval_email
+
+        # Filter only accepted invitations
+        accepted_invitations = queryset.filter(
+            status='accepted',
+            approval_status='pending_approval'
+        )
+
+        updated = 0
+        emails_sent = 0
+
+        for invitation in accepted_invitations:
+            invitation.approval_status = 'approved'
+            invitation.approved_at = timezone.now()
+            invitation.save()
+            updated += 1
+
+            # Send approval email
+            if send_invitation_approval_email(invitation, request=request):
+                emails_sent += 1
+
+        if updated > 0:
+            django_messages.success(
+                request,
+                f"Approved {updated} guest(s) to attend the event. "
+                f"Sent {emails_sent} email notification(s)."
+            )
+        else:
+            django_messages.warning(
+                request,
+                "No pending invitations to approve. Only accepted invitations can be approved."
+            )
+
+    @admin.action(description='❌ Reject selected guests')
+    def reject_guests(self, request, queryset):
+        """Reject guests from attending the event"""
+        from django.utils import timezone
+
+        # Filter only accepted invitations
+        accepted_invitations = queryset.filter(
+            status='accepted',
+            approval_status='pending_approval'
+        )
+
+        updated = accepted_invitations.update(
+            approval_status='rejected',
+            approved_at=timezone.now()
+        )
+
+        if updated > 0:
+            django_messages.success(
+                request,
+                f"Rejected {updated} guest(s). They will be notified."
+            )
+        else:
+            django_messages.warning(
+                request,
+                "No pending invitations to reject. Only accepted invitations can be rejected."
+            )
+
+    @admin.action(description='📧 Resend invitation emails')
+    def resend_invitations(self, request, queryset):
+        """Resend invitation emails to guests who haven't accepted"""
+        pending_invitations = queryset.filter(status='pending')
+
+        # TODO: Implement email sending logic
+        count = pending_invitations.count()
+
+        if count > 0:
+            django_messages.info(
+                request,
+                f"Would resend {count} invitation(s). Email sending not yet implemented."
+            )
+        else:
+            django_messages.warning(
+                request,
+                "No pending invitations to resend. Only unaccepted invitations can be resent."
+            )
+
+
 # ============================================================================
 # CONNECTIONS & MESSAGES - Post-Event Networking
 # ============================================================================
 
 
-@admin.register(EventConnection)
 class EventConnectionAdmin(admin.ModelAdmin):
     list_display = ('requester', 'recipient', 'event', 'status', 'is_mutual', 'assigned_coach', 'requested_at')
     list_filter = ('status', 'requested_at', 'coach_approved_at')
@@ -607,7 +1141,6 @@ class EventConnectionAdmin(admin.ModelAdmin):
     is_mutual.short_description = 'Mutual'
 
 
-@admin.register(ConnectionMessage)
 class ConnectionMessageAdmin(admin.ModelAdmin):
     list_display = ('connection', 'sender', 'is_coach_message', 'coach_approved', 'sent_at')
     list_filter = ('is_coach_message', 'coach_approved', 'sent_at')
@@ -639,7 +1172,6 @@ class EventActivityOptionInline(admin.TabularInline):
 # ============================================================================
 
 
-@admin.register(GlobalActivityOption)
 class GlobalActivityOptionAdmin(admin.ModelAdmin):
     list_display = ('display_name', 'get_activity_phase', 'activity_variant', 'is_active', 'sort_order', 'created_at')
     list_filter = ('activity_type', 'is_active')
@@ -668,7 +1200,6 @@ class GlobalActivityOptionAdmin(admin.ModelAdmin):
     get_activity_phase.short_description = 'Event Phase'
 
 
-@admin.register(EventActivityOption)
 class EventActivityOptionAdmin(admin.ModelAdmin):
     list_display = ('event', 'display_name', 'get_activity_phase', 'activity_variant', 'vote_count', 'is_winner', 'created_at')
     list_filter = ('activity_type', 'is_winner', 'event__date_time')
@@ -697,7 +1228,6 @@ class EventActivityOptionAdmin(admin.ModelAdmin):
     get_activity_phase.short_description = 'Event Phase'
 
 
-@admin.register(EventActivityVote)
 class EventActivityVoteAdmin(admin.ModelAdmin):
     list_display = ('user', 'event', 'selected_option', 'voted_at')
     list_filter = ('event', 'voted_at')
@@ -713,7 +1243,6 @@ class EventActivityVoteAdmin(admin.ModelAdmin):
     )
 
 
-@admin.register(EventVotingSession)
 class EventVotingSessionAdmin(admin.ModelAdmin):
     list_display = ('event', 'is_active', 'voting_start_time', 'voting_end_time', 'total_votes', 'winning_presentation_style', 'winning_speed_dating_twist')
     list_filter = ('is_active', 'voting_start_time', 'voting_end_time')
@@ -759,7 +1288,6 @@ class EventVotingSessionAdmin(admin.ModelAdmin):
 # ============================================================================
 
 
-@admin.register(PresentationQueue)
 class PresentationQueueAdmin(admin.ModelAdmin):
     list_display = ('event', 'user', 'presentation_order', 'status', 'started_at', 'completed_at', 'duration_seconds')
     list_filter = ('status', 'event')
@@ -780,7 +1308,6 @@ class PresentationQueueAdmin(admin.ModelAdmin):
     )
 
 
-@admin.register(PresentationRating)
 class PresentationRatingAdmin(admin.ModelAdmin):
     list_display = ('event', 'presenter', 'rater', 'rating', 'rated_at')
     list_filter = ('rating', 'event')
@@ -798,7 +1325,6 @@ class PresentationRatingAdmin(admin.ModelAdmin):
     )
 
 
-@admin.register(SpeedDatingPair)
 class SpeedDatingPairAdmin(admin.ModelAdmin):
     list_display = ('event', 'round_number', 'user1', 'user2', 'mutual_rating_score', 'is_top_match', 'duration_minutes')
     list_filter = ('is_top_match', 'event', 'round_number')
@@ -872,7 +1398,6 @@ class ChallengeAttemptInline(admin.TabularInline):
 # ============================================================================
 
 
-@admin.register(JourneyConfiguration)
 class JourneyConfigurationAdmin(admin.ModelAdmin):
     """
     🗺️ JOURNEY CONFIGURATION - Create the Journey Structure
@@ -947,7 +1472,6 @@ class JourneyConfigurationAdmin(admin.ModelAdmin):
         )
 
 
-@admin.register(JourneyChapter)
 class JourneyChapterAdmin(admin.ModelAdmin):
     """
     📖 JOURNEY CHAPTERS - Structure the Journey
@@ -999,7 +1523,6 @@ class JourneyChapterAdmin(admin.ModelAdmin):
     get_reward_count.short_description = '🎁 Rewards'
 
 
-@admin.register(JourneyChallenge)
 class JourneyChallengeAdmin(admin.ModelAdmin):
     """
     🎯 JOURNEY CHALLENGES - Add Interactive Activities
@@ -1054,7 +1577,6 @@ class JourneyChallengeAdmin(admin.ModelAdmin):
     has_hints.short_description = 'Has Hints?'
 
 
-@admin.register(JourneyReward)
 class JourneyRewardAdmin(admin.ModelAdmin):
     """
     🎁 JOURNEY REWARDS - Special Surprises & Media
@@ -1112,7 +1634,6 @@ class JourneyRewardAdmin(admin.ModelAdmin):
 # ============================================================================
 
 
-@admin.register(JourneyProgress)
 class JourneyProgressAdmin(admin.ModelAdmin):
     """
     📊 JOURNEY PROGRESS - Track User Experience
@@ -1187,7 +1708,6 @@ class JourneyProgressAdmin(admin.ModelAdmin):
     get_time_spent.short_description = 'Time Spent'
 
 
-@admin.register(ChapterProgress)
 class ChapterProgressAdmin(admin.ModelAdmin):
     """
     📈 CHAPTER PROGRESS - Detailed Chapter Tracking
@@ -1236,7 +1756,6 @@ class ChapterProgressAdmin(admin.ModelAdmin):
     get_time_spent.short_description = 'Duration'
 
 
-@admin.register(ChallengeAttempt)
 class ChallengeAttemptAdmin(admin.ModelAdmin):
     """
     🎮 CHALLENGE ATTEMPTS - User Answers & Responses
@@ -1348,7 +1867,6 @@ class ChallengeAttemptAdmin(admin.ModelAdmin):
     export_chapter2_responses.short_description = "📊 Export Chapter 2 Questionnaire Responses (CSV)"
 
 
-@admin.register(RewardProgress)
 class RewardProgressAdmin(admin.ModelAdmin):
     """
     🏆 REWARD PROGRESS - Puzzle & Interactive Reward Tracking
@@ -1380,6 +1898,38 @@ class RewardProgressAdmin(admin.ModelAdmin):
         return f"{unlocked}/{total}"
     get_pieces_unlocked.short_description = 'Progress'
 
+
+
+
+# ============================================================================
+# REGISTER ALL MODELS WITH CUSTOM ADMIN SITE
+# ============================================================================
+
+crush_admin_site.register(SpecialUserExperience, SpecialUserExperienceAdmin)
+crush_admin_site.register(CrushCoach, CrushCoachAdmin)
+crush_admin_site.register(CrushProfile, CrushProfileAdmin)
+crush_admin_site.register(ProfileSubmission, ProfileSubmissionAdmin)
+crush_admin_site.register(CoachSession, CoachSessionAdmin)
+crush_admin_site.register(MeetupEvent, MeetupEventAdmin)
+crush_admin_site.register(EventRegistration, EventRegistrationAdmin)
+crush_admin_site.register(EventInvitation, EventInvitationAdmin)
+crush_admin_site.register(EventConnection, EventConnectionAdmin)
+crush_admin_site.register(ConnectionMessage, ConnectionMessageAdmin)
+crush_admin_site.register(GlobalActivityOption, GlobalActivityOptionAdmin)
+crush_admin_site.register(EventActivityOption, EventActivityOptionAdmin)
+crush_admin_site.register(EventActivityVote, EventActivityVoteAdmin)
+crush_admin_site.register(EventVotingSession, EventVotingSessionAdmin)
+crush_admin_site.register(PresentationQueue, PresentationQueueAdmin)
+crush_admin_site.register(PresentationRating, PresentationRatingAdmin)
+crush_admin_site.register(SpeedDatingPair, SpeedDatingPairAdmin)
+crush_admin_site.register(JourneyConfiguration, JourneyConfigurationAdmin)
+crush_admin_site.register(JourneyChapter, JourneyChapterAdmin)
+crush_admin_site.register(JourneyChallenge, JourneyChallengeAdmin)
+crush_admin_site.register(JourneyReward, JourneyRewardAdmin)
+crush_admin_site.register(JourneyProgress, JourneyProgressAdmin)
+crush_admin_site.register(ChapterProgress, ChapterProgressAdmin)
+crush_admin_site.register(ChallengeAttempt, ChallengeAttemptAdmin)
+crush_admin_site.register(RewardProgress, RewardProgressAdmin)
 
 # ============================================================================
 # END INTERACTIVE JOURNEY SYSTEM - ADMIN INTERFACES
