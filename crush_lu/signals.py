@@ -8,6 +8,7 @@ from django.contrib.auth.signals import user_logged_in
 from allauth.socialaccount.signals import pre_social_login, social_account_updated
 from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth.models import User
+from django.utils import timezone
 from .models import MeetupEvent, EventActivityOption, CrushProfile, SpecialUserExperience
 import logging
 from datetime import datetime

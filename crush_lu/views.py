@@ -17,13 +17,13 @@ from .models import (
     EventConnection, ConnectionMessage,
     EventActivityOption, EventActivityVote, EventVotingSession,
     PresentationQueue, PresentationRating, SpeedDatingPair,
-    SpecialUserExperience
+    SpecialUserExperience, EventInvitation
 )
 from .forms import (
     CrushSignupForm, CrushProfileForm, ProfileReviewForm,
     CoachSessionForm, EventRegistrationForm
 )
-from .decorators import crush_login_required
+from .decorators import crush_login_required, ratelimit
 from .email_helpers import (
     send_welcome_email,
     send_profile_submission_confirmation,
@@ -38,6 +38,7 @@ from .email_helpers import (
 
 
 # Authentication views
+@ratelimit(key='ip', rate='5/15m', method='POST')
 def crush_login(request):
     """Crush.lu specific login view"""
     if request.user.is_authenticated:
@@ -121,6 +122,7 @@ def data_deletion_request(request):
 
 
 # Onboarding
+@ratelimit(key='ip', rate='5/h', method='POST')
 def signup(request):
     """
     User registration with Allauth integration
@@ -497,12 +499,31 @@ def dashboard(request):
 
 # Events
 def event_list(request):
-    """List of upcoming events"""
+    """List of upcoming events - filters private invitation events"""
+    # Base query: published, non-cancelled, future events
     events = MeetupEvent.objects.filter(
         is_published=True,
         is_cancelled=False,
         date_time__gte=timezone.now()
     ).order_by('date_time')
+
+    # FILTER OUT PRIVATE EVENTS for non-invited users
+    if request.user.is_authenticated:
+        # Check if user has approved EventInvitation (external guests)
+        user_invitations = EventInvitation.objects.filter(
+            created_user=request.user,
+            approval_status='approved'
+        ).values_list('event_id', flat=True)
+
+        # Show: public events + private events they're invited to (either as existing user OR external guest)
+        events = events.filter(
+            Q(is_private_invitation=False) |  # Public events
+            Q(id__in=user_invitations) |  # Private events with approved external invitation
+            Q(invited_users=request.user)  # Private events where they're invited as existing user
+        )
+    else:
+        # Public visitors: only see public events
+        events = events.filter(is_private_invitation=False)
 
     # Filter by event type if provided
     event_type = request.GET.get('type')
@@ -531,8 +552,27 @@ def event_list(request):
 
 
 def event_detail(request, event_id):
-    """Event detail page"""
+    """Event detail page with access control for private events"""
     event = get_object_or_404(MeetupEvent, id=event_id, is_published=True)
+
+    # ACCESS CONTROL for private invitation events
+    if event.is_private_invitation:
+        if not request.user.is_authenticated:
+            messages.error(request, 'This is a private invitation-only event. Please log in.')
+            return redirect('crush_lu:crush_login')
+
+        # Check if user has approved external guest invitation OR is invited as existing user
+        has_external_invitation = EventInvitation.objects.filter(
+            event=event,
+            created_user=request.user,
+            approval_status='approved'
+        ).exists()
+
+        is_invited_existing_user = event.invited_users.filter(id=request.user.id).exists()
+
+        if not has_external_invitation and not is_invited_existing_user:
+            messages.error(request, 'You do not have access to this private event.')
+            return redirect('crush_lu:event_list')
 
     # Check if user is registered
     user_registration = None
@@ -551,18 +591,63 @@ def event_detail(request, event_id):
 
 @crush_login_required
 def event_register(request, event_id):
-    """Register for an event"""
+    """Register for an event - bypasses approval for invited guests"""
     event = get_object_or_404(MeetupEvent, id=event_id)
 
-    # Check if profile is approved
-    try:
-        profile = CrushProfile.objects.get(user=request.user)
-        if not profile.is_approved:
-            messages.error(request, 'Your profile must be approved before registering for events.')
+    # FOR PRIVATE INVITATION EVENTS: Bypass normal profile approval flow
+    if event.is_private_invitation:
+        # Check if user is invited as existing user OR has approved external invitation
+        is_invited_existing_user = event.invited_users.filter(id=request.user.id).exists()
+
+        external_invitation = EventInvitation.objects.filter(
+            event=event,
+            created_user=request.user,
+            approval_status='approved'
+        ).first()
+
+        if not is_invited_existing_user and not external_invitation:
+            messages.error(request, 'You do not have an approved invitation for this event.')
             return redirect('crush_lu:event_detail', event_id=event_id)
-    except CrushProfile.DoesNotExist:
-        messages.error(request, 'Please create a profile first.')
-        return redirect('crush_lu:create_profile')
+
+        # EXISTING USERS: No profile creation needed - use their existing profile
+        if is_invited_existing_user:
+            try:
+                profile = CrushProfile.objects.get(user=request.user)
+                # Existing users keep their own profile approval status
+            except CrushProfile.DoesNotExist:
+                # Edge case: invited user doesn't have profile yet - create minimal one
+                profile = CrushProfile.objects.create(
+                    user=request.user,
+                    is_approved=True,
+                    approved_at=timezone.now(),
+                    completion_status='completed',
+                    date_of_birth=timezone.now().date() - timedelta(days=365*25),
+                )
+                logger.info(f"Auto-created profile for invited existing user: {request.user.email}")
+
+        # EXTERNAL GUESTS: Create minimal profile with auto-approval
+        else:
+            profile, created = CrushProfile.objects.get_or_create(
+                user=request.user,
+                defaults={
+                    'is_approved': True,  # Auto-approve VIP guests
+                    'approved_at': timezone.now(),
+                    'completion_status': 'completed',
+                    'date_of_birth': timezone.now().date() - timedelta(days=365*25),  # Default age 25
+                }
+            )
+            if created:
+                logger.info(f"Auto-created approved profile for external VIP guest: {request.user.email}")
+    else:
+        # NORMAL EVENT: Require approved profile
+        try:
+            profile = CrushProfile.objects.get(user=request.user)
+            if not profile.is_approved:
+                messages.error(request, 'Your profile must be approved before registering for events.')
+                return redirect('crush_lu:event_detail', event_id=event_id)
+        except CrushProfile.DoesNotExist:
+            messages.error(request, 'Please create a profile first.')
+            return redirect('crush_lu:create_profile')
 
     # Check if already registered
     if EventRegistration.objects.filter(event=event, user=request.user).exists():
@@ -814,6 +899,159 @@ def coach_sessions(request):
         'sessions': sessions,
     }
     return render(request, 'crush_lu/coach_sessions.html', context)
+
+
+# ============================================================================
+# COACH JOURNEY MANAGEMENT - Manage Wonderland Journey Experiences
+# ============================================================================
+
+
+@crush_login_required
+def coach_journey_dashboard(request):
+    """Coach dashboard for managing all active journeys and their challenges"""
+    try:
+        coach = CrushCoach.objects.get(user=request.user, is_active=True)
+    except CrushCoach.DoesNotExist:
+        messages.error(request, 'You do not have coach access.')
+        return redirect('crush_lu:dashboard')
+
+    from .models import JourneyConfiguration, JourneyProgress
+
+    # Get all active journeys
+    active_journeys = JourneyConfiguration.objects.filter(
+        is_active=True
+    ).select_related('special_experience').prefetch_related('chapters__challenges')
+
+    # Get user progress for each journey
+    journeys_with_progress = []
+    for journey in active_journeys:
+        progress_list = JourneyProgress.objects.filter(
+            journey=journey
+        ).select_related('user').order_by('-last_activity')[:5]
+
+        journeys_with_progress.append({
+            'journey': journey,
+            'recent_progress': progress_list,
+            'total_users': JourneyProgress.objects.filter(journey=journey).count(),
+            'completed_users': JourneyProgress.objects.filter(journey=journey, is_completed=True).count(),
+        })
+
+    context = {
+        'coach': coach,
+        'journeys_with_progress': journeys_with_progress,
+    }
+    return render(request, 'crush_lu/coach_journey_dashboard.html', context)
+
+
+@crush_login_required
+def coach_edit_journey(request, journey_id):
+    """Edit a journey's chapters and challenges"""
+    try:
+        coach = CrushCoach.objects.get(user=request.user, is_active=True)
+    except CrushCoach.DoesNotExist:
+        messages.error(request, 'You do not have coach access.')
+        return redirect('crush_lu:dashboard')
+
+    from .models import JourneyConfiguration
+
+    journey = get_object_or_404(JourneyConfiguration, id=journey_id)
+
+    # Get all chapters with challenges
+    chapters = journey.chapters.all().prefetch_related('challenges', 'rewards')
+
+    context = {
+        'coach': coach,
+        'journey': journey,
+        'chapters': chapters,
+    }
+    return render(request, 'crush_lu/coach_edit_journey.html', context)
+
+
+@crush_login_required
+def coach_edit_challenge(request, challenge_id):
+    """Edit an individual challenge's question and content"""
+    try:
+        coach = CrushCoach.objects.get(user=request.user, is_active=True)
+    except CrushCoach.DoesNotExist:
+        messages.error(request, 'You do not have coach access.')
+        return redirect('crush_lu:dashboard')
+
+    from .models import JourneyChallenge, ChallengeAttempt
+
+    challenge = get_object_or_404(JourneyChallenge, id=challenge_id)
+
+    if request.method == 'POST':
+        # Update challenge fields
+        challenge.question = request.POST.get('question', challenge.question)
+        challenge.correct_answer = request.POST.get('correct_answer', challenge.correct_answer)
+        challenge.success_message = request.POST.get('success_message', challenge.success_message)
+
+        # Update hints
+        challenge.hint_1 = request.POST.get('hint_1', challenge.hint_1)
+        challenge.hint_2 = request.POST.get('hint_2', challenge.hint_2)
+        challenge.hint_3 = request.POST.get('hint_3', challenge.hint_3)
+
+        # Update points
+        try:
+            challenge.points_awarded = int(request.POST.get('points_awarded', challenge.points_awarded))
+            challenge.hint_1_cost = int(request.POST.get('hint_1_cost', challenge.hint_1_cost))
+            challenge.hint_2_cost = int(request.POST.get('hint_2_cost', challenge.hint_2_cost))
+            challenge.hint_3_cost = int(request.POST.get('hint_3_cost', challenge.hint_3_cost))
+        except ValueError:
+            messages.error(request, 'Points must be valid numbers.')
+            return redirect('crush_lu:coach_edit_challenge', challenge_id=challenge_id)
+
+        challenge.save()
+        messages.success(request, f'Challenge "{challenge.question[:50]}..." updated successfully!')
+        return redirect('crush_lu:coach_edit_journey', journey_id=challenge.chapter.journey.id)
+
+    # Get all user answers for this challenge
+    all_attempts = ChallengeAttempt.objects.filter(
+        challenge=challenge
+    ).select_related(
+        'chapter_progress__journey_progress__user'
+    ).order_by('-attempted_at')
+
+    context = {
+        'coach': coach,
+        'challenge': challenge,
+        'all_attempts': all_attempts,
+        'total_responses': all_attempts.count(),
+    }
+    return render(request, 'crush_lu/coach_edit_challenge.html', context)
+
+
+@crush_login_required
+def coach_view_user_progress(request, progress_id):
+    """View a specific user's journey progress and answers"""
+    try:
+        coach = CrushCoach.objects.get(user=request.user, is_active=True)
+    except CrushCoach.DoesNotExist:
+        messages.error(request, 'You do not have coach access.')
+        return redirect('crush_lu:dashboard')
+
+    from .models import JourneyProgress, ChallengeAttempt
+
+    progress = get_object_or_404(
+        JourneyProgress.objects.select_related('user', 'journey'),
+        id=progress_id
+    )
+
+    # Get all chapter progress with attempts
+    chapter_progress_list = progress.chapter_completions.all().select_related('chapter').prefetch_related('attempts__challenge')
+
+    # Get all challenge attempts for this journey
+    all_attempts = ChallengeAttempt.objects.filter(
+        chapter_progress__journey_progress=progress
+    ).select_related('challenge', 'chapter_progress__chapter').order_by('attempted_at')
+
+    context = {
+        'coach': coach,
+        'progress': progress,
+        'chapter_progress_list': chapter_progress_list,
+        'all_attempts': all_attempts,
+    }
+    return render(request, 'crush_lu/coach_view_user_progress.html', context)
 
 
 # Post-Event Connection Views
@@ -1394,7 +1632,8 @@ def event_presentations(request, event_id):
             rater=request.user
         ).exists()
 
-    # Get the winning presentation style from voting session
+    # Get voting session and winning presentation style
+    voting_session = get_object_or_404(EventVotingSession, event=event)
     winning_style = voting_session.winning_presentation_style
 
     context = {
@@ -1484,7 +1723,8 @@ def coach_presentation_control(request, event_id):
     total_presentations = presentations.count()
     completed_presentations = presentations.filter(status='completed').count()
 
-    # Get winning presentation style from voting session
+    # Get voting session and winning presentation style
+    voting_session = get_object_or_404(EventVotingSession, event=event)
     winning_style = voting_session.winning_presentation_style
 
     context = {
@@ -1701,6 +1941,206 @@ def get_current_presenter_api(request, event_id):
 def voting_demo(request):
     """Interactive demo of the voting system for new users"""
     return render(request, 'crush_lu/voting_demo.html')
+
+
+# ============================================================================
+# PRIVATE INVITATION SYSTEM - Invitation Flow Views
+# ============================================================================
+
+def invitation_landing(request, code):
+    """
+    PUBLIC ACCESS: Landing page for invitation link.
+    Accessible without login - shows event details and invitation info.
+    """
+    invitation = get_object_or_404(EventInvitation, invitation_code=code)
+
+    # Check expiration
+    if invitation.is_expired:
+        invitation.status = 'expired'
+        invitation.save()
+        return render(request, 'crush_lu/invitation_expired.html', {'invitation': invitation})
+
+    # Check if already accepted
+    if invitation.status == 'accepted':
+        messages.info(request, 'You have already accepted this invitation. Please log in to continue.')
+        return redirect('crush_lu:crush_login')
+
+    # Show invitation details
+    context = {
+        'invitation': invitation,
+        'event': invitation.event,
+    }
+    return render(request, 'crush_lu/invitation_landing.html', context)
+
+
+@ratelimit(key='ip', rate='10/h', method='POST')
+def invitation_accept(request, code):
+    """
+    PUBLIC ACCESS: Accept invitation and create guest account.
+    """
+    invitation = get_object_or_404(EventInvitation, invitation_code=code)
+
+    # Check if already accepted
+    if invitation.status == 'accepted':
+        messages.info(request, 'This invitation has already been accepted.')
+        return redirect('crush_lu:crush_login')
+
+    # Check expiration
+    if invitation.is_expired:
+        messages.error(request, 'This invitation has expired.')
+        return redirect('crush_lu:invitation_landing', code=code)
+
+    if request.method == 'POST':
+        try:
+            # Create user account with random password
+            username = f"guest_{invitation.guest_email.split('@')[0]}_{uuid.uuid4().hex[:6]}"
+            random_password = User.objects.make_random_password(length=16)
+
+            user = User.objects.create_user(
+                username=username,
+                email=invitation.guest_email,
+                first_name=invitation.guest_first_name,
+                last_name=invitation.guest_last_name,
+                password=random_password
+            )
+
+            # Update invitation
+            invitation.created_user = user
+            invitation.status = 'accepted'
+            invitation.accepted_at = timezone.now()
+            invitation.save()
+
+            # Log the user in
+            user.backend = 'django.contrib.auth.backends.ModelBackend'
+            login(request, user)
+
+            logger.info(f"Guest account created and logged in: {user.email} for event {invitation.event.title}")
+
+            messages.success(request,
+                f'Welcome! Your invitation has been accepted. '
+                f'You will receive an email once your attendance is approved by our team.')
+
+            return render(request, 'crush_lu/invitation_pending_approval.html', {
+                'invitation': invitation,
+                'event': invitation.event,
+            })
+
+        except Exception as e:
+            logger.error(f"Error creating guest account: {e}")
+            messages.error(request, 'An error occurred while accepting your invitation. Please try again.')
+            return redirect('crush_lu:invitation_landing', code=code)
+
+    context = {
+        'invitation': invitation,
+        'event': invitation.event,
+    }
+    return render(request, 'crush_lu/invitation_accept_form.html', context)
+
+
+@crush_login_required
+def coach_manage_invitations(request, event_id):
+    """
+    COACH ONLY: Dashboard for managing event invitations.
+    Send invitations, approve guests, and track invitation status.
+    """
+    try:
+        coach = CrushCoach.objects.get(user=request.user, is_active=True)
+    except CrushCoach.DoesNotExist:
+        messages.error(request, 'Only coaches can manage invitations.')
+        return redirect('crush_lu:event_detail', event_id=event_id)
+
+    event = get_object_or_404(MeetupEvent, id=event_id, is_private_invitation=True)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'send_invitation':
+            # Send new invitation
+            email = request.POST.get('email', '').strip()
+            first_name = request.POST.get('first_name', '').strip()
+            last_name = request.POST.get('last_name', '').strip()
+
+            if not email or not first_name or not last_name:
+                messages.error(request, 'Please provide email, first name, and last name.')
+            else:
+                # Check if invitation already exists
+                existing = EventInvitation.objects.filter(
+                    event=event,
+                    guest_email=email
+                ).first()
+
+                if existing:
+                    messages.warning(request, f'An invitation for {email} already exists.')
+                else:
+                    invitation = EventInvitation.objects.create(
+                        event=event,
+                        guest_email=email,
+                        guest_first_name=first_name,
+                        guest_last_name=last_name,
+                        invited_by=request.user,
+                    )
+
+                    # TODO: Send email invitation
+                    # send_event_invitation_email(invitation, request)
+
+                    messages.success(request, f'Invitation sent to {email}. Invitation code: {invitation.invitation_code}')
+                    logger.info(f"Invitation created for {email} to event {event.title}")
+
+        elif action == 'approve_guest':
+            invitation_id = request.POST.get('invitation_id')
+            try:
+                invitation = EventInvitation.objects.get(id=invitation_id, event=event)
+                invitation.approval_status = 'approved'
+                invitation.approved_at = timezone.now()
+                invitation.save()
+
+                # TODO: Send approval email with login instructions
+                # send_guest_approved_notification(invitation, request)
+
+                messages.success(request, f'Guest {invitation.guest_first_name} {invitation.guest_last_name} approved!')
+                logger.info(f"Guest approved: {invitation.guest_email} for event {event.title}")
+            except EventInvitation.DoesNotExist:
+                messages.error(request, 'Invitation not found.')
+
+        elif action == 'reject_guest':
+            invitation_id = request.POST.get('invitation_id')
+            notes = request.POST.get('rejection_notes', '')
+            try:
+                invitation = EventInvitation.objects.get(id=invitation_id, event=event)
+                invitation.approval_status = 'rejected'
+                invitation.approval_notes = notes
+                invitation.save()
+
+                # TODO: Send rejection email
+                # send_guest_rejected_notification(invitation, request)
+
+                messages.info(request, f'Guest {invitation.guest_first_name} {invitation.guest_last_name} rejected.')
+                logger.info(f"Guest rejected: {invitation.guest_email} for event {event.title}")
+            except EventInvitation.DoesNotExist:
+                messages.error(request, 'Invitation not found.')
+
+    # Get all invitations for this event
+    invitations = EventInvitation.objects.filter(event=event).order_by('-invitation_sent_at')
+
+    # Separate by status
+    pending_approvals = invitations.filter(
+        status='accepted',
+        approval_status='pending_approval'
+    )
+    approved_guests = invitations.filter(approval_status='approved')
+    rejected_guests = invitations.filter(approval_status='rejected')
+    pending_invitations = invitations.filter(status='pending')
+
+    context = {
+        'event': event,
+        'invitations': invitations,
+        'pending_approvals': pending_approvals,
+        'approved_guests': approved_guests,
+        'rejected_guests': rejected_guests,
+        'pending_invitations': pending_invitations,
+        'coach': coach,
+    }
+    return render(request, 'crush_lu/coach_invitation_dashboard.html', context)
 
 
 # Special User Experience View

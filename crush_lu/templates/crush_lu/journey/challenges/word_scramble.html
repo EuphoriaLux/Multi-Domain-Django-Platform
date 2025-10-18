@@ -342,7 +342,7 @@ function submitAnswer() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token }}'
+            'X-CSRFToken': CrushUtils.getCsrfToken()
         },
         body: JSON.stringify({
             challenge_id: challengeId,
@@ -402,7 +402,7 @@ function unlockHint(hintNum, cost, button) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token }}'
+            'X-CSRFToken': CrushUtils.getCsrfToken()
         },
         body: JSON.stringify({
             challenge_id: challengeId,
