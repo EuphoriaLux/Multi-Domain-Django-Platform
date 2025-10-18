@@ -1,0 +1,131 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+
+{% block title %}Accept Invitation - Crush.lu{% endblock %}
+
+{% block extra_css %}
+<style>
+    .accept-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        padding: 3rem;
+        max-width: 600px;
+        margin: 2rem auto;
+    }
+
+    .confirm-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .confirm-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+
+    .guest-info-box {
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(255, 107, 157, 0.05));
+        border-left: 4px solid var(--crush-purple);
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+    }
+
+    .guest-info-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+    }
+
+    .guest-info-label {
+        font-weight: 600;
+        color: var(--crush-dark);
+    }
+
+    .guest-info-value {
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="accept-card">
+            <!-- Header -->
+            <div class="confirm-header">
+                <div class="confirm-icon">🎉</div>
+                <h2 style="color: var(--crush-purple);">Confirm Your Acceptance</h2>
+                <p class="text-muted">You're about to accept your exclusive invitation to:</p>
+                <h4 class="mt-3">{{ event.title }}</h4>
+            </div>
+
+            <!-- Guest Info Box -->
+            <div class="guest-info-box">
+                <h6 class="mb-3"><i class="bi bi-person-badge"></i> Your Information</h6>
+                <div class="guest-info-item">
+                    <span class="guest-info-label">Name:</span>
+                    <span class="guest-info-value">{{ invitation.guest_first_name }} {{ invitation.guest_last_name }}</span>
+                </div>
+                <div class="guest-info-item">
+                    <span class="guest-info-label">Email:</span>
+                    <span class="guest-info-value">{{ invitation.guest_email }}</span>
+                </div>
+                <div class="guest-info-item">
+                    <span class="guest-info-label">Event:</span>
+                    <span class="guest-info-value">{{ event.title }}</span>
+                </div>
+                <div class="guest-info-item">
+                    <span class="guest-info-label">Date:</span>
+                    <span class="guest-info-value">{{ event.date_time|date:"F j, Y \a\t g:i A" }}</span>
+                </div>
+            </div>
+
+            <!-- What Will Happen -->
+            <div class="alert alert-info" style="background: rgba(13, 202, 240, 0.1); border: 1px solid rgba(13, 202, 240, 0.3);">
+                <h6 class="alert-heading"><i class="bi bi-lightbulb"></i> What happens next:</h6>
+                <ul class="mb-0">
+                    <li>A guest account will be created for you automatically</li>
+                    <li>You'll be logged in immediately</li>
+                    <li>Our Crush Coach will review your attendance request</li>
+                    <li>Once approved, you'll receive an email with event details</li>
+                </ul>
+            </div>
+
+            <!-- Privacy Notice -->
+            <div class="alert alert-success" style="background: rgba(25, 135, 84, 0.1); border: 1px solid rgba(25, 135, 84, 0.3);">
+                <i class="bi bi-shield-check"></i>
+                <strong>Privacy Protected:</strong> This is a private event. Your information will only be shared with your assigned Crush Coach.
+            </div>
+
+            <!-- Confirmation Form -->
+            <form method="post" class="mt-4">
+                {% csrf_token %}
+                <div class="text-center">
+                    <button type="submit" class="btn btn-crush-primary btn-lg px-5">
+                        <i class="bi bi-check-circle me-2"></i> Confirm & Accept Invitation
+                    </button>
+                    <p class="mt-3">
+                        <a href="{% url 'crush_lu:invitation_landing' code=invitation.invitation_code %}" class="text-muted">
+                            <i class="bi bi-arrow-left"></i> Go Back
+                        </a>
+                    </p>
+                </div>
+            </form>
+
+            <!-- Terms -->
+            <div class="text-center mt-4">
+                <p class="text-muted">
+                    <small>
+                        By accepting, you agree to our
+                        <a href="{% url 'crush_lu:terms_of_service' %}" target="_blank">Terms of Service</a>
+                        and
+                        <a href="{% url 'crush_lu:privacy_policy' %}" target="_blank">Privacy Policy</a>
+                    </small>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
