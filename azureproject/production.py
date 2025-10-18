@@ -151,7 +151,9 @@ X_FRAME_OPTIONS = 'DENY'
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_HTTPONLY = True
+# CSRF_COOKIE_HTTPONLY must be False to allow JavaScript access for AJAX requests
+# This is Django's default and is safe because CSRF tokens are not sensitive data
+CSRF_COOKIE_HTTPONLY = False
 
 # Uncomment and configure the following if you wish to use cache-backed sessions:
 # SESSION_ENGINE = "django.contrib.sessions.backends.cache"
