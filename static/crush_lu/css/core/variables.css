@@ -1,0 +1,192 @@
+/* ===================
+   Crush.lu Design Tokens
+   CSS Custom Properties
+   =================== */
+
+:root {
+    /* ===================
+       Brand Colors
+       =================== */
+    --crush-pink: #FF6B9D;
+    --crush-pink-light: #FF8FB3;
+    --crush-pink-dark: #E74C3C;
+
+    --crush-purple: #9B59B6;
+    --crush-purple-light: #AF7AC5;
+    --crush-purple-dark: #8E44AD;
+
+    --crush-dark: #2C3E50;
+    --crush-light: #F8F9FA;
+    --crush-gray: #6c757d;
+
+    /* Status Colors */
+    --crush-success: #28a745;
+    --crush-warning: #f39c12;
+    --crush-danger: #dc3545;
+    --crush-info: #17a2b8;
+
+    /* ===================
+       Gradients
+       =================== */
+    --gradient-primary: linear-gradient(135deg, var(--crush-purple), var(--crush-pink));
+    --gradient-primary-hover: linear-gradient(135deg, var(--crush-purple-dark), var(--crush-pink-dark));
+    --gradient-subtle: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(255, 107, 157, 0.1));
+    --gradient-hero: linear-gradient(135deg, var(--crush-purple) 0%, var(--crush-pink) 100%);
+
+    /* ===================
+       Spacing Scale
+       Based on 8px (0.5rem) system
+       =================== */
+    --space-0: 0;
+    --space-1: 0.25rem;   /* 4px */
+    --space-2: 0.5rem;    /* 8px */
+    --space-3: 0.75rem;   /* 12px */
+    --space-4: 1rem;      /* 16px - base */
+    --space-5: 1.25rem;   /* 20px */
+    --space-6: 1.5rem;    /* 24px */
+    --space-8: 2rem;      /* 32px */
+    --space-10: 2.5rem;   /* 40px */
+    --space-12: 3rem;     /* 48px */
+    --space-16: 4rem;     /* 64px */
+    --space-20: 5rem;     /* 80px */
+
+    /* Semantic Spacing */
+    --space-xs: var(--space-2);
+    --space-sm: var(--space-3);
+    --space-md: var(--space-4);
+    --space-lg: var(--space-6);
+    --space-xl: var(--space-8);
+    --space-2xl: var(--space-12);
+    --space-3xl: var(--space-16);
+
+    /* ===================
+       Typography Scale
+       Base: 16px (1rem)
+       Ratio: 1.25 (Major Third)
+       =================== */
+    --text-xs: 0.75rem;     /* 12px */
+    --text-sm: 0.875rem;    /* 14px */
+    --text-base: 1rem;      /* 16px */
+    --text-lg: 1.125rem;    /* 18px */
+    --text-xl: 1.25rem;     /* 20px */
+    --text-2xl: 1.5rem;     /* 24px */
+    --text-3xl: 1.875rem;   /* 30px */
+    --text-4xl: 2.25rem;    /* 36px */
+    --text-5xl: 3rem;       /* 48px */
+
+    /* Font Weights */
+    --font-normal: 400;
+    --font-medium: 500;
+    --font-semibold: 600;
+    --font-bold: 700;
+    --font-extrabold: 800;
+
+    /* Line Heights */
+    --leading-none: 1;
+    --leading-tight: 1.25;
+    --leading-snug: 1.375;
+    --leading-normal: 1.5;
+    --leading-relaxed: 1.625;
+    --leading-loose: 2;
+
+    /* ===================
+       Shadow System
+       Layered depth
+       =================== */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.15);
+    --shadow-xl: 0 20px 40px rgba(155, 89, 182, 0.2);
+    --shadow-2xl: 0 25px 50px rgba(155, 89, 182, 0.25);
+
+    /* Colored Shadows */
+    --shadow-purple: 0 5px 15px rgba(155, 89, 182, 0.4);
+    --shadow-pink: 0 5px 15px rgba(255, 107, 157, 0.4);
+    --shadow-gold: 0 4px 20px rgba(255, 215, 0, 0.3);
+    --shadow-glow-gold: 0 0 20px rgba(255, 215, 0, 0.6);
+
+    /* ===================
+       Border Radius
+       =================== */
+    --radius-none: 0;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 15px;
+    --radius-xl: 20px;
+    --radius-2xl: 25px;
+    --radius-pill: 50px;
+    --radius-circle: 50%;
+
+    /* ===================
+       Transitions
+       =================== */
+    --transition-fast: 0.15s ease;
+    --transition-base: 0.3s ease;
+    --transition-slow: 0.5s ease;
+    --transition-slower: 1s ease;
+
+    /* Timing Functions */
+    --ease-in: cubic-bezier(0.4, 0, 1, 1);
+    --ease-out: cubic-bezier(0, 0, 0.2, 1);
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* ===================
+       Z-Index Scale
+       =================== */
+    --z-0: 0;
+    --z-10: 10;
+    --z-20: 20;
+    --z-30: 30;
+    --z-40: 40;
+    --z-50: 50;
+
+    /* Semantic Z-Index */
+    --z-dropdown: var(--z-10);
+    --z-sticky: var(--z-20);
+    --z-fixed: var(--z-30);
+    --z-modal-backdrop: var(--z-40);
+    --z-modal: var(--z-50);
+    --z-popover: var(--z-50);
+    --z-tooltip: var(--z-50);
+
+    /* ===================
+       Breakpoints
+       For reference (use in media queries)
+       =================== */
+    --breakpoint-sm: 576px;
+    --breakpoint-md: 768px;
+    --breakpoint-lg: 992px;
+    --breakpoint-xl: 1200px;
+    --breakpoint-2xl: 1400px;
+}
+
+/* ===================
+   Dark Mode Theme
+   (Future Implementation)
+   =================== */
+[data-theme="dark"] {
+    --crush-dark: #F8F9FA;
+    --crush-light: #1a1a2e;
+    --crush-gray: #b8bcc4;
+
+    /* Adjust shadows for dark backgrounds */
+    --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* ===================
+   Reduced Motion
+   Accessibility Support
+   =================== */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

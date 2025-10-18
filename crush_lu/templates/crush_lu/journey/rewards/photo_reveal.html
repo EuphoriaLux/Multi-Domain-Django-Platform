@@ -1,6 +1,11 @@
 {% extends "crush_lu/journey/journey_base.html" %}
 {% load static %}
 
+{% block extra_head %}
+<!-- CSRF token for AJAX requests -->
+<meta name="csrf-token" content="{{ csrf_token }}">
+{% endblock %}
+
 {% block extra_journey_css %}
 <style>
     .reward-container {
@@ -358,7 +363,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Get the photo URL
     {% if reward.photo %}
-    const photoUrl = '{{ reward.photo.url }}';
+    const photoUrl = '{{ reward.photo.url|safe }}';
     {% else %}
     const photoUrl = 'https://via.placeholder.com/600x600/9B59B6/FFFFFF?text=Special+Memory';
     {% endif %}
@@ -434,17 +439,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         try {
-            const response = await fetch('{% url "crush_lu:api_unlock_puzzle_piece" %}', {
+            // Get CSRF token from cookie or meta tag
+            const csrfToken = getCookie('csrftoken') ||
+                             document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+                             document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+
+            if (!csrfToken) {
+                console.error('CSRF token not found');
+                showNotification('❌ Security token missing. Please refresh the page.', 'error');
+                return;
+            }
+
+            console.log('Unlocking piece with CSRF token:', csrfToken.substring(0, 10) + '...');
+
+            const response = await fetch('/api/journey/unlock-puzzle-piece/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
+                    'X-CSRFToken': csrfToken
                 },
                 body: JSON.stringify({
                     reward_id: rewardId,
                     piece_index: index
                 })
             });
+
+            // Check if response is OK before parsing JSON
+            if (!response.ok) {
+                console.error('Server responded with status:', response.status);
+                const errorText = await response.text();
+                console.error('Error response:', errorText);
+                throw new Error(`Server error: ${response.status} ${response.statusText}`);
+            }
 
             const data = await response.json();
 

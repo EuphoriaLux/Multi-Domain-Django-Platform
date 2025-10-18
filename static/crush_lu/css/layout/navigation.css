@@ -1,0 +1,140 @@
+/* ===================
+   Crush.lu Navigation Styles
+   =================== */
+
+/* ===================
+   Navbar
+   =================== */
+.navbar {
+    background: var(--gradient-primary);
+    box-shadow: var(--shadow-sm);
+}
+
+.navbar-brand {
+    font-weight: var(--font-bold);
+    font-size: var(--text-2xl);
+    color: white !important;
+    transition: transform var(--transition-fast);
+}
+
+.navbar-brand:hover {
+    transform: scale(1.05);
+}
+
+/* ===================
+   Navigation Links
+   =================== */
+.nav-link {
+    color: rgba(255, 255, 255, 0.9) !important;
+    transition: color var(--transition-base);
+    font-weight: var(--font-medium);
+}
+
+.nav-link:hover {
+    color: white !important;
+}
+
+.nav-link i {
+    margin-right: 4px;
+}
+
+/* ===================
+   Dropdown Menus
+   =================== */
+.dropdown-menu {
+    border: none;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    border-radius: var(--radius-md);
+    margin-top: 10px;
+}
+
+.dropdown-item {
+    padding: var(--space-sm) var(--space-lg);
+    transition: background-color var(--transition-base);
+}
+
+.dropdown-item:hover {
+    background-color: rgba(155, 89, 182, 0.1);
+    color: var(--crush-purple);
+}
+
+.dropdown-item i {
+    margin-right: 8px;
+}
+
+/* ===================
+   Badges in Navigation
+   =================== */
+.badge {
+    font-size: 0.7rem;
+    padding: 0.25em 0.5em;
+    vertical-align: top;
+}
+
+/* ===================
+   Special Journey Nav Item
+   Pulse glow animation
+   =================== */
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
+        transform: scale(1);
+    }
+    50% {
+        box-shadow: var(--shadow-glow-gold);
+        transform: scale(1.02);
+    }
+}
+
+.nav-link.special-journey {
+    background: rgba(255, 215, 0, 0.2);
+    border-radius: var(--radius-sm);
+    animation: pulse-glow 2s infinite;
+    padding-left: var(--space-md);
+    padding-right: var(--space-md);
+}
+
+/* ===================
+   Mobile Navigation
+   =================== */
+@media (max-width: 991px) {
+    .navbar-nav {
+        padding: var(--space-md) 0;
+    }
+
+    .nav-item {
+        padding: var(--space-2) 0;
+    }
+
+    .dropdown-menu {
+        border: none;
+        background-color: rgba(255, 255, 255, 0.1);
+        box-shadow: none;
+    }
+
+    .dropdown-item {
+        color: rgba(255, 255, 255, 0.9) !important;
+    }
+
+    .dropdown-item:hover {
+        background-color: rgba(255, 255, 255, 0.15);
+        color: white !important;
+    }
+
+    .navbar-brand {
+        font-size: var(--text-xl);
+    }
+}
+
+/* ===================
+   Navbar Toggler
+   =================== */
+.navbar-toggler {
+    border: none;
+    padding: var(--space-2);
+}
+
+.navbar-toggler:focus {
+    box-shadow: none;
+    outline: 2px solid rgba(255, 255, 255, 0.5);
+}
