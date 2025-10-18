@@ -37,6 +37,7 @@ urlpatterns = [
     path('vibe-coding/api/pixel-history/', vibe_coding_views.get_pixel_history, name='pixel_history_api'),
     # Add direct access to road trip music game
     path('road-trip-music/', vibe_coding_views.road_trip_music_game, name='road_trip_music_game_direct'),
+    path('crush/', include('crush_lu.urls')),  # Ensure crush URLs are included
 ]
 
 urlpatterns += i18n_patterns(
