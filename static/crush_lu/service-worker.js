@@ -184,10 +184,18 @@ self.addEventListener('sync', (event) => {
 
 // Push notifications (future enhancement)
 self.addEventListener('push', (event) => {
-  const data = event.data.json();
+  // Handle both JSON and text push messages
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    // If not JSON, treat as plain text
+    data = { title: 'Crush.lu', body: event.data ? event.data.text() : 'New notification' };
+  }
+
   const title = data.title || 'Crush.lu';
   const options = {
-    body: data.body,
+    body: data.body || 'New notification from Crush.lu',
     icon: '/static/crush_lu/icons/icon-192x192.png',
     badge: '/static/crush_lu/icons/icon-72x72.png',
     tag: data.tag || 'crush-notification',
