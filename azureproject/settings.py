@@ -347,10 +347,13 @@ else:
     # Ensure media directory exists
     if not os.path.exists(MEDIA_ROOT):
         os.makedirs(MEDIA_ROOT)
-        print(f"Created media directory at: {MEDIA_ROOT}")
-    else:
+        if os.environ.get('RUN_MAIN'):  # Only print in main process
+            print(f"Created media directory at: {MEDIA_ROOT}")
+    elif os.environ.get('RUN_MAIN'):  # Only print in main process
         print(f"Media directory already exists at: {MEDIA_ROOT}")
-    print("Using local file system for media files.")
+
+    if os.environ.get('RUN_MAIN'):  # Only print in main process
+        print("Using local file system for media files.")
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
