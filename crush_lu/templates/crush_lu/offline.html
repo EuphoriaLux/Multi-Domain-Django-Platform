@@ -1,0 +1,138 @@
+{% extends "crush_lu/base.html" %}
+{% load static %}
+
+{% block title %}Offline - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6 text-center">
+        <div class="offline-container py-5">
+            <!-- Offline Icon -->
+            <div class="mb-4">
+                <i class="bi bi-wifi-off" style="font-size: 5rem; color: #9B59B6;"></i>
+            </div>
+
+            <!-- Offline Message -->
+            <h1 class="mb-3">You're Offline</h1>
+            <p class="lead text-muted mb-4">
+                It looks like you've lost your internet connection. Don't worry, you can still browse some cached content!
+            </p>
+
+            <!-- What you can do offline -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-body text-start">
+                    <h5 class="card-title">
+                        <i class="bi bi-check-circle text-success"></i> What You Can Do Offline
+                    </h5>
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <i class="bi bi-calendar-event text-primary"></i>
+                            View previously loaded event pages
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-person-circle text-primary"></i>
+                            Access your cached dashboard
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-info-circle text-primary"></i>
+                            Read about Crush.lu and how it works
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- What you can't do offline -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-body text-start">
+                    <h5 class="card-title">
+                        <i class="bi bi-x-circle text-danger"></i> What Requires Connection
+                    </h5>
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <i class="bi bi-calendar-check text-muted"></i>
+                            Register for new events
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-people text-muted"></i>
+                            Send or receive messages
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-pencil text-muted"></i>
+                            Update your profile
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-star text-muted"></i>
+                            Access your journey
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Retry Button -->
+            <div class="d-grid gap-2">
+                <button class="btn btn-crush-primary btn-lg" onclick="location.reload()">
+                    <i class="bi bi-arrow-clockwise"></i> Try Again
+                </button>
+                <a href="{% url 'crush_lu:home' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-house"></i> Go to Home
+                </a>
+            </div>
+
+            <!-- Fun Message -->
+            <div class="mt-5 p-3" style="background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%); border-radius: 15px; color: white;">
+                <p class="mb-0">
+                    <i class="bi bi-heart-fill"></i>
+                    <strong>Pro Tip:</strong> Once you're back online, your event registrations and messages will sync automatically!
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .offline-container {
+        animation: fadeIn 0.5s ease-in;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .card {
+        border: none;
+        border-radius: 15px;
+    }
+
+    .card-title {
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+
+    .list-unstyled li {
+        padding: 0.5rem 0;
+    }
+
+    .btn-crush-primary {
+        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+        border: none;
+        color: white;
+        font-weight: 600;
+        padding: 0.75rem 1.5rem;
+        border-radius: 50px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-crush-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(155, 89, 182, 0.3);
+        color: white;
+    }
+</style>
+{% endblock %}

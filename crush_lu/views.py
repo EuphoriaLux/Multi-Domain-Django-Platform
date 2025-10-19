@@ -2217,3 +2217,15 @@ def special_welcome(request):
     request.session['special_experience_viewed'] = True
 
     return render(request, 'crush_lu/special_welcome.html', context)
+
+
+# ============================================================================
+# PWA Views
+# ============================================================================
+
+def offline_view(request):
+    """
+    Offline fallback page for PWA
+    Displayed when user is offline and tries to access unavailable content
+    """
+    return render(request, 'crush_lu/offline.html')

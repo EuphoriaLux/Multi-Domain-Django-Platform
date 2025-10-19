@@ -1,0 +1,232 @@
+// Crush.lu Service Worker
+// PWA implementation for privacy-first dating platform
+
+const CACHE_VERSION = 'crush-v1';
+const CACHE_NAME = `crush-lu-${CACHE_VERSION}`;
+
+// Assets to cache on install
+const STATIC_CACHE_URLS = [
+  '/',
+  '/offline/',
+  '/static/crush_lu/css/crush.css',
+  '/static/bootstrap/css/bootstrap.min.css',
+  '/static/bootstrap/js/bootstrap.bundle.min.js',
+  '/static/crush_lu/icons/icon-192x192.png',
+  '/static/crush_lu/icons/icon-512x512.png',
+];
+
+// Dynamic cache for user content
+const DYNAMIC_CACHE_NAME = `crush-dynamic-${CACHE_VERSION}`;
+
+// API endpoints that should always fetch fresh (no cache)
+const NO_CACHE_URLS = [
+  '/api/',
+  '/accounts/',
+  '/admin/',
+  '/coach/',
+];
+
+// Install event - cache static assets
+self.addEventListener('install', (event) => {
+  console.log('[Service Worker] Installing Crush.lu service worker...');
+
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        console.log('[Service Worker] Caching static assets');
+        return cache.addAll(STATIC_CACHE_URLS);
+      })
+      .then(() => {
+        console.log('[Service Worker] Installed successfully');
+        return self.skipWaiting(); // Activate immediately
+      })
+      .catch((error) => {
+        console.error('[Service Worker] Installation failed:', error);
+      })
+  );
+});
+
+// Activate event - clean up old caches
+self.addEventListener('activate', (event) => {
+  console.log('[Service Worker] Activating Crush.lu service worker...');
+
+  event.waitUntil(
+    caches.keys()
+      .then((cacheNames) => {
+        return Promise.all(
+          cacheNames
+            .filter((cacheName) => {
+              // Remove old caches that don't match current version
+              return cacheName.startsWith('crush-') && cacheName !== CACHE_NAME && cacheName !== DYNAMIC_CACHE_NAME;
+            })
+            .map((cacheName) => {
+              console.log('[Service Worker] Deleting old cache:', cacheName);
+              return caches.delete(cacheName);
+            })
+        );
+      })
+      .then(() => {
+        console.log('[Service Worker] Activated successfully');
+        return self.clients.claim(); // Take control immediately
+      })
+  );
+});
+
+// Fetch event - serve from cache or network
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Skip cross-origin requests
+  if (url.origin !== location.origin) {
+    return;
+  }
+
+  // Skip non-GET requests
+  if (request.method !== 'GET') {
+    return;
+  }
+
+  // Check if URL should bypass cache
+  const shouldBypassCache = NO_CACHE_URLS.some(path => url.pathname.startsWith(path));
+
+  if (shouldBypassCache) {
+    // Always fetch fresh for API and admin endpoints
+    event.respondWith(fetch(request));
+    return;
+  }
+
+  // Cache-first strategy for static assets
+  if (url.pathname.startsWith('/static/')) {
+    event.respondWith(
+      caches.match(request)
+        .then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+
+          // Fetch and cache if not found
+          return fetch(request)
+            .then((networkResponse) => {
+              return caches.open(CACHE_NAME)
+                .then((cache) => {
+                  cache.put(request, networkResponse.clone());
+                  return networkResponse;
+                });
+            });
+        })
+    );
+    return;
+  }
+
+  // Network-first strategy for dynamic content (pages, events, profiles)
+  event.respondWith(
+    fetch(request)
+      .then((networkResponse) => {
+        // Cache successful responses for offline access
+        if (networkResponse.ok) {
+          return caches.open(DYNAMIC_CACHE_NAME)
+            .then((cache) => {
+              cache.put(request, networkResponse.clone());
+              return networkResponse;
+            });
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        // If network fails, try cache
+        return caches.match(request)
+          .then((cachedResponse) => {
+            if (cachedResponse) {
+              return cachedResponse;
+            }
+
+            // If no cache, show offline page
+            if (request.mode === 'navigate') {
+              return caches.match('/offline/');
+            }
+
+            // For other requests, return a basic offline response
+            return new Response('Offline', {
+              status: 503,
+              statusText: 'Service Unavailable',
+              headers: new Headers({
+                'Content-Type': 'text/plain'
+              })
+            });
+          });
+      })
+  );
+});
+
+// Listen for messages from the client
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+
+  if (event.data && event.data.type === 'CACHE_URLS') {
+    // Allow client to request specific URLs to be cached
+    const urls = event.data.urls;
+    event.waitUntil(
+      caches.open(DYNAMIC_CACHE_NAME)
+        .then((cache) => cache.addAll(urls))
+    );
+  }
+});
+
+// Background sync for offline actions (future enhancement)
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-event-registrations') {
+    event.waitUntil(syncEventRegistrations());
+  }
+});
+
+// Push notifications (future enhancement)
+self.addEventListener('push', (event) => {
+  const data = event.data.json();
+  const title = data.title || 'Crush.lu';
+  const options = {
+    body: data.body,
+    icon: '/static/crush_lu/icons/icon-192x192.png',
+    badge: '/static/crush_lu/icons/icon-72x72.png',
+    tag: data.tag || 'crush-notification',
+    data: data.url,
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
+// Notification click handler
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const urlToOpen = event.notification.data || '/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        // Check if app is already open
+        for (const client of clientList) {
+          if (client.url === urlToOpen && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        // Open new window if not found
+        if (clients.openWindow) {
+          return clients.openWindow(urlToOpen);
+        }
+      })
+  );
+});
+
+// Helper function for background sync
+async function syncEventRegistrations() {
+  // This would sync any offline event registrations
+  // Implementation depends on IndexedDB storage of pending actions
+  console.log('[Service Worker] Syncing event registrations...');
+}
+
+console.log('[Service Worker] Crush.lu service worker loaded');
