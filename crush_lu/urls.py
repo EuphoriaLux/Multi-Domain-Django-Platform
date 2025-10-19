@@ -17,6 +17,9 @@ urlpatterns = [
     path('about/', views.about, name='about'),
     path('how-it-works/', views.how_it_works, name='how_it_works'),
 
+    # PWA Pages
+    path('offline/', views.offline_view, name='offline'),
+
     # Legal pages
     path('privacy-policy/', views.privacy_policy, name='privacy_policy'),
     path('terms-of-service/', views.terms_of_service, name='terms_of_service'),
