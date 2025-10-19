@@ -1,0 +1,39 @@
+{% extends 'crush_lu/base.html' %}
+
+{% block title %}Cancel Registration - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-body p-5 text-center">
+                <h2 class="mb-4">Cancel Event Registration</h2>
+
+                <div class="alert alert-warning text-start">
+                    <h5>{{ event.title }}</h5>
+                    <p class="mb-0">
+                        📅 {{ event.date_time|date:"D, M j, Y" }} at {{ event.date_time|date:"g:i A" }}<br>
+                        📍 {{ event.location }}
+                    </p>
+                </div>
+
+                <p class="mb-4">
+                    Are you sure you want to cancel your registration for this event?
+                </p>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-danger btn-lg">
+                            Yes, Cancel Registration
+                        </button>
+                        <a href="{% url 'crush_lu:dashboard' %}" class="btn btn-outline-secondary">
+                            No, Keep Registration
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

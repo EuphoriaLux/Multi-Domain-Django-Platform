@@ -1,0 +1,906 @@
+/**
+ * VinsDelux Enhanced Plot Selector Styles
+ */
+
+/* Plot Selection Container */
+.plot-selection-container {
+    padding: 30px 20px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    min-height: 100vh;
+    position: relative;
+}
+
+/* Filters Section */
+.plot-filters {
+    background: white;
+    padding: 20px;
+    border-radius: 15px;
+    margin-bottom: 30px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.filter-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.filter-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+}
+
+.filter-group select {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.3s;
+}
+
+.filter-group select:focus {
+    border-color: #722f37;
+    outline: none;
+}
+
+.feature-checkboxes {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.feature-checkboxes label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: normal;
+}
+
+.btn-reset-filters {
+    padding: 10px 20px;
+    background: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.btn-reset-filters:hover {
+    background: #5a6268;
+}
+
+/* Enhanced Map Container */
+.map-container {
+    background: white;
+    border-radius: 20px;
+    padding: 25px;
+    margin-bottom: 30px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.map-container:hover {
+    box-shadow: 0 12px 48px rgba(0,0,0,0.12);
+}
+
+#map-canvas {
+    width: 100%;
+    border-radius: 15px;
+    cursor: grab;
+    box-shadow: inset 0 2px 10px rgba(0,0,0,0.1);
+}
+
+#map-canvas:active {
+    cursor: grabbing;
+}
+
+.map-controls {
+    position: absolute;
+    top: 30px;
+    right: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 10;
+}
+
+.map-controls button {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 10px;
+    background: white;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+}
+
+.map-controls button:hover {
+    background: #722f37;
+    color: white;
+    transform: scale(1.1);
+}
+
+/* Plot Cards Grid */
+.plot-cards-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+    margin-bottom: 30px;
+    padding: 0 5px;
+}
+
+@media (min-width: 1400px) {
+    .plot-cards-container {
+        grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .plot-cards-container {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+}
+
+/* Enhanced Plot Card */
+.plot-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    position: relative;
+    cursor: pointer;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.plot-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+}
+
+.plot-card.selected {
+    border: 3px solid #d4af37;
+    box-shadow: 0 12px 40px rgba(212, 175, 55, 0.25);
+    transform: translateY(-4px);
+}
+
+.plot-card.unavailable {
+    opacity: 0.6;
+    filter: grayscale(50%);
+}
+
+.plot-card-header {
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #722f37 0%, #8e3a42 100%);
+    color: white;
+}
+
+.plot-availability {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.plot-availability.available {
+    background: #4caf50;
+}
+
+.plot-availability.unavailable {
+    background: #f44336;
+}
+
+.plot-rating {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.stars {
+    color: #ffd700;
+    letter-spacing: 2px;
+}
+
+.rating-value {
+    font-weight: 600;
+}
+
+.reviews {
+    font-size: 12px;
+    opacity: 0.9;
+}
+
+.plot-card-image {
+    position: relative;
+    height: 140px;
+    overflow: hidden;
+}
+
+.plot-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s;
+}
+
+.plot-card:hover .plot-card-image img {
+    transform: scale(1.1);
+}
+
+.plot-region-badge {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    background: rgba(255, 255, 255, 0.95);
+    color: #722f37;
+    padding: 8px 15px;
+    border-radius: 25px;
+    font-weight: 600;
+    font-size: 14px;
+    backdrop-filter: blur(10px);
+}
+
+.plot-card-body {
+    padding: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.plot-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.plot-description {
+    color: #666;
+    line-height: 1.4;
+    margin-bottom: 15px;
+    min-height: 40px;
+    font-size: 14px;
+}
+
+.plot-details {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #555;
+    font-size: 13px;
+}
+
+.detail-item i {
+    color: #722f37;
+    width: 16px;
+    font-size: 14px;
+}
+
+.plot-grapes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.grape-tag {
+    background: linear-gradient(135deg, #722f37, #8e3a42);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.plot-features {
+    margin-bottom: 15px;
+}
+
+.feature-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #e8f5e9;
+    color: #2e7d32;
+    padding: 5px 10px;
+    font-size: 12px;
+    border-radius: 20px;
+    margin: 5px;
+    font-size: 13px;
+}
+
+.feature-badge i {
+    color: #4caf50;
+}
+
+.plot-card-footer {
+    padding: 12px 15px;
+    background: #f8f9fa;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.plot-price {
+    display: flex;
+    flex-direction: column;
+}
+
+.price-label {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.price-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #722f37;
+}
+
+.plot-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-compare,
+.btn-select-plot {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-compare {
+    background: white;
+    color: #722f37;
+    border: 2px solid #722f37;
+}
+
+.btn-compare:hover:not(:disabled) {
+    background: #722f37;
+    color: white;
+}
+
+.btn-select-plot {
+    background: linear-gradient(135deg, #d4af37, #f4e49c);
+    color: #2d1810;
+}
+
+.btn-select-plot:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(212, 175, 55, 0.4);
+}
+
+.btn-compare:disabled,
+.btn-select-plot:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Plot Details Panel - Improved Sidebar */
+#plot-details-panel,
+.plot-details-panel {
+    position: fixed;
+    right: -450px;
+    top: 80px;
+    width: 420px;
+    height: calc(100vh - 100px);
+    background: white;
+    border-radius: 16px 0 0 16px;
+    box-shadow: -8px 0 32px rgba(0,0,0,0.15);
+    transition: right 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    z-index: 1000;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#plot-details-panel.active,
+.plot-details-panel.active {
+    right: 0;
+}
+
+@media (max-width: 768px) {
+    #plot-details-panel,
+    .plot-details-panel {
+        width: 100%;
+        right: -100%;
+        top: 0;
+        height: 100vh;
+        border-radius: 0;
+    }
+}
+
+.plot-details-header {
+    background: linear-gradient(135deg, #722f37, #8e3a42);
+    color: white;
+    padding: 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.plot-details-header h2 {
+    margin: 0;
+    font-size: 28px;
+}
+
+.region-badge {
+    background: rgba(255,255,255,0.2);
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+.plot-details-content {
+    padding: 25px;
+}
+
+.details-content {
+    padding: 25px;
+}
+
+.details-section {
+    margin-bottom: 30px;
+}
+
+.details-section h3 {
+    color: #722f37;
+    margin-bottom: 15px;
+    font-size: 18px;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 10px;
+}
+
+.characteristics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+.characteristic {
+    display: flex;
+    flex-direction: column;
+}
+
+.characteristic label {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+}
+
+.characteristic span {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+.grape-varieties {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.grape-variety {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f8f9fa;
+    padding: 10px 20px;
+    border-radius: 25px;
+}
+
+.grape-icon {
+    width: 30px;
+    height: 30px;
+    background: linear-gradient(135deg, #722f37, #8e3a42);
+    border-radius: 50%;
+}
+
+.features-list {
+    list-style: none;
+    padding: 0;
+}
+
+.features-list li {
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.features-list i {
+    color: #d4af37;
+}
+
+.investment-info {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 12px;
+}
+
+.investment-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+}
+
+.investment-item .label {
+    color: #666;
+}
+
+.investment-item .value {
+    font-weight: 600;
+    color: #722f37;
+}
+
+.btn-confirm-selection,
+.btn-confirm {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #d4af37, #f4e49c);
+    color: #2d1810;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-top: 20px;
+    position: sticky;
+    bottom: 20px;
+}
+
+.btn-confirm-selection:hover:not(:disabled),
+.btn-confirm:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(212, 175, 55, 0.35);
+}
+
+.btn-confirm-selection:disabled,
+.btn-confirm:disabled {
+    background: #e9ecef;
+    color: #6c757d;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Comparison Panel */
+.comparison-panel {
+    position: fixed;
+    bottom: -300px;
+    left: 0;
+    right: 0;
+    height: 300px;
+    background: white;
+    box-shadow: 0 -10px 30px rgba(0,0,0,0.2);
+    transition: bottom 0.4s;
+    z-index: 999;
+}
+
+.comparison-panel.active {
+    bottom: 0;
+}
+
+.comparison-header {
+    background: #333;
+    color: white;
+    padding: 15px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.btn-close-comparison {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.comparison-content {
+    padding: 30px;
+}
+
+/* Plot Tooltip */
+.plot-tooltip {
+    position: fixed;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    pointer-events: none;
+    z-index: 10000;
+    display: none;
+    max-width: 250px;
+    line-height: 1.5;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .plot-cards-container {
+        grid-template-columns: 1fr;
+    }
+    
+    #plot-details-panel {
+        width: 100%;
+        right: -100%;
+    }
+    
+    .plot-filters {
+        flex-direction: column;
+    }
+    
+    .filter-group {
+        width: 100%;
+    }
+    
+    .map-container {
+        margin-bottom: 20px;
+    }
+    
+    #map-canvas {
+        height: 400px;
+    }
+}
+
+/* Animations */
+/* Remove pulse animation for selected cards as it's distracting */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.plot-card {
+    animation: fadeIn 0.5s ease backwards;
+}
+
+.plot-card:nth-child(n) {
+    animation-delay: calc(0.05s * var(--index, 1));
+}
+
+/* Loading State */
+.plot-loading,
+.loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.plot-loading::after,
+.spinner {
+    content: '';
+    width: 48px;
+    height: 48px;
+    border: 4px solid #f0f0f0;
+    border-top-color: #722f37;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.loading-spinner.active {
+    display: flex;
+}
+
+.loading-spinner:not(.active) {
+    display: none;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Map Integration Improvements */
+.map-wrapper {
+    position: relative;
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+.map-placeholder {
+    position: relative;
+    width: 100%;
+    height: 500px;
+    background: linear-gradient(135deg, #f0f4f7 0%, #e1e8ed 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.map-placeholder::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px),
+        repeating-linear-gradient(-45deg, transparent, transparent 35px, rgba(0,0,0,.03) 35px, rgba(0,0,0,.03) 70px);
+    pointer-events: none;
+}
+
+.map-message {
+    text-align: center;
+    z-index: 1;
+    padding: 30px;
+    background: rgba(255,255,255,0.95);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+.map-message i {
+    font-size: 48px;
+    color: #722f37;
+    margin-bottom: 15px;
+}
+
+.map-message h4 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+    font-size: 20px;
+}
+
+.map-message p {
+    color: #6c757d;
+    font-size: 14px;
+    margin: 0;
+}
+
+/* Interactive Map Styles (for future API integration) */
+.interactive-map {
+    width: 100%;
+    height: 500px;
+    border-radius: 12px;
+    position: relative;
+}
+
+.map-overlay-controls {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 500;
+}
+
+.map-control-btn {
+    width: 42px;
+    height: 42px;
+    background: white;
+    border: 2px solid #dee2e6;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 18px;
+    color: #495057;
+}
+
+.map-control-btn:hover {
+    background: #722f37;
+    border-color: #722f37;
+    color: white;
+    transform: scale(1.1);
+}
+
+.map-legend {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    background: rgba(255,255,255,0.95);
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    max-width: 200px;
+}
+
+.map-legend h5 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #495057;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.legend-marker {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Improved Close Button */
+.close-panel-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 36px;
+    height: 36px;
+    background: rgba(255,255,255,0.1);
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    color: white;
+    font-size: 20px;
+    z-index: 11;
+}
+
+.close-panel-btn:hover {
+    background: rgba(255,255,255,0.2);
+    border-color: rgba(255,255,255,0.4);
+    transform: rotate(90deg);
+}

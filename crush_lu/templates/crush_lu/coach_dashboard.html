@@ -1,0 +1,155 @@
+{% extends 'crush_lu/base.html' %}
+
+{% block title %}Coach Dashboard - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2>Coach Dashboard 🎯</h2>
+        <p class="lead">Welcome, Coach {{ coach.user.get_full_name }}!</p>
+    </div>
+</div>
+
+<!-- Coach Stats -->
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-primary">{{ pending_submissions|length }}</h3>
+                <p class="text-muted mb-0">Pending Reviews</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-success">{{ recent_reviews|length }}</h3>
+                <p class="text-muted mb-0">Recent Reviews</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3>{{ coach.max_active_reviews }}</h3>
+                <p class="text-muted mb-0">Max Reviews</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Coach Info -->
+<div class="card mb-4" style="background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(255, 107, 157, 0.1));">
+    <div class="card-body">
+        <h5>Your Specializations</h5>
+        <p class="mb-0">{{ coach.specializations }}</p>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card h-100" style="border-left: 4px solid #9B59B6;">
+            <div class="card-body">
+                <h5><i class="bi bi-map"></i> Journey Management</h5>
+                <p class="text-muted">Manage active Wonderland Journey experiences and view user progress.</p>
+                <a href="{% url 'crush_lu:coach_journey_dashboard' %}" class="btn btn-sm btn-crush-primary">
+                    <i class="bi bi-arrow-right"></i> Manage Journeys
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100" style="border-left: 4px solid #FF6B9D;">
+            <div class="card-body">
+                <h5><i class="bi bi-telephone"></i> Screening Dashboard</h5>
+                <p class="text-muted">View and manage screening calls with new users.</p>
+                <a href="{% url 'crush_lu:coach_screening_dashboard' %}" class="btn btn-sm btn-crush-primary">
+                    <i class="bi bi-arrow-right"></i> View Screening Calls
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pending Submissions -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Pending Profile Reviews</h5>
+    </div>
+    <div class="card-body">
+        {% if pending_submissions %}
+            <div class="list-group list-group-flush">
+                {% for submission in pending_submissions %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">{{ submission.profile.user.get_full_name }}</h6>
+                                <p class="mb-1 text-muted">
+                                    <small>
+                                        {% if submission.profile.age %}{{ submission.profile.age }} years old{% else %}Age not set{% endif %} | {{ submission.profile.location|default:"Location not set" }}<br>
+                                        {{ submission.profile.get_looking_for_display }}
+                                    </small>
+                                </p>
+                                <p class="mb-0">
+                                    <small><strong>Submitted:</strong> {{ submission.submitted_at|date:"M j, Y g:i A" }}</small>
+                                </p>
+                            </div>
+                            <div>
+                                <span class="badge bg-warning">Pending</span>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <a href="{% url 'crush_lu:coach_review_profile' submission.id %}" class="btn btn-sm btn-crush-primary">
+                                Review Profile
+                            </a>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-muted text-center py-4">
+                No pending reviews at the moment. Great work! 🎉
+            </p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Recent Reviews -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Recent Reviews</h5>
+    </div>
+    <div class="card-body">
+        {% if recent_reviews %}
+            <div class="list-group list-group-flush">
+                {% for submission in recent_reviews %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">{{ submission.profile.user.get_full_name }}</h6>
+                                <p class="mb-0">
+                                    <small>Reviewed: {{ submission.reviewed_at|date:"M j, Y g:i A" }}</small>
+                                </p>
+                            </div>
+                            <div>
+                                {% if submission.status == 'approved' %}
+                                    <span class="badge bg-success">Approved</span>
+                                {% elif submission.status == 'rejected' %}
+                                    <span class="badge bg-danger">Rejected</span>
+                                {% elif submission.status == 'revision' %}
+                                    <span class="badge bg-info">Revision Requested</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-muted text-center py-4">
+                No recent reviews yet.
+            </p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

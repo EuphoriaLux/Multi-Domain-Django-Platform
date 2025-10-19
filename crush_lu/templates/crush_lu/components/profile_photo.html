@@ -1,0 +1,8 @@
+{% if has_photo %}
+    <img src="{{ photo_url }}" alt="{{ alt_text }}" class="{{ css_class }}" loading="lazy">
+{% else %}
+    <div class="profile-photo-placeholder {{ css_class }}" aria-label="No photo available">
+        <i class="bi bi-person-circle"></i>
+        <span class="sr-only">{{ display_name }} - No photo</span>
+    </div>
+{% endif %}

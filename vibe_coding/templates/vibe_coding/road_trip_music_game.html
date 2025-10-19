@@ -1,0 +1,440 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Road Trip Discovery with Music - 90 Minutes to Connection</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Custom Styles -->
+    <style>
+        :root {
+            --gradient-phase1: linear-gradient(135deg, #ff6b6b 0%, #ffd93d 100%);
+            --gradient-phase2: linear-gradient(135deg, #ff4757 0%, #ff6348 100%);
+            --gradient-phase3: linear-gradient(135deg, #ff3838 0%, #ff006e 100%);
+            --gradient-final: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-music: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            overflow-x: hidden;
+        }
+
+        .gradient-phase1 { background: var(--gradient-phase1); }
+        .gradient-phase2 { background: var(--gradient-phase2); }
+        .gradient-phase3 { background: var(--gradient-phase3); }
+        .gradient-final { background: var(--gradient-final); }
+        .gradient-music { background: var(--gradient-music); }
+
+        .card-shadow {
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .answer-button {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .answer-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+        }
+
+        .answer-button.selected {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            color: white;
+            transform: scale(1.02);
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .slide-up {
+            animation: slideUp 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .progress-segment {
+            transition: all 0.5s ease;
+        }
+
+        .emoji-pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .response-reveal {
+            animation: revealResponse 0.6s ease-out;
+        }
+
+        @keyframes revealResponse {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Music Selection Styles */
+        .genre-card {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .genre-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            border-color: #a855f7;
+        }
+
+        .genre-card.selected-genre {
+            transform: scale(1.02);
+            border-color: #7c3aed !important;
+            box-shadow: 0 15px 30px rgba(124, 58, 237, 0.2);
+        }
+
+        .song-samples {
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }
+
+        .genre-card:hover .song-samples {
+            opacity: 1;
+        }
+
+        /* Music player animations */
+        .music-reveal {
+            animation: musicReveal 0.8s ease-out;
+        }
+
+        @keyframes musicReveal {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* Musical note animation */
+        .music-note {
+            display: inline-block;
+            animation: musicFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes musicFloat {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            25% { transform: translateY(-10px) rotate(5deg); }
+            50% { transform: translateY(-15px) rotate(0deg); }
+            75% { transform: translateY(-5px) rotate(-5deg); }
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .game-container {
+                padding: 1rem;
+            }
+            
+            .answer-button, .genre-card {
+                padding: 1rem !important;
+                font-size: 0.95rem !important;
+            }
+            
+            .video-container {
+                padding-bottom: 56.25%;
+                margin: 0.5rem 0;
+            }
+        }
+
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Disable text selection during game */
+        .no-select {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50">
+    
+    <!-- Main Game Container -->
+    <div id="gameContainer" class="game-container max-w-lg mx-auto p-4 min-h-screen flex flex-col justify-center">
+        
+        <!-- Welcome Screen -->
+        <div id="welcomeScreen" class="screen fade-in">
+            <div class="bg-white rounded-3xl p-8 card-shadow">
+                <div class="text-center mb-6">
+                    <div class="text-6xl mb-4 emoji-pulse">🚗💕🎵</div>
+                    <h1 class="text-3xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent mb-2">
+                        Road Trip Discovery
+                    </h1>
+                    <p class="text-gray-600">90 minutes of music, questions & connection</p>
+                </div>
+                
+                <div class="space-y-4 mb-6">
+                    <div class="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-4">
+                        <p class="text-sm text-gray-700">
+                            <span class="font-semibold">Hey Maxi!</span> 16 years after that party where we first met,
+                            we're finally on this journey together. This game combines deep conversation with music discovery -
+                            we'll explore who we've become and create the perfect playlist for our spa adventure.
+                        </p>
+                    </div>
+
+                    <!-- How it Works Section -->
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+                        <h3 class="font-semibold text-gray-800 mb-3 flex items-center">
+                            <span class="text-lg mr-2">🎯</span>How It Works
+                        </h3>
+                        <div class="space-y-2 text-sm text-gray-700">
+                            <div class="flex items-start">
+                                <span class="text-purple-500 mr-2 mt-0.5">🗣️</span>
+                                <span><strong>Conversation:</strong> Answer questions about your life, dreams, and experiences</span>
+                            </div>
+                            <div class="flex items-start">
+                                <span class="text-purple-500 mr-2 mt-0.5">🎵</span>
+                                <span><strong>Music Discovery:</strong> Listen to songs and choose genres that resonate with you</span>
+                            </div>
+                            <div class="flex items-start">
+                                <span class="text-purple-500 mr-2 mt-0.5">🎲</span>
+                                <span><strong>Musical Challenge:</strong> Try to guess which songs Tom would prefer from your selections</span>
+                            </div>
+                            <div class="flex items-start">
+                                <span class="text-purple-500 mr-2 mt-0.5">📱</span>
+                                <span><strong>Your Playlist:</strong> Build a shared soundtrack that reflects both our tastes</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Game Phases Overview -->
+                    <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100">
+                        <h3 class="font-semibold text-gray-800 mb-3 flex items-center">
+                            <span class="text-lg mr-2">🗺️</span>Our Journey Map
+                        </h3>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="flex items-center"><span class="mr-2">🔥</span><strong>Phase 1:</strong> Then & Now</span>
+                                <span class="text-xs text-gray-500">5 questions + music</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="flex items-center"><span class="mr-2">😏</span><strong>Phase 2:</strong> Life Lessons</span>
+                                <span class="text-xs text-gray-500">5 questions + music</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="flex items-center"><span class="mr-2">🌶️</span><strong>Phase 3:</strong> What's Next</span>
+                                <span class="text-xs text-gray-500">5 questions + music</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="flex items-center"><span class="mr-2">🌌</span><strong>Phase 4:</strong> Cosmic Connection</span>
+                                <span class="text-xs text-gray-500">5 questions + music</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="flex items-center"><span class="mr-2">🎭</span><strong>Phase 5:</strong> Intimate Roleplay</span>
+                                <span class="text-xs text-gray-500">5 questions + music</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                        <div class="text-center">
+                            <div class="text-2xl mb-1">⏱️</div>
+                            <span>90 minutes</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl mb-1">❓</div>
+                            <span>25 questions</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl mb-1">🎵</div>
+                            <span>6 music phases</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl mb-1">🎯</div>
+                            <span>5 discovery phases</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <button id="startButton" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold py-4 rounded-xl hover:shadow-lg transition-all duration-300">
+                    Let's Begin This Musical Journey
+                </button>
+            </div>
+        </div>
+
+        <!-- Music Selection Screen -->
+        <div id="musicSelectionScreen" class="screen hidden">
+            <div class="bg-white rounded-3xl p-6 card-shadow slide-up">
+                <div class="text-center mb-6">
+                    <div class="text-5xl mb-4 emoji-pulse">🎵</div>
+                    <h2 id="musicTitle" class="text-2xl font-bold mb-2">Musical Interlude</h2>
+                    <p id="musicSubtitle" class="text-gray-600">Choose your vibe</p>
+                </div>
+                
+                <div class="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-4 mb-6">
+                    <p id="musicDescription" class="text-sm text-gray-700"></p>
+                </div>
+                
+                <!-- Genre Options -->
+                <div id="genreOptions" class="space-y-3 mb-4">
+                    <!-- Genre cards will be dynamically inserted here -->
+                </div>
+                
+                <!-- Music Response Teaser -->
+                <div class="text-center text-xs text-gray-500 italic mt-4">
+                    <p id="musicResponseTeaser"></p>
+                </div>
+                
+                <!-- Music Player Container (initially hidden) -->
+                <div id="musicPlayerContainer" class="hidden">
+                    <!-- YouTube embeds will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Phase Introduction Screen -->
+        <div id="phaseIntroScreen" class="screen hidden">
+            <div class="bg-white rounded-3xl p-8 card-shadow slide-up">
+                <div class="text-center mb-6">
+                    <div id="phaseEmoji" class="text-6xl mb-4 emoji-pulse">🔥</div>
+                    <h2 id="phaseTitle" class="text-2xl font-bold mb-2">Phase Title</h2>
+                    <p id="phaseSubtitle" class="text-gray-600">Phase description</p>
+                </div>
+                
+                <div id="phaseDescription" class="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-4 mb-6">
+                    <p class="text-sm text-gray-700">Phase context</p>
+                </div>
+                
+                <button id="startPhaseButton" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold py-4 rounded-xl">
+                    Start Phase
+                </button>
+            </div>
+        </div>
+
+        <!-- Question Screen -->
+        <div id="questionScreen" class="screen hidden">
+            <!-- Progress Bar -->
+            <div class="mb-6">
+                <div class="flex justify-between text-xs text-gray-600 mb-2">
+                    <span id="phaseIndicator">Phase 1: Then & Now</span>
+                    <span id="questionCounter">Question 1/5</span>
+                </div>
+                <div class="bg-gray-200 rounded-full h-2 overflow-hidden">
+                    <div id="progressBar" class="h-full bg-gradient-to-r from-pink-500 to-purple-600 transition-all duration-500 rounded-full"></div>
+                </div>
+            </div>
+            
+            <!-- Question Card -->
+            <div class="bg-white rounded-3xl p-6 card-shadow slide-up">
+                <div id="questionText" class="text-lg font-medium text-gray-800 mb-6">
+                    Question will appear here
+                </div>
+                
+                <!-- Answer Options -->
+                <div id="answerOptions" class="space-y-3 mb-6">
+                    <!-- Answer buttons will be dynamically inserted here -->
+                </div>
+                
+                <!-- Response Section (hidden initially) -->
+                <div id="responseSection" class="hidden">
+                    <div class="border-t pt-4 mt-4">
+                        <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 response-reveal">
+                            <p class="text-xs text-gray-500 mb-1">His response:</p>
+                            <p id="maleResponse" class="text-sm text-gray-700 italic"></p>
+                        </div>
+                    </div>
+                    
+                    <button id="continueButton" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold py-3 rounded-xl mt-4">
+                        Continue
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Phase Complete Screen -->
+        <div id="phaseCompleteScreen" class="screen hidden">
+            <div class="bg-white rounded-3xl p-8 card-shadow slide-up">
+                <div class="text-center mb-6">
+                    <div class="text-6xl mb-4 emoji-pulse">✨</div>
+                    <h2 class="text-2xl font-bold mb-2">Phase Complete!</h2>
+                    <p id="phaseScore" class="text-gray-600">Your connection score so far</p>
+                </div>
+                
+                <div id="phaseStats" class="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-4 mb-6">
+                    <!-- Phase statistics will be shown here -->
+                </div>
+                
+                <button id="nextPhaseButton" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold py-4 rounded-xl">
+                    Select Music & Continue
+                </button>
+            </div>
+        </div>
+
+        <!-- Final Results Screen -->
+        <div id="resultsScreen" class="screen hidden">
+            <div class="bg-white rounded-3xl p-8 card-shadow slide-up">
+                <div class="text-center mb-6">
+                    <div id="finalEmoji" class="text-7xl mb-4 emoji-pulse">💕</div>
+                    <h2 class="text-3xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent mb-2">
+                        Journey Complete
+                    </h2>
+                    <div class="text-4xl font-bold text-gray-800 mt-4">
+                        <span id="finalPercentage">0</span>%
+                    </div>
+                    <p class="text-gray-600 mt-2">Compatibility Score</p>
+                </div>
+                
+                <div id="finalMessage" class="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-6 mb-6">
+                    <p class="text-gray-700 text-center font-medium"></p>
+                </div>
+                
+                <div id="scoreBreakdown" class="space-y-2 mb-6">
+                    <!-- Score breakdown will be shown here -->
+                </div>
+                
+                <button id="restartButton" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold py-4 rounded-xl">
+                    Create Another Playlist Together
+                </button>
+            </div>
+        </div>
+        
+    </div>
+
+    <!-- Game JavaScript -->
+    <script src="{% static 'vibe_coding/js/road-trip-music-game.js' %}"></script>
+</body>
+</html>

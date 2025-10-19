@@ -1,0 +1,245 @@
+{% extends "crush_lu/base.html" %}
+{% load static %}
+
+{% block title %}Edit Challenge - {{ challenge.challenge_type }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .challenge-editor {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    }
+    .chapter-info {
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 30px;
+    }
+    .form-section {
+        margin-bottom: 30px;
+        padding-bottom: 30px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .form-section:last-child {
+        border-bottom: none;
+    }
+    .hint-box {
+        background: #fff3e0;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+    }
+    .points-input {
+        max-width: 120px;
+    }
+    .btn-save {
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 25px;
+        font-weight: 600;
+    }
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="challenge-editor">
+        <div class="chapter-info">
+            <h3 class="mb-2">
+                <i class="bi bi-puzzle"></i> Edit Challenge
+            </h3>
+            <p class="mb-1">
+                <strong>Chapter {{ challenge.chapter.chapter_number }}:</strong> {{ challenge.chapter.title }}
+            </p>
+            <p class="mb-0">
+                <strong>Type:</strong> {{ challenge.get_challenge_type_display }} |
+                <strong>Order:</strong> #{{ challenge.challenge_order }}
+            </p>
+        </div>
+
+        {# Mode Detection Alert #}
+        {% if challenge.chapter.chapter_number in '245'|make_list or challenge.challenge_type == 'open_text' or challenge.challenge_type == 'would_you_rather' or not challenge.correct_answer %}
+        <div class="alert alert-info">
+            <h5><i class="bi bi-chat-dots-fill"></i> <strong>Questionnaire Mode</strong></h5>
+            <p class="mb-0">
+                This challenge accepts <strong>all answers</strong>. Users cannot get it "wrong."
+                All responses are saved and visible below for your review.
+            </p>
+        </div>
+        {% else %}
+        <div class="alert alert-success">
+            <h5><i class="bi bi-check-circle-fill"></i> <strong>Quiz Mode</strong></h5>
+            <p class="mb-0">
+                This challenge validates answers against the correct answer below.
+                Users can get hints and earn points based on correctness.
+            </p>
+        </div>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+
+            <!-- Question Section -->
+            <div class="form-section">
+                <h5><i class="bi bi-question-circle"></i> Challenge Question</h5>
+                <div class="mb-3">
+                    <label for="question" class="form-label">Question/Prompt *</label>
+                    <textarea class="form-control" id="question" name="question" rows="4" required>{{ challenge.question }}</textarea>
+                    <div class="form-text">The main question or prompt shown to the user.</div>
+                </div>
+
+                {# Display answer choices if present #}
+                {% if challenge.options %}
+                <div class="mt-3">
+                    <strong>Answer Choices:</strong>
+                    <div class="ms-3 mt-2">
+                        {% for key, value in challenge.options.items %}
+                        <div class="mb-1">
+                            <span class="badge bg-secondary">{{ key }}</span> {{ value }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Answer Section -->
+            <div class="form-section">
+                <h5><i class="bi bi-check-circle"></i> Correct Answer</h5>
+                <div class="mb-3">
+                    <label for="correct_answer" class="form-label">Correct Answer</label>
+                    <input type="text" class="form-control" id="correct_answer" name="correct_answer"
+                           value="{{ challenge.correct_answer }}">
+                    <div class="form-text">
+                        Leave blank for questionnaire-style challenges (all answers are saved for review).
+                        For riddles/quizzes, enter the correct answer here.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hints Section -->
+            <div class="form-section">
+                <h5><i class="bi bi-lightbulb"></i> Hints System</h5>
+                <p class="text-muted">Users can unlock hints in exchange for points. Leave blank if no hints available.</p>
+
+                <div class="hint-box">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <label for="hint_1" class="form-label">Hint 1</label>
+                            <input type="text" class="form-control" id="hint_1" name="hint_1"
+                                   value="{{ challenge.hint_1 }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="hint_1_cost" class="form-label">Cost (points)</label>
+                            <input type="number" class="form-control points-input" id="hint_1_cost"
+                                   name="hint_1_cost" value="{{ challenge.hint_1_cost }}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hint-box">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <label for="hint_2" class="form-label">Hint 2</label>
+                            <input type="text" class="form-control" id="hint_2" name="hint_2"
+                                   value="{{ challenge.hint_2 }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="hint_2_cost" class="form-label">Cost (points)</label>
+                            <input type="number" class="form-control points-input" id="hint_2_cost"
+                                   name="hint_2_cost" value="{{ challenge.hint_2_cost }}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hint-box">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <label for="hint_3" class="form-label">Hint 3</label>
+                            <input type="text" class="form-control" id="hint_3" name="hint_3"
+                                   value="{{ challenge.hint_3 }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="hint_3_cost" class="form-label">Cost (points)</label>
+                            <input type="number" class="form-control points-input" id="hint_3_cost"
+                                   name="hint_3_cost" value="{{ challenge.hint_3_cost }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Points & Success Message -->
+            <div class="form-section">
+                <h5><i class="bi bi-trophy"></i> Scoring & Feedback</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="points_awarded" class="form-label">Points Awarded *</label>
+                        <input type="number" class="form-control points-input" id="points_awarded"
+                               name="points_awarded" value="{{ challenge.points_awarded }}" required>
+                        <div class="form-text">Points given for completing this challenge (before hint deductions).</div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="success_message" class="form-label">Success Message *</label>
+                    <textarea class="form-control" id="success_message" name="success_message"
+                              rows="3" required>{{ challenge.success_message }}</textarea>
+                    <div class="form-text">Personal message shown when user answers correctly or completes the challenge.</div>
+                </div>
+            </div>
+
+            <!-- User Responses Section -->
+            {% if all_attempts %}
+            <div class="form-section">
+                <h5><i class="bi bi-chat-dots"></i> User Responses ({{ total_responses }})</h5>
+                <p class="text-muted">All user answers to this challenge:</p>
+
+                {% for attempt in all_attempts %}
+                <div class="mb-3 p-3 border rounded">
+                    <div class="d-flex justify-content-between">
+                        <strong>{{ attempt.chapter_progress.journey_progress.user.username }}</strong>
+                        <span class="text-muted">{{ attempt.attempted_at|date:"M d, Y H:i" }}</span>
+                    </div>
+                    <div class="mt-2 p-2 bg-light rounded">
+                        {{ attempt.user_answer }}
+                    </div>
+                    <div class="mt-2">
+                        <span class="badge bg-primary">{{ attempt.points_earned }} points</span>
+                        {% if attempt.is_correct %}
+                            <span class="badge bg-success">Correct</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Incorrect</span>
+                        {% endif %}
+                        {% if attempt.hints_used %}
+                            <span class="badge bg-warning text-dark">{{ attempt.hints_used|length }} hint(s) used</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Action Buttons -->
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'crush_lu:coach_edit_journey' challenge.chapter.journey.id %}"
+                   class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Cancel
+                </a>
+                <button type="submit" class="btn btn-save">
+                    <i class="bi bi-save"></i> Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

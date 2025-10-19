@@ -1,0 +1,153 @@
+{% extends 'crush_lu/base.html' %}
+
+{% block title %}Dashboard - Crush.lu{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Welcome back, {{ user.first_name }}! 👋</h2>
+
+<div class="row g-4 mb-4">
+    <!-- Profile Status Card -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Profile Status</h5>
+                {% if profile.is_approved %}
+                    <div class="alert alert-success">
+                        ✅ Your profile is approved and active!
+                    </div>
+                {% elif submission %}
+                    {% if submission.status == 'pending' %}
+                        <div class="alert alert-warning">
+                            ⏳ Your profile is currently under review by {{ submission.coach }}
+                        </div>
+                    {% elif submission.status == 'revision' %}
+                        <div class="alert alert-info">
+                            📝 Your coach has requested some revisions
+                            <p class="mt-2 mb-0"><strong>Feedback:</strong> {{ submission.feedback_to_user }}</p>
+                        </div>
+                    {% elif submission.status == 'rejected' %}
+                        <div class="alert alert-danger">
+                            ❌ Your profile was not approved
+                            <p class="mt-2 mb-0"><strong>Feedback:</strong> {{ submission.feedback_to_user }}</p>
+                        </div>
+                    {% endif %}
+                {% endif %}
+
+                <div class="mt-3">
+                    <a href="{% url 'crush_lu:edit_profile' %}" class="btn btn-outline-primary">
+                        Edit Profile
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats Card -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Your Activity</h5>
+                <div class="row text-center mt-3">
+                    <div class="col-4">
+                        <h3>{{ registrations|length }}</h3>
+                        <p class="text-muted mb-0">Events</p>
+                    </div>
+                    <div class="col-4">
+                        <h3>{{ profile.age|default:"—" }}</h3>
+                        <p class="text-muted mb-0">Age</p>
+                    </div>
+                    <div class="col-4">
+                        <a href="{% url 'crush_lu:my_connections' %}" class="text-decoration-none">
+                            <h3 class="text-primary">{{ connection_count|default:0 }}</h3>
+                            <p class="text-muted mb-0">Connections</p>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upcoming Events Section -->
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Your Events</h5>
+
+        {% if registrations %}
+            <div class="list-group list-group-flush">
+                {% for registration in registrations %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">{{ registration.event.title }}</h6>
+                                <p class="mb-1 text-muted">
+                                    <small>
+                                        📅 {{ registration.event.date_time|date:"D, M j, Y" }} at {{ registration.event.date_time|date:"g:i A" }}<br>
+                                        📍 {{ registration.event.location }}
+                                    </small>
+                                </p>
+                            </div>
+                            <div>
+                                {% if registration.status == 'confirmed' %}
+                                    <span class="badge bg-success">Confirmed</span>
+                                {% elif registration.status == 'waitlist' %}
+                                    <span class="badge bg-warning">Waitlist</span>
+                                {% elif registration.status == 'cancelled' %}
+                                    <span class="badge bg-secondary">Cancelled</span>
+                                {% elif registration.status == 'attended' %}
+                                    <span class="badge bg-info">Attended</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <a href="{% url 'crush_lu:event_detail' registration.event.id %}" class="btn btn-sm btn-outline-primary">
+                                View Event
+                            </a>
+                            {% if registration.status == 'attended' %}
+                                <a href="{% url 'crush_lu:event_attendees' registration.event.id %}" class="btn btn-sm btn-gradient-primary">
+                                    <i class="bi bi-people"></i> Make Connections
+                                </a>
+                            {% elif registration.status == 'confirmed' or registration.status == 'waitlist' %}
+                                <a href="{% url 'crush_lu:event_cancel' registration.event.id %}" class="btn btn-sm btn-outline-danger">
+                                    Cancel Registration
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-muted">You haven't registered for any events yet.</p>
+            <a href="{% url 'crush_lu:event_list' %}" class="btn btn-crush-primary">
+                Browse Events
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Call to Action -->
+{% if profile.is_approved and not registrations %}
+<div class="card" style="background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(255, 107, 157, 0.1));">
+    <div class="card-body text-center p-5">
+        <h4>Ready to Meet New People?</h4>
+        <p class="text-muted">Check out our upcoming events and start making connections!</p>
+        <a href="{% url 'crush_lu:event_list' %}" class="btn btn-crush-primary">
+            View Upcoming Events
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.btn-gradient-primary {
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    border: none;
+    color: white;
+}
+
+.btn-gradient-primary:hover {
+    background: linear-gradient(135deg, #8E44AD, #E74C3C);
+    color: white;
+}
+</style>
+{% endblock %}

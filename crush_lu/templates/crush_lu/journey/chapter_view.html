@@ -1,0 +1,558 @@
+{% extends "crush_lu/journey/journey_base.html" %}
+{% load static %}
+
+{% block extra_journey_css %}
+<style>
+    /* Chapter-Specific Background Themes */
+    {% if chapter.background_theme == 'wonderland_night' %}
+    body {
+        background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    }
+    {% elif chapter.background_theme == 'enchanted_garden' %}
+    body {
+        background: linear-gradient(135deg, #2c3e50 0%, #4ca1af 50%, #c471f5 100%);
+    }
+    {% elif chapter.background_theme == 'art_gallery' %}
+    body {
+        background: linear-gradient(135deg, #1e1e1e 0%, #3a2f2f 50%, #2d2424 100%);
+    }
+    {% elif chapter.background_theme == 'carnival' %}
+    body {
+        background: linear-gradient(135deg, #4a148c 0%, #d32f2f 50%, #f57c00 100%);
+    }
+    {% elif chapter.background_theme == 'starlit_sky' %}
+    body {
+        background: linear-gradient(135deg, #000428 0%, #004e92 50%, #000428 100%);
+    }
+    {% elif chapter.background_theme == 'magical_door' %}
+    body {
+        background: linear-gradient(135deg, #ff6b6b 0%, #feca57 50%, #48dbfb 100%);
+    }
+    {% endif %}
+
+    /* Chapter Header */
+    .chapter-header {
+        text-align: center;
+        margin: 40px 0;
+    }
+
+    .chapter-number {
+        font-size: 1.2rem;
+        opacity: 0.7;
+        margin-bottom: 10px;
+    }
+
+    .chapter-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 10px;
+    }
+
+    .chapter-theme {
+        font-size: 1.2rem;
+        opacity: 0.8;
+    }
+
+    /* Story Introduction */
+    .story-section {
+        max-width: 800px;
+        margin: 40px auto;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(15px);
+        border-radius: 20px;
+        padding: 40px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .story-text {
+        font-size: 1.2rem;
+        line-height: 1.8;
+        font-style: italic;
+        color: var(--journey-light);
+    }
+
+    /* Challenges Section */
+    .challenges-section {
+        max-width: 900px;
+        margin: 40px auto;
+    }
+
+    .section-title {
+        font-size: 2rem;
+        text-align: center;
+        margin-bottom: 30px;
+        color: var(--journey-light);
+    }
+
+    .challenge-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 25px;
+        padding-top: 45px;
+        margin-bottom: 20px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+    .challenge-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(155, 89, 182, 0.3);
+    }
+
+    .challenge-completed {
+        border-color: var(--journey-success);
+        background: rgba(46, 204, 113, 0.1);
+    }
+
+    .challenge-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .challenge-type {
+        font-size: 0.9rem;
+        padding: 5px 15px;
+        border-radius: 12px;
+        background: rgba(155, 89, 182, 0.3);
+        border: 1px solid rgba(155, 89, 182, 0.5);
+    }
+
+    .challenge-points {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: var(--journey-secondary);
+    }
+
+    .challenge-question {
+        font-size: 1.1rem;
+        margin-bottom: 15px;
+        line-height: 1.6;
+    }
+
+    .challenge-btn {
+        display: inline-block;
+        padding: 12px 30px;
+        border-radius: 25px;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        color: white;
+        text-decoration: none;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        border: none;
+    }
+
+    .challenge-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(155, 89, 182, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+
+    .completed-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: var(--journey-success);
+        color: white;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: bold;
+    }
+
+    /* Rewards Section */
+    .rewards-section {
+        max-width: 800px;
+        margin: 40px auto;
+        text-align: center;
+    }
+
+    .reward-card {
+        background: rgba(255, 215, 0, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 30px;
+        border: 2px solid rgba(255, 215, 0, 0.3);
+        margin-bottom: 20px;
+    }
+
+    .reward-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+    }
+
+    .reward-title {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+
+    /* Completion Message */
+    .completion-message {
+        max-width: 800px;
+        margin: 40px auto;
+        background: rgba(46, 204, 113, 0.2);
+        backdrop-filter: blur(15px);
+        border-radius: 20px;
+        padding: 40px;
+        border: 2px solid rgba(46, 204, 113, 0.5);
+        text-align: center;
+    }
+
+    .completion-text {
+        font-size: 1.3rem;
+        line-height: 1.8;
+        font-style: italic;
+        margin: 20px 0;
+    }
+
+    /* Navigation */
+    .chapter-navigation {
+        display: flex;
+        justify-content: space-between;
+        max-width: 800px;
+        margin: 40px auto;
+    }
+
+    .nav-btn {
+        padding: 12px 30px;
+        border-radius: 25px;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        text-decoration: none;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .nav-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        color: white;
+        text-decoration: none;
+    }
+
+    /* Final Response Buttons (Chapter 6) */
+    .final-response-btn {
+        padding: 20px 40px;
+        border-radius: 30px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        min-width: 280px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .final-response-yes {
+        background: linear-gradient(135deg, #FF6B9D, #C850C0);
+        color: white;
+    }
+
+    .final-response-yes:hover {
+        transform: translateY(-5px) scale(1.05);
+        box-shadow: 0 15px 40px rgba(255, 107, 157, 0.5);
+    }
+
+    .final-response-thinking {
+        background: linear-gradient(135deg, #9B59B6, #667eea);
+        color: white;
+    }
+
+    .final-response-thinking:hover {
+        transform: translateY(-5px) scale(1.05);
+        box-shadow: 0 15px 40px rgba(155, 89, 182, 0.5);
+    }
+
+    .final-response-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .chapter-title {
+            font-size: 2rem;
+        }
+
+        .story-section {
+            padding: 25px;
+        }
+
+        .story-text {
+            font-size: 1.1rem;
+        }
+
+        .challenge-card {
+            padding: 20px;
+            padding-top: 40px;
+        }
+
+        .chapter-navigation {
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .final-response-btn {
+            min-width: 100%;
+            padding: 18px 30px;
+            font-size: 1.1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block journey_content %}
+<!-- Back to Map -->
+<div class="text-center mb-4">
+    <a href="{% url 'crush_lu:journey_map' %}" class="nav-btn">
+        <i class="bi bi-arrow-left"></i> Back to Journey Map
+    </a>
+</div>
+
+<!-- Chapter Header -->
+<div class="chapter-header animate-fade-in">
+    <div class="chapter-number">Chapter {{ chapter.chapter_number }} of {{ journey_progress.journey.total_chapters }}</div>
+    <h1 class="chapter-title">{{ chapter.title }}</h1>
+    <div class="chapter-theme">{{ chapter.theme }}</div>
+</div>
+
+<!-- Story Introduction -->
+<div class="story-section animate-fade-in" style="animation-delay: 0.2s;">
+    <p class="story-text">{{ chapter.story_introduction|linebreaks }}</p>
+</div>
+
+<!-- Challenges Section -->
+{% if challenges %}
+<div class="challenges-section animate-fade-in" style="animation-delay: 0.4s;">
+    <h2 class="section-title">
+        {% if is_completed %}
+            Completed Challenges ✅
+        {% else %}
+            Your Challenges
+        {% endif %}
+    </h2>
+
+    {% for challenge in challenges %}
+    <div class="challenge-card {% if challenge.id in challenge_attempts %}challenge-completed{% endif %}">
+        {% if challenge.id in challenge_attempts %}
+        <div class="completed-badge">
+            <i class="bi bi-check-circle-fill"></i> Completed
+        </div>
+        {% endif %}
+
+        <div class="challenge-header">
+            <span class="challenge-type">
+                <i class="bi bi-puzzle-fill"></i> {{ challenge.get_challenge_type_display }}
+            </span>
+            <span class="challenge-points">
+                <i class="bi bi-gem"></i> {{ challenge.points_awarded }} points
+            </span>
+        </div>
+
+        <div class="challenge-question">
+            {{ challenge.question|truncatewords:30 }}
+        </div>
+
+        {% if challenge.id in challenge_attempts %}
+            <div style="color: var(--journey-success); margin-top: 10px;">
+                <i class="bi bi-check-lg"></i> You solved this challenge!
+            </div>
+        {% else %}
+            <a href="{% url 'crush_lu:challenge_view' chapter.chapter_number challenge.id %}"
+               class="challenge-btn">
+                Start Challenge <i class="bi bi-arrow-right"></i>
+            </a>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Completion Message -->
+{% if is_completed %}
+<div class="completion-message animate-fade-in" style="animation-delay: 0.6s;">
+    <div style="font-size: 3rem; margin-bottom: 20px;">🎉</div>
+    <h2>Chapter Complete!</h2>
+    <p class="completion-text">{{ chapter.completion_message|linebreaks }}</p>
+
+    <!-- Chapter 6 Final Response (Special Handling) -->
+    {% if chapter.chapter_number == 6 and not journey_progress.final_response %}
+    <div id="finalResponseSection" style="margin-top: 40px;">
+        <div style="background: rgba(255, 107, 157, 0.1); border: 2px solid rgba(255, 107, 157, 0.3); border-radius: 20px; padding: 40px; margin-top: 30px;">
+            <h3 style="font-size: 1.8rem; margin-bottom: 20px; color: var(--journey-primary);">💫 The Final Question 💫</h3>
+            <p style="font-size: 1.3rem; line-height: 1.8; margin-bottom: 30px;">
+                {{ journey_progress.journey.final_message|linebreaks }}
+            </p>
+            <p style="font-size: 1.2rem; font-weight: bold; margin-bottom: 30px;">
+                Will you give this a chance?
+            </p>
+            <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+                <button onclick="submitFinalResponse('yes')" class="final-response-btn final-response-yes" id="btnYes">
+                    <i class="bi bi-heart-fill"></i> Yes, let's see where this goes 💫
+                </button>
+                <button onclick="submitFinalResponse('thinking')" class="final-response-btn final-response-thinking" id="btnThinking">
+                    <i class="bi bi-hourglass-split"></i> I need to think about this ✨
+                </button>
+            </div>
+            <div id="responseStatus" style="margin-top: 20px; font-size: 1.1rem;"></div>
+        </div>
+    </div>
+    {% elif chapter.chapter_number == 6 and journey_progress.final_response %}
+    <div style="margin-top: 30px; padding: 30px; background: rgba(46, 204, 113, 0.1); border: 2px solid rgba(46, 204, 113, 0.3); border-radius: 20px;">
+        <h3 style="margin-bottom: 15px;">💖 Your Response</h3>
+        <p style="font-size: 1.2rem;">
+            {% if journey_progress.final_response == 'yes' %}
+                You chose: <strong>"Yes, let's see where this goes 💫"</strong>
+            {% else %}
+                You chose: <strong>"I need to think about this ✨"</strong>
+            {% endif %}
+        </p>
+        <p style="font-size: 0.9rem; opacity: 0.8; margin-top: 10px;">
+            Responded on {{ journey_progress.final_response_at|date:"F j, Y \a\t g:i A" }}
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- Show Rewards -->
+    {% if rewards %}
+    <div style="margin-top: 30px;">
+        <h3 style="margin-bottom: 20px;">✨ Rewards Unlocked ✨</h3>
+        {% for reward in rewards %}
+        <div class="reward-card">
+            <div class="reward-icon">
+                {% if reward.reward_type == 'photo_reveal' %}📷
+                {% elif reward.reward_type == 'poem' %}📜
+                {% elif reward.reward_type == 'voice_message' %}🎵
+                {% elif reward.reward_type == 'video_message' %}🎬
+                {% elif reward.reward_type == 'photo_slideshow' %}🖼️
+                {% elif reward.reward_type == 'future_letter' %}💌
+                {% else %}🎁
+                {% endif %}
+            </div>
+            <div class="reward-title">{{ reward.title }}</div>
+            <a href="{% url 'crush_lu:reward_view' reward.id %}" class="challenge-btn mt-3">
+                View Reward <i class="bi bi-gift-fill"></i>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Navigation -->
+<div class="chapter-navigation">
+    {% if chapter.chapter_number > 1 %}
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number|add:"-1" %}" class="nav-btn">
+            <i class="bi bi-arrow-left"></i> Previous Chapter
+        </a>
+    {% else %}
+        <div></div>
+    {% endif %}
+
+    {% if is_completed and chapter.chapter_number < journey_progress.journey.total_chapters %}
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number|add:"1" %}" class="nav-btn">
+            Next Chapter <i class="bi bi-arrow-right"></i>
+        </a>
+    {% elif is_completed %}
+        <a href="{% url 'crush_lu:journey_map' %}" class="nav-btn">
+            <i class="bi bi-map-fill"></i> Return to Map
+        </a>
+    {% else %}
+        <div></div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_journey_js %}
+<script>
+// Custom template filter helper
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('Chapter {{ chapter.chapter_number }} loaded');
+});
+
+// Final Response Submission (Chapter 6)
+async function submitFinalResponse(response) {
+    const btnYes = document.getElementById('btnYes');
+    const btnThinking = document.getElementById('btnThinking');
+    const statusDiv = document.getElementById('responseStatus');
+
+    // Disable both buttons
+    btnYes.disabled = true;
+    btnThinking.disabled = true;
+
+    // Show loading message
+    statusDiv.innerHTML = '<i class="bi bi-hourglass-split"></i> Submitting your response...';
+    statusDiv.style.color = 'var(--journey-secondary)';
+
+    try {
+        // Get CSRF token from cookie
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+
+        const apiResponse = await fetch('{% url "crush_lu:api_record_final_response" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ response: response })
+        });
+
+        const data = await apiResponse.json();
+
+        if (data.success) {
+            // Show success message
+            statusDiv.innerHTML = '<i class="bi bi-check-circle-fill"></i> Thank you for your response! 💖';
+            statusDiv.style.color = 'var(--journey-success)';
+
+            // Reload page after 2 seconds to show the confirmed response
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            // Show error
+            statusDiv.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> ' + (data.message || 'An error occurred. Please try again.');
+            statusDiv.style.color = 'var(--journey-error)';
+
+            // Re-enable buttons
+            btnYes.disabled = false;
+            btnThinking.disabled = false;
+        }
+    } catch (error) {
+        console.error('Error submitting final response:', error);
+        statusDiv.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Network error. Please check your connection and try again.';
+        statusDiv.style.color = 'var(--journey-error)';
+
+        // Re-enable buttons
+        btnYes.disabled = false;
+        btnThinking.disabled = false;
+    }
+}
+</script>
+{% endblock %}

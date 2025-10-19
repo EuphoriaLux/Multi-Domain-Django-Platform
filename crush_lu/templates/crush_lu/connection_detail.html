@@ -1,0 +1,419 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+
+{% block title %}Connection with {{ other_user.first_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="text-center mb-4">
+                <h1 class="display-6 mb-3">Connection with {{ other_user.first_name }} 💕</h1>
+                <p class="text-muted">{{ connection.event.title }}</p>
+            </div>
+
+            <!-- Connection Status Timeline -->
+            <div class="card mb-4 shadow">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">Connection Progress</h5>
+
+                    <div class="timeline">
+                        <!-- Step 1: Requested -->
+                        <div class="timeline-item {% if connection.status != 'pending' %}completed{% endif %}">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-content">
+                                <h6>Connection Requested</h6>
+                                <small class="text-muted">{{ connection.requested_at|date:"M d, Y g:i A" }}</small>
+                                {% if connection.requester_note %}
+                                    <p class="small mt-2 mb-0">
+                                        <i class="bi bi-chat-left-quote"></i> "{{ connection.requester_note }}"
+                                    </p>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Accepted -->
+                        <div class="timeline-item {% if connection.status not in 'pending,declined' %}completed{% endif %}">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-content">
+                                <h6>Mutual Interest Confirmed</h6>
+                                {% if connection.status != 'pending' %}
+                                    <small class="text-muted">Accepted</small>
+                                {% else %}
+                                    <small class="text-muted">Waiting for response...</small>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Step 3: Coach Assigned -->
+                        <div class="timeline-item {% if connection.status in 'coach_reviewing,coach_approved,shared' %}completed{% endif %}">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-content">
+                                <h6>Coach Facilitation</h6>
+                                {% if connection.assigned_coach %}
+                                    <small class="text-muted">
+                                        Coach {{ connection.assigned_coach.user.first_name }} is helping facilitate
+                                    </small>
+                                {% else %}
+                                    <small class="text-muted">Pending coach assignment...</small>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Step 4: Consent -->
+                        <div class="timeline-item {% if connection.status in 'coach_approved,shared' %}completed{% endif %}">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-content">
+                                <h6>Consent to Share Contacts</h6>
+                                <div class="mt-2">
+                                    <small class="d-block">
+                                        You: {% if is_requester %}{{ connection.requester_consents_to_share|yesno:"✅ Consented,⏳ Pending" }}{% else %}{{ connection.recipient_consents_to_share|yesno:"✅ Consented,⏳ Pending" }}{% endif %}
+                                    </small>
+                                    <small class="d-block">
+                                        {{ other_user.first_name }}: {% if is_requester %}{{ connection.recipient_consents_to_share|yesno:"✅ Consented,⏳ Pending" }}{% else %}{{ connection.requester_consents_to_share|yesno:"✅ Consented,⏳ Pending" }}{% endif %}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 5: Shared -->
+                        <div class="timeline-item {% if connection.status == 'shared' %}completed{% endif %}">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-content">
+                                <h6>Contacts Shared! 🎉</h6>
+                                {% if connection.status == 'shared' %}
+                                    <small class="text-muted">You can now see each other's contact information</small>
+                                {% else %}
+                                    <small class="text-muted">Waiting for consents...</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coach Introduction Message -->
+            {% if connection.coach_introduction %}
+                <div class="card mb-4 shadow coach-message">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start">
+                            <div class="me-3">
+                                <i class="bi bi-chat-heart fs-2 text-primary"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-2">
+                                    Message from Coach {{ connection.assigned_coach.user.first_name }}
+                                </h6>
+                                <p class="mb-0">{{ connection.coach_introduction }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Consent Form (if coach_approved but not yet consented) -->
+            {% if connection.status == 'coach_approved' %}
+                {% if is_requester and not connection.requester_consents_to_share %}
+                    <div class="card mb-4 shadow border-warning">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-shield-check"></i> Consent Required
+                            </h5>
+                            <p>
+                                Your Crush Coach has approved this connection! Before your contact information
+                                is shared with {{ other_user.first_name }}, we need your explicit consent.
+                            </p>
+
+                            <div class="alert alert-info">
+                                <h6>What will be shared:</h6>
+                                <ul class="mb-0">
+                                    <li>Full name: {{ request.user.first_name }} {{ request.user.last_name }}</li>
+                                    <li>Email: {{ request.user.email }}</li>
+                                    {% if request.user.crushprofile.phone_number %}
+                                        <li>Phone: {{ request.user.crushprofile.phone_number }}</li>
+                                    {% endif %}
+                                    <li>Profile details and photos</li>
+                                </ul>
+                            </div>
+
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="consent" value="yes">
+
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="consent_checkbox" required>
+                                    <label class="form-check-label" for="consent_checkbox">
+                                        I consent to share my contact information with {{ other_user.first_name }}
+                                    </label>
+                                </div>
+
+                                <button type="submit" class="btn btn-gradient-primary">
+                                    <i class="bi bi-check-circle"></i> Give Consent
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                {% elif not is_requester and not connection.recipient_consents_to_share %}
+                    <div class="card mb-4 shadow border-warning">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-shield-check"></i> Consent Required
+                            </h5>
+                            <p>
+                                Your Crush Coach has approved this connection! Before your contact information
+                                is shared with {{ other_user.first_name }}, we need your explicit consent.
+                            </p>
+
+                            <div class="alert alert-info">
+                                <h6>What will be shared:</h6>
+                                <ul class="mb-0">
+                                    <li>Full name: {{ request.user.first_name }} {{ request.user.last_name }}</li>
+                                    <li>Email: {{ request.user.email }}</li>
+                                    {% if request.user.crushprofile.phone_number %}
+                                        <li>Phone: {{ request.user.crushprofile.phone_number }}</li>
+                                    {% endif %}
+                                    <li>Profile details and photos</li>
+                                </ul>
+                            </div>
+
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="consent" value="yes">
+
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="consent_checkbox" required>
+                                    <label class="form-check-label" for="consent_checkbox">
+                                        I consent to share my contact information with {{ other_user.first_name }}
+                                    </label>
+                                </div>
+
+                                <button type="submit" class="btn btn-gradient-primary">
+                                    <i class="bi bi-check-circle"></i> Give Consent
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle"></i> You've given consent!
+                        Waiting for {{ other_user.first_name }} to consent as well...
+                    </div>
+                {% endif %}
+            {% endif %}
+
+            <!-- Contact Information (if shared) -->
+            {% if connection.status == 'shared' %}
+                <div class="card mb-4 shadow border-success">
+                    <div class="card-body">
+                        <h5 class="card-title text-success">
+                            <i class="bi bi-check-circle-fill"></i> Contact Information Shared! 🎉
+                        </h5>
+
+                        <div class="row mt-4">
+                            <div class="col-md-6">
+                                <!-- Other User's Profile -->
+                                <div class="text-center mb-4">
+                                    {% if other_profile.photo_1 %}
+                                        <img src="{{ other_profile.photo_1.url }}"
+                                             alt="{{ other_user.first_name }}"
+                                             class="rounded-circle mb-3"
+                                             style="width: 100px; height: 100px; object-fit: cover;">
+                                    {% else %}
+                                        <div class="rounded-circle bg-gradient-primary d-inline-flex align-items-center justify-content-center mb-3"
+                                             style="width: 100px; height: 100px;">
+                                            <span class="text-white fs-2">{{ other_user.first_name|first }}</span>
+                                        </div>
+                                    {% endif %}
+
+                                    <h5>{{ other_user.first_name }} {{ other_user.last_name }}</h5>
+
+                                    {% if other_profile %}
+                                        <p class="text-muted mb-3">{{ other_profile.get_age_range }}</p>
+
+                                        <div class="text-start">
+                                            <p class="mb-2">
+                                                <i class="bi bi-envelope"></i>
+                                                <a href="mailto:{{ other_user.email }}">{{ other_user.email }}</a>
+                                            </p>
+
+                                            {% if other_profile.phone_number %}
+                                                <p class="mb-2">
+                                                    <i class="bi bi-phone"></i>
+                                                    <a href="tel:{{ other_profile.phone_number }}">{{ other_profile.phone_number }}</a>
+                                                </p>
+                                            {% endif %}
+
+                                            {% if other_profile.city %}
+                                                <p class="mb-2">
+                                                    <i class="bi bi-geo-alt"></i> {{ other_profile.city }}
+                                                </p>
+                                            {% endif %}
+
+                                            {% if other_profile.bio %}
+                                                <hr>
+                                                <p class="small text-muted">{{ other_profile.bio }}</p>
+                                            {% endif %}
+
+                                            {% if other_profile.interests %}
+                                                <p class="small">
+                                                    <i class="bi bi-star"></i> <strong>Interests:</strong> {{ other_profile.interests }}
+                                                </p>
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <!-- Coach Tips -->
+                                <div class="alert alert-light">
+                                    <h6><i class="bi bi-lightbulb"></i> Next Steps</h6>
+                                    <ul class="mb-0 small">
+                                        <li>Take your time getting to know each other</li>
+                                        <li>Suggest a casual first meetup (coffee, walk, etc.)</li>
+                                        <li>Be yourself and communicate openly</li>
+                                        <li>Your coach is still here if you need guidance!</li>
+                                    </ul>
+                                </div>
+
+                                <div class="d-grid gap-2">
+                                    <a href="mailto:{{ other_user.email }}" class="btn btn-primary">
+                                        <i class="bi bi-envelope"></i> Send Email
+                                    </a>
+                                    {% if other_profile.phone_number %}
+                                        <a href="tel:{{ other_profile.phone_number }}" class="btn btn-outline-primary">
+                                            <i class="bi bi-phone"></i> Call
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Messages (if any) -->
+            {% if messages %}
+                <div class="card mb-4 shadow">
+                    <div class="card-body">
+                        <h5 class="card-title">Messages</h5>
+                        <div class="messages-container">
+                            {% for msg in messages %}
+                                <div class="message-bubble {% if msg.sender == request.user %}sent{% else %}received{% endif %} {% if msg.is_coach_message %}coach{% endif %}">
+                                    <div class="message-header">
+                                        <strong>
+                                            {% if msg.is_coach_message %}
+                                                <i class="bi bi-chat-heart"></i> Coach {{ msg.sender.first_name }}
+                                            {% else %}
+                                                {{ msg.sender.first_name }}
+                                            {% endif %}
+                                        </strong>
+                                        <small class="text-muted">{{ msg.sent_at|date:"M d, g:i A" }}</small>
+                                    </div>
+                                    <p class="mb-0">{{ msg.message }}</p>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Back Button -->
+            <div class="text-center mt-4">
+                <a href="{% url 'crush_lu:my_connections' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Connections
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 30px;
+}
+
+.timeline-item:last-child {
+    padding-bottom: 0;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -30px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #e9ecef;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 2px #e9ecef;
+}
+
+.timeline-item.completed .timeline-marker {
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    box-shadow: 0 0 0 2px #9B59B6;
+}
+
+.timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: -20px;
+    top: 20px;
+    width: 2px;
+    height: calc(100% - 20px);
+    background: #e9ecef;
+}
+
+.timeline-item.completed:not(:last-child)::before {
+    background: linear-gradient(180deg, #9B59B6, #FF6B9D);
+}
+
+.coach-message {
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(255, 107, 157, 0.1));
+}
+
+.message-bubble {
+    padding: 12px 16px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+}
+
+.message-bubble.sent {
+    background: #e3f2fd;
+    margin-left: 20%;
+}
+
+.message-bubble.received {
+    background: #f5f5f5;
+    margin-right: 20%;
+}
+
+.message-bubble.coach {
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.2), rgba(255, 107, 157, 0.2));
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    color: white;
+}
+
+.btn-gradient-primary {
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    border: none;
+    color: white;
+}
+
+.btn-gradient-primary:hover {
+    background: linear-gradient(135deg, #8E44AD, #E74C3C);
+    color: white;
+}
+</style>
+{% endblock %}

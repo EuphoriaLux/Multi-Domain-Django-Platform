@@ -1,0 +1,511 @@
+/**
+ * Vins de Lux - Mobile-First Responsive Design for Plot Selection
+ * Optimized for touch interactions and premium mobile experience
+ */
+
+/* ============================================================================
+   MOBILE OPTIMIZATION (575px and below)
+   ============================================================================ */
+
+@media (max-width: 575.98px) {
+    /* Reduce spacing for mobile */
+    :root {
+        --vdl-space-4xl: 2.5rem;
+        --vdl-space-3xl: 2rem;
+        --vdl-space-2xl: 1.5rem;
+        --vdl-space-xl: 1.25rem;
+    }
+    
+    /* Hero Section Mobile */
+    .vdl-hero {
+        height: 60vh;
+        min-height: 400px;
+        padding: var(--vdl-space-lg);
+    }
+    
+    .vdl-hero-content {
+        padding: var(--vdl-space-lg);
+    }
+    
+    .vdl-hero-title {
+        font-size: var(--vdl-text-2xl);
+        margin-bottom: var(--vdl-space-lg);
+    }
+    
+    .vdl-hero-subtitle {
+        font-size: var(--vdl-text-base);
+        margin-bottom: var(--vdl-space-xl);
+    }
+    
+    /* Map Section Mobile */
+    .vdl-map-section {
+        padding: var(--vdl-space-2xl) 0;
+    }
+    
+    .vdl-map-container {
+        height: 300px;
+        margin-bottom: var(--vdl-space-xl);
+    }
+    
+    .vdl-map-overlay {
+        position: relative;
+        top: 0;
+        left: 0;
+        margin-bottom: var(--vdl-space-lg);
+        max-width: none;
+        width: 100%;
+    }
+    
+    /* Sidebar Mobile */
+    .vdl-sidebar {
+        position: relative;
+        top: 0;
+        margin-top: 0;
+        padding: var(--vdl-space-lg);
+        border-radius: var(--vdl-radius-lg);
+    }
+    
+    /* Cards Mobile */
+    .vdl-card {
+        padding: var(--vdl-space-lg);
+        border-radius: var(--vdl-radius-md);
+        margin-bottom: var(--vdl-space-lg);
+    }
+    
+    .vdl-card-premium {
+        margin-bottom: var(--vdl-space-xl);
+    }
+    
+    /* Buttons Mobile - Touch Optimized */
+    .vdl-btn {
+        min-height: 48px; /* Apple's minimum touch target */
+        padding: var(--vdl-space-md) var(--vdl-space-lg);
+        font-size: var(--vdl-text-base);
+        width: 100%;
+        margin-bottom: var(--vdl-space-sm);
+    }
+    
+    .vdl-btn:last-child {
+        margin-bottom: 0;
+    }
+    
+    /* Typography Mobile */
+    .vdl-heading-display {
+        font-size: var(--vdl-text-2xl);
+        line-height: 1.2;
+        margin-bottom: var(--vdl-space-lg);
+    }
+    
+    .vdl-heading-primary {
+        font-size: var(--vdl-text-xl);
+        margin-bottom: var(--vdl-space-md);
+    }
+    
+    .vdl-heading-secondary {
+        font-size: var(--vdl-text-lg);
+        margin-bottom: var(--vdl-space-sm);
+    }
+}
+
+/* ============================================================================
+   TABLET OPTIMIZATION (576px to 767px)
+   ============================================================================ */
+
+@media (min-width: 576px) and (max-width: 767.98px) {
+    .vdl-hero {
+        height: 65vh;
+        min-height: 450px;
+    }
+    
+    .vdl-hero-title {
+        font-size: var(--vdl-text-3xl);
+    }
+    
+    .vdl-map-container {
+        height: 400px;
+    }
+    
+    .vdl-btn {
+        width: auto;
+        min-width: 160px;
+        display: inline-flex;
+    }
+    
+    /* Side-by-side buttons on tablet */
+    .vdl-sidebar .d-grid.gap-2 {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--vdl-space-sm) !important;
+    }
+    
+    .vdl-sidebar .d-grid.gap-2 .w-100 {
+        width: auto !important;
+    }
+}
+
+/* ============================================================================
+   TOUCH INTERACTIONS & GESTURES
+   ============================================================================ */
+
+/* Touch-friendly interactive elements */
+@media (hover: none) and (pointer: coarse) {
+    .vdl-hover-lift:hover {
+        transform: none; /* Disable hover effects on touch devices */
+    }
+    
+    .vdl-hover-glow:hover {
+        box-shadow: var(--vdl-shadow-medium); /* Reduce hover effects */
+    }
+    
+    /* Increase touch targets */
+    .vdl-btn-close {
+        min-width: 44px;
+        min-height: 44px;
+        padding: var(--vdl-space-sm);
+    }
+    
+    .vdl-remove-item {
+        min-width: 36px;
+        min-height: 36px;
+        padding: var(--vdl-space-sm);
+    }
+    
+    /* Map controls */
+    .leaflet-control-zoom a {
+        width: 36px !important;
+        height: 36px !important;
+        line-height: 36px !important;
+        font-size: 18px !important;
+    }
+    
+    /* Plot markers - larger for touch */
+    .leaflet-marker-icon {
+        transform: scale(1.2) !important;
+    }
+}
+
+/* ============================================================================
+   MOBILE SPECIFIC COMPONENTS
+   ============================================================================ */
+
+/* Mobile Navigation Tabs */
+.vdl-mobile-tabs {
+    display: none;
+}
+
+@media (max-width: 767.98px) {
+    .vdl-mobile-tabs {
+        display: flex;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        background: var(--vdl-cream);
+        border-bottom: 2px solid var(--vdl-gold-alpha-20);
+        margin-bottom: var(--vdl-space-lg);
+    }
+    
+    .vdl-mobile-tab {
+        flex: 1;
+        background: none;
+        border: none;
+        padding: var(--vdl-space-lg);
+        color: var(--vdl-ash);
+        font-family: var(--vdl-font-sans);
+        font-weight: 500;
+        transition: all var(--vdl-transition-fast);
+    }
+    
+    .vdl-mobile-tab.active {
+        color: var(--vdl-burgundy);
+        background: var(--vdl-gold-alpha-20);
+        border-bottom: 3px solid var(--vdl-gold);
+    }
+    
+    .vdl-mobile-tab i {
+        display: block;
+        font-size: 1.25rem;
+        margin-bottom: var(--vdl-space-xs);
+    }
+}
+
+/* Mobile Floating Action Button */
+.vdl-mobile-fab {
+    display: none;
+}
+
+@media (max-width: 767.98px) {
+    .vdl-mobile-fab {
+        display: flex;
+        position: fixed;
+        bottom: var(--vdl-space-xl);
+        right: var(--vdl-space-lg);
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, var(--vdl-burgundy), var(--vdl-burgundy-dark));
+        color: var(--vdl-gold);
+        border: none;
+        border-radius: 50%;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        box-shadow: var(--vdl-shadow-dramatic);
+        z-index: 1000;
+        transition: all var(--vdl-transition-standard);
+    }
+    
+    .vdl-mobile-fab:hover,
+    .vdl-mobile-fab:focus {
+        transform: scale(1.1);
+        box-shadow: 0 8px 32px rgba(114, 47, 55, 0.3);
+    }
+    
+    .vdl-mobile-fab.hidden {
+        transform: translateY(100px);
+        opacity: 0;
+    }
+}
+
+/* Mobile Selection Counter */
+.vdl-mobile-selection-bar {
+    display: none;
+}
+
+@media (max-width: 767.98px) {
+    .vdl-mobile-selection-bar {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(135deg, var(--vdl-burgundy), var(--vdl-burgundy-dark));
+        color: var(--vdl-cream);
+        padding: var(--vdl-space-lg);
+        align-items: center;
+        justify-content: space-between;
+        z-index: 999;
+        transform: translateY(100%);
+        transition: transform var(--vdl-transition-standard);
+    }
+    
+    .vdl-mobile-selection-bar.visible {
+        transform: translateY(0);
+    }
+    
+    .vdl-mobile-selection-info {
+        display: flex;
+        align-items: center;
+        gap: var(--vdl-space-md);
+    }
+    
+    .vdl-mobile-selection-icon {
+        width: 40px;
+        height: 40px;
+        background: var(--vdl-gold-alpha-20);
+        color: var(--vdl-gold);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .vdl-mobile-proceed-btn {
+        background: var(--vdl-gold);
+        color: var(--vdl-burgundy);
+        border: none;
+        padding: var(--vdl-space-sm) var(--vdl-space-lg);
+        border-radius: var(--vdl-radius-lg);
+        font-weight: 600;
+        transition: all var(--vdl-transition-fast);
+    }
+    
+    .vdl-mobile-proceed-btn:hover {
+        background: var(--vdl-gold-light);
+        transform: scale(1.05);
+    }
+}
+
+/* ============================================================================
+   MOBILE MODAL OPTIMIZATIONS
+   ============================================================================ */
+
+@media (max-width: 575.98px) {
+    .modal-dialog {
+        margin: var(--vdl-space-sm);
+        max-width: none;
+    }
+    
+    .vdl-modal-header {
+        padding: var(--vdl-space-lg);
+        flex-direction: column;
+        text-align: center;
+        gap: var(--vdl-space-md);
+    }
+    
+    .vdl-modal-header .d-flex {
+        flex-direction: column;
+        gap: var(--vdl-space-md);
+        width: 100%;
+    }
+    
+    .vdl-modal-body {
+        padding: var(--vdl-space-lg);
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+    
+    .vdl-modal-footer {
+        padding: var(--vdl-space-lg);
+    }
+    
+    .vdl-modal-footer .row {
+        gap: var(--vdl-space-sm);
+    }
+    
+    .vdl-modal-footer .col-md-4,
+    .vdl-modal-footer .col-md-8 {
+        flex: none;
+        width: 100%;
+    }
+}
+
+/* ============================================================================
+   MOBILE LOADING STATES
+   ============================================================================ */
+
+@media (max-width: 767.98px) {
+    .vdl-wine-glass {
+        width: 50px;
+        height: 80px;
+    }
+    
+    .vdl-wine-glass::before {
+        width: 38px;
+        height: 55px;
+    }
+    
+    .vdl-wine-pour {
+        width: 30px;
+    }
+    
+    .vdl-loading-title {
+        font-size: var(--vdl-text-lg);
+        margin-bottom: var(--vdl-space-md);
+    }
+    
+    .vdl-loading-subtitle {
+        font-size: var(--vdl-text-sm);
+        margin-bottom: var(--vdl-space-lg);
+    }
+    
+    /* Mobile skeleton cards */
+    .vdl-skeleton-card {
+        padding: var(--vdl-space-md);
+        margin-bottom: var(--vdl-space-md);
+    }
+    
+    .vdl-skeleton-image {
+        height: 150px;
+        margin-bottom: var(--vdl-space-md);
+    }
+    
+    .vdl-skeleton-metrics {
+        flex-direction: column;
+        gap: var(--vdl-space-xs);
+    }
+    
+    .vdl-skeleton-metric {
+        height: 35px;
+    }
+}
+
+/* ============================================================================
+   MOBILE ACCESSIBILITY ENHANCEMENTS
+   ============================================================================ */
+
+/* Focus indicators for mobile */
+@media (max-width: 767.98px) {
+    .vdl-btn:focus,
+    .vdl-remove-item:focus,
+    .vdl-mobile-tab:focus {
+        outline: 3px solid var(--vdl-gold);
+        outline-offset: 2px;
+    }
+    
+    /* High contrast mode support */
+    @media (prefers-contrast: high) {
+        .vdl-card {
+            border: 2px solid var(--vdl-burgundy);
+        }
+        
+        .vdl-btn-primary {
+            border: 2px solid var(--vdl-burgundy);
+        }
+        
+        .vdl-btn-secondary {
+            background: var(--vdl-cream);
+            border: 2px solid var(--vdl-burgundy);
+        }
+    }
+    
+    /* Reduced motion support */
+    @media (prefers-reduced-motion: reduce) {
+        .vdl-wine-loading,
+        .vdl-fade-in,
+        .vdl-hover-lift {
+            animation: none !important;
+            transition: none !important;
+        }
+        
+        .vdl-btn::before {
+            display: none;
+        }
+    }
+}
+
+/* ============================================================================
+   MOBILE PERFORMANCE OPTIMIZATIONS
+   ============================================================================ */
+
+/* Reduce shadows and gradients on low-end devices */
+@media (max-width: 767.98px) and (max-resolution: 1dppx) {
+    .vdl-shadow-dramatic {
+        box-shadow: var(--vdl-shadow-medium);
+    }
+    
+    .vdl-shadow-hard {
+        box-shadow: var(--vdl-shadow-soft);
+    }
+    
+    .vdl-card-premium {
+        background: var(--vdl-cream);
+    }
+    
+    .vdl-hero-overlay {
+        background: var(--vdl-burgundy-alpha-80);
+    }
+}
+
+/* ============================================================================
+   MOBILE LANDSCAPE ORIENTATION
+   ============================================================================ */
+
+@media (max-width: 767.98px) and (orientation: landscape) {
+    .vdl-hero {
+        height: 100vh;
+        min-height: 300px;
+    }
+    
+    .vdl-hero-title {
+        font-size: var(--vdl-text-xl);
+        margin-bottom: var(--vdl-space-md);
+    }
+    
+    .vdl-hero-subtitle {
+        font-size: var(--vdl-text-sm);
+        margin-bottom: var(--vdl-space-lg);
+    }
+    
+    .vdl-map-container {
+        height: 250px;
+    }
+}

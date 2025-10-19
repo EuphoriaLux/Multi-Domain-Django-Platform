@@ -1,0 +1,228 @@
+{% extends 'vinsdelux/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ adoption_plan.name }} - Vinsdelux{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'vinsdelux:home' %}">{% trans "Home" %}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'vinsdelux:coffret_detail' adoption_plan.associated_coffret.slug %}">{{ adoption_plan.associated_coffret.name }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ adoption_plan.name }}</li>
+        </ol>
+    </nav>
+    
+    <div class="row">
+        <!-- Plan Images -->
+        <div class="col-md-6 mb-4">
+            {% if adoption_plan.images.exists %}
+                <div id="planCarousel" class="carousel slide" data-bs-ride="carousel">
+                    <div class="carousel-inner">
+                        {% for image in adoption_plan.images.all %}
+                            <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                <img src="{{ image.image.url }}" class="d-block w-100" alt="{{ image.alt_text }}" style="height: 500px; object-fit: cover;">
+                            </div>
+                        {% endfor %}
+                    </div>
+                    {% if adoption_plan.images.count > 1 %}
+                        <button class="carousel-control-prev" type="button" data-bs-target="#planCarousel" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">{% trans "Previous" %}</span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#planCarousel" data-bs-slide="next">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">{% trans "Next" %}</span>
+                        </button>
+                    {% endif %}
+                </div>
+            {% elif adoption_plan.associated_coffret.main_image %}
+                <img src="{{ adoption_plan.associated_coffret.main_image.url }}" class="img-fluid" alt="{{ adoption_plan.name }}" style="height: 500px; object-fit: cover; width: 100%;">
+            {% else %}
+                <div class="bg-light d-flex align-items-center justify-content-center" style="height: 500px;">
+                    <i class="fas fa-wine-bottle fa-5x text-muted"></i>
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Plan Info -->
+        <div class="col-md-6">
+            <h1 class="h2 mb-3">{{ adoption_plan.name }}</h1>
+            
+            <!-- Associated Coffret -->
+            <div class="mb-3">
+                <strong>{% trans "Based on:" %}</strong>
+                <a href="{% url 'vinsdelux:coffret_detail' adoption_plan.associated_coffret.slug %}" class="text-decoration-none">
+                    {{ adoption_plan.associated_coffret.name }}
+                </a>
+            </div>
+            
+            <!-- Producer Info -->
+            <div class="mb-3">
+                <strong>{% trans "Producer:" %}</strong>
+                <a href="{% url 'vinsdelux:producer_detail' adoption_plan.producer.slug %}" class="text-decoration-none">
+                    {{ adoption_plan.producer.name }}
+                </a>
+                {% if adoption_plan.producer.region %}
+                    <span class="text-muted">- {{ adoption_plan.producer.region }}</span>
+                {% endif %}
+            </div>
+            
+            <!-- Category -->
+            {% if adoption_plan.category %}
+                <div class="mb-3">
+                    <span class="badge bg-secondary">{{ adoption_plan.category.get_name_display }}</span>
+                </div>
+            {% endif %}
+            
+            <!-- Price -->
+            <div class="mb-4">
+                <span class="h3 text-primary">€{{ adoption_plan.price }}</span>
+                <span class="text-muted ms-2">{% trans "for the complete adoption plan" %}</span>
+            </div>
+            
+            <!-- Plan Details -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">{% trans "Plan Details" %}</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <i class="fas fa-calendar-alt text-primary me-2"></i>
+                            <strong>{% trans "Duration:" %}</strong> {{ adoption_plan.duration_months }} {% trans "months" %}
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-wine-bottle text-primary me-2"></i>
+                            <strong>{% trans "Coffrets per year:" %}</strong> {{ adoption_plan.coffrets_per_year }}
+                        </li>
+                        {% if adoption_plan.includes_visit %}
+                            <li class="mb-2">
+                                <i class="fas fa-check-circle text-success me-2"></i>
+                                {% trans "Vineyard visit included" %}
+                                {% if adoption_plan.visit_details %}
+                                    <small class="text-muted d-block ms-4">{{ adoption_plan.visit_details }}</small>
+                                {% endif %}
+                            </li>
+                        {% endif %}
+                        {% if adoption_plan.includes_medallion %}
+                            <li class="mb-2">
+                                <i class="fas fa-check-circle text-success me-2"></i>
+                                {% trans "Personalized medallion included" %}
+                            </li>
+                        {% endif %}
+                        {% if adoption_plan.includes_club_membership %}
+                            <li class="mb-2">
+                                <i class="fas fa-check-circle text-success me-2"></i>
+                                {% trans "Club Cuvée Privée membership" %}
+                            </li>
+                        {% endif %}
+                        {% if adoption_plan.avant_premiere_price %}
+                            <li class="mb-2">
+                                <i class="fas fa-gift text-primary me-2"></i>
+                                {% trans "Avant-Première gift option available" %} (€{{ adoption_plan.avant_premiere_price }})
+                            </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Add to Cart Button -->
+            <div class="mb-4">
+                <button class="btn btn-primary btn-lg me-2" onclick="addToCart('adoption_plan', {{ adoption_plan.id }})">
+                    <i class="fas fa-shopping-cart me-2"></i>{% trans "Choose This Plan" %}
+                </button>
+                <button class="btn btn-outline-secondary" onclick="addToWishlist({{ adoption_plan.id }})">
+                    <i class="fas fa-heart me-2"></i>{% trans "Add to Wishlist" %}
+                </button>
+            </div>
+            
+            <!-- SKU -->
+            {% if adoption_plan.sku %}
+                <div class="mb-3">
+                    <small class="text-muted">{% trans "SKU:" %} {{ adoption_plan.sku }}</small>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Short Description -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <h3>{% trans "Plan Overview" %}</h3>
+            <div class="card">
+                <div class="card-body">
+                    {{ adoption_plan.short_description|linebreaks }}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Full Description -->
+    {% if adoption_plan.full_description %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <h3>{% trans "Detailed Description" %}</h3>
+                <div class="card">
+                    <div class="card-body">
+                        {{ adoption_plan.full_description|linebreaks }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    
+    <!-- Welcome Kit -->
+    {% if adoption_plan.welcome_kit_description %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <h3>{% trans "Welcome Kit" %}</h3>
+                <div class="card">
+                    <div class="card-body">
+                        {{ adoption_plan.welcome_kit_description|linebreaks }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    
+    <!-- Associated Coffret Info -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <h3>{% trans "About the Base Coffret" %}</h3>
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            {% if adoption_plan.associated_coffret.main_image %}
+                                <img src="{{ adoption_plan.associated_coffret.main_image.url }}" class="img-fluid rounded" alt="{{ adoption_plan.associated_coffret.name }}">
+                            {% endif %}
+                        </div>
+                        <div class="col-md-9">
+                            <h5>{{ adoption_plan.associated_coffret.name }}</h5>
+                            <p>{{ adoption_plan.associated_coffret.short_description }}</p>
+                            <a href="{% url 'vinsdelux:coffret_detail' adoption_plan.associated_coffret.slug %}" class="btn btn-outline-primary">
+                                {% trans "View Coffret Details" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function addToCart(type, id) {
+    // This will be implemented with the shopping cart functionality
+    alert('{% trans "Add to cart functionality coming soon!" %}');
+}
+
+function addToWishlist(id) {
+    // This will be implemented with the wishlist functionality
+    alert('{% trans "Wishlist functionality coming soon!" %}');
+}
+</script>
+{% endblock %}

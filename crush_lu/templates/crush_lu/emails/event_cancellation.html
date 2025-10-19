@@ -1,0 +1,33 @@
+{% extends "crush_lu/emails/base_email.html" %}
+
+{% block title %}Registration Cancelled - Crush.lu{% endblock %}
+
+{% block header_title %}Registration Cancelled{% endblock %}
+
+{% block content %}
+<h2>Hey {{ user.first_name }},</h2>
+
+<p>Your registration for <strong>{{ event.title }}</strong> has been cancelled.</p>
+
+<div class="info-box">
+    <strong>Event Details:</strong>
+    <ul style="margin: 10px 0;">
+        <li><strong>Event:</strong> {{ event.title }}</li>
+        <li><strong>Date:</strong> {{ event.date_time|date:"l, F j, Y" }}</li>
+        <li><strong>Time:</strong> {{ event.date_time|date:"g:i A" }}</li>
+    </ul>
+</div>
+
+<p>If you paid a registration fee, it will be refunded within 5-7 business days.</p>
+
+<p>We hope to see you at a future event!</p>
+
+<a href="https://crush.lu/events/" class="button">Browse Upcoming Events</a>
+
+<p>Changed your mind? You can re-register if spots are still available.</p>
+
+<p>
+    Best,<br>
+    <strong>The Crush.lu Team</strong>
+</p>
+{% endblock %}

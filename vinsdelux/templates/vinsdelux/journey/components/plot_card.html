@@ -1,0 +1,278 @@
+{% load static i18n %}
+
+<!-- 
+  Plot Card Component - Reusable luxury card for vineyard plots
+  Usage: {% include 'vinsdelux/journey/components/plot_card.html' with plot=plot_object %}
+-->
+
+<div class="vdl-card vdl-card-premium vdl-hover-lift plot-card" 
+     data-plot-id="{{ plot.id }}"
+     data-aos="fade-up" 
+     data-aos-delay="{{ forloop.counter0|mul:100 }}">
+     
+    <!-- Plot Image with Overlay -->
+    <div class="position-relative mb-3">
+        {% if plot.image %}
+            <img src="{{ plot.image.url }}" 
+                 alt="{{ plot.name }}" 
+                 class="img-fluid rounded"
+                 style="height: 200px; width: 100%; object-fit: cover;">
+        {% else %}
+            <img src="{% static 'images/vineyard-defaults/vineyard_01.jpg' %}" 
+                 alt="{{ plot.name }}" 
+                 class="img-fluid rounded"
+                 style="height: 200px; width: 100%; object-fit: cover;">
+        {% endif %}
+        
+        <!-- Availability Badge -->
+        <div class="position-absolute top-0 end-0 m-3">
+            {% if plot.is_available %}
+                <span class="badge" style="background: var(--vdl-gold); color: var(--vdl-burgundy);">
+                    <i class="fas fa-check-circle me-1"></i>
+                    {% trans "Available" %}
+                </span>
+            {% else %}
+                <span class="badge" style="background: var(--vdl-burgundy); color: var(--vdl-cream);">
+                    <i class="fas fa-times-circle me-1"></i>
+                    {% trans "Reserved" %}
+                </span>
+            {% endif %}
+        </div>
+        
+        <!-- Premium Indicator -->
+        {% if plot.is_premium %}
+            <div class="position-absolute top-0 start-0 m-3">
+                <span class="badge" style="background: var(--vdl-gold); color: var(--vdl-burgundy);">
+                    <i class="fas fa-crown me-1"></i>
+                    {% trans "Premier" %}
+                </span>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Plot Header -->
+    <div class="vdl-card-header">
+        <h4 class="vdl-heading-tertiary vdl-mb-xs">{{ plot.name }}</h4>
+        <div class="d-flex align-items-center gap-2 vdl-mb-sm">
+            <i class="fas fa-map-marker-alt vdl-text-gold"></i>
+            <span class="vdl-caption">{{ plot.location }}</span>
+        </div>
+        
+        <!-- Key Metrics Row -->
+        <div class="row g-2">
+            <div class="col-4">
+                <div class="text-center p-2 rounded" style="background: var(--vdl-pearl);">
+                    <div class="vdl-caption vdl-text-gold">{% trans "Size" %}</div>
+                    <div class="vdl-body-small fw-bold">{{ plot.size_hectares }}ha</div>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="text-center p-2 rounded" style="background: var(--vdl-pearl);">
+                    <div class="vdl-caption vdl-text-gold">{% trans "Elevation" %}</div>
+                    <div class="vdl-body-small fw-bold">{{ plot.elevation }}m</div>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="text-center p-2 rounded" style="background: var(--vdl-pearl);">
+                    <div class="vdl-caption vdl-text-gold">{% trans "Slope" %}</div>
+                    <div class="vdl-body-small fw-bold">{{ plot.slope }}°</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Plot Details -->
+    <div class="vdl-card-body">
+        <!-- Terroir Information -->
+        <div class="row g-3 vdl-mb-md">
+            <div class="col-6">
+                <div class="vdl-caption vdl-mb-xs">
+                    <i class="fas fa-mountain vdl-text-gold me-1"></i>
+                    {% trans "Soil Type" %}
+                </div>
+                <div class="vdl-body-small">{{ plot.soil_type }}</div>
+            </div>
+            <div class="col-6">
+                <div class="vdl-caption vdl-mb-xs">
+                    <i class="fas fa-sun vdl-text-gold me-1"></i>
+                    {% trans "Exposure" %}
+                </div>
+                <div class="vdl-body-small">{{ plot.sun_exposure }}</div>
+            </div>
+        </div>
+        
+        <!-- Wine Profile -->
+        {% if plot.wine_profile %}
+            <div class="vdl-mb-md">
+                <div class="vdl-caption vdl-mb-xs">
+                    <i class="fas fa-wine-glass-alt vdl-text-gold me-1"></i>
+                    {% trans "Wine Character" %}
+                </div>
+                <p class="vdl-body-small">{{ plot.wine_profile|truncatewords:15 }}</p>
+            </div>
+        {% endif %}
+        
+        <!-- Grape Varieties -->
+        {% if plot.grape_varieties.exists %}
+            <div class="vdl-mb-md">
+                <div class="vdl-caption vdl-mb-xs">
+                    <i class="fas fa-seedling vdl-text-gold me-1"></i>
+                    {% trans "Grape Varieties" %}
+                </div>
+                <div class="d-flex flex-wrap gap-1">
+                    {% for variety in plot.grape_varieties.all %}
+                        <span class="badge rounded-pill" style="background: var(--vdl-gold-alpha-20); color: var(--vdl-burgundy);">
+                            {{ variety.name }}
+                        </span>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+        
+        <!-- Special Features -->
+        {% if plot.special_features %}
+            <div class="vdl-mb-md">
+                <div class="vdl-caption vdl-mb-xs">
+                    <i class="fas fa-star vdl-text-gold me-1"></i>
+                    {% trans "Special Features" %}
+                </div>
+                <div class="d-flex flex-wrap gap-1">
+                    {% for feature in plot.special_features %}
+                        <span class="badge rounded-pill" style="background: var(--vdl-burgundy-alpha-10); color: var(--vdl-burgundy);">
+                            {{ feature }}
+                        </span>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Plot Footer with Price and Action -->
+    <div class="vdl-card-footer">
+        <div class="d-flex align-items-center justify-content-between vdl-mb-md">
+            <div>
+                <div class="vdl-caption">{% trans "Starting from" %}</div>
+                <div class="vdl-heading-tertiary vdl-text-burgundy">
+                    €{{ plot.base_price|floatformat:0 }}
+                    <span class="vdl-body-small vdl-text-muted">{% trans "/year" %}</span>
+                </div>
+            </div>
+            
+            <!-- Rating Stars -->
+            {% if plot.quality_rating %}
+                <div class="text-end">
+                    <div class="vdl-caption vdl-mb-xs">{% trans "Quality Rating" %}</div>
+                    <div>
+                        {% for i in "12345"|make_list %}
+                            {% if forloop.counter <= plot.quality_rating %}
+                                <i class="fas fa-star vdl-text-gold"></i>
+                            {% else %}
+                                <i class="far fa-star vdl-text-gold"></i>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Action Buttons -->
+        <div class="d-grid gap-2">
+            {% if plot.is_available %}
+                <button type="button" 
+                        class="vdl-btn vdl-btn-primary plot-select-btn"
+                        data-plot-id="{{ plot.id }}"
+                        onclick="selectPlotFromCard('{{ plot.id }}')">
+                    <i class="fas fa-map-marked-alt me-2"></i>
+                    {% trans "Select This Plot" %}
+                </button>
+                
+                <button type="button" 
+                        class="vdl-btn vdl-btn-secondary plot-details-btn"
+                        data-plot-id="{{ plot.id }}"
+                        onclick="showPlotDetails('{{ plot.id }}')">
+                    <i class="fas fa-info-circle me-2"></i>
+                    {% trans "View Details" %}
+                </button>
+            {% else %}
+                <button type="button" class="vdl-btn vdl-btn-secondary" disabled>
+                    <i class="fas fa-lock me-2"></i>
+                    {% trans "Currently Unavailable" %}
+                </button>
+                
+                <button type="button" 
+                        class="vdl-btn vdl-btn-accent vdl-btn-sm"
+                        onclick="joinWaitlist('{{ plot.id }}')">
+                    <i class="fas fa-bell me-2"></i>
+                    {% trans "Join Waitlist" %}
+                </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Plot Card Specific Styles -->
+<style>
+    .plot-card {
+        transition: all var(--vdl-transition-standard);
+    }
+    
+    .plot-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: var(--vdl-shadow-dramatic);
+    }
+    
+    .plot-card .badge {
+        font-size: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        font-weight: 500;
+    }
+    
+    .plot-card .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 767.98px) {
+        .plot-card {
+            margin-bottom: var(--vdl-space-lg);
+        }
+        
+        .plot-card .row.g-2 > .col-4 {
+            margin-bottom: var(--vdl-space-xs);
+        }
+    }
+</style>
+
+<!-- Plot Card JavaScript Functions -->
+<script>
+    function selectPlotFromCard(plotId) {
+        // Find plot data and trigger selection
+        const plotData = plotsData.find(p => p.id === plotId);
+        if (plotData) {
+            selectPlot(plotData);
+            
+            // Scroll to map section if on mobile
+            if (window.innerWidth < 768) {
+                document.getElementById('vineyard-selection').scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        }
+    }
+    
+    function showPlotDetails(plotId) {
+        // Show detailed modal or expand card
+        const plotData = plotsData.find(p => p.id === plotId);
+        if (plotData) {
+            // Implementation for detailed view
+            console.log('Show details for:', plotData);
+        }
+    }
+    
+    function joinWaitlist(plotId) {
+        // Handle waitlist signup
+        alert('{% trans "Waitlist functionality coming soon!" %}');
+    }
+</script>

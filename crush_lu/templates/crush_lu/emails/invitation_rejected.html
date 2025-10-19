@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invitation Update</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background: #6c757d;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(108, 117, 125, 0.2);
+        }
+        .inner-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+        }
+        h1 {
+            color: #6c757d;
+            font-size: 28px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .feedback-box {
+            background: #f8f9fa;
+            border-left: 4px solid #6c757d;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 8px;
+        }
+        .cta-button {
+            display: inline-block;
+            background: #9B59B6;
+            color: white;
+            padding: 15px 40px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px auto;
+            display: block;
+            width: fit-content;
+            box-shadow: 0 4px 15px rgba(155, 89, 182, 0.3);
+        }
+        .footer {
+            text-align: center;
+            color: #999;
+            font-size: 13px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="inner-content">
+            <h1>Update on Your Invitation</h1>
+            <p class="subtitle">Regarding: {{ event.title }}</p>
+
+            <p>Hi {{ user.first_name|default:user.username }},</p>
+
+            <p>Thank you for your interest in attending <strong>{{ event.title }}</strong>.</p>
+
+            <p>After careful review, we're unable to approve your invitation to this particular event at this time.</p>
+
+            {% if feedback and feedback != "No specific feedback provided." %}
+            <div class="feedback-box">
+                <strong>Feedback from our team:</strong><br>
+                {{ feedback }}
+            </div>
+            {% endif %}
+
+            <p>We appreciate your understanding. Crush.lu hosts many events throughout the year, and we'd love to see you at future events that might be a better fit.</p>
+
+            <a href="https://crush.lu/events/" class="cta-button">
+                Browse Other Events
+            </a>
+
+            <div class="footer">
+                <p>Questions or concerns? We're here to help!</p>
+                <p>Please reply to this email and our team will get back to you.</p>
+                <p style="margin-top: 15px;">
+                    © {{ "now"|date:"Y" }} Crush.lu - Privacy-First Dating in Luxembourg
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

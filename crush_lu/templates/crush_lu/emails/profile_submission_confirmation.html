@@ -1,0 +1,36 @@
+{% extends "crush_lu/emails/base_email.html" %}
+
+{% block title %}Profile Submitted - Crush.lu{% endblock %}
+
+{% block header_title %}Profile Submitted! 🎉{% endblock %}
+
+{% block content %}
+<h2>Hey {{ first_name }}!</h2>
+
+<p>Thanks for submitting your Crush.lu profile! We're excited to have you join our community.</p>
+
+<div class="info-box">
+    <strong>What happens next?</strong>
+    <ul>
+        <li>Our coaches will review your profile within 24-48 hours</li>
+        <li>You'll receive an email once your profile is approved</li>
+        <li>Then you can start browsing and registering for events!</li>
+    </ul>
+</div>
+
+<p>We carefully review every profile to ensure our community stays authentic and respectful. This helps create a safe, quality experience for everyone.</p>
+
+<p><strong>While you wait:</strong></p>
+<ul>
+    <li>Check out our <a href="https://crush.lu/events/" style="color: #9B59B6;">upcoming events</a></li>
+    <li>Read our <a href="https://crush.lu/how-it-works/" style="color: #9B59B6;">how it works</a> guide</li>
+    <li>Follow us on social media for updates</li>
+</ul>
+
+<p>We'll be in touch soon!</p>
+
+<p>
+    Best,<br>
+    <strong>The Crush.lu Team</strong>
+</p>
+{% endblock %}

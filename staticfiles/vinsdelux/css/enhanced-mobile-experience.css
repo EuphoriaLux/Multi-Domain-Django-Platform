@@ -1,0 +1,354 @@
+/**
+ * Enhanced Mobile Experience for VinsDelux Plot Selection
+ * Optimized touch interactions and responsive design
+ */
+
+/* Mobile-First Base Styles */
+@media (max-width: 767px) {
+    /* Hero Section Mobile Optimization */
+    .vdl-hero {
+        min-height: 100vh;
+        padding: 20px;
+    }
+    
+    .vdl-hero-title {
+        font-size: 2rem !important;
+        line-height: 1.2;
+        margin-bottom: 1rem;
+    }
+    
+    .vdl-hero-subtitle {
+        font-size: 1rem !important;
+        padding: 0 20px;
+    }
+    
+    /* Mobile Map Container */
+    .vdl-map-section {
+        padding: 20px 0;
+    }
+    
+    #vineyard-map {
+        height: 60vh !important;
+        min-height: 400px;
+        border-radius: 0 !important;
+        margin: 0 -15px;
+        width: calc(100% + 30px) !important;
+    }
+    
+    /* Mobile Sidebar - Bottom Drawer Pattern */
+    .vdl-sidebar {
+        position: fixed !important;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        max-height: 70vh;
+        border-radius: 20px 20px 0 0 !important;
+        transform: translateY(calc(100% - 80px));
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 1100;
+        background: white;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+    }
+    
+    .vdl-sidebar.expanded {
+        transform: translateY(0);
+    }
+    
+    /* Drawer Handle */
+    .vdl-sidebar::before {
+        content: '';
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40px;
+        height: 4px;
+        background: #D4AF37;
+        border-radius: 2px;
+    }
+    
+    /* Mobile Touch Targets - 44px minimum */
+    .vdl-btn,
+    button,
+    .vdl-legend-item,
+    .vdl-cart-item {
+        min-height: 44px;
+        padding: 12px 16px;
+    }
+    
+    /* Mobile Selection Cart */
+    .vdl-selection-cart {
+        max-height: 200px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Mobile Plot Details */
+    #plot-details {
+        padding: 15px;
+    }
+    
+    #plot-details .row {
+        margin: 0;
+    }
+    
+    #plot-details .col-6 {
+        padding: 5px;
+    }
+    
+    /* Mobile Legend - Horizontal Scroll */
+    .vdl-map-legend {
+        display: flex;
+        gap: 15px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 10px 0;
+        scrollbar-width: none;
+    }
+    
+    .vdl-map-legend::-webkit-scrollbar {
+        display: none;
+    }
+    
+    /* Mobile Progress Indicator */
+    .vdl-progress-steps {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .vdl-progress-steps .text-center {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .vdl-progress-steps hr {
+        display: none;
+    }
+    
+    /* Mobile Modal */
+    .modal-dialog {
+        margin: 0;
+        height: 100%;
+        max-width: 100%;
+    }
+    
+    .modal-content {
+        height: 100%;
+        border-radius: 0;
+    }
+    
+    /* Touch-Friendly Plot Cards */
+    .vdl-cart-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        background: #F8F5F0;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        position: relative;
+    }
+    
+    .vdl-remove-item {
+        width: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(114, 47, 55, 0.1);
+        border: none;
+        border-radius: 50%;
+        color: #722F37;
+        font-size: 18px;
+    }
+    
+    /* Mobile Actions Bar */
+    .vdl-mobile-actions {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        padding: 15px;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        display: flex;
+        gap: 10px;
+    }
+    
+    .vdl-mobile-actions .vdl-btn {
+        flex: 1;
+    }
+    
+    /* Swipe Indicator */
+    .vdl-swipe-hint {
+        position: absolute;
+        bottom: 100px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 14px;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 0.8; }
+        50% { opacity: 1; }
+    }
+}
+
+/* Tablet Optimizations */
+@media (min-width: 768px) and (max-width: 1199px) {
+    .vdl-hero-title {
+        font-size: 2.5rem;
+    }
+    
+    #vineyard-map {
+        height: 500px !important;
+    }
+    
+    .vdl-sidebar {
+        position: sticky;
+        top: 20px;
+        max-height: calc(100vh - 40px);
+    }
+    
+    .container-fluid.vdl-container-xl {
+        padding: 0 30px;
+    }
+    
+    .vdl-map-info-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Touch Device Enhancements */
+@media (hover: none) and (pointer: coarse) {
+    /* Disable hover effects on touch devices */
+    .vdl-btn:hover,
+    .vdl-legend-item:hover,
+    .vdl-info-card:hover {
+        transform: none !important;
+    }
+    
+    /* Larger touch targets */
+    .leaflet-control-zoom a {
+        width: 44px !important;
+        height: 44px !important;
+        line-height: 44px !important;
+        font-size: 22px !important;
+    }
+    
+    /* Touch feedback */
+    .vdl-btn:active,
+    .vdl-cart-item:active {
+        transform: scale(0.98);
+        transition: transform 0.1s;
+    }
+}
+
+/* Landscape Mobile Adjustments */
+@media (max-width: 767px) and (orientation: landscape) {
+    .vdl-hero {
+        min-height: auto;
+        padding: 40px 20px;
+    }
+    
+    #vineyard-map {
+        height: 80vh !important;
+    }
+    
+    .vdl-sidebar {
+        max-height: 90vh;
+    }
+}
+
+/* Performance Optimizations */
+@media (max-width: 767px) {
+    /* Reduce animation complexity on mobile */
+    * {
+        animation-duration: 0.3s !important;
+    }
+    
+    /* Optimize shadows for performance */
+    .vdl-card,
+    .vdl-sidebar,
+    .vdl-map-wrapper {
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    /* Simplify gradients */
+    .vdl-hero {
+        background: linear-gradient(135deg, #722F37 0%, #8B4513 100%) !important;
+    }
+}
+
+/* Accessibility for Mobile */
+@media (max-width: 767px) {
+    /* Ensure focus indicators are visible */
+    *:focus {
+        outline: 3px solid #D4AF37 !important;
+        outline-offset: 2px;
+    }
+    
+    /* Screen reader only content positioning */
+    .sr-only-focusable:focus {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 9999;
+        background: white;
+        padding: 10px;
+        border-radius: 4px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) and (max-width: 767px) {
+    .vdl-sidebar {
+        background: #1a1a1a;
+        color: #F5F5DC;
+    }
+    
+    .vdl-cart-item {
+        background: #2a2a2a;
+        color: #F5F5DC;
+    }
+    
+    .vdl-btn-primary {
+        background: #D4AF37;
+        color: #1a1a1a;
+    }
+    
+    .vdl-btn-secondary {
+        background: transparent;
+        border: 2px solid #D4AF37;
+        color: #D4AF37;
+    }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+    .vdl-btn,
+    .vdl-cart-item,
+    .vdl-legend-item {
+        border: 2px solid currentColor;
+    }
+    
+    .vdl-map-container {
+        border: 3px solid #000;
+    }
+}

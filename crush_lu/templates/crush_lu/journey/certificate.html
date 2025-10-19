@@ -1,0 +1,411 @@
+{% extends "crush_lu/journey/journey_base.html" %}
+{% load static %}
+
+{% block extra_journey_css %}
+<style>
+    .certificate-container {
+        max-width: 900px;
+        margin: 40px auto;
+    }
+
+    .certificate {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.98));
+        color: #2c3e50;
+        border-radius: 20px;
+        padding: 60px;
+        position: relative;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        border: 15px solid;
+        border-image: linear-gradient(135deg, #FFD700, #FFA500, #FF6B9D, #9B59B6) 1;
+    }
+
+    .certificate-header {
+        text-align: center;
+        margin-bottom: 40px;
+    }
+
+    .certificate-ornament {
+        font-size: 3rem;
+        margin-bottom: 20px;
+    }
+
+    .certificate-title {
+        font-size: 3rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #FFD700, #FFA500);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 10px;
+        letter-spacing: 2px;
+    }
+
+    .certificate-subtitle {
+        font-size: 1.2rem;
+        color: #7f8c8d;
+        font-style: italic;
+    }
+
+    .certificate-body {
+        text-align: center;
+        margin: 40px 0;
+    }
+
+    .certify-text {
+        font-size: 1.3rem;
+        margin-bottom: 30px;
+        color: #34495e;
+    }
+
+    .recipient-name {
+        font-size: 3rem;
+        font-weight: 700;
+        color: #2c3e50;
+        margin: 30px 0;
+        padding: 20px;
+        border-top: 3px solid #FFD700;
+        border-bottom: 3px solid #FFD700;
+    }
+
+    .achievement-text {
+        font-size: 1.4rem;
+        margin: 30px 0;
+        color: #34495e;
+        line-height: 1.8;
+    }
+
+    .journey-title {
+        font-size: 2rem;
+        font-weight: bold;
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin: 20px 0;
+    }
+
+    .stats-section {
+        display: flex;
+        justify-content: space-around;
+        margin: 40px 0;
+        flex-wrap: wrap;
+    }
+
+    .stat-box {
+        text-align: center;
+        min-width: 150px;
+        margin: 10px;
+    }
+
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #9B59B6;
+    }
+
+    .stat-label {
+        font-size: 1rem;
+        color: #7f8c8d;
+        margin-top: 5px;
+    }
+
+    .quote-section {
+        margin: 40px 0;
+        padding: 30px;
+        background: rgba(155, 89, 182, 0.1);
+        border-radius: 15px;
+        border-left: 5px solid #9B59B6;
+    }
+
+    .quote-text {
+        font-size: 1.3rem;
+        font-style: italic;
+        color: #2c3e50;
+        line-height: 1.8;
+        text-align: center;
+    }
+
+    .certificate-footer {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 60px;
+        padding-top: 30px;
+        border-top: 2px solid #ecf0f1;
+    }
+
+    .signature-section {
+        text-align: center;
+    }
+
+    .signature-line {
+        width: 200px;
+        border-top: 2px solid #34495e;
+        margin: 10px 0;
+    }
+
+    .signature-label {
+        font-size: 0.9rem;
+        color: #7f8c8d;
+        margin-top: 5px;
+    }
+
+    .certificate-seal {
+        position: absolute;
+        bottom: 40px;
+        right: 40px;
+        width: 100px;
+        height: 100px;
+        background: linear-gradient(135deg, #FFD700, #FFA500);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        box-shadow: 0 5px 20px rgba(255, 215, 0, 0.5);
+        animation: pulse 2s infinite;
+    }
+
+    .action-buttons {
+        text-align: center;
+        margin: 40px 0;
+    }
+
+    .action-btn {
+        display: inline-block;
+        margin: 10px;
+        padding: 15px 40px;
+        border-radius: 25px;
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        color: white;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+    }
+
+    .action-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(155, 89, 182, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+
+    .action-btn.secondary {
+        background: linear-gradient(135deg, #3498db, #2ecc71);
+    }
+
+    /* Print Styles */
+    @media print {
+        body {
+            background: white;
+        }
+
+        .nav-btn, .action-buttons {
+            display: none;
+        }
+
+        .certificate {
+            box-shadow: none;
+            border: 15px solid #FFD700;
+        }
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .certificate {
+            padding: 30px 20px;
+            border-width: 8px;
+        }
+
+        .certificate-title {
+            font-size: 2rem;
+        }
+
+        .recipient-name {
+            font-size: 2rem;
+        }
+
+        .journey-title {
+            font-size: 1.5rem;
+        }
+
+        .stat-box {
+            min-width: 100px;
+        }
+
+        .certificate-footer {
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .certificate-seal {
+            width: 80px;
+            height: 80px;
+            font-size: 1.5rem;
+            bottom: 20px;
+            right: 20px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block journey_content %}
+<div class="certificate-container animate-fade-in">
+    <!-- Back Button -->
+    <div class="text-center mb-4" style="color: white;">
+        <a href="{% url 'crush_lu:journey_map' %}" class="nav-btn">
+            <i class="bi bi-arrow-left"></i> Back to Journey Map
+        </a>
+    </div>
+
+    <div class="certificate">
+        <!-- Decorative Seal -->
+        <div class="certificate-seal">
+            🏆
+        </div>
+
+        <!-- Header -->
+        <div class="certificate-header">
+            <div class="certificate-ornament">🌟 ✨ 🌟</div>
+            <h1 class="certificate-title">CERTIFICATE OF COMPLETION</h1>
+            <p class="certificate-subtitle">For extraordinary courage and dedication</p>
+        </div>
+
+        <!-- Body -->
+        <div class="certificate-body">
+            <p class="certify-text">This certifies that</p>
+
+            <div class="recipient-name">
+                {{ journey_progress.user.first_name }} {{ journey_progress.user.last_name }}
+            </div>
+
+            <p class="achievement-text">
+                has successfully completed the journey through
+            </p>
+
+            <div class="journey-title">
+                "{{ journey.journey_name }}"
+            </div>
+
+            <p class="achievement-text">
+                Demonstrating courage, wisdom, and the ability<br>
+                to see magic in the everyday.
+            </p>
+
+            <!-- Stats -->
+            <div class="stats-section">
+                <div class="stat-box">
+                    <div class="stat-value">{{ total_chapters }}</div>
+                    <div class="stat-label">Chapters Completed</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">{{ total_points }}</div>
+                    <div class="stat-label">Points Earned</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">∞</div>
+                    <div class="stat-label">Hearts Captured</div>
+                </div>
+            </div>
+
+            {% if hours_spent > 0 %}
+            <p class="achievement-text">
+                Time invested in this journey: <strong>{{ hours_spent }}h {{ minutes_spent }}m</strong>
+            </p>
+            {% endif %}
+
+            <!-- Quote -->
+            <div class="quote-section">
+                <p class="quote-text">
+                    "Not all who wander are lost,<br>
+                    But some wander straight into each other's hearts."
+                </p>
+            </div>
+
+            <!-- Personal Message -->
+            <p class="achievement-text" style="font-style: italic; padding: 20px;">
+                {{ journey.final_message }}
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="certificate-footer">
+            <div class="signature-section">
+                <div class="signature-line"></div>
+                <div class="signature-label">Date Completed</div>
+                <div style="color: #2c3e50; font-weight: bold; margin-top: 5px;">
+                    {{ completion_date|date:"F j, Y" }}
+                </div>
+            </div>
+
+            <div class="signature-section">
+                <div class="signature-line"></div>
+                <div class="signature-label">Created with</div>
+                <div style="color: #2c3e50; font-weight: bold; margin-top: 5px;">
+                    💖 Hours of thinking about you
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+        <a href="javascript:window.print()" class="action-btn">
+            <i class="bi bi-printer-fill"></i> Print Certificate
+        </a>
+        <a href="{% url 'crush_lu:journey_map' %}" class="action-btn secondary">
+            <i class="bi bi-map-fill"></i> View Journey Map
+        </a>
+        <a href="{% url 'crush_lu:dashboard' %}" class="action-btn secondary">
+            <i class="bi bi-house-fill"></i> Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Confetti Animation -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Create confetti effect
+    const colors = ['#FFD700', '#FFA500', '#FF6B9D', '#9B59B6', '#48dbfb'];
+    const confettiCount = 50;
+
+    for (let i = 0; i < confettiCount; i++) {
+        setTimeout(() => {
+            createConfetti();
+        }, i * 50);
+    }
+
+    function createConfetti() {
+        const confetti = document.createElement('div');
+        confetti.style.position = 'fixed';
+        confetti.style.width = '10px';
+        confetti.style.height = '10px';
+        confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.left = Math.random() * 100 + '%';
+        confetti.style.top = '-20px';
+        confetti.style.opacity = '1';
+        confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+        confetti.style.zIndex = '9999';
+        confetti.style.pointerEvents = 'none';
+
+        document.body.appendChild(confetti);
+
+        const animation = confetti.animate([
+            {
+                transform: `translateY(0) rotate(0deg)`,
+                opacity: 1
+            },
+            {
+                transform: `translateY(${window.innerHeight + 20}px) rotate(${360 * (Math.random() > 0.5 ? 1 : -1)}deg)`,
+                opacity: 0
+            }
+        ], {
+            duration: 3000 + Math.random() * 2000,
+            easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+        });
+
+        animation.onfinish = () => confetti.remove();
+    }
+});
+</script>
+{% endblock %}

@@ -28,7 +28,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.178.184', 'crush.lu', 'www.crush.lu']
 
 if 'CODESPACE_NAME' in os.environ:
     CSRF_TRUSTED_ORIGINS = [f'https://{os.getenv("CODESPACE_NAME")}-8000.{os.getenv("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")}']
@@ -42,11 +42,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.sites',  # Must come before allauth apps
+    'django.contrib.sites',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.openid_connect',
+    'allauth.socialaccount.providers.linkedin_oauth2',
+    'allauth.socialaccount.providers.facebook',
     'entreprinder',
     'crispy_forms',
     'crispy_bootstrap5',
@@ -54,20 +56,29 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
+    'vibe_coding',
+    'vinsdelux',
+    'crush_lu',
+    'finops_hub',
 ]
 
+# SITE_ID must NOT be set - CurrentSiteMiddleware determines site dynamically per request
+# Setting SITE_ID would force all domains to use the same Site object
 
 MIDDLEWARE = [
+    'azureproject.middleware.HealthCheckMiddleware',  # MUST be first - bypasses all other middleware for /healthz/
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Ensure correct placement
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
+    'django.middleware.common.CommonMiddleware',  # MUST be before CurrentSiteMiddleware
+    'django.contrib.sites.middleware.CurrentSiteMiddleware',  # Detect site based on domain (after CommonMiddleware)
+    'azureproject.middleware.DomainURLRoutingMiddleware',  # Multi-domain routing
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.middleware.locale.LocaleMiddleware',  # Placement matters
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',  # Ensure correct placement
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 
@@ -95,31 +106,16 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'django.template.context_processors.i18n',  # Ensure this line is present
+                'crush_lu.context_processors.crush_user_context',  # Crush.lu user context
             ],
+            # 'builtins': [ # Simplify builtins to only include allauth account tags
+            #     'allauth.account.templatetags.account',
+            # ],
         },
     },
 ]
 
 
-# Logging Configuration
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'file': {
-            'level': 'ERROR',
-            'class': 'logging.FileHandler',
-            'filename': 'debug.log',
-        },
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['file'],
-            'level': 'ERROR',
-            'propagate': True,
-        },
-    },
-}
 
 WSGI_APPLICATION = 'azureproject.wsgi.application'
 
@@ -169,6 +165,19 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# In settings.py
+
+# These settings optimize the login experience
+SOCIALACCOUNT_LOGIN_ON_GET = True
+SOCIALACCOUNT_STORE_TOKENS = True
+SOCIALACCOUNT_AUTO_SIGNUP = True
+
+
+SESSION_COOKIE_AGE = 86400  # 24 hours
+SESSION_REMEMBER_ME = True
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_UNIQUE_EMAIL = True
+
 
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 CRISPY_TEMPLATE_PACK = "bootstrap5"
@@ -183,32 +192,78 @@ ACCOUNT_AUTHENTICATION_METHOD = "email"
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_UNIQUE_EMAIL = True
-ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+ACCOUNT_EMAIL_VERIFICATION = "optional"  # Changed from mandatory
 ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = True
 ACCOUNT_SESSION_REMEMBER = True
 
-LOGIN_REDIRECT_URL = '/'  # or wherever you want users to go after login
 LOGIN_REDIRECT_URL = '/profile/'
 
 SOCIALACCOUNT_LOGIN_ON_GET = True
 
+# Don't send email verification for social account signups (email already verified by provider)
+SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
 
-# Use CustomSignupForm
+# Social account provider settings
+SOCIALACCOUNT_PROVIDERS = {
+    'facebook': {
+        'METHOD': 'oauth2',
+        'SCOPE': ['email', 'public_profile'],  # Only basic permissions (no app review needed)
+        'AUTH_PARAMS': {'auth_type': 'rerequest'},  # Smoother UX - only re-prompt for declined permissions
+        'FIELDS': [
+            'id',
+            'email',
+            'name',
+            'first_name',
+            'last_name',
+            'picture',
+            # Note: birthday, gender, location require Facebook App Review
+            # See: https://developers.facebook.com/docs/facebook-login/permissions
+        ],
+        'EXCHANGE_TOKEN': True,
+        'VERIFIED_EMAIL': False,
+        'VERSION': 'v24.0',
+    }
+}
+
+
+# Use CustomSignupForm for Entreprinder (will be overridden by adapters for other domains)
 ACCOUNT_FORMS = {'signup': 'entreprinder.forms.CustomSignupForm'}
 
 # Specify where to redirect after successful sign-up
 ACCOUNT_SIGNUP_REDIRECT_URL = '/profile/'  # Redirect to profile page after signup
 
-# Email backend (for development)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# Allauth adapters
+SOCIALACCOUNT_ADAPTER = 'crush_lu.adapter.CrushSocialAccountAdapter'
+ACCOUNT_ADAPTER = 'crush_lu.adapter.CrushAccountAdapter'
+
+# Email backend Configuration (using SMTP)
+# NOTE: For domain-specific email configuration (crush.lu, vinsdelux.com, etc.),
+# use the send_domain_email() function from azureproject.email_utils
+# The send_domain_email() automatically uses console backend in DEBUG mode
+# This default configuration is used for powerup.lu and as fallback
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'mail.power-up.lu')  # SMTP server address
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 465))          # SMTP port (465 for SSL)
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')          # Your SMTP username (e.g., info@power-up.lu)
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')  # Your SMTP password or App Password
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'True').lower() == 'true' # Use SSL since port is 465
+# EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'False').lower() == 'true' # Use TLS if port was 587
+
+# Default email address for outgoing mail
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'noreply@powerup.lu')
+
+# Domain-specific email configurations
+# Crush.lu uses Microsoft Graph API (SMTP disabled by M365)
+#   Set CRUSH_GRAPH_TENANT_ID, CRUSH_GRAPH_CLIENT_ID, CRUSH_GRAPH_CLIENT_SECRET
+# VinsDelux can use VINSDELUX_EMAIL_* variables for custom configuration
+# See azureproject/email_utils.py for implementation
 
 CORS_ALLOWED_ORIGINS = [
-    "chrome-extension://bcmdjekoagpaefiimcjomakaacbalime",
 ]
 
-SITE_ID = 1
 
-ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
+
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'http' if DEBUG else 'https'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -276,15 +331,28 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
 ]
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-
-# Ensure media directory exists
-if not os.path.exists(MEDIA_ROOT):
-    os.makedirs(MEDIA_ROOT)
-    print(f"Created media directory at: {MEDIA_ROOT}")
+# Azure Blob Storage Settings (Conditional for Development)
+if os.getenv('AZURE_ACCOUNT_NAME'):
+    DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
+    AZURE_ACCOUNT_NAME = os.getenv('AZURE_ACCOUNT_NAME')
+    AZURE_ACCOUNT_KEY = os.getenv('AZURE_ACCOUNT_KEY')
+    AZURE_CONTAINER_NAME = os.getenv('AZURE_CONTAINER_NAME')
+    MEDIA_URL = f'https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}/'
+    print("Using Azure Blob Storage for media files.")
 else:
-    print(f"Media directory already exists at: {MEDIA_ROOT}")
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = BASE_DIR / 'media'
+
+    # Ensure media directory exists
+    if not os.path.exists(MEDIA_ROOT):
+        os.makedirs(MEDIA_ROOT)
+        print(f"Created media directory at: {MEDIA_ROOT}")
+    else:
+        print(f"Media directory already exists at: {MEDIA_ROOT}")
+    print("Using local file system for media files.")
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# CSRF Cookie Settings (required for JavaScript AJAX requests)
+# Allow JavaScript to read the CSRF cookie for fetch/XMLHttpRequest
+CSRF_COOKIE_HTTPONLY = False

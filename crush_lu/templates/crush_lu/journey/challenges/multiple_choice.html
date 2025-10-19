@@ -1,0 +1,301 @@
+{% extends "crush_lu/journey/journey_base.html" %}
+{% load static %}
+
+{% block extra_journey_css %}
+<style>
+    .challenge-container {
+        max-width: 700px;
+        margin: 40px auto;
+    }
+
+    .challenge-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(15px);
+        border-radius: 20px;
+        padding: 40px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .challenge-type-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        border-radius: 20px;
+        background: rgba(155, 89, 182, 0.3);
+        border: 1px solid rgba(155, 89, 182, 0.5);
+        margin-bottom: 20px;
+        font-weight: bold;
+    }
+
+    .question-text {
+        font-size: 1.3rem;
+        line-height: 1.8;
+        margin: 30px 0;
+        text-align: center;
+        padding: 30px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 15px;
+    }
+
+    .options-container {
+        margin: 30px 0;
+    }
+
+    .option-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-radius: 15px;
+        padding: 20px 25px;
+        margin: 15px 0;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .option-card:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: var(--journey-primary);
+        transform: translateX(10px);
+    }
+
+    .option-card.selected {
+        background: rgba(155, 89, 182, 0.3);
+        border-color: var(--journey-primary);
+        box-shadow: 0 5px 20px rgba(155, 89, 182, 0.3);
+    }
+
+    .option-label {
+        font-size: 1.5rem;
+        font-weight: bold;
+        min-width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(155, 89, 182, 0.3);
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .option-card.selected .option-label {
+        background: var(--journey-primary);
+        color: white;
+    }
+
+    .option-text {
+        font-size: 1.1rem;
+        flex: 1;
+    }
+
+    .submit-btn {
+        width: 100%;
+        padding: 15px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        border-radius: 10px;
+        border: none;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 20px;
+    }
+
+    .submit-btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(155, 89, 182, 0.4);
+    }
+
+    .submit-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .message-box {
+        padding: 20px;
+        border-radius: 10px;
+        margin: 20px 0;
+        display: none;
+    }
+
+    .message-box.success {
+        background: rgba(46, 204, 113, 0.2);
+        border: 2px solid rgba(46, 204, 113, 0.5);
+        color: white;
+    }
+
+    .message-box.active {
+        display: block;
+        animation: fadeInUp 0.5s ease;
+    }
+
+    .personal-message {
+        font-size: 1.2rem;
+        line-height: 1.6;
+        font-style: italic;
+        margin: 20px 0;
+        padding: 20px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+        border-left: 4px solid var(--journey-secondary);
+    }
+
+    .points-display {
+        text-align: center;
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--journey-secondary);
+        margin: 20px 0;
+    }
+</style>
+{% endblock %}
+
+{% block journey_content %}
+<div class="challenge-container animate-fade-in">
+    <!-- Back Button -->
+    <div class="mb-4">
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
+            <i class="bi bi-arrow-left"></i> Back to Chapter
+        </a>
+    </div>
+
+    <div class="challenge-card">
+        <div class="challenge-type-badge">
+            <i class="bi bi-list-check"></i> Multiple Choice
+        </div>
+
+        <div class="points-display">
+            💎 {{ challenge.points_awarded }} Points
+        </div>
+
+        <!-- Question -->
+        <div class="question-text">
+            {{ challenge.question|linebreaks }}
+        </div>
+
+        {% if existing_attempt %}
+        <!-- Already Completed -->
+        <div class="message-box success active">
+            <h3><i class="bi bi-check-circle-fill"></i> Already Completed!</h3>
+            <p>You already answered this question and earned <strong>{{ existing_attempt.points_earned }} points</strong>.</p>
+
+            <div class="personal-message">
+                {{ challenge.success_message|linebreaks }}
+            </div>
+
+            <div class="mt-3">
+                <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
+                    Continue to Next Challenge <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+        {% else %}
+        <!-- Options -->
+        <div id="optionsSection" class="options-container">
+            {% for key, value in challenge.options.items %}
+            <div class="option-card" data-option="{{ key }}">
+                <div class="option-label">{{ key }}</div>
+                <div class="option-text">{{ value }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <button id="submitBtn" class="submit-btn" disabled>
+            Select an Answer First
+        </button>
+
+        <!-- Message Box -->
+        <div id="messageBox" class="message-box"></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_journey_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const challengeId = {{ challenge.id }};
+    const submitBtn = document.getElementById('submitBtn');
+    const messageBox = document.getElementById('messageBox');
+    let selectedOption = null;
+
+    // Option selection
+    document.querySelectorAll('.option-card').forEach(card => {
+        card.addEventListener('click', function() {
+            // Remove previous selection
+            document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+
+            // Select this option
+            this.classList.add('selected');
+            selectedOption = this.dataset.option;
+
+            // Enable submit button
+            submitBtn.removeAttribute('disabled');
+            submitBtn.innerHTML = 'Submit Answer <i class="bi bi-arrow-right-circle-fill"></i>';
+        });
+    });
+
+    // Submit answer
+    submitBtn.addEventListener('click', function() {
+        if (!selectedOption) {
+            return;
+        }
+
+        submitBtn.setAttribute('disabled', 'disabled');
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Checking...';
+
+        fetch('{% url "crush_lu:api_submit_challenge" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CrushUtils.getCsrfToken()
+            },
+            body: JSON.stringify({
+                challenge_id: challengeId,
+                answer: selectedOption
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.is_correct) {
+                // Answer submitted successfully
+                const isChapter2 = {{ chapter.chapter_number }} === 2;
+                const title = isChapter2
+                    ? '<i class="bi bi-heart-fill"></i> Thank you for sharing!'
+                    : '<i class="bi bi-check-circle-fill"></i> Correct!';
+
+                messageBox.innerHTML = `
+                    <h3>${title}</h3>
+                    <div class="personal-message">${data.success_message}</div>
+                    <div class="mt-3">
+                        <strong>🏆 Points Earned: ${data.points_earned}</strong>
+                    </div>
+                    <div class="mt-4">
+                        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
+                            Continue <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
+                `;
+                messageBox.className = 'message-box success active';
+
+                // Hide options section
+                document.getElementById('optionsSection').style.display = 'none';
+                submitBtn.style.display = 'none';
+
+            } else {
+                // Wrong answer (shouldn't happen with proper admin setup or in Chapter 2)
+                submitBtn.removeAttribute('disabled');
+                submitBtn.innerHTML = 'Submit Answer <i class="bi bi-arrow-right-circle-fill"></i>';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            submitBtn.removeAttribute('disabled');
+            submitBtn.innerHTML = 'Submit Answer <i class="bi bi-arrow-right-circle-fill"></i>';
+        });
+    });
+});
+</script>
+{% endblock %}

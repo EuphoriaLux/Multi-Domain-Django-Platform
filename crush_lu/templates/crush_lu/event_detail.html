@@ -1,0 +1,127 @@
+{% extends 'crush_lu/base.html' %}
+
+{% block title %}{{ event.title }} - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <a href="{% url 'crush_lu:event_list' %}" class="btn btn-outline-secondary mb-3">
+            ← Back to Events
+        </a>
+
+        <div class="card">
+            <div class="card-body p-5">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <h2 class="mb-0">{{ event.title }}</h2>
+                    <span class="badge bg-primary fs-6">{{ event.get_event_type_display }}</span>
+                </div>
+
+                <div class="mb-4">
+                    <p class="lead">{{ event.description }}</p>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h5>📅 Date & Time</h5>
+                        <p>
+                            {{ event.date_time|date:"l, F j, Y" }}<br>
+                            {{ event.date_time|date:"g:i A" }} ({{ event.duration_minutes }} minutes)
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>📍 Location</h5>
+                        <p>
+                            <strong>{{ event.location }}</strong><br>
+                            {{ event.address }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h5>👥 Capacity</h5>
+                        <p>
+                            Max participants: {{ event.max_participants }}<br>
+                            Spots remaining: <strong>{{ event.spots_remaining }}</strong>
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>💰 Price</h5>
+                        <p>
+                            {% if event.registration_fee > 0 %}
+                                <strong>€{{ event.registration_fee }}</strong>
+                            {% else %}
+                                <strong class="text-success">Free</strong>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <h5>ℹ️ Requirements</h5>
+                    <p>
+                        Ages {{ event.min_age }}-{{ event.max_age }}<br>
+                        Registration deadline: {{ event.registration_deadline|date:"F j, Y g:i A" }}
+                    </p>
+                </div>
+
+                <div class="mb-4">
+                    <h5>🎯 How The Event Works</h5>
+                    <div class="alert alert-info">
+                        <p class="mb-2"><strong>Interactive Activity Voting:</strong></p>
+                        <ul class="mb-0">
+                            <li>15 minutes after the event starts, you'll vote on which activity format to do</li>
+                            <li>Choose from Speed Dating, 90-Second Presentations, or Mystery Event</li>
+                            <li>Voting lasts 30 minutes - everyone participates!</li>
+                            <li>The winning activity determines how the event flows</li>
+                            <li>After the event, connect with people you clicked with</li>
+                        </ul>
+                        {% if user.is_authenticated and user_registration %}
+                            {% if user_registration.status in 'confirmed,attended' %}
+                            <div class="mt-3">
+                                <a href="{% url 'crush_lu:event_voting_lobby' event.id %}" class="btn btn-sm btn-primary">
+                                    Access Voting Lobby
+                                </a>
+                            </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                {% if user.is_authenticated %}
+                    {% if user_registration %}
+                        <div class="alert alert-info">
+                            <strong>You're registered for this event!</strong><br>
+                            Status: {{ user_registration.get_status_display }}
+                        </div>
+                        <a href="{% url 'crush_lu:event_cancel' event.id %}" class="btn btn-outline-danger w-100">
+                            Cancel Registration
+                        </a>
+                    {% else %}
+                        {% if event.is_registration_open %}
+                            <a href="{% url 'crush_lu:event_register' event.id %}" class="btn btn-crush-primary w-100 btn-lg">
+                                {% if event.is_full %}
+                                    Join Waitlist
+                                {% else %}
+                                    Register for This Event
+                                {% endif %}
+                            </a>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                Registration is closed for this event.
+                            </div>
+                        {% endif %}
+                    {% endif %}
+                {% else %}
+                    <div class="alert alert-info">
+                        <a href="{% url 'crush_lu:login' %}?next={{ request.path }}">Log in</a> or
+                        <a href="{% url 'crush_lu:signup' %}">sign up</a> to register for this event.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

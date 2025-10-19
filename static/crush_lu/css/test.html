@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crush.lu CSS Test</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
+    <!-- Crush.lu Custom Styles -->
+    <link rel="stylesheet" href="crush.css">
+</head>
+<body>
+    <div class="container my-5">
+        <h1 class="text-gradient mb-4">Crush.lu CSS System Test</h1>
+
+        <div class="row mb-5">
+            <div class="col-12">
+                <h2>Design Tokens</h2>
+                <div class="d-flex gap-3 flex-wrap">
+                    <div style="width: 100px; height: 100px; background: var(--crush-purple);" class="rounded-crush"></div>
+                    <div style="width: 100px; height: 100px; background: var(--crush-pink);" class="rounded-crush"></div>
+                    <div style="width: 100px; height: 100px; background: var(--gradient-primary);" class="rounded-crush"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-5">
+            <div class="col-12">
+                <h2>Buttons</h2>
+                <div class="d-flex gap-3 flex-wrap">
+                    <button class="btn-crush-primary">Primary Button</button>
+                    <button class="btn-crush-primary btn-sm">Small Button</button>
+                    <button class="btn-crush-primary btn-lg">Large Button</button>
+                    <button class="btn-crush-secondary">Secondary Button</button>
+                    <button class="btn-crush-outline">Outline Button</button>
+                    <button class="btn-hero-primary">Hero Button</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-5">
+            <div class="col-md-4">
+                <div class="card crush-card-hover">
+                    <div class="card-body">
+                        <h5 class="card-title">Standard Card</h5>
+                        <p class="card-text">This card has a hover effect that lifts it up.</p>
+                        <button class="btn-crush-primary btn-sm">Learn More</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="crush-card crush-card-gradient crush-card-md">
+                    <h5 class="text-white">Gradient Card</h5>
+                    <p class="text-white mb-0">Beautiful gradient background using CSS variables.</p>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="crush-card crush-card-vip crush-card-md">
+                    <h5>VIP Card</h5>
+                    <p class="mb-0">This card has a shimmer animation!</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-5">
+            <div class="col-md-4">
+                <div class="crush-card-feature crush-card-hover-deep">
+                    <div class="crush-card-feature-icon">🔒</div>
+                    <h4>Privacy First</h4>
+                    <p>Your data is secure with us.</p>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="crush-card-feature crush-card-hover-deep">
+                    <div class="crush-card-feature-icon">💕</div>
+                    <h4>Real Connections</h4>
+                    <p>Meet people at events, not endless swiping.</p>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="crush-card-feature crush-card-hover-deep">
+                    <div class="crush-card-feature-icon">🎯</div>
+                    <h4>Coach Curated</h4>
+                    <p>All profiles reviewed by our team.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <h2>Typography & Spacing</h2>
+                <p class="text-xs">Extra small text (0.75rem)</p>
+                <p class="text-sm">Small text (0.875rem)</p>
+                <p class="text-base">Base text (1rem)</p>
+                <p class="text-lg">Large text (1.125rem)</p>
+                <p class="text-xl">Extra large text (1.25rem)</p>
+                <h1 class="text-gradient">Gradient Text Heading</h1>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

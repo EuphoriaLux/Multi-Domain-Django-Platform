@@ -1,0 +1,185 @@
+/* VinsDelux Image Fallback Styles */
+
+/* Wine Bottle SVG Background */
+.wine-bottle-svg {
+    width: 200px;
+    height: 400px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 400'%3E%3Cdefs%3E%3ClinearGradient id='bottleGrad' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23722f37;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%234a1f23;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='70' y='0' width='60' height='30' rx='5' fill='%23333'/%3E%3Crect x='75' y='30' width='50' height='80' fill='%23722f37'/%3E%3Cpath d='M 50 110 Q 50 120 60 130 L 60 350 Q 60 380 100 380 Q 140 380 140 350 L 140 130 Q 150 120 150 110 Z' fill='url(%23bottleGrad)'/%3E%3Crect x='60' y='200' width='80' height='60' fill='%23d4af37' opacity='0.3'/%3E%3Ctext x='100' y='235' text-anchor='middle' fill='%23fff' font-family='Arial' font-size='14' font-weight='bold'%3EVinsDelux%3C/text%3E%3C/svg%3E");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+/* Grape Icon Backgrounds */
+.grape-icon-cs {
+    width: 80px;
+    height: 80px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Ccircle cx='40' cy='40' r='38' fill='%23722f37'/%3E%3Ctext x='40' y='45' text-anchor='middle' fill='white' font-family='Arial' font-size='20' font-weight='bold'%3ECS%3C/text%3E%3C/svg%3E");
+}
+
+.grape-icon-m {
+    width: 80px;
+    height: 80px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Ccircle cx='40' cy='40' r='38' fill='%238B4513'/%3E%3Ctext x='40' y='45' text-anchor='middle' fill='white' font-family='Arial' font-size='20' font-weight='bold'%3EM%3C/text%3E%3C/svg%3E");
+}
+
+.grape-icon-pn {
+    width: 80px;
+    height: 80px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Ccircle cx='40' cy='40' r='38' fill='%23A0522D'/%3E%3Ctext x='40' y='45' text-anchor='middle' fill='white' font-family='Arial' font-size='20' font-weight='bold'%3EPN%3C/text%3E%3C/svg%3E");
+}
+
+.grape-icon-ch {
+    width: 80px;
+    height: 80px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Ccircle cx='40' cy='40' r='38' fill='%23DAA520'/%3E%3Ctext x='40' y='45' text-anchor='middle' fill='white' font-family='Arial' font-size='20' font-weight='bold'%3ECH%3C/text%3E%3C/svg%3E");
+}
+
+/* Vineyard Plot Backgrounds */
+.plot-placeholder {
+    width: 100%;
+    height: 300px;
+    background: linear-gradient(180deg, #87CEEB 0%, #98FB98 50%, #8B7355 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+.plot-placeholder::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60%;
+    background-image: repeating-linear-gradient(
+        90deg,
+        #6B8E23,
+        #6B8E23 10px,
+        #556B2F 10px,
+        #556B2F 20px
+    );
+    opacity: 0.6;
+}
+
+.plot-placeholder::after {
+    content: attr(data-plot-name);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    background: rgba(114, 47, 55, 0.8);
+    padding: 10px 20px;
+    border-radius: 10px;
+}
+
+/* VinsDelux Logo */
+.vinsdelux-logo {
+    width: 180px;
+    height: 60px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 60'%3E%3Cdefs%3E%3ClinearGradient id='logoGrad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23722f37' /%3E%3Cstop offset='100%25' style='stop-color:%23d4af37' /%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='180' height='60' rx='8' fill='url(%23logoGrad)'/%3E%3Ctext x='90' y='35' text-anchor='middle' fill='white' font-family='Georgia, serif' font-size='22' font-weight='bold'%3EVinsDelux%3C/text%3E%3C/svg%3E");
+}
+
+/* AI Sommelier Avatar */
+.sommelier-avatar {
+    width: 60px;
+    height: 60px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'%3E%3Cdefs%3E%3ClinearGradient id='aiGrad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%234A4A4A' /%3E%3Cstop offset='100%25' style='stop-color:%236A6A6A' /%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='30' cy='30' r='28' fill='url(%23aiGrad)'/%3E%3Ctext x='30' y='35' text-anchor='middle' fill='white' font-family='Arial' font-size='18' font-weight='bold'%3EAI%3C/text%3E%3C/svg%3E");
+}
+
+/* Loading Animation Fix */
+.wine-loader {
+    width: 60px;
+    height: 100px;
+    margin: 0 auto;
+    position: relative;
+}
+
+.bottle {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(180deg, #722f37 0%, #4a1f23 100%);
+    border-radius: 10px 10px 30px 30px;
+    position: relative;
+    overflow: hidden;
+}
+
+.wine-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 0%;
+    background: linear-gradient(180deg, #8B0000 0%, #4B0000 100%);
+    animation: fillBottle 2s ease-in-out infinite;
+}
+
+@keyframes fillBottle {
+    0%, 100% { height: 0%; }
+    50% { height: 80%; }
+}
+
+/* Fallback styles for images that fail to load */
+img[alt*="plot"]:not([src]),
+img[alt*="Plot"]:not([src]),
+img[src=""]:not([src]) {
+    display: inline-block;
+    width: 100%;
+    height: 300px;
+    background: linear-gradient(180deg, #87CEEB 0%, #98FB98 50%, #8B7355 100%);
+    position: relative;
+}
+
+img[alt*="plot"]:not([src])::after,
+img[alt*="Plot"]:not([src])::after {
+    content: attr(alt);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 20px;
+    font-weight: bold;
+    background: rgba(0,0,0,0.5);
+    padding: 10px;
+    border-radius: 5px;
+}
+
+/* Ensure grape items are draggable visually */
+.grape-item {
+    cursor: grab;
+    transition: transform 0.3s ease;
+}
+
+.grape-item:active {
+    cursor: grabbing;
+    transform: scale(1.1);
+}
+
+.grape-item.dragging {
+    opacity: 0.5;
+    transform: scale(0.9);
+}
+
+/* Fix for missing images with error state */
+img.error,
+img[onerror] {
+    position: relative;
+    display: inline-block;
+    min-height: 100px;
+    min-width: 100px;
+    background: #f0f0f0;
+}
+
+img.error::after,
+img[onerror]::after {
+    content: '🍷';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 40px;
+}

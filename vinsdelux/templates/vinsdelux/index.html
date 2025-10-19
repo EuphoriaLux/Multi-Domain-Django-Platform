@@ -1,0 +1,56 @@
+{% extends 'vinsdelux/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Vinsdelux - Wine Experience E-commerce" %}{% endblock %}
+
+{% block content %}
+<style>
+.image-container {
+    position: relative;
+    overflow: hidden;
+}
+
+.producer-logo {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+    z-index: 1; /* Ensure it's above the region label */
+}
+
+.image-container:hover .producer-logo {
+    opacity: 1;
+}
+</style>
+
+    {# --- HERO SECTION (Unchanged) --- #}
+    {% if homepage_content %}
+    <section class="hero-section bg-light text-center py-5" style="background: url('{{ homepage_content.hero_background_image.url }}') no-repeat center center; background-size: cover;">
+        <div class="hero-content">
+            <h1 class="display-3 fw-bold mb-3">{{ homepage_content.hero_title }}</h1>
+            <p class="lead mb-4">{{ homepage_content.hero_subtitle }}</p>
+            <a href="{% url 'vinsdelux:coffret_list' %}" class="btn btn-primary btn-lg me-2">{% trans "Browse Wine Coffrets" %}</a>
+            <a href="{% url 'vinsdelux:producer_list' %}" class="btn btn-secondary btn-lg">{% trans "Meet Our Producers" %}</a>
+        </div>
+    </section>
+    {% else %}
+    <section class="hero-section bg-light text-center py-5">
+        <div class="hero-content">
+            <h1 class="display-3 fw-bold mb-3">{% trans "Discover Vinsdelux" %}</h1>
+            <p class="lead mb-4">{% trans "Explore our exquisite selection of wines and unique adoption opportunities." %}</p>
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Wine plot section with wine-plot class for testing -->
+    <div class="wine-plot-container">
+        {% include 'vinsdelux/sections/wine_plots.html' with featured_coffrets=featured_coffrets %}
+    </div>
+
+    {% include 'vinsdelux/sections/client_journey_futuristic.html' with id='client-journey-section' client_journey_steps=client_journey_steps %}
+{% endblock %}

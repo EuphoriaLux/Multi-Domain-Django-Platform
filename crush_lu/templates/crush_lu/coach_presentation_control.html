@@ -1,0 +1,308 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+
+{% block title %}Presentation Control - {{ event.title }} - Crush.lu Coach{% endblock %}
+
+{% block extra_css %}
+<style>
+    .control-panel {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .current-presenter-card {
+        border: 3px solid #9B59B6;
+        border-radius: 20px;
+        padding: 3rem;
+        margin-bottom: 2rem;
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.1) 0%, rgba(255, 107, 157, 0.1) 100%);
+        text-align: center;
+    }
+
+    .current-presenter-name {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #9B59B6;
+        margin-bottom: 1rem;
+    }
+
+    .advance-btn {
+        font-size: 1.5rem;
+        padding: 1rem 3rem;
+        background: linear-gradient(135deg, #FF6B9D 0%, #9B59B6 100%);
+        border: none;
+        color: white;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+
+    .advance-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 8px 24px rgba(155, 89, 182, 0.4);
+    }
+
+    .queue-list {
+        list-style: none;
+        padding: 0;
+    }
+
+    .queue-item {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+    }
+
+    .queue-item.presenting {
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.15) 0%, rgba(255, 107, 157, 0.15) 100%);
+        border-color: #9B59B6;
+        font-weight: bold;
+    }
+
+    .queue-item.completed {
+        opacity: 0.5;
+        text-decoration: line-through;
+    }
+
+    .queue-number {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #9B59B6;
+        min-width: 50px;
+        text-align: center;
+    }
+
+    .queue-name {
+        flex: 1;
+        font-size: 1.2rem;
+    }
+
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: bold;
+    }
+
+    .status-badge.presenting {
+        background: linear-gradient(135deg, #FF6B9D 0%, #9B59B6 100%);
+        color: white;
+        animation: pulse 1.5s infinite;
+    }
+
+    .status-badge.completed {
+        background: #28a745;
+        color: white;
+    }
+
+    .status-badge.pending {
+        background: #e9ecef;
+        color: #6c757d;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+
+    .progress-bar-container {
+        background: #e9ecef;
+        border-radius: 10px;
+        height: 40px;
+        margin-bottom: 2rem;
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        height: 100%;
+        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+        transition: width 0.5s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 1.2rem;
+    }
+
+    .style-banner {
+        background: linear-gradient(135deg, #FF6B9D 0%, #9B59B6 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 15px;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-12 control-panel">
+        <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn btn-outline-secondary mb-3">
+            ← Back to Event
+        </a>
+
+        <div class="card">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <h1 class="display-5">🎬 Coach Control Panel</h1>
+                    <p class="lead text-muted">{{ event.title }} - Presentation Round</p>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="progress-bar-container">
+                    <div class="progress-bar" style="width: {% widthratio completed_presentations total_presentations 100 %}%;">
+                        {{ completed_presentations }} / {{ total_presentations }} Completed
+                    </div>
+                </div>
+
+                <!-- Winning Style -->
+                {% if winning_style %}
+                <div class="style-banner">
+                    <h4 class="mb-0">📋 Presentation Style: <strong>{{ winning_style.display_name }}</strong></h4>
+                    <small>{{ winning_style.description }}</small>
+                </div>
+                {% endif %}
+
+                <!-- Current Presenter -->
+                {% if current_presentation %}
+                <div class="current-presenter-card">
+                    <h3 class="text-muted mb-2">Currently Presenting:</h3>
+                    <div class="current-presenter-name">
+                        {{ current_presentation.user.crushprofile.display_name }}
+                    </div>
+                    <p class="text-muted">Presentation #{{ current_presentation.presentation_order }} of {{ total_presentations }}</p>
+
+                    <button class="btn advance-btn mt-4" id="advance-btn">
+                        Next Presenter →
+                    </button>
+                </div>
+                {% else %}
+                <div class="current-presenter-card">
+                    {% if next_presentation %}
+                    <h3 class="text-muted mb-3">Ready to Start Presentations</h3>
+                    <p class="mb-4">Click below to begin with the first presenter</p>
+                    <button class="btn advance-btn" id="advance-btn">
+                        Start Presentations →
+                    </button>
+                    {% else %}
+                    <h3 class="text-success">🎉 All Presentations Completed!</h3>
+                    <p class="text-muted">Ready to move to Phase 3: Speed Dating</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Presentation Queue -->
+                <div class="row mt-5">
+                    <div class="col-lg-12">
+                        <h3 class="mb-3">Presentation Queue</h3>
+                        <ul class="queue-list">
+                            {% for presentation in presentations %}
+                            <li class="queue-item {{ presentation.status }}">
+                                <span class="queue-number">#{{ presentation.presentation_order }}</span>
+                                <span class="queue-name">{{ presentation.user.crushprofile.display_name }}</span>
+                                <span class="status-badge {{ presentation.status }}">
+                                    {% if presentation.status == 'presenting' %}
+                                        🔴 PRESENTING
+                                    {% elif presentation.status == 'completed' %}
+                                        ✓ DONE
+                                    {% else %}
+                                        Waiting
+                                    {% endif %}
+                                </span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Pass CSRF token to JavaScript
+const csrfToken = '{{ csrf_token }}';
+// Store current presenter info for change detection
+let currentPresenterId = {% if current_presentation %}{{ current_presentation.user.id }}{% else %}null{% endif %};
+let lastCompletedCount = {{ completed_presentations }};
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Poll for updates every 5 seconds (coach panel updates less frequently)
+    const pollInterval = setInterval(async () => {
+        try {
+            const response = await fetch('{% url "crush_lu:get_current_presenter_api" event.id %}');
+            const data = await response.json();
+
+            // Check if presenter changed or completion count changed
+            let shouldReload = false;
+
+            if (data.has_presenter && currentPresenterId !== data.presenter_id) {
+                console.log('Presenter changed, reloading...');
+                shouldReload = true;
+            } else if (!data.has_presenter && currentPresenterId !== null) {
+                console.log('Presenter ended, reloading...');
+                shouldReload = true;
+            } else if (data.completed_count !== lastCompletedCount) {
+                console.log('Completion count changed, reloading...');
+                shouldReload = true;
+            }
+
+            if (shouldReload) {
+                location.reload();
+            }
+        } catch (error) {
+            console.error('Error polling presenter status:', error);
+        }
+    }, 5000); // Poll every 5 seconds
+
+    const advanceBtn = document.getElementById('advance-btn');
+
+    if (advanceBtn) {
+        advanceBtn.addEventListener('click', async () => {
+            if (!confirm('Advance to the next presenter?')) {
+                return;
+            }
+
+            advanceBtn.disabled = true;
+            advanceBtn.textContent = 'Advancing...';
+
+            try {
+                const response = await fetch('{% url "crush_lu:coach_advance_presentation" event.id %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Show success message
+                    alert(data.message);
+                    // Reload page to show next presenter
+                    location.reload();
+                } else {
+                    alert(data.error || 'Failed to advance presentation');
+                    advanceBtn.disabled = false;
+                    advanceBtn.textContent = 'Next Presenter →';
+                }
+            } catch (error) {
+                console.error('Error advancing presentation:', error);
+                alert('Failed to advance presentation. Please try again.');
+                advanceBtn.disabled = false;
+                advanceBtn.textContent = 'Next Presenter →';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
