@@ -307,7 +307,8 @@ LOCALE_PATHS = [
 
 LANGUAGE_CODE = 'en'
 
-TIME_ZONE = 'UTC'
+# Luxembourg timezone (CET/CEST - UTC+1/UTC+2 with automatic DST handling)
+TIME_ZONE = 'Europe/Luxembourg'
 
 USE_I18N = True
 
