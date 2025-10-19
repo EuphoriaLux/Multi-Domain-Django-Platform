@@ -88,9 +88,10 @@ urlpatterns = [
     # Coach invitation management
     path('coach/event/<int:event_id>/invitations/', views.coach_manage_invitations, name='coach_manage_invitations'),
 
-    # Coach screening calls
-    path('coach/screening/', views_profile.coach_screening_dashboard, name='coach_screening_dashboard'),
-    path('coach/screening/<int:profile_id>/complete/', views_profile.coach_mark_screening_complete, name='coach_mark_screening_complete'),
+    # NOTE: Step 1 screening call URLs have been REMOVED - screening is now part of review process
+    # Old URLs (deprecated):
+    # - /coach/screening/ (replaced by /coach/dashboard/ and /coach/review/)
+    # - /coach/screening/<id>/complete/ (replaced by /coach/review/<id>/call-complete/)
 
     # Coach journey management
     path('coach/journeys/', views.coach_journey_dashboard, name='coach_journey_dashboard'),

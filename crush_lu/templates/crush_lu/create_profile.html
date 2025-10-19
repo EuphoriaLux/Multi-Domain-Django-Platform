@@ -1399,5 +1399,37 @@ function getStepNumber(status) {
     };
     return statusMap[status] || 1;
 }
+
+// Prevent double-submission of the form
+const profileForm = document.getElementById('profileForm');
+const submitButton = profileForm.querySelector('button[type="submit"]');
+let isSubmitting = false;
+
+profileForm.addEventListener('submit', function(e) {
+    // Prevent double-click or multiple submissions
+    if (isSubmitting) {
+        e.preventDefault();
+        console.log('⚠️ Duplicate submission prevented');
+        return false;
+    }
+
+    // Mark as submitting
+    isSubmitting = true;
+
+    // Disable submit button and show loading state
+    if (submitButton) {
+        submitButton.disabled = true;
+        const originalHTML = submitButton.innerHTML;
+        submitButton.innerHTML = '<i class="bi bi-hourglass-split spinner-border spinner-border-sm me-2"></i> Submitting...';
+
+        // Re-enable after 5 seconds in case of server error
+        setTimeout(() => {
+            isSubmitting = false;
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalHTML;
+            console.log('⏱️ Submit button re-enabled after timeout');
+        }, 5000);
+    }
+});
 </script>
 {% endblock %}

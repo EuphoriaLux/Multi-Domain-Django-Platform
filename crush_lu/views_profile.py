@@ -66,18 +66,15 @@ def save_profile_step1(request):
                     'error': 'Invalid date format. Please use YYYY-MM-DD'
                 }, status=400)
 
-        # Check if this is the first time completing Step 1
-        is_first_time = profile.completion_status != 'step1'
-
         # Update basic info
         profile.phone_number = data.get('phone_number', '').strip()
         profile.date_of_birth = date_of_birth
         profile.gender = data.get('gender', '')
         profile.location = data.get('location', '')
 
-        # Set completion status and screening flag
+        # Set completion status
         profile.completion_status = 'step1'
-        profile.needs_screening_call = True  # Flag for coach to call
+        # Note: Screening call will happen during coach review after full submission
 
         profile.save()
 
@@ -88,8 +85,7 @@ def save_profile_step1(request):
         return JsonResponse({
             'success': True,
             'message': 'Basic info saved! Continue to complete your profile.',
-            'profile_id': profile.id,
-            'needs_call': True
+            'profile_id': profile.id
         })
 
     except Exception as e:
@@ -226,8 +222,6 @@ def get_profile_progress(request):
         return JsonResponse({
             'exists': True,
             'completion_status': profile.completion_status,
-            'needs_screening_call': profile.needs_screening_call,
-            'screening_call_completed': profile.screening_call_completed,
             'phone_number': profile.phone_number or '',
             'has_basic_info': bool(profile.phone_number and profile.date_of_birth),
             'has_about': bool(profile.bio and profile.interests),
@@ -240,55 +234,27 @@ def get_profile_progress(request):
         })
 
 
-# Coach views for screening calls
+# NOTE: Step 1 screening call system has been DEPRECATED and consolidated into the review process
+# Screening calls are now handled exclusively during profile review via ProfileSubmission.review_call_completed
+# The views below are commented out but kept for reference during migration
 
-@crush_login_required
-def coach_screening_dashboard(request):
-    """Coach dashboard for pending screening calls"""
-    try:
-        coach = CrushCoach.objects.get(user=request.user, is_active=True)
-    except CrushCoach.DoesNotExist:
-        messages.error(request, 'You do not have coach access.')
-        return redirect('crush_lu:dashboard')
-
-    # Get profiles needing screening calls
-    pending_calls = CrushProfile.objects.filter(
-        needs_screening_call=True,
-        screening_call_completed=False
-    ).select_related('user').order_by('-created_at')
-
-    # Get completed screening calls
-    completed_calls = CrushProfile.objects.filter(
-        screening_call_completed=True
-    ).select_related('user').order_by('-screening_call_scheduled')[:20]
-
-    context = {
-        'coach': coach,
-        'pending_calls': pending_calls,
-        'completed_calls': completed_calls,
-    }
-    return render(request, 'crush_lu/coach_screening_dashboard.html', context)
+# @crush_login_required
+# def coach_screening_dashboard(request):
+#     """DEPRECATED: Coach dashboard for pending screening calls
+#
+#     This view has been replaced by the coach review process.
+#     Screening calls are now done during profile review, not after Step 1.
+#     """
+#     messages.warning(request, 'The screening dashboard has been moved to the coach review process.')
+#     return redirect('crush_lu:coach_dashboard')
 
 
-@crush_login_required
-def coach_mark_screening_complete(request, profile_id):
-    """Mark screening call as completed"""
-    try:
-        coach = CrushCoach.objects.get(user=request.user, is_active=True)
-    except CrushCoach.DoesNotExist:
-        messages.error(request, 'You do not have coach access.')
-        return redirect('crush_lu:dashboard')
-
-    if request.method == 'POST':
-        profile = CrushProfile.objects.get(id=profile_id)
-
-        profile.screening_call_completed = True
-        profile.screening_call_scheduled = timezone.now()
-        profile.screening_notes = request.POST.get('screening_notes', '')
-        profile.needs_screening_call = False
-        profile.save()
-
-        messages.success(request, f'Screening call completed for {profile.user.first_name}')
-        return redirect('crush_lu:coach_screening_dashboard')
-
-    return redirect('crush_lu:coach_screening_dashboard')
+# @crush_login_required
+# def coach_mark_screening_complete(request, profile_id):
+#     """DEPRECATED: Mark screening call as completed
+#
+#     This functionality is now part of the profile review process.
+#     Use /coach/review/{submission_id}/ instead.
+#     """
+#     messages.warning(request, 'Please use the profile review page to complete screening calls.')
+#     return redirect('crush_lu:coach_dashboard')
