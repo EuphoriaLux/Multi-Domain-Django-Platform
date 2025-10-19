@@ -1,0 +1,299 @@
+{% extends 'crush_lu/base.html' %}
+
+{% block title %}Edit Your Profile - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <h1 class="h3 mb-2">✏️ Edit Your Profile</h1>
+                        <p class="text-muted">Update your information below</p>
+                        {% if profile.is_approved %}
+                            <span class="badge bg-success">✓ Profile Approved</span>
+                        {% endif %}
+                    </div>
+
+                    <form method="post" enctype="multipart/form-data" id="editProfileForm">
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                {{ form.non_field_errors }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endif %}
+
+                        <!-- Contact Information Section -->
+                        <div class="section-card mb-4">
+                            <h5 class="section-title">📞 Contact Information</h5>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.phone_number.id_for_label }}" class="form-label">
+                                        Phone Number *
+                                    </label>
+                                    {{ form.phone_number }}
+                                    {% if form.phone_number.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.phone_number.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.location.id_for_label }}" class="form-label">
+                                        Location in Luxembourg *
+                                    </label>
+                                    {{ form.location }}
+                                    {% if form.location.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.location.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.date_of_birth.id_for_label }}" class="form-label">
+                                        Date of Birth *
+                                    </label>
+                                    {{ form.date_of_birth }}
+                                    {% if form.date_of_birth.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.date_of_birth.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.gender.id_for_label }}" class="form-label">
+                                        Gender *
+                                    </label>
+                                    {{ form.gender }}
+                                    {% if form.gender.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.gender.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- About You Section -->
+                        <div class="section-card mb-4">
+                            <h5 class="section-title">✍️ About You</h5>
+
+                            <div class="mb-3">
+                                <label for="{{ form.bio.id_for_label }}" class="form-label">
+                                    Bio
+                                    <small class="text-muted">(Tell us about yourself)</small>
+                                </label>
+                                {{ form.bio }}
+                                <div class="char-counter">
+                                    <span id="bioCounter">{{ profile.bio|length|default:"0" }}</span>/500 characters
+                                </div>
+                                {% if form.bio.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.bio.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="{{ form.interests.id_for_label }}" class="form-label">
+                                    Interests
+                                    <small class="text-muted">(What do you enjoy?)</small>
+                                </label>
+                                {{ form.interests }}
+                                <div class="char-counter">
+                                    <span id="interestsCounter">{{ profile.interests|length|default:"0" }}</span>/300 characters
+                                </div>
+                                {% if form.interests.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.interests.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="{{ form.looking_for.id_for_label }}" class="form-label">
+                                    What are you looking for? *
+                                </label>
+                                {{ form.looking_for }}
+                                {% if form.looking_for.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.looking_for.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Photos Section -->
+                        <div class="section-card mb-4">
+                            <h5 class="section-title">📸 Photos</h5>
+
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Photo 1</label>
+                                    {% if profile.photo_1 %}
+                                        <div class="current-photo mb-2">
+                                            <img src="{{ profile.photo_1.url }}" alt="Current Photo 1" class="img-thumbnail">
+                                        </div>
+                                    {% endif %}
+                                    {{ form.photo_1 }}
+                                    {% if form.photo_1.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.photo_1.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Photo 2</label>
+                                    {% if profile.photo_2 %}
+                                        <div class="current-photo mb-2">
+                                            <img src="{{ profile.photo_2.url }}" alt="Current Photo 2" class="img-thumbnail">
+                                        </div>
+                                    {% endif %}
+                                    {{ form.photo_2 }}
+                                    {% if form.photo_2.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.photo_2.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Photo 3</label>
+                                    {% if profile.photo_3 %}
+                                        <div class="current-photo mb-2">
+                                            <img src="{{ profile.photo_3.url }}" alt="Current Photo 3" class="img-thumbnail">
+                                        </div>
+                                    {% endif %}
+                                    {{ form.photo_3 }}
+                                    {% if form.photo_3.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.photo_3.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Privacy Settings Section -->
+                        <div class="section-card mb-4">
+                            <h5 class="section-title">🔒 Privacy Settings</h5>
+
+                            <div class="form-check mb-3">
+                                {{ form.show_full_name }}
+                                <label class="form-check-label" for="{{ form.show_full_name.id_for_label }}">
+                                    Show my full name
+                                    <small class="text-muted d-block">Otherwise only first name is shown</small>
+                                </label>
+                            </div>
+
+                            <div class="form-check mb-3">
+                                {{ form.show_exact_age }}
+                                <label class="form-check-label" for="{{ form.show_exact_age.id_for_label }}">
+                                    Show my exact age
+                                    <small class="text-muted d-block">Otherwise show age range (e.g., 25-29)</small>
+                                </label>
+                            </div>
+
+                            <div class="form-check mb-3">
+                                {{ form.blur_photos }}
+                                <label class="form-check-label" for="{{ form.blur_photos.id_for_label }}">
+                                    Blur my photos until mutual interest
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-between">
+                            <a href="{% url 'crush_lu:dashboard' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-crush-primary btn-lg">
+                                <i class="bi bi-check-circle"></i> Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.section-card {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 1.5rem;
+}
+
+.section-title {
+    color: #2C3E50;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.char-counter {
+    text-align: right;
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+.current-photo {
+    max-height: 200px;
+    overflow: hidden;
+    border-radius: 8px;
+}
+
+.current-photo img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    padding: 0.5rem 0.75rem;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #9B59B6;
+    box-shadow: 0 0 0 0.2rem rgba(155, 89, 182, 0.15);
+}
+
+.form-check-input:checked {
+    background-color: #9B59B6;
+    border-color: #9B59B6;
+}
+
+.btn-crush-primary {
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    color: white;
+    border: none;
+    padding: 0.75rem 2rem;
+    border-radius: 25px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-crush-primary:hover {
+    background: linear-gradient(135deg, #8E44AD, #E74C3C);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
+}
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Character counters
+document.getElementById('{{ form.bio.id_for_label }}')?.addEventListener('input', function() {
+    document.getElementById('bioCounter').textContent = this.value.length;
+});
+
+document.getElementById('{{ form.interests.id_for_label }}')?.addEventListener('input', function() {
+    document.getElementById('interestsCounter').textContent = this.value.length;
+});
+
+// Form submission confirmation
+document.getElementById('editProfileForm').addEventListener('submit', function(e) {
+    // Optional: Add confirmation dialog
+    // if (!confirm('Are you sure you want to save these changes?')) {
+    //     e.preventDefault();
+    // }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "admin/index.html" %}
+{% load static %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .dashboard-banner {
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        color: white;
+        padding: 30px;
+        border-radius: 8px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .dashboard-banner h2 {
+        margin: 0 0 10px 0;
+        font-size: 28px;
+        font-weight: 600;
+    }
+
+    .dashboard-banner p {
+        margin: 0 0 20px 0;
+        opacity: 0.9;
+    }
+
+    .dashboard-btn {
+        display: inline-block;
+        padding: 12px 30px;
+        background: white;
+        color: #9B59B6;
+        text-decoration: none;
+        border-radius: 6px;
+        font-weight: 600;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .dashboard-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        color: #9B59B6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if show_dashboard_link %}
+<div class="dashboard-banner">
+    <h2>📊 Analytics Dashboard</h2>
+    <p>View comprehensive analytics, metrics, and insights for the Crush.lu platform</p>
+    <a href="{{ dashboard_url }}" class="dashboard-btn">
+        Open Analytics Dashboard →
+    </a>
+</div>
+{% endif %}
+
+{{ block.super }}
+{% endblock %}

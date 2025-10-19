@@ -1,0 +1,342 @@
+{% extends "admin/index.html" %}
+{% load i18n static %}
+
+{% block content %}
+<div id="content-main">
+    <style>
+        .crush-admin-section {
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .crush-section-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .crush-section-header:hover {
+            background: linear-gradient(135deg, #5a67d8 0%, #6b3fa0 100%);
+        }
+
+        .crush-section-icon {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+
+        .crush-section-content {
+            padding: 0;
+        }
+
+        .crush-section-content table {
+            width: 100%;
+            margin: 0;
+        }
+
+        .crush-section-content td {
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .crush-section-content tr:last-child td {
+            border-bottom: none;
+        }
+
+        .crush-model-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: #333;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+
+        .crush-model-link:hover {
+            background: #f8f9fa;
+        }
+
+        .crush-model-icon {
+            font-size: 20px;
+            margin-right: 12px;
+            width: 30px;
+            text-align: center;
+        }
+
+        .crush-model-name {
+            flex: 1;
+            font-weight: 500;
+        }
+
+        .crush-model-count {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .crush-model-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .crush-action-btn {
+            background: #667eea;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+
+        .crush-action-btn:hover {
+            background: #5a67d8;
+            color: white;
+        }
+
+        .crush-section-description {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .crush-toggle-icon {
+            transition: transform 0.3s;
+        }
+
+        .crush-section-content.collapsed {
+            display: none;
+        }
+
+        .crush-section-header.collapsed .crush-toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .crush-quick-start {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .crush-quick-start h2 {
+            color: white;
+            margin-top: 0;
+        }
+
+        .crush-quick-start ol {
+            margin: 15px 0;
+            padding-left: 25px;
+        }
+
+        .crush-quick-start li {
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+    </style>
+
+    <!-- Quick Start Guide -->
+    <div class="crush-quick-start">
+        <h2>✨ Welcome to Crush.lu Special Journey System</h2>
+        <p><strong>Create a personalized journey in 6 steps:</strong></p>
+        <ol>
+            <li><strong>Special User Experience</strong> - Define who receives the journey (first + last name)</li>
+            <li><strong>Journey Configuration</strong> - Create the journey structure and settings</li>
+            <li><strong>Chapters</strong> - Add themed chapters to organize the journey</li>
+            <li><strong>Challenges</strong> - Create interactive activities (riddles, quizzes, word games)</li>
+            <li><strong>Rewards</strong> - Upload photos, videos, audio, and letters as surprises</li>
+            <li><strong>Test & Launch</strong> - Log in as the special user to experience it!</li>
+        </ol>
+        <p style="margin-top: 15px; font-size: 14px; opacity: 0.9;">
+            📚 <strong>Need help?</strong> Check JOURNEY_QUICK_START.md and JOURNEY_SYSTEM_IMPLEMENTATION.md
+        </p>
+    </div>
+
+    <!-- Journey System - Content Creation -->
+    <div class="crush-admin-section">
+        <div class="crush-section-header" onclick="toggleSection(this)">
+            <div>
+                <span class="crush-section-icon">🎨</span>
+                <span>Journey System - Content Creation</span>
+            </div>
+            <span class="crush-toggle-icon">▼</span>
+        </div>
+        <div class="crush-section-description">
+            Create and configure personalized journey experiences. Start from top to bottom.
+        </div>
+        <div class="crush-section-content">
+            <table>
+                {% for model in app_list.0.models %}
+                    {% if "1. Special" in model.name or "2. Journey Config" in model.name or "3. Journey Chapter" in model.name or "4. Journey Challenge" in model.name or "5. Journey Reward" in model.name %}
+                    <tr>
+                        <td>
+                            <a href="{{ model.admin_url }}" class="crush-model-link">
+                                <span class="crush-model-name">{{ model.name }}</span>
+                                <div class="crush-model-actions">
+                                    {% if model.add_url %}
+                                    <a href="{{ model.add_url }}" class="crush-action-btn">+ Add New</a>
+                                    {% endif %}
+                                </div>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+
+    <!-- Journey System - User Progress & Analytics -->
+    <div class="crush-admin-section">
+        <div class="crush-section-header" onclick="toggleSection(this)">
+            <div>
+                <span class="crush-section-icon">📊</span>
+                <span>Journey System - User Progress & Analytics</span>
+            </div>
+            <span class="crush-toggle-icon">▼</span>
+        </div>
+        <div class="crush-section-description">
+            Monitor how users progress through their journeys. View completion rates, answers, and puzzle progress.
+        </div>
+        <div class="crush-section-content">
+            <table>
+                {% for model in app_list.0.models %}
+                    {% if "6. Journey Progress" in model.name or "7. Chapter Progress" in model.name or "8. Challenge Attempts" in model.name or "9. Reward Progress" in model.name %}
+                    <tr>
+                        <td>
+                            <a href="{{ model.admin_url }}" class="crush-model-link">
+                                <span class="crush-model-name">{{ model.name }}</span>
+                                <div class="crush-model-actions">
+                                    {% if model.admin_url %}
+                                    <a href="{{ model.admin_url }}" class="crush-action-btn">View All</a>
+                                    {% endif %}
+                                </div>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+
+    <!-- User Profiles & Onboarding -->
+    <div class="crush-admin-section">
+        <div class="crush-section-header collapsed" onclick="toggleSection(this)">
+            <div>
+                <span class="crush-section-icon">👤</span>
+                <span>User Profiles & Onboarding</span>
+            </div>
+            <span class="crush-toggle-icon">▼</span>
+        </div>
+        <div class="crush-section-description">
+            Manage user profiles, coach reviews, and the onboarding process.
+        </div>
+        <div class="crush-section-content collapsed">
+            <table>
+                {% for model in app_list.0.models %}
+                    {% if "Crush profile" in model.name or "Profile submission" in model.name or "Crush coach" in model.name or "Coach session" in model.name %}
+                    <tr>
+                        <td>
+                            <a href="{{ model.admin_url }}" class="crush-model-link">
+                                <span class="crush-model-name">{{ model.name }}</span>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+
+    <!-- Events & Meetups -->
+    <div class="crush-admin-section">
+        <div class="crush-section-header collapsed" onclick="toggleSection(this)">
+            <div>
+                <span class="crush-section-icon">🎉</span>
+                <span>Events & Meetups</span>
+            </div>
+            <span class="crush-toggle-icon">▼</span>
+        </div>
+        <div class="crush-section-description">
+            Manage speed dating events, registrations, voting, and presentations.
+        </div>
+        <div class="crush-section-content collapsed">
+            <table>
+                {% for model in app_list.0.models %}
+                    {% if "Meetup event" in model.name or "Event registration" in model.name or "Event activity" in model.name or "Event voting" in model.name or "Presentation" in model.name or "Speed dating" in model.name or "Global Activity" in model.name %}
+                    <tr>
+                        <td>
+                            <a href="{{ model.admin_url }}" class="crush-model-link">
+                                <span class="crush-model-name">{{ model.name }}</span>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+
+    <!-- Connections & Messages -->
+    <div class="crush-admin-section">
+        <div class="crush-section-header collapsed" onclick="toggleSection(this)">
+            <div>
+                <span class="crush-section-icon">💬</span>
+                <span>Connections & Messages</span>
+            </div>
+            <span class="crush-toggle-icon">▼</span>
+        </div>
+        <div class="crush-section-description">
+            Post-event connections and private messaging between matched users.
+        </div>
+        <div class="crush-section-content collapsed">
+            <table>
+                {% for model in app_list.0.models %}
+                    {% if "Event connection" in model.name or "Connection message" in model.name %}
+                    <tr>
+                        <td>
+                            <a href="{{ model.admin_url }}" class="crush-model-link">
+                                <span class="crush-model-name">{{ model.name }}</span>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+function toggleSection(header) {
+    const content = header.nextElementSibling.nextElementSibling;
+    const isCollapsed = content.classList.contains('collapsed');
+
+    if (isCollapsed) {
+        content.classList.remove('collapsed');
+        header.classList.remove('collapsed');
+    } else {
+        content.classList.add('collapsed');
+        header.classList.add('collapsed');
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends 'crush_lu/base.html' %}
+
+{% block title %}About - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <h1 class="text-center mb-5">About Crush.lu</h1>
+
+        <div class="card mb-4">
+            <div class="card-body p-4">
+                <h3>Our Mission</h3>
+                <p class="lead">
+                    We're bringing back authentic connections in Luxembourg's dating scene.
+                </p>
+                <p>
+                    In a world of endless swiping and superficial matches, Crush.lu takes a different approach.
+                    We believe that real relationships start with real conversations, face-to-face.
+                </p>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body p-4">
+                <h3>Why Luxembourg?</h3>
+                <p>
+                    Luxembourg is a small, tight-knit community where privacy and discretion matter.
+                    Our platform is designed with this in mind, offering a curated experience that
+                    respects your privacy while helping you meet compatible people.
+                </p>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body p-4">
+                <h3>The Crush Coach Difference</h3>
+                <p>
+                    Every profile on Crush.lu is reviewed by a dedicated Crush Coach. This ensures:
+                </p>
+                <ul>
+                    <li>Authentic profiles only - no bots, no catfishing</li>
+                    <li>Personalized guidance to help you present your best self</li>
+                    <li>A safer, more respectful community</li>
+                    <li>Support throughout your journey to find connections</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card mb-4" style="background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(255, 107, 157, 0.1));">
+            <div class="card-body p-4 text-center">
+                <h3>Ready to Get Started?</h3>
+                <p class="mb-4">Join our community and start meeting new people today!</p>
+                <a href="{% url 'crush_lu:signup' %}" class="btn btn-crush-primary btn-lg">
+                    Create Your Profile
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

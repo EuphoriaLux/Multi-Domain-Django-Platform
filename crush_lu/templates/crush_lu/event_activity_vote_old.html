@@ -1,0 +1,220 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+
+{% block title %}Vote on Activity - {{ event.title }} - Crush.lu{% endblock %}
+
+{% block extra_css %}
+<style>
+    .activity-group-card {
+        border: 2px solid #e9ecef;
+        border-radius: 15px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        transition: all 0.3s ease;
+    }
+
+    .activity-group-card:hover {
+        border-color: #d0d0d0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .variant-options {
+        margin-top: 1.5rem;
+    }
+
+    .variant-option-item {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .variant-option-item:hover {
+        border-color: #9B59B6;
+        background-color: rgba(155, 89, 182, 0.05);
+    }
+
+    .variant-option-item:has(input:checked) {
+        border-color: #9B59B6;
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.15) 0%, rgba(255, 107, 157, 0.15) 100%);
+        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.2);
+    }
+
+    .variant-radio {
+        width: 1.5rem;
+        height: 1.5rem;
+        cursor: pointer;
+    }
+
+    .form-check-label {
+        cursor: pointer;
+        margin-left: 0.5rem;
+    }
+
+    .countdown-banner {
+        background: linear-gradient(135deg, #FF6B9D 0%, #9B59B6 100%);
+        color: white;
+        padding: 1rem;
+        border-radius: 15px;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .countdown-timer {
+        font-size: 2.5rem;
+        font-weight: bold;
+    }
+
+    .section-header {
+        color: #9B59B6;
+        border-bottom: 2px solid #9B59B6;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hidden data for JavaScript -->
+<div id="event-id-data" data-event-id="{{ event.id }}" style="display: none;"></div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <a href="{% url 'crush_lu:event_voting_lobby' event.id %}" class="btn btn-outline-secondary mb-3">
+            ← Back to Lobby
+        </a>
+
+        <div class="card">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <h1 class="display-5">Vote for Your Favorite Activity</h1>
+                    <p class="lead text-muted">{{ event.title }}</p>
+                </div>
+
+                <div class="countdown-banner">
+                    <p class="mb-1">Time Remaining to Vote:</p>
+                    <div class="countdown-timer" id="time-remaining">
+                        {{ voting_session.time_remaining|floatformat:0 }}s
+                    </div>
+                </div>
+
+                {% if has_voted_both %}
+                <div class="alert alert-info">
+                    <strong>Current Votes:</strong><br>
+                    Presentation Style: <strong>{{ presentation_vote.selected_option.display_name }}</strong><br>
+                    Speed Dating Twist: <strong>{{ twist_vote.selected_option.display_name }}</strong><br>
+                    <small class="text-muted">You can change your votes anytime before voting closes.</small>
+                </div>
+                {% elif presentation_vote or twist_vote %}
+                <div class="alert alert-warning">
+                    <strong>Incomplete!</strong> You must vote on BOTH categories to submit.
+                    {% if presentation_vote %}You've voted on Presentation Style.{% endif %}
+                    {% if twist_vote %}You've voted on Speed Dating Twist.{% endif %}
+                </div>
+                {% endif %}
+
+                <form id="vote-form" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" id="selected-option-id" name="option_id" value="{{ existing_vote.selected_option.id|default:'' }}">
+
+                    <!-- Speed Dating Options -->
+                    <div class="activity-group-card">
+                        <h3 class="section-header">💕 Speed Dating</h3>
+                        <p class="text-muted mb-3">Quick 3-5 minute conversations in organized formats</p>
+
+                        <div class="variant-options">
+                            {% for option in speed_dating_options %}
+                            <div class="form-check variant-option-item">
+                                <input class="form-check-input variant-radio"
+                                       type="radio"
+                                       name="activity_choice"
+                                       id="option-{{ option.id }}"
+                                       value="{{ option.id }}"
+                                       {% if existing_vote and existing_vote.selected_option.id == option.id %}checked{% endif %}
+                                       data-option-id="{{ option.id }}">
+                                <label class="form-check-label w-100" for="option-{{ option.id }}">
+                                    <strong>
+                                        {% if option.activity_variant == 'random' %}Random Order
+                                        {% elif option.activity_variant == 'alphabetic' %}Alphabetic Order
+                                        {% elif option.activity_variant == 'hair_color' %}By Hair Color
+                                        {% endif %}
+                                    </strong>: {{ option.description }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Presentation Round Options -->
+                    <div class="activity-group-card">
+                        <h3 class="section-header">🎤 90 Second Presentations</h3>
+                        <p class="text-muted mb-3">Everyone introduces themselves in creative ways</p>
+
+                        <div class="variant-options">
+                            {% for option in presentation_options %}
+                            <div class="form-check variant-option-item">
+                                <input class="form-check-input variant-radio"
+                                       type="radio"
+                                       name="activity_choice"
+                                       id="option-{{ option.id }}"
+                                       value="{{ option.id }}"
+                                       {% if existing_vote and existing_vote.selected_option.id == option.id %}checked{% endif %}
+                                       data-option-id="{{ option.id }}">
+                                <label class="form-check-label w-100" for="option-{{ option.id }}">
+                                    <strong>
+                                        {% if option.activity_variant == 'music' %}With Favorite Music
+                                        {% elif option.activity_variant == 'questions' %}5 Predefined Questions
+                                        {% elif option.activity_variant == 'picture_story' %}Share Favorite Picture & Story
+                                        {% endif %}
+                                    </strong>: {{ option.description }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Mystery Event Option -->
+                    {% if mystery_option %}
+                    <div class="activity-group-card">
+                        <h3 class="section-header">🎭 Mystery Event</h3>
+                        <p class="text-muted mb-3">Trust the coaches with a surprise activity!</p>
+
+                        <div class="variant-options">
+                            <div class="form-check variant-option-item">
+                                <input class="form-check-input variant-radio"
+                                       type="radio"
+                                       name="activity_choice"
+                                       id="option-{{ mystery_option.id }}"
+                                       value="{{ mystery_option.id }}"
+                                       {% if existing_vote and existing_vote.selected_option.id == mystery_option.id %}checked{% endif %}
+                                       data-option-id="{{ mystery_option.id }}">
+                                <label class="form-check-label w-100" for="option-{{ mystery_option.id }}">
+                                    {{ mystery_option.description }}
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="text-center mt-4">
+                        <button type="submit" id="submit-vote-btn" class="btn btn-crush-primary btn-lg px-5"
+                                {% if not existing_vote %}disabled{% endif %}>
+                            {% if existing_vote %}Update My Vote{% else %}Submit My Vote{% endif %}
+                        </button>
+                    </div>
+                </form>
+
+                <div class="alert alert-warning mt-4">
+                    <strong>Remember:</strong> You can change your vote at any time before the voting period ends!
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'crush_lu/js/event-voting.js' %}"></script>
+{% endblock %}

@@ -178,13 +178,26 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
     type: 'SystemAssigned'
   }
   
-  resource appSettings 'config' = {
+  resource webAppSettings 'config' = {
     name: 'appsettings'
     properties: {
-      SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
+      SCM_DO_BUILD_DURING_DEPLOYMENT: 'false'
+      ENABLE_ORYX_BUILD: 'true'
       AZURE_POSTGRESQL_CONNECTIONSTRING: 'dbname=${pythonAppDatabase.name} host=${postgresServer.name}.postgres.database.azure.com port=5432 sslmode=require user=${postgresServer.properties.administratorLogin} password=${databasePassword}'
       SECRET_KEY: secretKey
+      CUSTOM_DOMAINS: 'www.powerup.lu,powerup.lu,vinsdelux.com,www.vinsdelux.com'
       FLASK_DEBUG: 'False'
+      // Azure Storage Account Configuration for Media Files
+      AZURE_ACCOUNT_NAME: storageAccount.name
+      AZURE_ACCOUNT_KEY: storageAccount.listKeys().keys[0].value
+      AZURE_CONTAINER_NAME: mediaContainerName
+      // Deployment flags - set to false for faster deployments
+      // Set INITIAL_DEPLOYMENT=true manually in portal for first deployment only
+      DEPLOY_MEDIA_AND_DATA: 'false'
+      INITIAL_DEPLOYMENT: 'false'
+      // Legacy options (kept for backward compatibility)
+      SYNC_MEDIA_TO_AZURE: 'false'
+      POPULATE_SAMPLE_DATA: 'false'
       //Added for Azure Redis Cache
  //     AZURE_REDIS_CONNECTIONSTRING: 'rediss://:${redisCache.listKeys().primaryKey}@${redisCache.name}.redis.cache.windows.net:6380/0'
     }
@@ -292,7 +305,7 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2020-03
   })
 }
 
-module applicationInsightsResources 'appinsights.bicep' = {
+module applicationInsightsResources './appinsights.bicep' = {
   name: 'applicationinsights-resources'
   params: {
     prefix: prefix
@@ -363,15 +376,43 @@ resource pythonAppDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/databases@
 //  }
 //}    
 
+// Azure Storage Account for Media Files
+var storageAccountName = '${toLower('media')}${uniqueString(resourceGroup().id)}' // Use a fixed prefix and uniqueString
+var mediaContainerName = 'media' // This should match AZURE_CONTAINER_NAME in production.py
+
+resource storageAccount 'Microsoft.Storage/storageAccounts@2021-09-01' = {
+  name: storageAccountName
+  location: location
+  tags: tags
+  sku: {
+    name: 'Standard_LRS' // Or choose a different SKU based on your needs
+  }
+  kind: 'StorageV2'
+  properties: {
+    supportsHttpsTrafficOnly: true
+  }
+
+  resource blobServices 'blobServices' = {
+    name: 'default'
+
+    resource container 'containers' = {
+      name: mediaContainerName
+      properties: {
+        publicAccess: 'None' // Or 'Blob' or 'Container' depending on your needs
+      }
+    }
+  }
+}
+
 output WEB_URI string = 'https://${web.properties.defaultHostName}'
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = applicationInsightsResources.outputs.APPLICATIONINSIGHTS_CONNECTION_STRING
 
-resource webAppSettings 'Microsoft.Web/sites/config@2022-03-01' existing = {
-  name: web::appSettings.name
-  parent: web
-}
+// Azure Storage Account Outputs
+output AZURE_STORAGE_ACCOUNT_NAME string = storageAccount.name
+output AZURE_STORAGE_CONTAINER_NAME string = mediaContainerName
+output AZURE_STORAGE_BLOB_ENDPOINT string = storageAccount.properties.primaryEndpoints.blob
 
-var webAppSettingsKeys = map(items(webAppSettings.list().properties), setting => setting.key)
+var webAppSettingsKeys = map(items(web::webAppSettings.properties), setting => setting.key)
 output WEB_APP_SETTINGS array = webAppSettingsKeys
 output WEB_APP_LOG_STREAM string = format('https://portal.azure.com/#@/resource{0}/logStream', web.id)
 output WEB_APP_SSH string = format('https://{0}.scm.azurewebsites.net/webssh/host', web.name)

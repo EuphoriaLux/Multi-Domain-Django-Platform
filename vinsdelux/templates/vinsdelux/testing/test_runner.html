@@ -1,0 +1,408 @@
+{% load static %}
+{% load i18n %}
+
+<!DOCTYPE html>
+<html lang="{% get_current_language as LANGUAGE_CODE %}{{ LANGUAGE_CODE }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% trans "VinsDeLux Journey Test Suite" %}</title>
+    
+    <!-- Base styles -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Journey styles -->
+    <link rel="stylesheet" href="{% static 'css/vdl-journey-futuristic.css' %}">
+    <link rel="stylesheet" href="{% static 'css/vdl-journey-mobile.css' %}">
+    
+    <style>
+        body {
+            background: #0a0a1a;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .test-header {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            padding: 2rem 0;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .test-controls {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .test-btn {
+            background: linear-gradient(135deg, #d4af37, #b8941f);
+            border: none;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            margin: 0.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .test-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(212, 175, 55, 0.3);
+        }
+        
+        .test-btn:active {
+            transform: translateY(0);
+        }
+        
+        .test-info {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+        }
+        
+        .browser-info {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-loading {
+            background: #ff9800;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .status-pass {
+            background: #4caf50;
+        }
+        
+        .status-fail {
+            background: #f44336;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .console-output {
+            background: #000;
+            color: #0f0;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #333;
+        }
+        
+        .section-divider {
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #d4af37, transparent);
+            margin: 3rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-header">
+        <h1>🧪 VinsDeLux Journey Test Suite</h1>
+        <p>{% trans "Comprehensive testing for the futuristic journey experience" %}</p>
+    </div>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <!-- Test Controls -->
+                <div class="test-controls">
+                    <h3>🎯 Test Controls</h3>
+                    <button class="test-btn" onclick="runAllTests()">
+                        🚀 Run All Tests
+                    </button>
+                    <button class="test-btn" onclick="runJourneyTests()">
+                        🎪 Journey Tests
+                    </button>
+                    <button class="test-btn" onclick="validateCSS()">
+                        🎨 CSS Validation
+                    </button>
+                    <button class="test-btn" onclick="runPerformanceTests()">
+                        ⚡ Performance Tests
+                    </button>
+                    <button class="test-btn" onclick="clearReports()">
+                        🗑️ Clear Reports
+                    </button>
+                </div>
+
+                <!-- Test Status -->
+                <div class="test-info">
+                    <h4>📊 Test Status</h4>
+                    <div id="test-status">
+                        <div><span class="status-indicator status-loading"></span>Waiting for tests to run...</div>
+                    </div>
+                </div>
+
+                <!-- Browser Information -->
+                <div class="browser-info">
+                    <h4>🌐 Browser Information</h4>
+                    <div id="browser-info">
+                        <div><strong>User Agent:</strong> <span id="user-agent"></span></div>
+                        <div><strong>Viewport:</strong> <span id="viewport-size"></span></div>
+                        <div><strong>Color Depth:</strong> <span id="color-depth"></span></div>
+                        <div><strong>Pixel Ratio:</strong> <span id="pixel-ratio"></span></div>
+                        <div><strong>Connection:</strong> <span id="connection-info"></span></div>
+                        <div><strong>Memory:</strong> <span id="memory-info"></span></div>
+                    </div>
+                </div>
+
+                <!-- Console Output -->
+                <div class="console-output" id="console-output">
+                    <div>🔄 Console output will appear here...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <!-- Journey Component (for testing) -->
+        <div class="row">
+            <div class="col-12">
+                {% include 'vinsdelux/sections/client_journey_futuristic.html' with id='test-journey' %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'js/vdl-journey-futuristic.js' %}"></script>
+    <script src="{% static 'js/vdl-journey-animations.js' %}"></script>
+    <script src="{% static 'js/vdl-journey-tests.js' %}"></script>
+    <script src="{% static 'js/vdl-css-validator.js' %}"></script>
+    <script src="{% static 'js/vdl-debug-console.js' %}"></script>
+
+    <script>
+        // Console capture for display
+        const consoleOutput = document.getElementById('console-output');
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+
+        function logToConsole(message, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString();
+            const colorClass = type === 'error' ? 'color: #ff5555' : 
+                              type === 'warn' ? 'color: #ffff55' : 
+                              type === 'info' ? 'color: #55ffff' : 'color: #55ff55';
+            
+            const logEntry = document.createElement('div');
+            logEntry.style.cssText = colorClass;
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            consoleOutput.appendChild(logEntry);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            logToConsole(args.join(' '), 'log');
+        };
+
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            logToConsole('ERROR: ' + args.join(' '), 'error');
+        };
+
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            logToConsole('WARNING: ' + args.join(' '), 'warn');
+        };
+
+        // Initialize browser info
+        function updateBrowserInfo() {
+            document.getElementById('user-agent').textContent = navigator.userAgent;
+            document.getElementById('viewport-size').textContent = `${window.innerWidth}x${window.innerHeight}`;
+            document.getElementById('color-depth').textContent = `${screen.colorDepth} bits`;
+            document.getElementById('pixel-ratio').textContent = window.devicePixelRatio || 1;
+            
+            // Connection info
+            if (navigator.connection) {
+                const conn = navigator.connection;
+                document.getElementById('connection-info').textContent = 
+                    `${conn.effectiveType || 'unknown'} (${conn.downlink || 'unknown'} Mbps)`;
+            } else {
+                document.getElementById('connection-info').textContent = 'Unknown';
+            }
+            
+            // Memory info
+            if (performance.memory) {
+                const memory = performance.memory;
+                document.getElementById('memory-info').textContent = 
+                    `${(memory.usedJSHeapSize / 1048576).toFixed(2)} MB used`;
+            } else {
+                document.getElementById('memory-info').textContent = 'Unknown';
+            }
+        }
+
+        // Test runner functions
+        async function runAllTests() {
+            updateTestStatus('🚀 Running all tests...', 'loading');
+            console.log('🎯 Starting comprehensive test suite...');
+            
+            try {
+                const journeyResult = await runJourneyTests();
+                const cssResult = await validateCSS();
+                const perfResult = await runPerformanceTests();
+                
+                const allPassed = journeyResult && cssResult && perfResult;
+                updateTestStatus(
+                    allPassed ? '✅ All tests passed!' : '⚠️ Some tests failed - check reports',
+                    allPassed ? 'pass' : 'fail'
+                );
+                
+                console.log(`🎯 Test suite completed. Overall result: ${allPassed ? 'PASS' : 'FAIL'}`);
+            } catch (error) {
+                updateTestStatus('❌ Test suite failed', 'fail');
+                console.error('Test suite error:', error);
+            }
+        }
+
+        async function runPerformanceTests() {
+            console.log('⚡ Running performance tests...');
+            
+            const startTime = performance.now();
+            
+            // Test page load performance
+            if (performance.timing) {
+                const timing = performance.timing;
+                const loadTime = timing.loadEventEnd - timing.navigationStart;
+                console.log(`📈 Page load time: ${loadTime}ms`);
+                
+                if (loadTime > 5000) {
+                    console.warn('⚠️ Page load time is high');
+                }
+            }
+            
+            // Test animation frame rate
+            let frameCount = 0;
+            const frameStartTime = performance.now();
+            
+            function countFrames() {
+                frameCount++;
+                if (performance.now() - frameStartTime < 1000) {
+                    requestAnimationFrame(countFrames);
+                } else {
+                    const fps = frameCount;
+                    console.log(`🎬 Animation frame rate: ${fps} FPS`);
+                    
+                    if (fps < 30) {
+                        console.warn('⚠️ Low frame rate detected');
+                    }
+                }
+            }
+            
+            requestAnimationFrame(countFrames);
+            
+            // Test memory usage
+            if (performance.memory) {
+                const memory = performance.memory;
+                console.log(`💾 Memory usage: ${(memory.usedJSHeapSize / 1048576).toFixed(2)} MB`);
+                
+                if (memory.usedJSHeapSize > 50 * 1048576) { // 50MB
+                    console.warn('⚠️ High memory usage detected');
+                }
+            }
+            
+            const endTime = performance.now();
+            console.log(`⚡ Performance tests completed in ${(endTime - startTime).toFixed(2)}ms`);
+            
+            return true;
+        }
+
+        function updateTestStatus(message, status) {
+            const statusElement = document.getElementById('test-status');
+            const statusClass = `status-${status}`;
+            
+            statusElement.innerHTML = `
+                <div><span class="status-indicator ${statusClass}"></span>${message}</div>
+            `;
+        }
+
+        function clearReports() {
+            // Remove test reports
+            const reports = document.querySelectorAll('#test-report, #css-validation-report');
+            reports.forEach(report => report.remove());
+            
+            // Clear console
+            consoleOutput.innerHTML = '<div>🔄 Console cleared...</div>';
+            
+            // Reset status
+            updateTestStatus('Waiting for tests to run...', 'loading');
+            
+            console.log('🗑️ Reports and console cleared');
+        }
+
+        // Window resize handler
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                updateBrowserInfo();
+                console.log(`📐 Viewport resized to ${window.innerWidth}x${window.innerHeight}`);
+            }, 250);
+        });
+
+        // Orientation change handler
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                updateBrowserInfo();
+                console.log('📱 Orientation changed');
+            }, 500);
+        });
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            updateBrowserInfo();
+            console.log('🚀 Test runner initialized');
+            console.log('👉 Click "Run All Tests" to start comprehensive testing');
+        });
+
+        // Error handler for uncaught errors
+        window.addEventListener('error', (event) => {
+            console.error(`Uncaught error: ${event.error?.message || event.message}`);
+            updateTestStatus('❌ Uncaught error detected', 'fail');
+        });
+
+        // Performance observer for layout shifts
+        if ('PerformanceObserver' in window) {
+            try {
+                const observer = new PerformanceObserver((list) => {
+                    for (const entry of list.getEntries()) {
+                        if (entry.hadRecentInput) continue;
+                        console.log(`📐 Layout shift detected: ${entry.value.toFixed(4)}`);
+                        if (entry.value > 0.1) {
+                            console.warn('⚠️ Significant layout shift detected');
+                        }
+                    }
+                });
+                observer.observe({ entryTypes: ['layout-shift'] });
+            } catch (e) {
+                console.log('ℹ️ Layout shift monitoring not supported in this browser');
+            }
+        }
+    </script>
+</body>
+</html>

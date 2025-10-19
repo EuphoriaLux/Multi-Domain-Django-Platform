@@ -1,0 +1,614 @@
+{% load static i18n %}
+
+<!--
+  Progress Indicator Component - Elegant step tracker for adoption flow
+  Usage: {% include 'vinsdelux/journey/components/progress_indicator.html' with current_step=1 %}
+-->
+
+<div class="vdl-progress-indicator" data-aos="fade-up">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-10 col-xl-8">
+                <!-- Progress Header -->
+                <div class="text-center vdl-mb-xl">
+                    <h3 class="vdl-heading-secondary vdl-mb-sm">
+                        {% trans "Your Wine Adoption Journey" %}
+                    </h3>
+                    <p class="vdl-body vdl-text-muted">
+                        {% trans "Follow these steps to complete your vineyard plot adoption" %}
+                    </p>
+                </div>
+                
+                <!-- Progress Steps -->
+                <div class="vdl-progress-steps">
+                    <!-- Step 1: Plot Selection -->
+                    <div class="vdl-step {% if current_step >= 1 %}active{% endif %} {% if current_step > 1 %}completed{% endif %}"
+                         data-step="1">
+                        <div class="vdl-step-connector"></div>
+                        <div class="vdl-step-circle">
+                            {% if current_step > 1 %}
+                                <i class="fas fa-check"></i>
+                            {% else %}
+                                <i class="fas fa-map-marked-alt"></i>
+                            {% endif %}
+                        </div>
+                        <div class="vdl-step-content">
+                            <div class="vdl-step-number">{% trans "Step" %} 1</div>
+                            <h4 class="vdl-step-title">{% trans "Select Your Plot" %}</h4>
+                            <p class="vdl-step-description">
+                                {% trans "Choose your perfect vineyard plot from our premium locations" %}
+                            </p>
+                            <div class="vdl-step-details">
+                                <ul class="vdl-step-checklist">
+                                    <li class="{% if current_step >= 1 %}checked{% endif %}">
+                                        <i class="fas fa-search"></i>
+                                        {% trans "Explore interactive map" %}
+                                    </li>
+                                    <li class="{% if selected_plots.count > 0 %}checked{% endif %}">
+                                        <i class="fas fa-hand-pointer"></i>
+                                        {% trans "Select preferred plots" %}
+                                    </li>
+                                    <li class="{% if current_step > 1 %}checked{% endif %}">
+                                        <i class="fas fa-check-circle"></i>
+                                        {% trans "Confirm selection" %}
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 2: Adoption Plan -->
+                    <div class="vdl-step {% if current_step >= 2 %}active{% endif %} {% if current_step > 2 %}completed{% endif %}"
+                         data-step="2">
+                        <div class="vdl-step-connector"></div>
+                        <div class="vdl-step-circle">
+                            {% if current_step > 2 %}
+                                <i class="fas fa-check"></i>
+                            {% else %}
+                                <i class="fas fa-star"></i>
+                            {% endif %}
+                        </div>
+                        <div class="vdl-step-content">
+                            <div class="vdl-step-number">{% trans "Step" %} 2</div>
+                            <h4 class="vdl-step-title">{% trans "Choose Your Plan" %}</h4>
+                            <p class="vdl-step-description">
+                                {% trans "Select from Bronze, Silver, or Gold adoption plans" %}
+                            </p>
+                            <div class="vdl-step-details">
+                                <div class="vdl-plan-preview">
+                                    <div class="row g-2">
+                                        <div class="col-4">
+                                            <div class="vdl-mini-plan bronze {% if current_step == 2 and selected_plan == 'bronze' %}selected{% endif %}">
+                                                <i class="fas fa-medal"></i>
+                                                <span>{% trans "Bronze" %}</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="vdl-mini-plan silver {% if current_step == 2 and selected_plan == 'silver' %}selected{% endif %}">
+                                                <i class="fas fa-award"></i>
+                                                <span>{% trans "Silver" %}</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="vdl-mini-plan gold {% if current_step == 2 and selected_plan == 'gold' %}selected{% endif %}">
+                                                <i class="fas fa-crown"></i>
+                                                <span>{% trans "Gold" %}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 3: Personal Information -->
+                    <div class="vdl-step {% if current_step >= 3 %}active{% endif %} {% if current_step > 3 %}completed{% endif %}"
+                         data-step="3">
+                        <div class="vdl-step-connector"></div>
+                        <div class="vdl-step-circle">
+                            {% if current_step > 3 %}
+                                <i class="fas fa-check"></i>
+                            {% else %}
+                                <i class="fas fa-user-tie"></i>
+                            {% endif %}
+                        </div>
+                        <div class="vdl-step-content">
+                            <div class="vdl-step-number">{% trans "Step" %} 3</div>
+                            <h4 class="vdl-step-title">{% trans "Personal Details" %}</h4>
+                            <p class="vdl-step-description">
+                                {% trans "Complete your profile and delivery preferences" %}
+                            </p>
+                            <div class="vdl-step-details">
+                                <ul class="vdl-step-checklist">
+                                    <li class="{% if current_step >= 3 %}checked{% endif %}">
+                                        <i class="fas fa-id-card"></i>
+                                        {% trans "Personal information" %}
+                                    </li>
+                                    <li class="{% if current_step >= 3 %}checked{% endif %}">
+                                        <i class="fas fa-shipping-fast"></i>
+                                        {% trans "Delivery address" %}
+                                    </li>
+                                    <li class="{% if current_step >= 3 %}checked{% endif %}">
+                                        <i class="fas fa-heart"></i>
+                                        {% trans "Wine preferences" %}
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 4: Final Confirmation -->
+                    <div class="vdl-step {% if current_step >= 4 %}active{% endif %} {% if current_step > 4 %}completed{% endif %}"
+                         data-step="4">
+                        <div class="vdl-step-circle">
+                            {% if current_step > 4 %}
+                                <i class="fas fa-check"></i>
+                            {% else %}
+                                <i class="fas fa-handshake"></i>
+                            {% endif %}
+                        </div>
+                        <div class="vdl-step-content">
+                            <div class="vdl-step-number">{% trans "Step" %} 4</div>
+                            <h4 class="vdl-step-title">{% trans "Confirm Adoption" %}</h4>
+                            <p class="vdl-step-description">
+                                {% trans "Review and finalize your vineyard adoption" %}
+                            </p>
+                            <div class="vdl-step-details">
+                                {% if current_step >= 4 %}
+                                    <div class="vdl-completion-preview">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="vdl-completion-icon">
+                                                <i class="fas fa-gift"></i>
+                                            </div>
+                                            <div>
+                                                <div class="vdl-caption vdl-text-gold">{% trans "Welcome Package" %}</div>
+                                                <div class="vdl-body-small">{% trans "Arrives within 2 weeks" %}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Progress Summary (when applicable) -->
+                {% if current_step > 1 %}
+                    <div class="vdl-progress-summary vdl-mt-xl">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="vdl-progress-avatar">
+                                        {% if user.profile.photo %}
+                                            <img src="{{ user.profile.photo.url }}" alt="Profile" class="rounded-circle">
+                                        {% else %}
+                                            <i class="fas fa-user"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <div class="vdl-body fw-bold">{% trans "Your Progress" %}</div>
+                                        <div class="vdl-body-small vdl-text-muted">
+                                            {% blocktrans with step=current_step %}Step {{ step }} of 4 completed{% endblocktrans %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="vdl-progress-bar-container">
+                                    <div class="vdl-progress-bar-bg">
+                                        <div class="vdl-progress-bar-fill" 
+                                             style="width: {{ current_step|mul:25 }}%"></div>
+                                    </div>
+                                    <div class="vdl-progress-percentage">
+                                        {{ current_step|mul:25 }}%
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Indicator Styles -->
+<style>
+    .vdl-progress-indicator {
+        padding: var(--vdl-space-4xl) 0;
+        background: linear-gradient(135deg, var(--vdl-pearl) 0%, var(--vdl-cream) 100%);
+    }
+    
+    /* Progress Steps Layout */
+    .vdl-progress-steps {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: var(--vdl-space-3xl);
+    }
+    
+    .vdl-step {
+        position: relative;
+        display: flex;
+        align-items: flex-start;
+        gap: var(--vdl-space-xl);
+        opacity: 0.5;
+        transition: all var(--vdl-transition-standard);
+    }
+    
+    .vdl-step.active {
+        opacity: 1;
+    }
+    
+    .vdl-step.completed {
+        opacity: 0.8;
+    }
+    
+    /* Step Connector Line */
+    .vdl-step-connector {
+        position: absolute;
+        left: 30px;
+        top: 60px;
+        bottom: -48px;
+        width: 2px;
+        background: var(--vdl-silver);
+        z-index: 1;
+    }
+    
+    .vdl-step:last-child .vdl-step-connector {
+        display: none;
+    }
+    
+    .vdl-step.completed .vdl-step-connector {
+        background: linear-gradient(to bottom, var(--vdl-gold), var(--vdl-burgundy));
+    }
+    
+    /* Step Circle */
+    .vdl-step-circle {
+        flex-shrink: 0;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        background: var(--vdl-silver);
+        color: white;
+        border: 4px solid var(--vdl-cream);
+        box-shadow: var(--vdl-shadow-soft);
+        z-index: 2;
+        position: relative;
+        transition: all var(--vdl-transition-standard);
+    }
+    
+    .vdl-step.active .vdl-step-circle {
+        background: linear-gradient(135deg, var(--vdl-burgundy), var(--vdl-burgundy-dark));
+        color: var(--vdl-gold);
+        box-shadow: var(--vdl-shadow-medium);
+        transform: scale(1.1);
+    }
+    
+    .vdl-step.completed .vdl-step-circle {
+        background: linear-gradient(135deg, var(--vdl-gold), var(--vdl-gold-dark));
+        color: var(--vdl-burgundy);
+    }
+    
+    /* Step Content */
+    .vdl-step-content {
+        flex: 1;
+        min-width: 0;
+        padding-top: var(--vdl-space-sm);
+    }
+    
+    .vdl-step-number {
+        font-family: var(--vdl-font-sans);
+        font-size: var(--vdl-text-xs);
+        font-weight: 600;
+        color: var(--vdl-gold);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: var(--vdl-space-xs);
+    }
+    
+    .vdl-step-title {
+        font-family: var(--vdl-font-serif);
+        font-size: var(--vdl-text-xl);
+        font-weight: 600;
+        color: var(--vdl-burgundy);
+        margin-bottom: var(--vdl-space-sm);
+        line-height: 1.3;
+    }
+    
+    .vdl-step-description {
+        color: var(--vdl-ash);
+        line-height: 1.6;
+        margin-bottom: var(--vdl-space-lg);
+    }
+    
+    .vdl-step-details {
+        background: white;
+        border-radius: var(--vdl-radius-lg);
+        padding: var(--vdl-space-lg);
+        border: 1px solid var(--vdl-silver);
+        opacity: 0;
+        max-height: 0;
+        overflow: hidden;
+        transition: all var(--vdl-transition-standard);
+    }
+    
+    .vdl-step.active .vdl-step-details {
+        opacity: 1;
+        max-height: 500px;
+        margin-top: var(--vdl-space-md);
+    }
+    
+    /* Step Checklist */
+    .vdl-step-checklist {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .vdl-step-checklist li {
+        display: flex;
+        align-items: center;
+        gap: var(--vdl-space-sm);
+        padding: var(--vdl-space-sm) 0;
+        border-bottom: 1px solid var(--vdl-silver);
+        color: var(--vdl-ash);
+        transition: all var(--vdl-transition-fast);
+    }
+    
+    .vdl-step-checklist li:last-child {
+        border-bottom: none;
+    }
+    
+    .vdl-step-checklist li.checked {
+        color: var(--vdl-burgundy);
+    }
+    
+    .vdl-step-checklist li.checked i {
+        color: var(--vdl-gold);
+    }
+    
+    .vdl-step-checklist li i {
+        width: 16px;
+        text-align: center;
+        color: var(--vdl-silver);
+    }
+    
+    /* Plan Preview */
+    .vdl-plan-preview {
+        margin-top: var(--vdl-space-md);
+    }
+    
+    .vdl-mini-plan {
+        text-align: center;
+        padding: var(--vdl-space-sm);
+        border: 2px solid var(--vdl-silver);
+        border-radius: var(--vdl-radius-md);
+        transition: all var(--vdl-transition-fast);
+        cursor: pointer;
+    }
+    
+    .vdl-mini-plan:hover {
+        border-color: var(--vdl-gold-alpha-90);
+        background: var(--vdl-gold-alpha-20);
+    }
+    
+    .vdl-mini-plan.selected {
+        border-color: var(--vdl-gold);
+        background: var(--vdl-gold-alpha-20);
+    }
+    
+    .vdl-mini-plan i {
+        display: block;
+        font-size: 1.5rem;
+        margin-bottom: var(--vdl-space-xs);
+        color: var(--vdl-burgundy);
+    }
+    
+    .vdl-mini-plan span {
+        font-size: var(--vdl-text-xs);
+        font-weight: 600;
+        color: var(--vdl-burgundy);
+    }
+    
+    .vdl-mini-plan.bronze i { color: #CD7F32; }
+    .vdl-mini-plan.silver i { color: #C0C0C0; }
+    .vdl-mini-plan.gold i { color: var(--vdl-gold); }
+    
+    /* Completion Preview */
+    .vdl-completion-preview {
+        background: var(--vdl-gold-alpha-20);
+        border-radius: var(--vdl-radius-md);
+        padding: var(--vdl-space-lg);
+    }
+    
+    .vdl-completion-icon {
+        width: 50px;
+        height: 50px;
+        background: var(--vdl-gold);
+        color: var(--vdl-burgundy);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+    
+    /* Progress Summary */
+    .vdl-progress-summary {
+        background: white;
+        border-radius: var(--vdl-radius-xl);
+        padding: var(--vdl-space-xl);
+        box-shadow: var(--vdl-shadow-medium);
+        border: 2px solid var(--vdl-gold-alpha-20);
+    }
+    
+    .vdl-progress-avatar {
+        width: 60px;
+        height: 60px;
+        background: var(--vdl-burgundy);
+        color: var(--vdl-gold);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        font-size: 1.5rem;
+    }
+    
+    .vdl-progress-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .vdl-progress-bar-container {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: var(--vdl-space-lg);
+    }
+    
+    .vdl-progress-bar-bg {
+        flex: 1;
+        height: 12px;
+        background: var(--vdl-silver);
+        border-radius: var(--vdl-radius-md);
+        overflow: hidden;
+    }
+    
+    .vdl-progress-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--vdl-burgundy), var(--vdl-gold));
+        border-radius: var(--vdl-radius-md);
+        transition: width var(--vdl-transition-slow);
+    }
+    
+    .vdl-progress-percentage {
+        font-family: var(--vdl-font-sans);
+        font-weight: 600;
+        color: var(--vdl-burgundy);
+        min-width: 50px;
+        text-align: right;
+    }
+    
+    /* Responsive Design */
+    @media (min-width: 768px) {
+        .vdl-progress-steps {
+            margin-left: var(--vdl-space-2xl);
+        }
+    }
+    
+    @media (max-width: 767.98px) {
+        .vdl-step {
+            flex-direction: column;
+            gap: var(--vdl-space-lg);
+            align-items: center;
+            text-align: center;
+        }
+        
+        .vdl-step-connector {
+            display: none;
+        }
+        
+        .vdl-step-circle {
+            margin-bottom: var(--vdl-space-md);
+        }
+        
+        .vdl-progress-summary {
+            padding: var(--vdl-space-lg);
+        }
+        
+        .vdl-progress-bar-container {
+            flex-direction: column;
+            gap: var(--vdl-space-md);
+            text-align: center;
+        }
+    }
+</style>
+
+<!-- Progress Indicator JavaScript -->
+<script>
+    // Progress indicator functionality
+    const VDLProgress = {
+        currentStep: {{ current_step|default:1 }},
+        
+        init: function() {
+            this.updateStepStates();
+            this.setupStepNavigation();
+        },
+        
+        updateStepStates: function() {
+            const steps = document.querySelectorAll('.vdl-step');
+            steps.forEach((step, index) => {
+                const stepNumber = index + 1;
+                
+                // Remove all state classes
+                step.classList.remove('active', 'completed');
+                
+                // Add appropriate state class
+                if (stepNumber < this.currentStep) {
+                    step.classList.add('completed');
+                } else if (stepNumber === this.currentStep) {
+                    step.classList.add('active');
+                }
+            });
+        },
+        
+        setupStepNavigation: function() {
+            // Add click handlers for step circles (if navigation is enabled)
+            const stepCircles = document.querySelectorAll('.vdl-step-circle');
+            stepCircles.forEach((circle, index) => {
+                circle.addEventListener('click', () => {
+                    const stepNumber = index + 1;
+                    if (stepNumber <= this.currentStep) {
+                        // Allow navigation to current or previous steps
+                        this.navigateToStep(stepNumber);
+                    }
+                });
+            });
+        },
+        
+        navigateToStep: function(stepNumber) {
+            // Implement step navigation logic
+            console.log(`Navigate to step ${stepNumber}`);
+            // This would typically involve routing or showing/hiding content
+        },
+        
+        nextStep: function() {
+            if (this.currentStep < 4) {
+                this.currentStep++;
+                this.updateStepStates();
+                this.updateProgressBar();
+            }
+        },
+        
+        prevStep: function() {
+            if (this.currentStep > 1) {
+                this.currentStep--;
+                this.updateStepStates();
+                this.updateProgressBar();
+            }
+        },
+        
+        updateProgressBar: function() {
+            const progressFill = document.querySelector('.vdl-progress-bar-fill');
+            const progressPercentage = document.querySelector('.vdl-progress-percentage');
+            
+            if (progressFill && progressPercentage) {
+                const percentage = (this.currentStep / 4) * 100;
+                progressFill.style.width = `${percentage}%`;
+                progressPercentage.textContent = `${Math.round(percentage)}%`;
+            }
+        }
+    };
+    
+    // Initialize progress indicator
+    document.addEventListener('DOMContentLoaded', function() {
+        VDLProgress.init();
+    });
+</script>

@@ -1,0 +1,245 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+
+{% block title %}Invitation Accepted - Pending Approval - Crush.lu{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pending-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        padding: 3rem;
+        max-width: 700px;
+        margin: 2rem auto;
+        text-align: center;
+    }
+
+    .pending-icon {
+        font-size: 5rem;
+        margin-bottom: 1rem;
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+        50% {
+            transform: scale(1.1);
+            opacity: 0.8;
+        }
+    }
+
+    .timeline {
+        position: relative;
+        padding: 2rem 0;
+        margin: 2rem 0;
+    }
+
+    .timeline-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 2rem;
+        position: relative;
+    }
+
+    .timeline-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .timeline-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-right: 1.5rem;
+        flex-shrink: 0;
+    }
+
+    .timeline-icon.completed {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+    }
+
+    .timeline-icon.active {
+        background: linear-gradient(135deg, #ffc107, #ff9800);
+        color: white;
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    .timeline-icon.pending {
+        background: #e9ecef;
+        color: #6c757d;
+    }
+
+    .timeline-content {
+        flex-grow: 1;
+        text-align: left;
+    }
+
+    .timeline-content h6 {
+        margin: 0;
+        color: var(--crush-dark);
+    }
+
+    .timeline-content p {
+        margin: 0;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="pending-card">
+            <!-- Success Icon -->
+            <div class="pending-icon">⏳</div>
+
+            <!-- Header -->
+            <h2 style="color: var(--crush-purple);">Invitation Accepted Successfully!</h2>
+            <p class="lead text-muted mb-4">
+                Welcome, {{ invitation.guest_first_name }}! Your account has been created.
+            </p>
+
+            <!-- Success Alert -->
+            <div class="alert alert-success" style="background: rgba(25, 135, 84, 0.1); border: 1px solid rgba(25, 135, 84, 0.3);">
+                <h5 class="alert-heading">
+                    <i class="bi bi-check-circle"></i> You're In!
+                </h5>
+                <p class="mb-0">
+                    Your invitation has been accepted and your guest account is ready.
+                    Our Crush Coach is reviewing your attendance request.
+                </p>
+            </div>
+
+            <!-- Timeline -->
+            <div class="timeline">
+                <h5 class="mb-4">Your Journey to the Event</h5>
+
+                <div class="timeline-item">
+                    <div class="timeline-icon completed">
+                        <i class="bi bi-envelope-check"></i>
+                    </div>
+                    <div class="timeline-content">
+                        <h6>✅ Invitation Received</h6>
+                        <p>You received your exclusive invitation</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-icon completed">
+                        <i class="bi bi-person-plus"></i>
+                    </div>
+                    <div class="timeline-content">
+                        <h6>✅ Account Created</h6>
+                        <p>Your guest account has been set up</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-icon active">
+                        <i class="bi bi-clock-history"></i>
+                    </div>
+                    <div class="timeline-content">
+                        <h6>⏳ Pending Coach Approval</h6>
+                        <p>Our Crush Coach is reviewing your attendance (usually within 24 hours)</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-icon pending">
+                        <i class="bi bi-envelope"></i>
+                    </div>
+                    <div class="timeline-content">
+                        <h6>Email Confirmation</h6>
+                        <p>You'll receive an email once approved with event details</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-icon pending">
+                        <i class="bi bi-calendar-check"></i>
+                    </div>
+                    <div class="timeline-content">
+                        <h6>Register for Event</h6>
+                        <p>Complete your registration for {{ event.title }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- What to Expect -->
+            <div class="alert alert-info" style="background: rgba(13, 202, 240, 0.1); border: 1px solid rgba(13, 202, 240, 0.3);">
+                <h6 class="alert-heading"><i class="bi bi-info-circle"></i> What to Expect</h6>
+                <ul class="text-start mb-0">
+                    <li>
+                        <strong>Check Your Email:</strong>
+                        We've sent a confirmation to <code>{{ invitation.guest_email }}</code>
+                    </li>
+                    <li>
+                        <strong>Approval Timeline:</strong>
+                        Most approvals are processed within 24 hours
+                    </li>
+                    <li>
+                        <strong>Event Details:</strong>
+                        Once approved, you'll receive all event information and registration instructions
+                    </li>
+                    <li>
+                        <strong>Questions?</strong>
+                        Contact {{ invitation.invited_by.get_full_name|default:"your Crush Coach" }} if you have any concerns
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Event Details Box -->
+            <div class="mt-4 p-4" style="background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(255, 107, 157, 0.05)); border-radius: 15px;">
+                <h5 style="color: var(--crush-purple);">
+                    <i class="bi bi-calendar-event"></i> Event Details
+                </h5>
+                <h4 class="mt-3">{{ event.title }}</h4>
+                <p class="mb-1">
+                    <i class="bi bi-calendar3"></i>
+                    <strong>{{ event.date_time|date:"l, F j, Y" }}</strong>
+                </p>
+                <p class="mb-1">
+                    <i class="bi bi-clock"></i>
+                    {{ event.date_time|date:"g:i A" }} ({{ event.duration_minutes }} minutes)
+                </p>
+                <p class="mb-0">
+                    <i class="bi bi-geo-alt"></i>
+                    {{ event.location }}
+                </p>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-5">
+                <a href="{% url 'crush_lu:dashboard' %}" class="btn btn-crush-primary btn-lg px-5">
+                    <i class="bi bi-house-heart me-2"></i> Go to Dashboard
+                </a>
+                <p class="mt-3 text-muted">
+                    <small>
+                        You can view your invitation status and event details from your dashboard.
+                    </small>
+                </p>
+            </div>
+        </div>
+
+        <!-- Help Section -->
+        <div class="text-center mt-4">
+            <p class="text-muted">
+                <small>
+                    <i class="bi bi-question-circle"></i>
+                    Need help? Contact us at
+                    <a href="mailto:hello@crush.lu">hello@crush.lu</a>
+                </small>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
