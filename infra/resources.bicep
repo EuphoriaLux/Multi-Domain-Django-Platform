@@ -169,7 +169,7 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       alwaysOn: true
       linuxFxVersion: 'PYTHON|3.11'
       ftpsState: 'Disabled'
-      appCommandLine: 'startup.sh'
+      appCommandLine: 'bash /home/site/wwwroot/startup.sh'
       minTlsVersion: '1.2'
     }
     httpsOnly: true
@@ -181,7 +181,7 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
   resource webAppSettings 'config' = {
     name: 'appsettings'
     properties: {
-      SCM_DO_BUILD_DURING_DEPLOYMENT: 'false'
+      SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
       ENABLE_ORYX_BUILD: 'true'
       AZURE_POSTGRESQL_CONNECTIONSTRING: 'dbname=${pythonAppDatabase.name} host=${postgresServer.name}.postgres.database.azure.com port=5432 sslmode=require user=${postgresServer.properties.administratorLogin} password=${databasePassword}'
       SECRET_KEY: secretKey

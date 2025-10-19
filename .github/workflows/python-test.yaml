@@ -42,12 +42,17 @@ jobs:
         - name: Make sure Python code is all compilable
           run: |
             python -m compileall azureproject -f
-            python -m compileall restaurant_review -f
-        - name: Run Django server
+            python -m compileall entreprinder -f
+            python -m compileall vinsdelux -f
+            python -m compileall crush_lu -f
+            python -m compileall matching -f
+        - name: Run migrations and tests
           run: |
             python manage.py migrate
-            python manage.py test restaurant_review &&
-            python manage.py runserver &
+            python manage.py test entreprinder
+            python manage.py test vinsdelux
+            python manage.py test crush_lu
+            python manage.py test matching
           env:
             DBNAME: postgres
             DBHOST: localhost

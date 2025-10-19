@@ -1,5 +1,10 @@
-# startup.sh is used by infra/resources.bicep to automate database migrations and isn't used by the sample application
+#!/bin/bash
+# startup.sh is used by infra/resources.bicep to automate database migrations and start the application
+set -e  # Exit on error
+
 echo "🚀 Starting deployment..."
+echo "📍 Working directory: $(pwd)"
+echo "🐍 Python version: $(python --version)"
 
 # Run migrations with no-input for faster execution
 python manage.py migrate --no-input
