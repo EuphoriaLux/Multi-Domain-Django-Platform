@@ -15,6 +15,76 @@ const STATIC_CACHE_URLS = [
 // Offline page - cached separately to ensure it's always available
 const OFFLINE_URL = '/offline/';
 
+// Fallback offline HTML (embedded in service worker as last resort)
+const OFFLINE_FALLBACK_HTML = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline - Crush.lu</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .offline-container {
+            background: white;
+            padding: 3rem;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 500px;
+            margin: 1rem;
+        }
+        .icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        h1 {
+            color: #9B59B6;
+            margin: 0 0 1rem 0;
+        }
+        p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 2rem;
+        }
+        .btn {
+            background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(155, 89, 182, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-container">
+        <div class="icon">📡</div>
+        <h1>You're Offline</h1>
+        <p>It looks like you've lost your internet connection. Check your connection and try again.</p>
+        <button class="btn" onclick="location.reload()">Try Again</button>
+    </div>
+</body>
+</html>
+`;
+
 // Dynamic cache for user content
 const DYNAMIC_CACHE_NAME = `crush-dynamic-${CACHE_VERSION}`;
 

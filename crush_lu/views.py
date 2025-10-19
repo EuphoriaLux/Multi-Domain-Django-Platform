@@ -2229,3 +2229,30 @@ def offline_view(request):
     Displayed when user is offline and tries to access unavailable content
     """
     return render(request, 'crush_lu/offline.html')
+
+
+def service_worker_view(request):
+    """
+    Serve the Workbox service worker from root path
+    This is required to give the service worker access to the entire site scope
+    """
+    from django.http import HttpResponse
+    from django.conf import settings
+    import os
+
+    # Read the service worker file
+    sw_path = os.path.join(settings.BASE_DIR, 'static', 'crush_lu', 'sw-workbox.js')
+
+    try:
+        with open(sw_path, 'r', encoding='utf-8') as f:
+            sw_content = f.read()
+
+        # Return with correct MIME type
+        response = HttpResponse(sw_content, content_type='application/javascript')
+        # Prevent caching during development
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        return response
+    except FileNotFoundError:
+        return HttpResponse('Service worker not found', status=404)
