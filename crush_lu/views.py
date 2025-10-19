@@ -200,39 +200,55 @@ def create_profile(request):
         if form.is_valid():
             profile = form.save(commit=False)
             profile.user = request.user
+
+            # Check if this is first submission or resubmission
+            is_first_submission = profile.completion_status != 'submitted'
+
             # Mark profile as completed and submitted
             profile.completion_status = 'submitted'
 
-            # Cancel screening call since profile is now complete
-            # Screening call is only needed to help incomplete profiles
-            profile.needs_screening_call = False
-            logger.info(f"Profile completed - screening call no longer needed for {request.user.email}")
+            # Note: Screening call handled in ProfileSubmission.review_call_completed
+            # No need to set flags here - coach will do screening during review
+            if is_first_submission:
+                logger.info(f"First submission - screening call will be done during coach review for {request.user.email}")
+            else:
+                logger.info(f"Resubmission detected for {request.user.email}")
 
             profile.save()
             logger.info(f"Profile submitted for review: {request.user.email}")
 
-            # Create profile submission for coach review
-            # Coach will do screening call during review process
-            submission = ProfileSubmission.objects.create(profile=profile)
-            submission.assign_coach()
+            # Create profile submission for coach review (PREVENT DUPLICATES)
+            # Use get_or_create to handle double-submissions gracefully
+            submission, created = ProfileSubmission.objects.get_or_create(
+                profile=profile,
+                defaults={'status': 'pending'}
+            )
 
-            # Send confirmation email to user
-            try:
-                result = send_profile_submission_confirmation(request.user, request)
-                logger.info(f"✅ Profile submission email sent to {request.user.email}: {result}")
-            except Exception as e:
-                # Log error but don't block the flow
-                logger.error(f"❌ Failed to send profile submission confirmation to {request.user.email}: {e}", exc_info=True)
-                # Also show warning message to user
-                messages.warning(request, 'Profile submitted! (Email notification may have failed - check your spam folder)')
+            # Only assign coach and send emails for NEW submissions
+            if created:
+                submission.assign_coach()
+                logger.info(f"NEW profile submission created for {request.user.email}")
 
-            # Send notification to assigned coach if one was assigned
-            if submission.coach:
+                # Send confirmation email to user
                 try:
-                    result = send_coach_assignment_notification(submission.coach, submission, request)
-                    logger.info(f"✅ Coach assignment email sent to {submission.coach.user.email}: {result}")
+                    result = send_profile_submission_confirmation(request.user, request)
+                    logger.info(f"✅ Profile submission email sent to {request.user.email}: {result}")
                 except Exception as e:
-                    logger.error(f"❌ Failed to send coach assignment notification: {e}", exc_info=True)
+                    # Log error but don't block the flow
+                    logger.error(f"❌ Failed to send profile submission confirmation to {request.user.email}: {e}", exc_info=True)
+                    # Also show warning message to user
+                    messages.warning(request, 'Profile submitted! (Email notification may have failed - check your spam folder)')
+
+                # Send notification to assigned coach if one was assigned
+                if submission.coach:
+                    try:
+                        result = send_coach_assignment_notification(submission.coach, submission, request)
+                        logger.info(f"✅ Coach assignment email sent to {submission.coach.user.email}: {result}")
+                    except Exception as e:
+                        logger.error(f"❌ Failed to send coach assignment notification: {e}", exc_info=True)
+            else:
+                # Duplicate submission attempt - just log and continue
+                logger.warning(f"⚠️ Duplicate submission attempt prevented for {request.user.email}")
 
             messages.success(request, 'Profile submitted for review!')
             return redirect('crush_lu:profile_submitted')

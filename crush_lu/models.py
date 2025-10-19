@@ -180,13 +180,8 @@ class CrushProfile(models.Model):
         default='not_started',
         help_text="Track which step user completed"
     )
-    needs_screening_call = models.BooleanField(
-        default=False,
-        help_text="True after Step 1 - user needs coach screening call"
-    )
-    screening_call_scheduled = models.DateTimeField(null=True, blank=True)
-    screening_call_completed = models.BooleanField(default=False)
-    screening_notes = models.TextField(blank=True, help_text="Notes from screening call")
+    # Note: Screening call tracking has been consolidated into ProfileSubmission.review_call_completed
+    # The Step 1 screening system was redundant and has been removed
 
     # Basic Info (Step 1 - REQUIRED for initial save)
     date_of_birth = models.DateField(null=True, blank=True)

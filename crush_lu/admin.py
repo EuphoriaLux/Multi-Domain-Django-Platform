@@ -456,10 +456,10 @@ class CrushCoachAdmin(admin.ModelAdmin):
 
 
 class CrushProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'get_email', 'age', 'gender', 'location', 'screening_call_completed', 'is_approved', 'is_active', 'created_at', 'is_coach')
-    list_filter = ('is_approved', 'is_active', 'screening_call_completed', 'gender', 'created_at')
+    list_display = ('user', 'get_email', 'age', 'gender', 'location', 'get_assigned_coach', 'is_approved', 'is_active', 'created_at', 'is_coach')
+    list_filter = ('is_approved', 'is_active', 'gender', 'created_at')
     search_fields = ('user__username', 'user__email', 'location', 'bio')
-    readonly_fields = ('created_at', 'updated_at', 'approved_at')
+    readonly_fields = ('created_at', 'updated_at', 'approved_at', 'get_assigned_coach')
     actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'export_profiles_csv']
     fieldsets = (
         ('User Information', {
@@ -474,10 +474,9 @@ class CrushProfileAdmin(admin.ModelAdmin):
         ('Privacy Settings', {
             'fields': ('show_full_name', 'show_exact_age', 'blur_photos')
         }),
-        ('Screening Call', {
-            'fields': ('needs_screening_call', 'screening_call_completed', 'screening_call_scheduled', 'screening_notes'),
-            'classes': ('collapse',),
-            'description': 'Coach screening call tracking (after Step 1)'
+        ('Coach Assignment', {
+            'fields': ('get_assigned_coach',),
+            'description': 'View which coach is assigned to review this profile. Screening calls are handled during the review process.'
         }),
         ('Profile Completion', {
             'fields': ('completion_status',),
@@ -503,6 +502,18 @@ class CrushProfileAdmin(admin.ModelAdmin):
         return hasattr(obj.user, 'crushcoach')
     is_coach.boolean = True
     is_coach.short_description = 'Is Coach'
+
+    def get_assigned_coach(self, obj):
+        """Display the assigned coach from ProfileSubmission"""
+        try:
+            submission = ProfileSubmission.objects.get(profile=obj)
+            if submission.coach:
+                return f"{submission.coach.user.get_full_name()} ({submission.get_status_display()})"
+            else:
+                return "No coach assigned"
+        except ProfileSubmission.DoesNotExist:
+            return "Not submitted yet"
+    get_assigned_coach.short_description = 'Assigned Coach'
 
     @admin.action(description='Promote selected profiles to Crush Coach role')
     def promote_to_coach(self, request, queryset):
@@ -583,7 +594,6 @@ class CrushProfileAdmin(admin.ModelAdmin):
             'Approved Date',
             'Created Date',
             'Completion Status',
-            'Screening Call Completed',
         ])
 
         # Data rows
@@ -602,7 +612,6 @@ class CrushProfileAdmin(admin.ModelAdmin):
                 profile.approved_at.strftime('%Y-%m-%d %H:%M') if profile.approved_at else 'Not yet',
                 profile.created_at.strftime('%Y-%m-%d %H:%M'),
                 profile.completion_status,
-                'Yes' if profile.screening_call_completed else 'No',
             ])
 
         django_messages.success(
