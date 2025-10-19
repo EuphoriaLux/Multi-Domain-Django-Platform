@@ -1,19 +1,19 @@
 // Crush.lu Service Worker
 // PWA implementation for privacy-first dating platform
 
-const CACHE_VERSION = 'crush-v1';
+const CACHE_VERSION = 'crush-v2';
 const CACHE_NAME = `crush-lu-${CACHE_VERSION}`;
 
 // Assets to cache on install
 const STATIC_CACHE_URLS = [
   '/',
-  '/offline/',
   '/static/crush_lu/css/crush.css',
-  '/static/bootstrap/css/bootstrap.min.css',
-  '/static/bootstrap/js/bootstrap.bundle.min.js',
   '/static/crush_lu/icons/icon-192x192.png',
   '/static/crush_lu/icons/icon-512x512.png',
 ];
+
+// Offline page - cached separately to ensure it's always available
+const OFFLINE_URL = '/offline/';
 
 // Dynamic cache for user content
 const DYNAMIC_CACHE_NAME = `crush-dynamic-${CACHE_VERSION}`;
@@ -31,18 +31,35 @@ self.addEventListener('install', (event) => {
   console.log('[Service Worker] Installing Crush.lu service worker...');
 
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
+    Promise.all([
+      // Cache static assets
+      caches.open(CACHE_NAME).then((cache) => {
         console.log('[Service Worker] Caching static assets');
         return cache.addAll(STATIC_CACHE_URLS);
+      }),
+      // Cache offline page separately with error handling
+      caches.open(CACHE_NAME).then((cache) => {
+        console.log('[Service Worker] Caching offline page');
+        return fetch(OFFLINE_URL)
+          .then((response) => {
+            if (response.ok) {
+              return cache.put(OFFLINE_URL, response);
+            } else {
+              console.warn('[Service Worker] Offline page returned status:', response.status);
+            }
+          })
+          .catch((error) => {
+            console.warn('[Service Worker] Could not cache offline page:', error);
+          });
       })
-      .then(() => {
-        console.log('[Service Worker] Installed successfully');
-        return self.skipWaiting(); // Activate immediately
-      })
-      .catch((error) => {
-        console.error('[Service Worker] Installation failed:', error);
-      })
+    ])
+    .then(() => {
+      console.log('[Service Worker] Installed successfully');
+      return self.skipWaiting(); // Activate immediately
+    })
+    .catch((error) => {
+      console.error('[Service Worker] Installation failed:', error);
+    })
   );
 });
 
@@ -133,20 +150,39 @@ self.addEventListener('fetch', (event) => {
         }
         return networkResponse;
       })
-      .catch(() => {
-        // If network fails, try cache
+      .catch((error) => {
+        console.log('[Service Worker] Network request failed:', error);
+
+        // If network fails, try cache first
         return caches.match(request)
           .then((cachedResponse) => {
             if (cachedResponse) {
+              console.log('[Service Worker] Serving from cache:', request.url);
               return cachedResponse;
             }
 
-            // If no cache, show offline page
-            if (request.mode === 'navigate') {
-              return caches.match('/offline/');
+            // If no cache and it's a page navigation, show offline page
+            if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
+              console.log('[Service Worker] No cache, showing offline page');
+              return caches.match(OFFLINE_URL).then((offlineResponse) => {
+                if (offlineResponse) {
+                  return offlineResponse;
+                }
+                // Fallback if offline page isn't cached
+                return new Response(
+                  '<html><body><h1>You are offline</h1><p>Please check your internet connection.</p></body></html>',
+                  {
+                    status: 200,
+                    statusText: 'OK',
+                    headers: new Headers({
+                      'Content-Type': 'text/html'
+                    })
+                  }
+                );
+              });
             }
 
-            // For other requests, return a basic offline response
+            // For other requests (images, etc.), return a basic offline response
             return new Response('Offline', {
               status: 503,
               statusText: 'Service Unavailable',
