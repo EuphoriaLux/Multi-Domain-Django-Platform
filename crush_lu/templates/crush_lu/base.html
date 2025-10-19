@@ -229,12 +229,13 @@
 
     <!-- PWA Service Worker Registration -->
     <script>
-        // Register service worker for PWA functionality
+        // Register Workbox service worker for PWA functionality
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register("{% static 'crush_lu/service-worker.js' %}")
+                // Register from root path to control entire site
+                navigator.serviceWorker.register('/sw-workbox.js', { scope: '/' })
                     .then(function(registration) {
-                        console.log('[PWA] Service Worker registered successfully:', registration.scope);
+                        console.log('[PWA] Workbox Service Worker registered successfully:', registration.scope);
 
                         // Check for updates
                         registration.addEventListener('updatefound', function() {
@@ -243,9 +244,9 @@
 
                             newWorker.addEventListener('statechange', function() {
                                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    // New service worker available, prompt user to reload
-                                    console.log('[PWA] New version available - refresh to update');
-                                    // You could show a notification to the user here
+                                    // New service worker available, trigger skip waiting
+                                    console.log('[PWA] New version available - activating update');
+                                    newWorker.postMessage({ type: 'SKIP_WAITING' });
                                 }
                             });
                         });
@@ -254,12 +255,13 @@
                         console.log('[PWA] Service Worker registration failed:', error);
                     });
 
-                // Handle service worker updates
+                // Handle service worker updates - reload when new SW takes control
                 let refreshing = false;
                 navigator.serviceWorker.addEventListener('controllerchange', function() {
                     if (!refreshing) {
                         refreshing = true;
-                        console.log('[PWA] New service worker activated');
+                        console.log('[PWA] New service worker activated - reloading page');
+                        window.location.reload();
                     }
                 });
             });
@@ -282,6 +284,88 @@
             console.log('[PWA] Crush.lu installed as PWA');
             deferredPrompt = null;
         });
+
+        // ============================================================================
+        // Network Status Detection - Auto-reload when back online
+        // ============================================================================
+
+        let wasOffline = false;
+        let serverCheckInterval = null;
+
+        // Function to check if server is reachable
+        async function checkServerConnection() {
+            try {
+                // BYPASS service worker by adding timestamp - forces network request
+                const timestamp = new Date().getTime();
+                const response = await fetch('/healthz/?_=' + timestamp, {
+                    method: 'GET',
+                    cache: 'no-store',
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                    }
+                });
+                console.log('[PWA] Health check response:', response.status);
+                return response.ok;
+            } catch (e) {
+                console.log('[PWA] Health check failed:', e.message);
+                return false;
+            }
+        }
+
+        // Detect when going offline (network interface down)
+        window.addEventListener('offline', function() {
+            wasOffline = true;
+            console.log('[PWA] Network connection lost - you are now offline');
+        });
+
+        // Detect when coming back online (network interface up)
+        window.addEventListener('online', function() {
+            console.log('[PWA] Network connection restored - you are back online');
+
+            if (wasOffline) {
+                // Only reload if we were previously offline
+                console.log('[PWA] Auto-reloading page with fresh content...');
+                setTimeout(function() {
+                    window.location.reload();
+                }, 500); // Small delay to ensure connection is stable
+            }
+
+            wasOffline = false;
+        });
+
+        // Monitor service worker messages for offline detection
+        if (navigator.serviceWorker) {
+            navigator.serviceWorker.addEventListener('message', function(event) {
+                if (event.data && event.data.type === 'SERVER_UNREACHABLE') {
+                    if (!wasOffline) {
+                        wasOffline = true;
+                        console.log('[PWA] Server unreachable - working in offline mode');
+
+                        // Start polling to detect when server comes back
+                        if (serverCheckInterval) clearInterval(serverCheckInterval);
+                        console.log('[PWA] Starting server reconnection polling (every 5 seconds)...');
+                        serverCheckInterval = setInterval(async function() {
+                            console.log('[PWA] Checking if server is back online...');
+                            const isOnline = await checkServerConnection();
+                            console.log('[PWA] Server online status:', isOnline);
+                            if (isOnline) {
+                                console.log('[PWA] ✅ Server is back online - reloading...');
+                                clearInterval(serverCheckInterval);
+                                wasOffline = false;
+                                window.location.reload();
+                            }
+                        }, 5000); // Check every 5 seconds
+                    }
+                }
+            });
+        }
+
+        // Check initial network status on page load
+        if (!navigator.onLine) {
+            wasOffline = true;
+            console.log('[PWA] Starting in offline mode');
+        }
     </script>
 
     {% block extra_js %}{% endblock %}
