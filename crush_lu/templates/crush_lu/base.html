@@ -58,11 +58,6 @@
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'crush_lu:coach_dashboard' %}">
                                     <i class="bi bi-speedometer2"></i> Coach Dashboard
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'crush_lu:coach_screening_dashboard' %}">
-                                    <i class="bi bi-telephone"></i> Screening Calls
                                     {% if pending_screening_count > 0 %}
                                         <span class="badge bg-warning text-dark rounded-pill">{{ pending_screening_count }}</span>
                                     {% endif %}
