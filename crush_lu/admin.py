@@ -11,7 +11,9 @@ from .models import (
     SpecialUserExperience,
     # Journey System Models
     JourneyConfiguration, JourneyChapter, JourneyChallenge,
-    JourneyReward, JourneyProgress, ChapterProgress, ChallengeAttempt, RewardProgress
+    JourneyReward, JourneyProgress, ChapterProgress, ChallengeAttempt, RewardProgress,
+    # Push Notifications & Activity
+    PushSubscription, UserActivity
 )
 
 
@@ -112,6 +114,8 @@ class CrushLuAdminSite(admin.AdminSite):
             'profilesubmission': {'order': 11, 'icon': '📝', 'group': 'Users & Profiles'},
             'crushcoach': {'order': 12, 'icon': '🎓', 'group': 'Users & Profiles'},
             'coachsession': {'order': 13, 'icon': '💬', 'group': 'Users & Profiles'},
+            'useractivity': {'order': 14, 'icon': '📊', 'group': 'Users & Profiles'},
+            'pushsubscription': {'order': 15, 'icon': '🔔', 'group': 'Users & Profiles'},
 
             # 3. Events & Meetups
             'meetupevent': {'order': 20, 'icon': '🎉', 'group': 'Events & Meetups'},
@@ -1942,4 +1946,188 @@ crush_admin_site.register(RewardProgress, RewardProgressAdmin)
 
 # ============================================================================
 # END INTERACTIVE JOURNEY SYSTEM - ADMIN INTERFACES
+# ============================================================================
+
+
+# ============================================================================
+# PUSH NOTIFICATIONS ADMIN
+# ============================================================================
+
+@admin.register(PushSubscription, site=crush_admin_site)
+class PushSubscriptionAdmin(admin.ModelAdmin):
+    """
+    🔔 PUSH SUBSCRIPTION MANAGEMENT
+
+    View and manage user push notification subscriptions.
+    Each user can have multiple subscriptions (different devices).
+    """
+    list_display = (
+        'user', 'device_name', 'enabled', 'created_at',
+        'last_used_at', 'failure_count', 'get_preferences'
+    )
+    list_filter = (
+        'enabled', 'created_at', 'failure_count',
+        'notify_new_messages', 'notify_event_reminders',
+        'notify_new_connections', 'notify_profile_updates'
+    )
+    search_fields = ('user__username', 'user__email', 'device_name', 'endpoint')
+    readonly_fields = (
+        'endpoint', 'p256dh_key', 'auth_key', 'user_agent',
+        'created_at', 'updated_at', 'last_used_at', 'failure_count'
+    )
+    date_hierarchy = 'created_at'
+
+    fieldsets = (
+        ('User & Device', {
+            'fields': ('user', 'device_name', 'user_agent')
+        }),
+        ('Subscription Details', {
+            'fields': ('endpoint', 'p256dh_key', 'auth_key'),
+            'classes': ('collapse',)
+        }),
+        ('Notification Preferences', {
+            'fields': (
+                'enabled',
+                'notify_new_messages',
+                'notify_event_reminders',
+                'notify_new_connections',
+                'notify_profile_updates',
+            )
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at', 'last_used_at', 'failure_count')
+        }),
+    )
+
+    def get_preferences(self, obj):
+        """Display active notification types"""
+        prefs = []
+        if obj.notify_new_messages:
+            prefs.append('Messages')
+        if obj.notify_event_reminders:
+            prefs.append('Events')
+        if obj.notify_new_connections:
+            prefs.append('Connections')
+        if obj.notify_profile_updates:
+            prefs.append('Profile')
+        return ', '.join(prefs) if prefs else 'None'
+    get_preferences.short_description = 'Active Notifications'
+
+    actions = ['enable_subscriptions', 'disable_subscriptions', 'send_test_notification']
+
+    def enable_subscriptions(self, request, queryset):
+        """Enable selected subscriptions"""
+        updated = queryset.update(enabled=True)
+        self.message_user(
+            request,
+            f'{updated} subscription(s) enabled.',
+            level=django_messages.SUCCESS
+        )
+    enable_subscriptions.short_description = '✅ Enable selected subscriptions'
+
+    def disable_subscriptions(self, request, queryset):
+        """Disable selected subscriptions"""
+        updated = queryset.update(enabled=False)
+        self.message_user(
+            request,
+            f'{updated} subscription(s) disabled.',
+            level=django_messages.SUCCESS
+        )
+    disable_subscriptions.short_description = '🔕 Disable selected subscriptions'
+
+    def send_test_notification(self, request, queryset):
+        """Send test notification to selected subscriptions"""
+        from .push_notifications import send_test_notification
+
+        total = 0
+        success = 0
+        for subscription in queryset:
+            result = send_test_notification(subscription.user)
+            total += result.get('total', 0)
+            success += result.get('success', 0)
+
+        self.message_user(
+            request,
+            f'Sent test notifications: {success}/{total} successful.',
+            level=django_messages.SUCCESS if success > 0 else django_messages.WARNING
+        )
+    send_test_notification.short_description = '📤 Send test notification'
+
+# ============================================================================
+# END PUSH NOTIFICATIONS ADMIN
+# ============================================================================
+
+
+# ============================================================================
+# USER ACTIVITY TRACKING ADMIN
+# ============================================================================
+
+@admin.register(UserActivity, site=crush_admin_site)
+class UserActivityAdmin(admin.ModelAdmin):
+    """
+    📊 USER ACTIVITY TRACKING
+
+    Monitor user activity, online status, and PWA usage.
+    """
+    list_display = (
+        'user', 'get_status', 'last_seen', 'get_pwa_status',
+        'total_visits', 'is_active_user', 'minutes_since_last_seen'
+    )
+    list_filter = (
+        'is_pwa_user', 'last_seen', 'first_seen'
+    )
+    search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name')
+    readonly_fields = ('user', 'last_seen', 'last_pwa_visit', 'total_visits', 'first_seen')
+    date_hierarchy = 'last_seen'
+
+    fieldsets = (
+        ('User', {
+            'fields': ('user',)
+        }),
+        ('Activity Status', {
+            'fields': ('last_seen', 'last_pwa_visit', 'total_visits')
+        }),
+        ('PWA Usage', {
+            'fields': ('is_pwa_user',)
+        }),
+        ('Tracking Info', {
+            'fields': ('first_seen',)
+        }),
+    )
+
+    def get_status(self, obj):
+        """Display online/offline status with icon"""
+        if obj.is_online:
+            return format_html('<span style="color: green;">🟢 Online</span>')
+        elif obj.is_active_user:
+            return format_html('<span style="color: orange;">🟡 Active ({})</span>', obj.minutes_since_last_seen)
+        else:
+            return format_html('<span style="color: gray;">⚫ Inactive</span>')
+    get_status.short_description = 'Status'
+    get_status.admin_order_field = 'last_seen'
+
+    def get_pwa_status(self, obj):
+        """Display PWA usage status"""
+        if obj.uses_pwa:
+            return format_html('<span style="color: purple;">📱 PWA User</span>')
+        elif obj.is_pwa_user:
+            return format_html('<span style="color: gray;">📱 PWA (Inactive)</span>')
+        else:
+            return format_html('<span style="color: gray;">🌐 Browser Only</span>')
+    get_pwa_status.short_description = 'PWA Status'
+    get_pwa_status.admin_order_field = 'is_pwa_user'
+
+    def get_queryset(self, request):
+        """Add computed fields for filtering"""
+        qs = super().get_queryset(request)
+        return qs.select_related('user')
+
+# ============================================================================
+# END USER ACTIVITY TRACKING ADMIN
+# ============================================================================
+
+
+# ============================================================================
+# NOTE: PushSubscription and UserActivity are ONLY in crush-admin
+# Standard Django admin does not have access to these models
 # ============================================================================

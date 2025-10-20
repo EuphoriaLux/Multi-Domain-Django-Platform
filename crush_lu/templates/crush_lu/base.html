@@ -56,6 +56,16 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    <!-- Loading Overlay -->
+    <div id="page-loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-heart">💕</div>
+            <div class="loading-text">Loading...</div>
+            <div class="loading-subtext">Just a moment</div>
+        </div>
+    </div>
+
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
@@ -223,6 +233,15 @@
 
     <!-- Crush.lu Utilities (CSRF, sanitization, logging) -->
     <script src="{% static 'crush_lu/js/utils.js' %}"></script>
+
+    <!-- PWA Mode Detector (must load early) -->
+    <script src="{% static 'crush_lu/js/pwa-detector.js' %}"></script>
+
+    <!-- Page Loading Indicator -->
+    <script src="{% static 'crush_lu/js/page-loading.js' %}"></script>
+
+    <!-- Push Notifications (PWA) -->
+    <script src="{% static 'crush_lu/js/push-notifications.js' %}"></script>
 
     <!-- PWA Install Prompt -->
     <script src="{% static 'crush_lu/js/pwa-install.js' %}"></script>

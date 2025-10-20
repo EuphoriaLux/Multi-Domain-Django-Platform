@@ -16,7 +16,7 @@ if (workbox) {
     workbox.setConfig({ debug: true });
   }
 
-  const CACHE_VERSION = 'crush-v3-workbox';
+  const CACHE_VERSION = 'crush-v4-loading'; // Updated for loading animation feature
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -35,6 +35,7 @@ if (workbox) {
     { url: '/', revision: CACHE_VERSION },
     { url: '/offline/', revision: CACHE_VERSION },
     { url: '/static/crush_lu/css/crush.css', revision: CACHE_VERSION },
+    { url: '/static/crush_lu/js/page-loading.js', revision: CACHE_VERSION },
     { url: '/static/crush_lu/icons/icon-192x192.png', revision: CACHE_VERSION },
     { url: '/static/crush_lu/icons/icon-512x512.png', revision: CACHE_VERSION },
   ]);
