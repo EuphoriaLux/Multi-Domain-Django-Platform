@@ -18,7 +18,7 @@ django-storages==1.14.2
 azure-storage-blob==12.25.1
 
 # Caching
-django-redis==5.4.0
+django-redis==6.0.0
 
 # Image processing
 Pillow==11.0.0
