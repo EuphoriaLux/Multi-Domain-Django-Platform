@@ -42,8 +42,52 @@
         </div>
     </div>
 
-    <!-- Quick Stats Card -->
+    <!-- Push Notifications Card -->
     <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">🔔 Push Notifications</h5>
+                <p class="text-muted">Get notified about events, messages, and connections</p>
+
+                <div id="push-status" class="mb-3">
+                    <p class="text-muted">
+                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                        Checking notification status...
+                    </p>
+                </div>
+
+                <button id="enable-push-btn" class="btn btn-crush-primary" style="display:none;">
+                    <i class="bi bi-bell"></i> Enable Notifications
+                </button>
+
+                <button id="disable-push-btn" class="btn btn-outline-secondary" style="display:none;">
+                    <i class="bi bi-bell-slash"></i> Disable
+                </button>
+
+                <button id="test-push-btn" class="btn btn-crush-outline mt-2" style="display:none;">
+                    <i class="bi bi-send"></i> Send Test
+                </button>
+
+                <div id="push-not-supported" style="display:none;">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Push notifications not available</strong>
+                        <p class="mb-0 mt-2" style="font-size: 0.9rem;">
+                            To receive push notifications, try opening Crush.lu in:
+                            <br>• Chrome or Edge on Android
+                            <br>• Chrome, Firefox, or Edge on Desktop
+                            <br>• Safari on iOS 16.4+ or macOS 16.4+
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Quick Stats Card -->
+    <div class="col-md-12">
         <div class="card h-100">
             <div class="card-body">
                 <h5 class="card-title">Your Activity</h5>
@@ -150,4 +194,96 @@
     color: white;
 }
 </style>
+
+<script>
+// Push Notification UI Handler
+(function() {
+    const statusDiv = document.getElementById('push-status');
+    const enableBtn = document.getElementById('enable-push-btn');
+    const disableBtn = document.getElementById('disable-push-btn');
+    const testBtn = document.getElementById('test-push-btn');
+    const notSupportedDiv = document.getElementById('push-not-supported');
+
+    // Check if push notifications are supported
+    if (!window.CrushPush || !window.CrushPush.isSupported) {
+        statusDiv.style.display = 'none';
+        notSupportedDiv.style.display = 'block';
+        return;
+    }
+
+    // Check current subscription status
+    window.CrushPush.isSubscribed().then(subscribed => {
+        statusDiv.innerHTML = subscribed
+            ? '<div class="alert alert-success"><i class="bi bi-check-circle"></i> Notifications enabled</div>'
+            : '<div class="alert alert-warning"><i class="bi bi-exclamation-circle"></i> Notifications disabled</div>';
+
+        if (subscribed) {
+            disableBtn.style.display = 'inline-block';
+            testBtn.style.display = 'inline-block';
+        } else {
+            enableBtn.style.display = 'inline-block';
+        }
+    });
+
+    // Enable push notifications
+    enableBtn.addEventListener('click', async function() {
+        enableBtn.disabled = true;
+        enableBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Enabling...';
+
+        const result = await window.CrushPush.subscribe();
+
+        if (result.success) {
+            statusDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle"></i> Notifications enabled!</div>';
+            enableBtn.style.display = 'none';
+            disableBtn.style.display = 'inline-block';
+            testBtn.style.display = 'inline-block';
+
+            // Send test notification
+            await window.CrushPush.sendTest();
+        } else {
+            alert('Failed to enable notifications: ' + result.error);
+            enableBtn.disabled = false;
+            enableBtn.innerHTML = '<i class="bi bi-bell"></i> Enable Notifications';
+        }
+    });
+
+    // Disable push notifications
+    disableBtn.addEventListener('click', async function() {
+        if (!confirm('Are you sure you want to disable push notifications?')) {
+            return;
+        }
+
+        disableBtn.disabled = true;
+        const result = await window.CrushPush.unsubscribe();
+
+        if (result.success) {
+            statusDiv.innerHTML = '<div class="alert alert-warning"><i class="bi bi-exclamation-circle"></i> Notifications disabled</div>';
+            disableBtn.style.display = 'none';
+            testBtn.style.display = 'none';
+            enableBtn.style.display = 'inline-block';
+        } else {
+            alert('Failed to disable notifications');
+        }
+
+        disableBtn.disabled = false;
+    });
+
+    // Test notification
+    testBtn.addEventListener('click', async function() {
+        testBtn.disabled = true;
+        testBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+
+        const result = await window.CrushPush.sendTest();
+
+        if (result.success) {
+            alert('Test notification sent! Check your notifications.');
+        } else {
+            alert('Failed to send test: ' + (result.error || 'Unknown error'));
+        }
+
+        testBtn.disabled = false;
+        testBtn.innerHTML = '<i class="bi bi-send"></i> Send Test';
+    });
+})();
+</script>
 {% endblock %}

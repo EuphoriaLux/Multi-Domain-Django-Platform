@@ -1,0 +1,267 @@
+"""
+Crush.lu Push Notification Utilities
+Handles Web Push API notifications for PWA users
+"""
+
+import json
+import logging
+from django.conf import settings
+from pywebpush import webpush, WebPushException
+from .models import PushSubscription
+
+logger = logging.getLogger(__name__)
+
+
+def send_push_notification(user, title, body, url='/', tag='crush-notification', icon=None, badge=None):
+    """
+    Send a push notification to all of a user's subscribed devices.
+
+    Args:
+        user: Django User object
+        title: Notification title
+        body: Notification message body
+        url: URL to open when notification is clicked (default: '/')
+        tag: Notification tag for grouping (default: 'crush-notification')
+        icon: Icon URL (default: Crush.lu logo)
+        badge: Badge icon URL (default: Crush.lu badge)
+
+    Returns:
+        dict: {
+            'success': int,  # Number of successful sends
+            'failed': int,   # Number of failed sends
+            'total': int     # Total subscriptions attempted
+        }
+    """
+
+    # Validate VAPID configuration
+    if not hasattr(settings, 'VAPID_PRIVATE_KEY') or not settings.VAPID_PRIVATE_KEY:
+        logger.error("VAPID_PRIVATE_KEY not configured in settings")
+        return {'success': 0, 'failed': 0, 'total': 0}
+
+    if not hasattr(settings, 'VAPID_PUBLIC_KEY') or not settings.VAPID_PUBLIC_KEY:
+        logger.error("VAPID_PUBLIC_KEY not configured in settings")
+        return {'success': 0, 'failed': 0, 'total': 0}
+
+    # Get all active subscriptions for this user
+    subscriptions = PushSubscription.objects.filter(user=user, enabled=True)
+
+    if not subscriptions.exists():
+        logger.info(f"No active push subscriptions for user {user.username}")
+        return {'success': 0, 'failed': 0, 'total': 0}
+
+    # Prepare notification payload
+    payload = {
+        'title': title,
+        'body': body,
+        'url': url,
+        'tag': tag,
+        'icon': icon or '/static/crush_lu/icons/icon-192x192.png',
+        'badge': badge or '/static/crush_lu/icons/icon-72x72.png',
+    }
+
+    # Track results
+    success_count = 0
+    failed_count = 0
+
+    # Send to each subscription
+    for subscription in subscriptions:
+        try:
+            # Prepare subscription info for pywebpush
+            subscription_info = {
+                "endpoint": subscription.endpoint,
+                "keys": {
+                    "p256dh": subscription.p256dh_key,
+                    "auth": subscription.auth_key
+                }
+            }
+
+            # Send the push notification
+            webpush(
+                subscription_info=subscription_info,
+                data=json.dumps(payload),
+                vapid_private_key=settings.VAPID_PRIVATE_KEY,
+                vapid_claims={
+                    "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"
+                }
+            )
+
+            # Mark success
+            subscription.mark_success()
+            success_count += 1
+            logger.info(f"Push notification sent to {user.username} ({subscription.device_name})")
+
+        except WebPushException as e:
+            # Handle push errors (expired subscription, etc.)
+            logger.warning(f"WebPush failed for {user.username}: {e}")
+            subscription.mark_failure()  # Auto-deletes after 5 failures
+            failed_count += 1
+
+        except Exception as e:
+            # Catch-all for unexpected errors
+            logger.error(f"Unexpected error sending push to {user.username}: {e}")
+            failed_count += 1
+
+    return {
+        'success': success_count,
+        'failed': failed_count,
+        'total': subscriptions.count()
+    }
+
+
+def send_event_reminder(user, event):
+    """
+    Send event reminder notification.
+
+    Args:
+        user: Django User object
+        event: MeetupEvent object
+    """
+    # Check if user wants event reminders
+    subscriptions = user.push_subscriptions.filter(enabled=True, notify_event_reminders=True)
+    if not subscriptions.exists():
+        return
+
+    title = f"Event Tomorrow: {event.title}"
+    body = f"Don't forget! {event.title} starts at {event.event_date.strftime('%H:%M')}. See you there! 💕"
+    url = f"/events/{event.id}/"
+
+    return send_push_notification(
+        user=user,
+        title=title,
+        body=body,
+        url=url,
+        tag=f'event-reminder-{event.id}'
+    )
+
+
+def send_new_connection_notification(user, connection):
+    """
+    Send notification when someone wants to connect.
+
+    Args:
+        user: Django User object (recipient)
+        connection: EventConnection object
+    """
+    # Check if user wants connection notifications
+    subscriptions = user.push_subscriptions.filter(enabled=True, notify_new_connections=True)
+    if not subscriptions.exists():
+        return
+
+    # Get the other user's display name
+    other_user = connection.user1 if connection.user2 == user else connection.user2
+    display_name = other_user.crushprofile.display_name if hasattr(other_user, 'crushprofile') else other_user.first_name
+
+    title = "New Connection Request! 💕"
+    body = f"{display_name} wants to connect with you!"
+    url = "/connections/"
+
+    return send_push_notification(
+        user=user,
+        title=title,
+        body=body,
+        url=url,
+        tag=f'connection-{connection.id}'
+    )
+
+
+def send_new_message_notification(user, message):
+    """
+    Send notification for new connection message.
+
+    Args:
+        user: Django User object (recipient)
+        message: ConnectionMessage object
+    """
+    # Check if user wants message notifications
+    subscriptions = user.push_subscriptions.filter(enabled=True, notify_new_messages=True)
+    if not subscriptions.exists():
+        return
+
+    sender = message.sender
+    display_name = sender.crushprofile.display_name if hasattr(sender, 'crushprofile') else sender.first_name
+
+    # Truncate message for notification
+    preview = message.message[:50] + "..." if len(message.message) > 50 else message.message
+
+    title = f"New message from {display_name}"
+    body = preview
+    url = f"/connections/{message.connection.id}/"
+
+    return send_push_notification(
+        user=user,
+        title=title,
+        body=body,
+        url=url,
+        tag=f'message-{message.connection.id}'
+    )
+
+
+def send_profile_approved_notification(user):
+    """
+    Send notification when profile is approved by coach.
+
+    Args:
+        user: Django User object
+    """
+    # Check if user wants profile update notifications
+    subscriptions = user.push_subscriptions.filter(enabled=True, notify_profile_updates=True)
+    if not subscriptions.exists():
+        return
+
+    title = "Profile Approved! 🎉"
+    body = "Your Crush.lu profile has been approved! You can now register for events."
+    url = "/dashboard/"
+
+    return send_push_notification(
+        user=user,
+        title=title,
+        body=body,
+        url=url,
+        tag='profile-approved'
+    )
+
+
+def send_profile_revision_notification(user, feedback):
+    """
+    Send notification when coach requests profile revisions.
+
+    Args:
+        user: Django User object
+        feedback: Coach feedback text
+    """
+    # Check if user wants profile update notifications
+    subscriptions = user.push_subscriptions.filter(enabled=True, notify_profile_updates=True)
+    if not subscriptions.exists():
+        return
+
+    title = "Profile Update Needed"
+    body = f"Your Crush Coach has some feedback: {feedback[:80]}..."
+    url = "/profile/edit/"
+
+    return send_push_notification(
+        user=user,
+        title=title,
+        body=body,
+        url=url,
+        tag='profile-revision'
+    )
+
+
+def send_test_notification(user):
+    """
+    Send a test notification to verify push is working.
+
+    Args:
+        user: Django User object
+    """
+    title = "Test Notification 🔔"
+    body = "Push notifications are working! You'll receive updates about events, messages, and connections."
+    url = "/dashboard/"
+
+    return send_push_notification(
+        user=user,
+        title=title,
+        body=body,
+        url=url,
+        tag='test-notification'
+    )

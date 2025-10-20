@@ -112,6 +112,19 @@ AZURE_ACCOUNT_NAME = os.getenv('AZURE_ACCOUNT_NAME')
 AZURE_CONTAINER_NAME = os.getenv('AZURE_CONTAINER_NAME')
 MEDIA_URL = f'https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}/'
 
+# ============================================================================
+# PUSH NOTIFICATIONS (Web Push / PWA)
+# ============================================================================
+# VAPID keys for Web Push API notifications
+# Generate using: python generate_vapid_keys.py
+# Add to Azure App Service Environment Variables:
+# - VAPID_PUBLIC_KEY (can be exposed to frontend)
+# - VAPID_PRIVATE_KEY (keep secret!)
+# - VAPID_ADMIN_EMAIL (your contact email)
+VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+VAPID_ADMIN_EMAIL = os.getenv('VAPID_ADMIN_EMAIL', 'noreply@crush.lu')
+
 # Configure Postgres database based on connection string of the libpq Keyword/Value form
 conn_str = os.environ['AZURE_POSTGRESQL_CONNECTIONSTRING']
 conn_str_params = {pair.split('=')[0]: pair.split('=')[1] for pair in conn_str.split(' ')}

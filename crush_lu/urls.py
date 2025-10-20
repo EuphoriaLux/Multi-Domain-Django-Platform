@@ -5,6 +5,7 @@ from . import views_media
 from . import api_views
 from . import views_journey
 from . import api_journey
+from . import api_push
 
 app_name = 'crush_lu'
 
@@ -129,4 +130,14 @@ urlpatterns = [
     path('api/journey/final-response/', api_journey.record_final_response, name='api_record_final_response'),
     path('api/journey/unlock-puzzle-piece/', api_journey.unlock_puzzle_piece, name='api_unlock_puzzle_piece'),
     path('api/journey/reward-progress/<int:reward_id>/', api_journey.get_reward_progress, name='api_get_reward_progress'),
+
+    # ============================================================================
+    # PUSH NOTIFICATIONS API
+    # ============================================================================
+    path('api/push/vapid-public-key/', api_push.get_vapid_public_key, name='api_vapid_public_key'),
+    path('api/push/subscribe/', api_push.subscribe_push, name='api_subscribe_push'),
+    path('api/push/unsubscribe/', api_push.unsubscribe_push, name='api_unsubscribe_push'),
+    path('api/push/subscriptions/', api_push.list_subscriptions, name='api_list_subscriptions'),
+    path('api/push/preferences/', api_push.update_subscription_preferences, name='api_update_push_preferences'),
+    path('api/push/test/', api_push.send_test_push, name='api_send_test_push'),
 ]

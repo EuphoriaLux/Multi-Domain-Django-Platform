@@ -1587,3 +1587,178 @@ class SpeedDatingPair(models.Model):
             ).exists()
             return 8 if twist else 5  # 8 min for top matches, 5 min standard
         return 5
+
+
+class UserActivity(models.Model):
+    """
+    Tracks user activity and online status.
+    Helps identify active vs inactive users and PWA usage.
+    """
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='activity',
+        help_text="User being tracked"
+    )
+
+    # Activity timestamps
+    last_seen = models.DateTimeField(
+        help_text="Last time user made a request"
+    )
+    last_pwa_visit = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Last time user accessed via PWA (standalone mode)"
+    )
+
+    # PWA usage
+    is_pwa_user = models.BooleanField(
+        default=False,
+        help_text="Has this user ever used the installed PWA?"
+    )
+
+    # Activity stats
+    total_visits = models.PositiveIntegerField(
+        default=0,
+        help_text="Total number of visits/requests"
+    )
+
+    # Metadata
+    first_seen = models.DateTimeField(
+        auto_now_add=True,
+        help_text="First time user was tracked"
+    )
+
+    class Meta:
+        verbose_name = "User Activity"
+        verbose_name_plural = "📊 User Activities"
+        ordering = ['-last_seen']
+
+    def __str__(self):
+        return f"{self.user.username} - Last seen: {self.last_seen}"
+
+    @property
+    def is_online(self):
+        """User is considered online if seen in last 5 minutes"""
+        if not self.last_seen:
+            return False
+        return (timezone.now() - self.last_seen).seconds < 300
+
+    @property
+    def minutes_since_last_seen(self):
+        """Minutes since last activity"""
+        if not self.last_seen:
+            return None
+        return int((timezone.now() - self.last_seen).total_seconds() / 60)
+
+    @property
+    def is_active_user(self):
+        """Active if seen in last 7 days"""
+        if not self.last_seen:
+            return False
+        return (timezone.now() - self.last_seen).days < 7
+
+    @property
+    def uses_pwa(self):
+        """Check if user actively uses PWA (visited via PWA in last 30 days)"""
+        if not self.is_pwa_user or not self.last_pwa_visit:
+            return False
+        return (timezone.now() - self.last_pwa_visit).days < 30
+
+
+class PushSubscription(models.Model):
+    """
+    Stores Web Push API subscription data for sending push notifications to PWA users.
+    Each user can have multiple subscriptions (different devices/browsers).
+    """
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='push_subscriptions',
+        help_text="User who owns this push subscription"
+    )
+
+    # Push subscription data (from browser's PushManager API)
+    endpoint = models.URLField(
+        max_length=500,
+        help_text="Push service endpoint URL"
+    )
+    p256dh_key = models.CharField(
+        max_length=255,
+        help_text="Public key for encryption (p256dh)"
+    )
+    auth_key = models.CharField(
+        max_length=255,
+        help_text="Authentication secret (auth)"
+    )
+
+    # Device/browser information (optional but helpful)
+    user_agent = models.TextField(
+        blank=True,
+        help_text="Browser user agent string"
+    )
+    device_name = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Friendly device name (e.g., 'Android Chrome', 'iPhone Safari')"
+    )
+
+    # Notification preferences
+    enabled = models.BooleanField(
+        default=True,
+        help_text="User can disable notifications without unsubscribing"
+    )
+    notify_new_messages = models.BooleanField(
+        default=True,
+        help_text="Notify about new connection messages"
+    )
+    notify_event_reminders = models.BooleanField(
+        default=True,
+        help_text="Notify about upcoming events"
+    )
+    notify_new_connections = models.BooleanField(
+        default=True,
+        help_text="Notify about new connection requests"
+    )
+    notify_profile_updates = models.BooleanField(
+        default=True,
+        help_text="Notify about profile approval status"
+    )
+
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_used_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Last time a notification was successfully sent"
+    )
+    failure_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of consecutive failed deliveries (auto-delete after threshold)"
+    )
+
+    class Meta:
+        unique_together = ('user', 'endpoint')
+        ordering = ['-created_at']
+        verbose_name = "Push Notification Subscription"
+        verbose_name_plural = "🔔 Push Notification Subscriptions"
+
+    def __str__(self):
+        device = self.device_name or "Unknown Device"
+        return f"{self.user.username} - {device}"
+
+    def mark_success(self):
+        """Mark successful notification delivery"""
+        self.last_used_at = timezone.now()
+        self.failure_count = 0
+        self.save(update_fields=['last_used_at', 'failure_count'])
+
+    def mark_failure(self):
+        """Mark failed notification delivery (auto-delete after 5 failures)"""
+        self.failure_count += 1
+        if self.failure_count >= 5:
+            # Subscription likely expired/invalid - delete it
+            self.delete()
+        else:
+            self.save(update_fields=['failure_count'])
