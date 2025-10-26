@@ -1,1 +1,0 @@
-# VinsDelux Test Suite

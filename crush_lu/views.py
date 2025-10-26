@@ -85,7 +85,11 @@ def crush_logout(request):
 
 # Public pages
 def home(request):
-    """Landing page"""
+    """Landing page - redirects authenticated users to dashboard"""
+    # If user is logged in, redirect to their dashboard
+    if request.user.is_authenticated:
+        return redirect('crush_lu:dashboard')
+
     upcoming_events = MeetupEvent.objects.filter(
         is_published=True,
         is_cancelled=False,

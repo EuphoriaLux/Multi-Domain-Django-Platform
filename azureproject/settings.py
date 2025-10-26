@@ -91,7 +91,7 @@ MESSAGE_TAGS = {
     messages.ERROR: 'alert-danger',
 }
 
-SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_ENGINE = "django.contrib.sessions.backends.db"  # Changed from cache to db for PWA persistence
 ROOT_URLCONF = 'azureproject.urls'
 
 TEMPLATES = [
@@ -173,7 +173,13 @@ SOCIALACCOUNT_STORE_TOKENS = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
 
 
-SESSION_COOKIE_AGE = 86400  # 24 hours
+# Session Configuration for PWA
+SESSION_COOKIE_AGE = 1209600  # 14 days (2 weeks) - longer session for PWA
+SESSION_SAVE_EVERY_REQUEST = True  # Extend session on each request
+SESSION_COOKIE_HTTPONLY = True  # Security: prevent JavaScript access
+SESSION_COOKIE_SECURE = False  # Set to True in production (HTTPS only)
+SESSION_COOKIE_SAMESITE = 'Lax'  # CSRF protection while allowing navigation
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep session alive after browser close (critical for PWA)
 SESSION_REMEMBER_ME = True
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True

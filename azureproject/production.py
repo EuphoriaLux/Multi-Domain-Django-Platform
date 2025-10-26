@@ -23,8 +23,60 @@ ALLOWED_HOSTS += [host.strip() for host in os.environ.get('ALLOWED_HOSTS_ENV', '
 health_check_ips = [ip.strip() for ip in os.environ.get('HEALTH_CHECK_IPS', '').split(',') if ip.strip()]
 ALLOWED_HOSTS += health_check_ips
 
-# Note: Azure internal IPs (169.254.*) and localhost are dynamically handled by AzureInternalIPMiddleware
-# which adds them to ALLOWED_HOSTS on-demand to support Application Insights health checks
+# Add localhost for development
+ALLOWED_HOSTS.append('localhost')
+ALLOWED_HOSTS.append('127.0.0.1')
+
+# Note: Azure internal IPs (169.254.*) are handled by custom ALLOWED_HOSTS validation below
+# to support OpenTelemetry autoinstrumentation health checks that run before middleware
+
+# Custom ALLOWED_HOSTS validation for Azure internal IPs
+# This allows health check requests from Azure infrastructure (169.254.*.*)
+# to bypass standard validation before OpenTelemetry middleware processes them
+class AzureInternalHostValidator:
+    """
+    Custom host validator that allows Azure internal IPs (169.254.*.*)
+    without explicitly listing them in ALLOWED_HOSTS.
+    This prevents DisallowedHost errors from OpenTelemetry middleware.
+    """
+    def __call__(self, host):
+        # Extract hostname without port
+        hostname = host.split(':')[0]
+
+        # Allow Azure internal IPs (169.254.*.*)
+        if hostname.startswith('169.254.'):
+            return True
+
+        # Allow localhost
+        if hostname in ('localhost', '127.0.0.1', '[::1]'):
+            return True
+
+        # Otherwise, check against ALLOWED_HOSTS
+        from django.http.request import validate_host
+        return validate_host(host, ALLOWED_HOSTS)
+
+# Monkey-patch Django's host validation to use our custom validator
+# This must happen before any middleware runs
+import django.http.request
+_original_validate_host = django.http.request.validate_host
+
+def custom_validate_host(host, allowed_hosts):
+    """Custom validate_host that allows Azure internal IPs"""
+    # Extract hostname without port
+    hostname = host.split(':')[0]
+
+    # Allow Azure internal IPs (169.254.*.*)
+    if hostname.startswith('169.254.'):
+        return True
+
+    # Allow localhost variants
+    if hostname in ('localhost', '127.0.0.1', '[::1]'):
+        return True
+
+    # Use original validation for everything else
+    return _original_validate_host(host, allowed_hosts)
+
+django.http.request.validate_host = custom_validate_host
 
 
 
@@ -145,10 +197,12 @@ CACHES = {
     }
 }
 
-SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
+SESSION_ENGINE = "django.contrib.sessions.backends.db"  # Changed from signed_cookies to db for PWA persistence
 
-# Override session settings from base settings.py
-SESSION_COOKIE_AGE = 86400  # 24 hours
+# Override session settings from base settings.py for PWA
+SESSION_COOKIE_AGE = 1209600  # 14 days (2 weeks) - longer session for PWA
+SESSION_SAVE_EVERY_REQUEST = True  # Extend session on each request
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep session alive after browser close (critical for PWA)
 SESSION_REMEMBER_ME = True
 
 # Override login redirect (matches settings.py)
@@ -161,9 +215,10 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 
 # Cookie security (only over HTTPS)
-SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True  # HTTPS only in production
 CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookie
+SESSION_COOKIE_SAMESITE = 'Lax'  # CSRF protection while allowing navigation
 # CSRF_COOKIE_HTTPONLY must be False to allow JavaScript access for AJAX requests
 # This is Django's default and is safe because CSRF tokens are not sensitive data
 CSRF_COOKIE_HTTPONLY = False
