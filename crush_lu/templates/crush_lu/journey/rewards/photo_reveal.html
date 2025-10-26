@@ -13,6 +13,41 @@
         margin: 60px auto;
     }
 
+    /* Enhanced Back Button */
+    .nav-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 32px;
+        border-radius: 30px;
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.3), rgba(255, 107, 157, 0.3));
+        color: white;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1.05rem;
+        transition: all 0.3s ease;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .nav-btn:hover {
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.5), rgba(255, 107, 157, 0.5));
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(155, 89, 182, 0.4);
+        color: white;
+        text-decoration: none;
+        border-color: rgba(255, 255, 255, 0.5);
+    }
+
+    .nav-btn i {
+        transition: transform 0.3s ease;
+    }
+
+    .nav-btn:hover i {
+        transform: translateX(-3px);
+    }
+
     .reward-card {
         background: rgba(255, 255, 255, 0.1);
         backdrop-filter: blur(20px);

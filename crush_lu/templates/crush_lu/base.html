@@ -87,6 +87,16 @@
                                     {% endif %}
                                 </a>
                             </li>
+                            {% if has_special_journey %}
+                            <li class="nav-item">
+                                <a class="nav-link special-journey" href="{% url 'crush_lu:journey_map' %}">
+                                    <i class="bi bi-star-fill" style="color: gold;"></i> Special Journey
+                                    {% if not journey_started %}
+                                        <span class="badge bg-warning text-dark">New!</span>
+                                    {% endif %}
+                                </a>
+                            </li>
+                            {% endif %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'crush_lu:coach_sessions' %}">
                                     <i class="bi bi-calendar-check"></i> My Sessions
