@@ -1,5 +1,5 @@
 # Core Django
-Django==5.1.3
+Django==5.1.4  # Updated from 5.1.3
 djangorestframework==3.15.2
 djangorestframework-simplejwt==5.4.0
 django-crispy-forms==2.3
@@ -7,25 +7,25 @@ crispy-bootstrap5==2024.10
 django-cors-headers==4.6.0
 
 # Database
-psycopg2-binary==2.9.10
+psycopg2-binary==2.9.11  # Updated from 2.9.10 (security & bug fixes)
 
 # Authentication
-django-allauth==64.0.0
+django-allauth==65.1.0  # Updated from 64.0.0 (bug fixes)
 PyJWT==2.10.1
 
 # Storage
-django-storages==1.14.2
+django-storages==1.14.4  # Updated from 1.14.2
 azure-storage-blob==12.25.1
 
 # Caching
-django-redis==5.4.0
+    # django-redis==5.4.0
 
 # Image processing
-Pillow==11.0.0
+Pillow==11.1.0  # Updated from 11.0.0 (security fixes)
 olefile==0.47
 
 # Microsoft Graph API (for email)
-msal==1.28.0
+msal==1.31.1  # Updated from 1.28.0 (security improvements)
 msgraph-core==1.0.0
 
 # Production Server
@@ -33,8 +33,8 @@ gunicorn==23.0.0
 
 # Utilities
 python-dotenv==1.0.1
-whitenoise==6.7.0
-requests==2.31.0
+whitenoise==6.8.2  # Updated from 6.7.0 (bug fixes)
+requests==2.32.3
 
 # Push Notifications
 py-vapid==1.9.1
