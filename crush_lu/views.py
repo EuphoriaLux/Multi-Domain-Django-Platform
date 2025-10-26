@@ -396,9 +396,6 @@ def edit_profile(request):
                 submission.assign_coach()
 
                 # Send confirmation email to user
-                import logging
-                logger = logging.getLogger(__name__)
-
                 try:
                     result = send_profile_submission_confirmation(request.user, request)
                     logger.info(f"✅ Profile submission email sent to {request.user.email}: {result}")
@@ -701,8 +698,6 @@ def event_register(request, event_id):
                 elif registration.status == 'waitlist':
                     send_event_waitlist_notification(registration, request)
             except Exception as e:
-                import logging
-                logger = logging.getLogger(__name__)
                 logger.error(f"Failed to send event registration email: {e}")
 
             return redirect('crush_lu:dashboard')
@@ -735,8 +730,6 @@ def event_cancel(request, event_id):
         try:
             send_event_cancellation_confirmation(request.user, event, request)
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
             logger.error(f"Failed to send event cancellation confirmation: {e}")
 
         return redirect('crush_lu:dashboard')
@@ -852,8 +845,6 @@ def coach_review_profile(request, submission_id):
                         coach_notes=submission.feedback_to_user
                     )
                 except Exception as e:
-                    import logging
-                    logger = logging.getLogger(__name__)
                     logger.error(f"Failed to send profile approval notification: {e}")
 
             elif submission.status == 'rejected':
@@ -869,8 +860,6 @@ def coach_review_profile(request, submission_id):
                         reason=submission.feedback_to_user
                     )
                 except Exception as e:
-                    import logging
-                    logger = logging.getLogger(__name__)
                     logger.error(f"Failed to send profile rejection notification: {e}")
 
             elif submission.status == 'revision':
@@ -884,8 +873,6 @@ def coach_review_profile(request, submission_id):
                         feedback=submission.feedback_to_user
                     )
                 except Exception as e:
-                    import logging
-                    logger = logging.getLogger(__name__)
                     logger.error(f"Failed to send profile revision request: {e}")
 
             submission.save()
