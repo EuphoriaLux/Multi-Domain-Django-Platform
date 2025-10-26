@@ -1,9 +1,10 @@
 # OPTIMIZED Azure App Service Deployment Workflow
-# This workflow implements several optimizations to reduce deployment time from ~5min to ~3min:
-# 1. Dependency caching on Azure (via SCM_DO_BUILD_DURING_DEPLOYMENT)
-# 2. Parallel static file collection
-# 3. Startup script optimization
-# 4. Reduced migration overhead
+# This workflow implements several optimizations to reduce deployment time:
+# 1. Quick syntax validation before deployment (fail fast)
+# 2. Dependency caching on Azure (via SCM_DO_BUILD_DURING_DEPLOYMENT)
+# 3. Parallel static file collection
+# 4. Startup script optimization
+# 5. Reduced migration overhead
 
 name: Deploy Multi-Domain App to Azure (Optimized)
 
@@ -22,13 +23,36 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Quick pre-deployment validation (runs in ~30 seconds)
+  validate:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[skip deploy]')"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Quick syntax check
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8
+          # Only check for critical syntax errors (fail fast)
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=migrations,venv,env,.venv,.git,__pycache__ || exit 1
+          # Quick compilation check
+          python -m compileall azureproject entreprinder vinsdelux crush_lu matching -f -q || exit 1
+          echo "✅ Code validation passed"
+
   deploy:
+    needs: validate  # Only deploy if validation passes
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
-
-    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[skip deploy]')"
 
     steps:
       - name: Checkout code
@@ -41,26 +65,24 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_9B47C4FC931C474D9EA5DF7AA7F520DC }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_29F8296DBCF74664BB44D22B1D60D435 }}
 
-      # OPTIMIZATION 1: Already configured via Azure CLI
+      # OPTIMIZATION: Already configured via Azure CLI
       # Settings applied:
       # - ORYX_DISABLE_PIP_CACHE=false (enables dependency caching)
       # - SCM_DO_BUILD_DURING_DEPLOYMENT=true (enables Oryx build)
       # No action needed - settings persist across deployments
 
-      # OPTIMIZATION 2: Deploy with package optimization
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
         with:
           app-name: 'django-app-ajfffwjb5ie3s-app-service'
           slot-name: 'Production'
-          # Skip collecting static files during deployment (done in POST_BUILD_COMMAND)
           clean: false
 
-      # OPTIMIZATION 3: Warm up application after deployment
       - name: Warm up application
         run: |
           echo "🔥 Warming up application endpoints..."
+          sleep 10  # Give app time to start
           curl -s -o /dev/null -w "Health check: %{http_code}\n" https://crush.lu/healthz/ || true
           curl -s -o /dev/null -w "Home page: %{http_code}\n" https://crush.lu/ || true
         continue-on-error: true
@@ -72,7 +94,7 @@ jobs:
           echo "🌐 Crush.lu: https://crush.lu"
           echo "🌐 PowerUP: https://powerup.lu"
           echo "🌐 VinsDelux: https://vinsdelux.com"
-          echo "⚡ Deployment optimized for speed (~3min target)"
+          echo "⚡ Deployment optimized for speed (~2-3min target)"
 
       - name: Deployment Failed
         if: failure()
