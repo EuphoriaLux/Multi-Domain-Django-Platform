@@ -61,8 +61,8 @@ class DomainURLRoutingMiddleware:
             # Route crush.lu domain to Crush URLs
             request.urlconf = 'azureproject.urls_crush'
             logger.info(f"DomainURLRoutingMiddleware: Routing to urls_crush for host: {host}")
-        elif host in ['localhost', '127.0.0.1']:
-            # Route localhost to Crush.lu (for testing)
+        elif host in ['localhost', '127.0.0.1', '192.168.178.184']:
+            # Route localhost and local IP to Crush.lu (for testing)
             request.urlconf = 'azureproject.urls_crush'
             logger.info(f"DomainURLRoutingMiddleware: Routing to urls_crush for localhost development: {host}")
         elif host.endswith('.azurewebsites.net'):
