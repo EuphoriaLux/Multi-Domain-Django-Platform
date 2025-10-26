@@ -69,7 +69,11 @@
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
-            <a class="navbar-brand" href="{% url 'crush_lu:home' %}">💕 Crush.lu</a>
+            {% if user.is_authenticated %}
+                <a class="navbar-brand" href="{% url 'crush_lu:dashboard' %}">💕 Crush.lu</a>
+            {% else %}
+                <a class="navbar-brand" href="{% url 'crush_lu:home' %}">💕 Crush.lu</a>
+            {% endif %}
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -108,6 +112,29 @@
                                 </a>
                             </li>
                             <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="coachToolsDropdown" role="button" data-bs-toggle="dropdown">
+                                    <i class="bi bi-tools"></i> Coach Tools
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="{% url 'crush_lu:coach_dashboard' %}">
+                                        <i class="bi bi-clipboard-check"></i> Review Queue
+                                        {% if pending_screening_count > 0 %}
+                                            <span class="badge bg-warning text-dark rounded-pill ms-2">{{ pending_screening_count }}</span>
+                                        {% endif %}
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{% url 'crush_lu:coach_journey_dashboard' %}">
+                                        <i class="bi bi-map"></i> Journey Management
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="{% url 'crush_lu:coach_sessions' %}">
+                                        <i class="bi bi-chat-dots"></i> All Sessions
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{% url 'crush_lu:event_list' %}">
+                                        <i class="bi bi-calendar3"></i> Manage Events
+                                    </a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="coachDropdown" role="button" data-bs-toggle="dropdown">
                                     <i class="bi bi-person-circle"></i> {{ user.first_name|default:user.username }}
                                 </a>
@@ -120,6 +147,9 @@
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'crush_lu:dashboard' %}">
                                     <i class="bi bi-house-heart"></i> Dashboard
+                                    {% if profile_needs_action %}
+                                        <span class="badge bg-warning text-dark rounded-pill" title="Profile needs revision">!</span>
+                                    {% endif %}
                                 </a>
                             </li>
                             {% if has_special_journey %}
@@ -132,14 +162,49 @@
                                 </a>
                             </li>
                             {% endif %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'crush_lu:event_list' %}">
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="eventsDropdown" role="button" data-bs-toggle="dropdown">
                                     <i class="bi bi-calendar-event"></i> Events
+                                    {% if upcoming_events_count > 0 %}
+                                        <span class="badge bg-info rounded-pill">{{ upcoming_events_count }}</span>
+                                    {% endif %}
                                 </a>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li class="dropdown-header">Upcoming Events</li>
+                                    {% if upcoming_events %}
+                                        {% for registration in upcoming_events %}
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'crush_lu:event_detail' registration.event.id %}">
+                                                    <div class="d-flex justify-content-between align-items-start">
+                                                        <div>
+                                                            <strong>{{ registration.event.title|truncatewords:4 }}</strong>
+                                                            <br>
+                                                            <small class="text-muted">
+                                                                {{ registration.event.date_time|date:"M d, g:i A" }}
+                                                            </small>
+                                                        </div>
+                                                        {% if registration.status == 'waitlist' %}
+                                                            <span class="badge bg-secondary ms-2">Waitlist</span>
+                                                        {% else %}
+                                                            <span class="badge bg-success ms-2">✓</span>
+                                                        {% endif %}
+                                                    </div>
+                                                </a>
+                                            </li>
+                                        {% endfor %}
+                                        <li><hr class="dropdown-divider"></li>
+                                    {% else %}
+                                        <li><span class="dropdown-item-text text-muted">No upcoming events</span></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                    {% endif %}
+                                    <li><a class="dropdown-item" href="{% url 'crush_lu:event_list' %}">
+                                        <i class="bi bi-search"></i> Browse All Events
+                                    </a></li>
+                                </ul>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'crush_lu:my_connections' %}">
-                                    <i class="bi bi-people"></i> My Connections
+                                    <i class="bi bi-people"></i> Connections
                                     {% if pending_requests_count > 0 %}
                                         <span class="badge bg-danger rounded-pill">{{ pending_requests_count }}</span>
                                     {% endif %}
@@ -148,9 +213,33 @@
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
                                     <i class="bi bi-person-circle"></i> {{ user.first_name|default:user.username }}
+                                    {% if profile_status == 'pending' %}
+                                        <span class="badge bg-info" title="Profile pending review">⏳</span>
+                                    {% elif profile_status == 'rejected' %}
+                                        <span class="badge bg-danger" title="Profile rejected">✗</span>
+                                    {% elif profile_status == 'revision' %}
+                                        <span class="badge bg-warning text-dark" title="Profile needs revision">!</span>
+                                    {% elif profile_is_approved %}
+                                        <span class="badge bg-success" title="Profile approved">✓</span>
+                                    {% endif %}
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     {% if user.crushprofile %}
+                                        <li class="dropdown-header">
+                                            Profile Status:
+                                            {% if profile_status == 'pending' %}
+                                                <span class="text-info">Pending Review</span>
+                                            {% elif profile_status == 'rejected' %}
+                                                <span class="text-danger">Rejected</span>
+                                            {% elif profile_status == 'revision' %}
+                                                <span class="text-warning">Needs Revision</span>
+                                            {% elif profile_is_approved %}
+                                                <span class="text-success">Approved ✓</span>
+                                            {% else %}
+                                                <span class="text-muted">Not Submitted</span>
+                                            {% endif %}
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}"><i class="bi bi-pencil"></i> Edit Profile</a></li>
                                     {% else %}
                                         <li><a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}"><i class="bi bi-person-plus"></i> Create Profile</a></li>

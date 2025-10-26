@@ -3,7 +3,11 @@ Context processors for Crush.lu app
 These make variables available to all templates
 """
 from django.db.models import Q
-from .models import EventConnection, CrushProfile, CrushCoach, SpecialUserExperience, JourneyProgress, ProfileSubmission
+from django.utils import timezone
+from .models import (
+    EventConnection, CrushProfile, CrushCoach, SpecialUserExperience,
+    JourneyProgress, ProfileSubmission, EventRegistration, MeetupEvent
+)
 
 
 def crush_user_context(request):
@@ -26,6 +30,30 @@ def crush_user_context(request):
         context['connection_count'] = connection_count
         context['pending_requests_count'] = pending_requests_count
 
+        # Profile submission status for visual indicators
+        profile_submission = None
+        if hasattr(request.user, 'crushprofile'):
+            profile_submission = ProfileSubmission.objects.filter(
+                profile=request.user.crushprofile
+            ).order_by('-submitted_at').first()
+
+            if profile_submission:
+                context['profile_submission'] = profile_submission
+                context['profile_status'] = profile_submission.status
+                context['profile_is_approved'] = request.user.crushprofile.is_approved
+                context['profile_needs_action'] = profile_submission.status == 'revision'
+
+        # Upcoming events for user
+        now = timezone.now()
+        upcoming_registrations = EventRegistration.objects.filter(
+            user=request.user,
+            event__date_time__gte=now,
+            status__in=['confirmed', 'waitlist']
+        ).select_related('event').order_by('event__date_time')[:5]
+
+        context['upcoming_events'] = upcoming_registrations
+        context['upcoming_events_count'] = upcoming_registrations.count()
+
         # Pending screening calls count for coaches
         if hasattr(request.user, 'crushcoach') and request.user.crushcoach.is_active:
             pending_screening_count = ProfileSubmission.objects.filter(
@@ -34,6 +62,9 @@ def crush_user_context(request):
                 review_call_completed=False
             ).count()
             context['pending_screening_count'] = pending_screening_count
+
+            # Count pending invitations to review (future feature)
+            context['pending_invitations_count'] = 0
 
         # Check for special journey experience
         special_experience = SpecialUserExperience.objects.filter(

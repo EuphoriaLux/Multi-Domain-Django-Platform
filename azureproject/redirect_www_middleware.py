@@ -5,25 +5,17 @@ from django.core.exceptions import DisallowedHost
 
 class AzureInternalIPMiddleware:
     """
-    Middleware to handle Azure internal IPs (169.254.*) and localhost that change frequently.
-    Bypasses ALLOWED_HOSTS validation by temporarily adding the host before Django processes the request.
-    This is necessary for Application Insights OpenTelemetry autoinstrumentation health checks.
+    Middleware to handle Azure internal IPs (169.254.*) and localhost.
+    Note: Host validation is now handled by custom_validate_host() in production.py
+    to support OpenTelemetry middleware that runs before custom middleware.
+    This middleware is kept for backwards compatibility and logging purposes.
     """
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        from django.conf import settings
-
-        host = request.META.get('HTTP_HOST', '').split(':')[0]
-
-        # Check if it's an Azure internal IP (169.254.*.*) or localhost
-        if host.startswith('169.254.') or host == 'localhost':
-            # Temporarily add this host to ALLOWED_HOSTS to prevent DisallowedHost errors
-            # This allows OpenTelemetry middleware to process the request
-            if host not in settings.ALLOWED_HOSTS:
-                settings.ALLOWED_HOSTS.append(host)
-
+        # Host validation now handled by custom_validate_host() monkey-patch
+        # No need to modify ALLOWED_HOSTS dynamically
         return self.get_response(request)
 
 class RedirectWWWToRootDomainMiddleware:

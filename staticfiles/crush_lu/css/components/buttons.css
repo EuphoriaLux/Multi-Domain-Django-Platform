@@ -1,0 +1,245 @@
+/* ===================
+   Crush.lu Button Components
+   =================== */
+
+/* ===================
+   Primary Crush Button
+   Gradient background
+   =================== */
+.btn-crush-primary {
+    background: var(--gradient-primary);
+    border: none;
+    color: white;
+    font-weight: var(--font-medium);
+    padding: var(--space-sm) var(--space-xl);
+    border-radius: var(--radius-pill);
+    transition: transform var(--transition-fast),
+                box-shadow var(--transition-fast);
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+    font-size: var(--text-base);
+    line-height: var(--leading-normal);
+}
+
+.btn-crush-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-purple);
+    color: white;
+    text-decoration: none;
+}
+
+.btn-crush-primary:active {
+    transform: translateY(0);
+}
+
+.btn-crush-primary:focus-visible {
+    outline: 3px solid var(--crush-purple);
+    outline-offset: 2px;
+}
+
+/* Button Size Variants */
+.btn-crush-primary.btn-sm {
+    padding: 0.5rem 1.5rem;
+    font-size: var(--text-sm);
+}
+
+.btn-crush-primary.btn-lg {
+    padding: 1rem 2.5rem;
+    font-size: var(--text-lg);
+}
+
+/* ===================
+   Secondary Button
+   Transparent with border
+   =================== */
+.btn-crush-secondary {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    font-weight: var(--font-semibold);
+    padding: var(--space-sm) var(--space-xl);
+    border-radius: var(--radius-pill);
+    border: 2px solid white;
+    transition: all var(--transition-base);
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-crush-secondary:hover {
+    background: white;
+    color: var(--crush-purple);
+    border-color: white;
+    text-decoration: none;
+}
+
+/* ===================
+   Outline Button
+   =================== */
+.btn-crush-outline {
+    background: transparent;
+    color: var(--crush-purple);
+    border: 2px solid var(--crush-purple);
+    font-weight: var(--font-semibold);
+    padding: var(--space-sm) var(--space-xl);
+    border-radius: var(--radius-pill);
+    transition: all var(--transition-base);
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-crush-outline:hover {
+    background: var(--gradient-primary);
+    color: white;
+    border-color: transparent;
+    text-decoration: none;
+}
+
+/* ===================
+   Gradient Variants
+   =================== */
+.btn-gradient-primary {
+    background: var(--gradient-primary);
+    border: none;
+    color: white;
+    font-weight: var(--font-medium);
+    padding: var(--space-sm) var(--space-xl);
+    border-radius: var(--radius-pill);
+    transition: all var(--transition-base);
+}
+
+.btn-gradient-primary:hover {
+    background: var(--gradient-primary-hover);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-purple);
+}
+
+/* Hero Button (white background on gradient pages) */
+.btn-hero-primary {
+    background: white;
+    color: var(--crush-purple);
+    font-weight: var(--font-semibold);
+    padding: 1rem 2.5rem;
+    border-radius: var(--radius-pill);
+    border: none;
+    font-size: var(--text-lg);
+    transition: all var(--transition-base);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.btn-hero-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+    color: var(--crush-purple);
+}
+
+/* ===================
+   Loading State
+   =================== */
+.btn-crush-primary.is-loading,
+.btn-gradient-primary.is-loading {
+    position: relative;
+    color: transparent;
+    pointer-events: none;
+}
+
+.btn-crush-primary.is-loading::after,
+.btn-gradient-primary.is-loading::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 50%;
+    left: 50%;
+    margin-left: -8px;
+    margin-top: -8px;
+    border: 2px solid white;
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: btn-spin 0.6s linear infinite;
+}
+
+@keyframes btn-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ===================
+   Disabled State
+   =================== */
+.btn-crush-primary:disabled,
+.btn-crush-secondary:disabled,
+.btn-crush-outline:disabled,
+.btn-gradient-primary:disabled,
+.btn-hero-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    pointer-events: none;
+}
+
+.btn-crush-primary:disabled:hover,
+.btn-crush-secondary:disabled:hover,
+.btn-crush-outline:disabled:hover,
+.btn-gradient-primary:disabled:hover,
+.btn-hero-primary:disabled:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+/* ===================
+   Icon Buttons
+   =================== */
+.btn-crush-primary i,
+.btn-gradient-primary i,
+.btn-hero-primary i {
+    margin-right: 0.5rem;
+}
+
+.btn-crush-primary i:last-child,
+.btn-gradient-primary i:last-child,
+.btn-hero-primary i:last-child {
+    margin-right: 0;
+    margin-left: 0.5rem;
+}
+
+/* ===================
+   Button Groups
+   =================== */
+.btn-group-crush .btn-crush-primary:not(:last-child),
+.btn-group-crush .btn-crush-outline:not(:last-child) {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.btn-group-crush .btn-crush-primary:not(:first-child),
+.btn-group-crush .btn-crush-outline:not(:first-child) {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+/* ===================
+   Full Width Buttons
+   =================== */
+.btn-crush-primary.w-100,
+.btn-gradient-primary.w-100,
+.btn-hero-primary.w-100 {
+    width: 100%;
+    display: block;
+}
+
+/* ===================
+   Responsive Adjustments
+   =================== */
+@media (max-width: 767px) {
+    .btn-hero-primary {
+        padding: 0.875rem 2rem;
+        font-size: var(--text-base);
+    }
+
+    .btn-crush-primary.btn-lg {
+        padding: 0.875rem 2rem;
+    }
+}
