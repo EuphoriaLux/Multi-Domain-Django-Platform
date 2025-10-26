@@ -1,12 +1,11 @@
 // Crush.lu Service Worker
 // PWA implementation for privacy-first dating platform
 
-const CACHE_VERSION = 'crush-v2';
+const CACHE_VERSION = 'crush-v3';  // Incremented to clear old cache
 const CACHE_NAME = `crush-lu-${CACHE_VERSION}`;
 
-// Assets to cache on install
+// Assets to cache on install (static assets only, not pages)
 const STATIC_CACHE_URLS = [
-  '/',
   '/static/crush_lu/css/crush.css',
   '/static/crush_lu/icons/icon-192x192.png',
   '/static/crush_lu/icons/icon-512x512.png',
@@ -88,12 +87,15 @@ const OFFLINE_FALLBACK_HTML = `
 // Dynamic cache for user content
 const DYNAMIC_CACHE_NAME = `crush-dynamic-${CACHE_VERSION}`;
 
-// API endpoints that should always fetch fresh (no cache)
+// API endpoints and dynamic pages that should always fetch fresh (no cache)
 const NO_CACHE_URLS = [
   '/api/',
   '/accounts/',
   '/admin/',
   '/coach/',
+  '/dashboard/',
+  '/login/',
+  '/logout/',
 ];
 
 // Install event - cache static assets

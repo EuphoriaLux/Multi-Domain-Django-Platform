@@ -16,7 +16,7 @@ if (workbox) {
     workbox.setConfig({ debug: true });
   }
 
-  const CACHE_VERSION = 'crush-v4-loading'; // Updated for loading animation feature
+  const CACHE_VERSION = 'crush-v5-auth-fix'; // Updated to fix auth redirect caching
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -30,9 +30,9 @@ if (workbox) {
   // Precaching - Files to cache on service worker installation
   // ============================================================================
 
-  // Precache essential assets
+  // Precache essential assets (REMOVED '/' to allow dynamic auth redirect)
   workbox.precaching.precacheAndRoute([
-    { url: '/', revision: CACHE_VERSION },
+    // Home page removed - needs to be dynamic based on authentication status
     { url: '/offline/', revision: CACHE_VERSION },
     { url: '/static/crush_lu/css/crush.css', revision: CACHE_VERSION },
     { url: '/static/crush_lu/js/page-loading.js', revision: CACHE_VERSION },
@@ -224,12 +224,18 @@ if (workbox) {
     new workbox.strategies.NetworkOnly()
   );
 
-  // Strategy 6: Network Only for admin and auth
+  // Strategy 6: Network Only for admin, auth, and user-specific pages
   workbox.routing.registerRoute(
     ({ url }) =>
       url.pathname.startsWith('/admin/') ||
       url.pathname.startsWith('/accounts/') ||
-      url.pathname.startsWith('/coach/'),
+      url.pathname.startsWith('/coach/') ||
+      url.pathname.startsWith('/dashboard/') ||
+      url.pathname === '/dashboard' ||
+      url.pathname.startsWith('/login/') ||
+      url.pathname === '/login' ||
+      url.pathname.startsWith('/logout/') ||
+      url.pathname === '/logout',
     new workbox.strategies.NetworkOnly()
   );
 
