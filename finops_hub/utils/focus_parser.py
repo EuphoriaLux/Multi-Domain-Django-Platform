@@ -244,11 +244,12 @@ class FOCUSParser:
         """
         Validate that a parsed record has minimum required fields
 
+        Note: billed_cost can be 0 (for free tier, credits, etc.) but must be present
+
         Returns:
             tuple: (is_valid: bool, error_message: str or None)
         """
         required_fields = [
-            'billed_cost',
             'billing_currency',
             'billing_period_start',
             'charge_period_start',
@@ -256,8 +257,13 @@ class FOCUSParser:
             'service_name',
         ]
 
+        # Check required fields exist and are not None
         for field in required_fields:
-            if not parsed_record.get(field):
+            if parsed_record.get(field) is None or parsed_record.get(field) == '':
                 return False, f"Missing required field: {field}"
+
+        # billed_cost must exist but can be 0 (Decimal('0.00'))
+        if 'billed_cost' not in parsed_record:
+            return False, "Missing required field: billed_cost"
 
         return True, None

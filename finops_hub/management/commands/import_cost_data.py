@@ -75,16 +75,46 @@ class Command(BaseCommand):
 
             self.stdout.write(self.style.SUCCESS(f'Found {len(exports)} cost export file(s)'))
 
-            # Filter out already processed exports (unless force)
+            # Filter exports intelligently (unless force)
             if not force_reimport:
-                processed_paths = set(
-                    CostExport.objects.filter(
-                        import_status='completed'
-                    ).values_list('blob_path', flat=True)
-                )
-                exports = [e for e in exports if e['blob_path'] not in processed_paths]
+                exports_to_import = []
+                updated_exports = []
 
-                self.stdout.write(f'{len(exports)} unprocessed export(s) to import')
+                for export in exports:
+                    blob_path = export['blob_path']
+
+                    # Check if we've processed this export before
+                    try:
+                        existing_export = CostExport.objects.get(
+                            blob_path=blob_path,
+                            import_status='completed'
+                        )
+
+                        # Check if blob has been updated since last import
+                        if existing_export.has_been_updated(
+                            blob_last_modified=export['last_modified'],
+                            blob_etag=export.get('etag')
+                        ):
+                            self.stdout.write(
+                                f'  🔄 Detected update: {blob_path}'
+                            )
+                            self.stdout.write(
+                                f'     Last imported: {existing_export.blob_last_modified}, '
+                                f'Now: {export["last_modified"]}'
+                            )
+                            exports_to_import.append(export)
+                            updated_exports.append(existing_export)
+                        # else: Skip, already up-to-date
+
+                    except CostExport.DoesNotExist:
+                        # New export, add it
+                        exports_to_import.append(export)
+
+                exports = exports_to_import
+                self.stdout.write(
+                    f'{len(exports)} export(s) to import '
+                    f'({len(updated_exports)} updated, {len(exports) - len(updated_exports)} new)'
+                )
 
             # Apply limit if specified
             if limit:
@@ -198,12 +228,18 @@ class Command(BaseCommand):
                 'billing_period_end': end_date,
                 'file_size_bytes': export_meta['size'],
                 'import_status': 'pending',
+                'blob_last_modified': export_meta.get('last_modified'),
+                'blob_etag': export_meta.get('etag'),
             }
         )
 
-        # Mark as processing
+        # Mark as processing and update blob metadata
         cost_export.import_status = 'processing'
-        cost_export.save()
+        cost_export.update_blob_metadata(
+            blob_last_modified=export_meta.get('last_modified'),
+            blob_etag=export_meta.get('etag'),
+            file_size=export_meta['size']
+        )
 
         # Track subscription ID (will be extracted from first valid record)
         subscription_id_found = None

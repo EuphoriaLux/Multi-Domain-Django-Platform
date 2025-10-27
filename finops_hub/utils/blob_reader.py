@@ -22,6 +22,9 @@ class AzureCostBlobReader:
 
     2. Pattern B (Pay-as-you-go): {subscription}/{export_name}/{date_range}/{guid}/part_*.csv.gz
        Example: Pay as you go - Tom Privat/CostFocus-PayasyouGo/20251001-20251031/621cbd02-.../part_1_0001.csv.gz
+
+    3. Pattern C (Subscription-based): subscriptions/{subscription_id}/{export_name}/{date_range}/{guid}/part_*.csv.gz
+       Example: subscriptions/64c21818-0806-461a-919c-1c02b989a2d1/finops-{guid}/20251001-20251031/cd7d7a6d-.../part_0_0001.csv.gz
     """
 
     def __init__(self):
@@ -83,12 +86,13 @@ class AzureCostBlobReader:
             if subscription_filter and parsed_data['subscription_name'] != subscription_filter:
                 continue
 
-            # Add blob metadata
+            # Add blob metadata including ETag for change detection
             parsed_data.update({
                 'blob_path': blob.name,
                 'blob_name': blob.name.split('/')[-1],
                 'size': blob.size,
                 'last_modified': blob.last_modified,
+                'etag': blob.etag,  # ETag for detecting blob changes
             })
 
             exports.append(parsed_data)
@@ -102,9 +106,10 @@ class AzureCostBlobReader:
         """
         Parse blob path and detect pattern type
 
-        Handles two patterns:
+        Handles three patterns:
         - Pattern A (PartnerLed): partnerled/{subscription}/{date_range}/{guid}/part_*.csv.gz
         - Pattern B (Pay-as-you-go): {subscription}/{export_name}/{date_range}/{guid}/part_*.csv.gz
+        - Pattern C (Subscription-based): subscriptions/{subscription_id}/{export_name}/{date_range}/{guid}/part_*.csv.gz
 
         Args:
             blob_path: Full blob path string
@@ -122,6 +127,19 @@ class AzureCostBlobReader:
                 'date_range': path_parts[2],
                 'guid': path_parts[3],
                 'path_pattern': 'partnerled',
+            }
+
+        # Pattern C: subscriptions/{subscription_id}/{export_name}/{date_range}/{guid}/part_*.csv.gz (6 parts)
+        elif len(path_parts) == 6 and path_parts[0].lower() == 'subscriptions':
+            # Extract subscription ID and use export name as subscription_name for consistency
+            subscription_id = path_parts[1]
+            return {
+                'subscription_name': path_parts[2],  # Use export name as subscription name
+                'export_name': path_parts[2],
+                'date_range': path_parts[3],
+                'guid': path_parts[4],
+                'path_pattern': 'subscription-id',
+                'subscription_id': subscription_id,  # Store actual subscription ID
             }
 
         # Pattern B: {subscription}/{export_name}/{date_range}/{guid}/part_*.csv.gz (5 parts)
