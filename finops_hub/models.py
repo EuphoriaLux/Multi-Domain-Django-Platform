@@ -30,6 +30,10 @@ class CostExport(models.Model):
     error_message = models.TextField(null=True, blank=True)
     needs_subscription_id = models.BooleanField(default=False, db_index=True)  # Flag for incomplete imports
 
+    # Auto-detection fields for updated exports
+    blob_last_modified = models.DateTimeField(null=True, blank=True, db_index=True)  # Azure blob last modified timestamp
+    blob_etag = models.CharField(max_length=100, null=True, blank=True)  # Azure blob ETag for change detection
+
     class Meta:
         ordering = ['-billing_period_start', '-import_started_at']
         indexes = [
@@ -71,6 +75,40 @@ class CostExport(models.Model):
         ).exclude(
             subscription_id__isnull=False
         )
+
+    def has_been_updated(self, blob_last_modified, blob_etag=None):
+        """
+        Check if the blob has been updated since last import
+
+        Args:
+            blob_last_modified: datetime from Azure blob metadata
+            blob_etag: ETag from Azure blob metadata (optional)
+
+        Returns:
+            bool: True if blob has been updated and should be re-imported
+        """
+        # If we don't have tracking data yet, consider it new
+        if not self.blob_last_modified:
+            return True
+
+        # Check if last_modified is newer
+        if blob_last_modified and blob_last_modified > self.blob_last_modified:
+            return True
+
+        # Check if ETag has changed (more reliable than timestamp)
+        if blob_etag and self.blob_etag and blob_etag != self.blob_etag:
+            return True
+
+        return False
+
+    def update_blob_metadata(self, blob_last_modified, blob_etag=None, file_size=None):
+        """Update blob metadata for change tracking"""
+        self.blob_last_modified = blob_last_modified
+        if blob_etag:
+            self.blob_etag = blob_etag
+        if file_size:
+            self.file_size_bytes = file_size
+        self.save()
 
 
 class CostRecord(models.Model):
