@@ -1,17 +1,18 @@
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth.models import User
-from .models import EntrepreneurProfile
+from .models import EntrepreneurProfile, Industry
 from matching.models import Like, Match
 
 class EntrepreneurProfileTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='testuser', password='12345')
+        self.industry = Industry.objects.create(name='Tech')
         self.profile = EntrepreneurProfile.objects.create(
             user=self.user,
             bio='Test bio',
             company='Test Company',
-            industry='Tech',
+            industry=self.industry,
             location='Test City'
         )
 
@@ -23,11 +24,12 @@ class ViewsTestCase(TestCase):
     def setUp(self):
         self.client = Client()
         self.user = User.objects.create_user(username='testuser', password='12345')
+        self.industry = Industry.objects.create(name='Tech')
         self.profile = EntrepreneurProfile.objects.create(
             user=self.user,
             bio='Test bio',
             company='Test Company',
-            industry='Tech',
+            industry=self.industry,
             location='Test City'
         )
 
@@ -46,8 +48,9 @@ class MatchingTestCase(TestCase):
     def setUp(self):
         self.user1 = User.objects.create_user(username='user1', password='12345')
         self.user2 = User.objects.create_user(username='user2', password='12345')
-        self.profile1 = EntrepreneurProfile.objects.create(user=self.user1, industry='Tech')
-        self.profile2 = EntrepreneurProfile.objects.create(user=self.user2, industry='Tech')
+        self.industry = Industry.objects.create(name='Tech')
+        self.profile1 = EntrepreneurProfile.objects.create(user=self.user1, industry=self.industry)
+        self.profile2 = EntrepreneurProfile.objects.create(user=self.user2, industry=self.industry)
 
     def test_like_and_match(self):
         # Create likes
