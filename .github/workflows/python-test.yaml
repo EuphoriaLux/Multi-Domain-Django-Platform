@@ -60,7 +60,7 @@ jobs:
         - name: Run migrations and tests
           run: |
             python manage.py migrate --noinput
-            python manage.py test --parallel --keepdb
+            python manage.py test --keepdb
           env:
             DBNAME: postgres
             DBHOST: localhost
@@ -68,3 +68,5 @@ jobs:
             DBPASS: postgres
             SECRET_KEY: django-insecure-key-${{ github.run_id }}-${{ github.run_attempt }}
             DEBUG: 'False'
+            SERVER_NAME: 'testserver'
+            SITE_ID: '1'

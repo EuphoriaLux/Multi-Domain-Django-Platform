@@ -47,6 +47,23 @@ jobs:
           python -m compileall azureproject entreprinder vinsdelux crush_lu matching -f -q || exit 1
           echo "✅ Code validation passed"
 
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Django Safety Check
+        env:
+          # Use secrets if available, else mock for CI syntax check
+          SECRET_KEY: ${{ secrets.SECRET_KEY || 'django-insecure-mock-key-for-ci' }}
+          WEBSITE_HOSTNAME: ${{ secrets.WEBSITE_HOSTNAME || 'crush.lu' }}
+        run: |
+          echo "🔍 Running Django System Checks..."
+          python manage.py check
+          
+          echo "🔒 Running Deployment Security Checks..."
+          python manage.py check --deploy
+
   deploy:
     needs: validate  # Only deploy if validation passes
     runs-on: ubuntu-latest
