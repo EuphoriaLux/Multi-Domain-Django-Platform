@@ -43,8 +43,8 @@ jobs:
           pip install flake8
           # Only check for critical syntax errors (fail fast)
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=migrations,venv,env,.venv,.git,__pycache__ || exit 1
-          # Quick compilation check
-          python -m compileall azureproject entreprinder vinsdelux crush_lu matching -f -q || exit 1
+          # Quick compilation check (matching, finops_hub, vibe_coding merged into entreprinder)
+          python -m compileall azureproject entreprinder vinsdelux crush_lu -f -q || exit 1
           echo "✅ Code validation passed"
 
       - name: Install Dependencies
