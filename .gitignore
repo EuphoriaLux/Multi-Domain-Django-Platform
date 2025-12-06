@@ -140,3 +140,6 @@ vibe_coding/static/vibe_coding/js/dist/
 
 .azure
 .aider*
+
+# Backup folders (not needed for deployment)
+_backup_old_apps/
