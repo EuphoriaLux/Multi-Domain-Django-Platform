@@ -1,0 +1,250 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    /* ============================================================================
+       ADVENT CALENDAR THEME - Winter/Christmas Styling
+       ============================================================================ */
+
+    .advent-container {
+        min-height: 100vh;
+        background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Snow animation */
+    .snowflakes {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 1;
+        overflow: hidden;
+    }
+
+    .snowflake {
+        position: absolute;
+        top: -50px;
+        color: white;
+        font-size: 1.2rem;
+        animation: fall linear infinite, sway ease-in-out infinite;
+        opacity: 0.8;
+        text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+    }
+
+    @keyframes fall {
+        0% {
+            transform: translateY(0);
+        }
+        100% {
+            transform: translateY(110vh);
+        }
+    }
+
+    @keyframes sway {
+        0%, 100% {
+            margin-left: 0;
+        }
+        25% {
+            margin-left: 15px;
+        }
+        50% {
+            margin-left: -10px;
+        }
+        75% {
+            margin-left: 20px;
+        }
+    }
+
+    /* Calendar header */
+    .advent-header {
+        text-align: center;
+        padding: 2rem 1rem;
+        color: white;
+        position: relative;
+        z-index: 10;
+    }
+
+    .advent-header h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        margin-bottom: 0.5rem;
+    }
+
+    .advent-header .subtitle {
+        font-size: 1.2rem;
+        opacity: 0.9;
+        color: #f0e68c;
+    }
+
+    .advent-progress {
+        margin-top: 1.5rem;
+    }
+
+    .advent-progress .progress {
+        height: 12px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        max-width: 400px;
+        margin: 0 auto;
+    }
+
+    .advent-progress .progress-bar {
+        background: linear-gradient(90deg, #c41e3a, #ff6b6b);
+        border-radius: 6px;
+    }
+
+    .advent-progress .progress-text {
+        margin-top: 0.5rem;
+        font-size: 0.9rem;
+        opacity: 0.8;
+    }
+
+    /* Door content wrapper */
+    .advent-content {
+        position: relative;
+        z-index: 10;
+        padding: 2rem 1rem;
+    }
+
+    /* Door card styling */
+    .door-content-card {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 16px;
+        padding: 2rem;
+        max-width: 600px;
+        margin: 0 auto;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .door-content-card h2 {
+        color: #c41e3a;
+        margin-bottom: 1rem;
+    }
+
+    /* QR Scanner button */
+    .qr-scanner-btn {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #c41e3a, #ff6b6b);
+        color: white;
+        border: none;
+        box-shadow: 0 4px 16px rgba(196, 30, 58, 0.4);
+        font-size: 1.5rem;
+        z-index: 100;
+        transition: transform 0.3s ease;
+    }
+
+    .qr-scanner-btn:hover {
+        transform: scale(1.1);
+    }
+
+    /* Bonus content styling */
+    .bonus-content {
+        background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+        color: #333;
+    }
+
+    .bonus-content h4 {
+        color: #8b4513;
+        margin-bottom: 1rem;
+    }
+
+    .bonus-content::before {
+        content: '🎁 ';
+    }
+
+    /* Back button */
+    .advent-back-btn {
+        color: white;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        transition: background 0.3s ease;
+    }
+
+    .advent-back-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .advent-header h1 {
+            font-size: 1.8rem;
+        }
+
+        .door-content-card {
+            margin: 0 0.5rem;
+            padding: 1.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="advent-container">
+    <!-- Snowflakes animation -->
+    <div class="snowflakes" id="snowflakes"></div>
+
+    {% block advent_content %}{% endblock %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Generate snowflakes
+    (function() {
+        const snowflakesContainer = document.getElementById('snowflakes');
+        if (!snowflakesContainer) return;
+
+        const snowflakeSymbols = ['❄', '❅', '❆', '✻', '✼', '•'];
+
+        for (let i = 0; i < 60; i++) {
+            const snowflake = document.createElement('span');
+            snowflake.className = 'snowflake';
+            snowflake.textContent = snowflakeSymbols[Math.floor(Math.random() * snowflakeSymbols.length)];
+
+            // Random horizontal position
+            snowflake.style.left = Math.random() * 100 + '%';
+
+            // Random fall duration (8-18 seconds)
+            const fallDuration = Math.random() * 10 + 8;
+            // Random sway duration (3-6 seconds)
+            const swayDuration = Math.random() * 3 + 3;
+
+            snowflake.style.animationDuration = fallDuration + 's, ' + swayDuration + 's';
+
+            // Stagger start times so snowflakes don't all appear at once
+            // Use negative delay so some start mid-fall
+            const delay = Math.random() * fallDuration;
+            snowflake.style.animationDelay = '-' + delay + 's, 0s';
+
+            // Random size
+            const size = Math.random() * 1.2 + 0.6;
+            snowflake.style.fontSize = size + 'rem';
+
+            // Random opacity for depth effect
+            snowflake.style.opacity = Math.random() * 0.5 + 0.4;
+
+            snowflakesContainer.appendChild(snowflake);
+        }
+    })();
+</script>
+{% endblock %}

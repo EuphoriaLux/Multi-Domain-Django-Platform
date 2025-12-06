@@ -49,17 +49,14 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.openid_connect',
     'allauth.socialaccount.providers.linkedin_oauth2',
     'allauth.socialaccount.providers.facebook',
-    'entreprinder',
+    'entreprinder',  # Includes merged: matching, finops, vibe_coding
     'crispy_forms',
     'crispy_bootstrap5',
-    'matching',
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
-    'vibe_coding',
     'vinsdelux',
     'crush_lu',
-    'finops_hub',
 ]
 
 # SITE_ID must NOT be set - CurrentSiteMiddleware determines site dynamically per request

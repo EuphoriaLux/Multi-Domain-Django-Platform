@@ -17,11 +17,24 @@ class JourneyConfiguration(models.Model):
     """
     Main configuration for an interactive journey experience.
     Links to SpecialUserExperience to create personalized multi-chapter journeys.
+    Supports multiple journey types per user (Wonderland, Advent Calendar, etc.)
     """
-    special_experience = models.OneToOneField(
+    JOURNEY_TYPES = [
+        ('wonderland', 'The Wonderland of You'),
+        ('advent_calendar', 'Advent Calendar'),
+        ('custom', 'Custom Journey'),
+    ]
+
+    special_experience = models.ForeignKey(
         SpecialUserExperience,
         on_delete=models.CASCADE,
-        related_name='journey'
+        related_name='journeys'
+    )
+    journey_type = models.CharField(
+        max_length=20,
+        choices=JOURNEY_TYPES,
+        default='wonderland',
+        help_text="Type of journey experience"
     )
     is_active = models.BooleanField(default=True)
     journey_name = models.CharField(
@@ -69,9 +82,10 @@ class JourneyConfiguration(models.Model):
     class Meta:
         verbose_name = "Journey Configuration"
         verbose_name_plural = "🗺️ 2. Journey Configurations"
+        unique_together = ('special_experience', 'journey_type')
 
     def __str__(self):
-        return f"{self.journey_name} (for {self.special_experience})"
+        return f"{self.journey_name} ({self.get_journey_type_display()}) for {self.special_experience}"
 
 
 class JourneyChapter(models.Model):

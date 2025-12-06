@@ -1,0 +1,262 @@
+{% extends 'crush_lu/advent/advent_base.html' %}
+{% load static %}
+
+{% block title %}{{ calendar.calendar_title }} - Crush.lu{% endblock %}
+
+{% block advent_content %}
+<div class="advent-header">
+    <h1>{{ calendar.calendar_title }}</h1>
+    {% if calendar.calendar_description %}
+        <p class="subtitle">{{ calendar.calendar_description }}</p>
+    {% else %}
+        <p class="subtitle">December {{ calendar.year }}</p>
+    {% endif %}
+
+    <div class="advent-progress">
+        <div class="progress">
+            <div class="progress-bar" role="progressbar"
+                 style="width: {{ completion_percentage }}%"
+                 aria-valuenow="{{ completion_percentage }}"
+                 aria-valuemin="0"
+                 aria-valuemax="100">
+            </div>
+        </div>
+        <div class="progress-text text-white">
+            {{ doors_opened_count }}/24 doors opened
+            {% if current_day %}
+                - Day {{ current_day }}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="advent-content">
+    <div class="container">
+        <!-- Calendar Grid -->
+        <div class="advent-grid">
+            {% for door_data in doors %}
+                <div class="advent-door {% if door_data.is_opened %}opened{% elif door_data.can_open %}available{% elif door_data.is_available and door_data.requires_qr and not door_data.has_qr_scanned %}qr-locked{% else %}locked{% endif %}"
+                     data-door="{{ door_data.door_number }}"
+                     style="--door-color: {{ door_data.door_color }};">
+
+                    {% if door_data.is_opened %}
+                        <!-- Door opened - show checkmark -->
+                        <a href="{% url 'crush_lu:advent_door' door_data.door_number %}" class="door-link opened">
+                            <div class="door-number">{{ door_data.door_number }}</div>
+                            <div class="door-status">✓</div>
+                            {% if door_data.has_qr_bonus and door_data.has_qr_scanned %}
+                                <div class="door-bonus-badge">🎁</div>
+                            {% endif %}
+                        </a>
+
+                    {% elif door_data.can_open %}
+                        <!-- Door available - can be opened -->
+                        <a href="{% url 'crush_lu:advent_door' door_data.door_number %}" class="door-link available">
+                            <div class="door-number">{{ door_data.door_number }}</div>
+                            <div class="door-icon">{{ door_data.door_icon|default:"🎄" }}</div>
+                            {% if door_data.teaser_text %}
+                                <div class="door-teaser">{{ door_data.teaser_text }}</div>
+                            {% endif %}
+                            <div class="door-glow"></div>
+                        </a>
+
+                    {% elif door_data.is_available and door_data.requires_qr and not door_data.has_qr_scanned %}
+                        <!-- Door requires QR scan -->
+                        <div class="door-link qr-required">
+                            <div class="door-number">{{ door_data.door_number }}</div>
+                            <div class="door-icon">🔒</div>
+                            <div class="door-teaser">Scan QR to unlock</div>
+                        </div>
+
+                    {% else %}
+                        <!-- Door locked (future date) -->
+                        <div class="door-link locked">
+                            <div class="door-number">{{ door_data.door_number }}</div>
+                            <div class="door-icon">❄️</div>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- QR Scanner Button -->
+<a href="{% url 'crush_lu:advent_qr_scanner' %}" class="qr-scanner-btn" title="Scan QR Code">
+    <i class="bi bi-qr-code-scan"></i>
+</a>
+
+<style>
+    /* Calendar Grid */
+    .advent-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 12px;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        .advent-grid {
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .advent-grid {
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+    }
+
+    /* Door Base Styling */
+    .advent-door {
+        aspect-ratio: 1;
+        position: relative;
+        transition: transform 0.3s ease;
+    }
+
+    .door-link {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        border-radius: 12px;
+        text-decoration: none;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Locked door */
+    .door-link.locked {
+        background: linear-gradient(135deg, #2c3e50, #34495e);
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    /* QR Required door */
+    .door-link.qr-required {
+        background: linear-gradient(135deg, #8e44ad, #9b59b6);
+        cursor: pointer;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(142, 68, 173, 0.5); }
+        50% { box-shadow: 0 0 20px 5px rgba(142, 68, 173, 0.3); }
+    }
+
+    /* Available door */
+    .door-link.available {
+        background: linear-gradient(135deg, var(--door-color, #c41e3a), #ff6b6b);
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(196, 30, 58, 0.4);
+    }
+
+    .door-link.available:hover {
+        transform: scale(1.05);
+    }
+
+    .door-link.available .door-glow {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+        animation: glow 2s ease-in-out infinite;
+    }
+
+    @keyframes glow {
+        0%, 100% { opacity: 0.5; }
+        50% { opacity: 1; }
+    }
+
+    /* Opened door */
+    .door-link.opened {
+        background: linear-gradient(135deg, #27ae60, #2ecc71);
+        cursor: pointer;
+    }
+
+    .door-link.opened:hover {
+        transform: scale(1.02);
+    }
+
+    /* Door number */
+    .door-number {
+        font-size: 1.5rem;
+        font-weight: 700;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    }
+
+    @media (max-width: 480px) {
+        .door-number {
+            font-size: 1.2rem;
+        }
+    }
+
+    /* Door icon */
+    .door-icon {
+        font-size: 1.5rem;
+        margin-top: 4px;
+    }
+
+    @media (max-width: 480px) {
+        .door-icon {
+            font-size: 1rem;
+        }
+    }
+
+    /* Door status (checkmark) */
+    .door-status {
+        font-size: 1.2rem;
+        color: #fff;
+        background: rgba(255,255,255,0.2);
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 4px;
+    }
+
+    /* Teaser text */
+    .door-teaser {
+        font-size: 0.6rem;
+        text-align: center;
+        margin-top: 4px;
+        opacity: 0.9;
+        max-width: 90%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Bonus badge */
+    .door-bonus-badge {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        font-size: 0.8rem;
+    }
+</style>
+
+<script>
+    // Door click effects
+    document.querySelectorAll('.advent-door.available .door-link').forEach(door => {
+        door.addEventListener('click', function(e) {
+            // Add opening animation
+            this.style.animation = 'doorOpen 0.5s ease-out';
+        });
+    });
+
+    @keyframes doorOpen {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1) rotateY(10deg); }
+        100% { transform: scale(1) rotateY(0); }
+    }
+</script>
+{% endblock %}

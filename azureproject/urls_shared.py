@@ -1,0 +1,41 @@
+"""
+Shared URL patterns used across all domain configurations.
+
+Import these in domain-specific URL files to avoid duplication.
+
+Usage:
+    from .urls_shared import base_patterns, api_patterns
+
+    urlpatterns = base_patterns + api_patterns + [
+        # Domain-specific patterns here
+    ]
+"""
+from django.urls import path, include
+from django.http import HttpResponse
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+
+def health_check(request):
+    """
+    Health check endpoint for Azure App Service.
+
+    Returns HTTP 200 "OK" for health probes.
+    This endpoint must be accessible without authentication.
+    """
+    return HttpResponse("OK")
+
+
+# Base patterns - included by ALL domains
+# These provide essential functionality that every domain needs
+base_patterns = [
+    path('healthz/', health_check, name='health_check'),
+    path('i18n/', include('django.conf.urls.i18n')),
+    path('accounts/', include('allauth.urls')),
+]
+
+# JWT API patterns - included by domains that need API authentication
+# Used by Crush.lu and PowerUP for mobile app / API access
+api_patterns = [
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+]
