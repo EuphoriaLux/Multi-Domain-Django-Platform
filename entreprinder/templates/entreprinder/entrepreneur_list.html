@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', function() {
     likeButtons.forEach(button => {
         button.addEventListener('click', function() {
             const profileId = this.dataset.profileId;
-            fetch('{% url "matching:swipe_action" %}', {
+            fetch('{% url "entreprinder:swipe_action" %}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

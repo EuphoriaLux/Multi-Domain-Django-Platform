@@ -14,3 +14,7 @@ DJANGO_SETTINGS_MODULE = azureproject.production
 
 # Skip package installation if requirements haven't changed (faster deployments)
 SKIP_PYTHON_DEPLOYMENT_IF_NO_REQUIREMENTS_CHANGE = true
+
+# Skip Node.js build - package.json is only for local Vite development
+# JS assets are pre-built and committed to repo
+DISABLE_NODEJS_BUILD = true
