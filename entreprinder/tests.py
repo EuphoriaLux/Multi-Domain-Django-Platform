@@ -1,8 +1,7 @@
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth.models import User
-from .models import EntrepreneurProfile, Industry
-from matching.models import Like, Match
+from .models import EntrepreneurProfile, Industry, Like, Match
 
 class EntrepreneurProfileTestCase(TestCase):
     def setUp(self):
