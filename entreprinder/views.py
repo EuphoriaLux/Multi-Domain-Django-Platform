@@ -4,9 +4,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from .forms import EntrepreneurProfileForm
-from .models import EntrepreneurProfile
+from .models import EntrepreneurProfile, Like
 from django.conf import settings
-from matching.models import Like
 import logging
 from django.http import JsonResponse
 

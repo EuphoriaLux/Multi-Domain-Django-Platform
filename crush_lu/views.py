@@ -2186,20 +2186,33 @@ def special_welcome(request):
         return redirect('crush_lu:home')
 
     # ============================================================================
-    # NEW: Check if journey is configured - redirect to journey map if it exists
+    # NEW: Check if journey is configured - redirect to appropriate journey type
     # ============================================================================
-    try:
-        from .models import JourneyConfiguration
-        journey_config = JourneyConfiguration.objects.get(
-            special_experience=special_experience,
-            is_active=True
-        )
-        # Journey exists - redirect to journey map
-        logger.info(f"🎮 Redirecting {request.user.username} to journey: {journey_config.journey_name}")
+    from .models import JourneyConfiguration
+
+    # First check for Wonderland journey
+    wonderland_journey = JourneyConfiguration.objects.filter(
+        special_experience=special_experience,
+        journey_type='wonderland',
+        is_active=True
+    ).first()
+
+    if wonderland_journey:
+        logger.info(f"🎮 Redirecting {request.user.username} to Wonderland journey: {wonderland_journey.journey_name}")
         return redirect('crush_lu:journey_map')
-    except JourneyConfiguration.DoesNotExist:
-        # No journey configured - show simple welcome page
-        pass
+
+    # Check for Advent Calendar journey
+    advent_journey = JourneyConfiguration.objects.filter(
+        special_experience=special_experience,
+        journey_type='advent_calendar',
+        is_active=True
+    ).first()
+
+    if advent_journey:
+        logger.info(f"🎄 Redirecting {request.user.username} to Advent Calendar")
+        return redirect('crush_lu:advent_calendar')
+
+    # No journey configured - show simple welcome page
     # ============================================================================
 
     context = {

@@ -20,12 +20,105 @@ logger = logging.getLogger(__name__)
 
 
 @crush_login_required
+def journey_selector(request):
+    """
+    Journey selection view - shows all available journeys when user has multiple.
+    If user has only one journey, redirects directly to that journey.
+    """
+    logger.info(f"🎮 journey_selector called for user: {request.user.username}")
+
+    from .models import SpecialUserExperience
+
+    # Find special experience for this user
+    special_experience = SpecialUserExperience.objects.filter(
+        Q(first_name__iexact=request.user.first_name) &
+        Q(last_name__iexact=request.user.last_name) &
+        Q(is_active=True)
+    ).first()
+
+    if not special_experience:
+        messages.warning(request, 'No special journey found for your account.')
+        return redirect('crush_lu:home')
+
+    # Get all active journeys for this user
+    journeys = JourneyConfiguration.objects.filter(
+        special_experience=special_experience,
+        is_active=True
+    ).order_by('journey_type')
+
+    if not journeys.exists():
+        messages.info(request, 'Welcome! Your journey is being prepared.')
+        return redirect('crush_lu:special_welcome')
+
+    # If only one journey, redirect directly to it
+    if journeys.count() == 1:
+        journey = journeys.first()
+        if journey.journey_type == 'wonderland':
+            return redirect('crush_lu:journey_map_wonderland')
+        elif journey.journey_type == 'advent_calendar':
+            return redirect('crush_lu:advent_calendar')
+        else:
+            # Custom journey - use wonderland map for now
+            return redirect('crush_lu:journey_map_wonderland')
+
+    # Multiple journeys - show selection page
+    journey_data = []
+    for journey in journeys:
+        # Get progress if exists
+        try:
+            progress = JourneyProgress.objects.get(user=request.user, journey=journey)
+            completion_pct = progress.completion_percentage
+            is_completed = progress.is_completed
+        except JourneyProgress.DoesNotExist:
+            completion_pct = 0
+            is_completed = False
+
+        # Determine the URL and icon for each journey type
+        if journey.journey_type == 'wonderland':
+            url = 'crush_lu:journey_map_wonderland'
+            icon = '🗺️'
+            description = 'A magical 6-chapter adventure through the Wonderland of You'
+        elif journey.journey_type == 'advent_calendar':
+            url = 'crush_lu:advent_calendar'
+            icon = '🎄'
+            description = '24 doors of surprises waiting to be discovered'
+        else:
+            url = 'crush_lu:journey_map_wonderland'
+            icon = '✨'
+            description = journey.journey_name
+
+        journey_data.append({
+            'journey': journey,
+            'url': url,
+            'icon': icon,
+            'description': description,
+            'completion_percentage': completion_pct,
+            'is_completed': is_completed,
+        })
+
+    context = {
+        'journeys': journey_data,
+        'special_experience': special_experience,
+    }
+
+    return render(request, 'crush_lu/journey/journey_selector.html', context)
+
+
+@crush_login_required
 def journey_map(request):
     """
-    Main journey map view - shows visual progress through all chapters.
-    This is the entry point from the special welcome page.
+    Main journey entry point - redirects to journey selector.
+    This maintains backwards compatibility with existing links.
     """
-    logger.info(f"🎮 journey_map called for user: {request.user.username} (first: '{request.user.first_name}', last: '{request.user.last_name}')")
+    return redirect('crush_lu:journey_selector')
+
+
+@crush_login_required
+def journey_map_wonderland(request):
+    """
+    Wonderland journey map view - shows visual progress through all chapters.
+    """
+    logger.info(f"🎮 journey_map_wonderland called for user: {request.user.username} (first: '{request.user.first_name}', last: '{request.user.last_name}')")
 
     # Check if user has an active journey
     try:
@@ -43,22 +136,20 @@ def journey_map(request):
 
         if not special_experience:
             messages.warning(request, 'No special journey found for your account.')
-            # Special users without journey get redirected to home instead of dashboard
-            # (they don't need a full Crush.lu profile)
             return redirect('crush_lu:home')
 
-        # Check if journey is configured for this special experience
+        # Get the Wonderland journey specifically
         try:
             journey = JourneyConfiguration.objects.get(
                 special_experience=special_experience,
+                journey_type='wonderland',
                 is_active=True
             )
-            logger.info(f"Journey found: {journey.journey_name}, active: {journey.is_active}")
+            logger.info(f"Wonderland journey found: {journey.journey_name}, active: {journey.is_active}")
         except JourneyConfiguration.DoesNotExist:
-            # No journey configured - redirect to simple welcome
-            logger.error(f"No journey configuration found for special experience ID: {special_experience.id}")
-            messages.info(request, 'Welcome! Your journey is being prepared.')
-            return redirect('crush_lu:special_welcome')
+            # No Wonderland journey - redirect to selector to show what's available
+            logger.info(f"No Wonderland journey found - redirecting to selector")
+            return redirect('crush_lu:journey_selector')
 
         # Get or create journey progress
         journey_progress, created = JourneyProgress.objects.get_or_create(

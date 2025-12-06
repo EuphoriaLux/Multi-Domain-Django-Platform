@@ -118,6 +118,27 @@ class SpecialUserExperience(models.Model):
         self.trigger_count += 1
         self.save(update_fields=['last_triggered_at', 'trigger_count'])
 
+    @property
+    def journey(self):
+        """
+        Backwards compatibility: return the Wonderland journey.
+        Use this for code that expects the old OneToOne relationship.
+        """
+        return self.journeys.filter(journey_type='wonderland').first()
+
+    @property
+    def advent_calendar_journey(self):
+        """Get the Advent Calendar journey for this user"""
+        return self.journeys.filter(journey_type='advent_calendar').first()
+
+    def get_journey(self, journey_type='wonderland'):
+        """Get a specific journey by type"""
+        return self.journeys.filter(journey_type=journey_type).first()
+
+    def has_journey(self, journey_type):
+        """Check if user has a specific journey type"""
+        return self.journeys.filter(journey_type=journey_type).exists()
+
 
 class CrushCoach(models.Model):
     """Crush coaches who review and approve profiles"""

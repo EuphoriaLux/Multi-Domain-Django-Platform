@@ -1,35 +1,32 @@
 # azureproject/urls_powerup.py
+"""
+URL configuration for PowerUP / Entreprinder business networking platform.
+
+This is the URL config used when requests come from powerup.lu domain.
+Also serves as the fallback for unknown domains and Azure hostnames.
+"""
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-)
+from .urls_shared import base_patterns, api_patterns
 from entreprinder import views as entreprinder_views
-from azureproject.urls import health_check_view # Import health check view
 
-urlpatterns = [
-    path('healthz/', health_check_view, name='healthz_powerup'), # Add health check endpoint
-    # Include the i18n URLs so that {% url 'set_language' %} works
-    path('i18n/', include('django.conf.urls.i18n')),
-    # You can also map set_language directly if you prefer:
-    # path('set_language/', include('django.conf.urls.i18n')),
-]
-
-urlpatterns += [
+urlpatterns = base_patterns + api_patterns + [
+    # Django Admin
     path('admin/', admin.site.urls),
+
+    # Entreprinder home page
     path('', entreprinder_views.home, name='home'),
-    path('', include('entreprinder.urls')),
-    path('accounts/', include('allauth.urls')),
+
+    # Entreprinder app URLs (includes matching, finops, and vibe_coding - all merged)
+    path('', include('entreprinder.urls', namespace='entreprinder')),
+
+    # LinkedIn OAuth callback
     path('login_complete/', entreprinder_views.login_complete, name='login_complete'),
-    path('matching/', include('matching.urls')),
-    path('vibe-coding/', include('vibe_coding.urls', namespace='vibe_coding')), # Added vibe_coding URLs
-    path('finops/', include('finops_hub.urls', namespace='finops_hub')), # FinOps Hub for cost analytics
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
+    # Protected API endpoint
     path('api/protected/', entreprinder_views.protected_api, name='protected_api'),
 ]
 

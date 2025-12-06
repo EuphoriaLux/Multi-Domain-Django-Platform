@@ -1,13 +1,13 @@
 {% extends "admin/base_site.html" %}
 {% load static %}
 
-{% block title %}Generate Wonderland Journey{% endblock %}
+{% block title %}Generate Special Journey{% endblock %}
 
 {% block extrastyle %}
 {{ block.super }}
 <style>
     .journey-form-container {
-        max-width: 800px;
+        max-width: 1000px;
         margin: 40px auto;
         background: white;
         padding: 40px;
@@ -44,7 +44,10 @@
     }
 
     .form-group input[type="date"],
-    .form-group input[type="text"] {
+    .form-group input[type="text"],
+    .form-group input[type="number"],
+    .form-group select,
+    .form-group textarea {
         width: 100%;
         padding: 12px 16px;
         border: 2px solid #e0e0e0;
@@ -53,7 +56,9 @@
         transition: border-color 0.3s;
     }
 
-    .form-group input:focus {
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
         outline: none;
         border-color: #9B59B6;
         box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.1);
@@ -66,6 +71,235 @@
         font-style: italic;
     }
 
+    /* Journey Type Selector */
+    .journey-type-selector {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+        margin-bottom: 40px;
+    }
+
+    .journey-type-card {
+        border: 3px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 25px;
+        cursor: pointer;
+        transition: all 0.3s;
+        background: #fafafa;
+    }
+
+    .journey-type-card:hover {
+        border-color: #9B59B6;
+        background: #f8f4fc;
+    }
+
+    .journey-type-card.selected {
+        border-color: #9B59B6;
+        background: linear-gradient(135deg, #f3e5f5 0%, #e8daef 100%);
+        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.2);
+    }
+
+    .journey-type-card .icon {
+        font-size: 48px;
+        text-align: center;
+        margin-bottom: 15px;
+    }
+
+    .journey-type-card h3 {
+        text-align: center;
+        color: #333;
+        margin: 0 0 10px 0;
+        font-size: 20px;
+    }
+
+    .journey-type-card p {
+        color: #666;
+        font-size: 14px;
+        text-align: center;
+        margin: 0;
+    }
+
+    .journey-type-card input[type="radio"] {
+        display: none;
+    }
+
+    /* Conditional Sections */
+    .journey-section {
+        display: none;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .journey-section.active {
+        display: block;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Content Type Reference */
+    .content-type-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+        margin: 20px 0;
+    }
+
+    .content-type-card {
+        background: #fff;
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 15px;
+        transition: all 0.2s;
+    }
+
+    .content-type-card:hover {
+        border-color: #9B59B6;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .content-type-card .type-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+    }
+
+    .content-type-card .type-icon {
+        font-size: 24px;
+    }
+
+    .content-type-card .type-name {
+        font-weight: 600;
+        color: #333;
+        font-size: 14px;
+    }
+
+    .content-type-card .type-description {
+        font-size: 12px;
+        color: #666;
+        line-height: 1.4;
+    }
+
+    .content-type-card .type-examples {
+        font-size: 11px;
+        color: #888;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px dashed #e0e0e0;
+    }
+
+    /* QR Mode Reference */
+    .qr-mode-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+        margin: 20px 0;
+    }
+
+    .qr-mode-card {
+        background: linear-gradient(135deg, #f5f5f5 0%, #eeeeee 100%);
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+    }
+
+    .qr-mode-card .mode-icon {
+        font-size: 28px;
+        margin-bottom: 8px;
+    }
+
+    .qr-mode-card .mode-name {
+        font-weight: 600;
+        color: #333;
+        font-size: 14px;
+        margin-bottom: 5px;
+    }
+
+    .qr-mode-card .mode-description {
+        font-size: 12px;
+        color: #666;
+    }
+
+    /* Door Configuration Preview */
+    .door-preview-section {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 25px;
+        margin: 30px 0;
+    }
+
+    .door-preview-section h3 {
+        color: #9B59B6;
+        margin-top: 0;
+        margin-bottom: 20px;
+        font-size: 18px;
+    }
+
+    .door-grid-preview {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 10px;
+    }
+
+    .door-preview {
+        aspect-ratio: 1;
+        background: linear-gradient(135deg, #C41E3A 0%, #8B0000 100%);
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 12px;
+        transition: transform 0.2s;
+        cursor: pointer;
+        position: relative;
+    }
+
+    .door-preview:hover {
+        transform: scale(1.1);
+        z-index: 10;
+    }
+
+    .door-preview .door-number {
+        font-weight: bold;
+        font-size: 16px;
+    }
+
+    .door-preview .door-icon {
+        font-size: 18px;
+        margin-top: 4px;
+    }
+
+    .door-preview .door-type {
+        font-size: 9px;
+        opacity: 0.9;
+        text-transform: uppercase;
+    }
+
+    .door-preview.has-qr::after {
+        content: '🔐';
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        font-size: 10px;
+    }
+
+    /* Door colors by type */
+    .door-preview[data-type="poem"] { background: linear-gradient(135deg, #9B59B6 0%, #8E44AD 100%); }
+    .door-preview[data-type="photo"] { background: linear-gradient(135deg, #3498DB 0%, #2980B9 100%); }
+    .door-preview[data-type="video"] { background: linear-gradient(135deg, #E74C3C 0%, #C0392B 100%); }
+    .door-preview[data-type="audio"] { background: linear-gradient(135deg, #1ABC9C 0%, #16A085 100%); }
+    .door-preview[data-type="gift_teaser"] { background: linear-gradient(135deg, #F39C12 0%, #E67E22 100%); }
+    .door-preview[data-type="memory"] { background: linear-gradient(135deg, #E91E63 0%, #C2185B 100%); }
+    .door-preview[data-type="quiz"] { background: linear-gradient(135deg, #00BCD4 0%, #0097A7 100%); }
+    .door-preview[data-type="challenge"] { background: linear-gradient(135deg, #FF5722 0%, #E64A19 100%); }
+    .door-preview[data-type="countdown"] { background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); }
+
+    /* Example Section */
     .example-section {
         background: #f8f9fa;
         border-left: 4px solid #9B59B6;
@@ -87,6 +321,47 @@
 
     .example-section ul li {
         margin: 8px 0;
+    }
+
+    /* Collapsible sections */
+    .collapsible-section {
+        margin: 20px 0;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .collapsible-header {
+        background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+        padding: 15px 20px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .collapsible-header:hover {
+        background: linear-gradient(135deg, #e8e8e8 0%, #ddd 100%);
+    }
+
+    .collapsible-header .toggle-icon {
+        transition: transform 0.3s;
+    }
+
+    .collapsible-header.expanded .toggle-icon {
+        transform: rotate(180deg);
+    }
+
+    .collapsible-content {
+        display: none;
+        padding: 20px;
+        background: white;
+    }
+
+    .collapsible-content.expanded {
+        display: block;
     }
 
     .button-group {
@@ -111,6 +386,14 @@
     .btn-primary:hover {
         transform: translateY(-2px);
         box-shadow: 0 6px 12px rgba(155, 89, 182, 0.3);
+    }
+
+    .btn-primary.advent {
+        background: linear-gradient(135deg, #C41E3A, #8B0000);
+    }
+
+    .btn-primary.advent:hover {
+        box-shadow: 0 6px 12px rgba(196, 30, 58, 0.3);
     }
 
     .btn-secondary {
@@ -152,6 +435,14 @@
         color: #2c3e50;
     }
 
+    .info-card.advent {
+        background: linear-gradient(135deg, #ffebee 0%, #fce4ec 100%);
+    }
+
+    .info-card.advent h3 {
+        color: #C41E3A;
+    }
+
     .user-info {
         background: #f3e5f5;
         border-radius: 8px;
@@ -170,116 +461,689 @@
         color: #666;
         font-size: 14px;
     }
+
+    /* Two column layout for forms */
+    .form-row {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+    }
+
+    @media (max-width: 768px) {
+        .journey-type-selector,
+        .content-type-grid,
+        .qr-mode-grid,
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+        .door-grid-preview {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    /* Suggested Distribution Table */
+    .distribution-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 15px 0;
+        font-size: 13px;
+    }
+
+    .distribution-table th,
+    .distribution-table td {
+        padding: 10px;
+        text-align: left;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .distribution-table th {
+        background: #f5f5f5;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .distribution-table tr:hover {
+        background: #fafafa;
+    }
+
+    .distribution-table .door-numbers {
+        font-family: monospace;
+        color: #666;
+    }
+
+    /* Tips section */
+    .tips-section {
+        background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+    }
+
+    .tips-section h4 {
+        color: #f57c00;
+        margin-top: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .tips-section ul {
+        margin: 10px 0 0 20px;
+        color: #555;
+    }
+
+    .tips-section li {
+        margin: 5px 0;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="journey-form-container">
     <div class="journey-header">
-        <h1>🎭 Generate Wonderland Journey</h1>
-        <p class="subtitle">Create a personalized 6-chapter experience</p>
+        <h1>Generate Special Journey</h1>
+        <p class="subtitle">Create a personalized experience for this special user</p>
     </div>
 
     <div class="user-info">
         <h2>{{ special_exp.first_name }} {{ special_exp.last_name }}</h2>
         <div class="details">
-            Special User Experience • {{ special_exp.animation_style|title }} Animation
+            Special User Experience | {{ special_exp.animation_style|title }} Animation
         </div>
-    </div>
-
-    <div class="info-card">
-        <h3>✨ What will be created:</h3>
-        <ul>
-            <li><strong>6 Complete Chapters</strong> with personalized themes</li>
-            <li><strong>Multiple Challenges</strong> per chapter (riddles, puzzles, questionnaires)</li>
-            <li><strong>Rewards & Media</strong> (poems, photos, voice messages)</li>
-            <li><strong>Progressive Unlocking</strong> system with points tracking</li>
-            <li><strong>Completion Certificate</strong> with final reveal message</li>
-        </ul>
     </div>
 
     <form method="post" id="journeyForm">
         {% csrf_token %}
-        <input type="hidden" name="confirm_generation" value="1">
-        <input type="hidden" name="action" value="generate_wonderland_journey">
-        <input type="hidden" name="_selected_action" value="{{ special_exp.id }}">
-        <input type="hidden" name="select_across" value="0">
-        <input type="hidden" name="index" value="0">
 
-        <div class="form-group">
-            <label for="date_met">📅 Date You First Met</label>
-            <input
-                type="date"
-                name="date_met"
-                id="date_met"
-                value="2024-10-15"
-                required
-            >
-            <div class="help-text">
-                This date will be used in Chapter 1's riddle. The user must solve it to progress.
+        <!-- Journey Type Selector -->
+        <h3 style="text-align: center; color: #333; margin-bottom: 20px;">Select Journey Type</h3>
+
+        <div class="journey-type-selector">
+            <label class="journey-type-card selected" id="wonderland-card">
+                <input type="radio" name="journey_type" value="wonderland" checked>
+                <div class="icon">&#127917;</div>
+                <h3>Wonderland Journey</h3>
+                <p>A 6-chapter interactive experience with riddles, puzzles, and personalized content. Perfect for revealing feelings through a magical narrative.</p>
+            </label>
+
+            <label class="journey-type-card" id="advent-card">
+                <input type="radio" name="journey_type" value="advent_calendar">
+                <div class="icon">&#127876;</div>
+                <h3>Advent Calendar</h3>
+                <p>A 24-door December experience with daily surprises. Mix poems, photos, videos, gifts, and more. Supports QR codes for physical gifts.</p>
+            </label>
+        </div>
+
+        <!-- ==================== WONDERLAND SECTION ==================== -->
+        <div class="journey-section active" id="wonderland-section">
+            <div class="info-card">
+                <h3>What will be created:</h3>
+                <ul>
+                    <li><strong>6 Complete Chapters</strong> with personalized themes</li>
+                    <li><strong>Multiple Challenges</strong> per chapter (riddles, puzzles, questionnaires)</li>
+                    <li><strong>Rewards & Media</strong> (poems, photos, voice messages)</li>
+                    <li><strong>Progressive Unlocking</strong> system with points tracking</li>
+                    <li><strong>Completion Certificate</strong> with final reveal message</li>
+                </ul>
+            </div>
+
+            <div class="form-group">
+                <label for="date_met">Date You First Met</label>
+                <input
+                    type="date"
+                    name="date_met"
+                    id="date_met"
+                    value="2024-10-15"
+                    required
+                >
+                <div class="help-text">
+                    This date will be used in Chapter 1's riddle. The user must solve it to progress.
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="location_met">Location Where You Met</label>
+                <input
+                    type="text"
+                    name="location_met"
+                    id="location_met"
+                    value="Cafe de Paris"
+                    placeholder="e.g., Cafe de Paris, Luxembourg Gardens, etc."
+                    required
+                >
+                <div class="help-text">
+                    This location appears in Chapter 3's memory timeline and other personalized content.
+                </div>
+            </div>
+
+            <div class="example-section">
+                <h3>The 6 Chapters:</h3>
+                <ul>
+                    <li><strong>Chapter 1: Down the Rabbit Hole</strong> - Mystery & date riddle</li>
+                    <li><strong>Chapter 2: Garden of Rare Flowers</strong> - Personality questionnaire</li>
+                    <li><strong>Chapter 3: Gallery of Moments</strong> - Shared memories timeline</li>
+                    <li><strong>Chapter 4: Carnival of Courage</strong> - Vulnerability & truth questions</li>
+                    <li><strong>Chapter 5: Starlit Observatory</strong> - Dreams & future together</li>
+                    <li><strong>Chapter 6: Door to Tomorrow</strong> - Final reveal & response</li>
+                </ul>
             </div>
         </div>
 
-        <div class="form-group">
-            <label for="location_met">📍 Location Where You Met</label>
-            <input
-                type="text"
-                name="location_met"
-                id="location_met"
-                value="Café de Paris"
-                placeholder="e.g., Café de Paris, Luxembourg Gardens, etc."
-                required
-            >
-            <div class="help-text">
-                This location appears in Chapter 3's memory timeline and other personalized content.
+        <!-- ==================== ADVENT CALENDAR SECTION ==================== -->
+        <div class="journey-section" id="advent-section">
+            <div class="info-card advent">
+                <h3>&#127876; What will be created:</h3>
+                <ul>
+                    <li><strong>24 Unique Doors</strong> - One for each day of December (1-24)</li>
+                    <li><strong>Mixed Content Types</strong> - Poems, photos, videos, audio, gifts, and more</li>
+                    <li><strong>QR Code Support</strong> - For physical gift unlocking and bonus content</li>
+                    <li><strong>Progress Tracking</strong> - User can see which doors they've opened</li>
+                    <li><strong>Date-Based Access</strong> - Doors unlock according to the calendar date</li>
+                </ul>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="advent_year">Year</label>
+                    <input
+                        type="number"
+                        name="advent_year"
+                        id="advent_year"
+                        value="2024"
+                        min="2024"
+                        max="2030"
+                    >
+                    <div class="help-text">
+                        The year for this advent calendar.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="advent_title">Calendar Title</label>
+                    <input
+                        type="text"
+                        name="advent_title"
+                        id="advent_title"
+                        value="Your Advent Calendar"
+                        placeholder="e.g., 24 Days of Love"
+                    >
+                    <div class="help-text">
+                        Custom title displayed on the calendar.
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="advent_welcome">Welcome Message</label>
+                <textarea
+                    name="advent_welcome"
+                    id="advent_welcome"
+                    rows="3"
+                    placeholder="Every day in December, a new door awaits. Behind each one is a little piece of my heart..."
+                ></textarea>
+                <div class="help-text">
+                    Optional welcome message shown on the calendar page.
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="allow_catch_up" checked style="margin-right: 8px;">
+                    Allow Catch-Up (users can open past doors)
+                </label>
+                <div class="help-text">
+                    If enabled, users can open all doors from day 1 up to the current date. If disabled, only today's door is available.
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="generate_qr_tokens" style="margin-right: 8px;">
+                    Generate QR Code Tokens
+                </label>
+                <div class="help-text">
+                    Generate unique QR codes for doors that require physical gift unlocking.
+                </div>
+            </div>
+
+            <!-- Collapsible: Content Type Reference -->
+            <div class="collapsible-section">
+                <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                    <span>&#128218; Door Content Types Reference (9 Types)</span>
+                    <span class="toggle-icon">&#9660;</span>
+                </div>
+                <div class="collapsible-content">
+                    <p style="color: #666; margin-bottom: 15px;">
+                        Each door can contain one of these content types. Mix them for variety!
+                    </p>
+
+                    <div class="content-type-grid">
+                        <div class="content-type-card">
+                            <div class="type-header">
+                                <span class="type-icon">&#128220;</span>
+                                <span class="type-name">Poem / Letter</span>
+                            </div>
+                            <div class="type-description">
+                                A heartfelt poem, love letter, or personal message. Displayed with elegant serif typography.
+                            </div>
+                            <div class="type-examples">
+                                <strong>Ideas:</strong> Daily love notes, haikus, song lyrics, meaningful quotes
+                            </div>
+                        </div>
+
+                        <div class="content-type-card">
+                            <div class="type-header">
+                                <span class="type-icon">&#128247;</span>
+                                <span class="type-name">Photo Reveal</span>
+                            </div>
+                            <div class="type-description">
+                                A special photo with polaroid-style presentation and reveal animation.
+                            </div>
+                            <div class="type-examples">
+                                <strong>Ideas:</strong> Throwback photos, selfies, screenshots of chats, places visited
+                            </div>
+                        </div>
+
+                        <div class="content-type-card">
+                            <div class="type-header">
+                                <span class="type-icon">&#127909;</span>
+                                <span class="type-name">Video Message</span>
+                            </div>
+                            <div class="type-description">
+                                A personal video message with HTML5 player. Perfect for face-to-face moments.
+                            </div>
+                            <div class="type-examples">
+                                <strong>Ideas:</strong> Video greetings, dance clips, "I love you" recordings, memory videos
+                            </div>
+                        </div>
+
+                        <div class="content-type-card">
+                            <div class="type-header">
+                                <span class="type-icon">&#127925;</span>
+                                <span class="type-name">Audio Message</span>
+                            </div>
+                            <div class="type-description">
+                                A voice recording or audio clip. Intimate and personal.
+                            </div>
+                            <div class="type-examples">
+                                <strong>Ideas:</strong> Voice notes, song dedications, reading a poem aloud, whispered secrets
+                            </div>
+                        </div>
+
+                        <div class="content-type-card">
+                            <div class="type-header">
+                                <span class="type-icon">&#127873;</span>
+                                <span class="type-name">Gift Teaser</span>
+                            </div>
+                            <div class="type-description">
+                                Hint at a physical gift with clues about what it is and where to find it.
+                            </div>
+                            <div class="type-examples">
+                                <strong>Ideas:</strong> Hidden presents, treasure hunt clues, "look under your pillow" hints
+                            </div>
+                        </div>
+
+                        <div class="content-type-card">
+                            <div class="type-header">
+                                <span class="type-icon">&#128173;</span>
+                                <span class="type-name">Shared Memory</span>
+                            </div>
+                            <div class="type-description">
+                                Recall a special moment you shared together. "Remember when..."
+                            </div>
+                            <div class="type-examples">
+                                <strong>Ideas:</strong> First date story, funny moments, milestone memories, inside jokes
+                            </div>
+                        </div>
+
+                        <div class="content-type-card">
+                            <div class="type-header">
+                                <span class="type-icon">&#128513;</span>
+                                <span class="type-name">Fun Quiz</span>
+                            </div>
+                            <div class="type-description">
+                                Interactive trivia or questions about your relationship.
+                            </div>
+                            <div class="type-examples">
+                                <strong>Ideas:</strong> "How well do you know me?", favorite things, personality quizzes
+                            </div>
+                        </div>
+
+                        <div class="content-type-card">
+                            <div class="type-header">
+                                <span class="type-icon">&#129513;</span>
+                                <span class="type-name">Challenge</span>
+                            </div>
+                            <div class="type-description">
+                                An interactive puzzle, riddle, or task to complete.
+                            </div>
+                            <div class="type-examples">
+                                <strong>Ideas:</strong> Word puzzles, riddles with answers, mini-games, scavenger hunts
+                            </div>
+                        </div>
+
+                        <div class="content-type-card">
+                            <div class="type-header">
+                                <span class="type-icon">&#9200;</span>
+                                <span class="type-name">Countdown Special</span>
+                            </div>
+                            <div class="type-description">
+                                Special content for the final days. Building anticipation!
+                            </div>
+                            <div class="type-examples">
+                                <strong>Ideas:</strong> Day 24 grand finale, Christmas Eve surprise, "the big reveal"
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Collapsible: QR Mode Reference -->
+            <div class="collapsible-section">
+                <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                    <span>&#128274; QR Code Modes Reference</span>
+                    <span class="toggle-icon">&#9660;</span>
+                </div>
+                <div class="collapsible-content">
+                    <p style="color: #666; margin-bottom: 15px;">
+                        Each door can have a QR code mode. Use these for physical gift integration!
+                    </p>
+
+                    <div class="qr-mode-grid">
+                        <div class="qr-mode-card">
+                            <div class="mode-icon">&#128275;</div>
+                            <div class="mode-name">No QR Required</div>
+                            <div class="mode-description">
+                                Door opens normally without any QR scan. Standard digital content.
+                            </div>
+                        </div>
+
+                        <div class="qr-mode-card">
+                            <div class="mode-icon">&#128274;</div>
+                            <div class="mode-name">QR Required</div>
+                            <div class="mode-description">
+                                Must scan QR code to open door. Perfect for physical gift reveals - print QR and attach to gift!
+                            </div>
+                        </div>
+
+                        <div class="qr-mode-card">
+                            <div class="mode-icon">&#127775;</div>
+                            <div class="mode-name">QR Bonus</div>
+                            <div class="mode-description">
+                                Door opens normally, but scanning QR unlocks bonus content (extra photo, secret message, etc.)
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tips-section">
+                        <h4>&#128161; Physical Gift Ideas with QR</h4>
+                        <ul>
+                            <li><strong>Hidden QR cards:</strong> Print QR codes and hide them around the house</li>
+                            <li><strong>Gift tags:</strong> Attach QR to wrapped presents</li>
+                            <li><strong>Treasure hunt:</strong> QR leads to next clue location</li>
+                            <li><strong>Bonus content:</strong> Main content digital, QR unlocks exclusive photo/video</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Collapsible: Suggested Distribution -->
+            <div class="collapsible-section">
+                <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                    <span>&#128200; Suggested Door Distribution</span>
+                    <span class="toggle-icon">&#9660;</span>
+                </div>
+                <div class="collapsible-content">
+                    <p style="color: #666; margin-bottom: 15px;">
+                        Here's a suggested mix for a balanced 24-day experience:
+                    </p>
+
+                    <table class="distribution-table">
+                        <thead>
+                            <tr>
+                                <th>Content Type</th>
+                                <th>Count</th>
+                                <th>Suggested Days</th>
+                                <th>QR Mode</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>&#128220; Poems/Letters</td>
+                                <td>6-8</td>
+                                <td class="door-numbers">1, 4, 7, 11, 15, 18, 22</td>
+                                <td>None</td>
+                            </tr>
+                            <tr>
+                                <td>&#128247; Photos</td>
+                                <td>4-5</td>
+                                <td class="door-numbers">3, 10, 14, 17, 23</td>
+                                <td>Bonus (unlock extra photo)</td>
+                            </tr>
+                            <tr>
+                                <td>&#127909; Videos</td>
+                                <td>2-3</td>
+                                <td class="door-numbers">8, 16, 21</td>
+                                <td>None</td>
+                            </tr>
+                            <tr>
+                                <td>&#127925; Audio</td>
+                                <td>2</td>
+                                <td class="door-numbers">5, 19</td>
+                                <td>None</td>
+                            </tr>
+                            <tr>
+                                <td>&#127873; Gift Teasers</td>
+                                <td>4</td>
+                                <td class="door-numbers">6, 13, 20, 24</td>
+                                <td>Required (QR on physical gift)</td>
+                            </tr>
+                            <tr>
+                                <td>&#128173; Memories</td>
+                                <td>3</td>
+                                <td class="door-numbers">2, 9, 12</td>
+                                <td>None</td>
+                            </tr>
+                            <tr>
+                                <td>&#128513; Quizzes</td>
+                                <td>1</td>
+                                <td class="door-numbers">Optional</td>
+                                <td>None</td>
+                            </tr>
+                            <tr>
+                                <td>&#9200; Countdown</td>
+                                <td>1</td>
+                                <td class="door-numbers">24 (Christmas Eve)</td>
+                                <td>Optional</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="tips-section">
+                        <h4>&#128161; Distribution Tips</h4>
+                        <ul>
+                            <li><strong>Start strong:</strong> Day 1 should be memorable - a heartfelt letter or special photo</li>
+                            <li><strong>Build anticipation:</strong> Space out "big" content (videos, gifts) throughout</li>
+                            <li><strong>Weekend specials:</strong> Save videos/gifts for weekends when there's more time</li>
+                            <li><strong>Grand finale:</strong> Day 24 should be your biggest surprise!</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Door Preview Grid -->
+            <div class="door-preview-section">
+                <h3>&#128197; Default 24-Door Layout Preview</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                    This shows the default door configuration. You can customize each door after creation in the admin.
+                </p>
+                <div class="door-grid-preview" id="door-grid">
+                    <!-- Days 1-24 will be generated by JavaScript -->
+                </div>
+                <p style="color: #888; font-size: 12px; margin-top: 15px; text-align: center;">
+                    &#128274; = QR Required | Hover over doors to see content type
+                </p>
             </div>
         </div>
 
-        <div class="example-section">
-            <h3>📖 The 6 Chapters:</h3>
-            <ul>
-                <li><strong>Chapter 1: Down the Rabbit Hole</strong> - Mystery & date riddle</li>
-                <li><strong>Chapter 2: Garden of Rare Flowers</strong> - Personality questionnaire</li>
-                <li><strong>Chapter 3: Gallery of Moments</strong> - Shared memories timeline</li>
-                <li><strong>Chapter 4: Carnival of Courage</strong> - Vulnerability & truth questions</li>
-                <li><strong>Chapter 5: Starlit Observatory</strong> - Dreams & future together</li>
-                <li><strong>Chapter 6: Door to Tomorrow</strong> - Final reveal & response</li>
-            </ul>
-        </div>
-
+        <!-- Submit Buttons -->
         <div class="button-group">
             <a href="{% url 'admin:crush_lu_specialuserexperience_changelist' %}" class="btn-secondary">
-                ← Cancel
+                Cancel
             </a>
-            <button type="submit" class="btn-primary">
-                ✨ Generate Journey
+            <button type="submit" class="btn-primary" id="submit-btn">
+                Generate Journey
             </button>
         </div>
     </form>
 </div>
 
 <script>
-    // Set today as max date for date picker
+    // Default door configuration for preview
+    const defaultDoors = [
+        { day: 1, type: 'poem', icon: '&#128220;', qr: false },
+        { day: 2, type: 'memory', icon: '&#128173;', qr: false },
+        { day: 3, type: 'photo', icon: '&#128247;', qr: 'bonus' },
+        { day: 4, type: 'poem', icon: '&#128220;', qr: false },
+        { day: 5, type: 'audio', icon: '&#127925;', qr: false },
+        { day: 6, type: 'gift_teaser', icon: '&#127873;', qr: 'required' },
+        { day: 7, type: 'poem', icon: '&#128220;', qr: false },
+        { day: 8, type: 'video', icon: '&#127909;', qr: false },
+        { day: 9, type: 'memory', icon: '&#128173;', qr: false },
+        { day: 10, type: 'photo', icon: '&#128247;', qr: 'bonus' },
+        { day: 11, type: 'poem', icon: '&#128220;', qr: false },
+        { day: 12, type: 'memory', icon: '&#128173;', qr: false },
+        { day: 13, type: 'gift_teaser', icon: '&#127873;', qr: 'required' },
+        { day: 14, type: 'photo', icon: '&#128247;', qr: false },
+        { day: 15, type: 'poem', icon: '&#128220;', qr: false },
+        { day: 16, type: 'video', icon: '&#127909;', qr: false },
+        { day: 17, type: 'photo', icon: '&#128247;', qr: 'bonus' },
+        { day: 18, type: 'poem', icon: '&#128220;', qr: false },
+        { day: 19, type: 'audio', icon: '&#127925;', qr: false },
+        { day: 20, type: 'gift_teaser', icon: '&#127873;', qr: 'required' },
+        { day: 21, type: 'video', icon: '&#127909;', qr: false },
+        { day: 22, type: 'poem', icon: '&#128220;', qr: false },
+        { day: 23, type: 'photo', icon: '&#128247;', qr: 'bonus' },
+        { day: 24, type: 'countdown', icon: '&#9200;', qr: 'required' },
+    ];
+
+    const typeLabels = {
+        'poem': 'POEM',
+        'photo': 'PHOTO',
+        'video': 'VIDEO',
+        'audio': 'AUDIO',
+        'gift_teaser': 'GIFT',
+        'memory': 'MEMORY',
+        'quiz': 'QUIZ',
+        'challenge': 'PUZZLE',
+        'countdown': 'FINAL'
+    };
+
+    // Generate door preview grid
+    function generateDoorGrid() {
+        const grid = document.getElementById('door-grid');
+        grid.innerHTML = '';
+
+        defaultDoors.forEach(door => {
+            const div = document.createElement('div');
+            div.className = 'door-preview' + (door.qr ? ' has-qr' : '');
+            div.setAttribute('data-type', door.type);
+            div.setAttribute('title', `Day ${door.day}: ${typeLabels[door.type]}${door.qr ? ' (QR ' + door.qr + ')' : ''}`);
+            div.innerHTML = `
+                <span class="door-number">${door.day}</span>
+                <span class="door-icon">${door.icon}</span>
+                <span class="door-type">${typeLabels[door.type]}</span>
+            `;
+            grid.appendChild(div);
+        });
+    }
+
+    // Toggle collapsible sections
+    function toggleCollapsible(header) {
+        header.classList.toggle('expanded');
+        const content = header.nextElementSibling;
+        content.classList.toggle('expanded');
+    }
+
+    // Journey type switching
     document.addEventListener('DOMContentLoaded', function() {
+        const wonderlandCard = document.getElementById('wonderland-card');
+        const adventCard = document.getElementById('advent-card');
+        const wonderlandSection = document.getElementById('wonderland-section');
+        const adventSection = document.getElementById('advent-section');
+        const submitBtn = document.getElementById('submit-btn');
+
+        // Set today as max date for date picker
         const dateInput = document.getElementById('date_met');
         const today = new Date().toISOString().split('T')[0];
         dateInput.setAttribute('max', today);
+
+        // Set current year for advent calendar
+        const yearInput = document.getElementById('advent_year');
+        yearInput.value = new Date().getFullYear();
+
+        // Generate door grid
+        generateDoorGrid();
+
+        // Handle journey type selection
+        const radios = document.querySelectorAll('input[name="journey_type"]');
+        radios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                wonderlandCard.classList.remove('selected');
+                adventCard.classList.remove('selected');
+                wonderlandSection.classList.remove('active');
+                adventSection.classList.remove('active');
+
+                if (this.value === 'wonderland') {
+                    wonderlandCard.classList.add('selected');
+                    wonderlandSection.classList.add('active');
+                    submitBtn.textContent = 'Generate Wonderland Journey';
+                    submitBtn.classList.remove('advent');
+                } else {
+                    adventCard.classList.add('selected');
+                    adventSection.classList.add('active');
+                    submitBtn.textContent = 'Generate Advent Calendar';
+                    submitBtn.classList.add('advent');
+                }
+            });
+        });
+
+        // Click on cards to select
+        wonderlandCard.addEventListener('click', function() {
+            this.querySelector('input').checked = true;
+            this.querySelector('input').dispatchEvent(new Event('change'));
+        });
+
+        adventCard.addEventListener('click', function() {
+            this.querySelector('input').checked = true;
+            this.querySelector('input').dispatchEvent(new Event('change'));
+        });
     });
 
     // Confirm before submission
     document.getElementById('journeyForm').addEventListener('submit', function(e) {
         const firstName = "{{ special_exp.first_name }}";
-        const dateMet = document.getElementById('date_met').value;
-        const locationMet = document.getElementById('location_met').value;
+        const journeyType = document.querySelector('input[name="journey_type"]:checked').value;
 
-        const confirmed = confirm(
-            `Generate Wonderland Journey for ${firstName}?\n\n` +
-            `Date met: ${dateMet}\n` +
-            `Location: ${locationMet}\n\n` +
-            `This will create 6 complete chapters with all challenges and rewards.`
-        );
+        let confirmMessage;
+        if (journeyType === 'wonderland') {
+            const dateMet = document.getElementById('date_met').value;
+            const locationMet = document.getElementById('location_met').value;
+            confirmMessage = `Generate Wonderland Journey for ${firstName}?\n\n` +
+                `Date met: ${dateMet}\n` +
+                `Location: ${locationMet}\n\n` +
+                `This will create 6 complete chapters with all challenges and rewards.`;
+        } else {
+            const year = document.getElementById('advent_year').value;
+            const title = document.getElementById('advent_title').value;
+            confirmMessage = `Generate Advent Calendar for ${firstName}?\n\n` +
+                `Year: ${year}\n` +
+                `Title: ${title}\n\n` +
+                `This will create 24 doors with mixed content types.\n` +
+                `You can customize each door's content afterward in the admin.`;
+        }
 
-        if (!confirmed) {
+        if (!confirm(confirmMessage)) {
             e.preventDefault();
         }
     });

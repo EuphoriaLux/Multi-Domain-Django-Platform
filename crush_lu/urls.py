@@ -6,6 +6,7 @@ from . import api_views
 from . import views_journey
 from . import api_journey
 from . import api_push
+from . import views_advent
 
 app_name = 'crush_lu'
 
@@ -116,7 +117,9 @@ urlpatterns = [
     # ============================================================================
 
     # Journey Views
-    path('journey/', views_journey.journey_map, name='journey_map'),
+    path('journey/', views_journey.journey_map, name='journey_map'),  # Backwards compatible - redirects to selector
+    path('journey/select/', views_journey.journey_selector, name='journey_selector'),
+    path('journey/wonderland/', views_journey.journey_map_wonderland, name='journey_map_wonderland'),
     path('journey/chapter/<int:chapter_number>/', views_journey.chapter_view, name='chapter_view'),
     path('journey/chapter/<int:chapter_number>/challenge/<int:challenge_id>/', views_journey.challenge_view, name='challenge_view'),
     path('journey/reward/<int:reward_id>/', views_journey.reward_view, name='reward_view'),
@@ -140,4 +143,18 @@ urlpatterns = [
     path('api/push/subscriptions/', api_push.list_subscriptions, name='api_list_subscriptions'),
     path('api/push/preferences/', api_push.update_subscription_preferences, name='api_update_push_preferences'),
     path('api/push/test/', api_push.send_test_push, name='api_send_test_push'),
+
+    # ============================================================================
+    # ADVENT CALENDAR SYSTEM
+    # ============================================================================
+
+    # Advent Calendar Views
+    path('advent/', views_advent.advent_calendar_view, name='advent_calendar'),
+    path('advent/door/<int:door_number>/', views_advent.advent_door_view, name='advent_door'),
+    path('advent/qr/<uuid:token>/', views_advent.scan_qr_code, name='advent_scan_qr'),
+    path('advent/qr-scanner/', views_advent.advent_qr_scanner, name='advent_qr_scanner'),
+
+    # Advent Calendar API Endpoints
+    path('api/advent/status/', views_advent.get_advent_status, name='api_advent_status'),
+    path('api/advent/open-door/', views_advent.open_door_api, name='api_advent_open_door'),
 ]

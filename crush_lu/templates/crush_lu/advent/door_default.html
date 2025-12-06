@@ -1,0 +1,160 @@
+{% extends 'crush_lu/advent/advent_base.html' %}
+{% load static %}
+
+{% block title %}Door {{ door_number }} - {{ calendar.calendar_title }}{% endblock %}
+
+{% block advent_content %}
+<div class="advent-header">
+    <a href="{% url 'crush_lu:advent_calendar' %}" class="advent-back-btn">
+        <i class="bi bi-arrow-left"></i> Back to Calendar
+    </a>
+</div>
+
+<div class="advent-content">
+    <div class="container">
+        <div class="door-content-card">
+            <!-- Door number badge -->
+            <div class="door-badge mb-4">
+                <span class="badge bg-danger fs-4 px-4 py-2">Day {{ door_number }}</span>
+            </div>
+
+            {% if was_newly_opened %}
+                <div class="newly-opened-message text-center mb-4">
+                    <span style="font-size: 3rem;">✨</span>
+                    <h3 class="text-success">Congratulations!</h3>
+                    <p class="text-muted">You've opened Door {{ door_number }}!</p>
+                </div>
+            {% endif %}
+
+            {% if content %}
+                <h2 class="text-center mb-4">{{ content.title }}</h2>
+
+                {% if content.message %}
+                    <div class="door-message">
+                        {{ content.message|linebreaks }}
+                    </div>
+                {% endif %}
+
+                {% if content.photo %}
+                    <div class="door-photo text-center my-4">
+                        <img src="{{ content.photo.url }}" alt="{{ content.title }}"
+                             class="img-fluid rounded shadow" style="max-height: 400px;">
+                    </div>
+                {% endif %}
+
+                {% if content.video_file %}
+                    <div class="door-video my-4">
+                        <video controls class="w-100 rounded shadow">
+                            <source src="{{ content.video_file.url }}" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                {% endif %}
+
+                {% if content.audio_file %}
+                    <div class="door-audio my-4 text-center">
+                        <audio controls class="w-100">
+                            <source src="{{ content.audio_file.url }}" type="audio/mpeg">
+                            Your browser does not support the audio element.
+                        </audio>
+                    </div>
+                {% endif %}
+
+                <!-- Bonus content (if QR scanned) -->
+                {% if show_bonus and content.has_bonus_content %}
+                    <div class="bonus-content">
+                        {% if content.bonus_title %}
+                            <h4>{{ content.bonus_title }}</h4>
+                        {% else %}
+                            <h4>Bonus Unlocked!</h4>
+                        {% endif %}
+
+                        {% if content.bonus_content %}
+                            <div class="bonus-message">
+                                {{ content.bonus_content|linebreaks }}
+                            </div>
+                        {% endif %}
+
+                        {% if content.bonus_photo %}
+                            <div class="bonus-photo text-center mt-3">
+                                <img src="{{ content.bonus_photo.url }}" alt="Bonus"
+                                     class="img-fluid rounded" style="max-height: 300px;">
+                            </div>
+                        {% endif %}
+                    </div>
+                {% elif has_qr_bonus and not show_bonus %}
+                    <!-- Show hint about bonus content -->
+                    <div class="bonus-hint text-center mt-4 p-3" style="background: rgba(255,215,0,0.1); border-radius: 12px; border: 2px dashed #ffd700;">
+                        <span style="font-size: 2rem;">🎁</span>
+                        <p class="mb-0 mt-2">
+                            <strong>Bonus content available!</strong><br>
+                            <small class="text-muted">Scan the QR code on your physical gift to unlock!</small>
+                        </p>
+                    </div>
+                {% endif %}
+
+            {% else %}
+                <div class="no-content text-center py-5">
+                    <span style="font-size: 3rem;">🎁</span>
+                    <h3 class="mt-3">Content Coming Soon!</h3>
+                    <p class="text-muted">This door's content is being prepared...</p>
+                </div>
+            {% endif %}
+
+            <!-- Navigation buttons -->
+            <div class="door-navigation d-flex justify-content-between mt-4 pt-4 border-top">
+                {% if door_number > 1 %}
+                    <a href="{% url 'crush_lu:advent_door' door_number|add:'-1' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Previous
+                    </a>
+                {% else %}
+                    <span></span>
+                {% endif %}
+
+                <a href="{% url 'crush_lu:advent_calendar' %}" class="btn btn-primary">
+                    <i class="bi bi-grid"></i> Calendar
+                </a>
+
+                {% if door_number < 24 %}
+                    <a href="{% url 'crush_lu:advent_door' door_number|add:'1' %}" class="btn btn-outline-secondary">
+                        Next <i class="bi bi-arrow-right"></i>
+                    </a>
+                {% else %}
+                    <span></span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .door-badge {
+        text-align: center;
+    }
+
+    .door-message {
+        font-size: 1.1rem;
+        line-height: 1.8;
+        color: #333;
+    }
+
+    .newly-opened-message {
+        animation: fadeInUp 0.5s ease-out;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .bonus-hint {
+        animation: pulse 2s infinite;
+    }
+</style>
+{% endblock %}

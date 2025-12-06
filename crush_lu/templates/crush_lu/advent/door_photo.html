@@ -1,0 +1,103 @@
+{% extends 'crush_lu/advent/door_default.html' %}
+
+{% block advent_content %}
+<div class="advent-header">
+    <a href="{% url 'crush_lu:advent_calendar' %}" class="advent-back-btn">
+        <i class="bi bi-arrow-left"></i> Back to Calendar
+    </a>
+</div>
+
+<div class="advent-content">
+    <div class="container">
+        <div class="door-content-card photo-card">
+            <div class="door-badge mb-4">
+                <span class="badge bg-danger fs-4 px-4 py-2">Day {{ door_number }}</span>
+            </div>
+
+            {% if content %}
+                <h2 class="text-center mb-4">{{ content.title }}</h2>
+
+                {% if content.photo %}
+                    <div class="photo-reveal text-center">
+                        <div class="photo-frame">
+                            <img src="{{ content.photo.url }}" alt="{{ content.title }}"
+                                 class="reveal-photo" id="revealPhoto">
+                        </div>
+                    </div>
+                {% endif %}
+
+                {% if content.message %}
+                    <div class="photo-caption text-center mt-4">
+                        <p class="lead text-muted">{{ content.message }}</p>
+                    </div>
+                {% endif %}
+
+                {% if show_bonus and content.has_bonus_content %}
+                    <div class="bonus-content">
+                        {% if content.bonus_title %}<h4>{{ content.bonus_title }}</h4>{% endif %}
+                        {% if content.bonus_content %}{{ content.bonus_content|linebreaks }}{% endif %}
+                        {% if content.bonus_photo %}
+                            <img src="{{ content.bonus_photo.url }}" alt="Bonus" class="img-fluid rounded mt-3">
+                        {% endif %}
+                    </div>
+                {% elif has_qr_bonus and not show_bonus %}
+                    <div class="bonus-hint text-center mt-4 p-3" style="background: rgba(255,215,0,0.1); border-radius: 12px; border: 2px dashed #ffd700;">
+                        <span style="font-size: 2rem;">📸</span>
+                        <p class="mb-0 mt-2"><strong>Bonus photo available!</strong></p>
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="no-content text-center py-5">
+                    <span style="font-size: 3rem;">📷</span>
+                    <h3 class="mt-3">Photo Coming Soon!</h3>
+                </div>
+            {% endif %}
+
+            <div class="door-navigation d-flex justify-content-between mt-4 pt-4 border-top">
+                {% if door_number > 1 %}
+                    <a href="{% url 'crush_lu:advent_door' door_number|add:'-1' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Previous</a>
+                {% else %}<span></span>{% endif %}
+                <a href="{% url 'crush_lu:advent_calendar' %}" class="btn btn-primary"><i class="bi bi-grid"></i> Calendar</a>
+                {% if door_number < 24 %}
+                    <a href="{% url 'crush_lu:advent_door' door_number|add:'1' %}" class="btn btn-outline-secondary">Next <i class="bi bi-arrow-right"></i></a>
+                {% else %}<span></span>{% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .photo-frame {
+        display: inline-block;
+        padding: 15px;
+        background: white;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+        border-radius: 4px;
+        transform: rotate(-2deg);
+    }
+
+    .reveal-photo {
+        max-width: 100%;
+        max-height: 450px;
+        border-radius: 2px;
+        animation: photoReveal 1s ease-out;
+    }
+
+    @keyframes photoReveal {
+        0% {
+            opacity: 0;
+            filter: blur(20px);
+            transform: scale(0.9);
+        }
+        100% {
+            opacity: 1;
+            filter: blur(0);
+            transform: scale(1);
+        }
+    }
+
+    .photo-caption {
+        font-style: italic;
+    }
+</style>
+{% endblock %}
