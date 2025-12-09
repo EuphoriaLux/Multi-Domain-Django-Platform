@@ -1,0 +1,60 @@
+{% extends "crush_delegation/base.html" %}
+
+{% block title %}No Company Match - Crush Delegation{% endblock %}
+
+{% block content %}
+<div class="bg-delegation" style="min-height: calc(100vh - 76px);">
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="card p-5 text-center">
+                    <div class="mb-4">
+                        <i class="bi bi-building-x" style="font-size: 64px; color: #6c757d;"></i>
+                    </div>
+                    <h2 class="mb-3">No Company Match</h2>
+                    <p class="text-muted lead mb-4">
+                        Your email domain is not associated with any registered company.
+                    </p>
+
+                    <div class="bg-light rounded p-4 mb-4">
+                        <p class="mb-2 small text-muted">Signed in as:</p>
+                        <p class="mb-0 fw-bold">{{ user_email }}</p>
+                    </div>
+
+                    <div class="alert alert-warning text-start mb-4">
+                        <h6 class="alert-heading mb-2">
+                            <i class="bi bi-exclamation-triangle me-1"></i>What does this mean?
+                        </h6>
+                        <p class="small mb-2">
+                            The Crush Delegation platform requires your email to be from a registered company domain. Your email domain doesn't match any company in our system.
+                        </p>
+                        <p class="small mb-0">
+                            This can happen if:
+                        </p>
+                        <ul class="small mb-0">
+                            <li>You're using a personal Microsoft account</li>
+                            <li>Your company hasn't been added to the platform yet</li>
+                            <li>You used a different email address than expected</li>
+                        </ul>
+                    </div>
+
+                    <hr>
+
+                    <p class="text-muted small mb-3">
+                        Please contact your company's HR department or delegation administrator to get access. They can add your company's domain to the platform.
+                    </p>
+
+                    <div class="d-flex justify-content-center gap-2">
+                        <a href="{% url 'account_logout' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-box-arrow-right me-1"></i>Sign Out
+                        </a>
+                        <a href="{% url 'crush_delegation:home' %}" class="btn btn-delegation">
+                            <i class="bi bi-arrow-repeat me-1"></i>Try Another Account
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

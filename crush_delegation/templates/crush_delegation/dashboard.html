@@ -1,0 +1,140 @@
+{% extends "crush_delegation/base.html" %}
+
+{% block title %}Dashboard - Crush Delegation{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <!-- Welcome Card -->
+        <div class="col-12 mb-4">
+            <div class="card">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center">
+                        {% if profile.profile_photo %}
+                        <img src="{{ profile.profile_photo.url }}" class="profile-photo-large me-4" alt="Profile">
+                        {% else %}
+                        <div class="profile-photo-large me-4 bg-light d-flex align-items-center justify-content-center">
+                            <i class="bi bi-person" style="font-size: 48px; color: #9B59B6;"></i>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <h2 class="mb-1">Welcome, {{ profile.display_name }}!</h2>
+                            {% if company %}
+                            <p class="text-muted mb-2">
+                                <i class="bi bi-building me-1"></i>{{ company.name }}
+                            </p>
+                            {% endif %}
+                            <span class="status-badge status-approved">
+                                <i class="bi bi-check-circle me-1"></i>Approved
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="col-12 mb-4">
+            <h5 class="text-muted mb-3">Quick Actions</h5>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-calendar-event text-delegation" style="font-size: 36px;"></i>
+                            <h6 class="mt-3 mb-2">Events</h6>
+                            <p class="text-muted small mb-3">View upcoming staff events</p>
+                            <a href="#" class="btn btn-sm btn-outline-secondary disabled">Coming Soon</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-chat-dots text-delegation" style="font-size: 36px;"></i>
+                            <h6 class="mt-3 mb-2">Requests</h6>
+                            <p class="text-muted small mb-3">Submit and track requests</p>
+                            <a href="#" class="btn btn-sm btn-outline-secondary disabled">Coming Soon</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-megaphone text-delegation" style="font-size: 36px;"></i>
+                            <h6 class="mt-3 mb-2">Announcements</h6>
+                            <p class="text-muted small mb-3">Latest updates and news</p>
+                            <a href="#" class="btn btn-sm btn-outline-secondary disabled">Coming Soon</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Info -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-person me-2"></i>Your Profile</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless mb-0">
+                        <tr>
+                            <td class="text-muted" style="width: 40%;">Name</td>
+                            <td>{{ user.get_full_name|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Email</td>
+                            <td>{{ user.email }}</td>
+                        </tr>
+                        {% if profile.job_title %}
+                        <tr>
+                            <td class="text-muted">Job Title</td>
+                            <td>{{ profile.job_title }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if profile.department %}
+                        <tr>
+                            <td class="text-muted">Department</td>
+                            <td>{{ profile.department }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <td class="text-muted">Role</td>
+                            <td>{{ profile.get_role_display }}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="card-footer bg-white">
+                    <a href="{% url 'crush_delegation:profile' %}" class="btn btn-sm btn-delegation">
+                        <i class="bi bi-pencil me-1"></i>View Full Profile
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Company Info -->
+        {% if company %}
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-building me-2"></i>Company Information</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        {% if company.logo %}
+                        <img src="{{ company.logo.url }}" alt="{{ company.name }}" style="max-height: 50px; max-width: 100px;" class="me-3">
+                        {% endif %}
+                        <div>
+                            <h5 class="mb-0">{{ company.name }}</h5>
+                        </div>
+                    </div>
+                    {% if company.description %}
+                    <p class="text-muted small">{{ company.description|truncatewords:30 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

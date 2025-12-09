@@ -1,0 +1,138 @@
+{% extends "crush_delegation/base.html" %}
+
+{% block title %}Profile - Crush Delegation{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Profile Header -->
+            <div class="card mb-4">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center">
+                        {% if profile.profile_photo %}
+                        <img src="{{ profile.profile_photo.url }}" class="profile-photo-large me-4" alt="Profile">
+                        {% else %}
+                        <div class="profile-photo-large me-4 bg-light d-flex align-items-center justify-content-center rounded-circle">
+                            <i class="bi bi-person" style="font-size: 48px; color: #9B59B6;"></i>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <h3 class="mb-1">{{ user.get_full_name|default:user.email }}</h3>
+                            <p class="text-muted mb-2">{{ user.email }}</p>
+                            <span class="status-badge status-{{ profile.status }}">
+                                {{ profile.get_status_display }}
+                            </span>
+                            <span class="status-badge bg-light text-dark ms-2">
+                                {{ profile.get_role_display }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Personal Information -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-person-badge me-2"></i>Personal Information</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">First Name</label>
+                            <p class="mb-0">{{ user.first_name|default:"-" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Last Name</label>
+                            <p class="mb-0">{{ user.last_name|default:"-" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Email</label>
+                            <p class="mb-0">{{ user.email }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Account Created</label>
+                            <p class="mb-0">{{ user.date_joined|date:"F j, Y" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Work Information -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-briefcase me-2"></i>Work Information</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% if profile.company %}
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Company</label>
+                            <p class="mb-0">{{ profile.company.name }}</p>
+                        </div>
+                        {% endif %}
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Job Title</label>
+                            <p class="mb-0">{{ profile.job_title|default:"-" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Department</label>
+                            <p class="mb-0">{{ profile.department|default:"-" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Office Location</label>
+                            <p class="mb-0">{{ profile.office_location|default:"-" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Microsoft Account Info -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0">
+                        <svg viewBox="0 0 21 21" style="width: 16px; height: 16px; margin-right: 8px;">
+                            <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                            <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                            <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                            <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                        </svg>
+                        Microsoft Account
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <label class="text-muted small">Linked Account</label>
+                            <p class="mb-0">
+                                <i class="bi bi-check-circle-fill text-success me-1"></i>
+                                Connected via Microsoft Entra ID
+                            </p>
+                        </div>
+                        {% if profile.last_login_at %}
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Last Login</label>
+                            <p class="mb-0">{{ profile.last_login_at|date:"F j, Y, g:i a" }}</p>
+                        </div>
+                        {% endif %}
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Profile Approved</label>
+                            <p class="mb-0">{{ profile.approved_at|date:"F j, Y"|default:"Auto-approved" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'crush_delegation:dashboard' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                </a>
+                <a href="{% url 'account_logout' %}" class="btn btn-outline-danger">
+                    <i class="bi bi-box-arrow-right me-1"></i>Sign Out
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
