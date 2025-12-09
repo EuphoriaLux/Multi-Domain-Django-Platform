@@ -7,8 +7,86 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponseForbidden
+from django.utils import timezone
 
-from .models import DelegationProfile
+from .models import DelegationProfile, Company
+
+
+def _get_or_create_profile(user):
+    """
+    Get existing DelegationProfile or create one from Microsoft SocialAccount.
+    Returns (profile, created) tuple.
+    """
+    try:
+        return user.delegation_profile, False
+    except DelegationProfile.DoesNotExist:
+        pass
+
+    # Try to create from Microsoft SocialAccount
+    from allauth.socialaccount.models import SocialAccount
+    try:
+        social_account = SocialAccount.objects.get(user=user, provider='microsoft')
+    except SocialAccount.DoesNotExist:
+        return None, False
+
+    extra_data = social_account.extra_data
+    email = user.email or extra_data.get('mail') or extra_data.get('userPrincipalName', '')
+    microsoft_id = extra_data.get('id', '')
+    microsoft_tenant_id = extra_data.get('tid', '')
+    job_title = extra_data.get('jobTitle', '')
+    department = extra_data.get('department', '')
+    office_location = extra_data.get('officeLocation', '')
+
+    # Match to company
+    company = None
+    if email and '@' in email:
+        email_domain = email.split('@')[1].lower()
+        consumer_domains = ['outlook.com', 'hotmail.com', 'live.com', 'gmail.com', 'yahoo.com']
+        if email_domain not in consumer_domains:
+            # Try tenant ID first
+            if microsoft_tenant_id:
+                company = Company.objects.filter(
+                    microsoft_tenant_id=microsoft_tenant_id,
+                    is_active=True
+                ).first()
+            # Then email domain
+            if not company:
+                for c in Company.objects.filter(is_active=True):
+                    if c.email_domains and email_domain in [d.lower() for d in c.email_domains]:
+                        company = c
+                        break
+
+    # Determine status
+    management_keywords = ['ceo', 'cto', 'cfo', 'director', 'owner', 'founder', 'president', 'chief']
+    is_consumer = email and '@' in email and email.split('@')[1].lower() in ['outlook.com', 'hotmail.com', 'live.com', 'gmail.com']
+    is_management = job_title and any(kw in job_title.lower() for kw in management_keywords)
+
+    if is_consumer:
+        status, role = 'pending', 'pending'
+    elif not company:
+        status, role = 'no_company', 'pending'
+    elif is_management:
+        status, role = 'rejected', 'pending'
+    elif company and company.auto_approve_workers:
+        status, role = 'approved', 'worker'
+    else:
+        status, role = 'pending', 'pending'
+
+    # Create profile
+    profile = DelegationProfile.objects.create(
+        user=user,
+        company=company,
+        microsoft_id=microsoft_id,
+        microsoft_tenant_id=microsoft_tenant_id,
+        job_title=job_title,
+        department=department,
+        office_location=office_location,
+        status=status,
+        role=role,
+        approved_at=timezone.now() if status == 'approved' else None,
+    )
+
+    return profile, True
 
 
 def home(request):
@@ -18,8 +96,8 @@ def home(request):
     Redirects authenticated users to appropriate page based on status.
     """
     if request.user.is_authenticated:
-        try:
-            profile = request.user.delegation_profile
+        profile, created = _get_or_create_profile(request.user)
+        if profile:
             if profile.is_approved:
                 return redirect('crush_delegation:dashboard')
             elif profile.status == 'pending':
@@ -28,9 +106,6 @@ def home(request):
                 return redirect('crush_delegation:no_company')
             elif profile.status == 'rejected':
                 return redirect('crush_delegation:access_denied')
-        except DelegationProfile.DoesNotExist:
-            # Profile will be created on next login via signal
-            pass
 
     return render(request, 'crush_delegation/home.html')
 
@@ -41,11 +116,14 @@ def dashboard(request):
     Main dashboard for approved delegation users.
     Only accessible to users with approved status.
     """
-    try:
-        profile = request.user.delegation_profile
-    except DelegationProfile.DoesNotExist:
-        messages.warning(request, 'Your profile is being set up. Please wait.')
+    profile, created = _get_or_create_profile(request.user)
+
+    if not profile:
+        messages.warning(request, 'Please sign in with Microsoft to access this platform.')
         return redirect('crush_delegation:home')
+
+    if created:
+        messages.info(request, 'Your profile has been created.')
 
     # Check access
     if not profile.is_approved:
@@ -68,9 +146,9 @@ def profile_view(request):
     """
     User profile page showing Microsoft account details.
     """
-    try:
-        profile = request.user.delegation_profile
-    except DelegationProfile.DoesNotExist:
+    profile, _ = _get_or_create_profile(request.user)
+
+    if not profile:
         messages.warning(request, 'Your profile is being set up. Please wait.')
         return redirect('crush_delegation:home')
 
@@ -90,9 +168,9 @@ def pending_approval(request):
     """
     Page shown to users waiting for admin approval.
     """
-    try:
-        profile = request.user.delegation_profile
-    except DelegationProfile.DoesNotExist:
+    profile, _ = _get_or_create_profile(request.user)
+
+    if not profile:
         return redirect('crush_delegation:home')
 
     # If already approved, redirect to dashboard
@@ -114,9 +192,9 @@ def no_company(request):
     """
     Page shown to users whose email domain doesn't match any company.
     """
-    try:
-        profile = request.user.delegation_profile
-    except DelegationProfile.DoesNotExist:
+    profile, _ = _get_or_create_profile(request.user)
+
+    if not profile:
         return redirect('crush_delegation:home')
 
     # If approved, redirect to dashboard
@@ -142,9 +220,9 @@ def access_denied(request):
     """
     Page shown to rejected users (e.g., management roles).
     """
-    try:
-        profile = request.user.delegation_profile
-    except DelegationProfile.DoesNotExist:
+    profile, _ = _get_or_create_profile(request.user)
+
+    if not profile:
         return redirect('crush_delegation:home')
 
     # If approved, redirect to dashboard

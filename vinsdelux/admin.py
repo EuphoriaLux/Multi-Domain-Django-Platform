@@ -59,10 +59,26 @@ class CrushCoachInline(admin.StackedInline):
     def has_add_permission(self, request, obj=None):
         return False
 
+
+class DelegationProfileInline(admin.StackedInline):
+    """Show DelegationProfile if exists"""
+    from crush_delegation.models import DelegationProfile
+    model = DelegationProfile
+    can_delete = False
+    verbose_name_plural = 'Crush Delegation Profile'
+    fields = ('company', 'job_title', 'department', 'role', 'status', 'manually_approved', 'manually_blocked')
+    readonly_fields = ('company', 'job_title', 'department')
+    extra = 0
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
 class UserAdmin(BaseUserAdmin):
-    inlines = (EntrepreneurProfileInline, CrushProfileInline, CrushCoachInline, VdlUserProfileInline)
+    inlines = (EntrepreneurProfileInline, CrushProfileInline, CrushCoachInline, VdlUserProfileInline, DelegationProfileInline)
     list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff',
                     'has_entreprinder_profile', 'has_crush_profile', 'has_vinsdelux_profile', 'is_crush_coach',
+                    'has_delegation_profile',
                     'profile_count')
     list_filter = BaseUserAdmin.list_filter + ('is_staff', 'is_active', 'date_joined')
 
@@ -89,6 +105,11 @@ class UserAdmin(BaseUserAdmin):
             pass
         try:
             if obj.crushcoach:
+                count += 1
+        except:
+            pass
+        try:
+            if obj.delegation_profile:
                 count += 1
         except:
             pass
@@ -138,6 +159,15 @@ class UserAdmin(BaseUserAdmin):
             return False
     is_crush_coach.boolean = True
     is_crush_coach.short_description = '🎯 Coach'
+
+    def has_delegation_profile(self, obj):
+        """Check if user has Crush Delegation profile"""
+        try:
+            return obj.delegation_profile is not None
+        except:
+            return False
+    has_delegation_profile.boolean = True
+    has_delegation_profile.short_description = '👥 Delegation'
 
     # Add custom readonly fields to detail page
     readonly_fields = ('get_profile_summary',)
@@ -198,6 +228,21 @@ class UserAdmin(BaseUserAdmin):
                 summary += '<td style="padding: 8px; border: 1px solid #ddd;">❌ No profile</td></tr>'
         except:
             summary += '<tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>🍷 VinsDelux</strong></td>'
+            summary += '<td style="padding: 8px; border: 1px solid #ddd;">❌ No profile</td></tr>'
+
+        # Check Delegation profile
+        try:
+            if obj.delegation_profile:
+                status = obj.delegation_profile.get_status_display()
+                company = obj.delegation_profile.company.name if obj.delegation_profile.company else "No company"
+                role = obj.delegation_profile.get_role_display()
+                summary += '<tr style="background: #e3f2fd;"><td style="padding: 8px; border: 1px solid #ddd;"><strong>👥 Crush Delegation</strong></td>'
+                summary += f'<td style="padding: 8px; border: 1px solid #ddd;">✅ Active<br><small>Status: {status} | Role: {role}<br>Company: {company}</small></td></tr>'
+            else:
+                summary += '<tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>👥 Crush Delegation</strong></td>'
+                summary += '<td style="padding: 8px; border: 1px solid #ddd;">❌ No profile</td></tr>'
+        except:
+            summary += '<tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>👥 Crush Delegation</strong></td>'
             summary += '<td style="padding: 8px; border: 1px solid #ddd;">❌ No profile</td></tr>'
 
         summary += '</table></div>'
