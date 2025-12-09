@@ -28,7 +28,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.178.184', 'crush.lu', 'www.crush.lu', 'powerup.local']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.178.184', 'crush.lu', 'www.crush.lu', 'delegation.crush.lu', 'powerup.local']
 
 if 'CODESPACE_NAME' in os.environ:
     CSRF_TRUSTED_ORIGINS = [f'https://{os.getenv("CODESPACE_NAME")}-8000.{os.getenv("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")}']
@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'vinsdelux',
     'crush_lu',
+    'crush_delegation',
 ]
 
 # SITE_ID must NOT be set - CurrentSiteMiddleware determines site dynamically per request
