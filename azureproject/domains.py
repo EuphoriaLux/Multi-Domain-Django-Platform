@@ -12,6 +12,12 @@ To test a different site locally, change DEV_DEFAULT:
 """
 
 DOMAINS = {
+    'delegation.crush.lu': {
+        'urlconf': 'azureproject.urls_crush_delegation',
+        'name': 'Crush Delegation',
+        'app': 'crush_delegation',
+        'aliases': [],
+    },
     'crush.lu': {
         'urlconf': 'azureproject.urls_crush',
         'name': 'Crush.lu',
