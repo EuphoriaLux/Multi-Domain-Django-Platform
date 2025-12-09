@@ -244,9 +244,9 @@ ACCOUNT_FORMS = {'signup': 'entreprinder.forms.CustomSignupForm'}
 # Specify where to redirect after successful sign-up
 ACCOUNT_SIGNUP_REDIRECT_URL = '/profile/'  # Redirect to profile page after signup
 
-# Allauth adapters
-SOCIALACCOUNT_ADAPTER = 'crush_lu.adapter.CrushSocialAccountAdapter'
-ACCOUNT_ADAPTER = 'crush_lu.adapter.CrushAccountAdapter'
+# Allauth adapters - Multi-domain aware
+SOCIALACCOUNT_ADAPTER = 'azureproject.adapters.MultiDomainSocialAccountAdapter'
+ACCOUNT_ADAPTER = 'azureproject.adapters.MultiDomainAccountAdapter'
 
 # Email backend Configuration (using SMTP)
 # NOTE: For domain-specific email configuration (crush.lu, vinsdelux.com, etc.),
