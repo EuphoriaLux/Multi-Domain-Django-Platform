@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.openid_connect',
     'allauth.socialaccount.providers.linkedin_oauth2',
     'allauth.socialaccount.providers.facebook',
+    'allauth.socialaccount.providers.microsoft',
     'entreprinder',  # Includes merged: matching, finops, vibe_coding
     'crispy_forms',
     'crispy_bootstrap5',
@@ -226,7 +227,14 @@ SOCIALACCOUNT_PROVIDERS = {
         'EXCHANGE_TOKEN': True,
         'VERIFIED_EMAIL': False,
         'VERSION': 'v24.0',
-    }
+    },
+    'microsoft': {
+        # 'common' allows any Microsoft account (personal + work/school from any org)
+        # Use 'organizations' to restrict to work/school accounts only
+        # Use specific tenant ID to restrict to single organization
+        'TENANT': 'common',
+        'SCOPE': ['User.Read', 'profile', 'email', 'openid'],
+    },
 }
 
 
