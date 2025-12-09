@@ -40,6 +40,13 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         """Allow automatic signup for social logins on all domains."""
         return True
 
+    def is_open_for_signup(self, request, sociallogin):
+        """
+        Allow OAuth signup on all domains, including delegation.
+        This overrides the AccountAdapter's is_open_for_signup for social logins.
+        """
+        return True
+
     def populate_user(self, request, sociallogin, data):
         """Populate user with data from social provider."""
         user = super().populate_user(request, sociallogin, data)
