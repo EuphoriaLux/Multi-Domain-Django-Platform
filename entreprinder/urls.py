@@ -19,7 +19,8 @@ urlpatterns = [
     path('matching/matches/', views_matching.matches, name='matches'),
 
     # FinOps Hub URLs (merged from finops_hub app)
-    path('finops/', include('entreprinder.finops.urls')),
+    # Namespace 'finops_hub' is defined in entreprinder.finops.urls via app_name
+    path('finops/', include(('entreprinder.finops.urls', 'finops_hub'))),
 
     # Vibe Coding URLs (merged from vibe_coding app)
     path('vibe-coding/', include('entreprinder.vibe.urls')),
