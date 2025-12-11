@@ -1,4 +1,70 @@
 {% extends 'crush_lu/base.html' %}
+{% load static %}
+
+{% block title %}Crush.lu - Meet New People in Luxembourg | Dating Events & Singles Meetups{% endblock %}
+
+{% block og_title %}Crush.lu - Meet New People in Luxembourg{% endblock %}
+{% block og_description %}Privacy-first dating platform for Luxembourg. Join coach-curated events, meet real singles, and build authentic connections. No endless swiping - just meaningful meetups.{% endblock %}
+
+{% block twitter_title %}Crush.lu - Meet New People in Luxembourg{% endblock %}
+{% block twitter_description %}Privacy-first dating platform for Luxembourg. Join coach-curated events, meet real singles, and build authentic connections.{% endblock %}
+
+{% block meta_description %}Crush.lu is Luxembourg's privacy-first dating platform. Meet singles at curated speed dating events, social mixers, and themed meetups. Coach-reviewed profiles ensure authentic connections.{% endblock %}
+{% block meta_keywords %}crush.lu, dating luxembourg, speed dating luxembourg, singles events luxembourg, meetup luxembourg, dating events, luxembourg singles, coach dating, privacy dating{% endblock %}
+
+{% block structured_data %}
+{{ block.super }}
+
+<!-- WebSite Schema for sitelinks search box -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Crush.lu",
+    "url": "https://crush.lu",
+    "description": "Privacy-first dating platform for Luxembourg with coach-curated events and meaningful connections.",
+    "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://crush.lu/events/?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+    }
+}
+</script>
+
+<!-- FAQPage Schema for How It Works section -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+        {
+            "@type": "Question",
+            "name": "How does Crush.lu work?",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Create your profile, get coach approval within 24-48 hours, then join speed dating nights and social meetups to meet real people in person."
+            }
+        },
+        {
+            "@type": "Question",
+            "name": "Is Crush.lu free to join?",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! Creating a profile is free. Some events may have a small registration fee to cover venue costs."
+            }
+        },
+        {
+            "@type": "Question",
+            "name": "What makes Crush.lu different from other dating apps?",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Crush.lu focuses on privacy-first, event-based dating. All profiles are reviewed by Crush Coaches, and you meet people at organized events instead of endless swiping."
+            }
+        }
+    ]
+}
+</script>
+{% endblock %}
 
 {% block extra_css %}
 <style>

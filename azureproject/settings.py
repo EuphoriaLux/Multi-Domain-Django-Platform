@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',
+    'django.contrib.sitemaps',  # SEO: Dynamic sitemap generation
     'allauth',
     'allauth.account',
     'allauth.socialaccount',

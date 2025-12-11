@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ LANGUAGE_CODE|default:'en' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,16 +7,30 @@
 
     <!-- Favicon -->
     {% load static %}
+    {% load i18n %}
     <link rel="icon" type="image/x-icon" href="{% static 'crush_lu/crush_favicon.ico' %}">
 
+    <!-- SEO: Canonical URL (prevents duplicate content issues) -->
+    <link rel="canonical" href="{% block canonical_url %}https://crush.lu{{ request.path }}{% endblock %}">
+
+    <!-- SEO: Hreflang tags for multi-language support -->
+    {% block hreflang_tags %}
+    <link rel="alternate" hreflang="en" href="https://crush.lu/en{{ request.path|slice:'3:' }}">
+    <link rel="alternate" hreflang="de" href="https://crush.lu/de{{ request.path|slice:'3:' }}">
+    <link rel="alternate" hreflang="fr" href="https://crush.lu/fr{{ request.path|slice:'3:' }}">
+    <link rel="alternate" hreflang="x-default" href="https://crush.lu{{ request.path }}">
+    {% endblock %}
+
     <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
+    <meta property="og:type" content="{% block og_type %}website{% endblock %}">
     <meta property="og:url" content="https://crush.lu{{ request.path }}">
     <meta property="og:title" content="{% block og_title %}Crush.lu - Meet New People in Luxembourg{% endblock %}">
     <meta property="og:description" content="{% block og_description %}Privacy-first dating platform for Luxembourg. Meet real people at organized events - no endless swiping, just authentic connections.{% endblock %}">
     <meta property="og:image" content="{% block og_image %}https://crush.lu{% static 'crush_lu/crush_social_preview.jpg' %}{% endblock %}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
+    <meta property="og:locale" content="{{ LANGUAGE_CODE|default:'en' }}_{{ LANGUAGE_CODE|default:'EN'|upper }}">
+    <meta property="og:site_name" content="Crush.lu">
     <meta property="fb:app_id" content="1170910678282435">
 
     <!-- Twitter -->
@@ -28,7 +42,38 @@
 
     <!-- Additional SEO -->
     <meta name="description" content="{% block meta_description %}Privacy-first dating platform for Luxembourg. Coach-curated profiles and event-based meetups for authentic connections.{% endblock %}">
-    <meta name="keywords" content="{% block meta_keywords %}dating luxembourg, meetups luxembourg, singles events, crush.lu, dating events{% endblock %}">
+    <meta name="keywords" content="{% block meta_keywords %}dating luxembourg, meetups luxembourg, singles events, crush.lu, dating events, speed dating luxembourg, singles events luxembourg{% endblock %}">
+    <meta name="robots" content="{% block meta_robots %}index, follow{% endblock %}">
+    <meta name="author" content="Crush.lu">
+    <meta name="geo.region" content="LU">
+    <meta name="geo.placename" content="Luxembourg">
+
+    <!-- Schema.org Organization Structured Data (JSON-LD) -->
+    {% block structured_data %}
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Crush.lu",
+        "alternateName": "Crush Luxembourg",
+        "url": "https://crush.lu",
+        "logo": "https://crush.lu{% static 'crush_lu/icons/icon-512x512.png' %}",
+        "description": "Privacy-first dating platform for Luxembourg. Meet real people at organized events - no endless swiping, just authentic connections.",
+        "foundingDate": "2024",
+        "areaServed": {
+            "@type": "Country",
+            "name": "Luxembourg"
+        },
+        "sameAs": [],
+        "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "customer service",
+            "email": "love@crush.lu",
+            "availableLanguage": ["English", "German", "French"]
+        }
+    }
+    </script>
+    {% endblock %}
 
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#9B59B6">
