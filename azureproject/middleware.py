@@ -4,12 +4,14 @@ Custom middleware for multi-domain Django application.
 
 This module contains middleware for:
 - Health check bypass (Azure App Service)
+- Safe site detection (auto-creates missing Site objects)
 - Domain-based URL routing
 - Admin language forcing
 """
 import logging
 from django.utils import translation
 from django.http import HttpResponse
+from django.contrib.sites.models import Site
 
 from .domains import (
     DOMAINS,
@@ -37,6 +39,70 @@ class HealthCheckMiddleware:
         if request.path in ['/healthz/', '/healthz']:
             return HttpResponse("OK", status=200, content_type="text/plain")
         return self.get_response(request)
+
+
+class SafeCurrentSiteMiddleware:
+    """
+    Safe replacement for django.contrib.sites.middleware.CurrentSiteMiddleware.
+
+    Instead of raising Site.DoesNotExist, this middleware:
+    1. Tries to find a matching Site by domain
+    2. Auto-creates a Site entry if none exists
+    3. Falls back to SITE_ID=1 if auto-creation fails
+
+    This prevents 500 errors from Azure health checks and unknown hosts.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Set request.site safely
+        request.site = self._get_site(request)
+        return self.get_response(request)
+
+    def _get_site(self, request):
+        """Get or create Site for the current request host."""
+        from django.conf import settings
+
+        host = request.get_host().split(':')[0].lower()
+
+        # Skip internal Azure IPs - use default site
+        if host.startswith('169.254.'):
+            return self._get_default_site()
+
+        try:
+            # Try exact domain match first
+            return Site.objects.get(domain__iexact=host)
+        except Site.DoesNotExist:
+            pass
+
+        # Check if this is a known domain from our config
+        config = get_domain_config(host)
+        if config:
+            # Auto-create Site for known domains
+            site, created = Site.objects.get_or_create(
+                domain=host,
+                defaults={'name': config.get('name', host.title())}
+            )
+            if created:
+                logger.info(f"SafeCurrentSiteMiddleware: Auto-created Site for {host}")
+            return site
+
+        # For Azure hostnames, dev hosts, and unknown hosts - use default
+        return self._get_default_site()
+
+    def _get_default_site(self):
+        """Get or create a default Site (ID=1)."""
+        try:
+            return Site.objects.get(pk=1)
+        except Site.DoesNotExist:
+            # Create default site
+            site, _ = Site.objects.get_or_create(
+                pk=1,
+                defaults={'domain': 'powerup.lu', 'name': 'PowerUP'}
+            )
+            logger.info("SafeCurrentSiteMiddleware: Created default Site (pk=1)")
+            return site
 
 
 class ForceAdminToEnglishMiddleware:

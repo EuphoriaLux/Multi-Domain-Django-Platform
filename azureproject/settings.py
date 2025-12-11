@@ -71,8 +71,8 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
-    'django.middleware.common.CommonMiddleware',  # MUST be before CurrentSiteMiddleware
-    'django.contrib.sites.middleware.CurrentSiteMiddleware',  # Detect site based on domain (after CommonMiddleware)
+    'django.middleware.common.CommonMiddleware',  # MUST be before SafeCurrentSiteMiddleware
+    'azureproject.middleware.SafeCurrentSiteMiddleware',  # Safe site detection (auto-creates missing Sites)
     'azureproject.middleware.DomainURLRoutingMiddleware',  # Multi-domain routing
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
