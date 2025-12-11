@@ -101,6 +101,11 @@ class MeetupEvent(models.Model):
     def spots_remaining(self):
         return max(0, self.max_participants - self.get_confirmed_count())
 
+    @property
+    def end_time(self):
+        """Calculate event end time based on start time and duration."""
+        return self.date_time + timedelta(minutes=self.duration_minutes)
+
     def get_confirmed_count(self):
         return self.eventregistration_set.filter(
             status__in=['confirmed', 'attended']

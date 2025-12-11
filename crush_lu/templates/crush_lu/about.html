@@ -1,6 +1,56 @@
 {% extends 'crush_lu/base.html' %}
+{% load static %}
 
-{% block title %}About - Crush.lu{% endblock %}
+{% block title %}About Crush.lu - Privacy-First Dating Platform in Luxembourg{% endblock %}
+
+{% block og_title %}About Crush.lu - Our Mission & Values{% endblock %}
+{% block og_description %}Learn about Crush.lu, Luxembourg's privacy-first dating platform. Discover our mission to bring authentic connections through coach-curated profiles and real-world events.{% endblock %}
+
+{% block meta_description %}About Crush.lu: We're bringing authentic connections back to Luxembourg's dating scene. Coach-reviewed profiles, privacy-focused, and event-based meetups for meaningful relationships.{% endblock %}
+{% block meta_keywords %}about crush.lu, dating luxembourg, crush coaches, privacy dating, authentic connections, luxembourg singles community{% endblock %}
+
+{% block structured_data %}
+{{ block.super }}
+
+<!-- Breadcrumb Schema -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://crush.lu/"
+        },
+        {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "About",
+            "item": "https://crush.lu{% url 'crush_lu:about' %}"
+        }
+    ]
+}
+</script>
+
+<!-- AboutPage Schema -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "AboutPage",
+    "name": "About Crush.lu",
+    "description": "Learn about Crush.lu, Luxembourg's privacy-first dating platform bringing authentic connections through coach-curated profiles and real-world events.",
+    "mainEntity": {
+        "@type": "Organization",
+        "name": "Crush.lu",
+        "description": "Privacy-first dating platform for Luxembourg. Meet real people at organized events - no endless swiping, just authentic connections.",
+        "url": "https://crush.lu",
+        "areaServed": "Luxembourg"
+    }
+}
+</script>
+{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">

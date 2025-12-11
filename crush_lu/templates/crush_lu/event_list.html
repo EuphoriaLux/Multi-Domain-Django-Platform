@@ -1,6 +1,71 @@
 {% extends 'crush_lu/base.html' %}
+{% load static %}
 
-{% block title %}Events - Crush.lu{% endblock %}
+{% block title %}Dating Events Luxembourg - Speed Dating & Singles Meetups | Crush.lu{% endblock %}
+
+{% block og_title %}Dating Events in Luxembourg | Crush.lu{% endblock %}
+{% block og_description %}Browse upcoming speed dating events, social mixers, and singles meetups in Luxembourg. Join Crush.lu events to meet real people and make authentic connections.{% endblock %}
+
+{% block twitter_title %}Dating Events in Luxembourg | Crush.lu{% endblock %}
+{% block twitter_description %}Browse upcoming speed dating events, social mixers, and singles meetups in Luxembourg. Join Crush.lu events to meet real people.{% endblock %}
+
+{% block meta_description %}Find upcoming dating events in Luxembourg. Crush.lu hosts speed dating nights, social mixers, activity meetups, and themed events for singles looking for authentic connections.{% endblock %}
+{% block meta_keywords %}dating events luxembourg, speed dating luxembourg, singles meetups, social mixer luxembourg, crush.lu events, luxembourg dating events{% endblock %}
+
+{% block structured_data %}
+{{ block.super }}
+
+<!-- Breadcrumb Schema -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://crush.lu/"
+        },
+        {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Events",
+            "item": "https://crush.lu{% url 'crush_lu:event_list' %}"
+        }
+    ]
+}
+</script>
+
+<!-- ItemList Schema for Event Collection -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "name": "Upcoming Dating Events in Luxembourg",
+    "description": "Speed dating, social mixers, and singles meetups organized by Crush.lu",
+    "itemListElement": [
+        {% for event in events %}
+        {
+            "@type": "ListItem",
+            "position": {{ forloop.counter }},
+            "item": {
+                "@type": "Event",
+                "name": "{{ event.title|escapejs }}",
+                "startDate": "{{ event.date_time|date:'c' }}",
+                "location": {
+                    "@type": "Place",
+                    "name": "{{ event.location|escapejs }}",
+                    "address": "{{ event.address|escapejs }}"
+                },
+                "url": "https://crush.lu{% url 'crush_lu:event_detail' event.id %}"
+            }
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ]
+}
+</script>
+{% endblock %}
 
 {% block extra_css %}
 <style>

@@ -1,0 +1,524 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+{% load vite_tags %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'vibe_coding/css/pixel_war.css' %}">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<style>
+    /* Override base template container constraints for Pixel Wars */
+    main.container {
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin-top: 0 !important;
+    }
+    
+    @media (min-width: 1024px) {
+        main.container {
+            width: 100vw !important;
+            max-width: 100vw !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pixel-war-container">
+    <header class="pixel-war-header">
+        <h1>🎨 Lux Pixel War</h1>
+        <p class="subtitle">{% trans "Collaborate or compete - Every pixel counts!" %}</p>
+    </header>
+
+    <div class="mobile-container">
+        <!-- Mobile Top Controls Bar (Hidden on Desktop) -->
+        <div class="mobile-controls-bar" id="mobileTopControls" style="display: none;">
+            <div class="controls-row">
+                <button id="mobileMenuToggle" class="menu-toggle-btn" aria-label="Toggle menu">
+                    <span class="menu-icon">☰</span>
+                </button>
+                <div class="quick-color-selector">
+                    <button class="quick-color" data-color="#FF0000" style="background: #FF0000"></button>
+                    <button class="quick-color" data-color="#00FF00" style="background: #00FF00"></button>
+                    <button class="quick-color" data-color="#0000FF" style="background: #0000FF"></button>
+                    <button class="quick-color" data-color="#FFFF00" style="background: #FFFF00"></button>
+                    <button class="quick-color" data-color="#000000" style="background: #000000"></button>
+                    <button class="quick-color" data-color="#FFFFFF" style="background: #FFFFFF; border: 1px solid #ccc;"></button>
+                    <button class="quick-color-more" id="moreColorsBtn" onclick="PixelWarColorManager.showEnhancedPalette()">+</button>
+                </div>
+                <div class="status-indicator">
+                    <span id="mobilePixelsRemaining" class="pixels-counter">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Controls Sidebar (Desktop) / Slide Menu (Mobile) -->
+        <div class="controls-sidebar" id="controlsSidebar">
+            <!-- Color Selection -->
+            <div class="color-section">
+                <h3>{% trans "Choose Color" %}</h3>
+                <div class="color-palette">
+                    <div class="color-grid">
+                        <button class="color-btn" data-color="#FF0000" style="background-color: #FF0000" aria-label="Red"></button>
+                        <button class="color-btn" data-color="#FFA500" style="background-color: #FFA500" aria-label="Orange"></button>
+                        <button class="color-btn" data-color="#FFFF00" style="background-color: #FFFF00" aria-label="Yellow"></button>
+                        <button class="color-btn" data-color="#00FF00" style="background-color: #00FF00" aria-label="Green"></button>
+                        <button class="color-btn" data-color="#00FFFF" style="background-color: #00FFFF" aria-label="Cyan"></button>
+                        <button class="color-btn" data-color="#0000FF" style="background-color: #0000FF" aria-label="Blue"></button>
+                        <button class="color-btn" data-color="#FF00FF" style="background-color: #FF00FF" aria-label="Magenta"></button>
+                        <button class="color-btn" data-color="#800080" style="background-color: #800080" aria-label="Purple"></button>
+                        <button class="color-btn" data-color="#FFC0CB" style="background-color: #FFC0CB" aria-label="Pink"></button>
+                        <button class="color-btn" data-color="#A52A2A" style="background-color: #A52A2A" aria-label="Brown"></button>
+                        <button class="color-btn" data-color="#808080" style="background-color: #808080" aria-label="Gray"></button>
+                        <button class="color-btn" data-color="#90EE90" style="background-color: #90EE90" aria-label="Light Green"></button>
+                        <button class="color-btn" data-color="#FFD700" style="background-color: #FFD700" aria-label="Gold"></button>
+                        <button class="color-btn" data-color="#4169E1" style="background-color: #4169E1" aria-label="Royal Blue"></button>
+                        <button class="color-btn" data-color="#FFFFFF" style="background-color: #FFFFFF" aria-label="White"></button>
+                        <button class="color-btn" data-color="#000000" style="background-color: #000000" aria-label="Black"></button>
+                    </div>
+                    <div class="custom-color">
+                        <label for="colorPicker">{% trans "Custom:" %}</label>
+                        <input type="color" id="colorPicker" value="#000000" aria-label="Custom color picker">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Cards -->
+            <div class="info-section">
+                <div class="info-card">
+                    <h3>{% trans "Canvas Info" %}</h3>
+                    <p>
+                        <span>{% trans "Size:" %}</span>
+                        <span id="canvasSize">{{ canvas.width }} × {{ canvas.height }}</span>
+                    </p>
+                    <p>
+                        <span>{% trans "Status:" %}</span>
+                        <span id="status" class="status-active">
+                            {% if canvas.is_active %}{% trans "Active" %}{% else %}{% trans "Inactive" %}{% endif %}
+                        </span>
+                    </p>
+                    
+                    <div class="cooldown-info">
+                        <h4>{% trans "Pixel Limits" %}</h4>
+                        {% if is_authenticated %}
+                            <div class="user-tier registered">
+                                <span class="tier-badge">{% trans "Member" %}</span>
+                                <strong>{{ canvas.registered_pixels_per_minute }} pixels/min</strong>
+                                <small>{% trans "Cooldown:" %} {{ canvas.registered_cooldown_seconds }}s</small>
+                            </div>
+                        {% else %}
+                            <div class="user-tier anonymous">
+                                <span class="tier-badge">{% trans "Guest" %}</span>
+                                <strong>{{ canvas.anonymous_pixels_per_minute }} pixels/min</strong>
+                                <small>{% trans "Cooldown:" %} {{ canvas.anonymous_cooldown_seconds }}s</small>
+                            </div>
+                            <div class="register-incentive">
+                                <p class="incentive-text">
+                                    <strong>{% trans "Want more pixels?" %}</strong>
+                                    <span class="highlight">{{ canvas.registered_pixels_per_minute }} pixels/min</span>
+                                </p>
+                                <a href="{% url 'account_signup' %}" class="btn-register">{% trans "Join Now" %}</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="info-card">
+                    <h3>{% trans "Your Stats" %}</h3>
+                    {% if is_authenticated %}
+                        <p>
+                            <span>{% trans "Player:" %}</span>
+                            <span class="username">{{ request.user.username }}</span>
+                        </p>
+                        {% if user_stats %}
+                            <p>
+                                <span>{% trans "Total:" %}</span>
+                                <span class="stat-value">{{ user_stats.total_pixels_placed }}</span>
+                            </p>
+                        {% endif %}
+                    {% else %}
+                        <p>
+                            <span>{% trans "Player:" %}</span>
+                            <span class="username">{% trans "Guest" %}</span>
+                        </p>
+                        <p class="login-prompt">{% trans "Login to track stats!" %}</p>
+                    {% endif %}
+                    <p>
+                        <span>{% trans "Color:" %}</span>
+                        <span id="selectedColor" style="display: inline-block; width: 20px; height: 20px; background-color: #000000; border: 1px solid #ccc; border-radius: 4px;"></span>
+                    </p>
+                    <p>
+                        <span>{% trans "Next in:" %}</span>
+                        <span id="cooldownTimer" style="font-weight: bold;">Ready</span>
+                    </p>
+                    <p>
+                        <span>{% trans "Remaining:" %}</span>
+                        <span id="pixelsRemaining" style="font-weight: bold;">-</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Canvas -->
+            <div class="canvas-section">
+                <div class="canvas-wrapper">
+                    <!-- Desktop Controls -->
+                    <div class="desktop-canvas-controls">
+                        <div class="zoom-controls">
+                            <button id="zoomInDesktop" class="zoom-btn desktop-only" aria-label="Zoom in">➕</button>
+                            <button id="zoomOutDesktop" class="zoom-btn desktop-only" aria-label="Zoom out">➖</button>
+                            <button id="zoomResetDesktop" class="zoom-btn desktop-only" aria-label="Reset zoom">🔄</button>
+                        </div>
+                        <!-- Desktop navigation controls removed -->
+                    </div>
+                    <div class="canvas-container" id="canvasContainer">
+                        <canvas id="pixelCanvas" 
+                                width="1000" 
+                                height="1000" 
+                                data-canvas-id="{{ canvas.id }}"
+                                data-grid-width="{{ canvas.width }}"
+                                data-grid-height="{{ canvas.height }}"
+                                role="img"
+                                aria-label="Pixel canvas grid">
+                        </canvas>
+                        <div class="pixel-tooltip" id="pixelTooltip" role="tooltip"></div>
+                        <div class="pixel-crosshair" id="pixelCrosshair"></div>
+                    </div>
+                    
+                    <!-- Mobile Canvas Controls (Hidden on Desktop) -->
+                    <div class="mobile-canvas-controls" style="display: none;">
+                        <!-- Corner navigation removed - unnecessary for mobile UX -->
+                        
+                        <div class="zoom-control-bar">
+                            <button id="zoomOut" class="zoom-btn" aria-label="Zoom out">
+                                <span>−</span>
+                            </button>
+                            <div class="zoom-indicator">
+                                <span id="zoomLevel">100%</span>
+                            </div>
+                            <button id="zoomIn" class="zoom-btn" aria-label="Zoom in">
+                                <span>+</span>
+                            </button>
+                        </div>
+                        
+                        <div class="canvas-tools">
+                            <button id="gridToggle" class="tool-btn" aria-label="Toggle grid">
+                                <span class="tool-icon">⊞</span>
+                            </button>
+                            <button id="crosshairToggle" class="tool-btn" aria-label="Toggle crosshair">
+                                <span class="tool-icon">⊕</span>
+                            </button>
+                            <!-- Minimap toggle removed for performance -->
+                            <button id="centerViewBtn" class="tool-btn" aria-label="Center view" onclick="PixelWarNavigation.centerView()">
+                                <span class="tool-icon">⊙</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Feed -->
+        <div class="activity-section">
+            <h3>{% trans "Recent Activity" %}</h3>
+            <div id="activityList" class="activity-list" role="log" aria-live="polite">
+                <p class="loading">{% trans "Loading activity..." %}</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Mobile Slide-out Menu Overlay -->
+    <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
+</div>
+
+<!-- Mobile Bottom Action Bar (Hidden on Desktop) -->
+<div class="mobile-action-bar" id="mobileActionBar" style="display: none;">
+    <div class="action-bar-content">
+        <div class="selected-color-display">
+            <span class="label">Color:</span>
+            <div id="selectedColorMobile" class="color-preview"></div>
+        </div>
+        <button id="placePixelBtn" class="place-pixel-btn" disabled>
+            <span class="btn-text">Place Pixel</span>
+            <span class="cooldown-text" id="cooldownDisplay">Ready</span>
+        </button>
+        <div class="pixels-info">
+            <span class="label">Pixels:</span>
+            <span id="pixelsRemainingMobile">0</span>
+        </div>
+    </div>
+</div>
+
+<!-- Fullscreen Toggle Button (Desktop Only) -->
+<button id="fullscreenToggle" class="fullscreen-toggle" aria-label="Toggle fullscreen canvas" title="Toggle fullscreen canvas">
+    ⛶
+</button>
+
+<!-- Mobile Onboarding System -->
+<div id="mobileOnboarding" class="mobile-onboarding-overlay" style="display: none;">
+    <div class="onboarding-container">
+        <!-- Step 1: Welcome -->
+        <div class="onboarding-step" data-step="1">
+            <div class="step-header">
+                <h3>🎨 Welcome to Lux Pixel War!</h3>
+                <p>Let's learn the mobile controls in 30 seconds</p>
+            </div>
+            <div class="step-content">
+                <div class="welcome-features">
+                    <div class="feature-item">
+                        <div class="feature-icon">👆</div>
+                        <div class="feature-text">
+                            <strong>Touch & Paint</strong><br>
+                            <span>Tap to place pixels instantly</span>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">🎯</div>
+                        <div class="feature-text">
+                            <strong>Precision Mode</strong><br>
+                            <span>Preview before placing</span>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">🎨</div>
+                        <div class="feature-text">
+                            <strong>Quick Colors</strong><br>
+                            <span>Fast color switching</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="step-actions">
+                <button class="btn-skip" onclick="PixelWarOnboarding.skip()">Skip Tutorial</button>
+                <button class="btn-next" onclick="PixelWarOnboarding.nextStep()">Let's Start!</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Touch Controls -->
+        <div class="onboarding-step" data-step="2" style="display: none;">
+            <div class="step-header">
+                <h3>👆 Touch Controls</h3>
+                <p>Learn how to navigate and interact</p>
+            </div>
+            <div class="step-content">
+                <div class="gesture-demo">
+                    <div class="demo-canvas">
+                        <div class="demo-finger" id="demoFinger"></div>
+                        <div class="demo-action-text" id="demoActionText">Tap to place pixels</div>
+                    </div>
+                    <div class="gesture-list">
+                        <div class="gesture-item active" data-gesture="tap">
+                            <span class="gesture-icon">👆</span>
+                            <span class="gesture-label">Tap to place pixel</span>
+                        </div>
+                        <div class="gesture-item" data-gesture="drag">
+                            <span class="gesture-icon">✋</span>
+                            <span class="gesture-label">Drag to pan around</span>
+                        </div>
+                        <div class="gesture-item" data-gesture="pinch">
+                            <span class="gesture-icon">🤏</span>
+                            <span class="gesture-label">Pinch to zoom in/out</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="step-actions">
+                <button class="btn-back" onclick="PixelWarOnboarding.previousStep()">Back</button>
+                <button class="btn-next" onclick="PixelWarOnboarding.nextStep()">Got it!</button>
+            </div>
+        </div>
+
+        <!-- Step 3: Modes & Features -->
+        <div class="onboarding-step" data-step="3" style="display: none;">
+            <div class="step-header">
+                <h3>🎯 Touch Modes</h3>
+                <p>Choose your preferred interaction style</p>
+            </div>
+            <div class="step-content">
+                <div class="mode-comparison">
+                    <div class="mode-card tap-mode">
+                        <div class="mode-header">
+                            <div class="mode-icon">⚡</div>
+                            <h4>Tap Mode</h4>
+                            <span class="mode-badge fast">Fast</span>
+                        </div>
+                        <div class="mode-description">
+                            <p>Instant pixel placement</p>
+                            <ul>
+                                <li>✓ Quick and responsive</li>
+                                <li>✓ Great for filling areas</li>
+                                <li>⚠ May place accidentally</li>
+                            </ul>
+                        </div>
+                        <button class="mode-select-btn" onclick="PixelWarOnboarding.selectMode('tap')">Try Tap Mode</button>
+                    </div>
+                    <div class="mode-card precision-mode">
+                        <div class="mode-header">
+                            <div class="mode-icon">🎯</div>
+                            <h4>Precision Mode</h4>
+                            <span class="mode-badge accurate">Accurate</span>
+                        </div>
+                        <div class="mode-description">
+                            <p>Preview before placing</p>
+                            <ul>
+                                <li>✓ No accidental pixels</li>
+                                <li>✓ Perfect placement</li>
+                                <li>⚠ Slightly slower</li>
+                            </ul>
+                        </div>
+                        <button class="mode-select-btn" onclick="PixelWarOnboarding.selectMode('precision')">Try Precision</button>
+                    </div>
+                </div>
+            </div>
+            <div class="step-actions">
+                <button class="btn-back" onclick="PixelWarOnboarding.previousStep()">Back</button>
+                <button class="btn-finish" onclick="PixelWarOnboarding.finish()">Start Playing!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Indicator -->
+    <div class="onboarding-progress">
+        <div class="progress-dots">
+            <div class="progress-dot active" data-step="1"></div>
+            <div class="progress-dot" data-step="2"></div>
+            <div class="progress-dot" data-step="3"></div>
+        </div>
+        <div class="progress-text">
+            <span id="progressText">Step 1 of 3</span>
+        </div>
+    </div>
+</div>
+
+<!-- Touch Mode Indicator -->
+<div id="touchModeIndicator" class="touch-mode-indicator" style="display: none;">
+    <div class="mode-display">
+        <div class="mode-icon-container">
+            <span id="modeIcon" class="mode-icon">⚡</span>
+        </div>
+        <div class="mode-info">
+            <span id="modeLabel" class="mode-label">Tap Mode</span>
+            <span id="modeDescription" class="mode-description">Instant placement</span>
+        </div>
+        <button id="switchModeBtn" class="switch-mode-btn" onclick="PixelWarModeManager.toggleMode()">
+            <span class="switch-icon">🔄</span>
+        </button>
+    </div>
+    <div class="mode-help-tip" id="modeHelpTip" style="display: none;">
+        <p>💡 <strong>Tip:</strong> <span id="modeHelpText">Tap anywhere to place pixels instantly!</span></p>
+    </div>
+</div>
+
+<!-- Enhanced Color Palette -->
+<div id="enhancedColorPalette" class="enhanced-color-palette" style="display: none;">
+    <div class="palette-header">
+        <span class="palette-title">Quick Colors</span>
+        <button class="palette-close" onclick="PixelWarColorManager.hideEnhancedPalette()">×</button>
+    </div>
+    <div class="color-sections">
+        <div class="quick-colors-expanded">
+            <button class="color-btn-enhanced" data-color="#FF0000" style="background: #FF0000" aria-label="Red"></button>
+            <button class="color-btn-enhanced" data-color="#FF8C00" style="background: #FF8C00" aria-label="Orange"></button>
+            <button class="color-btn-enhanced" data-color="#FFD700" style="background: #FFD700" aria-label="Gold"></button>
+            <button class="color-btn-enhanced" data-color="#32CD32" style="background: #32CD32" aria-label="Lime"></button>
+            <button class="color-btn-enhanced" data-color="#00CED1" style="background: #00CED1" aria-label="Turquoise"></button>
+            <button class="color-btn-enhanced" data-color="#4169E1" style="background: #4169E1" aria-label="Royal Blue"></button>
+            <button class="color-btn-enhanced" data-color="#8A2BE2" style="background: #8A2BE2" aria-label="Blue Violet"></button>
+            <button class="color-btn-enhanced" data-color="#FF1493" style="background: #FF1493" aria-label="Deep Pink"></button>
+            <button class="color-btn-enhanced" data-color="#000000" style="background: #000000" aria-label="Black"></button>
+            <button class="color-btn-enhanced" data-color="#FFFFFF" style="background: #FFFFFF; border: 1px solid #ccc;" aria-label="White"></button>
+        </div>
+        <div class="recent-colors" id="recentColorsSection">
+            <div class="section-label">Recently Used</div>
+            <div class="recent-colors-list" id="recentColorsList">
+                <!-- Recent colors will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notification Toast -->
+<div id="notification" class="notification" role="alert" aria-live="assertive"></div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const CANVAS_CONFIG = {
+        id: {{ canvas.id }},
+        gridWidth: {{ canvas.width }},
+        gridHeight: {{ canvas.height }},
+        canvasWidth: 1000,
+        canvasHeight: 1000,
+        pixelSize: 10, // 1000/100 = 10 pixels per grid cell
+        anonymousCooldown: {{ canvas.anonymous_cooldown_seconds }},
+        registeredCooldown: {{ canvas.registered_cooldown_seconds }},
+        anonymousPixelsPerMinute: {{ canvas.anonymous_pixels_per_minute }},
+        registeredPixelsPerMinute: {{ canvas.registered_pixels_per_minute }},
+        isAuthenticated: {% if is_authenticated %}true{% else %}false{% endif %}
+    };
+</script>
+{% comment %} Load Pixel War using Vite build system (modular) {% endcomment %}
+{% vite_asset 'pixel-war-app' %}
+
+{% comment %} Pixel War initialization happens automatically via bundled script {% endcomment %}
+<script>
+    // Ensure mobile classes are available globally for onclick handlers
+    // This runs after the bundled script loads
+    document.addEventListener('DOMContentLoaded', function() {
+        // Mobile classes should already be available via pixel-war-app.js
+        // This is just a fallback check
+        if (typeof window.PixelWarOnboarding === 'undefined') {
+            console.warn('Mobile classes not found - falling back to module imports');
+        }
+    });
+</script>
+
+<script>
+    // Setup responsive controls after page loads
+    (function() {
+        var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+        
+        function setupControls() {
+            if (isMobile) {
+                // Show mobile controls
+                document.querySelectorAll('.mobile-controls-bar, .mobile-canvas-controls, .mobile-action-bar').forEach(function(el) {
+                    if (el) el.style.display = '';
+                });
+                // Hide desktop controls
+                document.querySelectorAll('.desktop-canvas-controls').forEach(function(el) {
+                    if (el) el.style.display = 'none';
+                });
+            } else {
+                // Hide mobile controls on desktop
+                document.querySelectorAll('.mobile-controls-bar, .mobile-canvas-controls, .mobile-action-bar').forEach(function(el) {
+                    if (el) el.style.display = 'none';
+                });
+                // Show desktop controls
+                document.querySelectorAll('.desktop-canvas-controls').forEach(function(el) {
+                    if (el) el.style.display = '';
+                });
+            }
+        }
+        
+        // Setup controls when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupControls);
+        } else {
+            setupControls();
+        }
+        
+        // Handle responsive changes
+        window.addEventListener('resize', function() {
+            var newIsMobile = window.innerWidth < 768;
+            if (newIsMobile !== isMobile) {
+                location.reload(); // Reload to switch between mobile/desktop layout
+            }
+        });
+    })();
+</script>
+{% endblock %}

@@ -1,6 +1,85 @@
 {% extends 'crush_lu/base.html' %}
+{% load static %}
 
-{% block title %}How It Works - Crush.lu{% endblock %}
+{% block title %}How Crush.lu Works - 4 Steps to Meet Singles in Luxembourg{% endblock %}
+
+{% block og_title %}How Crush.lu Works - Meet Singles in Luxembourg{% endblock %}
+{% block og_description %}Discover how Crush.lu helps you meet singles in Luxembourg. Create your profile, get coach approval, join events, and make authentic connections. No endless swiping!{% endblock %}
+
+{% block meta_description %}Learn how Crush.lu works in 4 simple steps: Create your profile, get coach approval, browse events, and meet real people. Luxembourg's privacy-first dating platform.{% endblock %}
+{% block meta_keywords %}how crush.lu works, dating process luxembourg, speed dating how it works, meet singles luxembourg, coach dating{% endblock %}
+
+{% block structured_data %}
+{{ block.super }}
+
+<!-- Breadcrumb Schema -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://crush.lu/"
+        },
+        {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "How It Works",
+            "item": "https://crush.lu{% url 'crush_lu:how_it_works' %}"
+        }
+    ]
+}
+</script>
+
+<!-- HowTo Schema -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "How to Start Dating with Crush.lu",
+    "description": "A step-by-step guide to meeting singles in Luxembourg through Crush.lu's coach-curated dating events.",
+    "totalTime": "P2D",
+    "estimatedCost": {
+        "@type": "MonetaryAmount",
+        "currency": "EUR",
+        "value": "0"
+    },
+    "step": [
+        {
+            "@type": "HowToStep",
+            "position": 1,
+            "name": "Create Your Profile",
+            "text": "Share who you are, what you love, and what you're looking for. Add photos and let your personality shine through.",
+            "url": "https://crush.lu{% url 'crush_lu:signup' %}"
+        },
+        {
+            "@type": "HowToStep",
+            "position": 2,
+            "name": "Get Coach Approval",
+            "text": "A dedicated Crush Coach reviews your profile within 24-48 hours, provides personalized feedback, and ensures authenticity.",
+            "url": "https://crush.lu{% url 'crush_lu:how_it_works' %}"
+        },
+        {
+            "@type": "HowToStep",
+            "position": 3,
+            "name": "Browse Events",
+            "text": "Once approved, explore speed dating nights, social mixers, themed events, and outdoor adventures.",
+            "url": "https://crush.lu{% url 'crush_lu:event_list' %}"
+        },
+        {
+            "@type": "HowToStep",
+            "position": 4,
+            "name": "Make Connections",
+            "text": "Show up, be yourself, and meet amazing people face-to-face. Real relationships start with real conversations.",
+            "url": "https://crush.lu{% url 'crush_lu:event_list' %}"
+        }
+    ]
+}
+</script>
+{% endblock %}
 
 {% block extra_css %}
 <style>

@@ -1,6 +1,88 @@
 {% extends 'crush_lu/base.html' %}
+{% load static %}
 
 {% block title %}{{ event.title }} - Crush.lu{% endblock %}
+
+{% block og_type %}article{% endblock %}
+{% block og_title %}{{ event.title }} - {{ event.get_event_type_display }} | Crush.lu{% endblock %}
+{% block og_description %}{{ event.description|truncatewords:30 }} Join us on {{ event.date_time|date:"F j, Y" }} at {{ event.location }}.{% endblock %}
+
+{% block twitter_title %}{{ event.title }} - {{ event.get_event_type_display }} | Crush.lu{% endblock %}
+{% block twitter_description %}{{ event.description|truncatewords:30 }} Join us on {{ event.date_time|date:"F j, Y" }} at {{ event.location }}.{% endblock %}
+
+{% block meta_description %}{{ event.description|truncatewords:25 }} {{ event.get_event_type_display }} event on {{ event.date_time|date:"F j, Y" }} at {{ event.location }}, Luxembourg.{% endblock %}
+{% block meta_keywords %}{{ event.title }}, {{ event.get_event_type_display|lower }}, dating event luxembourg, {{ event.location|lower }}, singles event{% endblock %}
+
+{% block structured_data %}
+{{ block.super }}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "Event",
+    "name": "{{ event.title|escapejs }}",
+    "description": "{{ event.description|escapejs }}",
+    "startDate": "{{ event.date_time|date:'c' }}",
+    "endDate": "{{ event.end_time|date:'c' }}",
+    "eventStatus": "{% if event.is_cancelled %}https://schema.org/EventCancelled{% else %}https://schema.org/EventScheduled{% endif %}",
+    "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+    "location": {
+        "@type": "Place",
+        "name": "{{ event.location|escapejs }}",
+        "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "{{ event.address|escapejs }}",
+            "addressLocality": "Luxembourg",
+            "addressCountry": "LU"
+        }
+    },
+    "organizer": {
+        "@type": "Organization",
+        "name": "Crush.lu",
+        "url": "https://crush.lu"
+    },
+    "offers": {
+        "@type": "Offer",
+        "url": "https://crush.lu{% url 'crush_lu:event_detail' event.id %}",
+        "price": "{{ event.registration_fee }}",
+        "priceCurrency": "EUR",
+        "availability": "{% if event.is_full %}https://schema.org/SoldOut{% elif event.is_registration_open %}https://schema.org/InStock{% else %}https://schema.org/OutOfStock{% endif %}",
+        "validFrom": "{{ event.created_at|date:'c' }}"
+    },
+    "maximumAttendeeCapacity": {{ event.max_participants }},
+    "remainingAttendeeCapacity": {{ event.spots_remaining }},
+    "typicalAgeRange": "{{ event.min_age }}-{{ event.max_age }}",
+    "image": "https://crush.lu{% static 'crush_lu/crush_social_preview.jpg' %}"
+}
+</script>
+
+<!-- Breadcrumb Schema -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://crush.lu/"
+        },
+        {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Events",
+            "item": "https://crush.lu{% url 'crush_lu:event_list' %}"
+        },
+        {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "{{ event.title|escapejs }}",
+            "item": "https://crush.lu{% url 'crush_lu:event_detail' event.id %}"
+        }
+    ]
+}
+</script>
+{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
