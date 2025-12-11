@@ -23,5 +23,6 @@ urlpatterns = [
     path('finops/', include(('entreprinder.finops.urls', 'finops_hub'))),
 
     # Vibe Coding URLs (merged from vibe_coding app)
-    path('vibe-coding/', include('entreprinder.vibe.urls')),
+    # Namespace 'vibe_coding' is defined in entreprinder.vibe.urls via app_name
+    path('vibe-coding/', include(('entreprinder.vibe.urls', 'vibe_coding'))),
 ]
