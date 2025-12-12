@@ -61,18 +61,13 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'entreprinder:vibe_index' %}">
+                            <a class="nav-link" href="{% url 'vibe_coding:index' %}">
                                 <i class="fas fa-code me-1"></i>{% trans "Vibe Coding" %}
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'entreprinder:contact' %}">
                                 <i class="fas fa-envelope me-1"></i>{% trans "Contact" %}
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'entreprinder:vibe_index' %}">
-                                <i class="fas fa-code me-1"></i>{% trans "Vibe Coding" %}
                             </a>
                         </li>
                         {% if user.is_authenticated %}

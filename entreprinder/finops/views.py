@@ -332,7 +332,7 @@ def update_subscription_id(request, export_id):
                 request,
                 f'Subscription ID saved for {export.subscription_name}. You can now re-import this export.'
             )
-            return redirect('entreprinder:finops_import')
+            return redirect('finops_hub:import')
     else:
         form = SubscriptionIDForm(instance=export)
 
