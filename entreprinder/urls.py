@@ -1,4 +1,4 @@
-from django.urls import path, include
+from django.urls import path
 from . import views
 from . import views_matching
 
@@ -18,11 +18,7 @@ urlpatterns = [
     path('matching/no-more-profiles/', views_matching.no_more_profiles, name='no_more_profiles'),
     path('matching/matches/', views_matching.matches, name='matches'),
 
-    # FinOps Hub URLs (merged from finops_hub app)
-    # Namespace 'finops_hub' is defined in entreprinder.finops.urls via app_name
-    path('finops/', include(('entreprinder.finops.urls', 'finops_hub'))),
-
-    # Vibe Coding URLs (merged from vibe_coding app)
-    # Namespace 'vibe_coding' is defined in entreprinder.vibe.urls via app_name
-    path('vibe-coding/', include(('entreprinder.vibe.urls', 'vibe_coding'))),
+    # NOTE: FinOps Hub and Vibe Coding URLs are included at the project level
+    # (in urls_powerup.py, urls.py) to avoid namespace nesting issues.
+    # Do NOT add them here - they need to be top-level namespaces.
 ]

@@ -23,6 +23,14 @@ urlpatterns = base_patterns + api_patterns + [
     # Entreprinder app URLs (includes matching, finops, and vibe_coding - all merged)
     path('', include('entreprinder.urls', namespace='entreprinder')),
 
+    # FinOps Hub URLs - included directly for top-level namespace access
+    # This allows templates to use {% url 'finops_hub:dashboard' %} without entreprinder prefix
+    path('finops/', include(('entreprinder.finops.urls', 'finops_hub'))),
+
+    # Vibe Coding URLs - included directly for top-level namespace access
+    # This allows templates to use {% url 'vibe_coding:index' %} without entreprinder prefix
+    path('vibe-coding/', include(('entreprinder.vibe.urls', 'vibe_coding'))),
+
     # LinkedIn OAuth callback
     path('login_complete/', entreprinder_views.login_complete, name='login_complete'),
 
