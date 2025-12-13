@@ -15,6 +15,25 @@ else:
     crush_photo_storage = None
 
 
+def user_photo_path(instance, filename):
+    """
+    Generate user-organized path for profile photos.
+    Structure: users/{user_id}/photos/{uuid}_{filename}
+
+    Benefits:
+    - Easy to find all photos for a specific user
+    - Simple GDPR deletion (delete user folder)
+    - Better organization in Azure Storage Explorer
+    - UUID prefix prevents filename conflicts
+    """
+    # Get file extension
+    ext = os.path.splitext(filename)[1].lower()
+    # Generate unique filename with UUID
+    unique_filename = f"{uuid.uuid4().hex}{ext}"
+    # Return path: users/{user_id}/photos/{unique_filename}
+    return f"users/{instance.user.id}/photos/{unique_filename}"
+
+
 class SpecialUserExperience(models.Model):
     """
     Admin-configurable special user experience for VIP/special users.
@@ -226,20 +245,21 @@ class CrushProfile(models.Model):
     )
 
     # Photos (using private storage in production with SAS tokens)
+    # Path structure: users/{user_id}/photos/{uuid}.{ext}
     photo_1 = models.ImageField(
-        upload_to='crush_profiles/',
+        upload_to=user_photo_path,
         blank=True,
         null=True,
         storage=crush_photo_storage
     )
     photo_2 = models.ImageField(
-        upload_to='crush_profiles/',
+        upload_to=user_photo_path,
         blank=True,
         null=True,
         storage=crush_photo_storage
     )
     photo_3 = models.ImageField(
-        upload_to='crush_profiles/',
+        upload_to=user_photo_path,
         blank=True,
         null=True,
         storage=crush_photo_storage

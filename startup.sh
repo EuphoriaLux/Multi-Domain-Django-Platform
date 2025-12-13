@@ -6,10 +6,8 @@ echo "🚀 Starting deployment..."
 echo "📍 Working directory: $(pwd)"
 echo "🐍 Python version: $(python --version)"
 
-# Collect static files (including PWA workbox files)
-# WhiteNoise will serve these with proper caching and compression
-echo "📦 Collecting static files..."
-python manage.py collectstatic --noinput --clear
+# Note: collectstatic is handled by Oryx during build (SCM_DO_BUILD_DURING_DEPLOYMENT=true)
+# Running it here would be redundant and add ~30-60s to startup time
 
 # Run migrations with no-input for faster execution
 python manage.py migrate --no-input
