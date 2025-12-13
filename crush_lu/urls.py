@@ -22,6 +22,7 @@ urlpatterns = [
     # PWA Pages
     path('offline/', views.offline_view, name='offline'),
     path('sw-workbox.js', views.service_worker_view, name='service_worker'),
+    path('manifest.json', views.manifest_view, name='manifest'),
 
     # Legal pages
     path('privacy-policy/', views.privacy_policy, name='privacy_policy'),

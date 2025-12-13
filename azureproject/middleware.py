@@ -155,11 +155,11 @@ class DomainURLRoutingMiddleware:
             request.urlconf = dev_config['urlconf']
             logger.debug(f"DomainURLRoutingMiddleware: Dev host {host} -> {dev_config['urlconf']} (DEV_DEFAULT={DEV_DEFAULT})")
 
-        elif host.endswith('.azurewebsites.net'):
-            # Azure App Service hostname
+        elif host.endswith('.azurewebsites.net') or host.startswith('169.254.'):
+            # Azure App Service hostname or Azure internal IP (health probes, load balancer)
             prod_config = DOMAINS[PRODUCTION_DEFAULT]
             request.urlconf = prod_config['urlconf']
-            logger.debug(f"DomainURLRoutingMiddleware: Azure hostname {host} -> {prod_config['urlconf']}")
+            logger.debug(f"DomainURLRoutingMiddleware: Azure host {host} -> {prod_config['urlconf']}")
 
         else:
             # Fallback to production default

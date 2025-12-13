@@ -6,6 +6,11 @@ echo "🚀 Starting deployment..."
 echo "📍 Working directory: $(pwd)"
 echo "🐍 Python version: $(python --version)"
 
+# Collect static files (including PWA workbox files)
+# WhiteNoise will serve these with proper caching and compression
+echo "📦 Collecting static files..."
+python manage.py collectstatic --noinput --clear
+
 # Run migrations with no-input for faster execution
 python manage.py migrate --no-input
 
