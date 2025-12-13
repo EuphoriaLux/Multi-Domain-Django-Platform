@@ -1,12 +1,12 @@
 {% load i18n %}
 {% load static %}
 {% load socialaccount %}
-{% load analytical %}
+{% load analytics %}
 {# Removed account load - now in settings builtins #}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}">
 <head>
-    {% analytical_head_top %}
+    {% analytics_head %}
     <!-- Termly Cookie Consent Blocker -->
     <script
         type="text/javascript"
@@ -44,10 +44,9 @@
       }
     </style>
     {% endblock %}
-    {% analytical_head_bottom %}
 </head>
 <body class="vinsdelux-page">
-    {% analytical_body_top %}   
+    {% analytics_body %}   
     <header>
         <nav class="navbar navbar-expand-lg navbar-custom">
             <div class="container">
@@ -224,6 +223,5 @@
     </script>
     
     {% block extra_js %}{% endblock %}
-    {% analytical_body_bottom %}
 </body>
 </html>

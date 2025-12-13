@@ -60,7 +60,7 @@ INSTALLED_APPS = [
     'vinsdelux',
     'crush_lu',
     'crush_delegation',
-    'analytical',  # django-analytical for GA4, Facebook Pixel, etc.
+    'azureproject',  # For custom analytics templatetags
 ]
 
 # SITE_ID must NOT be set - CurrentSiteMiddleware determines site dynamically per request
