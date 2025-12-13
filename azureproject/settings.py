@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'crush_lu',
     'crush_delegation',
     'azureproject',  # For custom analytics templatetags
+    'cookie_consent',  # GDPR cookie consent banner
 ]
 
 # SITE_ID must NOT be set - CurrentSiteMiddleware determines site dynamically per request

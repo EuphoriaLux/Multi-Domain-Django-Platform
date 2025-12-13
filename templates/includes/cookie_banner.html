@@ -1,0 +1,417 @@
+{% load cookie_consent_tags %}
+{% load i18n %}
+
+{# Cookie Consent Banner - GDPR Compliant #}
+{# Include this at the bottom of your base template, before </body> #}
+
+{% if request|cookie_group_accepted:"analytics" == None %}
+{# Only show if user hasn't made a choice yet #}
+<div id="cookie-consent-banner" class="cookie-banner" role="dialog" aria-labelledby="cookie-banner-title" aria-describedby="cookie-banner-description">
+    <div class="cookie-banner-content">
+        <div class="cookie-banner-text">
+            <h4 id="cookie-banner-title">{% trans "Cookie Settings" %}</h4>
+            <p id="cookie-banner-description">
+                {% trans "We use cookies to enhance your experience. Analytics cookies help us understand how you use our site. You can accept all cookies or customize your preferences." %}
+            </p>
+        </div>
+        <div class="cookie-banner-actions">
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="showCookieSettings()">
+                {% trans "Customize" %}
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="declineAllCookies()">
+                {% trans "Decline All" %}
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="acceptAllCookies()">
+                {% trans "Accept All" %}
+            </button>
+        </div>
+    </div>
+</div>
+
+{# Cookie Settings Modal #}
+<div id="cookie-settings-modal" class="cookie-modal" role="dialog" aria-labelledby="cookie-settings-title" style="display: none;">
+    <div class="cookie-modal-content">
+        <div class="cookie-modal-header">
+            <h4 id="cookie-settings-title">{% trans "Cookie Preferences" %}</h4>
+            <button type="button" class="cookie-modal-close" onclick="hideCookieSettings()" aria-label="{% trans 'Close' %}">&times;</button>
+        </div>
+        <div class="cookie-modal-body">
+            <div class="cookie-group">
+                <div class="cookie-group-header">
+                    <label class="cookie-toggle">
+                        <input type="checkbox" id="cookie-essential" checked disabled>
+                        <span class="cookie-toggle-slider"></span>
+                    </label>
+                    <div class="cookie-group-info">
+                        <strong>{% trans "Essential Cookies" %}</strong>
+                        <span class="badge bg-secondary">{% trans "Always Active" %}</span>
+                    </div>
+                </div>
+                <p class="cookie-group-description">
+                    {% trans "These cookies are necessary for the website to function and cannot be switched off. They are usually only set in response to actions made by you such as logging in or filling in forms." %}
+                </p>
+            </div>
+
+            <div class="cookie-group">
+                <div class="cookie-group-header">
+                    <label class="cookie-toggle">
+                        <input type="checkbox" id="cookie-analytics" checked>
+                        <span class="cookie-toggle-slider"></span>
+                    </label>
+                    <div class="cookie-group-info">
+                        <strong>{% trans "Analytics Cookies" %}</strong>
+                    </div>
+                </div>
+                <p class="cookie-group-description">
+                    {% trans "These cookies allow us to count visits and traffic sources so we can measure and improve the performance of our site. They help us know which pages are the most and least popular." %}
+                </p>
+            </div>
+
+            <div class="cookie-group">
+                <div class="cookie-group-header">
+                    <label class="cookie-toggle">
+                        <input type="checkbox" id="cookie-marketing">
+                        <span class="cookie-toggle-slider"></span>
+                    </label>
+                    <div class="cookie-group-info">
+                        <strong>{% trans "Marketing Cookies" %}</strong>
+                    </div>
+                </div>
+                <p class="cookie-group-description">
+                    {% trans "These cookies may be set through our site by our advertising partners. They may be used to build a profile of your interests and show you relevant adverts on other sites." %}
+                </p>
+            </div>
+        </div>
+        <div class="cookie-modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="hideCookieSettings()">{% trans "Cancel" %}</button>
+            <button type="button" class="btn btn-primary" onclick="saveCustomCookies()">{% trans "Save Preferences" %}</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+/* Cookie Banner Styles */
+.cookie-banner {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+    z-index: 9999;
+    padding: 1rem;
+    border-top: 3px solid var(--bs-primary, #9B59B6);
+}
+
+.cookie-banner-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.cookie-banner-text {
+    flex: 1;
+    min-width: 300px;
+}
+
+.cookie-banner-text h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+}
+
+.cookie-banner-text p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.cookie-banner-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* Cookie Modal Styles */
+.cookie-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.cookie-modal-content {
+    background: #fff;
+    border-radius: 12px;
+    max-width: 600px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.cookie-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #eee;
+}
+
+.cookie-modal-header h4 {
+    margin: 0;
+}
+
+.cookie-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #666;
+}
+
+.cookie-modal-body {
+    padding: 1.5rem;
+}
+
+.cookie-modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+/* Cookie Group Styles */
+.cookie-group {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #eee;
+}
+
+.cookie-group:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.cookie-group-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.cookie-group-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.cookie-group-description {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #666;
+    padding-left: 3.5rem;
+}
+
+/* Toggle Switch */
+.cookie-toggle {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 26px;
+}
+
+.cookie-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.cookie-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.3s;
+    border-radius: 26px;
+}
+
+.cookie-toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+.cookie-toggle input:checked + .cookie-toggle-slider {
+    background-color: var(--bs-primary, #9B59B6);
+}
+
+.cookie-toggle input:checked + .cookie-toggle-slider:before {
+    transform: translateX(24px);
+}
+
+.cookie-toggle input:disabled + .cookie-toggle-slider {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 576px) {
+    .cookie-banner-content {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .cookie-banner-actions {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .cookie-group-description {
+        padding-left: 0;
+    }
+}
+</style>
+
+<script>
+// Cookie Consent JavaScript
+(function() {
+    const COOKIE_NAME = 'cookie_consent';
+    const COOKIE_EXPIRY_DAYS = 365;
+
+    function setCookie(name, value, days) {
+        const date = new Date();
+        date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+        const expires = "expires=" + date.toUTCString();
+        document.cookie = name + "=" + JSON.stringify(value) + ";" + expires + ";path=/;SameSite=Lax";
+    }
+
+    function getCookie(name) {
+        const nameEQ = name + "=";
+        const ca = document.cookie.split(';');
+        for (let i = 0; i < ca.length; i++) {
+            let c = ca[i];
+            while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+            if (c.indexOf(nameEQ) === 0) {
+                try {
+                    return JSON.parse(c.substring(nameEQ.length, c.length));
+                } catch (e) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    function hideBanner() {
+        const banner = document.getElementById('cookie-consent-banner');
+        if (banner) {
+            banner.style.display = 'none';
+        }
+    }
+
+    function dispatchConsentEvent(consent) {
+        const event = new CustomEvent('cookie_consent_updated', {
+            detail: consent
+        });
+        document.dispatchEvent(event);
+    }
+
+    // Also set django-cookie-consent cookies for server-side checks
+    function setDjangoCookieConsent(groupName, accepted) {
+        const value = accepted ? 'accept' : 'decline';
+        setCookie('cookie_consent_' + groupName, value, COOKIE_EXPIRY_DAYS);
+    }
+
+    window.acceptAllCookies = function() {
+        const consent = {
+            essential: true,
+            analytics: true,
+            marketing: true,
+            timestamp: new Date().toISOString()
+        };
+        setCookie(COOKIE_NAME, consent, COOKIE_EXPIRY_DAYS);
+        setDjangoCookieConsent('analytics', true);
+        setDjangoCookieConsent('marketing', true);
+        hideBanner();
+        dispatchConsentEvent(consent);
+    };
+
+    window.declineAllCookies = function() {
+        const consent = {
+            essential: true,
+            analytics: false,
+            marketing: false,
+            timestamp: new Date().toISOString()
+        };
+        setCookie(COOKIE_NAME, consent, COOKIE_EXPIRY_DAYS);
+        setDjangoCookieConsent('analytics', false);
+        setDjangoCookieConsent('marketing', false);
+        hideBanner();
+        dispatchConsentEvent(consent);
+    };
+
+    window.showCookieSettings = function() {
+        document.getElementById('cookie-settings-modal').style.display = 'flex';
+    };
+
+    window.hideCookieSettings = function() {
+        document.getElementById('cookie-settings-modal').style.display = 'none';
+    };
+
+    window.saveCustomCookies = function() {
+        const analyticsChecked = document.getElementById('cookie-analytics').checked;
+        const marketingChecked = document.getElementById('cookie-marketing').checked;
+
+        const consent = {
+            essential: true,
+            analytics: analyticsChecked,
+            marketing: marketingChecked,
+            timestamp: new Date().toISOString()
+        };
+
+        setCookie(COOKIE_NAME, consent, COOKIE_EXPIRY_DAYS);
+        setDjangoCookieConsent('analytics', analyticsChecked);
+        setDjangoCookieConsent('marketing', marketingChecked);
+        hideBanner();
+        hideCookieSettings();
+        dispatchConsentEvent(consent);
+    };
+
+    // Close modal on outside click
+    document.addEventListener('click', function(e) {
+        const modal = document.getElementById('cookie-settings-modal');
+        if (e.target === modal) {
+            hideCookieSettings();
+        }
+    });
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            hideCookieSettings();
+        }
+    });
+})();
+</script>

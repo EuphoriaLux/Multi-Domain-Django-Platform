@@ -39,3 +39,6 @@ requests==2.32.3
 # Push Notifications
 py-vapid==1.9.1
 pywebpush==2.1.2
+
+# Cookie Consent (GDPR/ePrivacy)
+django-cookie-consent==0.8.0
