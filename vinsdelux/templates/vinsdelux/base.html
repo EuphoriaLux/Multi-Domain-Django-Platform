@@ -1,23 +1,17 @@
 {% load i18n %}
 {% load static %}
 {% load socialaccount %}
+{% load analytical %}
 {# Removed account load - now in settings builtins #}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}">
 <head>
+    {% analytical_head_top %}
+    <!-- Termly Cookie Consent Blocker -->
     <script
         type="text/javascript"
         src="https://app.termly.io/resource-blocker/73a95dc5-f718-4b6c-8338-1449db86c45b?autoBlock=on"
     ></script>
-  
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KECD3RMYZB"></script>
-    <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-KECD3RMYZB');
-    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Vinsdelux{% endblock %}</title>
@@ -50,8 +44,10 @@
       }
     </style>
     {% endblock %}
+    {% analytical_head_bottom %}
 </head>
-<body class="vinsdelux-page">   
+<body class="vinsdelux-page">
+    {% analytical_body_top %}   
     <header>
         <nav class="navbar navbar-expand-lg navbar-custom">
             <div class="container">
@@ -228,5 +224,6 @@
     </script>
     
     {% block extra_js %}{% endblock %}
+    {% analytical_body_bottom %}
 </body>
 </html>

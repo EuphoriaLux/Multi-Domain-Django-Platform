@@ -1,13 +1,15 @@
+{% load static %}
+{% load i18n %}
+{% load analytical %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE|default:'en' }}">
 <head>
+    {% analytical_head_top %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Crush.lu - Meet New People{% endblock %}</title>
 
     <!-- Favicon -->
-    {% load static %}
-    {% load i18n %}
     <link rel="icon" type="image/x-icon" href="{% static 'crush_lu/crush_favicon.ico' %}">
 
     <!-- SEO: Canonical URL (prevents duplicate content issues) -->
@@ -99,8 +101,10 @@
     <link rel="stylesheet" href="{% static 'crush_lu/css/crush.css' %}">
 
     {% block extra_css %}{% endblock %}
+    {% analytical_head_bottom %}
 </head>
 <body>
+    {% analytical_body_top %}
     <!-- Loading Overlay -->
     <div id="page-loading-overlay">
         <div class="loading-content">
@@ -535,5 +539,6 @@
     </script>
 
     {% block extra_js %}{% endblock %}
+    {% analytical_body_bottom %}
 </body>
 </html>
