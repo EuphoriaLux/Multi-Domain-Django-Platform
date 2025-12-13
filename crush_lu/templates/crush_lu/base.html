@@ -1,10 +1,10 @@
 {% load static %}
 {% load i18n %}
-{% load analytical %}
+{% load analytics %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE|default:'en' }}">
 <head>
-    {% analytical_head_top %}
+    {% analytics_head %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Crush.lu - Meet New People{% endblock %}</title>
@@ -101,10 +101,9 @@
     <link rel="stylesheet" href="{% static 'crush_lu/css/crush.css' %}">
 
     {% block extra_css %}{% endblock %}
-    {% analytical_head_bottom %}
 </head>
 <body>
-    {% analytical_body_top %}
+    {% analytics_body %}
     <!-- Loading Overlay -->
     <div id="page-loading-overlay">
         <div class="loading-content">
@@ -539,6 +538,5 @@
     </script>
 
     {% block extra_js %}{% endblock %}
-    {% analytical_body_bottom %}
 </body>
 </html>
