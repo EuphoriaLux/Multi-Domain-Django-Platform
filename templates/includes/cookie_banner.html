@@ -1,12 +1,9 @@
-{% load cookie_consent_tags %}
 {% load i18n %}
 
 {# Cookie Consent Banner - GDPR Compliant #}
 {# Include this at the bottom of your base template, before </body> #}
 
-{% if request|cookie_group_accepted:"analytics" == None %}
-{# Only show if user hasn't made a choice yet #}
-<div id="cookie-consent-banner" class="cookie-banner" role="dialog" aria-labelledby="cookie-banner-title" aria-describedby="cookie-banner-description">
+<div id="cookie-consent-banner" class="cookie-banner" role="dialog" aria-labelledby="cookie-banner-title" aria-describedby="cookie-banner-description" style="display: none;">
     <div class="cookie-banner-content">
         <div class="cookie-banner-text">
             <h4 id="cookie-banner-title">{% trans "Cookie Settings" %}</h4>
@@ -88,7 +85,6 @@
         </div>
     </div>
 </div>
-{% endif %}
 
 <style>
 /* Cookie Banner Styles */
@@ -317,11 +313,18 @@
                 try {
                     return JSON.parse(c.substring(nameEQ.length, c.length));
                 } catch (e) {
-                    return null;
+                    return c.substring(nameEQ.length, c.length);
                 }
             }
         }
         return null;
+    }
+
+    function showBanner() {
+        const banner = document.getElementById('cookie-consent-banner');
+        if (banner) {
+            banner.style.display = 'block';
+        }
     }
 
     function hideBanner() {
@@ -341,7 +344,10 @@
     // Also set django-cookie-consent cookies for server-side checks
     function setDjangoCookieConsent(groupName, accepted) {
         const value = accepted ? 'accept' : 'decline';
-        setCookie('cookie_consent_' + groupName, value, COOKIE_EXPIRY_DAYS);
+        const date = new Date();
+        date.setTime(date.getTime() + (COOKIE_EXPIRY_DAYS * 24 * 60 * 60 * 1000));
+        const expires = "expires=" + date.toUTCString();
+        document.cookie = 'cookie_consent_' + groupName + "=" + value + ";" + expires + ";path=/;SameSite=Lax";
     }
 
     window.acceptAllCookies = function() {
@@ -411,6 +417,18 @@
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             hideCookieSettings();
+        }
+    });
+
+    // Check if consent already given on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const consent = getCookie(COOKIE_NAME);
+        if (!consent) {
+            // No consent cookie found - show banner
+            showBanner();
+        } else {
+            // Consent exists - dispatch event with existing consent
+            dispatchConsentEvent(consent);
         }
     });
 })();
