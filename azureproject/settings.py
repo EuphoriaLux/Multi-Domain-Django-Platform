@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'vinsdelux',
     'crush_lu',
     'crush_delegation',
+    'analytical',  # django-analytical for GA4, Facebook Pixel, etc.
 ]
 
 # SITE_ID must NOT be set - CurrentSiteMiddleware determines site dynamically per request
@@ -107,6 +108,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'django.template.context_processors.i18n',  # Ensure this line is present
                 'crush_lu.context_processors.crush_user_context',  # Crush.lu user context
+                'azureproject.analytics_context.analytics_ids',  # Domain-specific GA4/FB Pixel IDs
             ],
             # 'builtins': [ # Simplify builtins to only include allauth account tags
             #     'allauth.account.templatetags.account',

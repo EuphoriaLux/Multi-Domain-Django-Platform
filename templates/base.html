@@ -1,18 +1,12 @@
 {% load i18n %}
 {% load static %}
 {% load socialaccount %}
+{% load analytical %}
 {# Removed account load - now in settings builtins #}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}">
 <head>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KECD3RMYZB"></script>
-    <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-KECD3RMYZB');
-    </script>
+    {% analytical_head_top %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Entreprinder{% endblock %}</title>
@@ -41,8 +35,10 @@
       }
     </style>
     {% endblock %}
+    {% analytical_head_bottom %}
 </head>
-<body>   
+<body>
+    {% analytical_body_top %}   
     <header>
         <nav class="navbar navbar-expand-lg navbar-custom">
             <div class="container">
@@ -174,5 +170,6 @@
 
     <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
     {% block extra_js %}{% endblock %}
+    {% analytical_body_bottom %}
 </body>
 </html>
