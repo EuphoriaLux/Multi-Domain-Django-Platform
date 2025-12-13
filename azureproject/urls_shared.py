@@ -31,6 +31,7 @@ base_patterns = [
     path('healthz/', health_check, name='health_check'),
     path('i18n/', include('django.conf.urls.i18n')),
     path('accounts/', include('allauth.urls')),
+    path('cookies/', include('cookie_consent.urls')),  # GDPR cookie consent
 ]
 
 # JWT API patterns - included by domains that need API authentication
