@@ -121,7 +121,8 @@ def get_high_res_facebook_photo_url(facebook_id, access_token=None):
     """
     # Request 720x720 photo (maximum size for profile pictures)
     # Using redirect=false returns JSON with the actual URL
-    url = f"https://graph.facebook.com/{facebook_id}/picture?width=720&height=720&redirect=false"
+    # Use Graph API v24.0 to match settings.py
+    url = f"https://graph.facebook.com/v24.0/{facebook_id}/picture?width=720&height=720&redirect=false"
 
     if access_token:
         url += f"&access_token={access_token}"
@@ -139,11 +140,147 @@ def get_high_res_facebook_photo_url(facebook_id, access_token=None):
     return None
 
 
+# Centralized gender mapping to avoid duplication
+FACEBOOK_GENDER_MAPPING = {
+    'male': 'M',
+    'female': 'F',
+    'non-binary': 'NB',
+    'nonbinary': 'NB',
+    'trans': 'NB',
+    'transgender': 'NB',
+    'genderqueer': 'NB',
+    'genderfluid': 'NB',
+    'agender': 'NB',
+    'bigender': 'NB',
+    'pangender': 'NB',
+    'two-spirit': 'NB',
+}
+
+
+def download_and_save_facebook_photo(profile, photo_url, user_id):
+    """
+    Download photo from URL and save to CrushProfile.
+
+    Args:
+        profile: CrushProfile instance
+        photo_url: URL to download photo from
+        user_id: User ID for filename
+
+    Returns:
+        bool: True if photo was saved, False otherwise
+    """
+    try:
+        response = requests.get(photo_url, timeout=15)
+        response.raise_for_status()
+
+        # Validate content type is an image
+        content_type = response.headers.get('Content-Type', '')
+        if not content_type.startswith('image/'):
+            logger.warning(f"Facebook photo URL returned non-image content: {content_type}")
+            return False
+
+        # Determine file extension from content type
+        ext = 'jpg'  # Default
+        if 'png' in content_type:
+            ext = 'png'
+        elif 'gif' in content_type:
+            ext = 'gif'
+        elif 'webp' in content_type:
+            ext = 'webp'
+
+        profile.photo_1.save(
+            f'facebook_{user_id}.{ext}',
+            ContentFile(response.content),
+            save=False
+        )
+        return True
+    except requests.exceptions.Timeout:
+        logger.error(f"Timeout downloading Facebook photo for user {user_id}")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error downloading Facebook photo for user {user_id}: {str(e)}")
+    except Exception as e:
+        logger.error(f"Unexpected error saving Facebook photo for user {user_id}: {str(e)}")
+
+    return False
+
+
+def update_profile_from_facebook_data(profile, extra_data):
+    """
+    Update CrushProfile fields from Facebook extra_data.
+
+    Args:
+        profile: CrushProfile instance
+        extra_data: Dictionary of Facebook user data
+
+    Returns:
+        bool: True if any fields were updated
+    """
+    updated = False
+
+    # Set birthday if available and not already set
+    if extra_data.get('birthday') and not profile.date_of_birth:
+        try:
+            # Facebook birthday format: "MM/DD/YYYY"
+            birthday = datetime.strptime(extra_data['birthday'], '%m/%d/%Y').date()
+            profile.date_of_birth = birthday
+            updated = True
+            logger.info(f"Set date_of_birth from Facebook: {birthday}")
+        except ValueError as e:
+            logger.error(f"Error parsing Facebook birthday '{extra_data['birthday']}': {str(e)}")
+
+    # Set gender if available and not already set
+    if extra_data.get('gender') and not profile.gender:
+        fb_gender = extra_data['gender'].lower()
+        # Map known genders, default to 'O' (Other) for custom/unknown
+        profile.gender = FACEBOOK_GENDER_MAPPING.get(fb_gender, 'O')
+        updated = True
+        logger.info(f"Set gender from Facebook: {fb_gender} -> {profile.gender}")
+
+    return updated
+
+
+def _get_facebook_photo_url(extra_data, access_token=None):
+    """
+    Get the best available Facebook photo URL.
+
+    Tries high-res first, falls back to standard picture from extra_data.
+
+    Args:
+        extra_data: Facebook extra_data dictionary
+        access_token: Optional access token for authenticated requests
+
+    Returns:
+        str: Photo URL or None
+    """
+    facebook_id = extra_data.get('id')
+    photo_url = None
+
+    # Try high-resolution photo first
+    if facebook_id:
+        photo_url = get_high_res_facebook_photo_url(facebook_id, access_token)
+        if photo_url:
+            logger.info(f"Got high-res Facebook photo URL")
+            return photo_url
+
+    # Fallback to standard picture from extra_data
+    if 'picture' in extra_data:
+        if isinstance(extra_data['picture'], dict):
+            photo_url = extra_data['picture'].get('data', {}).get('url')
+        else:
+            photo_url = extra_data['picture']
+        if photo_url:
+            logger.info(f"Using fallback Facebook photo URL")
+
+    return photo_url
+
+
 @receiver(pre_social_login)
 def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
     """
     Update CrushProfile with Facebook data when user logs in with Facebook.
     Only processes Facebook logins for Crush.lu domain.
+
+    This handles EXISTING users logging in again - updates profile if photo missing.
     """
     # Only process Facebook logins
     if sociallogin.account.provider != 'facebook':
@@ -159,79 +296,25 @@ def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
 
     try:
         extra_data = sociallogin.account.extra_data
-        logger.info(f"Facebook extra_data: {extra_data}")
-
-        # Get Facebook user ID for high-res photo request
-        facebook_id = extra_data.get('id')
-
-        # Try to get high-resolution photo first
-        photo_url = None
-        if facebook_id:
-            # Get access token if available for authenticated request
-            access_token = None
-            if sociallogin.token:
-                access_token = sociallogin.token.token
-            photo_url = get_high_res_facebook_photo_url(facebook_id, access_token)
-            logger.info(f"High-res Facebook photo URL: {photo_url}")
-
-        # Fallback to standard picture from extra_data
-        if not photo_url and 'picture' in extra_data:
-            if isinstance(extra_data['picture'], dict):
-                photo_url = extra_data['picture'].get('data', {}).get('url')
-            else:
-                photo_url = extra_data['picture']
-            logger.info(f"Fallback Facebook photo URL: {photo_url}")
+        logger.debug(f"Facebook extra_data keys: {list(extra_data.keys())}")
 
         # If user exists, update their CrushProfile
         if hasattr(sociallogin.user, 'id') and sociallogin.user.id:
             try:
                 profile = CrushProfile.objects.get(user=sociallogin.user)
 
+                # Get access token for authenticated request
+                access_token = sociallogin.token.token if sociallogin.token else None
+
                 # Download and save profile photo if available and not already set
-                if photo_url and not profile.photo_1:
-                    try:
-                        response = requests.get(photo_url, timeout=10)
-                        response.raise_for_status()
+                if not profile.photo_1:
+                    photo_url = _get_facebook_photo_url(extra_data, access_token)
+                    if photo_url:
+                        if download_and_save_facebook_photo(profile, photo_url, sociallogin.user.id):
+                            logger.info(f"Saved Facebook photo for user {sociallogin.user.email}")
 
-                        # Save to photo_1 field
-                        profile.photo_1.save(
-                            f'facebook_{sociallogin.user.id}.jpg',
-                            ContentFile(response.content),
-                            save=False
-                        )
-                        logger.info(f"Saved Facebook photo to CrushProfile for user {sociallogin.user.email}")
-                    except Exception as e:
-                        logger.error(f"Error downloading Facebook photo: {str(e)}")
-
-                # Update profile data from Facebook if not already set
-                if extra_data.get('birthday') and not profile.date_of_birth:
-                    try:
-                        # Facebook birthday format: "MM/DD/YYYY"
-                        birthday = datetime.strptime(extra_data['birthday'], '%m/%d/%Y').date()
-                        profile.date_of_birth = birthday
-                        logger.info(f"Set date_of_birth from Facebook: {birthday}")
-                    except Exception as e:
-                        logger.error(f"Error parsing Facebook birthday: {str(e)}")
-
-                if extra_data.get('gender') and not profile.gender:
-                    fb_gender = extra_data['gender'].lower()
-                    gender_mapping = {
-                        'male': 'M',
-                        'female': 'F',
-                        'non-binary': 'NB',
-                        'nonbinary': 'NB',
-                        'trans': 'NB',
-                        'transgender': 'NB',
-                        'genderqueer': 'NB',
-                        'genderfluid': 'NB',
-                        'agender': 'NB',
-                        'bigender': 'NB',
-                        'pangender': 'NB',
-                        'two-spirit': 'NB',
-                    }
-                    # Map known genders, default to 'O' (Other) for custom/unknown
-                    profile.gender = gender_mapping.get(fb_gender, 'O')
-                    logger.info(f"Set gender from Facebook: {fb_gender} -> {profile.gender}")
+                # Update profile data from Facebook
+                update_profile_from_facebook_data(profile, extra_data)
 
                 profile.save()
                 logger.info(f"Updated CrushProfile for existing user {sociallogin.user.email}")
@@ -248,6 +331,8 @@ def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
     """
     Create CrushProfile when a new Facebook SocialAccount is created.
     Pre-fill profile data from Facebook information.
+
+    This handles NEW users signing up via Facebook - creates profile with Facebook data.
     """
     if instance.provider != 'facebook':
         return
@@ -266,65 +351,16 @@ def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
 
         extra_data = instance.extra_data
 
-        # Get Facebook user ID for high-res photo request
-        facebook_id = extra_data.get('id')
+        # Download and save Facebook photo if not already set
+        # Note: We don't have access token in post_save, but high-res endpoint works without it
+        if not profile.photo_1:
+            photo_url = _get_facebook_photo_url(extra_data)
+            if photo_url:
+                if download_and_save_facebook_photo(profile, photo_url, instance.user.id):
+                    logger.info(f"Saved Facebook photo for new user {instance.user.email}")
 
-        # Try to get high-resolution photo first
-        photo_url = None
-        if facebook_id:
-            photo_url = get_high_res_facebook_photo_url(facebook_id)
-            logger.info(f"High-res Facebook photo URL (post_save): {photo_url}")
-
-        # Fallback to standard picture from extra_data
-        if not photo_url and 'picture' in extra_data:
-            if isinstance(extra_data['picture'], dict):
-                photo_url = extra_data['picture'].get('data', {}).get('url')
-            else:
-                photo_url = extra_data['picture']
-            logger.info(f"Fallback Facebook photo URL (post_save): {photo_url}")
-
-        if photo_url and not profile.photo_1:
-            try:
-                response = requests.get(photo_url, timeout=10)
-                response.raise_for_status()
-
-                profile.photo_1.save(
-                    f'facebook_{instance.user.id}.jpg',
-                    ContentFile(response.content),
-                    save=False
-                )
-                logger.info(f"Saved Facebook photo from post_save: {photo_url}")
-            except Exception as e:
-                logger.error(f"Error downloading Facebook photo in post_save: {str(e)}")
-
-        # Set birthday if available
-        if extra_data.get('birthday') and not profile.date_of_birth:
-            try:
-                birthday = datetime.strptime(extra_data['birthday'], '%m/%d/%Y').date()
-                profile.date_of_birth = birthday
-            except Exception as e:
-                logger.error(f"Error parsing birthday in post_save: {str(e)}")
-
-        # Set gender if available
-        if extra_data.get('gender') and not profile.gender:
-            fb_gender = extra_data['gender'].lower()
-            gender_mapping = {
-                'male': 'M',
-                'female': 'F',
-                'non-binary': 'NB',
-                'nonbinary': 'NB',
-                'trans': 'NB',
-                'transgender': 'NB',
-                'genderqueer': 'NB',
-                'genderfluid': 'NB',
-                'agender': 'NB',
-                'bigender': 'NB',
-                'pangender': 'NB',
-                'two-spirit': 'NB',
-            }
-            # Map known genders, default to 'O' (Other) for custom/unknown
-            profile.gender = gender_mapping.get(fb_gender, 'O')
-            logger.info(f"Set gender from Facebook in post_save: {fb_gender} -> {profile.gender}")
+        # Update profile data from Facebook
+        update_profile_from_facebook_data(profile, extra_data)
 
         # Don't set completion_status - let model default handle it
         # The view will detect empty profiles and start at step 1
