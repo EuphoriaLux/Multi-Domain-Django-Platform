@@ -10,7 +10,7 @@ django-cors-headers==4.9.0
 psycopg2-binary==2.9.11  # Updated from 2.9.10 (security & bug fixes)
 
 # Authentication
-django-allauth==65.1.0  # Updated from 64.0.0 (bug fixes)
+django-allauth==65.12.1  # Updated from 65.1.0 (latest stable)
 PyJWT==2.10.1
 
 # Storage
@@ -25,14 +25,14 @@ Pillow==11.1.0  # Updated from 11.0.0 (security fixes)
 olefile==0.47
 
 # Microsoft Graph API (for email)
-msal==1.31.1  # Updated from 1.28.0 (security improvements)
+msal==1.34.0  # Updated from 1.31.1 (latest stable)
 msgraph-core==1.0.0
 
 # Production Server
 gunicorn==23.0.0
 
 # Utilities
-python-dotenv==1.0.1
+python-dotenv==1.2.1  # Updated from 1.0.1
 whitenoise==6.8.2  # Updated from 6.7.0 (bug fixes)
 requests==2.32.3
 
