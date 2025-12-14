@@ -184,8 +184,6 @@ SESSION_COOKIE_SECURE = False  # Set to True in production (HTTPS only)
 SESSION_COOKIE_SAMESITE = 'Lax'  # CSRF protection while allowing navigation
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep session alive after browser close (critical for PWA)
 SESSION_REMEMBER_ME = True
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_UNIQUE_EMAIL = True
 
 
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
@@ -196,13 +194,20 @@ AUTHENTICATION_BACKENDS = [
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
-# AllAuth settings
-ACCOUNT_AUTHENTICATION_METHOD = "email"
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
+# AllAuth settings (updated for django-allauth 0.63+)
+# Login via email only (no username)
+ACCOUNT_LOGIN_METHODS = {'email'}
+
+# Signup fields: email required (*), password twice required (*)
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
+
+# Keep unique email constraint
 ACCOUNT_UNIQUE_EMAIL = True
-ACCOUNT_EMAIL_VERIFICATION = "optional"  # Changed from mandatory
-ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = True
+
+# Email verification optional (not mandatory)
+ACCOUNT_EMAIL_VERIFICATION = "optional"
+
+# Remember me by default
 ACCOUNT_SESSION_REMEMBER = True
 
 LOGIN_REDIRECT_URL = '/profile/'
@@ -217,7 +222,7 @@ SOCIALACCOUNT_PROVIDERS = {
     'facebook': {
         'METHOD': 'oauth2',
         'SCOPE': ['email', 'public_profile', 'user_birthday', 'user_gender'],
-        'AUTH_PARAMS': {'auth_type': 'rerequest'},  # Smoother UX - only re-prompt for declined permissions
+        'AUTH_PARAMS': {},  # Empty - avoid 'rerequest' which can cause GDPR consent page errors
         'FIELDS': [
             'id',
             'email',
