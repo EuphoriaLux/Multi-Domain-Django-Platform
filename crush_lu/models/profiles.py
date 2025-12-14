@@ -44,6 +44,30 @@ def coach_photo_path(instance, filename):
     return f"coaches/{instance.user.id}/{unique_filename}"
 
 
+def user_export_path(instance, filename):
+    """
+    Generate path for user data exports (GDPR compliance, profile exports).
+    Structure: users/{user_id}/exports/{uuid}_{filename}
+
+    Used for:
+    - GDPR data export requests
+    - Profile backup exports
+    - Any user-generated exportable data
+
+    Args:
+        instance: Model instance with a 'user' attribute
+        filename: Original filename
+
+    Returns:
+        str: Path in format users/{user_id}/exports/{uuid}_{filename}
+    """
+    ext = os.path.splitext(filename)[1].lower()
+    # Keep original filename for clarity in exports
+    base_name = os.path.splitext(os.path.basename(filename))[0]
+    unique_filename = f"{uuid.uuid4().hex}_{base_name}{ext}"
+    return f"users/{instance.user.id}/exports/{unique_filename}"
+
+
 class SpecialUserExperience(models.Model):
     """
     Admin-configurable special user experience for VIP/special users.

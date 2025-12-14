@@ -6,12 +6,32 @@ Setup Instructions:
 1. Create a separate Azure Blob container named 'crush-profiles-private'
 2. Set container access level to "Private (no anonymous access)"
 3. Photos will be served with time-limited SAS tokens (default 1 hour)
+
+User Storage Structure:
+    users/{user_id}/.user_created    # Marker file
+    users/{user_id}/photos/          # Profile photos
+    users/{user_id}/exports/         # GDPR exports
 """
 
+import os
+import logging
 from datetime import datetime, timedelta
 from django.conf import settings
-from storages.backends.azure_storage import AzureStorage
-from azure.storage.blob import generate_blob_sas, BlobSasPermissions
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+
+logger = logging.getLogger(__name__)
+
+# Conditional imports for Azure storage (only available in production)
+# These packages are not installed in development environments
+try:
+    from storages.backends.azure_storage import AzureStorage
+    from azure.storage.blob import generate_blob_sas, BlobSasPermissions
+    AZURE_STORAGE_AVAILABLE = True
+except ImportError:
+    AzureStorage = object  # Placeholder for class inheritance
+    AZURE_STORAGE_AVAILABLE = False
+    logger.debug("Azure storage packages not available - using local filesystem")
 
 
 class PrivateAzureStorage(AzureStorage):
@@ -87,3 +107,83 @@ class CrushProfilePhotoStorage(PrivateAzureStorage):
 
         # Reconstruct path
         return os.path.join(dir_name, unique_filename)
+
+
+def initialize_user_storage(user_id):
+    """
+    Create user storage folder structure with a marker file.
+
+    This function creates the folder structure for a user in Azure Blob Storage
+    (or local filesystem in development). Azure Blob Storage doesn't have true
+    folders, but creating a file at a path implicitly creates the "folder" structure.
+
+    Structure created:
+        users/{user_id}/.user_created    # Empty marker file
+
+    The photos/ and exports/ subfolders are created implicitly when files
+    are uploaded to them.
+
+    Args:
+        user_id: The Django User ID
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    marker_path = f"users/{user_id}/.user_created"
+
+    try:
+        # Check if we're in production (Azure) or development (local)
+        if os.getenv('AZURE_ACCOUNT_NAME'):
+            # Production: Use CrushProfilePhotoStorage
+            storage = CrushProfilePhotoStorage()
+
+            # Check if marker already exists
+            if storage.exists(marker_path):
+                logger.debug(f"User storage already initialized for user {user_id}")
+                return True
+
+            # Create empty marker file
+            storage.save(marker_path, ContentFile(b''))
+            logger.info(f"Initialized Azure storage for user {user_id}")
+        else:
+            # Development: Use default storage (local filesystem)
+            if default_storage.exists(marker_path):
+                logger.debug(f"User storage already initialized for user {user_id}")
+                return True
+
+            # Ensure directory exists for local filesystem
+            full_path = os.path.join(settings.MEDIA_ROOT, f"users/{user_id}")
+            os.makedirs(full_path, exist_ok=True)
+
+            # Create empty marker file
+            default_storage.save(marker_path, ContentFile(b''))
+            logger.info(f"Initialized local storage for user {user_id}")
+
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to initialize storage for user {user_id}: {str(e)}")
+        return False
+
+
+def user_storage_exists(user_id):
+    """
+    Check if user storage folder has been initialized.
+
+    Args:
+        user_id: The Django User ID
+
+    Returns:
+        bool: True if user storage exists, False otherwise
+    """
+    marker_path = f"users/{user_id}/.user_created"
+
+    try:
+        if os.getenv('AZURE_ACCOUNT_NAME'):
+            storage = CrushProfilePhotoStorage()
+            return storage.exists(marker_path)
+        else:
+            return default_storage.exists(marker_path)
+    except Exception as e:
+        logger.error(f"Error checking storage for user {user_id}: {str(e)}")
+        return False

@@ -10,12 +10,42 @@ from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth.models import User
 from django.utils import timezone
 from .models import MeetupEvent, EventActivityOption, CrushProfile, SpecialUserExperience
+from .storage import initialize_user_storage
 import logging
 from datetime import datetime
 import requests
 from django.core.files.base import ContentFile
 
 logger = logging.getLogger(__name__)
+
+
+@receiver(post_save, sender=User)
+def create_user_storage_folder(sender, instance, created, **kwargs):
+    """
+    Create user storage folder structure when a new user is created.
+
+    This initializes the user's private storage folder in Azure Blob Storage
+    (or local filesystem in development) with a marker file.
+
+    Structure created:
+        users/{user_id}/.user_created
+
+    Note: This signal fires for all User creations across all domains.
+    The storage is Crush.lu-specific (crush-profiles-private container),
+    so it only affects Crush.lu photo storage.
+    """
+    if not created:
+        return
+
+    try:
+        success = initialize_user_storage(instance.id)
+        if success:
+            logger.info(f"Created storage folder for new user {instance.id} ({instance.email})")
+        else:
+            logger.warning(f"Failed to create storage folder for user {instance.id}")
+    except Exception as e:
+        # Don't fail user creation if storage initialization fails
+        logger.error(f"Error creating storage folder for user {instance.id}: {str(e)}")
 
 
 @receiver(post_save, sender=MeetupEvent)
