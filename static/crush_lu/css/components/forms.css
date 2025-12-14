@@ -1,0 +1,73 @@
+/**
+ * Form Component Styles
+ * Common form styling for Crush.lu
+ */
+
+/* Basic form inputs */
+.crush-form input[type="text"],
+.crush-form input[type="email"],
+.crush-form input[type="date"],
+.crush-form input[type="tel"],
+.crush-form input[type="password"],
+.crush-form select,
+.crush-form textarea {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.crush-form input[type="text"]:focus,
+.crush-form input[type="email"]:focus,
+.crush-form input[type="date"]:focus,
+.crush-form input[type="tel"]:focus,
+.crush-form input[type="password"]:focus,
+.crush-form select:focus,
+.crush-form textarea:focus {
+    border-color: #9B59B6;
+    box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.1);
+    outline: none;
+}
+
+/* Checkbox styling */
+.crush-form input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin-right: 10px;
+    accent-color: #9B59B6;
+}
+
+/* Form labels */
+.crush-form .form-label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+/* Help text */
+.crush-form .form-text,
+.crush-form small.text-muted {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+/* Error text */
+.crush-form .text-danger {
+    font-size: 0.85rem;
+}
+
+/* Form sections */
+.crush-form hr {
+    border: none;
+    border-top: 1px solid #e9ecef;
+    margin: 1.5rem 0;
+}
+
+/* Form section headers */
+.crush-form h5 {
+    color: #333;
+    margin-bottom: 1rem;
+}

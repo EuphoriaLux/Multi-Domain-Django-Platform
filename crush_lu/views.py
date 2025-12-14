@@ -22,7 +22,7 @@ from .models import (
     SpecialUserExperience, EventInvitation
 )
 from .forms import (
-    CrushSignupForm, CrushProfileForm, ProfileReviewForm,
+    CrushSignupForm, CrushProfileForm, CrushCoachForm, ProfileReviewForm,
     CoachSessionForm, EventRegistrationForm
 )
 from .decorators import crush_login_required, ratelimit
@@ -184,16 +184,7 @@ def signup(request):
 
 @crush_login_required
 def create_profile(request):
-    """Profile creation"""
-    # Check if user is an ACTIVE coach
-    try:
-        coach = CrushCoach.objects.get(user=request.user, is_active=True)
-        messages.error(request, 'Coaches cannot create dating profiles. You have an active coach account.')
-        return redirect('crush_lu:coach_dashboard')
-    except CrushCoach.DoesNotExist:
-        # Either no coach record, or coach is inactive - allow profile creation
-        pass
-
+    """Profile creation - coaches can also create dating profiles"""
     # If it's a POST request, process the form submission first
     if request.method == 'POST':
         # Get existing profile if it exists (from Steps 1-2 AJAX saves)
@@ -299,15 +290,7 @@ def create_profile(request):
 
 @crush_login_required
 def edit_profile_simple(request):
-    """Simple single-page edit for approved profiles"""
-    # Check if user is an ACTIVE coach
-    try:
-        coach = CrushCoach.objects.get(user=request.user, is_active=True)
-        messages.error(request, 'Coaches cannot edit dating profiles. You have an active coach account.')
-        return redirect('crush_lu:coach_dashboard')
-    except CrushCoach.DoesNotExist:
-        pass
-
+    """Simple single-page edit for approved profiles - coaches can also edit their dating profiles"""
     # Get existing profile
     try:
         profile = CrushProfile.objects.get(user=request.user)
@@ -346,14 +329,6 @@ def edit_profile_simple(request):
 @crush_login_required
 def edit_profile(request):
     """Edit existing profile - routes to appropriate edit flow"""
-    # Check if user is an ACTIVE coach
-    try:
-        coach = CrushCoach.objects.get(user=request.user, is_active=True)
-        messages.error(request, 'Coaches cannot edit dating profiles. You have an active coach account.')
-        return redirect('crush_lu:coach_dashboard')
-    except CrushCoach.DoesNotExist:
-        pass
-
     # Try to get existing profile, redirect to create if doesn't exist
     try:
         profile = CrushProfile.objects.get(user=request.user)
@@ -908,6 +883,39 @@ def coach_sessions(request):
         'sessions': sessions,
     }
     return render(request, 'crush_lu/coach_sessions.html', context)
+
+
+@crush_login_required
+def coach_edit_profile(request):
+    """Edit coach profile (bio, specializations, photo) - separate from dating profile"""
+    try:
+        coach = CrushCoach.objects.get(user=request.user)
+    except CrushCoach.DoesNotExist:
+        messages.error(request, 'You do not have a coach profile.')
+        return redirect('crush_lu:dashboard')
+
+    if request.method == 'POST':
+        form = CrushCoachForm(request.POST, request.FILES, instance=coach)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Coach profile updated successfully!')
+            return redirect('crush_lu:coach_dashboard')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field.replace('_', ' ').title()}: {error}")
+    else:
+        form = CrushCoachForm(instance=coach)
+
+    # Check if coach also has a dating profile
+    has_dating_profile = hasattr(request.user, 'crushprofile')
+
+    context = {
+        'coach': coach,
+        'form': form,
+        'has_dating_profile': has_dating_profile,
+    }
+    return render(request, 'crush_lu/coach_edit_profile.html', context)
 
 
 # ============================================================================

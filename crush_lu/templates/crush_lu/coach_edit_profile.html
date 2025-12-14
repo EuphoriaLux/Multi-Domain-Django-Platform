@@ -1,0 +1,134 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+
+{% block title %}Edit Coach Profile - Crush.lu{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'crush_lu/js/photo-preview.js' %}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body p-5">
+                <h2 class="text-center mb-4">Edit Coach Profile</h2>
+                <p class="text-center text-muted mb-4">
+                    Update your coaching bio and specializations that users see when assigned to you.
+                </p>
+
+                <form method="post" enctype="multipart/form-data" novalidate>
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+
+                    <!-- Coach Photo Section -->
+                    <div class="mb-4">
+                        <label class="form-label">
+                            <strong>Coach Photo</strong>
+                        </label>
+                        <p class="text-muted small mb-3">
+                            This photo is shown to users when they're assigned to you as their coach.
+                        </p>
+
+                        <div class="photo-upload-card photo-upload-card--bordered">
+                            <div class="photo-preview-container photo-preview-container--circular">
+                                {% if coach.photo %}
+                                    <img src="{{ coach.photo.url }}" alt="Current photo" class="photo-preview" id="photo-preview">
+                                    <span class="photo-badge">Current</span>
+                                {% else %}
+                                    <div class="photo-placeholder" id="photo-preview">
+                                        <i class="bi bi-person-circle"></i>
+                                        <span>No photo</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="photo-upload-input mt-3">
+                                {{ form.photo }}
+                                {% if form.photo.help_text %}
+                                    <small class="text-muted d-block mt-1">{{ form.photo.help_text }}</small>
+                                {% endif %}
+                                {% if form.photo.errors %}
+                                    <div class="text-danger small mt-1">{{ form.photo.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="mb-4">
+                        <label for="{{ form.bio.id_for_label }}" class="form-label">
+                            <strong>Coach Bio</strong>
+                        </label>
+                        {{ form.bio }}
+                        {% if form.bio.help_text %}
+                            <small class="text-muted">{{ form.bio.help_text }}</small>
+                        {% endif %}
+                        {% if form.bio.errors %}
+                            <div class="text-danger small mt-1">{{ form.bio.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="{{ form.specializations.id_for_label }}" class="form-label">
+                            <strong>Specializations</strong>
+                        </label>
+                        {{ form.specializations }}
+                        {% if form.specializations.help_text %}
+                            <small class="text-muted">{{ form.specializations.help_text }}</small>
+                        {% endif %}
+                        {% if form.specializations.errors %}
+                            <div class="text-danger small mt-1">{{ form.specializations.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <hr class="my-4">
+
+                    <!-- Coach Stats (read-only) -->
+                    <div class="card mb-4" style="background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(255, 107, 157, 0.1));">
+                        <div class="card-body">
+                            <h6 class="mb-3">Your Coach Stats</h6>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <strong>{{ coach.max_active_reviews }}</strong>
+                                    <br><small class="text-muted">Max Active Reviews</small>
+                                </div>
+                                <div class="col-6">
+                                    <strong>{% if coach.is_active %}Active{% else %}Inactive{% endif %}</strong>
+                                    <br><small class="text-muted">Status</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if has_dating_profile %}
+                        <div class="alert alert-info mb-4">
+                            <i class="bi bi-info-circle"></i>
+                            You also have a dating profile. <a href="{% url 'crush_lu:edit_profile' %}">Edit your dating profile</a>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-secondary mb-4">
+                            <i class="bi bi-person-plus"></i>
+                            Want to use Crush.lu for dating too? <a href="{% url 'crush_lu:create_profile' %}">Create a dating profile</a>
+                        </div>
+                    {% endif %}
+
+                    <div class="d-flex gap-3">
+                        <button type="submit" class="btn btn-crush-primary flex-fill">
+                            Save Changes
+                        </button>
+                        <a href="{% url 'crush_lu:coach_dashboard' %}" class="btn btn-outline-secondary">
+                            Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

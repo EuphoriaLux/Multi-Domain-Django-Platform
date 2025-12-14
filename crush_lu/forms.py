@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from allauth.account.forms import SignupForm
-from .models import CrushProfile, ProfileSubmission, CoachSession, EventRegistration
+from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, EventRegistration
 from PIL import Image
 import os
 
@@ -284,3 +284,41 @@ class EventRegistrationForm(forms.ModelForm):
             'dietary_restrictions': forms.TextInput(attrs={'placeholder': 'e.g., vegetarian, gluten-free'}),
             'special_requests': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Any special requests or questions?'}),
         }
+
+
+class CrushCoachForm(forms.ModelForm):
+    """Form for coaches to edit their coach profile"""
+
+    bio = forms.CharField(
+        required=False,
+        max_length=500,
+        widget=forms.Textarea(attrs={
+            'rows': 4,
+            'placeholder': 'Share your coaching philosophy and approach...',
+            'class': 'form-control'
+        }),
+        help_text='Tell users about your coaching style and experience (max 500 characters)'
+    )
+
+    specializations = forms.CharField(
+        required=False,
+        max_length=200,
+        widget=forms.TextInput(attrs={
+            'placeholder': 'e.g., Young professionals, Students, 35+, LGBTQ+',
+            'class': 'form-control'
+        }),
+        help_text='What groups or demographics do you specialize in coaching?'
+    )
+
+    photo = forms.ImageField(
+        required=False,
+        widget=forms.FileInput(attrs={
+            'class': 'form-control',
+            'accept': 'image/*'
+        }),
+        help_text='Upload a professional photo that users will see'
+    )
+
+    class Meta:
+        model = CrushCoach
+        fields = ['bio', 'specializations', 'photo']

@@ -143,15 +143,20 @@ def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
                     gender_mapping = {
                         'male': 'M',
                         'female': 'F',
+                        'non-binary': 'NB',
+                        'nonbinary': 'NB',
+                        'trans': 'NB',
+                        'transgender': 'NB',
+                        'genderqueer': 'NB',
+                        'genderfluid': 'NB',
+                        'agender': 'NB',
+                        'bigender': 'NB',
+                        'pangender': 'NB',
+                        'two-spirit': 'NB',
                     }
-                    if fb_gender in gender_mapping:
-                        profile.gender = gender_mapping[fb_gender]
-                        logger.info(f"Set gender from Facebook: {profile.gender}")
-
-                if extra_data.get('location', {}).get('name') and not profile.location:
-                    location = extra_data['location']['name']
-                    profile.location = location
-                    logger.info(f"Set location from Facebook: {location}")
+                    # Map known genders, default to 'O' (Other) for custom/unknown
+                    profile.gender = gender_mapping.get(fb_gender, 'O')
+                    logger.info(f"Set gender from Facebook: {fb_gender} -> {profile.gender}")
 
                 profile.save()
                 logger.info(f"Updated CrushProfile for existing user {sociallogin.user.email}")
@@ -222,13 +227,20 @@ def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
             gender_mapping = {
                 'male': 'M',
                 'female': 'F',
+                'non-binary': 'NB',
+                'nonbinary': 'NB',
+                'trans': 'NB',
+                'transgender': 'NB',
+                'genderqueer': 'NB',
+                'genderfluid': 'NB',
+                'agender': 'NB',
+                'bigender': 'NB',
+                'pangender': 'NB',
+                'two-spirit': 'NB',
             }
-            if fb_gender in gender_mapping:
-                profile.gender = gender_mapping[fb_gender]
-
-        # Set location if available
-        if extra_data.get('location', {}).get('name') and not profile.location:
-            profile.location = extra_data['location']['name']
+            # Map known genders, default to 'O' (Other) for custom/unknown
+            profile.gender = gender_mapping.get(fb_gender, 'O')
+            logger.info(f"Set gender from Facebook in post_save: {fb_gender} -> {profile.gender}")
 
         # Don't set completion_status - let model default handle it
         # The view will detect empty profiles and start at step 1
