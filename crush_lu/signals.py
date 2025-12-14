@@ -105,6 +105,40 @@ def create_default_activity_options(sender, instance, created, **kwargs):
             )
 
 
+def get_high_res_facebook_photo_url(facebook_id, access_token=None):
+    """
+    Get high-resolution Facebook profile photo URL.
+
+    Facebook Graph API allows requesting specific dimensions.
+    We request 720x720 which is the max for profile pictures.
+
+    Args:
+        facebook_id: The Facebook user ID
+        access_token: Optional access token for authenticated requests
+
+    Returns:
+        str: URL to high-resolution photo, or None if unavailable
+    """
+    # Request 720x720 photo (maximum size for profile pictures)
+    # Using redirect=false returns JSON with the actual URL
+    url = f"https://graph.facebook.com/{facebook_id}/picture?width=720&height=720&redirect=false"
+
+    if access_token:
+        url += f"&access_token={access_token}"
+
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        if data.get('data', {}).get('url'):
+            return data['data']['url']
+    except Exception as e:
+        logger.warning(f"Could not get high-res Facebook photo: {str(e)}")
+
+    return None
+
+
 @receiver(pre_social_login)
 def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
     """
@@ -127,15 +161,26 @@ def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
         extra_data = sociallogin.account.extra_data
         logger.info(f"Facebook extra_data: {extra_data}")
 
-        # Extract profile photo URL
+        # Get Facebook user ID for high-res photo request
+        facebook_id = extra_data.get('id')
+
+        # Try to get high-resolution photo first
         photo_url = None
-        if 'picture' in extra_data:
+        if facebook_id:
+            # Get access token if available for authenticated request
+            access_token = None
+            if sociallogin.token:
+                access_token = sociallogin.token.token
+            photo_url = get_high_res_facebook_photo_url(facebook_id, access_token)
+            logger.info(f"High-res Facebook photo URL: {photo_url}")
+
+        # Fallback to standard picture from extra_data
+        if not photo_url and 'picture' in extra_data:
             if isinstance(extra_data['picture'], dict):
                 photo_url = extra_data['picture'].get('data', {}).get('url')
             else:
                 photo_url = extra_data['picture']
-
-        logger.info(f"Extracted Facebook photo URL: {photo_url}")
+            logger.info(f"Fallback Facebook photo URL: {photo_url}")
 
         # If user exists, update their CrushProfile
         if hasattr(sociallogin.user, 'id') and sociallogin.user.id:
@@ -221,13 +266,22 @@ def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
 
         extra_data = instance.extra_data
 
-        # Download and save profile photo
+        # Get Facebook user ID for high-res photo request
+        facebook_id = extra_data.get('id')
+
+        # Try to get high-resolution photo first
         photo_url = None
-        if 'picture' in extra_data:
+        if facebook_id:
+            photo_url = get_high_res_facebook_photo_url(facebook_id)
+            logger.info(f"High-res Facebook photo URL (post_save): {photo_url}")
+
+        # Fallback to standard picture from extra_data
+        if not photo_url and 'picture' in extra_data:
             if isinstance(extra_data['picture'], dict):
                 photo_url = extra_data['picture'].get('data', {}).get('url')
             else:
                 photo_url = extra_data['picture']
+            logger.info(f"Fallback Facebook photo URL (post_save): {photo_url}")
 
         if photo_url and not profile.photo_1:
             try:

@@ -224,7 +224,7 @@ SOCIALACCOUNT_PROVIDERS = {
             'name',
             'first_name',
             'last_name',
-            'picture',
+            'picture.type(large)',  # Request large profile picture (200x200)
             'birthday',  # Format: MM/DD/YYYY
             'gender',    # Values: male, female, or custom string
         ],
