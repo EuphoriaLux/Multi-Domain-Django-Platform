@@ -1,4 +1,5 @@
 {% extends 'crush_lu/base.html' %}
+{% load static %}
 
 {% block title %}Edit Your Profile - Crush.lu{% endblock %}
 
@@ -120,46 +121,84 @@
 
                         <!-- Photos Section -->
                         <div class="section-card mb-4">
-                            <h5 class="section-title">📸 Photos</h5>
+                            <div class="photo-section-header">
+                                <h5 class="section-title mb-0" style="border-bottom: none; padding-bottom: 0;"><i class="bi bi-images"></i> Photos</h5>
+                                <span class="photo-count">Up to 3</span>
+                            </div>
+                            <p class="text-muted small mb-3">Your main photo will be displayed first to other users.</p>
 
-                            <div class="row">
-                                <div class="col-md-4 mb-3">
-                                    <label class="form-label">Photo 1</label>
-                                    {% if profile.photo_1 %}
-                                        <div class="current-photo mb-2">
-                                            <img src="{{ profile.photo_1.url }}" alt="Current Photo 1" class="img-thumbnail">
+                            <div class="row g-3">
+                                <!-- Photo 1 (Main) -->
+                                <div class="col-md-4">
+                                    <div class="photo-upload-card photo-upload-card--main">
+                                        <div class="photo-label">
+                                            <i class="bi bi-star-fill main-indicator"></i> Main Photo
                                         </div>
-                                    {% endif %}
-                                    {{ form.photo_1 }}
-                                    {% if form.photo_1.errors %}
-                                        <div class="invalid-feedback d-block">{{ form.photo_1.errors.0 }}</div>
-                                    {% endif %}
+                                        <div class="photo-preview-container">
+                                            {% if profile.photo_1 %}
+                                                <img src="{{ profile.photo_1.url }}" alt="Photo 1" class="photo-preview" id="preview-photo-1">
+                                                <span class="photo-badge">Current</span>
+                                            {% else %}
+                                                <div class="photo-placeholder" id="preview-photo-1">
+                                                    <i class="bi bi-person-circle"></i>
+                                                    <span>Required</span>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <input type="file" name="photo_1" id="id_photo_1" accept="image/*">
+                                        {% if form.photo_1.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.photo_1.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="photo-help">
+                                            {% if profile.photo_1 %}Upload to replace{% else %}Your primary photo{% endif %}
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div class="col-md-4 mb-3">
-                                    <label class="form-label">Photo 2</label>
-                                    {% if profile.photo_2 %}
-                                        <div class="current-photo mb-2">
-                                            <img src="{{ profile.photo_2.url }}" alt="Current Photo 2" class="img-thumbnail">
+                                <!-- Photo 2 -->
+                                <div class="col-md-4">
+                                    <div class="photo-upload-card">
+                                        <div class="photo-label">Photo 2</div>
+                                        <div class="photo-preview-container">
+                                            {% if profile.photo_2 %}
+                                                <img src="{{ profile.photo_2.url }}" alt="Photo 2" class="photo-preview" id="preview-photo-2">
+                                                <span class="photo-badge">Current</span>
+                                            {% else %}
+                                                <div class="photo-placeholder" id="preview-photo-2">
+                                                    <i class="bi bi-image"></i>
+                                                    <span>Optional</span>
+                                                </div>
+                                            {% endif %}
                                         </div>
-                                    {% endif %}
-                                    {{ form.photo_2 }}
-                                    {% if form.photo_2.errors %}
-                                        <div class="invalid-feedback d-block">{{ form.photo_2.errors.0 }}</div>
-                                    {% endif %}
+                                        <input type="file" name="photo_2" id="id_photo_2" accept="image/*">
+                                        {% if form.photo_2.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.photo_2.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="photo-help">Show more of you</div>
+                                    </div>
                                 </div>
 
-                                <div class="col-md-4 mb-3">
-                                    <label class="form-label">Photo 3</label>
-                                    {% if profile.photo_3 %}
-                                        <div class="current-photo mb-2">
-                                            <img src="{{ profile.photo_3.url }}" alt="Current Photo 3" class="img-thumbnail">
+                                <!-- Photo 3 -->
+                                <div class="col-md-4">
+                                    <div class="photo-upload-card">
+                                        <div class="photo-label">Photo 3</div>
+                                        <div class="photo-preview-container">
+                                            {% if profile.photo_3 %}
+                                                <img src="{{ profile.photo_3.url }}" alt="Photo 3" class="photo-preview" id="preview-photo-3">
+                                                <span class="photo-badge">Current</span>
+                                            {% else %}
+                                                <div class="photo-placeholder" id="preview-photo-3">
+                                                    <i class="bi bi-image"></i>
+                                                    <span>Optional</span>
+                                                </div>
+                                            {% endif %}
                                         </div>
-                                    {% endif %}
-                                    {{ form.photo_3 }}
-                                    {% if form.photo_3.errors %}
-                                        <div class="invalid-feedback d-block">{{ form.photo_3.errors.0 }}</div>
-                                    {% endif %}
+                                        <input type="file" name="photo_3" id="id_photo_3" accept="image/*">
+                                        {% if form.photo_3.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.photo_3.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="photo-help">Add variety</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -278,6 +317,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'crush_lu/js/photo-preview.js' %}"></script>
 <script>
 // Character counters
 document.getElementById('{{ form.bio.id_for_label }}')?.addEventListener('input', function() {

@@ -34,6 +34,16 @@ def user_photo_path(instance, filename):
     return f"users/{instance.user.id}/photos/{unique_filename}"
 
 
+def coach_photo_path(instance, filename):
+    """
+    Generate path for coach profile photos.
+    Structure: coaches/{user_id}/{uuid}.{ext}
+    """
+    ext = os.path.splitext(filename)[1].lower()
+    unique_filename = f"{uuid.uuid4().hex}{ext}"
+    return f"coaches/{instance.user.id}/{unique_filename}"
+
+
 class SpecialUserExperience(models.Model):
     """
     Admin-configurable special user experience for VIP/special users.
@@ -167,6 +177,14 @@ class CrushCoach(models.Model):
         max_length=200,
         blank=True,
         help_text="e.g., Young professionals, Students, 30+, etc."
+    )
+    # Coach profile photo (stored in same private container as user photos)
+    photo = models.ImageField(
+        upload_to=coach_photo_path,
+        blank=True,
+        null=True,
+        storage=crush_photo_storage,
+        help_text="Coach profile photo shown to users"
     )
     is_active = models.BooleanField(default=True)
     max_active_reviews = models.PositiveIntegerField(

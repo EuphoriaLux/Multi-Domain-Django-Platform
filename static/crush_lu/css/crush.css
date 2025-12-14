@@ -1,4 +1,10 @@
 /* ===================
+   Component Imports
+   =================== */
+@import url('components/photo-upload.css');
+@import url('components/forms.css');
+
+/* ===================
    Crush.lu Design Tokens
    CSS Custom Properties
    =================== */
