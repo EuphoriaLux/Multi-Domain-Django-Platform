@@ -6,10 +6,18 @@ This module contains:
 - Industry, Skill: Categorization models
 - EntrepreneurProfile: Extended user profile with business details
 - Match, Like, Dislike: Matching system models (merged from matching app)
+- FinOps models (imported from finops submodule)
+- Vibe Coding models (imported from vibe submodule)
 """
 
 from django.db import models
 from django.contrib.auth.models import User
+
+# Import submodule models so Django migrations can find them
+from entreprinder.finops.models import CostExport, CostRecord, CostAggregation
+from entreprinder.vibe.models import (
+    PixelCanvas, Pixel, PixelHistory, UserPixelCooldown, UserPixelStats
+)
 from django.conf import settings
 from django.db.models.signals import post_save
 from django.dispatch import receiver
