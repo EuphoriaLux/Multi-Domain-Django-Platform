@@ -89,6 +89,40 @@ def crush_logout(request):
     return redirect('crush_lu:home')
 
 
+def oauth_complete(request):
+    """
+    PWA OAuth completion handler.
+
+    When OAuth (Facebook, etc.) completes on Android, it typically opens in the
+    system browser instead of returning to the PWA. This view provides:
+
+    1. A landing page that confirms login success
+    2. An automatic redirect attempt back to the PWA
+    3. A manual "Open in Crush.lu App" button as fallback
+
+    The page uses multiple strategies to return to the PWA:
+    - Android Intent URL scheme
+    - window.open with target _self
+    - Meta refresh as fallback
+    """
+    if not request.user.is_authenticated:
+        # Not logged in - redirect to login
+        return redirect('crush_lu:login')
+
+    # Get the intended destination from session, or default to dashboard
+    final_destination = request.session.pop('oauth_final_destination', '/dashboard/')
+
+    # Check if user has a profile
+    if not hasattr(request.user, 'crushprofile'):
+        final_destination = '/create-profile/'
+
+    context = {
+        'final_destination': final_destination,
+        'user': request.user,
+    }
+    return render(request, 'crush_lu/oauth_complete.html', context)
+
+
 # Public pages
 def home(request):
     """Landing page - redirects authenticated users to dashboard"""

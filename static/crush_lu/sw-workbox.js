@@ -176,7 +176,8 @@ if (workbox) {
     const authPaths = [
       '/admin', '/accounts', '/coach', '/dashboard',
       '/login', '/logout', '/profile', '/connections',
-      '/journey', '/create-profile', '/edit', '/signup'
+      '/journey', '/create-profile', '/edit', '/signup',
+      '/oauth-complete'  // PWA OAuth return handler - must never be cached
     ];
 
     // Check with and without language prefix (en, fr, de)
