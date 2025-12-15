@@ -3,7 +3,12 @@
 {% block title %}Dashboard - Crush.lu{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">Welcome back, {{ user.first_name }}! 👋</h2>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">Welcome back, {{ user.first_name }}! 👋</h2>
+    <a href="{% url 'crush_lu:account_settings' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-gear"></i> Settings
+    </a>
+</div>
 
 <div class="row g-4 mb-4">
     <!-- Profile Status Card -->

@@ -54,6 +54,10 @@ urlpatterns = [
     path('profile/edit/', views.edit_profile, name='edit_profile'),
     path('profile/edit-simple/', views.edit_profile_simple, name='edit_profile_simple'),
 
+    # Account settings
+    path('account/settings/', views.account_settings, name='account_settings'),
+    path('account/delete/', views.delete_account, name='delete_account'),
+
     # Special user experience
     path('special-welcome/', views.special_welcome, name='special_welcome'),
 
