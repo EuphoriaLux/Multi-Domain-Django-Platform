@@ -6,13 +6,31 @@ import os
 import uuid
 from django.db.models import Q, F
 
-# Conditional import of private storage for production
-if os.getenv('AZURE_ACCOUNT_NAME'):
-    from crush_lu.storage import CrushProfilePhotoStorage
-    crush_photo_storage = CrushProfilePhotoStorage()
-else:
-    # In development, use default storage
-    crush_photo_storage = None
+# Lazy storage object for ImageField
+# Using LazyObject ensures consistent migration state across environments
+# The storage is only evaluated when actually accessed, not at import time
+from django.utils.functional import LazyObject
+from django.core.files.storage import default_storage
+
+
+class CrushPhotoStorage(LazyObject):
+    """
+    Lazy storage backend for crush profile photos.
+    - Production (AZURE_ACCOUNT_NAME set): CrushProfilePhotoStorage with SAS tokens
+    - Development: Default storage (local filesystem)
+
+    Using LazyObject ensures migrations are consistent across environments.
+    """
+    def _setup(self):
+        if os.getenv('AZURE_ACCOUNT_NAME'):
+            from crush_lu.storage import CrushProfilePhotoStorage
+            self._wrapped = CrushProfilePhotoStorage()
+        else:
+            self._wrapped = default_storage
+
+
+# Single instance used by all photo fields
+crush_photo_storage = CrushPhotoStorage()
 
 
 def user_photo_path(instance, filename):
@@ -288,6 +306,7 @@ class CrushProfile(models.Model):
 
     # Photos (using private storage in production with SAS tokens)
     # Path structure: users/{user_id}/photos/{uuid}.{ext}
+    # Using lazy storage ensures consistent migration state across environments
     photo_1 = models.ImageField(
         upload_to=user_photo_path,
         blank=True,
