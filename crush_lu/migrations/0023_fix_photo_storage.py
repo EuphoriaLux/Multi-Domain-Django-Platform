@@ -1,5 +1,5 @@
 # Generated manually to fix storage parameter mismatch between dev and production
-# Uses lazy storage object to ensure consistent migration state
+# Uses callable storage to ensure consistent migration state across all environments
 
 import crush_lu.models.profiles
 from django.db import migrations, models
@@ -12,16 +12,16 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Re-apply the photo fields with lazy storage object
-        # Using a lazy object ensures the migration state is identical in all environments
-        # because Django stores the object reference, not the evaluated storage
+        # Re-apply the photo fields with callable storage
+        # Using a callable (not instance) prevents Django from comparing storage objects
+        # between environments, eliminating false "model changes detected" warnings
         migrations.AlterField(
             model_name='crushprofile',
             name='photo_1',
             field=models.ImageField(
                 blank=True,
                 null=True,
-                storage=crush_lu.models.profiles.crush_photo_storage,
+                storage=crush_lu.models.profiles.get_crush_photo_storage,
                 upload_to=crush_lu.models.profiles.user_photo_path
             ),
         ),
@@ -31,7 +31,7 @@ class Migration(migrations.Migration):
             field=models.ImageField(
                 blank=True,
                 null=True,
-                storage=crush_lu.models.profiles.crush_photo_storage,
+                storage=crush_lu.models.profiles.get_crush_photo_storage,
                 upload_to=crush_lu.models.profiles.user_photo_path
             ),
         ),
@@ -41,7 +41,7 @@ class Migration(migrations.Migration):
             field=models.ImageField(
                 blank=True,
                 null=True,
-                storage=crush_lu.models.profiles.crush_photo_storage,
+                storage=crush_lu.models.profiles.get_crush_photo_storage,
                 upload_to=crush_lu.models.profiles.user_photo_path
             ),
         ),
@@ -52,7 +52,7 @@ class Migration(migrations.Migration):
             field=models.ImageField(
                 blank=True,
                 null=True,
-                storage=crush_lu.models.profiles.crush_photo_storage,
+                storage=crush_lu.models.profiles.get_crush_photo_storage,
                 upload_to=crush_lu.models.profiles.coach_photo_path,
                 help_text='Coach profile photo shown to users'
             ),
