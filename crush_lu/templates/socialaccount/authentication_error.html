@@ -76,13 +76,22 @@
  * OAuth Error Recovery
  *
  * This page is shown when OAuth callback fails (often due to duplicate requests in PWA mode).
- * However, the user may actually be authenticated from the first request.
- * We check the auth status via API and redirect appropriately.
+ * The first request likely succeeded and authenticated the user, but the second request
+ * (which shows this page) has a different session/doesn't see the auth yet.
+ *
+ * Strategy:
+ * 1. Immediately check auth status
+ * 2. If not authenticated, wait and retry (first request may still be processing)
+ * 3. After multiple retries, show error with manual options
  */
 (function() {
     const checkingEl = document.getElementById('checking-auth');
     const errorEl = document.getElementById('auth-error');
     const successEl = document.getElementById('auth-success');
+
+    let retryCount = 0;
+    const MAX_RETRIES = 5;
+    const RETRY_DELAY = 500; // ms
 
     function showError() {
         checkingEl.style.display = 'none';
@@ -96,54 +105,72 @@
         successEl.style.display = 'block';
     }
 
-    // Check if user is actually authenticated
-    fetch('/api/check-auth/', {
-        method: 'GET',
-        credentials: 'same-origin',
-        headers: {
-            'Accept': 'application/json'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Auth check failed');
-        }
-        return response.json();
-    })
-    .then(data => {
-        console.log('[OAuth Recovery] Auth check result:', data);
+    function checkAuthAndRedirect() {
+        console.log(`[OAuth Recovery] Checking auth status (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
 
-        if (data.authenticated) {
-            // User is actually authenticated - the first callback succeeded!
-            showSuccess();
+        fetch('/api/check-auth/', {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'Cache-Control': 'no-cache'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Auth check failed');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('[OAuth Recovery] Auth check result:', data);
 
-            // Redirect after a brief moment to show success
-            setTimeout(() => {
-                if (data.has_profile) {
-                    window.location.href = '{% url "crush_lu:dashboard" %}';
+            if (data.authenticated) {
+                // User is actually authenticated - the first callback succeeded!
+                showSuccess();
+
+                // Redirect after a brief moment to show success
+                setTimeout(() => {
+                    if (data.has_profile) {
+                        window.location.href = '{% url "crush_lu:dashboard" %}';
+                    } else {
+                        // New user - redirect to profile creation
+                        window.location.href = '{% url "crush_lu:create_profile" %}';
+                    }
+                }, 300);
+            } else {
+                // Not authenticated yet - retry if we haven't exhausted retries
+                retryCount++;
+                if (retryCount < MAX_RETRIES) {
+                    console.log(`[OAuth Recovery] Not authenticated, retrying in ${RETRY_DELAY}ms...`);
+                    setTimeout(checkAuthAndRedirect, RETRY_DELAY);
                 } else {
-                    // New user - redirect to profile creation
-                    window.location.href = '{% url "crush_lu:create_profile" %}';
+                    console.log('[OAuth Recovery] Max retries reached, showing error');
+                    showError();
                 }
-            }, 500);
-        } else {
-            // User really isn't authenticated
-            showError();
-        }
-    })
-    .catch(error => {
-        console.error('[OAuth Recovery] Error checking auth:', error);
-        // API failed - show error with login link
-        showError();
-    });
+            }
+        })
+        .catch(error => {
+            console.error('[OAuth Recovery] Error checking auth:', error);
+            retryCount++;
+            if (retryCount < MAX_RETRIES) {
+                setTimeout(checkAuthAndRedirect, RETRY_DELAY);
+            } else {
+                showError();
+            }
+        });
+    }
 
-    // Fallback: If nothing happens after 5 seconds, show error
+    // Start checking immediately
+    checkAuthAndRedirect();
+
+    // Fallback: If nothing happens after 10 seconds, show error
     setTimeout(() => {
         if (checkingEl.style.display !== 'none') {
             console.log('[OAuth Recovery] Timeout - showing error');
             showError();
         }
-    }, 5000);
+    }, 10000);
 })();
 </script>
 {% endblock %}
