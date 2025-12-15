@@ -235,9 +235,7 @@ SOCIALACCOUNT_PROVIDERS = {
             'name',
             'first_name',
             'last_name',
-            'picture',
-            # Note: birthday, gender, location require Facebook App Review
-            # See: https://developers.facebook.com/docs/facebook-login/permissions
+            'picture.type(large)',
         ],
         'EXCHANGE_TOKEN': True,
         'VERIFIED_EMAIL': False,
