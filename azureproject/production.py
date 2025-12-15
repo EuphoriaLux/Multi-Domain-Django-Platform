@@ -111,6 +111,7 @@ MIDDLEWARE = [
     'azureproject.middleware.ForceAdminToEnglishMiddleware',  # Force admin to English
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'azureproject.middleware.OAuthCallbackProtectionMiddleware',  # Prevent duplicate OAuth callbacks (Android PWA fix)
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
