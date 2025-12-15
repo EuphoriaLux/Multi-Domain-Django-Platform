@@ -187,6 +187,8 @@
                                     <i class="bi bi-person-circle"></i> {{ user.first_name|default:user.username }}
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="{% url 'crush_lu:account_settings' %}"><i class="bi bi-gear"></i> Account Settings</a></li>
+                                    <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item" href="{% url 'crush_lu:logout' %}"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
                                 </ul>
                             </li>
@@ -292,6 +294,7 @@
                                     {% else %}
                                         <li><a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}"><i class="bi bi-person-plus"></i> Create Profile</a></li>
                                     {% endif %}
+                                    <li><a class="dropdown-item" href="{% url 'crush_lu:account_settings' %}"><i class="bi bi-gear"></i> Account Settings</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item" href="{% url 'crush_lu:logout' %}"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
                                 </ul>
