@@ -32,9 +32,10 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         return domain == 'delegation.crush.lu'
 
     def _is_crush_domain(self, request):
-        """Check if request is from crush.lu"""
+        """Check if request is from crush.lu or localhost (dev default)"""
         domain = _get_domain(request)
-        return domain == 'crush.lu'
+        # crush.lu is the main domain, localhost routes to crush.lu in development
+        return domain == 'crush.lu' or domain == 'localhost'
 
     def is_auto_signup_allowed(self, request, sociallogin):
         """Allow automatic signup for social logins on all domains."""
@@ -90,9 +91,10 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
         return domain == 'delegation.crush.lu'
 
     def _is_crush_domain(self, request):
-        """Check if request is from crush.lu"""
+        """Check if request is from crush.lu or localhost (dev default)"""
         domain = _get_domain(request)
-        return domain == 'crush.lu'
+        # crush.lu is the main domain, localhost routes to crush.lu in development
+        return domain == 'crush.lu' or domain == 'localhost'
 
     def get_login_redirect_url(self, request):
         """Redirect to appropriate dashboard after login based on domain."""
@@ -149,3 +151,15 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
             # Disable traditional signup form on delegation domain
             return False
         return True
+
+    def get_login_url(self, request):
+        """
+        Return the domain-specific login URL.
+        This controls where Allauth redirects for login pages.
+        """
+        if self._is_crush_domain(request):
+            return '/login/'
+        elif self._is_delegation_domain(request):
+            return '/login/'
+        # Default Allauth login URL for other domains
+        return '/accounts/login/'
