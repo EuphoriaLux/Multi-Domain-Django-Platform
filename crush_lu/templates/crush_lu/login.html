@@ -89,66 +89,34 @@
 {% block extra_js %}
 <script>
 /**
- * PWA OAuth Handler - Best Practices Implementation
+ * PWA OAuth Handler
  *
- * Handles OAuth flow in PWA standalone mode for both Android and iOS.
+ * Note: External OAuth (Facebook, Google) WILL open in system browser on Android/iOS PWAs.
+ * This is a platform security limitation - PWAs cannot intercept navigation to external domains.
  *
- * Strategy:
- * - Android PWA: Uses location.href (stays within Chrome WebView)
- * - iOS PWA (Safari): Uses location.href (iOS handles OAuth redirects well)
- * - Regular browser: Default link behavior
+ * The good news: After OAuth completes, the callback URL (crush.lu/accounts/facebook/login/callback/)
+ * will redirect back and should return focus to the PWA since it's the same origin.
  *
- * Note: The OAuth callback (crush.lu/accounts/facebook/login/callback/)
- * will return to the PWA because:
- * 1. Session cookies persist across the OAuth redirect
- * 2. The redirect URL is same-origin (crush.lu)
- * 3. PWA scope includes the callback path
+ * This script just ensures the flow starts correctly and logs debug info.
  */
 (function() {
     // Detect if running as installed PWA (standalone mode)
     function isPWA() {
-        // Check display-mode media query (works on most browsers)
         const standaloneMedia = window.matchMedia('(display-mode: standalone)').matches;
-        // Check iOS Safari standalone mode
         const iosStandalone = window.navigator.standalone === true;
-        // Check if launched from Android TWA
-        const androidTWA = document.referrer.includes('android-app://');
-
-        return standaloneMedia || iosStandalone || androidTWA;
+        return standaloneMedia || iosStandalone;
     }
 
-    // Detect iOS
-    function isIOS() {
-        return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    }
-
-    // Handle Facebook login button clicks
-    document.querySelectorAll('.facebook-login-btn').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-            const url = this.getAttribute('data-facebook-url') || this.href;
-
-            if (isPWA()) {
-                e.preventDefault();
-
-                // For both Android and iOS PWA, use location.href
-                // This keeps the OAuth flow within the PWA context
-                // The callback will return to the PWA since it's same-origin
-                window.location.href = url;
-
-                // Note: On iOS 16.4+, PWAs handle OAuth redirects natively
-                // On older iOS, the user may briefly see Safari, but will return to PWA
-            }
-            // In regular browser: default link behavior works fine
-        });
-    });
-
-    // Debug logging (remove in production if noisy)
+    // Debug logging for PWA mode
     if (isPWA()) {
         console.log('Crush.lu PWA: Standalone mode detected', {
-            iOS: isIOS(),
             standalone: window.navigator.standalone,
             displayMode: window.matchMedia('(display-mode: standalone)').matches
         });
+
+        // Note: We don't intercept the click anymore - let the browser handle OAuth naturally.
+        // The system browser will open for Facebook login (expected behavior).
+        // After successful auth, crush.lu callback will bring user back to the PWA.
     }
 })();
 </script>
