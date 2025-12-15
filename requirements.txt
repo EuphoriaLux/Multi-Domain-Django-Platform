@@ -10,7 +10,7 @@ django-cors-headers==4.9.0
 psycopg2-binary==2.9.11  # Updated from 2.9.10 (security & bug fixes)
 
 # Authentication
-django-allauth==65.12.1  # Updated from 65.1.0 (latest stable)
+django-allauth==65.13.1  # Updated from 65.1.0 (latest stable)
 PyJWT==2.10.1
 
 # Storage
