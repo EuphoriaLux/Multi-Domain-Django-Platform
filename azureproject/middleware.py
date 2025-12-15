@@ -169,6 +169,67 @@ class CrushAllAuthRedirectMiddleware:
         return self.get_response(request)
 
 
+class OAuthCallbackProtectionMiddleware:
+    """
+    Prevent duplicate OAuth callback requests that cause "Third-Party Login Failure".
+
+    On Android PWAs, the browser sometimes replays OAuth callback URLs which causes
+    errors because OAuth authorization codes can only be used once. This middleware:
+
+    1. Tracks the OAuth state parameter when a callback is processed
+    2. If the same state is seen again, redirects to home instead of failing
+    3. Clears tracked states after successful login or on logout
+
+    Must be placed AFTER SessionMiddleware but BEFORE any Allauth processing.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Only check OAuth callback URLs
+        if '/accounts/' in request.path and '/login/callback' in request.path:
+            state = request.GET.get('state', '')
+
+            if state:
+                # Check if we've already processed this state
+                processed_states = request.session.get('_oauth_processed_states', [])
+
+                if state in processed_states:
+                    # This is a duplicate request - redirect to appropriate page
+                    logger.warning(f"OAuthCallbackProtectionMiddleware: Duplicate OAuth state detected, redirecting")
+                    from django.http import HttpResponseRedirect
+
+                    # If user is authenticated, send to dashboard
+                    if request.user.is_authenticated:
+                        return HttpResponseRedirect('/dashboard/')
+                    else:
+                        # Send to home - they'll need to login again
+                        return HttpResponseRedirect('/')
+
+                # Mark this state as being processed
+                # (Will be confirmed as processed after successful response)
+                request._oauth_state_to_track = state
+
+        response = self.get_response(request)
+
+        # After processing, if this was a successful OAuth callback, track the state
+        if hasattr(request, '_oauth_state_to_track'):
+            # Only track if the response was a redirect (success) not an error page
+            if response.status_code in (301, 302, 303, 307, 308):
+                processed_states = request.session.get('_oauth_processed_states', [])
+                processed_states.append(request._oauth_state_to_track)
+                # Keep only last 10 states to prevent session bloat
+                request.session['_oauth_processed_states'] = processed_states[-10:]
+                request.session.modified = True
+
+        # Clear processed states on logout
+        if request.path in ('/logout/', '/accounts/logout/'):
+            if '_oauth_processed_states' in request.session:
+                del request.session['_oauth_processed_states']
+
+        return response
+
+
 class DomainURLRoutingMiddleware:
     """
     Middleware that sets request.urlconf based on the HTTP host.
