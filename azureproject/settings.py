@@ -45,11 +45,12 @@ INSTALLED_APPS = [
     'django.contrib.sites',
     'django.contrib.sitemaps',  # SEO: Dynamic sitemap generation
     # App templates must come BEFORE allauth to override default allauth templates
+    # Order matters: crush_lu before entreprinder so its account/ templates take priority
     'core',  # Shared templates (cookie_banner, etc.) across all domains
-    'entreprinder',  # Includes merged: matching, finops, vibe_coding
-    'vinsdelux',
-    'crush_lu',
+    'crush_lu',  # Must be before entreprinder for account/ template override on crush.lu
     'crush_delegation',
+    'vinsdelux',
+    'entreprinder',  # Includes merged: matching, finops, vibe_coding
     # Allauth apps
     'allauth',
     'allauth.account',
