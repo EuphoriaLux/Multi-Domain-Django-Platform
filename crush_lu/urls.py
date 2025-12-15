@@ -28,6 +28,10 @@ urlpatterns = [
     path('privacy-policy/', views.privacy_policy, name='privacy_policy'),
     path('terms-of-service/', views.terms_of_service, name='terms_of_service'),
     path('data-deletion/', views.data_deletion_request, name='data_deletion'),
+    path('data-deletion/status/', views.data_deletion_status, name='data_deletion_status'),
+
+    # Facebook Data Deletion Callback (required by Facebook)
+    path('facebook/data-deletion/', views.facebook_data_deletion_callback, name='facebook_data_deletion'),
 
     # Authentication
     path('login/', views.crush_login, name='login'),
