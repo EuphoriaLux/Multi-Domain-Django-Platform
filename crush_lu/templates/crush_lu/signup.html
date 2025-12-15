@@ -17,7 +17,8 @@
                 {% for provider in socialaccount_providers %}
                     {% if provider.id == "facebook" %}
                 <div class="d-grid gap-2 mb-4">
-                    <a href="{% provider_login_url 'facebook' %}" class="btn btn-outline-primary">
+                    <a href="{% provider_login_url 'facebook' %}" class="btn btn-outline-primary facebook-login-btn"
+                       data-facebook-url="{% provider_login_url 'facebook' %}">
                         <i class="fab fa-facebook me-2"></i>Sign up with Facebook
                     </a>
                 </div>
@@ -104,4 +105,41 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/**
+ * PWA OAuth Handler
+ * In standalone PWA mode, OAuth links would open in the system browser
+ * and lose context. This script ensures OAuth flows stay within the PWA.
+ */
+(function() {
+    // Detect if running as installed PWA (standalone mode)
+    function isPWA() {
+        return window.matchMedia('(display-mode: standalone)').matches ||
+               window.navigator.standalone === true ||
+               document.referrer.includes('android-app://');
+    }
+
+    // Handle Facebook login button clicks
+    document.querySelectorAll('.facebook-login-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            if (isPWA()) {
+                // In PWA: navigate in the same window to keep OAuth flow inside PWA
+                e.preventDefault();
+                const url = this.getAttribute('data-facebook-url') || this.href;
+                // Use location.href to stay within PWA context
+                window.location.href = url;
+            }
+            // In browser: let the default <a> behavior work
+        });
+    });
+
+    // Log PWA detection for debugging
+    if (isPWA()) {
+        console.log('Crush.lu: Running in PWA standalone mode');
+    }
+})();
+</script>
 {% endblock %}
