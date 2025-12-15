@@ -15,8 +15,21 @@ from crush_lu.admin import crush_admin_site
 from crush_lu import admin_views
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt
+from crush_lu.views_oauth import IdempotentFacebookCallbackView
+from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
 
-urlpatterns = base_patterns + api_patterns + [
+# Custom OAuth callback patterns - MUST come BEFORE base_patterns
+# to override the default allauth callback handlers with our idempotent versions
+# that handle PWA duplicate request issues gracefully
+oauth_callback_patterns = [
+    path(
+        'accounts/facebook/login/callback/',
+        IdempotentFacebookCallbackView.adapter_view(FacebookOAuth2Adapter),
+        name='facebook_callback'
+    ),
+]
+
+urlpatterns = oauth_callback_patterns + base_patterns + api_patterns + [
     # SEO: robots.txt and sitemap.xml
     path('robots.txt', robots_txt, name='robots_txt'),
     path('sitemap.xml', sitemap, {'sitemaps': crush_sitemaps}, name='django.contrib.sitemaps.views.sitemap'),

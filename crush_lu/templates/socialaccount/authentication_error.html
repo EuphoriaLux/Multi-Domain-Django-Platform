@@ -1,0 +1,149 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}Login Recovery - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-body p-5 text-center">
+                <!-- Loading state (shown while checking auth) -->
+                <div id="checking-auth">
+                    <div class="mb-4">
+                        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+
+                    <h2>Just a moment...</h2>
+
+                    <p class="text-muted mb-4">
+                        Completing your login...
+                    </p>
+                </div>
+
+                <!-- Error state (shown if auth check fails) -->
+                <div id="auth-error" style="display: none;">
+                    <div class="mb-4">
+                        <i class="bi bi-exclamation-triangle" style="font-size: 3rem; color: #9B59B6;"></i>
+                    </div>
+
+                    <h2>Login Issue</h2>
+
+                    <p class="text-muted mb-4">
+                        There was a hiccup with your Facebook login. This sometimes happens on mobile devices.
+                        Please try again.
+                    </p>
+
+                    <a href="{% url 'crush_lu:login' %}" class="btn btn-crush-primary mb-3">
+                        <i class="bi bi-arrow-left me-2"></i>Back to Login
+                    </a>
+
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            If this keeps happening, try logging in from a regular browser
+                            instead of the app.
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Success state (shown if user is actually authenticated) -->
+                <div id="auth-success" style="display: none;">
+                    <div class="mb-4">
+                        <i class="bi bi-check-circle" style="font-size: 3rem; color: #28a745;"></i>
+                    </div>
+
+                    <h2>You're logged in!</h2>
+
+                    <p class="text-muted mb-4">
+                        Redirecting you now...
+                    </p>
+
+                    <a href="{% url 'crush_lu:dashboard' %}" class="btn btn-crush-primary" id="continue-btn">
+                        Continue to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/**
+ * OAuth Error Recovery
+ *
+ * This page is shown when OAuth callback fails (often due to duplicate requests in PWA mode).
+ * However, the user may actually be authenticated from the first request.
+ * We check the auth status via API and redirect appropriately.
+ */
+(function() {
+    const checkingEl = document.getElementById('checking-auth');
+    const errorEl = document.getElementById('auth-error');
+    const successEl = document.getElementById('auth-success');
+
+    function showError() {
+        checkingEl.style.display = 'none';
+        errorEl.style.display = 'block';
+        successEl.style.display = 'none';
+    }
+
+    function showSuccess() {
+        checkingEl.style.display = 'none';
+        errorEl.style.display = 'none';
+        successEl.style.display = 'block';
+    }
+
+    // Check if user is actually authenticated
+    fetch('/api/check-auth/', {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: {
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Auth check failed');
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('[OAuth Recovery] Auth check result:', data);
+
+        if (data.authenticated) {
+            // User is actually authenticated - the first callback succeeded!
+            showSuccess();
+
+            // Redirect after a brief moment to show success
+            setTimeout(() => {
+                if (data.has_profile) {
+                    window.location.href = '{% url "crush_lu:dashboard" %}';
+                } else {
+                    // New user - redirect to profile creation
+                    window.location.href = '{% url "crush_lu:create_profile" %}';
+                }
+            }, 500);
+        } else {
+            // User really isn't authenticated
+            showError();
+        }
+    })
+    .catch(error => {
+        console.error('[OAuth Recovery] Error checking auth:', error);
+        // API failed - show error with login link
+        showError();
+    });
+
+    // Fallback: If nothing happens after 5 seconds, show error
+    setTimeout(() => {
+        if (checkingEl.style.display !== 'none') {
+            console.log('[OAuth Recovery] Timeout - showing error');
+            showError();
+        }
+    }, 5000);
+})();
+</script>
+{% endblock %}
