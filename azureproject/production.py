@@ -151,6 +151,10 @@ STORAGES = {
             # "token_credential": DefaultAzureCredential(), # For Managed Identity
         },
     },
+    # Private storage for Crush.lu profile photos (SAS token access)
+    "crush_private": {
+        "BACKEND": "crush_lu.storage.CrushProfilePhotoStorage",
+    },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },

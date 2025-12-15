@@ -6,31 +6,31 @@ import os
 import uuid
 from django.db.models import Q, F
 
-# Lazy storage object for ImageField
-# Using LazyObject ensures consistent migration state across environments
-# The storage is only evaluated when actually accessed, not at import time
-from django.utils.functional import LazyObject
-from django.core.files.storage import default_storage
+# Storage selection for ImageField using Django 4.2+ storages utility
+# Using storages.backends ensures consistent migration state across environments
+# because Django stores the alias reference, not the evaluated storage instance
+from django.core.files.storage import storages, default_storage
 
 
-class CrushPhotoStorage(LazyObject):
+def get_crush_photo_storage():
     """
-    Lazy storage backend for crush profile photos.
-    - Production (AZURE_ACCOUNT_NAME set): CrushProfilePhotoStorage with SAS tokens
-    - Development: Default storage (local filesystem)
+    Return the appropriate storage backend for crush profile photos.
+    - Production: Uses 'crush_private' storage alias (CrushProfilePhotoStorage with SAS tokens)
+    - Development: Uses default storage (local filesystem)
 
-    Using LazyObject ensures migrations are consistent across environments.
+    Using the storages utility ensures Django's migration system sees a consistent
+    callable reference, preventing false "model changes detected" warnings.
     """
-    def _setup(self):
-        if os.getenv('AZURE_ACCOUNT_NAME'):
-            from crush_lu.storage import CrushProfilePhotoStorage
-            self._wrapped = CrushProfilePhotoStorage()
-        else:
-            self._wrapped = default_storage
+    try:
+        # Try to get the crush_private storage (defined in production STORAGES)
+        return storages["crush_private"]
+    except (KeyError, Exception):
+        # Fall back to default storage in development
+        return default_storage
 
 
-# Single instance used by all photo fields
-crush_photo_storage = CrushPhotoStorage()
+# Callable used by all photo fields - Django calls this when needed
+crush_photo_storage = get_crush_photo_storage
 
 
 def user_photo_path(instance, filename):
