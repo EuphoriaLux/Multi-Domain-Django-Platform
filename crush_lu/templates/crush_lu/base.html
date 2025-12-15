@@ -1,6 +1,7 @@
 {% load static %}
 {% load i18n %}
 {% load analytics %}
+{% load socialaccount %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE|default:'en' }}">
 <head>
@@ -536,6 +537,9 @@
             console.log('[PWA] Starting in offline mode');
         }
     </script>
+
+    <!-- Facebook JS SDK for social login (loaded via allauth) -->
+    {% providers_media_js %}
 
     {% block extra_js %}{% endblock %}
 
