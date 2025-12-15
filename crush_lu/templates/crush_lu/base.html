@@ -1,7 +1,6 @@
 {% load static %}
 {% load i18n %}
 {% load analytics %}
-{% load socialaccount %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE|default:'en' }}">
 <head>
@@ -538,8 +537,8 @@
         }
     </script>
 
-    <!-- Facebook JS SDK for social login (loaded via allauth) -->
-    {% providers_media_js %}
+    <!-- Facebook JS SDK for social login (loaded on login/signup pages via extra_js block) -->
+    {% block social_js %}{% endblock %}
 
     {% block extra_js %}{% endblock %}
 
