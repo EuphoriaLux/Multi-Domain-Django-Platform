@@ -380,7 +380,11 @@ def check_special_user_experience(sender, request, user, **kwargs):
     Only processes for crush.lu domain.
     """
     # Only process for crush.lu domain
-    host = request.get_host().split(':')[0].lower()
+    try:
+        host = request.get_host().split(':')[0].lower()
+    except KeyError:
+        # During tests, the request may not have SERVER_NAME set
+        return
     if host not in ['crush.lu', 'www.crush.lu', 'localhost', '127.0.0.1']:
         return
 

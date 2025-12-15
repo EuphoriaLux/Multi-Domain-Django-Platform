@@ -38,7 +38,11 @@ def _is_delegation_domain(request):
     """Check if current request is from delegation.crush.lu domain"""
     if not request:
         return False
-    host = request.get_host().split(':')[0].lower()
+    try:
+        host = request.get_host().split(':')[0].lower()
+    except KeyError:
+        # During tests, the request may not have SERVER_NAME set
+        return False
     return host in ['delegation.crush.lu', 'localhost', '127.0.0.1']
 
 

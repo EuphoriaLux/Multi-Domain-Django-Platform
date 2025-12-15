@@ -1,6 +1,8 @@
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth.models import User
+from django.contrib.sites.models import Site
+from allauth.socialaccount.models import SocialApp
 from .models import EntrepreneurProfile, Industry, Like, Match
 
 class EntrepreneurProfileTestCase(TestCase):
@@ -20,8 +22,43 @@ class EntrepreneurProfileTestCase(TestCase):
         self.assertEqual(self.profile.bio, 'Test bio')
 
 class ViewsTestCase(TestCase):
+    """
+    Test views for Entreprinder app.
+
+    Note: We use HTTP_HOST='powerup.lu' to ensure the DomainURLRoutingMiddleware
+    routes requests to the correct URL configuration (urls_powerup.py which
+    includes entreprinder URLs). Without this, 'testserver' falls back to
+    PowerUP URLs but with different routing behavior.
+
+    Important: We use direct URLs (/, /profile/) instead of reverse() because:
+    - reverse() uses ROOT_URLCONF (azureproject.urls) which has i18n_patterns
+    - urls_powerup.py does NOT use i18n_patterns, so URLs are at / not /en/
+    - Using reverse() would give us /en/ which returns 404 on powerup.lu
+    """
+    @classmethod
+    def setUpTestData(cls):
+        """Set up data needed by all tests - runs once per TestCase."""
+        # Create/update Site for the tests - ensure domain matches HTTP_HOST
+        # Django creates Site id=1 with 'example.com' by default in tests
+        cls.site, created = Site.objects.update_or_create(
+            id=1,
+            defaults={'domain': 'powerup.lu', 'name': 'PowerUP'}
+        )
+
+        # Create LinkedIn OpenID Connect SocialApp (required by landing page template)
+        # The template uses {% provider_login_url 'openid_connect' %}
+        cls.linkedin_app = SocialApp.objects.create(
+            provider='openid_connect',
+            provider_id='linkedin',
+            name='LinkedIn',
+            client_id='test-linkedin-id',
+            secret='test-linkedin-secret',
+            settings={'server_url': 'https://www.linkedin.com/oauth'}
+        )
+        cls.linkedin_app.sites.add(cls.site)
+
     def setUp(self):
-        self.client = Client()
+        self.client = Client(HTTP_HOST='powerup.lu')
         self.user = User.objects.create_user(username='testuser', password='12345')
         self.industry = Industry.objects.create(name='Tech')
         self.profile = EntrepreneurProfile.objects.create(
@@ -33,15 +70,24 @@ class ViewsTestCase(TestCase):
         )
 
     def test_home_view(self):
-        response = self.client.get(reverse('entreprinder:home'))
+        """
+        Test that the home view returns a successful response.
+
+        Note: The base template includes {% provider_login_url 'openid_connect' %}
+        which requires a SocialApp. We create a dummy app for the test site.
+        """
+        # Use direct URL - urls_powerup.py has home at '/' (no i18n prefix)
+        response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'landing_page.html')
 
     def test_profile_view(self):
         self.client.login(username='testuser', password='12345')
-        response = self.client.get(reverse('entreprinder:profile'))
+        # Use direct URL - urls_powerup.py has profile at '/profile/' (no i18n prefix)
+        response = self.client.get('/profile/')
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'profile.html')
+        # Template is in entreprinder/ subdirectory
+        self.assertTemplateUsed(response, 'entreprinder/profile.html')
 
 class MatchingTestCase(TestCase):
     def setUp(self):
