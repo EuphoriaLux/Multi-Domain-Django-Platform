@@ -167,9 +167,4 @@ urlpatterns = [
     # Advent Calendar API Endpoints
     path('api/advent/status/', views_advent.get_advent_status, name='api_advent_status'),
     path('api/advent/open-door/', views_advent.open_door_api, name='api_advent_open_door'),
-
-    # ============================================================================
-    # AUTH CHECK API (for OAuth recovery)
-    # ============================================================================
-    path('api/check-auth/', views.check_auth_api, name='check_auth_api'),
 ]
