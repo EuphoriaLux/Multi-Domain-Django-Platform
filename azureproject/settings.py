@@ -44,6 +44,13 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.sites',
     'django.contrib.sitemaps',  # SEO: Dynamic sitemap generation
+    # App templates must come BEFORE allauth to override default allauth templates
+    'core',  # Shared templates (cookie_banner, etc.) across all domains
+    'entreprinder',  # Includes merged: matching, finops, vibe_coding
+    'vinsdelux',
+    'crush_lu',
+    'crush_delegation',
+    # Allauth apps
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
@@ -51,15 +58,12 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.linkedin_oauth2',
     'allauth.socialaccount.providers.facebook',
     'allauth.socialaccount.providers.microsoft',
-    'entreprinder',  # Includes merged: matching, finops, vibe_coding
+    # Third-party apps
     'crispy_forms',
     'crispy_bootstrap5',
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
-    'vinsdelux',
-    'crush_lu',
-    'crush_delegation',
     'azureproject',  # For custom analytics templatetags
     'cookie_consent',  # GDPR cookie consent banner
 ]
@@ -100,7 +104,7 @@ ROOT_URLCONF = 'azureproject.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
+        'DIRS': [],  # Empty - all templates in app-specific folders (core, entreprinder, crush_lu, etc.)
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

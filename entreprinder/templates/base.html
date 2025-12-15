@@ -37,14 +37,14 @@
     {% endblock %}
 </head>
 <body>
-    {% analytics_body %}   
+    {% analytics_body %}
     <header>
         <nav class="navbar navbar-expand-lg navbar-custom">
             <div class="container">
                 <a class="navbar-brand" href="{% url 'entreprinder:home' %}">
                     <i class="fas fa-handshake me-2"></i>Entreprinder
                 </a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" 
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
                         aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"><i class="fas fa-bars"></i></span>
                 </button>
@@ -82,7 +82,7 @@
                                 </a>
                             </li>
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" 
+                                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
                                    data-bs-toggle="dropdown" aria-expanded="false">
                                     {% if user.entrepreneurprofile.linkedin_photo_url %}
                                         <img src="{{ user.entrepreneurprofile.linkedin_photo_url }}"
@@ -113,7 +113,7 @@
                             </li>
                         {% else %}
                             <!-- Replacing Login/Sign Up with LinkedIn Login Button -->
-                           
+
 
                             <li class="nav-item">
                                 <!-- Or standard OpenID Connect -->
@@ -121,7 +121,7 @@
                                     {% trans "Sign in with LinkedIn" %}
                                 </a>
                             </li>
-        
+
 
                         {% endif %}
                         <li class="nav-item">
