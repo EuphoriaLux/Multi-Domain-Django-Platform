@@ -79,7 +79,7 @@ class ViewsTestCase(TestCase):
         # Use direct URL - urls_powerup.py has home at '/' (no i18n prefix)
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'landing_page.html')
+        self.assertTemplateUsed(response, 'entreprinder/landing_page.html')
 
     def test_profile_view(self):
         self.client.login(username='testuser', password='12345')
