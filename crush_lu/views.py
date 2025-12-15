@@ -344,6 +344,66 @@ def data_deletion_status(request):
     })
 
 
+@crush_login_required
+def account_settings(request):
+    """
+    Account settings page with delete account option.
+    """
+    return render(request, 'crush_lu/account_settings.html')
+
+
+@crush_login_required
+@require_http_methods(["GET", "POST"])
+def delete_account(request):
+    """
+    User-initiated account deletion.
+
+    GET: Shows confirmation page
+    POST: Deletes the account and logs out
+    """
+    if request.method == 'POST':
+        # Verify password for security (if user has a password)
+        password = request.POST.get('password', '')
+        confirm_text = request.POST.get('confirm_text', '')
+
+        # Check confirmation text
+        if confirm_text.lower() != 'delete my account':
+            messages.error(request, 'Please type "DELETE MY ACCOUNT" to confirm.')
+            return render(request, 'crush_lu/delete_account_confirm.html')
+
+        # If user has a usable password, verify it
+        if request.user.has_usable_password():
+            if not request.user.check_password(password):
+                messages.error(request, 'Incorrect password. Please try again.')
+                return render(request, 'crush_lu/delete_account_confirm.html')
+
+        # Generate confirmation code
+        confirmation_code = str(uuid.uuid4())
+
+        # Log the deletion
+        logger.info(f"User {request.user.id} ({request.user.email}) requested account deletion")
+
+        # Delete user data
+        try:
+            delete_user_data(request.user, confirmation_code)
+
+            # Log the user out
+            logout(request)
+
+            messages.success(request, 'Your account has been successfully deleted.')
+
+            # Redirect to status page with confirmation
+            return redirect(f'/data-deletion/status/?code={confirmation_code}')
+
+        except Exception as e:
+            logger.exception(f"Error deleting account for user {request.user.id}: {str(e)}")
+            messages.error(request, 'An error occurred while deleting your account. Please contact support.')
+            return render(request, 'crush_lu/delete_account_confirm.html')
+
+    # GET request - show confirmation page
+    return render(request, 'crush_lu/delete_account_confirm.html')
+
+
 # Onboarding
 @ratelimit(key='ip', rate='5/h', method='POST')
 def signup(request):

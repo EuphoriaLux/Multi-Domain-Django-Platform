@@ -1,0 +1,122 @@
+{% extends 'crush_lu/base.html' %}
+
+{% block title %}Delete Account - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Delete Your Account</h4>
+            </div>
+            <div class="card-body p-4">
+                {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                <div class="alert alert-warning">
+                    <h5><i class="bi bi-exclamation-circle me-2"></i>Warning: This action is permanent!</h5>
+                    <p class="mb-0">Once you delete your account, it cannot be recovered.</p>
+                </div>
+
+                <h5 class="mt-4 mb-3">What will be deleted:</h5>
+                <ul class="list-group list-group-flush mb-4">
+                    <li class="list-group-item d-flex align-items-center">
+                        <i class="bi bi-person-x text-danger me-3"></i>
+                        Your profile and all personal information
+                    </li>
+                    <li class="list-group-item d-flex align-items-center">
+                        <i class="bi bi-image text-danger me-3"></i>
+                        All your profile photos
+                    </li>
+                    <li class="list-group-item d-flex align-items-center">
+                        <i class="bi bi-calendar-x text-danger me-3"></i>
+                        All event registrations
+                    </li>
+                    <li class="list-group-item d-flex align-items-center">
+                        <i class="bi bi-people text-danger me-3"></i>
+                        All connections with other users
+                    </li>
+                    <li class="list-group-item d-flex align-items-center">
+                        <i class="bi bi-chat-dots text-danger me-3"></i>
+                        All messages you've sent or received
+                    </li>
+                    <li class="list-group-item d-flex align-items-center">
+                        <i class="bi bi-facebook text-danger me-3"></i>
+                        Facebook account connection
+                    </li>
+                </ul>
+
+                <form method="post" id="deleteAccountForm">
+                    {% csrf_token %}
+
+                    {% if user.has_usable_password %}
+                    <div class="mb-4">
+                        <label for="password" class="form-label">Enter your password to confirm:</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info small">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Since you signed up with Facebook, no password is required.
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-4">
+                        <label for="confirm_text" class="form-label">
+                            Type <strong>DELETE MY ACCOUNT</strong> to confirm:
+                        </label>
+                        <input type="text" class="form-control" id="confirm_text" name="confirm_text"
+                               placeholder="DELETE MY ACCOUNT" required autocomplete="off">
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-danger" id="deleteBtn" disabled>
+                            <i class="bi bi-trash me-2"></i>Permanently Delete My Account
+                        </button>
+                        <a href="{% url 'crush_lu:account_settings' %}" class="btn btn-outline-secondary">
+                            Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="text-center mt-4">
+            <p class="text-muted small">
+                Changed your mind? You can also
+                <a href="{% url 'crush_lu:edit_profile' %}">deactivate your profile</a>
+                temporarily instead of deleting everything.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmInput = document.getElementById('confirm_text');
+    const deleteBtn = document.getElementById('deleteBtn');
+    const form = document.getElementById('deleteAccountForm');
+
+    // Enable/disable button based on confirmation text
+    confirmInput.addEventListener('input', function() {
+        const isValid = this.value.toLowerCase() === 'delete my account';
+        deleteBtn.disabled = !isValid;
+    });
+
+    // Final confirmation before submit
+    form.addEventListener('submit', function(e) {
+        if (!confirm('Are you absolutely sure you want to delete your account? This cannot be undone.')) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
+{% endblock %}
