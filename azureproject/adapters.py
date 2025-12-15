@@ -5,9 +5,45 @@ Routes authentication to appropriate handlers based on request domain.
 """
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.account.adapter import DefaultAccountAdapter
+from django.urls import reverse
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _is_oauth_callback(request):
+    """Check if this is an OAuth callback request (coming from social provider)."""
+    if not request:
+        return False
+    # OAuth callbacks typically come from external domains
+    # Check referrer or specific callback patterns
+    path = request.path
+    return '/accounts/' in path and '/login/callback' in path
+
+
+def _is_from_pwa(request):
+    """
+    Check if the request originated from the PWA.
+
+    On Android, when OAuth opens in system browser, it loses the PWA context.
+    We check various headers and session flags to detect this.
+    """
+    if not request:
+        return False
+
+    # Check if we set a PWA flag in session before OAuth redirect
+    if request.session.get('oauth_from_pwa'):
+        return True
+
+    # Check Sec-Fetch-Dest header (standalone mode)
+    sec_fetch_dest = request.META.get('HTTP_SEC_FETCH_DEST', '')
+    if sec_fetch_dest == 'document':
+        # Check display-mode in UA-CH or Sec-Fetch-Site
+        sec_fetch_mode = request.META.get('HTTP_SEC_FETCH_MODE', '')
+        if sec_fetch_mode in ('navigate', 'same-origin'):
+            return True
+
+    return False
 
 
 def _get_domain(request):
@@ -36,6 +72,18 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         domain = _get_domain(request)
         # crush.lu is the main domain, localhost routes to crush.lu in development
         return domain == 'crush.lu' or domain == 'localhost'
+
+    def pre_social_login(self, request, sociallogin):
+        """
+        Called after OAuth callback but before login/signup is complete.
+        Track the OAuth provider for PWA redirect handling.
+        """
+        super().pre_social_login(request, sociallogin)
+
+        # Store the OAuth provider in session for PWA redirect handling
+        if self._is_crush_domain(request):
+            request.session['oauth_provider'] = sociallogin.account.provider
+            logger.debug(f"OAuth login via {sociallogin.account.provider}")
 
     def is_auto_signup_allowed(self, request, sociallogin):
         """Allow automatic signup for social logins on all domains."""
@@ -74,6 +122,18 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         if self._is_delegation_domain(request):
             return '/dashboard/'
         elif self._is_crush_domain(request):
+            # Check if this is a mobile OAuth callback
+            user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
+            is_mobile = 'mobile' in user_agent or 'android' in user_agent
+
+            if is_mobile and request.session.get('oauth_provider'):
+                # Clear the provider flag
+                request.session.pop('oauth_provider', None)
+                # Store the intended destination
+                request.session['oauth_final_destination'] = '/create-profile/'
+                # Redirect to PWA return handler
+                return '/oauth-complete/'
+
             return '/create-profile/'
         else:
             return '/profile/'
@@ -96,6 +156,13 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
         # crush.lu is the main domain, localhost routes to crush.lu in development
         return domain == 'crush.lu' or domain == 'localhost'
 
+    def _get_crush_redirect_url(self, request):
+        """Get the appropriate redirect URL for Crush.lu after login."""
+        if hasattr(request.user, 'crushprofile'):
+            return '/dashboard/'
+        else:
+            return '/create-profile/'
+
     def get_login_redirect_url(self, request):
         """Redirect to appropriate dashboard after login based on domain."""
         if self._is_delegation_domain(request):
@@ -116,11 +183,25 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
             return '/dashboard/'
 
         elif self._is_crush_domain(request):
-            # Crush.lu: Check if user has a profile
-            if hasattr(request.user, 'crushprofile'):
-                return '/dashboard/'
-            else:
-                return '/create-profile/'
+            # Check if this is an OAuth callback that landed in the browser
+            # instead of the PWA (common on Android)
+            user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
+            is_android = 'android' in user_agent
+            is_mobile = 'mobile' in user_agent or 'android' in user_agent
+
+            # If mobile OAuth callback, redirect to PWA return page
+            # This page will attempt to return the user to the PWA
+            if is_mobile and request.session.get('oauth_provider'):
+                # Clear the provider flag
+                provider = request.session.pop('oauth_provider', None)
+                # Store the intended destination
+                final_destination = self._get_crush_redirect_url(request)
+                request.session['oauth_final_destination'] = final_destination
+                # Redirect to PWA return handler
+                return '/oauth-complete/'
+
+            # Normal flow - direct to dashboard or profile creation
+            return self._get_crush_redirect_url(request)
         else:
             # Default behavior for other domains
             return '/profile/'

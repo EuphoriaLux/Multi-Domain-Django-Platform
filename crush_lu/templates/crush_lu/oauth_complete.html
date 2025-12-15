@@ -1,0 +1,213 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+
+{% block title %}Login Successful - Crush.lu{% endblock %}
+
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-body text-center p-5">
+                    <!-- Success Icon -->
+                    <div class="mb-4">
+                        <div class="success-icon-wrapper">
+                            <svg class="success-icon" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
+                                <circle class="success-icon-circle" cx="26" cy="26" r="25" fill="none"/>
+                                <path class="success-icon-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <h2 class="mb-3">Welcome, {{ user.first_name|default:user.username }}!</h2>
+                    <p class="text-muted mb-4">
+                        You've successfully logged in to Crush.lu.
+                    </p>
+
+                    <!-- PWA Return Instructions (shown on Android browser) -->
+                    <div id="pwa-instructions" class="alert alert-info d-none">
+                        <p class="mb-2"><strong>Almost there!</strong></p>
+                        <p class="mb-0 small">
+                            If you're using the Crush.lu app, tap the button below to return to the app.
+                        </p>
+                    </div>
+
+                    <!-- Primary Action Button -->
+                    <a href="{{ final_destination }}"
+                       id="continue-btn"
+                       class="btn btn-crush-primary btn-lg w-100 mb-3">
+                        Continue to Crush.lu
+                    </a>
+
+                    <!-- PWA Return Button (hidden by default, shown on Android) -->
+                    <button id="pwa-return-btn"
+                            class="btn btn-outline-primary w-100 d-none"
+                            onclick="returnToPWA()">
+                        <i class="fas fa-mobile-alt me-2"></i>
+                        Open in Crush.lu App
+                    </button>
+
+                    <p class="text-muted small mt-4 mb-0">
+                        <i class="fas fa-shield-alt me-1"></i>
+                        Your session is secure
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Success animation */
+.success-icon-wrapper {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto;
+}
+
+.success-icon {
+    width: 80px;
+    height: 80px;
+}
+
+.success-icon-circle {
+    stroke-dasharray: 166;
+    stroke-dashoffset: 166;
+    stroke-width: 2;
+    stroke-miterlimit: 10;
+    stroke: #9B59B6;
+    fill: none;
+    animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+
+.success-icon-check {
+    transform-origin: 50% 50%;
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+    stroke: #9B59B6;
+    stroke-width: 3;
+    stroke-linecap: round;
+    animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+}
+
+@keyframes stroke {
+    100% {
+        stroke-dashoffset: 0;
+    }
+}
+
+/* Pulse animation for continue button */
+#continue-btn {
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(155, 89, 182, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 20px 10px rgba(155, 89, 182, 0.2);
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    'use strict';
+
+    const FINAL_DESTINATION = '{{ final_destination }}';
+    const FULL_URL = window.location.origin + FINAL_DESTINATION;
+
+    // Detect Android device
+    function isAndroid() {
+        return /android/i.test(navigator.userAgent);
+    }
+
+    // Detect if running in PWA (standalone mode)
+    function isPWA() {
+        return window.matchMedia('(display-mode: standalone)').matches ||
+               window.navigator.standalone === true;
+    }
+
+    // Detect if running in Chrome browser (not PWA)
+    function isBrowserNotPWA() {
+        const isChrome = /chrome/i.test(navigator.userAgent) && !/edg/i.test(navigator.userAgent);
+        const isSamsung = /samsungbrowser/i.test(navigator.userAgent);
+        const isFirefox = /firefox/i.test(navigator.userAgent);
+        return (isChrome || isSamsung || isFirefox) && !isPWA();
+    }
+
+    // Show PWA instructions for Android users in browser
+    function showPWAInstructions() {
+        document.getElementById('pwa-instructions').classList.remove('d-none');
+        document.getElementById('pwa-return-btn').classList.remove('d-none');
+    }
+
+    // Attempt to return to PWA using various methods
+    window.returnToPWA = function() {
+        // Method 1: Try Android Intent URL (opens installed PWA)
+        // This only works if the PWA is installed and has the correct scope
+        const intentUrl = 'intent://' + window.location.host + FINAL_DESTINATION +
+                          '#Intent;scheme=https;package=org.chromium.webapk.a' +
+                          btoa(window.location.host).replace(/[^a-zA-Z0-9]/g, '').substring(0, 20) +
+                          ';end';
+
+        // Create a hidden iframe to try the intent
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = intentUrl;
+        document.body.appendChild(iframe);
+
+        // Fallback: After a short delay, try direct navigation
+        setTimeout(function() {
+            // Method 2: Try navigating directly - if the PWA is set as default handler
+            // for this domain, it might open in the PWA
+            window.location.href = FULL_URL;
+        }, 500);
+
+        // Cleanup iframe
+        setTimeout(function() {
+            document.body.removeChild(iframe);
+        }, 2000);
+    };
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('[OAuth Complete] Page loaded', {
+            isAndroid: isAndroid(),
+            isPWA: isPWA(),
+            isBrowserNotPWA: isBrowserNotPWA(),
+            userAgent: navigator.userAgent
+        });
+
+        if (isPWA()) {
+            // Already in PWA - just redirect
+            console.log('[OAuth Complete] In PWA, redirecting to:', FINAL_DESTINATION);
+            setTimeout(function() {
+                window.location.href = FINAL_DESTINATION;
+            }, 1500); // Short delay to show success animation
+        } else if (isAndroid() && isBrowserNotPWA()) {
+            // Android browser - show instructions and PWA button
+            console.log('[OAuth Complete] Android browser detected, showing PWA instructions');
+            showPWAInstructions();
+
+            // Auto-attempt to return to PWA after 3 seconds
+            setTimeout(function() {
+                console.log('[OAuth Complete] Auto-attempting PWA return');
+                returnToPWA();
+            }, 3000);
+        } else {
+            // Desktop or iOS browser - just redirect after showing success
+            console.log('[OAuth Complete] Desktop/iOS, redirecting to:', FINAL_DESTINATION);
+            setTimeout(function() {
+                window.location.href = FINAL_DESTINATION;
+            }, 2000);
+        }
+    });
+})();
+</script>
+{% endblock %}

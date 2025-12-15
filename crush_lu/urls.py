@@ -36,6 +36,7 @@ urlpatterns = [
     # Authentication
     path('login/', views.crush_login, name='login'),
     path('logout/', views.crush_logout, name='logout'),
+    path('oauth-complete/', views.oauth_complete, name='oauth_complete'),
 
     # Onboarding flow
     path('signup/', views.signup, name='signup'),
