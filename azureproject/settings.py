@@ -220,9 +220,10 @@ SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
 # Social account provider settings
 SOCIALACCOUNT_PROVIDERS = {
     'facebook': {
-        'METHOD': 'oauth2',
+        'METHOD': 'js_sdk',  # Use JS SDK for smoother popup-based login (avoids GDPR consent redirect issues)
         'SCOPE': ['email', 'public_profile', 'user_birthday', 'user_gender'],
         'AUTH_PARAMS': {},  # Empty - avoid 'rerequest' which can cause GDPR consent page errors
+        'INIT_PARAMS': {'cookie': True},  # Required for JS SDK
         'FIELDS': [
             'id',
             'email',
