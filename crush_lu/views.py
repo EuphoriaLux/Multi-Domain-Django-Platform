@@ -2691,3 +2691,35 @@ def manifest_view(request):
     response = JsonResponse(manifest)
     response['Content-Type'] = 'application/manifest+json'
     return response
+
+
+def check_auth_api(request):
+    """
+    Quick authentication check API for OAuth recovery flow.
+
+    When OAuth callback shows an error page (due to duplicate request),
+    JavaScript can call this API to check if the user was actually
+    authenticated by the first request, enabling auto-redirect to dashboard.
+
+    Returns JSON:
+    {
+        "authenticated": bool,
+        "has_profile": bool,
+        "username": str or None
+    }
+    """
+    from django.http import JsonResponse
+
+    is_authenticated = request.user.is_authenticated
+    has_profile = False
+    username = None
+
+    if is_authenticated:
+        username = request.user.username
+        has_profile = hasattr(request.user, 'crushprofile')
+
+    return JsonResponse({
+        'authenticated': is_authenticated,
+        'has_profile': has_profile,
+        'username': username
+    })

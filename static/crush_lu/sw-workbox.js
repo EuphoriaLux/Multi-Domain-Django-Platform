@@ -1,6 +1,6 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v8 - Completely bypass service worker for OAuth callbacks
+// Version: v9 - Enhanced OAuth bypass with explicit network passthrough
 
 // Import Workbox from LOCAL static files (not CDN) to enable offline installation
 importScripts('/static/crush_lu/workbox/workbox-sw.js');
@@ -9,15 +9,33 @@ importScripts('/static/crush_lu/workbox/workbox-sw.js');
 // CRITICAL: Bypass service worker COMPLETELY for OAuth callbacks
 // OAuth authorization codes are one-time use - any interception causes failures
 // This MUST be before Workbox initialization to prevent ANY handling
+//
+// FIX for PWA duplicate request issue:
+// - Previous approach: return early without respondWith() - browser may still retry
+// - New approach: explicitly call respondWith(fetch()) to pass directly to network
+//   and prevent any other handlers (including Workbox) from intercepting
 // ============================================================================
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Check if this is an OAuth callback - let browser handle it directly
-  if (url.pathname.includes('/callback') || url.pathname.includes('/accounts/')) {
-    // Do NOT call event.respondWith() - this tells the browser to handle it normally
-    // The service worker will not intercept this request at all
-    console.log('[SW] Bypassing service worker for auth URL:', url.pathname);
+  // Check if this is ANY OAuth-related URL that should bypass the service worker
+  const isOAuthPath = url.pathname.includes('/callback') ||
+                      url.pathname.includes('/accounts/facebook/') ||
+                      url.pathname.includes('/accounts/microsoft/') ||
+                      url.pathname.includes('/accounts/google/') ||
+                      url.pathname.includes('/api/check-auth');
+
+  if (isOAuthPath) {
+    // IMPORTANT: Use respondWith(fetch()) to explicitly pass to network
+    // This prevents any caching and ensures only ONE request reaches the server
+    console.log('[SW] OAuth URL - passing directly to network:', url.pathname);
+    event.respondWith(
+      fetch(event.request).catch(error => {
+        console.error('[SW] OAuth fetch failed:', error);
+        // On network error, let the browser handle it naturally
+        return new Response('Network error during OAuth', { status: 503 });
+      })
+    );
     return;
   }
 });
@@ -36,7 +54,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v8-oauth-bypass';
+  const CACHE_VERSION = 'crush-v9-oauth-fix';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
