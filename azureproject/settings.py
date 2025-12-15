@@ -227,22 +227,17 @@ SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
 SOCIALACCOUNT_PROVIDERS = {
     'facebook': {
         'METHOD': 'oauth2',
-        'SCOPE': [
-            'email',
-            'public_profile',
-            'user_birthday',
-            'user_gender',
-        ],
-        'AUTH_PARAMS': {'auth_type': 'rerequest'},
+        'SCOPE': ['email', 'public_profile'],  # Only basic permissions (no app review needed)
+        'AUTH_PARAMS': {'auth_type': 'rerequest'},  # Smoother UX - only re-prompt for declined permissions
         'FIELDS': [
             'id',
             'email',
             'name',
             'first_name',
             'last_name',
-            'picture.type(large)',
-            'birthday',
-            'gender',
+            'picture',
+            # Note: birthday, gender, location require Facebook App Review
+            # See: https://developers.facebook.com/docs/facebook-login/permissions
         ],
         'EXCHANGE_TOKEN': True,
         'VERIFIED_EMAIL': False,
