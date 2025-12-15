@@ -226,23 +226,16 @@ SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
 # Social account provider settings
 SOCIALACCOUNT_PROVIDERS = {
     'facebook': {
-        'METHOD': 'oauth2',  # Full-page redirect - works reliably in PWA mode
-        'SCOPE': [
-            'email',
-            'public_profile',
-            'user_birthday',  # Request birthday (requires app review - approved)
-            'user_gender',    # Request gender (requires app review - approved)
-        ],
-        'AUTH_PARAMS': {},  # Empty - avoid 'rerequest' which can cause GDPR consent page errors
+        'METHOD': 'oauth2',
+        'SCOPE': ['email', 'public_profile'],  # Basic permissions only - no app review needed
+        'AUTH_PARAMS': {'auth_type': 'rerequest'},  # Re-prompt only for declined permissions
         'FIELDS': [
             'id',
             'email',
             'name',
             'first_name',
             'last_name',
-            'picture.type(large)',  # Request large profile picture (200x200)
-            'birthday',  # Format: MM/DD/YYYY
-            'gender',    # male, female, or custom
+            'picture.type(large)',
         ],
         'EXCHANGE_TOKEN': True,
         'VERIFIED_EMAIL': False,
