@@ -1,9 +1,26 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v6 - Local Workbox bundle to fix Android black screen on cold start
+// Version: v8 - Completely bypass service worker for OAuth callbacks
 
 // Import Workbox from LOCAL static files (not CDN) to enable offline installation
 importScripts('/static/crush_lu/workbox/workbox-sw.js');
+
+// ============================================================================
+// CRITICAL: Bypass service worker COMPLETELY for OAuth callbacks
+// OAuth authorization codes are one-time use - any interception causes failures
+// This MUST be before Workbox initialization to prevent ANY handling
+// ============================================================================
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Check if this is an OAuth callback - let browser handle it directly
+  if (url.pathname.includes('/callback') || url.pathname.includes('/accounts/')) {
+    // Do NOT call event.respondWith() - this tells the browser to handle it normally
+    // The service worker will not intercept this request at all
+    console.log('[SW] Bypassing service worker for auth URL:', url.pathname);
+    return;
+  }
+});
 
 // Check if Workbox loaded successfully
 if (workbox) {
@@ -19,7 +36,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v6-local-workbox';
+  const CACHE_VERSION = 'crush-v8-oauth-bypass';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -172,7 +189,14 @@ if (workbox) {
   }
 
   // Helper function to check if path matches authenticated routes (with i18n support)
+  // These routes should NEVER be cached - always fetch from network
   function isAuthenticatedRoute(pathname) {
+    // OAuth callback URLs must NEVER be cached - one-time use codes!
+    if (pathname.includes('/callback')) {
+      console.log('[Workbox] OAuth callback detected, forcing NetworkOnly:', pathname);
+      return true;
+    }
+
     const authPaths = [
       '/admin', '/accounts', '/coach', '/dashboard',
       '/login', '/logout', '/profile', '/connections',
@@ -384,7 +408,7 @@ if (workbox) {
     }
   });
 
-  console.log('[Workbox] Service worker v6 configured successfully!');
+  console.log('[Workbox] Service worker v8 configured successfully!');
 
 } else {
   console.error('[Workbox] Failed to load Workbox from local bundle!');
