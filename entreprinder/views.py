@@ -34,13 +34,13 @@ def home(request):
             # Handle case where primary email might not exist yet, though unlikely
             # with ACCOUNT_EMAIL_REQUIRED=True
             pass
-    return render(request, 'landing_page.html', context)
+    return render(request, 'entreprinder/landing_page.html', context)
 
 def about_page(request):
-    return render(request, 'about.html')
+    return render(request, 'entreprinder/about.html')
 
 def contact_page(request):
-    return render(request, 'contact.html')
+    return render(request, 'entreprinder/contact.html')
 
 @login_required
 def profile(request):
@@ -95,7 +95,7 @@ def entrepreneur_list(request):
         return render(request, 'entreprinder/entrepreneur_list.html', context)
     except Exception as e:
         logger.exception("Error loading entrepreneur list")
-        return render(request, 'error.html', {'error_message': f"An error occurred while loading the entrepreneur list. Please try again later. Error details: {e}"})
+        return render(request, 'entreprinder/error.html', {'error_message': f"An error occurred while loading the entrepreneur list. Please try again later. Error details: {e}"})
 
 @api_view(['GET'])
 @authentication_classes([JWTAuthentication])

@@ -115,9 +115,9 @@ def matches(request):
         context['matches'] = matches
         return render(request, 'matching/matches.html', context)
     except EntrepreneurProfile.DoesNotExist:
-        return render(request, 'error.html', {'error_message': "Your entrepreneur profile doesn't exist. Please create one."})
+        return render(request, 'entreprinder/error.html', {'error_message': "Your entrepreneur profile doesn't exist. Please create one."})
     except Exception as e:
-        return render(request, 'error.html', {'error_message': "An error occurred while loading your matches. Please try again later."})
+        return render(request, 'entreprinder/error.html', {'error_message': "An error occurred while loading your matches. Please try again later."})
 
 
 @login_required

@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Road Trip Discovery - 90 Minutes to Connection</title>
-    
+
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <!-- Custom Styles -->
     <style>
         :root {
@@ -177,7 +177,7 @@
             .game-container {
                 padding: 1rem;
             }
-            
+
             .answer-button {
                 padding: 1rem !important;
                 font-size: 0.95rem !important;
@@ -199,10 +199,10 @@
     </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50">
-    
+
     <!-- Main Game Container -->
     <div id="gameContainer" class="game-container max-w-md mx-auto p-4 min-h-screen flex flex-col justify-center">
-        
+
         <!-- Welcome Screen -->
         <div id="welcomeScreen" class="screen fade-in">
             <div class="bg-white rounded-3xl p-8 card-shadow">
@@ -213,22 +213,22 @@
                     </h1>
                     <p class="text-gray-600">90 minutes to reconnection</p>
                 </div>
-                
+
                 <div class="space-y-4 mb-6">
                     <div class="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-4">
                         <p class="text-sm text-gray-700">
-                            <span class="font-semibold">Hey Maxi!</span> 16 years after that party where we first met, 
+                            <span class="font-semibold">Hey Maxi!</span> 16 years after that party where we first met,
                             we're finally on this journey together. This game is designed for our drive to Euskirchen Therme.
                         </p>
                     </div>
-                    
+
                     <div class="flex items-center justify-between text-sm text-gray-600">
                         <span>⏱️ 90 minutes</span>
                         <span>❓ 25 questions</span>
                         <span>🎯 5 phases</span>
                     </div>
                 </div>
-                
+
                 <button id="startButton" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold py-4 rounded-xl hover:shadow-lg transition-all duration-300">
                     Let's Begin This Journey
                 </button>
@@ -243,11 +243,11 @@
                     <h2 id="phaseTitle" class="text-2xl font-bold mb-2">Phase Title</h2>
                     <p id="phaseSubtitle" class="text-gray-600">Phase description</p>
                 </div>
-                
+
                 <div id="phaseDescription" class="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-4 mb-6">
                     <p class="text-sm text-gray-700">Phase context</p>
                 </div>
-                
+
                 <button id="startPhaseButton" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold py-4 rounded-xl">
                     Start Phase
                 </button>
@@ -295,18 +295,18 @@
                     <div id="progressBar" class="h-full bg-gradient-to-r from-pink-500 to-purple-600 transition-all duration-500 rounded-full"></div>
                 </div>
             </div>
-            
+
             <!-- Question Card -->
             <div class="bg-white rounded-3xl p-6 card-shadow slide-up">
                 <div id="questionText" class="text-lg font-medium text-gray-800 mb-6">
                     Question will appear here
                 </div>
-                
+
                 <!-- Answer Options -->
                 <div id="answerOptions" class="space-y-3 mb-6">
                     <!-- Answer buttons will be dynamically inserted here -->
                 </div>
-                
+
                 <!-- Response Section (hidden initially) -->
                 <div id="responseSection" class="hidden">
                     <div class="border-t pt-4 mt-4">
@@ -315,7 +315,7 @@
                             <p id="maleResponse" class="text-sm text-gray-700 italic"></p>
                         </div>
                     </div>
-                    
+
                     <button id="continueButton" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold py-3 rounded-xl mt-4">
                         Continue
                     </button>
@@ -331,11 +331,11 @@
                     <h2 class="text-2xl font-bold mb-2">Phase Complete!</h2>
                     <p id="phaseScore" class="text-gray-600">Your connection score so far</p>
                 </div>
-                
+
                 <div id="phaseStats" class="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-4 mb-6">
                     <!-- Phase statistics will be shown here -->
                 </div>
-                
+
                 <button id="nextPhaseButton" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold py-4 rounded-xl">
                     Continue to Next Phase
                 </button>
@@ -355,21 +355,21 @@
                     </div>
                     <p class="text-gray-600 mt-2">Compatibility Score</p>
                 </div>
-                
+
                 <div id="finalMessage" class="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-6 mb-6">
                     <p class="text-gray-700 text-center font-medium"></p>
                 </div>
-                
+
                 <div id="scoreBreakdown" class="space-y-2 mb-6">
                     <!-- Score breakdown will be shown here -->
                 </div>
-                
+
                 <button id="restartButton" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold py-4 rounded-xl">
                     Play Again
                 </button>
             </div>
         </div>
-        
+
     </div>
 
     <!-- Game JavaScript -->
