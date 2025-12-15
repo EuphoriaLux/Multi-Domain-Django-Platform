@@ -7,9 +7,15 @@ from django.utils import timezone
 from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
 from datetime import timedelta
 import logging
 import uuid
+import json
+import base64
+import hashlib
+import hmac
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +131,217 @@ def terms_of_service(request):
 def data_deletion_request(request):
     """Data deletion instructions page"""
     return render(request, 'crush_lu/data_deletion.html')
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def facebook_data_deletion_callback(request):
+    """
+    Facebook Data Deletion Callback URL.
+
+    Facebook sends a signed request when a user requests to delete their data.
+    This endpoint:
+    1. Verifies the signed request using app secret
+    2. Finds and deletes/anonymizes the user's data
+    3. Returns a JSON response with confirmation URL and code
+
+    Facebook docs: https://developers.facebook.com/docs/development/create-an-app/app-dashboard/data-deletion-callback
+    """
+    try:
+        signed_request = request.POST.get('signed_request')
+        if not signed_request:
+            logger.error("Facebook data deletion: No signed_request provided")
+            return JsonResponse({'error': 'No signed_request'}, status=400)
+
+        # Parse and verify the signed request
+        data = parse_facebook_signed_request(signed_request)
+        if not data:
+            logger.error("Facebook data deletion: Invalid signed_request")
+            return JsonResponse({'error': 'Invalid signed_request'}, status=400)
+
+        facebook_user_id = data.get('user_id')
+        if not facebook_user_id:
+            logger.error("Facebook data deletion: No user_id in signed_request")
+            return JsonResponse({'error': 'No user_id'}, status=400)
+
+        # Find the user by their Facebook social account
+        from allauth.socialaccount.models import SocialAccount
+        try:
+            social_account = SocialAccount.objects.get(
+                provider='facebook',
+                uid=facebook_user_id
+            )
+            user = social_account.user
+
+            # Generate a unique confirmation code
+            confirmation_code = str(uuid.uuid4())
+
+            # Log the deletion request
+            logger.info(f"Facebook data deletion request for user {user.id} (FB ID: {facebook_user_id})")
+
+            # Delete/anonymize user data
+            delete_user_data(user, confirmation_code)
+
+            # Build the status URL where user can check deletion status
+            status_url = request.build_absolute_uri(
+                f'/data-deletion/status/?code={confirmation_code}'
+            )
+
+            # Return the required JSON response
+            return JsonResponse({
+                'url': status_url,
+                'confirmation_code': confirmation_code
+            })
+
+        except SocialAccount.DoesNotExist:
+            # User not found - still return success (data already doesn't exist)
+            logger.warning(f"Facebook data deletion: No user found for FB ID {facebook_user_id}")
+            confirmation_code = str(uuid.uuid4())
+            status_url = request.build_absolute_uri(
+                f'/data-deletion/status/?code={confirmation_code}'
+            )
+            return JsonResponse({
+                'url': status_url,
+                'confirmation_code': confirmation_code
+            })
+
+    except Exception as e:
+        logger.exception(f"Facebook data deletion error: {str(e)}")
+        return JsonResponse({'error': 'Server error'}, status=500)
+
+
+def parse_facebook_signed_request(signed_request):
+    """
+    Parse and verify a Facebook signed request.
+
+    Args:
+        signed_request: The signed_request string from Facebook
+
+    Returns:
+        dict: The decoded payload if valid, None otherwise
+    """
+    try:
+        # Get app secret from settings
+        from allauth.socialaccount.models import SocialApp
+        try:
+            facebook_app = SocialApp.objects.get(provider='facebook')
+            app_secret = facebook_app.secret
+        except SocialApp.DoesNotExist:
+            logger.error("Facebook app not configured in SocialApp")
+            return None
+
+        # Split the signed request
+        parts = signed_request.split('.')
+        if len(parts) != 2:
+            return None
+
+        encoded_sig, payload = parts
+
+        # Decode the signature
+        # Facebook uses URL-safe base64, add padding if needed
+        encoded_sig += '=' * (4 - len(encoded_sig) % 4)
+        sig = base64.urlsafe_b64decode(encoded_sig)
+
+        # Decode the payload
+        payload += '=' * (4 - len(payload) % 4)
+        data = json.loads(base64.urlsafe_b64decode(payload))
+
+        # Verify the signature
+        expected_sig = hmac.new(
+            app_secret.encode('utf-8'),
+            payload.encode('utf-8'),
+            hashlib.sha256
+        ).digest()
+
+        if not hmac.compare_digest(sig, expected_sig):
+            logger.error("Facebook signed request signature mismatch")
+            return None
+
+        return data
+
+    except Exception as e:
+        logger.exception(f"Error parsing Facebook signed request: {str(e)}")
+        return None
+
+
+def delete_user_data(user, confirmation_code):
+    """
+    Delete or anonymize a user's data.
+
+    This function:
+    1. Deletes CrushProfile and related data
+    2. Deletes social account connections
+    3. Anonymizes the user account (or deletes entirely)
+
+    Args:
+        user: The Django User instance
+        confirmation_code: Unique code for tracking this deletion
+    """
+    from allauth.socialaccount.models import SocialAccount, SocialToken
+
+    logger.info(f"Starting data deletion for user {user.id}, confirmation: {confirmation_code}")
+
+    try:
+        # Delete CrushProfile if exists
+        if hasattr(user, 'crushprofile'):
+            profile = user.crushprofile
+
+            # Delete profile photos from storage
+            for photo_field in ['photo_1', 'photo_2', 'photo_3']:
+                photo = getattr(profile, photo_field, None)
+                if photo:
+                    try:
+                        photo.delete(save=False)
+                    except Exception as e:
+                        logger.warning(f"Could not delete {photo_field}: {e}")
+
+            # Delete the profile
+            profile.delete()
+            logger.info(f"Deleted CrushProfile for user {user.id}")
+
+        # Delete ProfileSubmissions
+        ProfileSubmission.objects.filter(profile__user=user).delete()
+
+        # Delete EventRegistrations
+        EventRegistration.objects.filter(user=user).delete()
+
+        # Delete EventConnections (both as user1 and user2)
+        EventConnection.objects.filter(Q(user1=user) | Q(user2=user)).delete()
+
+        # Delete ConnectionMessages
+        ConnectionMessage.objects.filter(Q(sender=user) | Q(recipient=user)).delete()
+
+        # Delete CoachSessions
+        CoachSession.objects.filter(user=user).delete()
+
+        # Delete social accounts and tokens
+        SocialToken.objects.filter(account__user=user).delete()
+        SocialAccount.objects.filter(user=user).delete()
+
+        # Anonymize user account (keep for record-keeping, but remove PII)
+        user.email = f'deleted_{user.id}@deleted.crush.lu'
+        user.username = f'deleted_user_{user.id}'
+        user.first_name = ''
+        user.last_name = ''
+        user.is_active = False
+        user.set_unusable_password()
+        user.save()
+
+        logger.info(f"Successfully anonymized user {user.id}")
+
+    except Exception as e:
+        logger.exception(f"Error during data deletion for user {user.id}: {str(e)}")
+        raise
+
+
+def data_deletion_status(request):
+    """
+    Page where users can check the status of their data deletion request.
+    """
+    confirmation_code = request.GET.get('code', '')
+    return render(request, 'crush_lu/data_deletion_status.html', {
+        'confirmation_code': confirmation_code
+    })
 
 
 # Onboarding
