@@ -220,12 +220,14 @@ SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
 # Social account provider settings
 SOCIALACCOUNT_PROVIDERS = {
     'facebook': {
-        'METHOD': 'js_sdk',  # Use JS SDK for smoother popup-based login
-        'SCOPE': ['email', 'public_profile'],  # Basic permissions only - no GDPR consent required
-        # Note: Removed 'user_birthday' and 'user_gender' to avoid GDPR consent page
-        # Birthday and gender are collected on the Crush.lu profile form instead
+        'METHOD': 'oauth2',  # Full-page redirect - works reliably in PWA mode
+        'SCOPE': [
+            'email',
+            'public_profile',
+            'user_birthday',  # Request birthday (requires app review - approved)
+            'user_gender',    # Request gender (requires app review - approved)
+        ],
         'AUTH_PARAMS': {},  # Empty - avoid 'rerequest' which can cause GDPR consent page errors
-        'INIT_PARAMS': {'cookie': True},  # Required for JS SDK
         'FIELDS': [
             'id',
             'email',
@@ -233,7 +235,8 @@ SOCIALACCOUNT_PROVIDERS = {
             'first_name',
             'last_name',
             'picture.type(large)',  # Request large profile picture (200x200)
-            # Note: Removed 'birthday' and 'gender' fields - collected on profile form
+            'birthday',  # Format: MM/DD/YYYY
+            'gender',    # male, female, or custom
         ],
         'EXCHANGE_TOKEN': True,
         'VERIFIED_EMAIL': False,
