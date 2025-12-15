@@ -1,22 +1,25 @@
 // Crush.lu Service Worker with Workbox
-// Production-ready PWA implementation using Google's Workbox library
+// Production-ready PWA implementation using local Workbox library
+// Version: v6 - Local Workbox bundle to fix Android black screen on cold start
 
-importScripts('https://storage.googleapis.com/workbox-cdn/releases/7.0.0/workbox-sw.js');
+// Import Workbox from LOCAL static files (not CDN) to enable offline installation
+importScripts('/static/crush_lu/workbox/workbox-sw.js');
 
 // Check if Workbox loaded successfully
 if (workbox) {
-  console.log('[Workbox] Successfully loaded! 🎉');
+  console.log('[Workbox] Successfully loaded from local bundle!');
 
   // ============================================================================
   // Configuration - MUST BE SET FIRST
   // ============================================================================
 
-  // Enable debug logging in development - SET THIS FIRST!
-  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-    workbox.setConfig({ debug: true });
-  }
+  // Configure Workbox to load modules from local static files
+  workbox.setConfig({
+    debug: location.hostname === 'localhost' || location.hostname === '127.0.0.1',
+    modulePathPrefix: '/static/crush_lu/workbox/'
+  });
 
-  const CACHE_VERSION = 'crush-v4-loading'; // Updated for loading animation feature
+  const CACHE_VERSION = 'crush-v6-local-workbox';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -27,12 +30,56 @@ if (workbox) {
   });
 
   // ============================================================================
+  // Cache Cleanup on Activation - Clean up old caches from previous versions
+  // ============================================================================
+
+  self.addEventListener('activate', (event) => {
+    event.waitUntil(
+      (async () => {
+        // Clean up old caches
+        const cacheNames = await caches.keys();
+        await Promise.all(
+          cacheNames
+            .filter(name => name.startsWith('crush-') && !name.includes(CACHE_VERSION))
+            .map(name => {
+              console.log('[Workbox] Deleting old cache:', name);
+              return caches.delete(name);
+            })
+        );
+
+        // Cache the offline page
+        const cache = await caches.open(workbox.core.cacheNames.runtime);
+        try {
+          const response = await fetch(OFFLINE_PAGE);
+          if (response.ok) {
+            await cache.put(OFFLINE_PAGE, response);
+            console.log('[Workbox] Cached Django offline page');
+          } else {
+            throw new Error('Offline page not available');
+          }
+        } catch (error) {
+          console.log('[Workbox] Using embedded offline HTML');
+          await cache.put(
+            OFFLINE_PAGE,
+            new Response(OFFLINE_FALLBACK_HTML, {
+              headers: { 'Content-Type': 'text/html' }
+            })
+          );
+        }
+
+        // Take control of all clients immediately
+        await self.clients.claim();
+        console.log('[Workbox] Service worker activated and claimed clients');
+      })()
+    );
+  });
+
+  // ============================================================================
   // Precaching - Files to cache on service worker installation
   // ============================================================================
 
-  // Precache essential assets
+  // Precache essential assets (REMOVED '/' to allow dynamic auth redirect)
   workbox.precaching.precacheAndRoute([
-    { url: '/', revision: CACHE_VERSION },
     { url: '/offline/', revision: CACHE_VERSION },
     { url: '/static/crush_lu/css/crush.css', revision: CACHE_VERSION },
     { url: '/static/crush_lu/js/page-loading.js', revision: CACHE_VERSION },
@@ -46,7 +93,6 @@ if (workbox) {
   // Offline Fallback
   // ============================================================================
 
-  // Set offline page as fallback
   const OFFLINE_PAGE = '/offline/';
   const OFFLINE_FALLBACK_HTML = `
 <!DOCTYPE html>
@@ -100,35 +146,6 @@ if (workbox) {
 </body>
 </html>`;
 
-  // Install offline page during service worker activation
-  self.addEventListener('activate', (event) => {
-    event.waitUntil(
-      (async () => {
-        const cache = await caches.open(workbox.core.cacheNames.runtime);
-
-        // Try to cache the Django offline page
-        try {
-          const response = await fetch(OFFLINE_PAGE);
-          if (response.ok) {
-            await cache.put(OFFLINE_PAGE, response);
-            console.log('[Workbox] Cached Django offline page');
-          } else {
-            throw new Error('Offline page not available');
-          }
-        } catch (error) {
-          // Fallback: cache embedded HTML
-          console.log('[Workbox] Using embedded offline HTML');
-          await cache.put(
-            OFFLINE_PAGE,
-            new Response(OFFLINE_FALLBACK_HTML, {
-              headers: { 'Content-Type': 'text/html' }
-            })
-          );
-        }
-      })()
-    );
-  });
-
   // Set offline page as fallback for navigation requests
   workbox.recipes.offlineFallback({
     pageFallback: OFFLINE_PAGE,
@@ -143,7 +160,6 @@ if (workbox) {
   // Custom plugin to notify clients when server is unreachable
   class ServerUnreachablePlugin {
     async fetchDidFail({ request }) {
-      // Notify all clients that server is unreachable
       const clients = await self.clients.matchAll({ type: 'window' });
       clients.forEach(client => {
         client.postMessage({
@@ -155,7 +171,49 @@ if (workbox) {
     }
   }
 
-  // Strategy 1: Network First for HTML pages (always fresh, fallback to cache)
+  // Helper function to check if path matches authenticated routes (with i18n support)
+  function isAuthenticatedRoute(pathname) {
+    const authPaths = [
+      '/admin', '/accounts', '/coach', '/dashboard',
+      '/login', '/logout', '/profile', '/connections',
+      '/journey', '/create-profile', '/edit', '/signup'
+    ];
+
+    // Check with and without language prefix (en, fr, de)
+    for (const authPath of authPaths) {
+      if (pathname.includes(authPath)) {
+        return true;
+      }
+      // Check with language prefixes
+      if (pathname.match(new RegExp(`^/(en|fr|de)${authPath}`))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Strategy 1: Network Only for authenticated/user-specific pages (MUST BE FIRST)
+  // This prevents caching of login redirects which cause the black screen issue
+  workbox.routing.registerRoute(
+    ({ url }) => isAuthenticatedRoute(url.pathname),
+    new workbox.strategies.NetworkOnly()
+  );
+
+  console.log('[Workbox] Authenticated routes registered (NetworkOnly)');
+
+  // Strategy 2: Network Only for health checks (never cache - used for reconnection detection)
+  workbox.routing.registerRoute(
+    ({ url }) => url.pathname.startsWith('/healthz'),
+    new workbox.strategies.NetworkOnly()
+  );
+
+  // Strategy 3: Network Only for API calls (never cache)
+  workbox.routing.registerRoute(
+    ({ url }) => url.pathname.startsWith('/api/'),
+    new workbox.strategies.NetworkOnly()
+  );
+
+  // Strategy 4: Network First for HTML pages (always fresh, fallback to cache)
   workbox.routing.registerRoute(
     ({ request }) => request.mode === 'navigate',
     new workbox.strategies.NetworkFirst({
@@ -166,16 +224,16 @@ if (workbox) {
           maxAgeSeconds: 24 * 60 * 60, // 24 hours
         }),
         new workbox.cacheableResponse.CacheableResponsePlugin({
-          statuses: [0, 200],
+          statuses: [200], // Only cache successful responses (not redirects!)
         }),
-        new ServerUnreachablePlugin(), // Notify when server fails
+        new ServerUnreachablePlugin(),
       ],
     })
   );
 
   console.log('[Workbox] Page caching strategy registered');
 
-  // Strategy 2: Cache First for static assets (CSS, JS)
+  // Strategy 5: Cache First for static assets (CSS, JS)
   workbox.routing.registerRoute(
     ({ request }) =>
       request.destination === 'style' ||
@@ -193,7 +251,7 @@ if (workbox) {
 
   console.log('[Workbox] Static assets caching registered');
 
-  // Strategy 3: Cache First for images (long cache)
+  // Strategy 6: Cache First for images (long cache)
   workbox.routing.registerRoute(
     ({ request }) => request.destination === 'image',
     new workbox.strategies.CacheFirst({
@@ -212,30 +270,7 @@ if (workbox) {
 
   console.log('[Workbox] Image caching strategy registered');
 
-  // Strategy 4: Network Only for health checks (never cache - used for reconnection detection)
-  workbox.routing.registerRoute(
-    ({ url }) => url.pathname.startsWith('/healthz'),
-    new workbox.strategies.NetworkOnly()
-  );
-
-  // Strategy 5: Network Only for API calls (never cache)
-  workbox.routing.registerRoute(
-    ({ url }) => url.pathname.startsWith('/api/'),
-    new workbox.strategies.NetworkOnly()
-  );
-
-  // Strategy 6: Network Only for admin and auth
-  workbox.routing.registerRoute(
-    ({ url }) =>
-      url.pathname.startsWith('/admin/') ||
-      url.pathname.startsWith('/accounts/') ||
-      url.pathname.startsWith('/coach/'),
-    new workbox.strategies.NetworkOnly()
-  );
-
-  console.log('[Workbox] Network-only routes registered');
-
-  // Strategy 6: Stale While Revalidate for fonts and other resources
+  // Strategy 7: Stale While Revalidate for fonts
   workbox.routing.registerRoute(
     ({ request }) => request.destination === 'font',
     new workbox.strategies.StaleWhileRevalidate({
@@ -253,7 +288,6 @@ if (workbox) {
   // Background Sync (for future offline form submissions)
   // ============================================================================
 
-  // Enable background sync for offline event registrations
   const bgSyncPlugin = new workbox.backgroundSync.BackgroundSyncPlugin('crush-queue', {
     maxRetentionTime: 24 * 60, // Retry for up to 24 hours (in minutes)
     onSync: async ({ queue }) => {
@@ -275,7 +309,7 @@ if (workbox) {
   workbox.routing.registerRoute(
     ({ url, request }) =>
       request.method === 'POST' &&
-      !url.pathname.startsWith('/api/') && // Don't queue API calls
+      !url.pathname.startsWith('/api/') &&
       !url.pathname.startsWith('/admin/'),
     new workbox.strategies.NetworkOnly({
       plugins: [bgSyncPlugin],
@@ -292,9 +326,8 @@ if (workbox) {
   self.addEventListener('push', (event) => {
     console.log('[Workbox] Push notification received');
 
-    // Check notification permission before attempting to show
     if (Notification.permission !== 'granted') {
-      console.log('[Workbox] Notification permission not granted, skipping notification');
+      console.log('[Workbox] Notification permission not granted, skipping');
       return;
     }
 
@@ -342,18 +375,23 @@ if (workbox) {
   });
 
   // ============================================================================
-  // Update Notification
+  // Update Handling
   // ============================================================================
 
-  // Show notification when service worker updates
   self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
       self.skipWaiting();
     }
   });
 
-  console.log('[Workbox] Service worker configured successfully! ✨');
+  console.log('[Workbox] Service worker v6 configured successfully!');
 
 } else {
-  console.error('[Workbox] Failed to load Workbox! 😢');
+  console.error('[Workbox] Failed to load Workbox from local bundle!');
+
+  // Fallback: Basic service worker without Workbox
+  self.addEventListener('fetch', (event) => {
+    // Just pass through to network if Workbox failed
+    event.respondWith(fetch(event.request));
+  });
 }
