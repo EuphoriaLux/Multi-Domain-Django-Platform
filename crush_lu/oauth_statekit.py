@@ -100,11 +100,17 @@ def patch_allauth_statekit():
         # This happens BEFORE the redirect to the OAuth provider
         if request.GET.get('popup') == '1':
             request.session['oauth_popup_mode'] = True
-            logger.info("[OAUTH-DB] Popup mode detected and stored in session")
+            logger.warning("[OAUTH-DB] Popup mode detected and stored in session")
 
         # First, use original session-based storage (for compatibility)
-        state_id = _original_stash_state(request, state, state_id)
-        logger.warning(f"[OAUTH-DB] State ID from session storage: {state_id[:8]}...")
+        logger.warning("[OAUTH-DB] About to call _original_stash_state...")
+        try:
+            state_id = _original_stash_state(request, state, state_id)
+            logger.warning(f"[OAUTH-DB] State ID from session storage: {state_id[:8]}...")
+        except Exception as e:
+            logger.error(f"[OAUTH-DB] _original_stash_state FAILED: {e}")
+            logger.error(f"[OAUTH-DB] Traceback: {traceback.format_exc()}")
+            raise
 
         # Also store in database for cross-browser persistence
         try:
