@@ -104,7 +104,7 @@ def patch_allauth_statekit():
 
         # First, use original session-based storage (for compatibility)
         state_id = _original_stash_state(request, state, state_id)
-        logger.info(f"[OAUTH-DB] State ID from session storage: {state_id[:8]}...")
+        logger.warning(f"[OAUTH-DB] State ID from session storage: {state_id[:8]}...")
 
         # Also store in database for cross-browser persistence
         try:
@@ -124,12 +124,12 @@ def patch_allauth_statekit():
                     if len(parts) >= 2:
                         provider = parts[1]  # e.g., 'facebook'
 
-            logger.info(f"[OAUTH-DB] Storing state {state_id[:8]}... in database (provider: {provider}, ip: {ip_address})")
+            logger.warning(f"[OAUTH-DB] Storing state {state_id[:8]}... in database (provider: {provider}, ip: {ip_address})")
 
             # Create database record
             deleted_count, _ = OAuthState.objects.filter(state_id=state_id).delete()
             if deleted_count:
-                logger.info(f"[OAUTH-DB] Deleted {deleted_count} existing state(s) with same ID")
+                logger.warning(f"[OAUTH-DB] Deleted {deleted_count} existing state(s) with same ID")
 
             oauth_state = OAuthState.objects.create(
                 state_id=state_id,
@@ -139,7 +139,7 @@ def patch_allauth_statekit():
                 user_agent=user_agent[:500] if user_agent else '',
                 ip_address=ip_address,
             )
-            logger.info(f"[OAUTH-DB] SUCCESS: State {state_id[:8]}... stored in database (pk={oauth_state.pk})")
+            logger.warning(f"[OAUTH-DB] SUCCESS: State {state_id[:8]}... stored in database (pk={oauth_state.pk})")
 
         except Exception as e:
             # Log the full exception with traceback
