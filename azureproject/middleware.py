@@ -179,6 +179,7 @@ class OAuthCallbackProtectionMiddleware:
     1. Tracks the OAuth state parameter when a callback is processed
     2. If the same state is seen again, redirects to home instead of failing
     3. Clears tracked states after successful login or on logout
+    4. Ensures OAuth statekit patch is applied for database-backed state storage
 
     Must be placed AFTER SessionMiddleware but BEFORE any Allauth processing.
     """
@@ -186,6 +187,14 @@ class OAuthCallbackProtectionMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        # Ensure OAuth patch is applied on any OAuth-related request
+        if '/accounts/' in request.path:
+            try:
+                from crush_lu.oauth_statekit import ensure_patched
+                ensure_patched()
+            except ImportError:
+                pass  # crush_lu not installed
+
         # Only check OAuth callback URLs
         if '/accounts/' in request.path and '/login/callback' in request.path:
             state = request.GET.get('state', '')
