@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from . import views_profile
 from . import views_media
+from . import views_oauth_popup
 from . import api_views
 from . import views_journey
 from . import api_journey
@@ -38,6 +39,11 @@ urlpatterns = [
     path('logout/', views.crush_logout, name='logout'),
     path('oauth-complete/', views.oauth_complete, name='oauth_complete'),
 
+    # OAuth Popup Flow (for better PWA experience)
+    path('oauth/popup-callback/', views_oauth_popup.oauth_popup_callback, name='oauth_popup_callback'),
+    path('oauth/popup-error/', views_oauth_popup.oauth_popup_error, name='oauth_popup_error'),
+    path('api/auth/status/', views_oauth_popup.check_auth_status, name='check_auth_status'),
+
     # Onboarding flow
     path('signup/', views.signup, name='signup'),
     path('create-profile/', views.create_profile, name='create_profile'),
@@ -57,6 +63,7 @@ urlpatterns = [
 
     # Account settings
     path('account/settings/', views.account_settings, name='account_settings'),
+    path('account/set-password/', views.set_password, name='set_password'),
     path('account/delete/', views.delete_account, name='delete_account'),
 
     # Special user experience

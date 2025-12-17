@@ -177,7 +177,10 @@ if (workbox) {
       '/admin', '/accounts', '/coach', '/dashboard',
       '/login', '/logout', '/profile', '/connections',
       '/journey', '/create-profile', '/edit', '/signup',
-      '/oauth-complete'  // PWA OAuth return handler - must never be cached
+      '/oauth-complete',   // PWA OAuth return handler - must never be cached
+      '/oauth/popup-callback',  // Popup OAuth callback - must never be cached
+      '/oauth/popup-error',     // Popup OAuth error - must never be cached
+      '/api/auth/status'        // Auth status API - must never be cached
     ];
 
     // Check with and without language prefix (en, fr, de)

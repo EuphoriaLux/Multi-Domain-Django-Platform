@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.contrib.auth.password_validation import validate_password
 from allauth.account.forms import SignupForm
 from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, EventRegistration
 from PIL import Image
@@ -322,3 +323,60 @@ class CrushCoachForm(forms.ModelForm):
     class Meta:
         model = CrushCoach
         fields = ['bio', 'specializations', 'photo']
+
+
+class CrushSetPasswordForm(forms.Form):
+    """
+    Form for Facebook-registered users to set a password for email/password login.
+
+    This enables users who signed up with Facebook to also login using
+    their email and password, providing a backup login method.
+    """
+    password1 = forms.CharField(
+        label='New Password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': 'Enter new password',
+            'autocomplete': 'new-password',
+        }),
+        help_text='Your password must be at least 8 characters.'
+    )
+    password2 = forms.CharField(
+        label='Confirm Password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': 'Confirm new password',
+            'autocomplete': 'new-password',
+        })
+    )
+
+    def __init__(self, user, *args, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_password1(self):
+        """Validate password strength using Django's password validators."""
+        password1 = self.cleaned_data.get('password1')
+        try:
+            validate_password(password1, self.user)
+        except ValidationError as e:
+            raise forms.ValidationError(list(e.messages))
+        return password1
+
+    def clean(self):
+        """Validate that both passwords match."""
+        cleaned_data = super().clean()
+        password1 = cleaned_data.get('password1')
+        password2 = cleaned_data.get('password2')
+
+        if password1 and password2 and password1 != password2:
+            raise forms.ValidationError('Passwords do not match.')
+
+        return cleaned_data
+
+    def save(self):
+        """Set the user's password."""
+        password = self.cleaned_data['password1']
+        self.user.set_password(password)
+        self.user.save()
+        return self.user

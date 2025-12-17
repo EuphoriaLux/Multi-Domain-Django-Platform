@@ -1,0 +1,223 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if is_authenticated %}Login Successful{% else %}Completing Login{% endif %} - Crush.lu</title>
+    <meta name="robots" content="noindex, nofollow">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        .icon-wrapper {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1.5rem;
+            position: relative;
+        }
+        /* Success checkmark animation */
+        .success-icon {
+            width: 80px;
+            height: 80px;
+        }
+        .success-icon-circle {
+            stroke-dasharray: 166;
+            stroke-dashoffset: 166;
+            stroke-width: 2;
+            stroke-miterlimit: 10;
+            stroke: #9B59B6;
+            fill: none;
+            animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+        }
+        .success-icon-check {
+            transform-origin: 50% 50%;
+            stroke-dasharray: 48;
+            stroke-dashoffset: 48;
+            stroke: #9B59B6;
+            stroke-width: 3;
+            stroke-linecap: round;
+            fill: none;
+            animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.6s forwards;
+        }
+        @keyframes stroke {
+            100% { stroke-dashoffset: 0; }
+        }
+        /* Spinner for loading state */
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #9B59B6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 10px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        p {
+            color: #666;
+            margin-bottom: 0;
+            line-height: 1.5;
+        }
+        .small {
+            font-size: 0.875rem;
+            color: #999;
+            margin-top: 1rem;
+        }
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            margin-top: 1.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(155, 89, 182, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        {% if is_authenticated %}
+        <!-- Success State -->
+        <div class="icon-wrapper">
+            <svg class="success-icon" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
+                <circle class="success-icon-circle" cx="26" cy="26" r="25"/>
+                <path class="success-icon-check" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+            </svg>
+        </div>
+        <h2>Welcome{% if user_name %}, {{ user_name }}{% endif %}!</h2>
+        <p>You've successfully logged in to Crush.lu.</p>
+        <p class="small">This window will close automatically...</p>
+        {% else %}
+        <!-- Loading/Processing State -->
+        <div class="icon-wrapper">
+            <div class="spinner"></div>
+        </div>
+        <h2>Completing Login...</h2>
+        <p>Please wait a moment.</p>
+        {% endif %}
+
+        <!-- Fallback button (shown if auto-close fails) -->
+        <a href="{{ redirect_url }}" id="fallback-btn" class="btn" style="display: none;">
+            Continue to Crush.lu
+        </a>
+    </div>
+
+    <script>
+    (function() {
+        'use strict';
+
+        var ALLOWED_ORIGIN = '{{ origin|escapejs }}';
+        var OAUTH_RESULT = {{ oauth_result|safe }};
+        var REDIRECT_URL = '{{ redirect_url|escapejs }}';
+        var fallbackTimer = null;
+
+        function sendResultToParent() {
+            try {
+                if (window.opener && !window.opener.closed) {
+                    // Send success/failure message to parent window
+                    window.opener.postMessage({
+                        type: 'CRUSH_OAUTH_COMPLETE',
+                        success: OAUTH_RESULT.success,
+                        hasProfile: OAUTH_RESULT.hasProfile,
+                        redirectUrl: REDIRECT_URL,
+                        userName: OAUTH_RESULT.userName
+                    }, ALLOWED_ORIGIN);
+
+                    console.log('[OAuth Popup] Sent result to parent:', OAUTH_RESULT.success);
+
+                    // Close popup after short delay to show success animation
+                    setTimeout(function() {
+                        window.close();
+                    }, 1500);
+
+                    // Fallback: show button if window doesn't close after 3 seconds
+                    fallbackTimer = setTimeout(function() {
+                        showFallbackButton();
+                    }, 3000);
+                } else {
+                    // No parent window - user may have opened this directly
+                    // or parent was closed - redirect within this window
+                    console.log('[OAuth Popup] No parent window, redirecting in popup');
+                    redirectFallback();
+                }
+            } catch (e) {
+                console.error('[OAuth Popup] Error communicating with parent:', e);
+                // Security error (cross-origin) or other issue - fall back to redirect
+                redirectFallback();
+            }
+        }
+
+        function showFallbackButton() {
+            var btn = document.getElementById('fallback-btn');
+            if (btn) {
+                btn.style.display = 'inline-block';
+            }
+        }
+
+        function redirectFallback() {
+            // Redirect within the popup window as a fallback
+            setTimeout(function() {
+                window.location.href = REDIRECT_URL;
+            }, 2000);
+        }
+
+        // Send result when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', sendResultToParent);
+        } else {
+            sendResultToParent();
+        }
+
+        // Listen for parent acknowledgment (optional - for debugging)
+        window.addEventListener('message', function(event) {
+            if (event.origin !== ALLOWED_ORIGIN) return;
+
+            if (event.data && event.data.type === 'CRUSH_OAUTH_ACKNOWLEDGED') {
+                console.log('[OAuth Popup] Parent acknowledged, closing...');
+                if (fallbackTimer) clearTimeout(fallbackTimer);
+                window.close();
+            }
+        });
+    })();
+    </script>
+</body>
+</html>
