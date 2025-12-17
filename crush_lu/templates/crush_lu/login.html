@@ -91,13 +91,13 @@
 <script src="{% static 'crush_lu/js/oauth-popup.js' %}"></script>
 <script>
 /**
- * Popup OAuth Handler for Crush.lu
+ * OAuth Handler for Crush.lu
  *
- * Opens Facebook login in a popup window instead of redirecting away from the PWA.
- * This prevents "Third-Party Login Failure" errors on Android PWAs and provides
- * a smoother user experience.
+ * Desktop: Opens Facebook login in a popup window
+ * Mobile/PWA: Uses direct redirect (popups don't work in Android PWA)
  *
- * Falls back to redirect-based OAuth if popups are blocked.
+ * The database-backed OAuth state storage ensures login works even when
+ * Android PWA opens OAuth in system browser (different session).
  */
 (function() {
     'use strict';
@@ -109,6 +109,11 @@
         return standaloneMedia || iosStandalone;
     }
 
+    // Detect mobile device
+    function isMobile() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         // Find Facebook login button
         var fbButton = document.querySelector('.facebook-login-btn');
@@ -117,10 +122,19 @@
         // Store original URL for fallback
         var originalUrl = fbButton.getAttribute('href');
 
-        // Log PWA status for debugging
-        console.log('[Crush.lu Login] PWA mode:', isPWA());
+        // Log debug info
+        console.log('[Crush.lu Login] PWA mode:', isPWA(), 'Mobile:', isMobile());
 
-        // Intercept click for popup OAuth flow
+        // On mobile/PWA: use direct redirect (popups don't work properly)
+        // Popups on Android PWA open in system browser anyway, so redirect is cleaner
+        if (isMobile()) {
+            console.log('[Crush.lu Login] Mobile detected - using direct redirect flow');
+            // Keep default link behavior - no JavaScript intercept
+            // The database-backed OAuth state will handle cross-browser session
+            return;
+        }
+
+        // Desktop: use popup OAuth for better UX
         fbButton.addEventListener('click', function(e) {
             e.preventDefault();
 
