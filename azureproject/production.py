@@ -319,6 +319,12 @@ LOGGING = {
             'level': 'ERROR',
             'propagate': False,
         },
+        # OAuth debugging - temporarily INFO level
+        'crush_lu.oauth_statekit': {
+            'handlers': ['console'],
+            'level': 'INFO',  # Enable INFO logging for OAuth debugging
+            'propagate': False,
+        },
     },
 }
 
