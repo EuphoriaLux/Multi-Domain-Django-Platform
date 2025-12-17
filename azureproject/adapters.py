@@ -76,20 +76,16 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
     def pre_social_login(self, request, sociallogin):
         """
         Called after OAuth callback but before login/signup is complete.
-        Track the OAuth provider and popup mode for redirect handling.
+        Track the OAuth provider for redirect handling.
+        Note: popup mode is stored in session by oauth_statekit.db_stash_state()
         """
         super().pre_social_login(request, sociallogin)
 
         # Store the OAuth provider in session for PWA redirect handling
         if self._is_crush_domain(request):
             request.session['oauth_provider'] = sociallogin.account.provider
-
-            # Check if this is a popup OAuth flow (popup=1 query parameter)
-            if request.GET.get('popup') == '1':
-                request.session['oauth_popup_mode'] = True
-                logger.debug(f"OAuth login via {sociallogin.account.provider} (popup mode)")
-            else:
-                logger.debug(f"OAuth login via {sociallogin.account.provider}")
+            is_popup = request.session.get('oauth_popup_mode', False)
+            logger.debug(f"OAuth login via {sociallogin.account.provider} (popup: {is_popup})")
 
     def is_auto_signup_allowed(self, request, sociallogin):
         """Allow automatic signup for social logins on all domains."""
