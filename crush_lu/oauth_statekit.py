@@ -79,6 +79,12 @@ def patch_allauth_statekit():
         Returns:
             state_id: The state identifier to pass to OAuth provider
         """
+        # Check for popup mode parameter and store in session
+        # This happens BEFORE the redirect to the OAuth provider
+        if request.GET.get('popup') == '1':
+            request.session['oauth_popup_mode'] = True
+            logger.debug("OAuth popup mode detected and stored in session")
+
         # First, use original session-based storage (for compatibility)
         state_id = _original_stash_state(request, state, state_id)
 
