@@ -147,28 +147,37 @@ class OAuthState(models.Model):
         Raises:
             OAuthState.DoesNotExist: If state_id is not found
         """
+        import logging
         from django.db import transaction
+
+        logger = logging.getLogger('crush_lu.oauth_statekit')
 
         try:
             with transaction.atomic():
+                logger.warning(f"[OAUTH-DB] get_and_consume_state: Looking up state_id={state_id}")
                 state = cls.objects.select_for_update().get(state_id=state_id)
+                logger.warning(f"[OAUTH-DB] get_and_consume_state: Found state! used={state.used}, expires_at={state.expires_at}, now={timezone.now()}")
 
                 # Check if expired
                 if timezone.now() > state.expires_at:
+                    logger.warning(f"[OAUTH-DB] get_and_consume_state: State EXPIRED, deleting")
                     state.delete()  # Clean up expired state
                     return None
 
                 # Check if already used
                 if state.used:
+                    logger.warning(f"[OAUTH-DB] get_and_consume_state: State ALREADY USED")
                     return None
 
                 # Mark as used (consume)
                 state.used = True
                 state.save(update_fields=['used'])
+                logger.warning(f"[OAUTH-DB] get_and_consume_state: SUCCESS - marked as used")
 
                 return json.loads(state.state_data)
 
         except cls.DoesNotExist:
+            logger.warning(f"[OAUTH-DB] get_and_consume_state: DoesNotExist for state_id={state_id}")
             return None
 
     @classmethod
