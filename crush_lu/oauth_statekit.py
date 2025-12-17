@@ -29,11 +29,19 @@ _patched = False
 
 
 def get_client_ip(request) -> Optional[str]:
-    """Extract client IP address from request."""
+    """Extract client IP address from request (without port)."""
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:
-        return x_forwarded_for.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR')
+        ip = x_forwarded_for.split(',')[0].strip()
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+
+    # Remove port if present (e.g., "185.40.60.86:13580" -> "185.40.60.86")
+    if ip and ':' in ip and not ip.startswith('['):
+        # IPv4 with port - split on last colon
+        ip = ip.rsplit(':', 1)[0]
+
+    return ip
 
 
 def patch_allauth_statekit():

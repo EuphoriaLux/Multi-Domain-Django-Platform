@@ -147,23 +147,26 @@ class OAuthState(models.Model):
         Raises:
             OAuthState.DoesNotExist: If state_id is not found
         """
+        from django.db import transaction
+
         try:
-            state = cls.objects.select_for_update().get(state_id=state_id)
+            with transaction.atomic():
+                state = cls.objects.select_for_update().get(state_id=state_id)
 
-            # Check if expired
-            if timezone.now() > state.expires_at:
-                state.delete()  # Clean up expired state
-                return None
+                # Check if expired
+                if timezone.now() > state.expires_at:
+                    state.delete()  # Clean up expired state
+                    return None
 
-            # Check if already used
-            if state.used:
-                return None
+                # Check if already used
+                if state.used:
+                    return None
 
-            # Mark as used (consume)
-            state.used = True
-            state.save(update_fields=['used'])
+                # Mark as used (consume)
+                state.used = True
+                state.save(update_fields=['used'])
 
-            return json.loads(state.state_data)
+                return json.loads(state.state_data)
 
         except cls.DoesNotExist:
             return None
