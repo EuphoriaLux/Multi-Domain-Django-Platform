@@ -45,6 +45,46 @@
             </div>
         </div>
 
+        <!-- Password Management Card -->
+        {% if user.socialaccount_set.exists and not user.has_usable_password %}
+        <!-- Set Password Card (for social login users without password) -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-key me-2"></i>Password Login</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    You can set a password to enable login with your email ({{ user.email }})
+                    in addition to your
+                    {% for social in user.socialaccount_set.all %}
+                        {{ social.provider|title }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %} account.
+                </p>
+                <a href="{% url 'crush_lu:set_password' %}" class="btn btn-outline-primary">
+                    <i class="bi bi-key me-2"></i>Set Password
+                </a>
+            </div>
+        </div>
+        {% elif user.has_usable_password %}
+        <!-- Change Password Card (for users with password) -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-key me-2"></i>Password</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    You have a password set for email login.
+                    {% if user.socialaccount_set.exists %}
+                    You can also login with your connected social accounts.
+                    {% endif %}
+                </p>
+                <a href="{% url 'account_change_password' %}" class="btn btn-outline-primary">
+                    <i class="bi bi-pencil me-2"></i>Change Password
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Profile Link Card -->
         <div class="card mb-4">
             <div class="card-header">

@@ -388,6 +388,56 @@ def account_settings(request):
 
 @crush_login_required
 @require_http_methods(["GET", "POST"])
+def set_password(request):
+    """
+    Allow Facebook-registered users to set a password for email/password login.
+
+    Only available to users who:
+    1. Are logged in via social account (Facebook)
+    2. Don't have a usable password set
+
+    This enables dual login (Facebook OR email+password).
+    """
+    from django.contrib.auth import update_session_auth_hash
+    from .forms import CrushSetPasswordForm
+
+    # Check if user has social account
+    has_social = request.user.socialaccount_set.exists()
+    has_password = request.user.has_usable_password()
+
+    # Only allow if user has social account but no password
+    if not has_social:
+        messages.info(request, 'This feature is only for users who signed up with Facebook.')
+        return redirect('crush_lu:account_settings')
+
+    if has_password:
+        messages.info(request, 'You already have a password set. Use "Change Password" to update it.')
+        return redirect('crush_lu:account_settings')
+
+    if request.method == 'POST':
+        form = CrushSetPasswordForm(request.user, request.POST)
+        if form.is_valid():
+            form.save()
+
+            # Keep user logged in after password change
+            update_session_auth_hash(request, request.user)
+
+            messages.success(
+                request,
+                'Password set successfully! You can now log in with your email and password.'
+            )
+            return redirect('crush_lu:account_settings')
+    else:
+        form = CrushSetPasswordForm(request.user)
+
+    return render(request, 'crush_lu/set_password.html', {
+        'form': form,
+        'social_accounts': request.user.socialaccount_set.all(),
+    })
+
+
+@crush_login_required
+@require_http_methods(["GET", "POST"])
 def delete_account(request):
     """
     User-initiated account deletion.

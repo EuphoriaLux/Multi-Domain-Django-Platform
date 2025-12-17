@@ -1,5 +1,6 @@
 {% extends 'crush_lu/base.html' %}
 {% load socialaccount %}
+{% load static %}
 
 {% block title %}Sign Up - Crush.lu{% endblock %}
 
@@ -108,37 +109,80 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'crush_lu/js/oauth-popup.js' %}"></script>
 <script>
 /**
- * PWA OAuth Handler
+ * Popup OAuth Handler for Crush.lu Signup
  *
- * Note: External OAuth (Facebook, Google) WILL open in system browser on Android/iOS PWAs.
- * This is a platform security limitation - PWAs cannot intercept navigation to external domains.
+ * Opens Facebook login in a popup window instead of redirecting away from the PWA.
+ * This prevents "Third-Party Login Failure" errors on Android PWAs and provides
+ * a smoother user experience.
  *
- * The good news: After OAuth completes, the callback URL (crush.lu/accounts/facebook/login/callback/)
- * will redirect back and should return focus to the PWA since it's the same origin.
- *
- * This script just ensures the flow starts correctly and logs debug info.
+ * Falls back to redirect-based OAuth if popups are blocked.
  */
 (function() {
+    'use strict';
+
     // Detect if running as installed PWA (standalone mode)
     function isPWA() {
-        const standaloneMedia = window.matchMedia('(display-mode: standalone)').matches;
-        const iosStandalone = window.navigator.standalone === true;
+        var standaloneMedia = window.matchMedia('(display-mode: standalone)').matches;
+        var iosStandalone = window.navigator.standalone === true;
         return standaloneMedia || iosStandalone;
     }
 
-    // Debug logging for PWA mode
-    if (isPWA()) {
-        console.log('Crush.lu PWA: Standalone mode detected', {
-            standalone: window.navigator.standalone,
-            displayMode: window.matchMedia('(display-mode: standalone)').matches
-        });
+    document.addEventListener('DOMContentLoaded', function() {
+        // Find Facebook signup button
+        var fbButton = document.querySelector('.facebook-login-btn');
+        if (!fbButton) return;
 
-        // Note: We don't intercept the click anymore - let the browser handle OAuth naturally.
-        // The system browser will open for Facebook login (expected behavior).
-        // After successful auth, crush.lu callback will bring user back to the PWA.
-    }
+        // Store original URL for fallback
+        var originalUrl = fbButton.getAttribute('href');
+
+        // Log PWA status for debugging
+        console.log('[Crush.lu Signup] PWA mode:', isPWA());
+
+        // Intercept click for popup OAuth flow
+        fbButton.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            // Store original button content
+            var originalContent = fbButton.innerHTML;
+
+            // Show loading state
+            fbButton.classList.add('disabled');
+            fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening Facebook...';
+
+            // Open OAuth in popup
+            CrushOAuthPopup.login('facebook', {
+                onSuccess: function(result) {
+                    console.log('[Crush.lu Signup] OAuth success:', result);
+                    // Redirect happens automatically in the popup handler
+                },
+                onError: function(error) {
+                    console.error('[Crush.lu Signup] OAuth error:', error);
+                    // Reset button
+                    fbButton.classList.remove('disabled');
+                    fbButton.innerHTML = originalContent;
+
+                    // Show error message if there's a description
+                    if (error.description && error.error !== 'timeout') {
+                        alert('Signup failed: ' + error.description);
+                    }
+                },
+                onPopupBlocked: function() {
+                    console.log('[Crush.lu Signup] Popup blocked, falling back to redirect');
+                    // Reset button appearance
+                    fbButton.classList.remove('disabled');
+                    fbButton.innerHTML = originalContent;
+
+                    // Show popup blocked message with fallback option
+                    if (confirm('Popup was blocked by your browser. Click OK to open Facebook signup in this window instead.')) {
+                        window.location.href = originalUrl;
+                    }
+                }
+            });
+        });
+    });
 })();
 </script>
 {% endblock %}

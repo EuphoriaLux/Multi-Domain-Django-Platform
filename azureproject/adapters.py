@@ -76,14 +76,20 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
     def pre_social_login(self, request, sociallogin):
         """
         Called after OAuth callback but before login/signup is complete.
-        Track the OAuth provider for PWA redirect handling.
+        Track the OAuth provider and popup mode for redirect handling.
         """
         super().pre_social_login(request, sociallogin)
 
         # Store the OAuth provider in session for PWA redirect handling
         if self._is_crush_domain(request):
             request.session['oauth_provider'] = sociallogin.account.provider
-            logger.debug(f"OAuth login via {sociallogin.account.provider}")
+
+            # Check if this is a popup OAuth flow (popup=1 query parameter)
+            if request.GET.get('popup') == '1':
+                request.session['oauth_popup_mode'] = True
+                logger.debug(f"OAuth login via {sociallogin.account.provider} (popup mode)")
+            else:
+                logger.debug(f"OAuth login via {sociallogin.account.provider}")
 
     def is_auto_signup_allowed(self, request, sociallogin):
         """Allow automatic signup for social logins on all domains."""
@@ -122,7 +128,13 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         if self._is_delegation_domain(request):
             return '/dashboard/'
         elif self._is_crush_domain(request):
-            # Check if this is a mobile OAuth callback
+            # Check if this is popup OAuth flow (takes priority)
+            if request.session.get('oauth_popup_mode'):
+                request.session.pop('oauth_popup_mode', None)
+                request.session.pop('oauth_provider', None)
+                return '/oauth/popup-callback/'
+
+            # Check if this is a mobile OAuth callback (legacy redirect flow)
             user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
             is_mobile = 'mobile' in user_agent or 'android' in user_agent
 
@@ -183,8 +195,14 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
             return '/dashboard/'
 
         elif self._is_crush_domain(request):
+            # Check if this is popup OAuth flow (takes priority)
+            if request.session.get('oauth_popup_mode'):
+                request.session.pop('oauth_popup_mode', None)
+                request.session.pop('oauth_provider', None)
+                return '/oauth/popup-callback/'
+
             # Check if this is an OAuth callback that landed in the browser
-            # instead of the PWA (common on Android)
+            # instead of the PWA (common on Android) - legacy redirect flow
             user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
             is_android = 'android' in user_agent
             is_mobile = 'mobile' in user_agent or 'android' in user_agent
