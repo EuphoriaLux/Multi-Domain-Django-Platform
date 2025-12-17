@@ -36,7 +36,6 @@ def is_patched() -> bool:
 
 def ensure_patched():
     """Ensure the OAuth statekit is patched. Safe to call multiple times."""
-    global _patched
     if not _patched:
         logger.warning("[OAUTH-DB] Patch not applied yet, applying now...")
         patch_allauth_statekit()
