@@ -93,8 +93,8 @@ def patch_allauth_statekit():
         Returns:
             state_id: The state identifier to pass to OAuth provider
         """
-        # Log that our patched function is being called
-        logger.info(f"[OAUTH-DB] db_stash_state called (patched version)")
+        # Log that our patched function is being called (WARNING level to ensure visibility)
+        logger.warning(f"[OAUTH-DB] >>> db_stash_state CALLED (patched version) <<<")
 
         # Check for popup mode parameter and store in session
         # This happens BEFORE the redirect to the OAuth provider
@@ -241,18 +241,22 @@ def patch_allauth_statekit():
     statekit.unstash_last_state = db_unstash_last_state
 
     _patched = True
-    logger.info("[OAUTH-DB] *** Allauth statekit PATCHED for database-backed OAuth state storage ***")
+    logger.warning("[OAUTH-DB] *** Allauth statekit PATCHED for database-backed OAuth state storage ***")
 
     # Verify the patch was applied correctly
     if statekit.stash_state == db_stash_state:
-        logger.info("[OAUTH-DB] Verification: stash_state patch confirmed")
+        logger.warning("[OAUTH-DB] Verification: stash_state patch confirmed")
     else:
         logger.error("[OAUTH-DB] Verification FAILED: stash_state patch not applied!")
 
     if statekit.unstash_state == db_unstash_state:
-        logger.info("[OAUTH-DB] Verification: unstash_state patch confirmed")
+        logger.warning("[OAUTH-DB] Verification: unstash_state patch confirmed")
     else:
         logger.error("[OAUTH-DB] Verification FAILED: unstash_state patch not applied!")
+
+    # Log the actual function IDs for debugging
+    logger.warning(f"[OAUTH-DB] statekit.stash_state id: {id(statekit.stash_state)}")
+    logger.warning(f"[OAUTH-DB] db_stash_state id: {id(db_stash_state)}")
 
 
 def cleanup_expired_states():
