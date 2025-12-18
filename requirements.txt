@@ -41,4 +41,4 @@ py-vapid==1.9.2
 pywebpush==2.1.2
 
 # Cookie Consent (GDPR/ePrivacy)
-django-cookie-consent==0.8.0
+django-cookie-consent==0.9.0
