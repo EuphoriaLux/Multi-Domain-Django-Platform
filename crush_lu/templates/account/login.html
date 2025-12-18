@@ -100,16 +100,21 @@
 /**
  * OAuth Handler for Crush.lu
  *
- * ALWAYS uses popup OAuth for ALL devices (desktop, mobile, PWA).
+ * CRITICAL: PWA vs Browser OAuth Strategy
  *
- * Why popup for mobile/PWA?
- * - When the PWA opens OAuth via redirect, Android opens system browser (new session!)
- * - The session cookie stays in system browser, never reaches PWA = login fails
- * - Popup windows share session cookies with the opener window
- * - So popup OAuth keeps the session in the correct browser context
+ * The Problem:
+ * - PWAs run in a Trusted Web Activity / WebView-like container with a SEPARATE cookie store
+ * - When OAuth redirects happen (PWA → Facebook → crush.lu), there's a cookie race condition
+ * - The session cookie is written but NOT YET READABLE when the next request fires
+ * - Result: Django sees anonymous user, login fails silently
  *
- * Fallback: If popup is blocked, we fall back to redirect (with database-backed
- * OAuth state storage as backup).
+ * Key insight: PWAs can READ cookies reliably — they just can't always CREATE them during OAuth.
+ *
+ * Solution:
+ * - PWA (standalone mode): Use full-page redirect OAuth (single browsing context, no race)
+ * - Desktop browser: Use popup OAuth (better UX, shared cookie jar works fine)
+ *
+ * This is how Twitter, Reddit, Notion handle PWA OAuth.
  */
 (function() {
     'use strict';
@@ -131,15 +136,29 @@
         var fbButton = document.querySelector('.facebook-login-btn');
         if (!fbButton) return;
 
-        // Store original URL for fallback
-        var originalUrl = fbButton.getAttribute('href');
+        // Get the OAuth URL (without popup param for redirect mode)
+        var oauthUrl = fbButton.getAttribute('href');
 
         // Log debug info
         console.log('[Crush.lu Login] PWA mode:', isPWA(), 'Mobile:', isMobile());
-        console.log('[Crush.lu Login] Using popup OAuth for all devices');
 
-        // Use popup OAuth for ALL devices (including mobile/PWA)
-        // This is crucial for Android PWA where redirect opens system browser
+        // PWA MODE: Use full-page redirect (mandatory for reliable cookie handling)
+        if (isPWA()) {
+            console.log('[Crush.lu Login] PWA detected: using full-page redirect OAuth');
+
+            fbButton.addEventListener('click', function(e) {
+                // Show loading state but let the default link action proceed
+                fbButton.classList.add('disabled');
+                fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Redirecting to Facebook...';
+                // Don't prevent default - let the full page redirect happen
+            });
+
+            return; // Exit early, no popup handling needed for PWA
+        }
+
+        // DESKTOP/MOBILE BROWSER MODE: Use popup OAuth (better UX)
+        console.log('[Crush.lu Login] Browser mode: using popup OAuth');
+
         fbButton.addEventListener('click', function(e) {
             e.preventDefault();
 
@@ -173,16 +192,16 @@
                     fbButton.classList.remove('disabled');
                     fbButton.innerHTML = originalContent;
 
-                    // On mobile, just redirect directly (confirm dialog is annoying)
+                    // On mobile browser, just redirect directly (confirm dialog is annoying)
                     if (isMobile()) {
-                        console.log('[Crush.lu Login] Mobile: auto-redirecting to OAuth');
-                        window.location.href = originalUrl;
+                        console.log('[Crush.lu Login] Mobile browser: auto-redirecting to OAuth');
+                        window.location.href = oauthUrl;
                         return;
                     }
 
                     // On desktop, ask user before redirecting
                     if (confirm('Popup was blocked by your browser. Click OK to open Facebook login in this window instead.')) {
-                        window.location.href = originalUrl;
+                        window.location.href = oauthUrl;
                     }
                 }
             });
