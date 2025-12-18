@@ -42,6 +42,7 @@ urlpatterns = [
     # OAuth Popup Flow (for better PWA experience)
     path('oauth/popup-callback/', views_oauth_popup.oauth_popup_callback, name='oauth_popup_callback'),
     path('oauth/popup-error/', views_oauth_popup.oauth_popup_error, name='oauth_popup_error'),
+    path('oauth/landing/', views_oauth_popup.oauth_landing, name='oauth_landing'),
     path('api/auth/status/', views_oauth_popup.check_auth_status, name='check_auth_status'),
 
     # Onboarding flow

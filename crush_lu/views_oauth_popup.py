@@ -5,6 +5,12 @@ This module implements popup-based OAuth authentication that works seamlessly
 with PWA installations. Instead of redirecting the main window to Facebook,
 we open a popup window that handles the OAuth flow and communicates back
 to the parent window via postMessage.
+
+CRITICAL FIX (Android PWA Cookie Timing):
+On Android Chrome WebView, 302 redirects fire BEFORE session cookies are
+committed to storage. This causes the session to be lost after OAuth.
+Solution: Return 200 OK with a JavaScript-delayed redirect (400ms) to allow
+Chrome to commit cookies before navigating.
 """
 
 import json
@@ -120,4 +126,56 @@ def check_auth_status(request):
     return JsonResponse({
         'authenticated': False,
         'redirect_url': '/login/',
+    })
+
+
+@require_http_methods(["GET"])
+def oauth_landing(request):
+    """
+    OAuth landing page with delayed JavaScript redirect.
+
+    CRITICAL FIX FOR ANDROID PWA:
+    On Android Chrome WebView (PWA), 302 redirects fire BEFORE the session
+    cookie is committed to storage. This causes the session to be lost.
+
+    Solution: Return 200 OK and use JavaScript with a 400ms delay to allow
+    Chrome to commit cookies before navigating to the final destination.
+
+    This view is the target for ALL OAuth completions on Crush.lu, replacing
+    direct 302 redirects to /dashboard/ or /create-profile/.
+    """
+    # Check if this is popup mode (do this before any early returns)
+    is_popup = request.session.pop('oauth_popup_mode', False)
+
+    # Clear OAuth provider flag
+    request.session.pop('oauth_provider', None)
+
+    if not request.user.is_authenticated:
+        # Not logged in - still use the landing page with JS redirect
+        # This gives cookies time to commit before redirecting to login
+        logger.debug("OAuth landing: user not authenticated, redirecting to login")
+        return render(request, 'crush_lu/oauth_landing.html', {
+            'redirect_url': '/login/',
+            'is_popup': is_popup,
+            'has_profile': False,
+            'user_name': '',
+        })
+
+    # Determine final destination
+    has_profile = hasattr(request.user, 'crushprofile')
+    if has_profile:
+        redirect_url = '/dashboard/'
+    else:
+        redirect_url = '/create-profile/'
+
+    # Get user info for popup postMessage
+    user_name = request.user.first_name or request.user.username
+
+    logger.debug(f"OAuth landing: user={request.user.username}, popup={is_popup}, redirect={redirect_url}")
+
+    return render(request, 'crush_lu/oauth_landing.html', {
+        'redirect_url': redirect_url,
+        'is_popup': is_popup,
+        'has_profile': has_profile,
+        'user_name': user_name,
     })

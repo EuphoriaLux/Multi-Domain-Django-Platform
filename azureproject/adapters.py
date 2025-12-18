@@ -124,25 +124,10 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         if self._is_delegation_domain(request):
             return '/dashboard/'
         elif self._is_crush_domain(request):
-            # Check if this is popup OAuth flow (takes priority)
-            if request.session.get('oauth_popup_mode'):
-                request.session.pop('oauth_popup_mode', None)
-                request.session.pop('oauth_provider', None)
-                return '/oauth/popup-callback/'
-
-            # Check if this is a mobile OAuth callback (legacy redirect flow)
-            user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
-            is_mobile = 'mobile' in user_agent or 'android' in user_agent
-
-            if is_mobile and request.session.get('oauth_provider'):
-                # Clear the provider flag
-                request.session.pop('oauth_provider', None)
-                # Store the intended destination
-                request.session['oauth_final_destination'] = '/create-profile/'
-                # Redirect to PWA return handler
-                return '/oauth-complete/'
-
-            return '/create-profile/'
+            # CRITICAL FIX: Always redirect to oauth_landing for Crush.lu
+            # This returns 200 OK with JavaScript-delayed redirect to fix
+            # Android PWA cookie timing issue (302 fires before cookie commit)
+            return '/oauth/landing/'
         else:
             return '/profile/'
 
@@ -191,30 +176,15 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
             return '/dashboard/'
 
         elif self._is_crush_domain(request):
-            # Check if this is popup OAuth flow (takes priority)
-            if request.session.get('oauth_popup_mode'):
-                request.session.pop('oauth_popup_mode', None)
-                request.session.pop('oauth_provider', None)
-                return '/oauth/popup-callback/'
+            # Check if this is an OAuth login (has oauth_provider in session)
+            # OAuth logins need the delayed redirect landing page
+            if request.session.get('oauth_provider') or request.session.get('oauth_popup_mode'):
+                # CRITICAL FIX: Redirect to oauth_landing for ALL OAuth flows
+                # This returns 200 OK with JavaScript-delayed redirect to fix
+                # Android PWA cookie timing issue (302 fires before cookie commit)
+                return '/oauth/landing/'
 
-            # Check if this is an OAuth callback that landed in the browser
-            # instead of the PWA (common on Android) - legacy redirect flow
-            user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
-            is_android = 'android' in user_agent
-            is_mobile = 'mobile' in user_agent or 'android' in user_agent
-
-            # If mobile OAuth callback, redirect to PWA return page
-            # This page will attempt to return the user to the PWA
-            if is_mobile and request.session.get('oauth_provider'):
-                # Clear the provider flag
-                provider = request.session.pop('oauth_provider', None)
-                # Store the intended destination
-                final_destination = self._get_crush_redirect_url(request)
-                request.session['oauth_final_destination'] = final_destination
-                # Redirect to PWA return handler
-                return '/oauth-complete/'
-
-            # Normal flow - direct to dashboard or profile creation
+            # Non-OAuth login (email/password) - direct to dashboard
             return self._get_crush_redirect_url(request)
         else:
             # Default behavior for other domains
