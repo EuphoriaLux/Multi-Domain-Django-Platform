@@ -146,3 +146,9 @@ vibe_coding/static/vibe_coding/js/dist/
 
 # Backup folders (not needed for deployment)
 _backup_old_apps/
+
+# Playwright test artifacts
+.playwright-mcp/
+
+# VSCode settings (environment-specific)
+.vscode/

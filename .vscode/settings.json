@@ -1,4 +1,0 @@
-{
-    "appService.defaultWebAppToDeploy": "/subscriptions/64c21818-0806-461a-919c-1c02b989a2d1/resourceGroups/django-app-rg/providers/Microsoft.Web/sites/django-app-ajfffwjb5ie3s-app-service",
-    "appService.deploySubpath": "."
-}
