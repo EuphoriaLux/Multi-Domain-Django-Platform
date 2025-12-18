@@ -229,16 +229,17 @@ class OAuthCallbackProtectionMiddleware:
                             )
                             from django.http import HttpResponseRedirect
 
-                            # If user is authenticated, send to dashboard
+                            # CRITICAL FIX: Use oauth_landing to fix Android PWA cookie timing
+                            # The 200 OK with JS-delayed redirect allows cookies to commit
+                            # before navigating to final destination
                             if request.user.is_authenticated:
-                                logger.warning("[OAUTH-PROTECTION] User authenticated, redirecting to dashboard")
-                                return HttpResponseRedirect('/dashboard/')
+                                logger.warning("[OAUTH-PROTECTION] User authenticated, redirecting to oauth landing")
+                                return HttpResponseRedirect('/oauth/landing/')
                             else:
                                 # The first callback likely succeeded and user is being logged in
-                                # Redirect to dashboard - if not authenticated, they'll be redirected to login
-                                # This is better than sending to / which loses their login attempt
-                                logger.warning("[OAUTH-PROTECTION] User not yet authenticated (cookie may be pending), redirecting to dashboard")
-                                return HttpResponseRedirect('/dashboard/')
+                                # Redirect to oauth landing - it will check auth and redirect appropriately
+                                logger.warning("[OAUTH-PROTECTION] User not yet authenticated (cookie may be pending), redirecting to oauth landing")
+                                return HttpResponseRedirect('/oauth/landing/')
 
                         elif existing_state:
                             logger.warning(
