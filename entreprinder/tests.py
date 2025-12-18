@@ -202,8 +202,19 @@ class LinkedInOAuthFlowTests(TestCase):
         cls.callback_path = f'/accounts/{cls.provider_slug}/login/callback/'
         cls.social_apps = {}
 
+        # First, update the default site (id=1) to use the first host
+        # This ensures compatibility with other tests that rely on Site id=1
+        first_host = cls.hosts[0]
+        Site.objects.update_or_create(
+            id=1,
+            defaults={'domain': first_host, 'name': first_host}
+        )
+
         for host in cls.hosts:
-            site, _ = Site.objects.get_or_create(domain=host, defaults={'name': host})
+            if host == first_host:
+                site = Site.objects.get(id=1)
+            else:
+                site, _ = Site.objects.get_or_create(domain=host, defaults={'name': host})
             app = SocialApp.objects.create(
                 provider=cls.provider_slug,
                 name=f'LinkedIn ({host})',
