@@ -33,7 +33,7 @@ gunicorn==23.0.0
 
 # Utilities
 python-dotenv==1.2.1  # Updated from 1.0.1
-whitenoise==6.8.2  # Updated from 6.7.0 (bug fixes)
+whitenoise==6.11.0  # Updated from 6.7.0 (bug fixes)
 requests==2.32.3
 
 # Push Notifications
