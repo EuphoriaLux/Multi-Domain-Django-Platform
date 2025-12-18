@@ -1,6 +1,6 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v9 - Enable popup OAuth for mobile/PWA
+// Version: v10 - Cookie commit buffer for Android PWA OAuth
 
 // ============================================================================
 // CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
@@ -15,11 +15,16 @@ self.addEventListener('fetch', (event) => {
   // HARD BLOCK: OAuth and auth-related URLs must COMPLETELY bypass the service worker
   // By NOT calling event.respondWith(), the browser handles the request directly
   // This prevents any possibility of replay, caching, or race conditions
+  //
+  // CRITICAL: /oauth/landing/ MUST be bypassed - it's the cookie commit buffer
+  // that polls /api/auth/status/ until cookies are readable
   if (
-    url.pathname.startsWith('/accounts/') ||  // All OAuth/auth routes
-    url.pathname.includes('/oauth') ||         // Any OAuth-related path (popup-callback, popup-error)
+    url.pathname.startsWith('/accounts/') ||   // All OAuth/auth routes
+    url.pathname.startsWith('/oauth/') ||      // OAuth landing and callbacks (/oauth/landing/, /oauth/popup-callback, etc.)
     url.pathname.includes('/login/callback') ||// Explicit callback match
-    url.pathname.startsWith('/api/auth/')      // Auth status API (for popup fallback check)
+    url.pathname.startsWith('/api/auth/') ||   // Auth status API (for cookie commit polling)
+    url.pathname === '/login/' ||              // Login page
+    url.pathname === '/logout/'                // Logout page
   ) {
     console.log('[SW] Auth/OAuth request - HARD BYPASS (no SW handling):', url.pathname);
     // Absolute bypass: no Workbox, no fallback, no caching, no replay
@@ -44,7 +49,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v9-popup-oauth';
+  const CACHE_VERSION = 'crush-v10-cookie-buffer';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -426,7 +431,7 @@ if (workbox) {
     }
   });
 
-  console.log('[Workbox] Service worker v9 (popup OAuth) configured successfully!');
+  console.log('[Workbox] Service worker v10 (cookie buffer) configured successfully!');
 
 } else {
   console.error('[Workbox] Failed to load Workbox from local bundle!');

@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Signing you in… - Crush.lu</title>
     <meta name="robots" content="noindex, nofollow">
+    <!-- Aggressive no-cache meta tags -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <style>
         * {
             margin: 0;
@@ -52,6 +56,11 @@
             color: #666;
             line-height: 1.5;
         }
+        .status {
+            font-size: 0.85rem;
+            color: #999;
+            margin-top: 1rem;
+        }
     </style>
 </head>
 <body>
@@ -59,34 +68,67 @@
         <div class="spinner"></div>
         <h2>Signing you in…</h2>
         <p>Please wait a moment.</p>
+        <p class="status" id="status"></p>
     </div>
 
     <script>
     /**
-     * OAuth Landing Page - Delayed Redirect for Android PWA Cookie Fix
+     * OAuth Landing Page - Cookie Commit Buffer for Android PWA
      *
-     * On Android Chrome WebView (PWA), 302 redirects fire BEFORE the session
-     * cookie is committed to storage. This causes the session to be lost.
+     * CRITICAL FIX FOR ANDROID PWA:
+     * On Android Chrome WebView (PWA), cookies are written asynchronously.
+     * A 302 redirect or immediate navigation can fire BEFORE the session
+     * cookie is committed to storage and becomes readable.
      *
-     * Solution: Return 200 OK and use JavaScript with a 400ms delay to allow
-     * Chrome to commit cookies before navigating to the final destination.
+     * Solution:
+     * 1. Initial 400ms delay (critical for cookie write to start)
+     * 2. Poll /api/auth/status/ every 200ms until authenticated
+     * 3. Max 3 second wait before fallback redirect
+     * 4. This allows Android Chrome to commit cookies before redirecting
+     *
+     * This approach is battle-tested and used by Twitter/Reddit/Notion PWAs.
      */
     (function() {
         'use strict';
 
-        var REDIRECT_URL = '{{ redirect_url|escapejs }}';
+        // Template-injected values
+        var INITIAL_REDIRECT_URL = '{{ redirect_url|escapejs }}';
         var IS_POPUP = {{ is_popup|yesno:"true,false" }};
+        var INITIAL_AUTH_STATE = {{ is_authenticated|yesno:"true,false" }};
+        var HAS_PROFILE = {{ has_profile|yesno:"true,false" }};
+        var USER_NAME = '{{ user_name|escapejs }}';
 
-        // For popup OAuth, communicate with parent window
-        if (IS_POPUP && window.opener && !window.opener.closed) {
+        // Polling configuration
+        var MAX_WAIT_MS = 3000;      // 3 second hard cap
+        var POLL_INTERVAL_MS = 200;  // Check every 200ms
+        var INITIAL_DELAY_MS = 400;  // Critical initial delay for cookie write
+
+        var startTime = Date.now();
+        var statusEl = document.getElementById('status');
+
+        function updateStatus(msg) {
+            if (statusEl) statusEl.textContent = msg;
+            console.log('[OAuth Landing]', msg);
+        }
+
+        /**
+         * Handle popup mode - communicate with parent window
+         */
+        function handlePopupMode(success, redirectUrl) {
+            if (!IS_POPUP || !window.opener || window.opener.closed) {
+                return false;
+            }
+
             try {
                 window.opener.postMessage({
                     type: 'CRUSH_OAUTH_COMPLETE',
-                    success: true,
-                    hasProfile: {{ has_profile|yesno:"true,false" }},
-                    redirectUrl: REDIRECT_URL,
-                    userName: '{{ user_name|escapejs }}'
+                    success: success,
+                    hasProfile: HAS_PROFILE,
+                    redirectUrl: redirectUrl,
+                    userName: USER_NAME
                 }, window.location.origin);
+
+                updateStatus('Login successful! Closing...');
 
                 // Close popup after short delay
                 setTimeout(function() {
@@ -96,21 +138,128 @@
                 // Fallback: redirect if window doesn't close
                 setTimeout(function() {
                     if (!window.closed) {
-                        window.location.replace(REDIRECT_URL);
+                        window.location.replace(redirectUrl);
                     }
                 }, 3000);
 
-                return;
+                return true;
             } catch (e) {
                 console.error('[OAuth Landing] Error communicating with parent:', e);
+                return false;
             }
         }
 
-        // Non-popup flow: delayed redirect to allow cookie commit
-        // 400ms delay is the sweet spot for Android Chrome WebView
-        setTimeout(function() {
-            window.location.replace(REDIRECT_URL);
-        }, 400);
+        /**
+         * Check authentication status via API
+         * Returns: { authenticated, redirect_url, has_profile, user_name }
+         */
+        function checkAuthStatus() {
+            return fetch('/api/auth/status/', {
+                method: 'GET',
+                credentials: 'include',  // CRITICAL: include cookies
+                headers: {
+                    'Accept': 'application/json',
+                    'Cache-Control': 'no-cache'
+                }
+            })
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('Auth check failed: ' + response.status);
+                }
+                return response.json();
+            });
+        }
+
+        /**
+         * Polling loop - check auth status until authenticated or timeout
+         */
+        function pollAuthStatus() {
+            var elapsed = Date.now() - startTime;
+
+            if (elapsed >= MAX_WAIT_MS) {
+                // Timeout - use initial redirect URL (likely /login/)
+                updateStatus('Timeout - redirecting...');
+                console.log('[OAuth Landing] Timeout after', elapsed, 'ms, redirecting to:', INITIAL_REDIRECT_URL);
+                window.location.replace(INITIAL_REDIRECT_URL);
+                return;
+            }
+
+            updateStatus('Verifying login...');
+
+            checkAuthStatus()
+                .then(function(data) {
+                    console.log('[OAuth Landing] Auth status:', data);
+
+                    if (data.authenticated) {
+                        // Success! Cookie is now readable
+                        var redirectUrl = data.redirect_url || INITIAL_REDIRECT_URL;
+                        console.log('[OAuth Landing] Authenticated after', elapsed, 'ms, redirecting to:', redirectUrl);
+
+                        // Handle popup mode first
+                        if (handlePopupMode(true, redirectUrl)) {
+                            return;
+                        }
+
+                        // Non-popup: redirect to destination
+                        updateStatus('Login successful! Redirecting...');
+                        window.location.replace(redirectUrl);
+                    } else {
+                        // Not yet authenticated - cookie may still be pending
+                        console.log('[OAuth Landing] Not yet authenticated, polling...');
+                        setTimeout(pollAuthStatus, POLL_INTERVAL_MS);
+                    }
+                })
+                .catch(function(error) {
+                    console.error('[OAuth Landing] Auth check error:', error);
+                    // On error, continue polling (could be transient network issue)
+                    setTimeout(pollAuthStatus, POLL_INTERVAL_MS);
+                });
+        }
+
+        /**
+         * Main entry point
+         */
+        function init() {
+            console.log('[OAuth Landing] Starting cookie commit buffer');
+            console.log('[OAuth Landing] Initial state:', {
+                authenticated: INITIAL_AUTH_STATE,
+                popup: IS_POPUP,
+                redirectUrl: INITIAL_REDIRECT_URL
+            });
+
+            // If already authenticated (server saw the cookie), we can skip polling
+            // But still use a small delay to ensure stability
+            if (INITIAL_AUTH_STATE) {
+                console.log('[OAuth Landing] Already authenticated, using short delay');
+
+                // Handle popup mode
+                if (handlePopupMode(true, INITIAL_REDIRECT_URL)) {
+                    return;
+                }
+
+                // Non-popup: short delay then redirect
+                updateStatus('Login successful! Redirecting...');
+                setTimeout(function() {
+                    window.location.replace(INITIAL_REDIRECT_URL);
+                }, INITIAL_DELAY_MS);
+                return;
+            }
+
+            // Not authenticated on initial load - start polling
+            // This is the Android PWA case where cookie isn't readable yet
+            console.log('[OAuth Landing] Starting auth polling (cookie may be pending)');
+            updateStatus('Completing login...');
+
+            // Initial delay is CRITICAL - gives cookie time to start writing
+            setTimeout(pollAuthStatus, INITIAL_DELAY_MS);
+        }
+
+        // Start when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
     })();
     </script>
 </body>

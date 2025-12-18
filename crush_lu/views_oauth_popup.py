@@ -17,6 +17,7 @@ import json
 import logging
 from django.shortcuts import render, redirect
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.cache import never_cache
 from django.http import JsonResponse
 
 logger = logging.getLogger(__name__)
@@ -100,13 +101,17 @@ def oauth_popup_error(request):
     })
 
 
+@never_cache
 @require_http_methods(["GET"])
 def check_auth_status(request):
     """
     AJAX endpoint to check authentication status.
 
-    Called by parent window after popup closes to verify login succeeded.
-    This provides a fallback mechanism if postMessage fails.
+    Called by:
+    1. Parent window after popup closes to verify login succeeded
+    2. OAuth landing page polling to wait for cookie commit
+
+    This provides a reliable way to check if the session cookie is readable.
 
     Returns JSON with:
     - authenticated: boolean
@@ -116,30 +121,43 @@ def check_auth_status(request):
     """
     if request.user.is_authenticated:
         has_profile = hasattr(request.user, 'crushprofile')
-        return JsonResponse({
+        response = JsonResponse({
             'authenticated': True,
             'has_profile': has_profile,
             'user_name': request.user.first_name or request.user.username,
             'redirect_url': '/dashboard/' if has_profile else '/create-profile/',
         })
+    else:
+        response = JsonResponse({
+            'authenticated': False,
+            'redirect_url': '/login/',
+        })
 
-    return JsonResponse({
-        'authenticated': False,
-        'redirect_url': '/login/',
-    })
+    # Aggressive no-cache headers - critical for cookie commit polling
+    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+
+    return response
 
 
+@never_cache
 @require_http_methods(["GET"])
 def oauth_landing(request):
     """
-    OAuth landing page with delayed JavaScript redirect.
+    OAuth landing page with polling-based cookie commit buffer.
 
     CRITICAL FIX FOR ANDROID PWA:
     On Android Chrome WebView (PWA), 302 redirects fire BEFORE the session
     cookie is committed to storage. This causes the session to be lost.
 
-    Solution: Return 200 OK and use JavaScript with a 400ms delay to allow
-    Chrome to commit cookies before navigating to the final destination.
+    ALSO: Workbox service worker navigation replay can cause duplicate callbacks.
+
+    Solution:
+    1. Return 200 OK with aggressive no-cache headers
+    2. Use JavaScript polling with 400ms initial delay
+    3. Poll /api/auth/status/ until authenticated (max 3 seconds)
+    4. This allows Android Chrome to commit cookies before redirecting
 
     This view is the target for ALL OAuth completions on Crush.lu, replacing
     direct 302 redirects to /dashboard/ or /create-profile/.
@@ -150,32 +168,30 @@ def oauth_landing(request):
     # Clear OAuth provider flag
     request.session.pop('oauth_provider', None)
 
-    if not request.user.is_authenticated:
-        # Not logged in - still use the landing page with JS redirect
-        # This gives cookies time to commit before redirecting to login
-        logger.debug("OAuth landing: user not authenticated, redirecting to login")
-        return render(request, 'crush_lu/oauth_landing.html', {
-            'redirect_url': '/login/',
-            'is_popup': is_popup,
-            'has_profile': False,
-            'user_name': '',
-        })
+    # Determine authentication state and destination
+    is_authenticated = request.user.is_authenticated
+    has_profile = False
+    user_name = ''
+    redirect_url = '/login/'
 
-    # Determine final destination
-    has_profile = hasattr(request.user, 'crushprofile')
-    if has_profile:
-        redirect_url = '/dashboard/'
-    else:
-        redirect_url = '/create-profile/'
+    if is_authenticated:
+        has_profile = hasattr(request.user, 'crushprofile')
+        user_name = request.user.first_name or request.user.username
+        redirect_url = '/dashboard/' if has_profile else '/create-profile/'
 
-    # Get user info for popup postMessage
-    user_name = request.user.first_name or request.user.username
+    logger.info(f"OAuth landing: authenticated={is_authenticated}, user={request.user.username if is_authenticated else 'anonymous'}, popup={is_popup}, redirect={redirect_url}")
 
-    logger.debug(f"OAuth landing: user={request.user.username}, popup={is_popup}, redirect={redirect_url}")
-
-    return render(request, 'crush_lu/oauth_landing.html', {
+    response = render(request, 'crush_lu/oauth_landing.html', {
         'redirect_url': redirect_url,
         'is_popup': is_popup,
         'has_profile': has_profile,
         'user_name': user_name,
+        'is_authenticated': is_authenticated,
     })
+
+    # Aggressive no-cache headers to prevent SW and browser caching
+    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+
+    return response
