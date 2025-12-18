@@ -100,21 +100,23 @@
 /**
  * OAuth Handler for Crush.lu
  *
- * CRITICAL: PWA vs Browser OAuth Strategy
+ * CRITICAL: Android PWA Cookie Timing Issue
  *
  * The Problem:
- * - PWAs run in a Trusted Web Activity / WebView-like container with a SEPARATE cookie store
- * - When OAuth redirects happen (PWA → Facebook → crush.lu), there's a cookie race condition
+ * - Android PWAs run in a Trusted Web Activity (TWA) with a SEPARATE cookie store
+ * - TWAs have asynchronous cookie commits during cross-site redirects
  * - The session cookie is written but NOT YET READABLE when the next request fires
  * - Result: Django sees anonymous user, login fails silently
  *
  * Key insight: PWAs can READ cookies reliably — they just can't always CREATE them during OAuth.
  *
- * Solution:
- * - PWA (standalone mode): Use full-page redirect OAuth (single browsing context, no race)
- * - Desktop browser: Use popup OAuth (better UX, shared cookie jar works fine)
+ * Solution (battle-tested, used by Twitter/Reddit/Notion):
+ * - Android PWA: Force OAuth to run in Chrome browser (not TWA) using Android Intent URL
+ * - iOS PWA: Use Safari redirect (iOS handles cookies better)
+ * - Desktop browser: Use popup OAuth (shared cookie jar works fine)
  *
- * This is how Twitter, Reddit, Notion handle PWA OAuth.
+ * Flow for Android PWA:
+ * PWA → open Chrome → Facebook login → redirect back → PWA reads existing cookie
  */
 (function() {
     'use strict';
@@ -124,6 +126,16 @@
         var standaloneMedia = window.matchMedia('(display-mode: standalone)').matches;
         var iosStandalone = window.navigator.standalone === true;
         return standaloneMedia || iosStandalone;
+    }
+
+    // Detect Android device
+    function isAndroid() {
+        return /Android/i.test(navigator.userAgent);
+    }
+
+    // Detect iOS device
+    function isIOS() {
+        return /iPhone|iPad|iPod/i.test(navigator.userAgent);
     }
 
     // Detect mobile device
@@ -136,24 +148,54 @@
         var fbButton = document.querySelector('.facebook-login-btn');
         if (!fbButton) return;
 
-        // Get the OAuth URL (without popup param for redirect mode)
+        // Get the OAuth URL
         var oauthUrl = fbButton.getAttribute('href');
+        var fullOAuthUrl = window.location.origin + oauthUrl;
 
         // Log debug info
-        console.log('[Crush.lu Login] PWA mode:', isPWA(), 'Mobile:', isMobile());
+        console.log('[Crush.lu Login] PWA:', isPWA(), 'Android:', isAndroid(), 'iOS:', isIOS());
 
-        // PWA MODE: Use full-page redirect (mandatory for reliable cookie handling)
-        if (isPWA()) {
-            console.log('[Crush.lu Login] PWA detected: using full-page redirect OAuth');
+        // ANDROID PWA: Force OAuth to run in Chrome browser (not TWA)
+        // This is the ONLY reliable solution for Android PWA OAuth
+        if (isPWA() && isAndroid()) {
+            console.log('[Crush.lu Login] Android PWA detected: forcing Chrome browser for OAuth');
+
+            fbButton.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                // Show loading state
+                fbButton.classList.add('disabled');
+                fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening Chrome...';
+
+                // Use Android Intent URL to force Chrome browser
+                // This opens the OAuth URL in Chrome, not the TWA container
+                // Chrome has a proper cookie store that commits synchronously
+                var intentUrl = 'intent://' + window.location.host + oauthUrl + '#Intent;' +
+                    'scheme=https;' +
+                    'package=com.android.chrome;' +
+                    'end;';
+
+                console.log('[Crush.lu Login] Intent URL:', intentUrl);
+
+                // Navigate to the intent URL
+                window.location.href = intentUrl;
+            });
+
+            return;
+        }
+
+        // iOS PWA: Use standard redirect (iOS handles cookies better than Android)
+        if (isPWA() && isIOS()) {
+            console.log('[Crush.lu Login] iOS PWA detected: using standard redirect');
 
             fbButton.addEventListener('click', function(e) {
                 // Show loading state but let the default link action proceed
                 fbButton.classList.add('disabled');
                 fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Redirecting to Facebook...';
-                // Don't prevent default - let the full page redirect happen
+                // Don't prevent default - let the redirect happen
             });
 
-            return; // Exit early, no popup handling needed for PWA
+            return;
         }
 
         // DESKTOP/MOBILE BROWSER MODE: Use popup OAuth (better UX)
@@ -192,7 +234,7 @@
                     fbButton.classList.remove('disabled');
                     fbButton.innerHTML = originalContent;
 
-                    // On mobile browser, just redirect directly (confirm dialog is annoying)
+                    // On mobile browser, just redirect directly
                     if (isMobile()) {
                         console.log('[Crush.lu Login] Mobile browser: auto-redirecting to OAuth');
                         window.location.href = oauthUrl;
