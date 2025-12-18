@@ -1,18 +1,18 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v14 - TRUE hard bypass + auth excluded from all caching
+// Version: v15 - Fixed hoisting bug + cache cleanup filter
 
 // ============================================================================
 // CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
 // ============================================================================
-// OAuth callbacks must COMPLETELY bypass the service worker.
+// OAuth callbacks must COMPLETELY bypass the service worker's caching logic.
 //
 // IMPORTANT: Just using `return;` does NOT bypass - it only exits this handler
 // but Workbox will still register its own handlers that intercept the request.
 //
-// The ONLY way to truly bypass is: event.respondWith(fetch(event.request))
-// This tells the browser to handle the request directly, preventing any
-// other SW logic (Workbox, fallbacks, etc.) from touching it.
+// Using event.respondWith(fetch(event.request)) ensures this handler "claims"
+// the request, preventing any Workbox routes, offline fallbacks, or caching
+// from processing it. The SW still responds, but with a direct network fetch.
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
@@ -51,7 +51,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v14-auth-excluded';
+  const CACHE_VERSION = 'crush-v15-hoisting-fix';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -62,70 +62,10 @@ if (workbox) {
   });
 
   // ============================================================================
-  // Cache Cleanup on Activation - Clean up old caches from previous versions
+  // Offline Fallback Constants - MUST BE DEFINED BEFORE activate handler
   // ============================================================================
-
-  self.addEventListener('activate', (event) => {
-    event.waitUntil(
-      (async () => {
-        // Clean up old caches
-        const cacheNames = await caches.keys();
-        await Promise.all(
-          cacheNames
-            .filter(name => name.startsWith('crush-') && !name.includes(CACHE_VERSION))
-            .map(name => {
-              console.log('[Workbox] Deleting old cache:', name);
-              return caches.delete(name);
-            })
-        );
-
-        // Cache the offline page
-        const cache = await caches.open(workbox.core.cacheNames.runtime);
-        try {
-          const response = await fetch(OFFLINE_PAGE);
-          if (response.ok) {
-            await cache.put(OFFLINE_PAGE, response);
-            console.log('[Workbox] Cached Django offline page');
-          } else {
-            throw new Error('Offline page not available');
-          }
-        } catch (error) {
-          console.log('[Workbox] Using embedded offline HTML');
-          await cache.put(
-            OFFLINE_PAGE,
-            new Response(OFFLINE_FALLBACK_HTML, {
-              headers: { 'Content-Type': 'text/html' }
-            })
-          );
-        }
-
-        // NOTE: We intentionally do NOT call clients.claim() here
-        // Calling clients.claim() during OAuth can cause race conditions
-        // where the SW takes control mid-navigation and breaks cookie commits.
-        // The SW will naturally take control on the next navigation.
-        console.log('[Workbox] Service worker activated (no immediate claim to avoid OAuth race)');
-      })()
-    );
-  });
-
-  // ============================================================================
-  // Precaching - Files to cache on service worker installation
-  // ============================================================================
-
-  // Precache essential assets (REMOVED '/' to allow dynamic auth redirect)
-  workbox.precaching.precacheAndRoute([
-    { url: '/offline/', revision: CACHE_VERSION },
-    { url: '/static/crush_lu/css/crush.css', revision: CACHE_VERSION },
-    { url: '/static/crush_lu/js/page-loading.js', revision: CACHE_VERSION },
-    { url: '/static/crush_lu/icons/icon-192x192.png', revision: CACHE_VERSION },
-    { url: '/static/crush_lu/icons/icon-512x512.png', revision: CACHE_VERSION },
-  ]);
-
-  console.log('[Workbox] Precaching configured');
-
-  // ============================================================================
-  // Offline Fallback
-  // ============================================================================
+  // These constants are used in the activate handler below, so they must be
+  // defined first to avoid "Cannot access before initialization" ReferenceError.
 
   const OFFLINE_PAGE = '/offline/';
   const OFFLINE_FALLBACK_HTML = `
@@ -179,6 +119,72 @@ if (workbox) {
     </div>
 </body>
 </html>`;
+
+  // ============================================================================
+  // Cache Cleanup on Activation - Clean up old caches from previous versions
+  // ============================================================================
+
+  self.addEventListener('activate', (event) => {
+    event.waitUntil(
+      (async () => {
+        // Clean up old caches (cache names start with 'crush-lu-')
+        const cacheNames = await caches.keys();
+        await Promise.all(
+          cacheNames
+            .filter(name => name.startsWith('crush-lu-') && !name.includes(CACHE_VERSION))
+            .map(name => {
+              console.log('[Workbox] Deleting old cache:', name);
+              return caches.delete(name);
+            })
+        );
+
+        // Cache the offline page
+        const cache = await caches.open(workbox.core.cacheNames.runtime);
+        try {
+          const response = await fetch(OFFLINE_PAGE);
+          if (response.ok) {
+            await cache.put(OFFLINE_PAGE, response);
+            console.log('[Workbox] Cached Django offline page');
+          } else {
+            throw new Error('Offline page not available');
+          }
+        } catch (error) {
+          console.log('[Workbox] Using embedded offline HTML');
+          await cache.put(
+            OFFLINE_PAGE,
+            new Response(OFFLINE_FALLBACK_HTML, {
+              headers: { 'Content-Type': 'text/html' }
+            })
+          );
+        }
+
+        // NOTE: We intentionally do NOT call clients.claim() here
+        // Calling clients.claim() during OAuth can cause race conditions
+        // where the SW takes control mid-navigation and breaks cookie commits.
+        // The SW will naturally take control on the next navigation.
+        console.log('[Workbox] Service worker activated (no immediate claim to avoid OAuth race)');
+      })()
+    );
+  });
+
+  // ============================================================================
+  // Precaching - Files to cache on service worker installation
+  // ============================================================================
+
+  // Precache essential assets (REMOVED '/' to allow dynamic auth redirect)
+  workbox.precaching.precacheAndRoute([
+    { url: '/offline/', revision: CACHE_VERSION },
+    { url: '/static/crush_lu/css/crush.css', revision: CACHE_VERSION },
+    { url: '/static/crush_lu/js/page-loading.js', revision: CACHE_VERSION },
+    { url: '/static/crush_lu/icons/icon-192x192.png', revision: CACHE_VERSION },
+    { url: '/static/crush_lu/icons/icon-512x512.png', revision: CACHE_VERSION },
+  ]);
+
+  console.log('[Workbox] Precaching configured');
+
+  // ============================================================================
+  // Offline Fallback
+  // ============================================================================
 
   // Set offline page as fallback for navigation requests
   workbox.recipes.offlineFallback({
@@ -456,7 +462,7 @@ if (workbox) {
     }
   });
 
-  console.log('[Workbox] Service worker v14 (auth excluded) configured successfully!');
+  console.log('[Workbox] Service worker v15 (hoisting fix) configured successfully!');
 
 } else {
   console.error('[Workbox] Failed to load Workbox from local bundle!');
