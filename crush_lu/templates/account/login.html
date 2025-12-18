@@ -185,8 +185,9 @@
         // The ONLY solution is to open Chrome directly via Android Intent URL.
         // This bypasses the PWA/TWA entirely and cookies commit synchronously.
         //
-        // After login in Chrome, user returns to PWA which can now read the cookie
-        // (assuming Digital Asset Links are configured, which they are for Crush.lu).
+        // After login in Chrome, user returns to PWA.
+        // NOTE: Without Digital Asset Links, Chrome and PWA may have separate cookie stores.
+        // The session recovery check at page load handles this by checking /api/auth/status/.
         if (isPWA() && isAndroid()) {
             console.log('[Crush.lu Login] Android PWA detected: MUST use Chrome Intent');
 
@@ -202,8 +203,10 @@
                 // Format: intent://HOST/PATH#Intent;scheme=SCHEME;package=PACKAGE;S.browser_fallback_url=URL;end;
                 //
                 // IMPORTANT: The path must NOT include the host prefix
+                // ACTION_VIEW is implicit, but we add it for clarity
                 var intentUrl = 'intent://' + window.location.host + oauthUrl + '#Intent;' +
                     'scheme=https;' +
+                    'action=android.intent.action.VIEW;' +
                     'package=com.android.chrome;' +
                     'S.browser_fallback_url=' + encodeURIComponent(fullOAuthUrl) + ';' +
                     'end;';
@@ -211,14 +214,12 @@
                 console.log('[Crush.lu Login] Opening Chrome with Intent URL');
                 console.log('[Crush.lu Login] Intent:', intentUrl);
 
-                // Try to open Chrome via Intent
-                // Use window.open first (more reliable in PWAs), fall back to location.href
+                // CRITICAL: Use location.href directly for Intent URLs in PWA
+                // window.open() does NOT work reliably for intent:// URLs in WebViews
+                // The browser must handle the Intent scheme, not JavaScript
                 try {
-                    var opened = window.open(intentUrl, '_system');
-                    if (!opened) {
-                        console.log('[Crush.lu Login] window.open failed, trying location.href');
-                        window.location.href = intentUrl;
-                    }
+                    // Direct navigation is the most reliable way to trigger Intent
+                    window.location.href = intentUrl;
                 } catch (err) {
                     console.error('[Crush.lu Login] Intent error:', err);
                     // Ultimate fallback: direct OAuth (will have cookie issues but at least works)
