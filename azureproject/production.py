@@ -228,10 +228,15 @@ SECURE_HSTS_PRELOAD = True
 SESSION_COOKIE_SECURE = True  # HTTPS only in production
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookie
-SESSION_COOKIE_SAMESITE = 'Lax'  # CSRF protection while allowing navigation
+SESSION_COOKIE_SAMESITE = 'Lax'  # CSRF protection while allowing OAuth redirects
+CSRF_COOKIE_SAMESITE = 'Lax'  # Must match SESSION_COOKIE_SAMESITE for OAuth
 # CSRF_COOKIE_HTTPONLY must be False to allow JavaScript access for AJAX requests
 # This is Django's default and is safe because CSRF tokens are not sensitive data
 CSRF_COOKIE_HTTPONLY = False
+
+# SSL redirect - Azure App Service handles this at load balancer level
+# Setting to False avoids redirect loops since Azure terminates SSL
+SECURE_SSL_REDIRECT = False
 
 # Uncomment and configure the following if you wish to use cache-backed sessions:
 # SESSION_ENGINE = "django.contrib.sessions.backends.cache"
