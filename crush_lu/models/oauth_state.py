@@ -79,6 +79,30 @@ class OAuthState(models.Model):
         help_text="IP address of originating request"
     )
 
+    # OAuth completion result (for handling duplicate callbacks on Android PWA)
+    # When the first callback succeeds, we store the result here so that
+    # duplicate requests can retrieve the auth info without needing session cookies
+    auth_completed = models.BooleanField(
+        default=False,
+        help_text="Whether OAuth completed successfully"
+    )
+    auth_user_id = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Authenticated user ID (for duplicate request handling)"
+    )
+    auth_redirect_url = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Post-authentication redirect URL"
+    )
+    last_callback_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp of last callback (for duplicate detection diagnostics)"
+    )
+
     class Meta:
         app_label = 'crush_lu'
         verbose_name = 'OAuth State'

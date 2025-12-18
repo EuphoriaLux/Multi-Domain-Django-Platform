@@ -134,6 +134,7 @@ class OAuthCallbackProtectionMiddleware:
     2. If state is already used (duplicate request), redirects gracefully
     3. Uses database storage which works across browser contexts (PWA -> system browser)
     4. Ensures OAuth statekit patch is applied for database-backed state storage
+    5. For duplicate requests, passes state param to oauth_landing for DB-based auth recovery
 
     Must be placed AFTER SessionMiddleware but BEFORE any Allauth processing.
 
@@ -156,6 +157,17 @@ class OAuthCallbackProtectionMiddleware:
         if '/accounts/' in request.path and '/login/callback' in request.path:
             state = request.GET.get('state', '')
 
+            # DIAGNOSTIC LOGGING: Help identify source of duplicate requests
+            if state:
+                logger.warning(
+                    f"[OAUTH-DIAG] Callback received: "
+                    f"state={state[:8]}... "
+                    f"referer={request.META.get('HTTP_REFERER', 'none')[:50] if request.META.get('HTTP_REFERER') else 'none'} "
+                    f"sec-fetch-mode={request.META.get('HTTP_SEC_FETCH_MODE', 'unknown')} "
+                    f"sec-fetch-dest={request.META.get('HTTP_SEC_FETCH_DEST', 'unknown')} "
+                    f"service-worker={request.META.get('HTTP_SERVICE_WORKER', 'no')}"
+                )
+
             if state:
                 # Check if this state has already been used in DATABASE (not session!)
                 # This works across browser contexts (PWA -> system browser)
@@ -167,6 +179,7 @@ class OAuthCallbackProtectionMiddleware:
                 try:
                     from crush_lu.models import OAuthState
                     from django.db import transaction
+                    from django.utils import timezone
 
                     with transaction.atomic():
                         # Lock the row to prevent race conditions
@@ -175,6 +188,17 @@ class OAuthCallbackProtectionMiddleware:
                         ).filter(state_id=state).first()
 
                         if existing_state and existing_state.used:
+                            # Calculate timing for diagnostics
+                            time_since_creation = (timezone.now() - existing_state.created_at).total_seconds()
+                            time_since_last = None
+                            if existing_state.last_callback_at:
+                                time_since_last = (timezone.now() - existing_state.last_callback_at).total_seconds()
+
+                            logger.warning(
+                                f"[OAUTH-DIAG] Duplicate timing: created={time_since_creation:.2f}s ago"
+                                + (f", last_callback={time_since_last:.2f}s ago" if time_since_last else ", first duplicate")
+                            )
+
                             # This is a duplicate request - state already consumed
                             # The first request already processed the OAuth, so this is safe to ignore
                             logger.warning(
@@ -183,19 +207,27 @@ class OAuthCallbackProtectionMiddleware:
                             )
                             from django.http import HttpResponseRedirect
 
-                            # CRITICAL FIX: Use oauth_landing to fix Android PWA cookie timing
-                            # The 200 OK with JS-delayed redirect allows cookies to commit
-                            # before navigating to final destination
-                            if request.user.is_authenticated:
-                                logger.warning("[OAUTH-PROTECTION] User authenticated, redirecting to oauth landing")
-                                return HttpResponseRedirect('/oauth/landing/')
+                            # CRITICAL FIX: Pass state parameter to oauth_landing
+                            # This allows oauth_landing to look up the auth result from database
+                            # and complete the login without needing session cookies
+                            if existing_state.auth_completed and existing_state.auth_user_id:
+                                logger.warning(
+                                    f"[OAUTH-PROTECTION] OAuth completed with user_id={existing_state.auth_user_id}, "
+                                    f"redirecting to landing with state"
+                                )
                             else:
-                                # The first callback likely succeeded and user is being logged in
-                                # Redirect to oauth landing - it will check auth and redirect appropriately
-                                logger.warning("[OAUTH-PROTECTION] User not yet authenticated (cookie may be pending), redirecting to oauth landing")
-                                return HttpResponseRedirect('/oauth/landing/')
+                                logger.warning(
+                                    f"[OAUTH-PROTECTION] OAuth not yet completed in DB, redirecting to landing with state"
+                                )
+
+                            # Always pass state so landing page can look up result
+                            return HttpResponseRedirect(f'/oauth/landing/?state={state}')
 
                         elif existing_state:
+                            # First callback - update timestamp for timing diagnostics
+                            existing_state.last_callback_at = timezone.now()
+                            existing_state.save(update_fields=['last_callback_at'])
+
                             logger.warning(
                                 f"[OAUTH-PROTECTION] State {state[:8]}... found, not yet used. "
                                 f"Proceeding with OAuth callback."

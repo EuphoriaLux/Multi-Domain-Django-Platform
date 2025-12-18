@@ -153,15 +153,70 @@ def oauth_landing(request):
 
     ALSO: Workbox service worker navigation replay can cause duplicate callbacks.
 
+    ENHANCED FIX: Database-backed authentication recovery
+    When duplicate OAuth callbacks arrive before cookies commit, we can now:
+    1. Look up the OAuth result from the database using the state parameter
+    2. Log in the user directly without needing session cookies
+    3. This ensures OAuth succeeds even when cookies are delayed
+
     Solution:
-    1. Return 200 OK with aggressive no-cache headers
-    2. Use JavaScript polling with 400ms initial delay
-    3. Poll /api/auth/status/ until authenticated (max 3 seconds)
-    4. This allows Android Chrome to commit cookies before redirecting
+    1. Check for state param → look up auth result in database → login if found
+    2. Return 200 OK with aggressive no-cache headers
+    3. Use JavaScript polling with 400ms initial delay
+    4. Poll /api/auth/status/ until authenticated (max 3 seconds)
+    5. This allows Android Chrome to commit cookies before redirecting
 
     This view is the target for ALL OAuth completions on Crush.lu, replacing
     direct 302 redirects to /dashboard/ or /create-profile/.
     """
+    # DIAGNOSTIC LOGGING: Log request metadata for debugging
+    sw_headers = {
+        'Service-Worker': request.META.get('HTTP_SERVICE_WORKER'),
+        'Sec-Fetch-Mode': request.META.get('HTTP_SEC_FETCH_MODE'),
+        'Sec-Fetch-Site': request.META.get('HTTP_SEC_FETCH_SITE'),
+        'Sec-Fetch-Dest': request.META.get('HTTP_SEC_FETCH_DEST'),
+    }
+    logger.warning(f"[OAUTH-DIAG] Landing page SW headers: {sw_headers}")
+
+    # Get state parameter (passed by middleware for duplicate request handling)
+    state_id = request.GET.get('state', '')
+
+    # DATABASE-BACKED AUTH RECOVERY
+    # If we have a state parameter and user is not authenticated,
+    # try to recover authentication from the database
+    if state_id and not request.user.is_authenticated:
+        try:
+            from crush_lu.models import OAuthState
+            from django.contrib.auth import login, get_user_model
+
+            oauth_state = OAuthState.objects.filter(state_id=state_id).first()
+
+            if oauth_state and oauth_state.auth_completed and oauth_state.auth_user_id:
+                # Found completed OAuth in database - log in the user
+                User = get_user_model()
+                try:
+                    user = User.objects.get(pk=oauth_state.auth_user_id)
+                    login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+                    logger.info(
+                        f"[OAUTH-LANDING] Recovered auth from database for user {user.username} "
+                        f"(state={state_id[:8]}...)"
+                    )
+                except User.DoesNotExist:
+                    logger.error(
+                        f"[OAUTH-LANDING] User ID {oauth_state.auth_user_id} not found "
+                        f"(state={state_id[:8]}...)"
+                    )
+            elif oauth_state:
+                logger.warning(
+                    f"[OAUTH-LANDING] State {state_id[:8]}... found but auth not completed yet "
+                    f"(auth_completed={oauth_state.auth_completed}, auth_user_id={oauth_state.auth_user_id})"
+                )
+            else:
+                logger.warning(f"[OAUTH-LANDING] State {state_id[:8]}... not found in database")
+
+        except Exception as e:
+            logger.error(f"[OAUTH-LANDING] Error recovering auth from database: {e}")
+
     # Check if this is popup mode (do this before any early returns)
     is_popup = request.session.pop('oauth_popup_mode', False)
 
@@ -179,7 +234,11 @@ def oauth_landing(request):
         user_name = request.user.first_name or request.user.username
         redirect_url = '/dashboard/' if has_profile else '/create-profile/'
 
-    logger.info(f"OAuth landing: authenticated={is_authenticated}, user={request.user.username if is_authenticated else 'anonymous'}, popup={is_popup}, redirect={redirect_url}")
+    logger.info(
+        f"OAuth landing: authenticated={is_authenticated}, "
+        f"user={request.user.username if is_authenticated else 'anonymous'}, "
+        f"popup={is_popup}, redirect={redirect_url}, state={state_id[:8] + '...' if state_id else 'none'}"
+    )
 
     response = render(request, 'crush_lu/oauth_landing.html', {
         'redirect_url': redirect_url,
@@ -187,6 +246,7 @@ def oauth_landing(request):
         'has_profile': has_profile,
         'user_name': user_name,
         'is_authenticated': is_authenticated,
+        'state_id': state_id,  # Pass state to template for JS polling fallback
     })
 
     # Aggressive no-cache headers to prevent SW and browser caching
