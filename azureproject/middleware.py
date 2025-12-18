@@ -123,52 +123,6 @@ class ForceAdminToEnglishMiddleware:
         return response
 
 
-class CrushAllAuthRedirectMiddleware:
-    """
-    Redirect Allauth /accounts/* URLs to Crush.lu-specific URLs on crush.lu domain.
-
-    This middleware intercepts Allauth's default account URLs and redirects them
-    to Crush.lu's custom authentication pages to avoid template conflicts with
-    other domains (entreprinder, powerup, vinsdelux).
-
-    Must be placed AFTER DomainURLRoutingMiddleware so request.urlconf is set.
-    """
-    # Mapping of Allauth URLs to Crush.lu URLs
-    ALLAUTH_TO_CRUSH_REDIRECTS = {
-        '/accounts/login/': '/login/',
-        '/accounts/signup/': '/signup/',
-        '/accounts/logout/': '/logout/',
-    }
-
-    def __init__(self, get_response):
-        self.get_response = get_response
-
-    def __call__(self, request):
-        # Check if this is crush.lu domain
-        host = request.get_host().split(':')[0].lower()
-        if host.startswith('www.'):
-            host = host[4:]
-
-        is_crush = host == 'crush.lu' or host == 'localhost'
-
-        if is_crush:
-            # Check if path matches any Allauth URL that should redirect
-            path = request.path
-            redirect_to = self.ALLAUTH_TO_CRUSH_REDIRECTS.get(path)
-
-            if redirect_to:
-                # Preserve query string (e.g., ?next=/dashboard/)
-                query_string = request.META.get('QUERY_STRING', '')
-                if query_string:
-                    redirect_to = f"{redirect_to}?{query_string}"
-
-                from django.http import HttpResponseRedirect
-                logger.debug(f"CrushAllAuthRedirectMiddleware: Redirecting {path} -> {redirect_to}")
-                return HttpResponseRedirect(redirect_to)
-
-        return self.get_response(request)
-
-
 class OAuthCallbackProtectionMiddleware:
     """
     Prevent duplicate OAuth callback requests that cause "Third-Party Login Failure".

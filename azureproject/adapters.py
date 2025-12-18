@@ -176,6 +176,11 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
             return '/dashboard/'
 
         elif self._is_crush_domain(request):
+            # Check for special user experience (set by user_logged_in signal)
+            # This must be checked FIRST as it takes priority over other redirects
+            if request.session.get('special_experience_active'):
+                return '/special-welcome/'
+
             # Check if this is an OAuth login (has oauth_provider in session)
             # OAuth logins need the delayed redirect landing page
             if request.session.get('oauth_provider') or request.session.get('oauth_popup_mode'):

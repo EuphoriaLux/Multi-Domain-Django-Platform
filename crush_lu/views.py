@@ -1,6 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.utils import timezone
@@ -45,49 +44,9 @@ from .email_helpers import (
 )
 
 
-# Authentication views
-@ratelimit(key='ip', rate='5/15m', method='POST')
-def crush_login(request):
-    """Crush.lu specific login view"""
-    if request.user.is_authenticated:
-        # Check if special experience is active
-        if request.session.get('special_experience_active'):
-            return redirect('crush_lu:special_welcome')
-        return redirect('crush_lu:dashboard')
-
-    if request.method == 'POST':
-        form = AuthenticationForm(request, data=request.POST)
-        if form.is_valid():
-            username = form.cleaned_data.get('username')
-            password = form.cleaned_data.get('password')
-            user = authenticate(username=username, password=password)
-            if user is not None:
-                login(request, user)
-                messages.success(request, f'Welcome back, {user.first_name or user.username}!')
-
-                # Check if special experience is active (set by signal)
-                if request.session.get('special_experience_active'):
-                    return redirect('crush_lu:special_welcome')
-
-                # Redirect to next parameter or dashboard
-                next_url = request.GET.get('next', 'crush_lu:dashboard')
-                return redirect(next_url)
-            else:
-                messages.error(request, 'Invalid username or password.')
-        else:
-            messages.error(request, 'Invalid username or password.')
-    else:
-        form = AuthenticationForm()
-
-    return render(request, 'crush_lu/login.html', {'form': form})
-
-
-def crush_logout(request):
-    """Crush.lu specific logout view"""
-    logout(request)
-    messages.info(request, 'You have been logged out successfully.')
-    return redirect('crush_lu:home')
-
+# Authentication views - login/logout are now handled by AllAuth
+# See crush_lu/urls.py: login -> LoginView.as_view(), logout -> LogoutView.as_view()
+# Special experience redirects are handled in azureproject/adapters.py:get_login_redirect_url()
 
 def oauth_complete(request):
     """
