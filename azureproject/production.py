@@ -2,81 +2,27 @@ import os
 from .settings import *  # noqa
 from .settings import BASE_DIR
 
-# Configure the domain name using the environment variable
-# that Azure automatically creates for us.
-# Fetch custom domains from environment variables, separated by commas
-CUSTOM_DOMAINS = os.environ.get('CUSTOM_DOMAINS', '').split(',')
+# ============================================================================
+# ALLOWED_HOSTS Configuration
+# ============================================================================
+# IMPORTANT: Only hostnames go here, NOT client IPs.
+# Azure internal IPs (169.254.*) are handled by AzureInternalIPMiddleware.
+# Health check IPs are CLIENT IPs, not Host headers - they don't belong here.
 
-# Fetch additional health check IPs from environment variable, separated by commas
-HEALTH_CHECK_IPS = os.environ.get('HEALTH_CHECK_IPS', '').split(',')
+CUSTOM_DOMAINS = [d.strip() for d in os.environ.get('CUSTOM_DOMAINS', '').split(',') if d.strip()]
 
-# Configure ALLOWED_HOSTS
 ALLOWED_HOSTS = []
 if 'WEBSITE_HOSTNAME' in os.environ:
     ALLOWED_HOSTS.append(os.environ['WEBSITE_HOSTNAME'])
-# Add custom domains
-ALLOWED_HOSTS += [domain.strip() for domain in CUSTOM_DOMAINS if domain.strip()]
-# Add custom allowed hosts from environment variable
-ALLOWED_HOSTS += [host.strip() for host in os.environ.get('ALLOWED_HOSTS_ENV', '').split(',') if host.strip()]
-
-# Add health check IPs from environment variable
-health_check_ips = [ip.strip() for ip in os.environ.get('HEALTH_CHECK_IPS', '').split(',') if ip.strip()]
-ALLOWED_HOSTS += health_check_ips
-
+# Add custom domains (crush.lu, powerup.lu, vinsdelux.com, etc.)
+ALLOWED_HOSTS += CUSTOM_DOMAINS
+# Add any additional hosts from environment
+ALLOWED_HOSTS += [h.strip() for h in os.environ.get('ALLOWED_HOSTS_ENV', '').split(',') if h.strip()]
 # Add localhost for development
-ALLOWED_HOSTS.append('localhost')
-ALLOWED_HOSTS.append('127.0.0.1')
+ALLOWED_HOSTS += ['localhost', '127.0.0.1']
 
-# Note: Azure internal IPs (169.254.*) are handled by custom ALLOWED_HOSTS validation below
-# to support OpenTelemetry autoinstrumentation health checks that run before middleware
-
-# Custom ALLOWED_HOSTS validation for Azure internal IPs
-# This allows health check requests from Azure infrastructure (169.254.*.*)
-# to bypass standard validation before OpenTelemetry middleware processes them
-class AzureInternalHostValidator:
-    """
-    Custom host validator that allows Azure internal IPs (169.254.*.*)
-    without explicitly listing them in ALLOWED_HOSTS.
-    This prevents DisallowedHost errors from OpenTelemetry middleware.
-    """
-    def __call__(self, host):
-        # Extract hostname without port
-        hostname = host.split(':')[0]
-
-        # Allow Azure internal IPs (169.254.*.*)
-        if hostname.startswith('169.254.'):
-            return True
-
-        # Allow localhost
-        if hostname in ('localhost', '127.0.0.1', '[::1]'):
-            return True
-
-        # Otherwise, check against ALLOWED_HOSTS
-        from django.http.request import validate_host
-        return validate_host(host, ALLOWED_HOSTS)
-
-# Monkey-patch Django's host validation to use our custom validator
-# This must happen before any middleware runs
-import django.http.request
-_original_validate_host = django.http.request.validate_host
-
-def custom_validate_host(host, allowed_hosts):
-    """Custom validate_host that allows Azure internal IPs"""
-    # Extract hostname without port
-    hostname = host.split(':')[0]
-
-    # Allow Azure internal IPs (169.254.*.*)
-    if hostname.startswith('169.254.'):
-        return True
-
-    # Allow localhost variants
-    if hostname in ('localhost', '127.0.0.1', '[::1]'):
-        return True
-
-    # Use original validation for everything else
-    return _original_validate_host(host, allowed_hosts)
-
-django.http.request.validate_host = custom_validate_host
+# NOTE: Azure internal IPs (169.254.*) for OpenTelemetry health checks are
+# handled by AzureInternalIPMiddleware, NOT by monkey-patching validate_host.
 
 
 
@@ -233,6 +179,29 @@ CSRF_COOKIE_SAMESITE = 'Lax'  # Must match SESSION_COOKIE_SAMESITE for OAuth
 # CSRF_COOKIE_HTTPONLY must be False to allow JavaScript access for AJAX requests
 # This is Django's default and is safe because CSRF tokens are not sensitive data
 CSRF_COOKIE_HTTPONLY = False
+
+# CRITICAL FIX: Cookie domain for OAuth/PWA session persistence
+# Setting domain to ".domain.tld" ensures cookies work across:
+# - apex domain (domain.tld)
+# - www subdomain (www.domain.tld)
+# - Any subdomain variation during OAuth redirects
+#
+# This prevents cookie loss when host header varies during OAuth.
+# The domain is set based on CUSTOM_DOMAINS environment variable.
+_crush_domain = any('crush.lu' in d for d in CUSTOM_DOMAINS)
+_powerup_domain = any('powerup.lu' in d for d in CUSTOM_DOMAINS)
+_vinsdelux_domain = any('vinsdelux.com' in d for d in CUSTOM_DOMAINS)
+
+if _crush_domain:
+    SESSION_COOKIE_DOMAIN = '.crush.lu'
+    CSRF_COOKIE_DOMAIN = '.crush.lu'
+elif _powerup_domain:
+    SESSION_COOKIE_DOMAIN = '.powerup.lu'
+    CSRF_COOKIE_DOMAIN = '.powerup.lu'
+elif _vinsdelux_domain:
+    SESSION_COOKIE_DOMAIN = '.vinsdelux.com'
+    CSRF_COOKIE_DOMAIN = '.vinsdelux.com'
+# else: leave unset - Django uses request host by default
 
 # SSL redirect - Azure App Service handles this at load balancer level
 # Setting to False avoids redirect loops since Azure terminates SSL
