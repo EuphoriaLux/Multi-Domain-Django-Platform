@@ -1,16 +1,11 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
-import os
-from .profiles import SpecialUserExperience
+from .profiles import SpecialUserExperience, get_crush_photo_storage
 
-# Conditional import of private storage for production
-if os.getenv('AZURE_ACCOUNT_NAME'):
-    from crush_lu.storage import CrushProfilePhotoStorage
-    crush_photo_storage = CrushProfilePhotoStorage()
-else:
-    # In development, use default storage
-    crush_photo_storage = None
+# Callable used by all file fields - Django calls this when needed
+# This prevents migration drift between environments
+crush_photo_storage = get_crush_photo_storage
 
 
 class JourneyConfiguration(models.Model):
@@ -287,19 +282,19 @@ class JourneyReward(models.Model):
         upload_to='journey_rewards/',
         blank=True,
         null=True,
-        storage=crush_photo_storage if crush_photo_storage else None
+        storage=crush_photo_storage
     )
     audio_file = models.FileField(
         upload_to='journey_rewards/audio/',
         blank=True,
         null=True,
-        storage=crush_photo_storage if crush_photo_storage else None
+        storage=crush_photo_storage
     )
     video_file = models.FileField(
         upload_to='journey_rewards/video/',
         blank=True,
         null=True,
-        storage=crush_photo_storage if crush_photo_storage else None
+        storage=crush_photo_storage
     )
 
     # For puzzles
