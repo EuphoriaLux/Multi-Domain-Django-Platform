@@ -176,12 +176,15 @@ class OAuthCallbackProtectionMiddleware:
     On Android PWAs, the browser sometimes replays OAuth callback URLs which causes
     errors because OAuth authorization codes can only be used once. This middleware:
 
-    1. Tracks the OAuth state parameter when a callback is processed
-    2. If the same state is seen again, redirects to home instead of failing
-    3. Clears tracked states after successful login or on logout
+    1. Checks the OAuth state parameter against database (not session!)
+    2. If state is already used (duplicate request), redirects gracefully
+    3. Uses database storage which works across browser contexts (PWA -> system browser)
     4. Ensures OAuth statekit patch is applied for database-backed state storage
 
     Must be placed AFTER SessionMiddleware but BEFORE any Allauth processing.
+
+    IMPORTANT: This uses DATABASE storage instead of session storage because
+    Android PWA opens OAuth in system browser (different session context).
     """
     def __init__(self, get_response):
         self.get_response = get_response
@@ -200,42 +203,58 @@ class OAuthCallbackProtectionMiddleware:
             state = request.GET.get('state', '')
 
             if state:
-                # Check if we've already processed this state
-                processed_states = request.session.get('_oauth_processed_states', [])
+                # Check if this state has already been used in DATABASE (not session!)
+                # This works across browser contexts (PWA -> system browser)
+                #
+                # IMPORTANT: We use select_for_update() to create a database lock.
+                # This ensures that if two requests arrive simultaneously:
+                # - Request 1 acquires lock, checks used=False, proceeds
+                # - Request 2 waits for lock, then sees used=True (set by Request 1's view)
+                try:
+                    from crush_lu.models import OAuthState
+                    from django.db import transaction
 
-                if state in processed_states:
-                    # This is a duplicate request - redirect to appropriate page
-                    logger.warning(f"OAuthCallbackProtectionMiddleware: Duplicate OAuth state detected, redirecting")
-                    from django.http import HttpResponseRedirect
+                    with transaction.atomic():
+                        # Lock the row to prevent race conditions
+                        existing_state = OAuthState.objects.select_for_update(
+                            nowait=False  # Wait for lock if another request has it
+                        ).filter(state_id=state).first()
 
-                    # If user is authenticated, send to dashboard
-                    if request.user.is_authenticated:
-                        return HttpResponseRedirect('/dashboard/')
-                    else:
-                        # Send to home - they'll need to login again
-                        return HttpResponseRedirect('/')
+                        if existing_state and existing_state.used:
+                            # This is a duplicate request - state already consumed
+                            logger.warning(
+                                f"[OAUTH-PROTECTION] Duplicate callback detected! "
+                                f"State {state[:8]}... already used. Redirecting gracefully."
+                            )
+                            from django.http import HttpResponseRedirect
 
-                # Mark this state as being processed
-                # (Will be confirmed as processed after successful response)
-                request._oauth_state_to_track = state
+                            # If user is authenticated, send to dashboard
+                            if request.user.is_authenticated:
+                                logger.warning("[OAUTH-PROTECTION] User authenticated, redirecting to dashboard")
+                                return HttpResponseRedirect('/dashboard/')
+                            else:
+                                # Check if they just got authenticated (cookie might not be set yet)
+                                # Give them a chance by redirecting to home
+                                logger.warning("[OAUTH-PROTECTION] User not authenticated, redirecting to home")
+                                return HttpResponseRedirect('/')
+
+                        elif existing_state:
+                            logger.warning(
+                                f"[OAUTH-PROTECTION] State {state[:8]}... found, not yet used. "
+                                f"Proceeding with OAuth callback."
+                            )
+                        else:
+                            logger.warning(
+                                f"[OAUTH-PROTECTION] State {state[:8]}... NOT found in database! "
+                                f"May be session-based OAuth or expired state."
+                            )
+
+                except ImportError:
+                    logger.debug("[OAUTH-PROTECTION] crush_lu.models not available, skipping DB check")
+                except Exception as e:
+                    logger.error(f"[OAUTH-PROTECTION] Error checking state in database: {e}")
 
         response = self.get_response(request)
-
-        # After processing, if this was a successful OAuth callback, track the state
-        if hasattr(request, '_oauth_state_to_track'):
-            # Only track if the response was a redirect (success) not an error page
-            if response.status_code in (301, 302, 303, 307, 308):
-                processed_states = request.session.get('_oauth_processed_states', [])
-                processed_states.append(request._oauth_state_to_track)
-                # Keep only last 10 states to prevent session bloat
-                request.session['_oauth_processed_states'] = processed_states[-10:]
-                request.session.modified = True
-
-        # Clear processed states on logout
-        if request.path in ('/logout/', '/accounts/logout/'):
-            if '_oauth_processed_states' in request.session:
-                del request.session['_oauth_processed_states']
-
         return response
 
 

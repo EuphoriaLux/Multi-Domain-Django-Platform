@@ -19,7 +19,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v6-local-workbox';
+  const CACHE_VERSION = 'crush-v7-oauth-fix';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -171,6 +171,27 @@ if (workbox) {
     }
   }
 
+  // ============================================================================
+  // CRITICAL: OAuth Callback Protection - MUST BE REGISTERED FIRST
+  // ============================================================================
+  // OAuth callback URLs must NEVER be handled by the service worker.
+  // These URLs are one-time-use and any replay/cache will cause authentication failures.
+  // Register this route FIRST to ensure it has highest priority.
+
+  workbox.routing.registerRoute(
+    ({ url }) => {
+      const isOAuthCallback = url.pathname.includes('/login/callback') ||
+                              url.pathname.includes('/callback/') && url.pathname.includes('/accounts/');
+      if (isOAuthCallback) {
+        console.log('[Workbox] OAuth callback detected - bypassing SW completely:', url.pathname);
+      }
+      return isOAuthCallback;
+    },
+    new workbox.strategies.NetworkOnly()
+  );
+
+  console.log('[Workbox] OAuth callback protection registered (HIGHEST PRIORITY)');
+
   // Helper function to check if path matches authenticated routes (with i18n support)
   function isAuthenticatedRoute(pathname) {
     const authPaths = [
@@ -196,7 +217,7 @@ if (workbox) {
     return false;
   }
 
-  // Strategy 1: Network Only for authenticated/user-specific pages (MUST BE FIRST)
+  // Strategy 1: Network Only for authenticated/user-specific pages (MUST BE FIRST after OAuth)
   // This prevents caching of login redirects which cause the black screen issue
   workbox.routing.registerRoute(
     ({ url }) => isAuthenticatedRoute(url.pathname),
@@ -388,7 +409,7 @@ if (workbox) {
     }
   });
 
-  console.log('[Workbox] Service worker v6 configured successfully!');
+  console.log('[Workbox] Service worker v7 (OAuth fix) configured successfully!');
 
 } else {
   console.error('[Workbox] Failed to load Workbox from local bundle!');
