@@ -25,60 +25,82 @@ from .forms import SwipeForm
 @login_required
 def swipe_action(request):
     """Handle like/dislike swipe actions via AJAX."""
-    if request.method == 'POST':
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=400)
+
+    try:
         data = json.loads(request.body)
-        profile_id = data.get('profile_id')
-        action = data.get('action')
+    except (TypeError, ValueError):
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON payload'}, status=400)
 
-        liked_profile = get_object_or_404(EntrepreneurProfile, id=profile_id)
-        current_user = request.user.entrepreneurprofile
+    profile_id = data.get('profile_id')
+    action = data.get('action')
 
-        match_found = False
-        if action == 'like':
-            like, created = Like.objects.get_or_create(liker=current_user, liked=liked_profile)
+    if profile_id is None or action is None:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'profile_id and action are required',
+        }, status=400)
 
-            # Check if it's a match
-            if Like.objects.filter(liker=liked_profile, liked=current_user).exists():
-                Match.objects.get_or_create(entrepreneur1=current_user, entrepreneur2=liked_profile)
-                match_found = True
-        elif action == 'dislike':
-            Dislike.objects.get_or_create(disliker=current_user, disliked=liked_profile)
+    try:
+        profile_id = int(profile_id)
+    except (TypeError, ValueError):
+        return JsonResponse({'status': 'error', 'message': 'Invalid profile id'}, status=400)
 
-        # Fetch the next profile
-        excluded_profiles = Like.objects.filter(liker=current_user).values_list('liked', flat=True)
-        excluded_profiles = list(excluded_profiles) + [current_user.id]
-        next_profile = EntrepreneurProfile.objects.exclude(id__in=excluded_profiles).first()
+    if action not in ['dislike', 'like']:
+        return JsonResponse({'status': 'error', 'message': 'Invalid action'}, status=400)
 
-        response_data = {
-            'status': 'match' if match_found else 'success',
-            'match_found': match_found,
+    try:
+        liked_profile = EntrepreneurProfile.objects.get(id=profile_id)
+    except EntrepreneurProfile.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Profile not found'}, status=404)
+
+    current_user = request.user.entrepreneurprofile
+
+    match_found = False
+    if action == 'like':
+        like, created = Like.objects.get_or_create(liker=current_user, liked=liked_profile)
+
+        # Check if it's a match
+        if Like.objects.filter(liker=liked_profile, liked=current_user).exists():
+            Match.objects.get_or_create(entrepreneur1=current_user, entrepreneur2=liked_profile)
+            match_found = True
+    elif action == 'dislike':
+        Dislike.objects.get_or_create(disliker=current_user, disliked=liked_profile)
+
+    # Fetch the next profile
+    excluded_profiles = Like.objects.filter(liker=current_user).values_list('liked', flat=True)
+    excluded_profiles = list(excluded_profiles) + [current_user.id]
+    next_profile = EntrepreneurProfile.objects.exclude(id__in=excluded_profiles).first()
+
+    response_data = {
+        'status': 'match' if match_found else 'success',
+        'match_found': match_found,
+    }
+
+    if match_found:
+        match_profile_picture = liked_profile.get_profile_picture_url()
+        response_data['match_profile'] = {
+            'id': liked_profile.id,
+            'full_name': liked_profile.user.get_full_name() or liked_profile.user.username,
+            'profile_picture': request.build_absolute_uri(match_profile_picture),
         }
 
-        if match_found:
-            match_profile_picture = liked_profile.get_profile_picture_url()
-            response_data['match_profile'] = {
-                'id': liked_profile.id,
-                'full_name': liked_profile.user.get_full_name() or liked_profile.user.username,
-                'profile_picture': request.build_absolute_uri(match_profile_picture),
-            }
+    if next_profile:
+        next_profile_picture = next_profile.get_profile_picture_url()
+        response_data['next_profile'] = {
+            'id': next_profile.id,
+            'full_name': next_profile.user.get_full_name() or next_profile.user.username,
+            'industry': next_profile.industry.name if next_profile.industry else '',
+            'company': next_profile.company,
+            'bio': next_profile.bio,
+            'profile_picture': request.build_absolute_uri(next_profile_picture),
+        }
+    else:
+        response_data['status'] = 'no_more_profiles'
+        response_data['redirect_url'] = reverse('entreprinder:no_more_profiles')
 
-        if next_profile:
-            next_profile_picture = next_profile.get_profile_picture_url()
-            response_data['next_profile'] = {
-                'id': next_profile.id,
-                'full_name': next_profile.user.get_full_name() or next_profile.user.username,
-                'industry': next_profile.industry.name if next_profile.industry else '',
-                'company': next_profile.company,
-                'bio': next_profile.bio,
-                'profile_picture': request.build_absolute_uri(next_profile_picture),
-            }
-        else:
-            response_data['status'] = 'no_more_profiles'
-            response_data['redirect_url'] = reverse('entreprinder:no_more_profiles')
-
-        return JsonResponse(response_data)
-
-    return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=400)
+    return JsonResponse(response_data)
 
 
 @login_required

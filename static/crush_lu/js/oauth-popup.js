@@ -4,6 +4,11 @@
  * Manages popup-based OAuth authentication for better PWA compatibility.
  * Falls back to redirect-based OAuth if popups are blocked.
  *
+ * NOTE: django-allauth handles the server-side OAuth flow, but it does not
+ *       provide cross-window messaging or popup lifecycle handling. This
+ *       helper keeps the parent window in sync by listening for postMessage
+ *       events and polling the auth status API as a safety net.
+ *
  * Usage:
  *   CrushOAuthPopup.login('facebook', {
  *     onSuccess: function(result) { console.log('Logged in!', result); },
@@ -31,6 +36,8 @@
         onSuccess: null,
         onError: null,
         messageHandler: null,
+        popupOpenedAt: null,
+        lastAuthCheck: 0,
 
         /**
          * Open OAuth popup for the specified provider
@@ -86,6 +93,10 @@
 
             // Start checking if popup is closed
             this.startPopupCheck();
+
+            // Track when the popup was opened so we can run health-check polls
+            this.popupOpenedAt = Date.now();
+            this.lastAuthCheck = 0;
 
             // Set timeout for OAuth completion
             this.timeoutTimer = setTimeout(function() {
@@ -181,8 +192,6 @@
             console.log('[OAuth Popup] Received message:', data.type);
 
             if (data.type === 'CRUSH_OAUTH_COMPLETE') {
-                this.cleanup();
-
                 if (data.success) {
                     console.log('[OAuth Popup] OAuth successful');
 
@@ -203,11 +212,21 @@
                         userName: data.userName,
                     });
 
+                    // Best effort: close popup immediately if we still have a handle
+                    if (this.popup && !this.popup.closed) {
+                        try {
+                            this.popup.close();
+                        } catch (e) { /* ignore */ }
+                    }
+
+                    this.cleanup();
+
                     // Redirect to appropriate page
                     if (data.redirectUrl) {
                         window.location.href = data.redirectUrl;
                     }
                 } else {
+                    this.cleanup();
                     this.onError({
                         error: data.error || 'unknown',
                         description: data.errorDescription || 'Login failed',
@@ -241,6 +260,20 @@
                 if (self.popup && self.popup.closed) {
                     console.log('[OAuth Popup] Popup was closed');
                     self.handlePopupClosed();
+                    return;
+                }
+
+                // Fallback: even if popup stays open (e.g., postMessage missed),
+                // periodically check auth status so the parent can redirect.
+                var now = Date.now();
+                if (self.popup && !self.popup.closed && self.popupOpenedAt) {
+                    var timeSinceOpen = now - self.popupOpenedAt;
+                    var timeSinceLastCheck = now - self.lastAuthCheck;
+
+                    if (timeSinceOpen > 2000 && timeSinceLastCheck > 2000) {
+                        self.lastAuthCheck = now;
+                        self.checkAuthStatus({ closePopupOnSuccess: true, fromOpenPopup: true });
+                    }
                 }
             }, this.config.checkInterval);
         },
@@ -262,8 +295,9 @@
         /**
          * Check authentication status via API
          */
-        checkAuthStatus: function() {
+        checkAuthStatus: function(options) {
             var self = this;
+            options = options || {};
 
             fetch('/api/auth/status/', {
                 method: 'GET',
@@ -279,11 +313,21 @@
             .then(function(data) {
                 if (data.authenticated) {
                     console.log('[OAuth Popup] Auth verified via API');
+                    // Close popup if we still have a handle and were polling while open
+                    if (options.closePopupOnSuccess && self.popup && !self.popup.closed) {
+                        try {
+                            self.popup.close();
+                        } catch (e) { /* ignore */ }
+                    }
+
+                    self.cleanup();
+
                     self.onSuccess({
                         hasProfile: data.has_profile,
                         redirectUrl: data.redirect_url,
                         userName: data.user_name,
                     });
+
                     window.location.href = data.redirect_url;
                 } else {
                     // User cancelled or OAuth failed - don't show error, just reset
@@ -330,6 +374,8 @@
             }
             this.stopListening();
             this.popup = null;
+            this.popupOpenedAt = null;
+            this.lastAuthCheck = 0;
         },
 
         /**
