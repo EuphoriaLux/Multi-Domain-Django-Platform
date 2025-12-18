@@ -97,6 +97,7 @@
         var INITIAL_AUTH_STATE = {{ is_authenticated|yesno:"true,false" }};
         var HAS_PROFILE = {{ has_profile|yesno:"true,false" }};
         var USER_NAME = '{{ user_name|escapejs }}';
+        var STATE_ID = '{{ state_id|escapejs }}';  // For DB-based auth recovery fallback
 
         // Polling configuration
         var MAX_WAIT_MS = 3000;      // 3 second hard cap
@@ -152,9 +153,19 @@
         /**
          * Check authentication status via API
          * Returns: { authenticated, redirect_url, has_profile, user_name }
+         *
+         * Note: The main DB-based auth recovery happens server-side in oauth_landing view.
+         * The state parameter is included here for potential future use (e.g., server-side
+         * retry of DB lookup if initial check fails).
          */
         function checkAuthStatus() {
-            return fetch('/api/auth/status/', {
+            // Include state parameter if available (for potential server-side DB lookup retry)
+            var url = '/api/auth/status/';
+            if (STATE_ID) {
+                url += '?state=' + encodeURIComponent(STATE_ID);
+            }
+
+            return fetch(url, {
                 method: 'GET',
                 credentials: 'include',  // CRITICAL: include cookies
                 headers: {
