@@ -1,33 +1,35 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v11 - No-cache login page + cookie commit buffer for Android PWA OAuth
+// Version: v14 - TRUE hard bypass + auth excluded from all caching
 
 // ============================================================================
 // CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
 // ============================================================================
 // OAuth callbacks must COMPLETELY bypass the service worker.
-// By NOT calling event.respondWith(), the browser handles the request directly.
-// This prevents any possibility of the SW causing duplicate requests.
+//
+// IMPORTANT: Just using `return;` does NOT bypass - it only exits this handler
+// but Workbox will still register its own handlers that intercept the request.
+//
+// The ONLY way to truly bypass is: event.respondWith(fetch(event.request))
+// This tells the browser to handle the request directly, preventing any
+// other SW logic (Workbox, fallbacks, etc.) from touching it.
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // HARD BLOCK: OAuth and auth-related URLs must COMPLETELY bypass the service worker
-  // By NOT calling event.respondWith(), the browser handles the request directly
-  // This prevents any possibility of replay, caching, or race conditions
-  //
-  // CRITICAL: /oauth/landing/ MUST be bypassed - it's the cookie commit buffer
-  // that polls /api/auth/status/ until cookies are readable
+  // TRUE HARD BYPASS: OAuth and auth-related URLs
+  // Using event.respondWith(fetch()) ensures NO other handler can intercept
   if (
     url.pathname.startsWith('/accounts/') ||   // All OAuth/auth routes
-    url.pathname.startsWith('/oauth/') ||      // OAuth landing and callbacks (/oauth/landing/, /oauth/popup-callback, etc.)
+    url.pathname.startsWith('/oauth/') ||      // OAuth landing and callbacks
     url.pathname.includes('/login/callback') ||// Explicit callback match
-    url.pathname.startsWith('/api/auth/') ||   // Auth status API (for cookie commit polling)
+    url.pathname.startsWith('/api/auth/') ||   // Auth status API
     url.pathname === '/login/' ||              // Login page
     url.pathname === '/logout/'                // Logout page
   ) {
-    console.log('[SW] Auth/OAuth request - HARD BYPASS (no SW handling):', url.pathname);
-    // Absolute bypass: no Workbox, no fallback, no caching, no replay
+    console.log('[SW] Auth/OAuth request - TRUE HARD BYPASS:', url.pathname);
+    // THIS is the correct way to bypass - respondWith prevents other handlers
+    event.respondWith(fetch(event.request));
     return;
   }
 });
@@ -49,7 +51,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v11-nocache-login';
+  const CACHE_VERSION = 'crush-v14-auth-excluded';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -97,9 +99,11 @@ if (workbox) {
           );
         }
 
-        // Take control of all clients immediately
-        await self.clients.claim();
-        console.log('[Workbox] Service worker activated and claimed clients');
+        // NOTE: We intentionally do NOT call clients.claim() here
+        // Calling clients.claim() during OAuth can cause race conditions
+        // where the SW takes control mid-navigation and breaks cookie commits.
+        // The SW will naturally take control on the next navigation.
+        console.log('[Workbox] Service worker activated (no immediate claim to avoid OAuth race)');
       })()
     );
   });
@@ -181,7 +185,22 @@ if (workbox) {
     pageFallback: OFFLINE_PAGE,
   });
 
-  console.log('[Workbox] Offline fallback configured');
+  // CRITICAL: Immediately exclude auth navigations from offline fallback
+  // offlineFallback() wraps navigation requests and can interfere with OAuth
+  // This route MUST be registered immediately after offlineFallback()
+  workbox.routing.registerRoute(
+    ({ request, url }) =>
+      request.mode === 'navigate' &&
+      (
+        url.pathname.startsWith('/accounts/') ||
+        url.pathname.startsWith('/oauth/') ||
+        url.pathname.startsWith('/login') ||
+        url.pathname.startsWith('/logout')
+      ),
+    new workbox.strategies.NetworkOnly()
+  );
+
+  console.log('[Workbox] Offline fallback configured (auth excluded)');
 
   // ============================================================================
   // Caching Strategies
@@ -261,8 +280,14 @@ if (workbox) {
   );
 
   // Strategy 4: Network First for HTML pages (always fresh, fallback to cache)
+  // IMPORTANT: Explicitly exclude auth paths to prevent any OAuth interference
   workbox.routing.registerRoute(
-    ({ request }) => request.mode === 'navigate',
+    ({ request, url }) =>
+      request.mode === 'navigate' &&
+      !url.pathname.startsWith('/accounts/') &&
+      !url.pathname.startsWith('/oauth/') &&
+      !url.pathname.startsWith('/login') &&
+      !url.pathname.startsWith('/logout'),
     new workbox.strategies.NetworkFirst({
       cacheName: 'crush-pages',
       plugins: [
@@ -278,7 +303,7 @@ if (workbox) {
     })
   );
 
-  console.log('[Workbox] Page caching strategy registered');
+  console.log('[Workbox] Page caching strategy registered (auth excluded)');
 
   // Strategy 5: Cache First for static assets (CSS, JS)
   workbox.routing.registerRoute(
@@ -431,7 +456,7 @@ if (workbox) {
     }
   });
 
-  console.log('[Workbox] Service worker v11 (no-cache login) configured successfully!');
+  console.log('[Workbox] Service worker v14 (auth excluded) configured successfully!');
 
 } else {
   console.error('[Workbox] Failed to load Workbox from local bundle!');
