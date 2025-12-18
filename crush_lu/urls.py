@@ -1,4 +1,5 @@
 from django.urls import path
+from allauth.account.views import LoginView, LogoutView
 from . import views
 from . import views_profile
 from . import views_media
@@ -34,9 +35,9 @@ urlpatterns = [
     # Facebook Data Deletion Callback (required by Facebook)
     path('facebook/data-deletion/', views.facebook_data_deletion_callback, name='facebook_data_deletion'),
 
-    # Authentication
-    path('login/', views.crush_login, name='login'),
-    path('logout/', views.crush_logout, name='logout'),
+    # Authentication - using AllAuth views for consistent auth flow
+    path('login/', LoginView.as_view(), name='login'),
+    path('logout/', LogoutView.as_view(), name='logout'),
     path('oauth-complete/', views.oauth_complete, name='oauth_complete'),
 
     # OAuth Popup Flow (for better PWA experience)
