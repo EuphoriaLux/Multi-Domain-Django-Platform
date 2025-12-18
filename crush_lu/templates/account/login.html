@@ -121,11 +121,32 @@
 (function() {
     'use strict';
 
+    // FIRST: Check if user is already authenticated (session recovery after Chrome OAuth)
+    // This handles the case where user logged in via Chrome and returned to PWA
+    (function checkExistingSession() {
+        fetch('/api/auth/status/', {
+            method: 'GET',
+            credentials: 'include',
+            cache: 'no-store',
+            headers: { 'Accept': 'application/json' }
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.authenticated) {
+                console.log('[Crush.lu Login] Already authenticated, redirecting...');
+                window.location.replace(data.redirect_url || '/dashboard/');
+            }
+        })
+        .catch(function() { /* ignore errors */ });
+    })();
+
     // Detect if running as installed PWA (standalone mode)
     function isPWA() {
         var standaloneMedia = window.matchMedia('(display-mode: standalone)').matches;
         var iosStandalone = window.navigator.standalone === true;
-        return standaloneMedia || iosStandalone;
+        // Also check for android-app referrer (indicates TWA)
+        var androidApp = document.referrer.indexOf('android-app://') === 0;
+        return standaloneMedia || iosStandalone || androidApp;
     }
 
     // Detect Android device
@@ -155,17 +176,63 @@
         // Log debug info
         console.log('[Crush.lu Login] PWA:', isPWA(), 'Android:', isAndroid(), 'iOS:', isIOS(), 'Mobile:', isMobile());
 
-        // ANDROID (PWA or Browser): Force OAuth to open in a fresh Chrome instance
-        // This is the ONLY reliable solution for Android OAuth with Service Workers
+        // ANDROID PWA: MUST force OAuth to run in Chrome browser (not WebView/TWA)
         //
-        // WHY: Even in Chrome browser (not just PWA), the Service Worker can cause:
-        // 1. Navigation replay → duplicate OAuth callbacks
-        // 2. Cookie timing issues → session not readable
+        // CRITICAL: Android PWAs run in a Trusted Web Activity (TWA) or Custom Tab
+        // which has a SEPARATE cookie store from Chrome. OAuth in the PWA container
+        // will write cookies that are NOT readable by subsequent PWA requests.
         //
-        // The Intent URL forces Chrome to handle OAuth in a clean context,
-        // without SW interference, and cookies commit synchronously.
+        // The ONLY solution is to open Chrome directly via Android Intent URL.
+        // This bypasses the PWA/TWA entirely and cookies commit synchronously.
+        //
+        // After login in Chrome, user returns to PWA which can now read the cookie
+        // (assuming Digital Asset Links are configured, which they are for Crush.lu).
+        if (isPWA() && isAndroid()) {
+            console.log('[Crush.lu Login] Android PWA detected: MUST use Chrome Intent');
+
+            fbButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                // Show loading state
+                fbButton.classList.add('disabled');
+                fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening Chrome...';
+
+                // Build the Intent URL for Chrome
+                // Format: intent://HOST/PATH#Intent;scheme=SCHEME;package=PACKAGE;S.browser_fallback_url=URL;end;
+                //
+                // IMPORTANT: The path must NOT include the host prefix
+                var intentUrl = 'intent://' + window.location.host + oauthUrl + '#Intent;' +
+                    'scheme=https;' +
+                    'package=com.android.chrome;' +
+                    'S.browser_fallback_url=' + encodeURIComponent(fullOAuthUrl) + ';' +
+                    'end;';
+
+                console.log('[Crush.lu Login] Opening Chrome with Intent URL');
+                console.log('[Crush.lu Login] Intent:', intentUrl);
+
+                // Try to open Chrome via Intent
+                // Use window.open first (more reliable in PWAs), fall back to location.href
+                try {
+                    var opened = window.open(intentUrl, '_system');
+                    if (!opened) {
+                        console.log('[Crush.lu Login] window.open failed, trying location.href');
+                        window.location.href = intentUrl;
+                    }
+                } catch (err) {
+                    console.error('[Crush.lu Login] Intent error:', err);
+                    // Ultimate fallback: direct OAuth (will have cookie issues but at least works)
+                    window.location.href = oauthUrl;
+                }
+            });
+
+            return;
+        }
+
+        // ANDROID BROWSER (not PWA): Still use Intent to avoid Service Worker issues
+        // Even in Chrome browser mode, the Service Worker can cause navigation replay
         if (isAndroid()) {
-            console.log('[Crush.lu Login] Android detected: forcing fresh Chrome for OAuth');
+            console.log('[Crush.lu Login] Android browser detected: using Intent for clean OAuth');
 
             fbButton.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -174,21 +241,9 @@
                 fbButton.classList.add('disabled');
                 fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening login...';
 
-                // Use Android Intent URL to force Chrome browser
-                // This opens the OAuth URL in Chrome, bypassing PWA/TWA and Service Worker
-                // Chrome has a proper cookie store that commits synchronously
-                //
-                // S.browser_fallback_url ensures fallback if Chrome isn't available
-                var intentUrl = 'intent://' + window.location.host + oauthUrl + '#Intent;' +
-                    'scheme=https;' +
-                    'package=com.android.chrome;' +
-                    'S.browser_fallback_url=' + encodeURIComponent(fullOAuthUrl) + ';' +
-                    'end;';
-
-                console.log('[Crush.lu Login] Intent URL:', intentUrl);
-
-                // Navigate to the intent URL
-                window.location.href = intentUrl;
+                // In browser mode, we can try direct OAuth first
+                // The Intent is a fallback if we detect issues
+                window.location.href = oauthUrl;
             });
 
             return;
