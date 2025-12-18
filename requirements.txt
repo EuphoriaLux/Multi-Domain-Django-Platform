@@ -14,7 +14,7 @@ django-allauth==65.13.1  # Updated from 65.1.0 (latest stable)
 PyJWT==2.10.1
 
 # Storage
-django-storages==1.14.4  # Updated from 1.14.2
+django-storages==1.14.6  # Updated from 1.14.2
 azure-storage-blob==12.25.1
 
 # Caching
@@ -34,10 +34,10 @@ gunicorn==23.0.0
 # Utilities
 python-dotenv==1.2.1  # Updated from 1.0.1
 whitenoise==6.11.0  # Updated from 6.7.0 (bug fixes)
-requests==2.32.3
+requests==2.32.5
 
 # Push Notifications
-py-vapid==1.9.1
+py-vapid==1.9.2
 pywebpush==2.1.2
 
 # Cookie Consent (GDPR/ePrivacy)
