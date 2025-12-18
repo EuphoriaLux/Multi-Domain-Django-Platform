@@ -153,26 +153,36 @@
         var fullOAuthUrl = window.location.origin + oauthUrl;
 
         // Log debug info
-        console.log('[Crush.lu Login] PWA:', isPWA(), 'Android:', isAndroid(), 'iOS:', isIOS());
+        console.log('[Crush.lu Login] PWA:', isPWA(), 'Android:', isAndroid(), 'iOS:', isIOS(), 'Mobile:', isMobile());
 
-        // ANDROID PWA: Force OAuth to run in Chrome browser (not TWA)
-        // This is the ONLY reliable solution for Android PWA OAuth
-        if (isPWA() && isAndroid()) {
-            console.log('[Crush.lu Login] Android PWA detected: forcing Chrome browser for OAuth');
+        // ANDROID (PWA or Browser): Force OAuth to open in a fresh Chrome instance
+        // This is the ONLY reliable solution for Android OAuth with Service Workers
+        //
+        // WHY: Even in Chrome browser (not just PWA), the Service Worker can cause:
+        // 1. Navigation replay → duplicate OAuth callbacks
+        // 2. Cookie timing issues → session not readable
+        //
+        // The Intent URL forces Chrome to handle OAuth in a clean context,
+        // without SW interference, and cookies commit synchronously.
+        if (isAndroid()) {
+            console.log('[Crush.lu Login] Android detected: forcing fresh Chrome for OAuth');
 
             fbButton.addEventListener('click', function(e) {
                 e.preventDefault();
 
                 // Show loading state
                 fbButton.classList.add('disabled');
-                fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening Chrome...';
+                fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening login...';
 
                 // Use Android Intent URL to force Chrome browser
-                // This opens the OAuth URL in Chrome, not the TWA container
+                // This opens the OAuth URL in Chrome, bypassing PWA/TWA and Service Worker
                 // Chrome has a proper cookie store that commits synchronously
+                //
+                // S.browser_fallback_url ensures fallback if Chrome isn't available
                 var intentUrl = 'intent://' + window.location.host + oauthUrl + '#Intent;' +
                     'scheme=https;' +
                     'package=com.android.chrome;' +
+                    'S.browser_fallback_url=' + encodeURIComponent(fullOAuthUrl) + ';' +
                     'end;';
 
                 console.log('[Crush.lu Login] Intent URL:', intentUrl);
