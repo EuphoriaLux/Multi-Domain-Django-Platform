@@ -180,21 +180,21 @@ def patch_allauth_statekit():
             return state
 
         # Session lookup failed - try database (cross-browser case)
-        logger.info(f"[OAUTH-DB] State {state_id[:8]}... NOT in session, trying database...")
+        logger.warning(f"[OAUTH-DB] State {state_id[:8]}... NOT in session, trying database...")
         try:
             from crush_lu.models import OAuthState
 
             # First, check if the state exists at all
             existing = OAuthState.objects.filter(state_id=state_id).first()
             if existing:
-                logger.info(f"[OAUTH-DB] State {state_id[:8]}... EXISTS in DB (used={existing.used}, expired={timezone.now() > existing.expires_at})")
+                logger.warning(f"[OAUTH-DB] State {state_id[:8]}... EXISTS in DB (used={existing.used}, expired={timezone.now() > existing.expires_at})")
             else:
                 logger.warning(f"[OAUTH-DB] State {state_id[:8]}... does NOT exist in database!")
                 # Log recent states for debugging
                 recent_states = OAuthState.objects.order_by('-created_at')[:5]
                 if recent_states:
                     recent_ids = [s.state_id[:8] for s in recent_states]
-                    logger.info(f"[OAUTH-DB] Recent state IDs in DB: {recent_ids}")
+                    logger.warning(f"[OAUTH-DB] Recent state IDs in DB: {recent_ids}")
 
             state = OAuthState.get_and_consume_state(state_id)
             if state:
