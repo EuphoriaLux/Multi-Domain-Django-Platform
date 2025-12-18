@@ -222,6 +222,7 @@ class OAuthCallbackProtectionMiddleware:
 
                         if existing_state and existing_state.used:
                             # This is a duplicate request - state already consumed
+                            # The first request already processed the OAuth, so this is safe to ignore
                             logger.warning(
                                 f"[OAUTH-PROTECTION] Duplicate callback detected! "
                                 f"State {state[:8]}... already used. Redirecting gracefully."
@@ -233,10 +234,11 @@ class OAuthCallbackProtectionMiddleware:
                                 logger.warning("[OAUTH-PROTECTION] User authenticated, redirecting to dashboard")
                                 return HttpResponseRedirect('/dashboard/')
                             else:
-                                # Check if they just got authenticated (cookie might not be set yet)
-                                # Give them a chance by redirecting to home
-                                logger.warning("[OAUTH-PROTECTION] User not authenticated, redirecting to home")
-                                return HttpResponseRedirect('/')
+                                # The first callback likely succeeded and user is being logged in
+                                # Redirect to dashboard - if not authenticated, they'll be redirected to login
+                                # This is better than sending to / which loses their login attempt
+                                logger.warning("[OAUTH-PROTECTION] User not yet authenticated (cookie may be pending), redirecting to dashboard")
+                                return HttpResponseRedirect('/dashboard/')
 
                         elif existing_state:
                             logger.warning(
