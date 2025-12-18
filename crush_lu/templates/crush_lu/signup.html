@@ -114,11 +114,16 @@
 /**
  * OAuth Handler for Crush.lu Signup
  *
- * Desktop: Opens Facebook login in a popup window
- * Mobile/PWA: Uses direct redirect (popups don't work in Android PWA)
+ * ALWAYS uses popup OAuth for ALL devices (desktop, mobile, PWA).
  *
- * The database-backed OAuth state storage ensures signup works even when
- * Android PWA opens OAuth in system browser (different session).
+ * Why popup for mobile/PWA?
+ * - When the PWA opens OAuth via redirect, Android opens system browser (new session!)
+ * - The session cookie stays in system browser, never reaches PWA = signup fails
+ * - Popup windows share session cookies with the opener window
+ * - So popup OAuth keeps the session in the correct browser context
+ *
+ * Fallback: If popup is blocked, we fall back to redirect (with database-backed
+ * OAuth state storage as backup).
  */
 (function() {
     'use strict';
@@ -145,17 +150,10 @@
 
         // Log debug info
         console.log('[Crush.lu Signup] PWA mode:', isPWA(), 'Mobile:', isMobile());
+        console.log('[Crush.lu Signup] Using popup OAuth for all devices');
 
-        // On mobile/PWA: use direct redirect (popups don't work properly)
-        // Popups on Android PWA open in system browser anyway, so redirect is cleaner
-        if (isMobile()) {
-            console.log('[Crush.lu Signup] Mobile detected - using direct redirect flow');
-            // Keep default link behavior - no JavaScript intercept
-            // The database-backed OAuth state will handle cross-browser session
-            return;
-        }
-
-        // Desktop: use popup OAuth for better UX
+        // Use popup OAuth for ALL devices (including mobile/PWA)
+        // This is crucial for Android PWA where redirect opens system browser
         fbButton.addEventListener('click', function(e) {
             e.preventDefault();
 
@@ -189,7 +187,14 @@
                     fbButton.classList.remove('disabled');
                     fbButton.innerHTML = originalContent;
 
-                    // Show popup blocked message with fallback option
+                    // On mobile, just redirect directly (confirm dialog is annoying)
+                    if (isMobile()) {
+                        console.log('[Crush.lu Signup] Mobile: auto-redirecting to OAuth');
+                        window.location.href = originalUrl;
+                        return;
+                    }
+
+                    // On desktop, ask user before redirecting
                     if (confirm('Popup was blocked by your browser. Click OK to open Facebook signup in this window instead.')) {
                         window.location.href = originalUrl;
                     }

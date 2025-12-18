@@ -1,6 +1,6 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v8 - Complete OAuth bypass to fix duplicate callback issue
+// Version: v9 - Enable popup OAuth for mobile/PWA
 
 // ============================================================================
 // CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
@@ -17,8 +17,9 @@ self.addEventListener('fetch', (event) => {
   // This prevents any possibility of replay, caching, or race conditions
   if (
     url.pathname.startsWith('/accounts/') ||  // All OAuth/auth routes
-    url.pathname.includes('/oauth') ||         // Any OAuth-related path
-    url.pathname.includes('/login/callback')   // Explicit callback match
+    url.pathname.includes('/oauth') ||         // Any OAuth-related path (popup-callback, popup-error)
+    url.pathname.includes('/login/callback') ||// Explicit callback match
+    url.pathname.startsWith('/api/auth/')      // Auth status API (for popup fallback check)
   ) {
     console.log('[SW] Auth/OAuth request - HARD BYPASS (no SW handling):', url.pathname);
     // Absolute bypass: no Workbox, no fallback, no caching, no replay
@@ -43,7 +44,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v8-oauth-hardblock';
+  const CACHE_VERSION = 'crush-v9-popup-oauth';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -425,7 +426,7 @@ if (workbox) {
     }
   });
 
-  console.log('[Workbox] Service worker v8 (OAuth hardblock) configured successfully!');
+  console.log('[Workbox] Service worker v9 (popup OAuth) configured successfully!');
 
 } else {
   console.error('[Workbox] Failed to load Workbox from local bundle!');
