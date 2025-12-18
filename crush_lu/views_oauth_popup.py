@@ -169,14 +169,10 @@ def oauth_landing(request):
     This view is the target for ALL OAuth completions on Crush.lu, replacing
     direct 302 redirects to /dashboard/ or /create-profile/.
     """
-    # DIAGNOSTIC LOGGING: Log request metadata for debugging
-    sw_headers = {
-        'Service-Worker': request.META.get('HTTP_SERVICE_WORKER'),
-        'Sec-Fetch-Mode': request.META.get('HTTP_SEC_FETCH_MODE'),
-        'Sec-Fetch-Site': request.META.get('HTTP_SEC_FETCH_SITE'),
-        'Sec-Fetch-Dest': request.META.get('HTTP_SEC_FETCH_DEST'),
-    }
-    logger.warning(f"[OAUTH-DIAG] Landing page SW headers: {sw_headers}")
+    # Debug logging for request metadata (enable via Django logging config if needed)
+    logger.debug(
+        f"[OAUTH] Landing page: sec-fetch-mode={request.META.get('HTTP_SEC_FETCH_MODE', 'unknown')}"
+    )
 
     # Get state parameter (passed by middleware for duplicate request handling)
     state_id = request.GET.get('state', '')
@@ -207,12 +203,13 @@ def oauth_landing(request):
                         f"(state={state_id[:8]}...)"
                     )
             elif oauth_state:
-                logger.warning(
-                    f"[OAUTH-LANDING] State {state_id[:8]}... found but auth not completed yet "
-                    f"(auth_completed={oauth_state.auth_completed}, auth_user_id={oauth_state.auth_user_id})"
+                # State found but auth not yet completed - this can happen in race conditions
+                logger.debug(
+                    f"[OAUTH] State {state_id[:8]}... auth not completed yet"
                 )
             else:
-                logger.warning(f"[OAUTH-LANDING] State {state_id[:8]}... not found in database")
+                # State not in DB - normal for first callback before duplicate handling
+                logger.debug(f"[OAUTH] State {state_id[:8]}... not found in database")
 
         except Exception as e:
             logger.error(f"[OAUTH-LANDING] Error recovering auth from database: {e}")

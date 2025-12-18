@@ -27,8 +27,7 @@ self.addEventListener('fetch', (event) => {
     url.pathname === '/login/' ||              // Login page
     url.pathname === '/logout/'                // Logout page
   ) {
-    console.log('[SW] Auth/OAuth request - TRUE HARD BYPASS:', url.pathname);
-    // THIS is the correct way to bypass - respondWith prevents other handlers
+    // Direct network fetch - prevents any Workbox handler from intercepting
     event.respondWith(fetch(event.request));
     return;
   }
