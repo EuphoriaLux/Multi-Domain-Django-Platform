@@ -1,6 +1,22 @@
 from django.urls import path
+from django.views.decorators.cache import never_cache
 from allauth.account.views import LoginView, LogoutView
 from . import views
+
+
+# Wrap LoginView with never_cache to prevent browser caching
+# CRITICAL: Android browsers cache the login page aggressively, preventing
+# JavaScript updates (like Intent URL fix) from reaching users
+class NoCacheLoginView(LoginView):
+    """LoginView with aggressive no-cache headers to prevent stale JavaScript."""
+
+    def dispatch(self, request, *args, **kwargs):
+        response = super().dispatch(request, *args, **kwargs)
+        # Aggressive no-cache headers - critical for Android PWA
+        response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        return response
 from . import views_profile
 from . import views_media
 from . import views_oauth_popup
@@ -36,7 +52,8 @@ urlpatterns = [
     path('facebook/data-deletion/', views.facebook_data_deletion_callback, name='facebook_data_deletion'),
 
     # Authentication - using AllAuth views for consistent auth flow
-    path('login/', LoginView.as_view(), name='login'),
+    # NoCacheLoginView adds no-cache headers to prevent stale JS being served
+    path('login/', NoCacheLoginView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('oauth-complete/', views.oauth_complete, name='oauth_complete'),
 

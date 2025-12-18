@@ -1,6 +1,6 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v10 - Cookie commit buffer for Android PWA OAuth
+// Version: v11 - No-cache login page + cookie commit buffer for Android PWA OAuth
 
 // ============================================================================
 // CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
@@ -49,7 +49,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v10-cookie-buffer';
+  const CACHE_VERSION = 'crush-v11-nocache-login';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -431,7 +431,7 @@ if (workbox) {
     }
   });
 
-  console.log('[Workbox] Service worker v10 (cookie buffer) configured successfully!');
+  console.log('[Workbox] Service worker v11 (no-cache login) configured successfully!');
 
 } else {
   console.error('[Workbox] Failed to load Workbox from local bundle!');
