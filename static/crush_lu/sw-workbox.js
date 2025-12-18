@@ -1,6 +1,30 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v6 - Local Workbox bundle to fix Android black screen on cold start
+// Version: v8 - Complete OAuth bypass to fix duplicate callback issue
+
+// ============================================================================
+// CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
+// ============================================================================
+// OAuth callbacks must COMPLETELY bypass the service worker.
+// By NOT calling event.respondWith(), the browser handles the request directly.
+// This prevents any possibility of the SW causing duplicate requests.
+
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // HARD BLOCK: OAuth and auth-related URLs must COMPLETELY bypass the service worker
+  // By NOT calling event.respondWith(), the browser handles the request directly
+  // This prevents any possibility of replay, caching, or race conditions
+  if (
+    url.pathname.startsWith('/accounts/') ||  // All OAuth/auth routes
+    url.pathname.includes('/oauth') ||         // Any OAuth-related path
+    url.pathname.includes('/login/callback')   // Explicit callback match
+  ) {
+    console.log('[SW] Auth/OAuth request - HARD BYPASS (no SW handling):', url.pathname);
+    // Absolute bypass: no Workbox, no fallback, no caching, no replay
+    return;
+  }
+});
 
 // Import Workbox from LOCAL static files (not CDN) to enable offline installation
 importScripts('/static/crush_lu/workbox/workbox-sw.js');
@@ -19,7 +43,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v7-oauth-fix';
+  const CACHE_VERSION = 'crush-v8-oauth-hardblock';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -172,25 +196,17 @@ if (workbox) {
   }
 
   // ============================================================================
-  // CRITICAL: OAuth Callback Protection - MUST BE REGISTERED FIRST
+  // OAuth/Auth Routes - NetworkOnly as backup (primary bypass is in fetch handler above)
   // ============================================================================
-  // OAuth callback URLs must NEVER be handled by the service worker.
-  // These URLs are one-time-use and any replay/cache will cause authentication failures.
-  // Register this route FIRST to ensure it has highest priority.
+  // The fetch event handler above does a HARD BYPASS for /accounts/ routes.
+  // This Workbox route is a backup that ensures no caching if something slips through.
 
   workbox.routing.registerRoute(
-    ({ url }) => {
-      const isOAuthCallback = url.pathname.includes('/login/callback') ||
-                              url.pathname.includes('/callback/') && url.pathname.includes('/accounts/');
-      if (isOAuthCallback) {
-        console.log('[Workbox] OAuth callback detected - bypassing SW completely:', url.pathname);
-      }
-      return isOAuthCallback;
-    },
+    ({ url }) => url.pathname.startsWith('/accounts/'),
     new workbox.strategies.NetworkOnly()
   );
 
-  console.log('[Workbox] OAuth callback protection registered (HIGHEST PRIORITY)');
+  console.log('[Workbox] Auth routes registered (NetworkOnly backup)');
 
   // Helper function to check if path matches authenticated routes (with i18n support)
   function isAuthenticatedRoute(pathname) {
@@ -409,7 +425,7 @@ if (workbox) {
     }
   });
 
-  console.log('[Workbox] Service worker v7 (OAuth fix) configured successfully!');
+  console.log('[Workbox] Service worker v8 (OAuth hardblock) configured successfully!');
 
 } else {
   console.error('[Workbox] Failed to load Workbox from local bundle!');
