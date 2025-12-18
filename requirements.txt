@@ -15,7 +15,7 @@ PyJWT==2.10.1
 
 # Storage
 django-storages==1.14.6  # Updated from 1.14.2
-azure-storage-blob==12.25.1
+azure-storage-blob==12.27.1
 
 # Caching
     # django-redis==5.4.0
