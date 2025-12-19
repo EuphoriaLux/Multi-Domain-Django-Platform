@@ -10,7 +10,90 @@ from django.utils.html import format_html
 from .models import Company, DelegationProfile, AccessLog
 
 
-@admin.register(Company)
+# ============================================================================
+# CUSTOM ADMIN SITE - Crush Delegation Management
+# ============================================================================
+
+class CrushDelegationAdminSite(admin.AdminSite):
+    site_header = '👥 Crush Delegation Management'
+    site_title = 'Crush Delegation Admin'
+    index_title = 'Company & Employee Access Management'
+
+    def get_app_list(self, request, app_label=None):
+        """
+        Override to customize the admin index page grouping.
+        Groups models into logical categories for better organization.
+        """
+        app_list = super().get_app_list(request, app_label)
+
+        # Custom ordering and grouping
+        custom_order = {
+            'company': {'order': 1, 'icon': '🏢', 'group': 'Companies'},
+            'delegationprofile': {'order': 10, 'icon': '👤', 'group': 'Users'},
+            'accesslog': {'order': 20, 'icon': '📋', 'group': 'Audit'},
+        }
+
+        # Create grouped app list
+        new_app_list = []
+
+        for app in app_list:
+            if app['app_label'] == 'crush_delegation':
+                # Group models by category
+                groups = {}
+
+                for model in app['models']:
+                    model_name = model['object_name'].lower()
+
+                    if model_name in custom_order:
+                        config = custom_order[model_name]
+                        model['_order'] = config['order']
+                        group_name = config['group']
+
+                        # Add icon to model name
+                        icon = config['icon']
+                        if not model['name'].startswith(icon):
+                            model['name'] = f"{icon} {model['name']}"
+
+                        if group_name not in groups:
+                            groups[group_name] = []
+                        groups[group_name].append(model)
+                    else:
+                        if 'Other' not in groups:
+                            groups['Other'] = []
+                        groups['Other'].append(model)
+
+                # Sort models within each group
+                for group_name in groups:
+                    groups[group_name].sort(key=lambda x: x.get('_order', 999))
+
+                # Create new apps for each group
+                group_order = ['Companies', 'Users', 'Audit', 'Other']
+                group_icons = {
+                    'Companies': '🏢',
+                    'Users': '👤',
+                    'Audit': '📋',
+                    'Other': '📁',
+                }
+
+                for group_key in group_order:
+                    if group_key in groups and groups[group_key]:
+                        new_app_list.append({
+                            'name': f"{group_icons.get(group_key, '')} {group_key}",
+                            'app_label': f'crush_delegation_{group_key.lower()}',
+                            'app_url': app['app_url'],
+                            'has_module_perms': app['has_module_perms'],
+                            'models': groups[group_key],
+                        })
+            else:
+                new_app_list.append(app)
+
+        return new_app_list
+
+
+# Instantiate the custom admin site
+crush_delegation_admin_site = CrushDelegationAdminSite(name='crush_delegation_admin')
+
+
 class CompanyAdmin(admin.ModelAdmin):
     """Admin interface for Company management."""
 
@@ -46,7 +129,6 @@ class CompanyAdmin(admin.ModelAdmin):
     profile_count.short_description = 'Users'
 
 
-@admin.register(DelegationProfile)
 class DelegationProfileAdmin(admin.ModelAdmin):
     """Admin interface for DelegationProfile management with approve/reject actions."""
 
@@ -182,7 +264,6 @@ class DelegationProfileAdmin(admin.ModelAdmin):
         self.message_user(request, f'{count} profile(s) unblocked.')
 
 
-@admin.register(AccessLog)
 class AccessLogAdmin(admin.ModelAdmin):
     """Admin interface for viewing access audit logs."""
 
@@ -210,3 +291,12 @@ class AccessLogAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         """Only superusers can delete access logs."""
         return request.user.is_superuser
+
+
+# ============================================================================
+# REGISTER MODELS TO CUSTOM CRUSH DELEGATION ADMIN SITE
+# ============================================================================
+
+crush_delegation_admin_site.register(Company, CompanyAdmin)
+crush_delegation_admin_site.register(DelegationProfile, DelegationProfileAdmin)
+crush_delegation_admin_site.register(AccessLog, AccessLogAdmin)

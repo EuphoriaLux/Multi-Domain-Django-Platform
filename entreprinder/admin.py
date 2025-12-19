@@ -2,6 +2,17 @@ from django.contrib import admin
 from django.utils.html import format_html
 from .models import EntrepreneurProfile, Skill, Industry, Match, Like, Dislike
 
+# Import FinOps models and admin classes
+from .finops.models import CostExport, CostRecord, CostAggregation
+from .finops.admin import CostExportAdmin, CostRecordAdmin, CostAggregationAdmin
+
+# Import Vibe models and admin classes
+from .vibe.models import PixelCanvas, Pixel, PixelHistory, UserPixelCooldown, UserPixelStats
+from .vibe.admin import (
+    PixelCanvasAdmin, PixelAdmin, PixelHistoryAdmin,
+    UserPixelCooldownAdmin, UserPixelStatsAdmin
+)
+
 
 # ============================================================================
 # CUSTOM ADMIN SITE - PowerUP Administration
@@ -114,13 +125,11 @@ powerup_admin_site = PowerUPAdminSite(name='powerup_admin')
 # MODEL ADMIN CLASSES
 # ============================================================================
 
-@admin.register(Industry)
 class IndustryAdmin(admin.ModelAdmin):
     list_display = ('name',)
     search_fields = ('name',)
 
 
-@admin.register(EntrepreneurProfile)
 class EntrepreneurProfileAdmin(admin.ModelAdmin):
     list_display = (
         'user',
@@ -151,7 +160,6 @@ class EntrepreneurProfileAdmin(admin.ModelAdmin):
     photo_preview.short_description = 'LinkedIn Photo'
 
 
-@admin.register(Skill)
 class SkillAdmin(admin.ModelAdmin):
     list_display = ('name',)
     search_fields = ('name',)
@@ -161,7 +169,6 @@ class SkillAdmin(admin.ModelAdmin):
 # Matching Admin (merged from matching app)
 # =============================================================================
 
-@admin.register(Match)
 class MatchAdmin(admin.ModelAdmin):
     list_display = ('entrepreneur1', 'entrepreneur2', 'created_at')
     list_filter = ('created_at',)
@@ -169,7 +176,6 @@ class MatchAdmin(admin.ModelAdmin):
     date_hierarchy = 'created_at'
 
 
-@admin.register(Like)
 class LikeAdmin(admin.ModelAdmin):
     list_display = ('liker', 'liked', 'created_at')
     list_filter = ('created_at',)
@@ -177,7 +183,6 @@ class LikeAdmin(admin.ModelAdmin):
     date_hierarchy = 'created_at'
 
 
-@admin.register(Dislike)
 class DislikeAdmin(admin.ModelAdmin):
     list_display = ('disliker', 'disliked', 'created_at')
     list_filter = ('created_at',)
@@ -212,3 +217,15 @@ powerup_admin_site.register(Dislike, DislikeAdmin)
 # Categories
 powerup_admin_site.register(Industry, IndustryAdmin)
 powerup_admin_site.register(Skill, SkillAdmin)
+
+# FinOps
+powerup_admin_site.register(CostExport, CostExportAdmin)
+powerup_admin_site.register(CostRecord, CostRecordAdmin)
+powerup_admin_site.register(CostAggregation, CostAggregationAdmin)
+
+# Vibe Coding
+powerup_admin_site.register(PixelCanvas, PixelCanvasAdmin)
+powerup_admin_site.register(Pixel, PixelAdmin)
+powerup_admin_site.register(PixelHistory, PixelHistoryAdmin)
+powerup_admin_site.register(UserPixelCooldown, UserPixelCooldownAdmin)
+powerup_admin_site.register(UserPixelStats, UserPixelStatsAdmin)
