@@ -130,7 +130,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const profilePicture = profile.profile_picture ? profile.profile_picture : '/static/images/default-profile.png';
+        // Use Azure Blob URL from data attribute if available, fallback to static path
+        const defaultProfileUrl = document.body.dataset.defaultProfileUrl || '/static/images/default-profile.png';
+        const profilePicture = profile.profile_picture ? profile.profile_picture : defaultProfileUrl;
         const newCard = document.createElement('div');
         newCard.className = 'profile-card';
         newCard.dataset.profileId = profile.id;

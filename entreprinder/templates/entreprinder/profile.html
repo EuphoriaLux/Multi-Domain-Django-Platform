@@ -40,8 +40,8 @@
                                              class="img-fluid rounded-circle mb-3" 
                                              style="width: 180px; height: 180px; object-fit: cover;">
                                     {% else %}
-                                        <img src="{% static 'images/default-profile.png' %}" 
-                                             class="img-fluid rounded-circle mb-3" 
+                                        <img src="{{ POWERUP_DEFAULT_PROFILE_URL }}"
+                                             class="img-fluid rounded-circle mb-3"
                                              style="width: 180px; height: 180px; object-fit: cover;">
                                     {% endif %}
                                 </div>

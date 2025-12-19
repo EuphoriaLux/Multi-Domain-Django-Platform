@@ -181,18 +181,20 @@ class StandalonePlotSelector {
             return plan.image_url;
         }
         
-        // Otherwise use default vineyard image
-        return `/static/images/vineyard-defaults/vineyard_01.jpg`;
+        // Otherwise use default vineyard image (Azure Blob in production)
+        const vineyardDefaultsUrl = document.body.dataset.vineyardDefaultsUrl || '/static/images/vineyard-defaults/';
+        return `${vineyardDefaultsUrl}vineyard_01.jpg`;
     }
-    
+
     getRotatingImages(plot) {
         const images = [];
-        
+        const vineyardDefaultsUrl = document.body.dataset.vineyardDefaultsUrl || '/static/images/vineyard-defaults/';
+
         // Check if plot has uploaded images
         if (plot.images && plot.images.length > 0) {
             // Filter out default images and get uploaded ones
             const uploadedImages = plot.images.filter(img => !img.is_default && img.url);
-            
+
             if (uploadedImages.length > 0) {
                 // Use uploaded images, repeat them if less than 5
                 for (let i = 0; i < 5; i++) {
@@ -202,12 +204,12 @@ class StandalonePlotSelector {
                 return images;
             }
         }
-        
+
         // If no uploaded images, use the 5 default vineyard placeholders
         for (let i = 1; i <= 5; i++) {
-            images.push(`/static/images/vineyard-defaults/vineyard_0${i}.jpg`);
+            images.push(`${vineyardDefaultsUrl}vineyard_0${i}.jpg`);
         }
-        
+
         return images;
     }
     
@@ -397,7 +399,8 @@ class StandalonePlotSelector {
                 startingIndex = index % images.length;
                 primaryImage = images[startingIndex];
             }
-            primaryImage = primaryImage || '/static/images/vineyard-defaults/vineyard_01.jpg';
+            const vineyardFallback = document.body.dataset.vineyardDefaultsUrl || '/static/images/vineyard-defaults/';
+            primaryImage = primaryImage || `${vineyardFallback}vineyard_01.jpg`;
             
             // Create image carousel container
             const imageCarouselHtml = images.length > 1 ? `

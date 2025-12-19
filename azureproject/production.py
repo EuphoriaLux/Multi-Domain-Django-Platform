@@ -116,6 +116,42 @@ AZURE_CONTAINER_NAME = os.getenv('AZURE_CONTAINER_NAME')
 MEDIA_URL = f'https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}/'
 
 # ============================================================================
+# CONTENT IMAGE URLS (Azure Blob Storage - Domain-Organized Structure)
+# ============================================================================
+# These provide stable URLs for content images that don't change between deployments.
+# Structure: /{domain}/{category}/{filename}
+# - crush-lu/branding/social-preview.jpg
+# - vinsdelux/journey/step_01.png
+# - powerup/defaults/profile.png
+AZURE_CONTENT_BASE_URL = f'https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}'
+
+# Crush.lu images
+SOCIAL_PREVIEW_IMAGE_URL = os.getenv(
+    'SOCIAL_PREVIEW_IMAGE_URL',
+    f'{AZURE_CONTENT_BASE_URL}/crush-lu/branding/social-preview.jpg'
+)
+CRUSH_SOCIAL_PREVIEW_URL = os.getenv(
+    'CRUSH_SOCIAL_PREVIEW_URL',
+    f'{AZURE_CONTENT_BASE_URL}/crush-lu/branding/social-preview.jpg'
+)
+
+# VinsDelux images
+VINSDELUX_JOURNEY_BASE_URL = os.getenv(
+    'VINSDELUX_JOURNEY_BASE_URL',
+    f'{AZURE_CONTENT_BASE_URL}/vinsdelux/journey/'
+)
+VINSDELUX_VINEYARD_DEFAULTS_URL = os.getenv(
+    'VINSDELUX_VINEYARD_DEFAULTS_URL',
+    f'{AZURE_CONTENT_BASE_URL}/vinsdelux/vineyard-defaults/'
+)
+
+# PowerUP/Entreprinder images
+POWERUP_DEFAULT_PROFILE_URL = os.getenv(
+    'POWERUP_DEFAULT_PROFILE_URL',
+    f'{AZURE_CONTENT_BASE_URL}/powerup/defaults/profile.png'
+)
+
+# ============================================================================
 # PUSH NOTIFICATIONS (Web Push / PWA)
 # ============================================================================
 # VAPID keys for Web Push API notifications
