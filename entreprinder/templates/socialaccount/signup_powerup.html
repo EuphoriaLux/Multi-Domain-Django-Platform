@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load crispy_forms_tags %}
+
+{% block head_title %}{% trans "Complete Your Signup" %}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body p-5">
+                    <h2 class="text-center mb-4">{% trans "Complete Your Signup" %}</h2>
+                    <p class="text-center text-muted mb-4">
+                        {% blocktrans with provider=account.provider|title %}
+                        You're signing up using your {{ provider }} account.
+                        Please confirm your information below.
+                        {% endblocktrans %}
+                    </p>
+
+                    {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <strong>{% trans "Errors:" %}</strong>
+                            <ul class="mb-0">
+                                {% for field, errors in form.errors.items %}
+                                    {% for error in errors %}
+                                        <li>{{ field|title }}: {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+
+                    <form class="signup" id="signup_form" method="post" action="{% url 'socialaccount_signup' %}">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.email.id_for_label }}" class="form-label">{% trans "Email" %}</label>
+                            <input type="email"
+                                   class="form-control {% if form.email.errors %}is-invalid{% endif %}"
+                                   id="{{ form.email.id_for_label }}"
+                                   name="{{ form.email.name }}"
+                                   value="{{ form.email.value|default:'' }}"
+                                   readonly>
+                            <small class="form-text text-muted">
+                                {% blocktrans with provider=account.provider|title %}
+                                This email is from your {{ provider }} account and cannot be changed.
+                                {% endblocktrans %}
+                            </small>
+                            {% if form.email.errors %}
+                                <div class="invalid-feedback">{{ form.email.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        {% if redirect_field_value %}
+                            <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+                        {% endif %}
+
+                        <button class="btn btn-primary w-100 mb-3" type="submit">
+                            {% trans "Complete Signup" %}
+                        </button>
+                    </form>
+
+                    <p class="text-center text-muted mb-0">
+                        <small>
+                            {% trans "Already have an account?" %}
+                            <a href="{% url 'account_login' %}">{% trans "Login here" %}</a>
+                        </small>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

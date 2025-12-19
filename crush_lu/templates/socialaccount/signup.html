@@ -1,93 +1,12 @@
-{% extends 'crush_lu/base.html' %}
-{% load i18n %}
-{% load crispy_forms_tags %}
-
-{% block title %}Complete Your Crush.lu Signup{% endblock %}
-
-{% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-body p-5">
-                <h2 class="text-center mb-4">Complete Your Signup 💕</h2>
-                <p class="text-center text-muted mb-4">
-                    You're signing up for Crush.lu using your {{ account.provider|title }} account.
-                    Please confirm your information below.
-                </p>
-
-                {% if form.errors %}
-                    <div class="alert alert-danger">
-                        <strong>{% trans "Errors:" %}</strong>
-                        <ul class="mb-0">
-                            {% for field, errors in form.errors.items %}
-                                {% for error in errors %}
-                                    <li>{{ field|title }}: {{ error }}</li>
-                                {% endfor %}
-                            {% endfor %}
-                        </ul>
-                    </div>
-                {% endif %}
-
-                <form class="signup" id="signup_form" method="post" action="{% url 'socialaccount_signup' %}">
-                    {% csrf_token %}
-
-                    <div class="mb-3">
-                        <label for="{{ form.email.id_for_label }}" class="form-label">{% trans "Email" %}</label>
-                        <input type="email"
-                               class="form-control {% if form.email.errors %}is-invalid{% endif %}"
-                               id="{{ form.email.id_for_label }}"
-                               name="{{ form.email.name }}"
-                               value="{{ form.email.value|default:'' }}"
-                               readonly>
-                        <small class="form-text text-muted">
-                            This email is from your {{ account.provider|title }} account and cannot be changed.
-                        </small>
-                        {% if form.email.errors %}
-                            <div class="invalid-feedback">{{ form.email.errors.0 }}</div>
-                        {% endif %}
-                    </div>
-
-                    {% if redirect_field_value %}
-                        <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
-                    {% endif %}
-
-                    <div class="form-check mb-4">
-                        <input class="form-check-input" type="checkbox" id="terms" required>
-                        <label class="form-check-label" for="terms">
-                            <small>
-                                I agree to Crush.lu's
-                                <a href="{% url 'crush_lu:terms_of_service' %}" target="_blank">Terms of Service</a>
-                                and
-                                <a href="{% url 'crush_lu:privacy_policy' %}" target="_blank">Privacy Policy</a>
-                            </small>
-                        </label>
-                    </div>
-
-                    <button class="btn btn-crush-primary w-100 mb-3" type="submit">
-                        <i class="bi bi-check-circle me-2"></i>Complete Signup
-                    </button>
-                </form>
-
-                <hr class="my-4">
-
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle me-2"></i>
-                    <strong>Next Steps:</strong>
-                    <ol class="mb-0 mt-2">
-                        <li>Complete your profile with photos and bio</li>
-                        <li>Profile review by a Crush Coach</li>
-                        <li>Start attending events and meeting people!</li>
-                    </ol>
-                </div>
-
-                <p class="text-center text-muted mb-0">
-                    <small>
-                        Already have an account?
-                        <a href="{% url 'crush_lu:login' %}">Login here</a>
-                    </small>
-                </p>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
+{# Domain-aware social account signup template router #}
+{# Routes to appropriate signup template based on the request domain #}
+{% if 'crush.lu' in request.get_host or request.get_host == 'localhost' or '127.0.0.1' in request.get_host %}
+{% include "socialaccount/signup_crush.html" %}
+{% elif 'powerup.lu' in request.get_host or 'azurewebsites.net' in request.get_host %}
+{% include "socialaccount/signup_powerup.html" %}
+{% elif 'vinsdelux.com' in request.get_host %}
+{% include "socialaccount/signup_powerup.html" %}
+{% else %}
+{# Default fallback to PowerUP template #}
+{% include "socialaccount/signup_powerup.html" %}
+{% endif %}
