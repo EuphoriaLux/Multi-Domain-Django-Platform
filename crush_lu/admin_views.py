@@ -72,17 +72,36 @@ def crush_admin_dashboard(request):
         count=Count('id')
     ).order_by('-count')[:5]
 
-    # Profile completion funnel
-    step1_completed = CrushProfile.objects.filter(
-        completion_status__in=['step1_complete', 'step2_complete', 'step3_complete', 'submitted']
-    ).count()
+    # Profile completion funnel - users CURRENTLY at each step (not cumulative)
+    # This shows where users are stuck in the funnel
+    funnel_not_started = CrushProfile.objects.filter(completion_status='not_started').count()
+    funnel_step1 = CrushProfile.objects.filter(completion_status='step1').count()
+    funnel_step2 = CrushProfile.objects.filter(completion_status='step2').count()
+    funnel_step3 = CrushProfile.objects.filter(completion_status='step3').count()
+    funnel_completed = CrushProfile.objects.filter(completion_status='completed').count()
+    funnel_submitted = CrushProfile.objects.filter(completion_status='submitted').count()
+
+    # Calculate percentages for each step (of total profiles)
+    if total_profiles > 0:
+        funnel_not_started_pct = round(funnel_not_started / total_profiles * 100, 1)
+        funnel_step1_pct = round(funnel_step1 / total_profiles * 100, 1)
+        funnel_step2_pct = round(funnel_step2 / total_profiles * 100, 1)
+        funnel_step3_pct = round(funnel_step3 / total_profiles * 100, 1)
+        funnel_completed_pct = round(funnel_completed / total_profiles * 100, 1)
+        funnel_submitted_pct = round(funnel_submitted / total_profiles * 100, 1)
+    else:
+        funnel_not_started_pct = funnel_step1_pct = funnel_step2_pct = 0
+        funnel_step3_pct = funnel_completed_pct = funnel_submitted_pct = 0
+
+    # Legacy cumulative counts (for backward compatibility)
+    step1_completed = CrushProfile.objects.exclude(completion_status='not_started').count()
     step2_completed = CrushProfile.objects.filter(
-        completion_status__in=['step2_complete', 'step3_complete', 'submitted']
+        completion_status__in=['step2', 'step3', 'completed', 'submitted']
     ).count()
     step3_completed = CrushProfile.objects.filter(
-        completion_status__in=['step3_complete', 'submitted']
+        completion_status__in=['step3', 'completed', 'submitted']
     ).count()
-    submitted = CrushProfile.objects.filter(completion_status='submitted').count()
+    submitted = funnel_submitted
 
     # ============================================================================
     # COACH METRICS
@@ -262,6 +281,20 @@ def crush_admin_dashboard(request):
         'recent_signups': recent_signups,
         'gender_stats': gender_stats,
         'location_stats': location_stats,
+        # New funnel metrics - users currently at each step
+        'funnel_not_started': funnel_not_started,
+        'funnel_step1': funnel_step1,
+        'funnel_step2': funnel_step2,
+        'funnel_step3': funnel_step3,
+        'funnel_completed': funnel_completed,
+        'funnel_submitted': funnel_submitted,
+        'funnel_not_started_pct': funnel_not_started_pct,
+        'funnel_step1_pct': funnel_step1_pct,
+        'funnel_step2_pct': funnel_step2_pct,
+        'funnel_step3_pct': funnel_step3_pct,
+        'funnel_completed_pct': funnel_completed_pct,
+        'funnel_submitted_pct': funnel_submitted_pct,
+        # Legacy cumulative counts (for backward compatibility)
         'step1_completed': step1_completed,
         'step2_completed': step2_completed,
         'step3_completed': step3_completed,
