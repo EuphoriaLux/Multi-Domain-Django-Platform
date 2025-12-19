@@ -356,7 +356,9 @@
                 </div>
             </div>
             <div style="text-align: right;">
-                <span class="funnel-step-value" style="color: #dc3545;">{{ funnel_not_started }}</span>
+                <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=not_started"
+                   class="funnel-step-value" style="color: #dc3545; text-decoration: none;"
+                   title="View users who haven't started their profile">{{ funnel_not_started }}</a>
                 <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_not_started_pct }}%</div>
             </div>
         </div>
@@ -370,7 +372,9 @@
                 </div>
             </div>
             <div style="text-align: right;">
-                <span class="funnel-step-value" style="color: #ffc107;">{{ funnel_step1 }}</span>
+                <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step1"
+                   class="funnel-step-value" style="color: #ffc107; text-decoration: none;"
+                   title="View users stuck at Step 1 (Basic Info)">{{ funnel_step1 }}</a>
                 <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step1_pct }}%</div>
             </div>
         </div>
@@ -384,7 +388,9 @@
                 </div>
             </div>
             <div style="text-align: right;">
-                <span class="funnel-step-value" style="color: #17a2b8;">{{ funnel_step2 }}</span>
+                <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step2"
+                   class="funnel-step-value" style="color: #17a2b8; text-decoration: none;"
+                   title="View users stuck at Step 2 (Photos & Bio)">{{ funnel_step2 }}</a>
                 <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step2_pct }}%</div>
             </div>
         </div>
@@ -398,7 +404,9 @@
                 </div>
             </div>
             <div style="text-align: right;">
-                <span class="funnel-step-value" style="color: #6f42c1;">{{ funnel_step3 }}</span>
+                <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step3"
+                   class="funnel-step-value" style="color: #6f42c1; text-decoration: none;"
+                   title="View users stuck at Step 3 (Privacy Settings)">{{ funnel_step3 }}</a>
                 <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step3_pct }}%</div>
             </div>
         </div>
@@ -412,7 +420,9 @@
                 </div>
             </div>
             <div style="text-align: right;">
-                <span class="funnel-step-value" style="color: #fd7e14;">{{ funnel_completed }}</span>
+                <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=completed"
+                   class="funnel-step-value" style="color: #fd7e14; text-decoration: none;"
+                   title="View users who completed but haven't submitted">{{ funnel_completed }}</a>
                 <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_completed_pct }}%</div>
             </div>
         </div>
@@ -426,7 +436,9 @@
                 </div>
             </div>
             <div style="text-align: right;">
-                <span class="funnel-step-value" style="color: #28a745;">{{ funnel_submitted }}</span>
+                <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=submitted"
+                   class="funnel-step-value" style="color: #28a745; text-decoration: none;"
+                   title="View users who submitted for review">{{ funnel_submitted }}</a>
                 <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_submitted_pct }}%</div>
             </div>
         </div>
