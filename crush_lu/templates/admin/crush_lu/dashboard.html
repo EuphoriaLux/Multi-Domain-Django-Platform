@@ -6,6 +6,50 @@
 {% block extrastyle %}
 {{ block.super }}
 <style>
+    /* Theme-aware CSS variables */
+    :root {
+        --card-bg: #ffffff;
+        --card-shadow: rgba(0,0,0,0.1);
+        --text-primary: #333333;
+        --text-secondary: #666666;
+        --text-muted: #999999;
+        --table-header-bg: #f8f9fa;
+        --table-border: #dee2e6;
+        --table-hover: #f8f9fa;
+        --progress-bg: #e9ecef;
+        --funnel-bg: #f8f9fa;
+    }
+
+    /* Dark mode overrides - Django admin uses prefers-color-scheme or data-theme */
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --card-bg: #1e1e2e;
+            --card-shadow: rgba(0,0,0,0.3);
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --text-muted: #888888;
+            --table-header-bg: #2a2a3e;
+            --table-border: #3a3a4e;
+            --table-hover: #2a2a3e;
+            --progress-bg: #2a2a3e;
+            --funnel-bg: #2a2a3e;
+        }
+    }
+
+    /* Also support Django's theme toggle via data attribute */
+    [data-theme="dark"] {
+        --card-bg: #1e1e2e;
+        --card-shadow: rgba(0,0,0,0.3);
+        --text-primary: #e0e0e0;
+        --text-secondary: #b0b0b0;
+        --text-muted: #888888;
+        --table-header-bg: #2a2a3e;
+        --table-border: #3a3a4e;
+        --table-hover: #2a2a3e;
+        --progress-bg: #2a2a3e;
+        --funnel-bg: #2a2a3e;
+    }
+
     .dashboard-container {
         padding: 20px;
     }
@@ -18,16 +62,18 @@
     }
 
     .metric-card {
-        background: white;
+        background: var(--card-bg);
         border-radius: 8px;
         padding: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px var(--card-shadow);
         transition: transform 0.2s, box-shadow 0.2s;
+        position: relative;
+        overflow: hidden;
     }
 
     .metric-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        box-shadow: 0 4px 8px var(--card-shadow);
     }
 
     .metric-card.purple {
@@ -53,20 +99,20 @@
     .metric-value {
         font-size: 36px;
         font-weight: bold;
-        color: #333;
+        color: var(--text-primary);
         margin: 10px 0;
     }
 
     .metric-label {
         font-size: 14px;
-        color: #666;
+        color: var(--text-secondary);
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
 
     .metric-subtitle {
         font-size: 12px;
-        color: #999;
+        color: var(--text-muted);
         margin-top: 5px;
     }
 
@@ -74,18 +120,22 @@
         font-size: 24px;
         font-weight: 600;
         margin: 30px 0 20px 0;
-        color: #333;
+        color: var(--text-primary);
         border-bottom: 2px solid #9B59B6;
         padding-bottom: 10px;
     }
 
     .table-container {
-        background: white;
+        background: var(--card-bg);
         border-radius: 8px;
         padding: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px var(--card-shadow);
         margin-bottom: 20px;
         overflow-x: auto;
+    }
+
+    .table-container h3 {
+        color: var(--text-primary);
     }
 
     .stats-table {
@@ -94,24 +144,30 @@
     }
 
     .stats-table th {
-        background: #f8f9fa;
+        background: var(--table-header-bg);
         padding: 12px;
         text-align: left;
         font-weight: 600;
-        border-bottom: 2px solid #dee2e6;
+        border-bottom: 2px solid var(--table-border);
+        color: var(--text-primary);
     }
 
     .stats-table td {
         padding: 12px;
-        border-bottom: 1px solid #dee2e6;
+        border-bottom: 1px solid var(--table-border);
+        color: var(--text-secondary);
+    }
+
+    .stats-table td a {
+        color: #9B59B6;
     }
 
     .stats-table tr:hover {
-        background: #f8f9fa;
+        background: var(--table-hover);
     }
 
     .progress-bar-container {
-        background: #e9ecef;
+        background: var(--progress-bg);
         border-radius: 4px;
         height: 20px;
         overflow: hidden;
@@ -139,23 +195,23 @@
     }
 
     .badge-success {
-        background: #d4edda;
-        color: #155724;
+        background: #28a74533;
+        color: #28a745;
     }
 
     .badge-warning {
-        background: #fff3cd;
-        color: #856404;
+        background: #ffc10733;
+        color: #ffc107;
     }
 
     .badge-danger {
-        background: #f8d7da;
-        color: #721c24;
+        background: #dc354533;
+        color: #dc3545;
     }
 
     .badge-info {
-        background: #d1ecf1;
-        color: #0c5460;
+        background: #17a2b833;
+        color: #17a2b8;
     }
 
     .quick-actions {
@@ -182,17 +238,25 @@
     }
 
     .chart-container {
-        background: white;
+        background: var(--card-bg);
         border-radius: 8px;
         padding: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px var(--card-shadow);
         margin-bottom: 20px;
+    }
+
+    .chart-container h3 {
+        color: var(--text-primary);
+    }
+
+    .chart-container p {
+        color: var(--text-secondary);
     }
 
     .funnel-step {
         padding: 15px;
         margin: 10px 0;
-        background: #f8f9fa;
+        background: var(--funnel-bg);
         border-left: 4px solid #9B59B6;
         border-radius: 4px;
         display: flex;
@@ -203,6 +267,7 @@
     .funnel-step-name {
         font-weight: 600;
         font-size: 16px;
+        color: var(--text-primary);
     }
 
     .funnel-step-value {
@@ -219,9 +284,13 @@
         top: 20px;
     }
 
-    .metric-card {
-        position: relative;
-        overflow: hidden;
+    /* Dashboard header styling */
+    .dashboard-container > h1 {
+        color: #9B59B6 !important;
+    }
+
+    .dashboard-container > p {
+        color: var(--text-secondary) !important;
     }
 </style>
 {% endblock %}
