@@ -113,7 +113,7 @@
  * Solution (battle-tested, used by Twitter/Reddit/Notion):
  * - Android PWA: Force OAuth to run in Chrome browser (not TWA) using Android Intent URL
  * - iOS PWA: Use Safari redirect (iOS handles cookies better)
- * - Desktop browser: Use popup OAuth (shared cookie jar works fine)
+ * - Desktop browser: Use standard redirect (django-allauth default - simple and reliable)
  *
  * Flow for Android PWA:
  * PWA → open Chrome → Facebook login → redirect back → PWA reads existing cookie
@@ -264,55 +264,16 @@
             return;
         }
 
-        // DESKTOP/MOBILE BROWSER MODE: Use popup OAuth (better UX)
-        console.log('[Crush.lu Login] Browser mode: using popup OAuth');
+        // DESKTOP BROWSER: Use standard redirect (django-allauth default behavior)
+        // This is simpler and more reliable than popup OAuth
+        // The popup complexity is only needed for PWA where we don't want to navigate away
+        console.log('[Crush.lu Login] Desktop browser: using standard redirect (django-allauth default)');
 
         fbButton.addEventListener('click', function(e) {
-            e.preventDefault();
-
-            // Store original button content
-            var originalContent = fbButton.innerHTML;
-
-            // Show loading state
+            // Show loading state but let the default link action proceed
             fbButton.classList.add('disabled');
-            fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening Facebook...';
-
-            // Open OAuth in popup
-            CrushOAuthPopup.login('facebook', {
-                onSuccess: function(result) {
-                    console.log('[Crush.lu Login] OAuth success:', result);
-                    // Redirect happens automatically in the popup handler
-                },
-                onError: function(error) {
-                    console.error('[Crush.lu Login] OAuth error:', error);
-                    // Reset button
-                    fbButton.classList.remove('disabled');
-                    fbButton.innerHTML = originalContent;
-
-                    // Show error message if there's a description
-                    if (error.description && error.error !== 'timeout') {
-                        alert('Login failed: ' + error.description);
-                    }
-                },
-                onPopupBlocked: function() {
-                    console.log('[Crush.lu Login] Popup blocked, falling back to redirect');
-                    // Reset button appearance
-                    fbButton.classList.remove('disabled');
-                    fbButton.innerHTML = originalContent;
-
-                    // On mobile browser, just redirect directly
-                    if (isMobile()) {
-                        console.log('[Crush.lu Login] Mobile browser: auto-redirecting to OAuth');
-                        window.location.href = oauthUrl;
-                        return;
-                    }
-
-                    // On desktop, ask user before redirecting
-                    if (confirm('Popup was blocked by your browser. Click OK to open Facebook login in this window instead.')) {
-                        window.location.href = oauthUrl;
-                    }
-                }
-            });
+            fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Redirecting to Facebook...';
+            // Don't prevent default - let django-allauth handle the OAuth redirect naturally
         });
     });
 })();
