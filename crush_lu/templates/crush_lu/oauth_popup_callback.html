@@ -136,9 +136,10 @@
         {% endif %}
 
         <!-- Fallback button (shown if auto-close fails) -->
-        <a href="{{ redirect_url }}" id="fallback-btn" class="btn" style="display: none;">
-            Continue to Crush.lu
-        </a>
+        <div id="fallback-container" style="display: none;">
+            <p class="small" style="margin-top: 1rem;">Your main tab is ready to use.</p>
+            <button onclick="window.close()" class="btn">Close This Window</button>
+        </div>
     </div>
 
     <script>
@@ -187,17 +188,29 @@
         }
 
         function showFallbackButton() {
-            var btn = document.getElementById('fallback-btn');
-            if (btn) {
-                btn.style.display = 'inline-block';
+            var container = document.getElementById('fallback-container');
+            if (container) {
+                container.style.display = 'block';
+            }
+            // Update the "closing automatically" message
+            var smallText = document.querySelector('.small');
+            if (smallText) {
+                smallText.textContent = 'Please close this window manually.';
             }
         }
 
         function redirectFallback() {
-            // Redirect within the popup window as a fallback
-            setTimeout(function() {
-                window.location.href = REDIRECT_URL;
-            }, 2000);
+            // NO LONGER REDIRECTS - this was causing the duplicate tab issue
+            // Instead, show the fallback UI so user can close manually
+            // Only redirect if there's truly no parent window
+            if (!window.opener || window.opener.closed) {
+                setTimeout(function() {
+                    window.location.href = REDIRECT_URL;
+                }, 2000);
+            } else {
+                // Parent exists but postMessage failed - show close button
+                showFallbackButton();
+            }
         }
 
         // Send result when DOM is ready
