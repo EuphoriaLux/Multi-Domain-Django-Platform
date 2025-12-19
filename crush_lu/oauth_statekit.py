@@ -98,7 +98,8 @@ def patch_allauth_statekit():
 
         # Check for popup mode parameter and store in session
         # This happens BEFORE the redirect to the OAuth provider
-        if request.GET.get('popup') == '1':
+        is_popup = request.GET.get('popup') == '1'
+        if is_popup:
             request.session['oauth_popup_mode'] = True
             logger.warning("[OAUTH-DB] Popup mode detected and stored in session")
 
@@ -144,8 +145,9 @@ def patch_allauth_statekit():
                 provider=provider,
                 user_agent=user_agent[:500] if user_agent else '',
                 ip_address=ip_address,
+                is_popup=is_popup,  # Store popup mode in database for cross-session retrieval
             )
-            logger.warning(f"[OAUTH-DB] SUCCESS: State {state_id[:8]}... stored in database (pk={oauth_state.pk})")
+            logger.warning(f"[OAUTH-DB] SUCCESS: State {state_id[:8]}... stored in database (pk={oauth_state.pk}, is_popup={is_popup})")
 
         except Exception as e:
             # Log the full exception with traceback
