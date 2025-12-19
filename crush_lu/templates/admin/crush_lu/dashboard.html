@@ -532,6 +532,77 @@
         </p>
     </div>
 
+    <!-- Email Preferences Section -->
+    <h2 class="section-header">📧 Email Preferences</h2>
+    <div class="dashboard-grid">
+        <div class="metric-card blue">
+            <div class="icon-large">📬</div>
+            <div class="metric-label">Active Email Users</div>
+            <div class="metric-value">{{ email_active_users }}</div>
+            <div class="metric-subtitle">{{ total_email_preferences }} total preferences</div>
+        </div>
+
+        <div class="metric-card pink">
+            <div class="icon-large">📢</div>
+            <div class="metric-label">Marketing Opt-ins</div>
+            <div class="metric-value">{{ marketing_opted_in }}</div>
+            <div class="metric-subtitle">{{ marketing_opt_in_rate }}% opt-in rate</div>
+        </div>
+
+        <div class="metric-card orange">
+            <div class="icon-large">🚫</div>
+            <div class="metric-label">Unsubscribed All</div>
+            <div class="metric-value">{{ unsubscribed_all }}</div>
+            <div class="metric-subtitle">Opted out of all emails</div>
+        </div>
+    </div>
+
+    <!-- Email Category Stats -->
+    <div class="table-container">
+        <h3 style="margin-top: 0; color: #333;">Email Category Subscriptions</h3>
+        <table class="stats-table">
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Subscribed</th>
+                    <th>Opt-in Rate</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>📝 Profile Updates</td>
+                    <td>{{ email_category_stats.profile_updates }}</td>
+                    <td>{% widthratio email_category_stats.profile_updates email_active_users 100 %}%</td>
+                </tr>
+                <tr>
+                    <td>🎉 Event Reminders</td>
+                    <td>{{ email_category_stats.event_reminders }}</td>
+                    <td>{% widthratio email_category_stats.event_reminders email_active_users 100 %}%</td>
+                </tr>
+                <tr>
+                    <td>💕 New Connections</td>
+                    <td>{{ email_category_stats.new_connections }}</td>
+                    <td>{% widthratio email_category_stats.new_connections email_active_users 100 %}%</td>
+                </tr>
+                <tr>
+                    <td>💬 New Messages</td>
+                    <td>{{ email_category_stats.new_messages }}</td>
+                    <td>{% widthratio email_category_stats.new_messages email_active_users 100 %}%</td>
+                </tr>
+                <tr>
+                    <td>📢 Marketing</td>
+                    <td>{{ email_category_stats.marketing }}</td>
+                    <td>{{ marketing_opt_in_rate }}%</td>
+                </tr>
+            </tbody>
+        </table>
+        <p style="margin-top: 15px;">
+            <a href="{% url 'admin:crush_lu_emailpreference_changelist' %}" class="quick-action-btn" style="display: inline-block;">
+                Manage Email Preferences
+            </a>
+        </p>
+    </div>
+
     <!-- Recent Activity Section -->
     <h2 class="section-header">📊 Recent Activity</h2>
 

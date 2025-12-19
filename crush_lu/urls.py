@@ -82,8 +82,12 @@ urlpatterns = [
 
     # Account settings
     path('account/settings/', views.account_settings, name='account_settings'),
+    path('account/settings/email-preferences/', views.update_email_preferences, name='update_email_preferences'),
     path('account/set-password/', views.set_password, name='set_password'),
     path('account/delete/', views.delete_account, name='delete_account'),
+
+    # Email unsubscribe (public access with token)
+    path('unsubscribe/<uuid:token>/', views.email_unsubscribe, name='email_unsubscribe'),
 
     # Special user experience
     path('special-welcome/', views.special_welcome, name='special_welcome'),

@@ -99,9 +99,19 @@
                 <a href="https://crush.lu/events/">Events</a>
             </p>
             <p style="font-size: 12px; color: #999;">
+                {% block footer_message %}
                 You're receiving this because you have an account on Crush.lu.<br>
+                {% endblock %}
                 If you have questions, contact us at support@crush.lu
             </p>
+            {% block unsubscribe %}
+            {% if unsubscribe_url %}
+            <p style="font-size: 11px; color: #aaa; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+                <a href="{{ unsubscribe_url }}" style="color: #999;">Unsubscribe</a> |
+                <a href="https://crush.lu/account/settings/" style="color: #999;">Manage email preferences</a>
+            </p>
+            {% endif %}
+            {% endblock %}
         </div>
     </div>
 </body>
