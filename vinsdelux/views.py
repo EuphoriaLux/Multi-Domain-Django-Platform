@@ -12,6 +12,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.urls import reverse
 from django.utils import timezone
+from django.conf import settings
 from datetime import timedelta
 import json
 import logging
@@ -19,6 +20,11 @@ import logging
 from .models import VdlCoffret, VdlAdoptionPlan, HomepageContent, VdlCategory, VdlProducer, VdlPlot, VdlPlotReservation, PlotStatus
 
 logger = logging.getLogger(__name__)
+
+
+def get_journey_base_url():
+    """Get the base URL for journey images (Azure Blob in production, static in dev)."""
+    return getattr(settings, 'VINSDELUX_JOURNEY_BASE_URL', '/static/images/journey/')
 
 def home(request):
     """
@@ -34,36 +40,38 @@ def home(request):
 
 # In your views.py or context processor
 
+    # Journey step images served from Azure Blob Storage in production
+    journey_base = get_journey_base_url()
     client_journey_steps = [
         {
             'step': '01',
             'title': 'Plot Selection',
             'description': 'Choose the vineyard plot that matches your preferences and vision. Each plot offers a unique terroir and a story to tell.',
-            'image_url': 'images/journey/step_01.png'
+            'image_url': f'{journey_base}step_01.png'
         },
         {
             'step': '02',
             'title': 'Personalize Your Wine',
             'description': 'Collaborate with our expert winemakers to personalize every aspect of your wine, from the grape variety to the winemaking techniques.',
-            'image_url': 'images/journey/step_02.png'
+            'image_url': f'{journey_base}step_02.png'
         },
         {
             'step': '03',
             'title': 'Follow the Production',
             'description': 'Receive regular updates on the growth of your vine and the winemaking process, complete with detailed photos and reports.',
-            'image_url': 'images/journey/step_03.png'
+            'image_url': f'{journey_base}step_03.png'
         },
         {
             'step': '04',
             'title': 'Receive and Taste',
             'description': 'Your personalized bottles are delivered directly to your home, ready to be tasted and shared with loved ones.',
-            'image_url': 'images/journey/step_04.png'
+            'image_url': f'{journey_base}step_04.png'
         },
         {
             'step': '05',
             'title': 'Create Your Legacy',
             'description': 'Your wine becomes a family legacy, a unique expression of your passion for wine, and an investment in the future.',
-            'image_url': 'images/journey/step_05.png'
+            'image_url': f'{journey_base}step_05.png'
         }
     ]
 
@@ -724,40 +732,41 @@ def journey_interactive_form(request):
     import json
     from .models import VdlAdoptionPlan, VdlProducer
     
-    # Client journey steps data for the interactive form
+    # Client journey steps data for the interactive form (Azure Blob in production)
+    journey_base = get_journey_base_url()
     client_journey_steps = [
         {
             'step': '01',
             'title': 'Plot Selection',
             'description': 'Choose the vineyard plot that matches your preferences and vision. Each plot offers a unique terroir and a story to tell.',
-            'image_url': 'images/journey/step_01.png'
+            'image_url': f'{journey_base}step_01.png'
         },
         {
             'step': '02',
             'title': 'Personalize Your Wine',
             'description': 'Collaborate with our expert winemakers to personalize every aspect of your wine, from the grape variety to the winemaking techniques.',
-            'image_url': 'images/journey/step_02.png'
+            'image_url': f'{journey_base}step_02.png'
         },
         {
             'step': '03',
             'title': 'Follow the Production',
             'description': 'Receive regular updates on the growth of your vine and the winemaking process, complete with detailed photos and reports.',
-            'image_url': 'images/journey/step_03.png'
+            'image_url': f'{journey_base}step_03.png'
         },
         {
             'step': '04',
             'title': 'Receive and Taste',
             'description': 'Your personalized bottles are delivered directly to your home, ready to be tasted and shared with loved ones.',
-            'image_url': 'images/journey/step_04.png'
+            'image_url': f'{journey_base}step_04.png'
         },
         {
             'step': '05',
             'title': 'Create Your Legacy',
             'description': 'Your wine becomes a family legacy, a unique expression of your passion for wine, and an investment in the future.',
-            'image_url': 'images/journey/step_05.png'
+            'image_url': f'{journey_base}step_05.png'
         }
     ]
-    
+
     # Fetch adoption plans from database with related producer data
     adoption_plans = VdlAdoptionPlan.objects.select_related(
         'producer', 'associated_coffret', 'category'
@@ -807,40 +816,41 @@ def journey_test_runner(request):
     Test runner page for the futuristic journey functionality.
     Includes comprehensive testing tools and validation.
     """
-    # Same client journey steps as used in the main site
+    # Same client journey steps as used in the main site (Azure Blob in production)
+    journey_base = get_journey_base_url()
     client_journey_steps = [
         {
             'step': '01',
             'title': 'Plot Selection',
             'description': 'Choose the vineyard plot that matches your preferences and vision. Each plot offers a unique terroir and a story to tell.',
-            'image_url': 'images/journey/step_01.png'
+            'image_url': f'{journey_base}step_01.png'
         },
         {
             'step': '02',
             'title': 'Personalize Your Wine',
             'description': 'Collaborate with our expert winemakers to personalize every aspect of your wine, from the grape variety to the winemaking techniques.',
-            'image_url': 'images/journey/step_02.png'
+            'image_url': f'{journey_base}step_02.png'
         },
         {
             'step': '03',
             'title': 'Follow the Production',
             'description': 'Receive regular updates on the growth of your vine and the winemaking process, complete with detailed photos and reports.',
-            'image_url': 'images/journey/step_03.png'
+            'image_url': f'{journey_base}step_03.png'
         },
         {
             'step': '04',
             'title': 'Receive and Taste',
             'description': 'Your personalized bottles are delivered directly to your home, ready to be tasted and shared with loved ones.',
-            'image_url': 'images/journey/step_04.png'
+            'image_url': f'{journey_base}step_04.png'
         },
         {
             'step': '05',
             'title': 'Create Your Legacy',
             'description': 'Your wine becomes a family legacy, a unique expression of your passion for wine, and an investment in the future.',
-            'image_url': 'images/journey/step_05.png'
+            'image_url': f'{journey_base}step_05.png'
         }
     ]
-    
+
     context = {
         'client_journey_steps': client_journey_steps,
     }
@@ -854,7 +864,7 @@ def journey_step_plot_selection(request):
         'step': '01',
         'title': 'Plot Selection',
         'description': 'Choose the vineyard plot that matches your preferences and vision. Each plot offers a unique terroir and a story to tell.',
-        'image_url': 'images/journey/step_01.png',
+        'image_url': f'{get_journey_base_url()}step_01.png',
         'detailed_description': 'With VinsDeLux, you don\'t just buy wine - you adopt a piece of vineyard history. Our exclusive plot selection process connects you directly to the land, giving you ownership rights that traditional wine purchases can\'t offer. Unlike buying bottles from a store, wine adoption through VinsDeLux means you\'re investing in the entire winemaking process from soil to bottle.',
         'main_benefits': [
             {
@@ -922,7 +932,7 @@ def journey_step_personalize_wine(request):
         'step': '02',
         'title': 'Personalize Your Wine',
         'description': 'Collaborate with our expert winemakers to personalize every aspect of your wine, from the grape variety to the winemaking techniques.',
-        'image_url': 'images/journey/step_02.png',
+        'image_url': f'{get_journey_base_url()}step_02.png',
         'detailed_description': 'This is where VinsDeLux truly differentiates itself from any wine purchasing experience. While retail wines are mass-produced for broad appeal, your VinsDeLux adoption allows you to work directly with master winemakers to create a wine that\'s uniquely yours. This level of personalization is impossible with traditional wine buying.',
         'main_benefits': [
             {
@@ -994,7 +1004,7 @@ def journey_step_follow_production(request):
         'step': '03',
         'title': 'Follow the Production',
         'description': 'Receive regular updates on the growth of your vine and the winemaking process, complete with detailed photos and reports.',
-        'image_url': 'images/journey/step_03.png',
+        'image_url': f'{get_journey_base_url()}step_03.png',
         'detailed_description': 'VinsDeLux offers unprecedented transparency that no traditional wine retailer can match. When you buy wine from a store, you know nothing about its production journey. With VinsDeLux adoption, you become part of every decision, witnessing your wine\'s creation from bud break to bottling. This transparency ensures quality and creates an emotional connection impossible with commercial wines.',
         'main_benefits': [
             {
@@ -1067,7 +1077,7 @@ def journey_step_receive_taste(request):
         'step': '04',
         'title': 'Receive and Taste',
         'description': 'Your personalized bottles are delivered directly to your home, ready to be tasted and shared with loved ones.',
-        'image_url': 'images/journey/step_04.png',
+        'image_url': f'{get_journey_base_url()}step_04.png',
         'detailed_description': 'This is the moment that separates VinsDeLux from every wine purchase you\'ve ever made. When your personalized bottles arrive, you\'re not just receiving wine - you\'re receiving the culmination of your journey, your investment, and your personal creation. Each bottle carries your story, your choices, and your connection to the land. This emotional and financial value is impossible to achieve with retail wine purchases.',
         'main_benefits': [
             {
@@ -1140,7 +1150,7 @@ def journey_step_create_legacy(request):
         'step': '05',
         'title': 'Create Your Legacy',
         'description': 'Your wine becomes a family legacy, a unique expression of your passion for wine, and an investment in the future.',
-        'image_url': 'images/journey/step_05.png',
+        'image_url': f'{get_journey_base_url()}step_05.png',
         'detailed_description': 'This is where VinsDeLux transcends traditional wine purchasing to become a generational investment. While retail wines are consumed and forgotten, your VinsDeLux adoption creates a lasting legacy that grows in value and meaning over time. You\'re not just buying wine - you\'re establishing a family heritage that can be passed down for generations, creating stories and traditions that retail wine purchases simply cannot match.',
         'main_benefits': [
             {

@@ -36,7 +36,7 @@
     </style>
     {% endblock %}
 </head>
-<body>
+<body data-default-profile-url="{{ POWERUP_DEFAULT_PROFILE_URL }}">
     {% analytics_body %}
     <header>
         <nav class="navbar navbar-expand-lg navbar-custom">
@@ -90,7 +90,7 @@
                                              class="user-avatar me-1"
                                              style="width: 24px; height: 24px;">
                                     {% else %}
-                                        <img src="{% static 'images/default-profile.png' %}"
+                                        <img src="{{ POWERUP_DEFAULT_PROFILE_URL }}"
                                              alt="Default Avatar"
                                              class="user-avatar me-1"
                                              style="width: 24px; height: 24px;">

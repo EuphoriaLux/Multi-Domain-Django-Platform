@@ -45,7 +45,9 @@
     </style>
     {% endblock %}
 </head>
-<body class="vinsdelux-page">
+<body class="vinsdelux-page"
+      data-vineyard-defaults-url="{{ VINSDELUX_VINEYARD_DEFAULTS_URL }}"
+      data-journey-base-url="{{ VINSDELUX_JOURNEY_BASE_URL }}">
     {% analytics_body %}   
     <header>
         <nav class="navbar navbar-expand-lg navbar-custom">

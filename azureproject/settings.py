@@ -114,7 +114,8 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'django.template.context_processors.i18n',  # Ensure this line is present
                 'crush_lu.context_processors.crush_user_context',  # Crush.lu user context
-                'crush_lu.context_processors.social_preview_context',
+                'crush_lu.context_processors.social_preview_context',  # Crush.lu social preview (PR #47)
+                'azureproject.content_images_context.content_images_context',  # Content images (Azure Blob)
                 'azureproject.analytics_context.analytics_ids',  # Domain-specific GA4/FB Pixel IDs
             ],
             # 'builtins': [ # Simplify builtins to only include allauth account tags
@@ -357,9 +358,36 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
 ]
 
+# =============================================================================
+# CONTENT IMAGE URLS (Development Fallbacks)
+# =============================================================================
+# These provide stable URLs for content images. In production, Azure Blob URLs
+# are used (configured in production.py). In development, static file URLs.
+
+# Crush.lu images
 SOCIAL_PREVIEW_IMAGE_URL = os.getenv(
     'SOCIAL_PREVIEW_IMAGE_URL',
     'https://crush.lu/static/crush_lu/crush_social_preview.jpg'
+)
+CRUSH_SOCIAL_PREVIEW_URL = os.getenv(
+    'CRUSH_SOCIAL_PREVIEW_URL',
+    'https://crush.lu/static/crush_lu/crush_social_preview.jpg'
+)
+
+# VinsDelux images
+VINSDELUX_JOURNEY_BASE_URL = os.getenv(
+    'VINSDELUX_JOURNEY_BASE_URL',
+    '/static/images/journey/'
+)
+VINSDELUX_VINEYARD_DEFAULTS_URL = os.getenv(
+    'VINSDELUX_VINEYARD_DEFAULTS_URL',
+    '/static/images/vineyard-defaults/'
+)
+
+# PowerUP/Entreprinder images
+POWERUP_DEFAULT_PROFILE_URL = os.getenv(
+    'POWERUP_DEFAULT_PROFILE_URL',
+    '/static/images/default-profile.png'
 )
 
 # Azure Blob Storage Settings (Conditional for Development)
@@ -369,11 +397,22 @@ if os.getenv('AZURE_ACCOUNT_NAME'):
     AZURE_ACCOUNT_KEY = os.getenv('AZURE_ACCOUNT_KEY')
     AZURE_CONTAINER_NAME = os.getenv('AZURE_CONTAINER_NAME')
     MEDIA_URL = f'https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}/'
+
+    # Azure Blob base URL for content images (domain-organized structure)
+    AZURE_CONTENT_BASE_URL = f'https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}'
+
+    # Override content image URLs with Azure Blob paths (if not explicitly set in env)
     if 'SOCIAL_PREVIEW_IMAGE_URL' not in os.environ:
-        SOCIAL_PREVIEW_IMAGE_URL = (
-            f'https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/'
-            f'{AZURE_CONTAINER_NAME}/crush_social_preview.jpg'
-        )
+        SOCIAL_PREVIEW_IMAGE_URL = f'{AZURE_CONTENT_BASE_URL}/crush-lu/branding/social-preview.jpg'
+    if 'CRUSH_SOCIAL_PREVIEW_URL' not in os.environ:
+        CRUSH_SOCIAL_PREVIEW_URL = f'{AZURE_CONTENT_BASE_URL}/crush-lu/branding/social-preview.jpg'
+    if 'VINSDELUX_JOURNEY_BASE_URL' not in os.environ:
+        VINSDELUX_JOURNEY_BASE_URL = f'{AZURE_CONTENT_BASE_URL}/vinsdelux/journey/'
+    if 'VINSDELUX_VINEYARD_DEFAULTS_URL' not in os.environ:
+        VINSDELUX_VINEYARD_DEFAULTS_URL = f'{AZURE_CONTENT_BASE_URL}/vinsdelux/vineyard-defaults/'
+    if 'POWERUP_DEFAULT_PROFILE_URL' not in os.environ:
+        POWERUP_DEFAULT_PROFILE_URL = f'{AZURE_CONTENT_BASE_URL}/powerup/defaults/profile.png'
+
     print("Using Azure Blob Storage for media files.")
 else:
     MEDIA_URL = '/media/'

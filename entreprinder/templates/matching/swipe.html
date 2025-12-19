@@ -17,7 +17,7 @@
             {% elif profile.profile_picture %}
                 <img src="{{ profile.profile_picture.url }}" class="card-img-top" alt="{{ profile.user.get_full_name }}'s profile picture">
             {% else %}
-                <img src="{% static 'images/default-profile.png' %}" class="card-img-top" alt="Default profile picture">
+                <img src="{{ POWERUP_DEFAULT_PROFILE_URL }}" class="card-img-top" alt="Default profile picture">
             {% endif %}
             <div class="card-body">
                 <h4 class="card-title mb-3">{{ profile.user.get_full_name }}</h4>

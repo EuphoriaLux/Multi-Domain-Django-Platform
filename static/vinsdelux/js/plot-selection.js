@@ -281,12 +281,14 @@ class PlotSelection {
         if (plot.producer_image) return plot.producer_image;
         
         // Generate image based on region/wine type
+        // Use Azure Blob URL from data attribute if available
+        const vineyardDefaultsUrl = document.body.dataset.vineyardDefaultsUrl || '/static/images/vineyard-defaults/';
         const wineTypes = ['red', 'white', 'rose', 'burgundy', 'bordeaux'];
         const type = plot.wine_type?.toLowerCase() || 'red';
         const imageType = wineTypes.includes(type) ? type : 'vineyard';
         const imageNum = (plot.id % 5) + 1;
-        
-        return `/static/images/vineyard-defaults/${imageType}_0${imageNum}.jpg`;
+
+        return `${vineyardDefaultsUrl}${imageType}_0${imageNum}.jpg`;
     }
     
     animateCartAddition(plot) {
