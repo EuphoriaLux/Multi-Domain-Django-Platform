@@ -215,19 +215,13 @@
         // which has a SEPARATE cookie store from the main browser. OAuth in the PWA container
         // will write cookies that are NOT readable by subsequent PWA requests.
         //
-        // The solution is to open the user's browser directly via Android Intent URL.
-        // This bypasses the PWA/TWA entirely and cookies commit synchronously.
-        //
-        // We detect the user's browser and use the appropriate package name:
-        // - Samsung Internet: com.sec.android.app.sbrowser
-        // - Chrome: com.android.chrome
-        // - Firefox: org.mozilla.firefox
-        // - Edge: com.microsoft.emmx
-        // - Opera: com.opera.browser
-        // - etc.
+        // Different approaches for different browsers:
+        // - Chrome TWA: Use Android Intent URL (works reliably)
+        // - Samsung Internet: Use window.open() - Intent URLs don't work in Samsung PWA WebView
+        // - Other browsers: Try Intent first, fallback to window.open()
         if (isPWA() && isAndroid()) {
             var browserInfo = getAndroidBrowserPackage();
-            console.log('[Crush.lu Login] Android PWA detected: using ' + browserInfo.name + ' Intent');
+            console.log('[Crush.lu Login] Android PWA detected: using ' + browserInfo.name);
 
             fbButton.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -237,7 +231,32 @@
                 fbButton.classList.add('disabled');
                 fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening ' + browserInfo.name + '...';
 
-                // Build the Intent URL for the detected browser
+                // Samsung Internet PWA doesn't support Intent URLs properly
+                // It runs in a WebView that ignores intent:// protocol
+                // Solution: Use window.open() to force external browser
+                if (browserInfo.package === 'com.sec.android.app.sbrowser') {
+                    console.log('[Crush.lu Login] Samsung Internet PWA: using window.open()');
+
+                    // Try multiple methods to break out of Samsung PWA WebView
+                    // Method 1: window.open with _system target (works in some WebViews)
+                    var newWindow = window.open(fullOAuthUrl, '_system');
+
+                    // Method 2: If _system didn't work, try _blank
+                    if (!newWindow || newWindow.closed) {
+                        newWindow = window.open(fullOAuthUrl, '_blank');
+                    }
+
+                    // Method 3: If window.open was blocked, use location.href as fallback
+                    // This will navigate within the PWA but OAuth might still work
+                    if (!newWindow || newWindow.closed) {
+                        console.log('[Crush.lu Login] window.open blocked, using location.href fallback');
+                        window.location.href = oauthUrl;
+                    }
+
+                    return;
+                }
+
+                // For Chrome and other browsers: Use Intent URL
                 // Format: intent://HOST/PATH#Intent;scheme=SCHEME;package=PACKAGE;S.browser_fallback_url=URL;end;
                 var intentUrl = 'intent://' + window.location.host + oauthUrl + '#Intent;' +
                     'scheme=https;' +

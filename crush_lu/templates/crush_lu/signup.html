@@ -184,10 +184,14 @@
         }
 
         // ANDROID PWA: Force OAuth to run in external browser (not WebView/TWA)
-        // We detect the user's browser and use the appropriate package name
+        //
+        // Different approaches for different browsers:
+        // - Chrome TWA: Use Android Intent URL (works reliably)
+        // - Samsung Internet: Use window.open() - Intent URLs don't work in Samsung PWA WebView
+        // - Other browsers: Try Intent first, fallback to window.open()
         if (isPWA() && isAndroid()) {
             var browserInfo = getAndroidBrowserPackage();
-            console.log('[Crush.lu Signup] Android PWA detected: using ' + browserInfo.name + ' Intent');
+            console.log('[Crush.lu Signup] Android PWA detected: using ' + browserInfo.name);
 
             fbButton.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -197,7 +201,32 @@
                 fbButton.classList.add('disabled');
                 fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening ' + browserInfo.name + '...';
 
-                // Build Intent URL for the detected browser
+                // Samsung Internet PWA doesn't support Intent URLs properly
+                // It runs in a WebView that ignores intent:// protocol
+                // Solution: Use window.open() to force external browser
+                if (browserInfo.package === 'com.sec.android.app.sbrowser') {
+                    console.log('[Crush.lu Signup] Samsung Internet PWA: using window.open()');
+
+                    // Try multiple methods to break out of Samsung PWA WebView
+                    // Method 1: window.open with _system target (works in some WebViews)
+                    var newWindow = window.open(fullOAuthUrl, '_system');
+
+                    // Method 2: If _system didn't work, try _blank
+                    if (!newWindow || newWindow.closed) {
+                        newWindow = window.open(fullOAuthUrl, '_blank');
+                    }
+
+                    // Method 3: If window.open was blocked, use location.href as fallback
+                    // This will navigate within the PWA but OAuth might still work
+                    if (!newWindow || newWindow.closed) {
+                        console.log('[Crush.lu Signup] window.open blocked, using location.href fallback');
+                        window.location.href = oauthUrl;
+                    }
+
+                    return;
+                }
+
+                // For Chrome and other browsers: Use Intent URL
                 var intentUrl = 'intent://' + window.location.host + oauthUrl + '#Intent;' +
                     'scheme=https;' +
                     'action=android.intent.action.VIEW;' +
