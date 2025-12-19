@@ -98,10 +98,10 @@ def crush_admin_dashboard(request):
 
     # Coach performance
     coach_performance = CrushCoach.objects.filter(is_active=True).annotate(
-        total_reviews=Count('assigned_submissions'),
-        pending_count=Count('assigned_submissions', filter=Q(assigned_submissions__status='pending')),
-        approved_count=Count('assigned_submissions', filter=Q(assigned_submissions__status='approved')),
-        rejected_count=Count('assigned_submissions', filter=Q(assigned_submissions__status='rejected'))
+        total_reviews=Count('profilesubmission'),
+        pending_count=Count('profilesubmission', filter=Q(profilesubmission__status='pending')),
+        approved_count=Count('profilesubmission', filter=Q(profilesubmission__status='approved')),
+        rejected_count=Count('profilesubmission', filter=Q(profilesubmission__status='rejected'))
     ).order_by('-total_reviews')[:5]
 
     # Average review time (if reviewed_at exists)
