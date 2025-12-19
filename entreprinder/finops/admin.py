@@ -7,7 +7,6 @@ from django.contrib import admin
 from .models import CostExport, CostRecord, CostAggregation
 
 
-@admin.register(CostExport)
 class CostExportAdmin(admin.ModelAdmin):
     list_display = ['subscription_name', 'subscription_id', 'billing_period_start',
                     'billing_period_end', 'records_imported', 'import_status',
@@ -29,7 +28,6 @@ class CostExportAdmin(admin.ModelAdmin):
     ]
 
 
-@admin.register(CostRecord)
 class CostRecordAdmin(admin.ModelAdmin):
     list_display = ['resource_name', 'service_name', 'billed_cost', 'billing_currency',
                     'charge_period_start', 'sub_account_name']
@@ -74,7 +72,6 @@ class CostRecordAdmin(admin.ModelAdmin):
     ]
 
 
-@admin.register(CostAggregation)
 class CostAggregationAdmin(admin.ModelAdmin):
     list_display = ['aggregation_type', 'dimension_type', 'dimension_value',
                     'period_start', 'total_cost', 'currency', 'record_count']

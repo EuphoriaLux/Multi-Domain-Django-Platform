@@ -366,17 +366,14 @@ admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
 
 # --- Address Admin ---
-@admin.register(VdlAddress)
 class VdlAddressAdmin(admin.ModelAdmin):
     list_display = ('user', 'address_line_1', 'city', 'country', 'address_type')
     raw_id_fields = ('user',)
 
 # --- Product Infrastructure Admin ---
-@admin.register(VdlCategory)
 class VdlCategoryAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('name',)}
 
-@admin.register(VdlProducer)
 class VdlProducerAdmin(admin.ModelAdmin):
     list_display = ('name', 'region', 'website', 'is_featured_on_homepage')
     list_filter = ('region', 'is_featured_on_homepage')
@@ -418,7 +415,6 @@ class VdlAdoptionPlanInline(admin.TabularInline):
         return "Save and continue editing to enable."
     edit_details_link.short_description = 'Actions'
 
-@admin.register(VdlCoffret)
 class VdlCoffretAdmin(admin.ModelAdmin):
     list_display = ('name', 'producer', 'price', 'stock_quantity', 'is_available', 'main_image_thumbnail')
     list_filter = ('is_available', 'producer', 'category') # Add price range filter later if needed
@@ -440,7 +436,6 @@ class VdlAdoptionPlanImageInline(admin.TabularInline):
     ordering = ['order']
 
 # Restore the full admin for Adoption Plan to handle detailed editing
-@admin.register(VdlAdoptionPlan)
 class VdlAdoptionPlanAdmin(admin.ModelAdmin):
     list_display = ('name', 'associated_coffret', 'price', 'duration_months', 'is_available')
     list_filter = ('is_available', 'duration_months', 'associated_coffret__producer')
@@ -470,7 +465,6 @@ class VdlAdoptionPlanAdmin(admin.ModelAdmin):
     )
 
 # Register VdlAdoptionPlanImage for direct management
-@admin.register(VdlAdoptionPlanImage)
 class VdlAdoptionPlanImageAdmin(admin.ModelAdmin):
     list_display = ('adoption_plan', 'order', 'is_primary', 'caption', 'created_at')
     list_filter = ('is_primary', 'adoption_plan')
@@ -483,21 +477,17 @@ class VdlOrderItemInline(admin.TabularInline):
     extra = 0
     readonly_fields = ('product', 'price_at_purchase', 'quantity')
     
-@admin.register(VdlOrder)
 class VdlOrderAdmin(admin.ModelAdmin):
     list_display = ('order_number', 'user', 'created_at', 'total_paid', 'status')
     inlines = [VdlOrderItemInline]
 
 # --- Blog & CMS Admin ---
-@admin.register(VdlBlogPostCategory)
 class VdlBlogPostCategoryAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('name',)}
 
-@admin.register(VdlBlogPost)
 class VdlBlogPostAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('title',)}
 
-@admin.register(HomepageContent)
 class HomepageContentAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return self.model.objects.count() == 0
@@ -518,7 +508,6 @@ class VdlPlotReservationInline(admin.TabularInline):
     is_expired_status.short_description = 'Status'
 
 
-@admin.register(VdlPlot)
 class VdlPlotAdmin(admin.ModelAdmin):
     list_display = ('name', 'plot_identifier', 'producer', 'status', 'base_price', 'is_premium', 'is_available')
     list_filter = ('status', 'is_premium', 'producer', 'grape_varieties')
@@ -564,7 +553,6 @@ class VdlPlotAdmin(admin.ModelAdmin):
     primary_grape_variety.short_description = 'Primary Grape'
 
 
-@admin.register(VdlPlotReservation)
 class VdlPlotReservationAdmin(admin.ModelAdmin):
     list_display = ('plot', 'user', 'reserved_at', 'expires_at', 'is_confirmed', 'is_expired_status')
     list_filter = ('is_confirmed', 'reserved_at', 'plot__producer')
@@ -614,6 +602,7 @@ vinsdelux_admin_site.register(VdlPlotReservation, VdlPlotReservationAdmin)
 # Orders & Customers
 vinsdelux_admin_site.register(VdlAddress, VdlAddressAdmin)
 vinsdelux_admin_site.register(VdlOrder, VdlOrderAdmin)
+vinsdelux_admin_site.register(VdlUserProfile)
 
 # Content
 vinsdelux_admin_site.register(VdlBlogPostCategory, VdlBlogPostCategoryAdmin)
