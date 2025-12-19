@@ -80,6 +80,57 @@ def create_email_preference_for_user(sender, instance, created, **kwargs):
         logger.error(f"Error creating email preferences for user {instance.id}: {str(e)}")
 
 
+# List of Crush.lu domains - profile should be created for logins on these domains
+CRUSH_LU_DOMAINS = ['crush.lu', 'www.crush.lu', 'localhost', '127.0.0.1']
+
+
+@receiver(user_logged_in)
+def create_crush_profile_on_login(sender, request, user, **kwargs):
+    """
+    Create a CrushProfile when a user logs in on crush.lu domain.
+
+    This ensures ALL users who log in via crush.lu (regardless of auth method:
+    email/password, Facebook, Microsoft, LinkedIn) get a basic CrushProfile,
+    even if they don't complete the full profile creation form.
+
+    This does NOT create profiles for logins on other domains (powerup.lu,
+    vinsdelux.com, delegation.crush.lu).
+    """
+    if not request:
+        return
+
+    # Get the host without port
+    host = request.get_host().split(':')[0].lower()
+
+    # Only create profile for crush.lu domain logins
+    if host not in CRUSH_LU_DOMAINS:
+        logger.debug(f"Skipping CrushProfile creation for non-Crush domain login: {host}")
+        return
+
+    # Skip delegation subdomain - they have their own profile system
+    if 'delegation' in host:
+        logger.debug(f"Skipping CrushProfile creation for delegation subdomain: {host}")
+        return
+
+    try:
+        # Use get_or_create to avoid duplicates
+        profile, created = CrushProfile.objects.get_or_create(
+            user=user,
+            defaults={
+                'completion_status': 'not_started',  # Mark as not started
+            }
+        )
+
+        if created:
+            logger.info(f"Created CrushProfile for user {user.email} on login (domain: {host})")
+        else:
+            logger.debug(f"CrushProfile already exists for user {user.email}")
+
+    except Exception as e:
+        # Don't fail login if profile creation fails
+        logger.error(f"Error creating CrushProfile on login for user {user.id}: {str(e)}", exc_info=True)
+
+
 @receiver(post_save, sender=MeetupEvent)
 def create_default_activity_options(sender, instance, created, **kwargs):
     """
