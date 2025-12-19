@@ -180,28 +180,21 @@ CSRF_COOKIE_SAMESITE = 'Lax'  # Must match SESSION_COOKIE_SAMESITE for OAuth
 # This is Django's default and is safe because CSRF tokens are not sensitive data
 CSRF_COOKIE_HTTPONLY = False
 
-# CRITICAL FIX: Cookie domain for OAuth/PWA session persistence
-# Setting domain to ".domain.tld" ensures cookies work across:
-# - apex domain (domain.tld)
-# - www subdomain (www.domain.tld)
-# - Any subdomain variation during OAuth redirects
+# Multi-domain cookie configuration
+# ============================================================================
+# IMPORTANT: For multi-domain apps serving crush.lu, powerup.lu, vinsdelux.com,
+# we must NOT set a fixed SESSION_COOKIE_DOMAIN or CSRF_COOKIE_DOMAIN.
 #
-# This prevents cookie loss when host header varies during OAuth.
-# The domain is set based on CUSTOM_DOMAINS environment variable.
-_crush_domain = any('crush.lu' in d for d in CUSTOM_DOMAINS)
-_powerup_domain = any('powerup.lu' in d for d in CUSTOM_DOMAINS)
-_vinsdelux_domain = any('vinsdelux.com' in d for d in CUSTOM_DOMAINS)
-
-if _crush_domain:
-    SESSION_COOKIE_DOMAIN = '.crush.lu'
-    CSRF_COOKIE_DOMAIN = '.crush.lu'
-elif _powerup_domain:
-    SESSION_COOKIE_DOMAIN = '.powerup.lu'
-    CSRF_COOKIE_DOMAIN = '.powerup.lu'
-elif _vinsdelux_domain:
-    SESSION_COOKIE_DOMAIN = '.vinsdelux.com'
-    CSRF_COOKIE_DOMAIN = '.vinsdelux.com'
-# else: leave unset - Django uses request host by default
+# Setting a fixed domain (e.g., '.crush.lu') would make cookies ONLY work for
+# that domain, breaking auth on other domains like powerup.lu.
+#
+# By leaving these unset, Django uses the default behavior:
+# - Cookie domain matches the request host
+# - Each domain gets its own session cookies
+# - OAuth and login work correctly on each domain
+#
+# Note: This means sessions are NOT shared across domains, which is correct
+# for this app since each domain has separate user pools anyway.
 
 # SSL redirect - Azure App Service handles this at load balancer level
 # Setting to False avoids redirect loops since Azure terminates SSL
