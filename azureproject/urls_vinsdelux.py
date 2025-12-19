@@ -11,9 +11,13 @@ from django.conf.urls.static import static
 
 from .urls_shared import base_patterns
 from entreprinder.vibe import views as vibe_views
+from vinsdelux.admin import vinsdelux_admin_site
 
 urlpatterns = base_patterns + [
-    # Django Admin
+    # Custom VinsDelux Admin Panel
+    path('vinsdelux-admin/', vinsdelux_admin_site.urls),
+
+    # Standard Django Admin (user management)
     path('admin/', admin.site.urls),
 
     # Crush.lu URLs (for local development convenience)

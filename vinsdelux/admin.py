@@ -13,6 +13,111 @@ from .models import (
     VdlPlot, VdlPlotReservation, PlotStatus
 )
 
+
+# ============================================================================
+# CUSTOM ADMIN SITE - VinsDelux Management
+# ============================================================================
+
+class VinsDeluxAdminSite(admin.AdminSite):
+    site_header = 'VinsDelux Management'
+    site_title = 'VinsDelux Admin'
+    index_title = 'Wine & Vineyard Management'
+
+    def get_app_list(self, request, app_label=None):
+        """
+        Override to customize the admin index page grouping.
+        Groups models into logical categories for better organization.
+        """
+        app_list = super().get_app_list(request, app_label)
+
+        # Custom ordering and grouping for VinsDelux models
+        custom_order = {
+            # 1. Products
+            'vdlcoffret': {'order': 1, 'icon': '📦', 'group': 'Products'},
+            'vdladoptionplan': {'order': 2, 'icon': '🎁', 'group': 'Products'},
+            'vdladoptionplanimage': {'order': 3, 'icon': '🖼️', 'group': 'Products'},
+            'vdlproductimage': {'order': 4, 'icon': '📷', 'group': 'Products'},
+            'vdlcategory': {'order': 5, 'icon': '🏷️', 'group': 'Products'},
+
+            # 2. Vineyards
+            'vdlproducer': {'order': 10, 'icon': '🏰', 'group': 'Vineyards'},
+            'vdlplot': {'order': 11, 'icon': '🌿', 'group': 'Vineyards'},
+            'vdlplotreservation': {'order': 12, 'icon': '📋', 'group': 'Vineyards'},
+
+            # 3. Orders & Customers
+            'vdlorder': {'order': 20, 'icon': '🛒', 'group': 'Orders & Customers'},
+            'vdlorderitem': {'order': 21, 'icon': '📝', 'group': 'Orders & Customers'},
+            'vdladdress': {'order': 22, 'icon': '📍', 'group': 'Orders & Customers'},
+            'vdluserprofile': {'order': 23, 'icon': '👤', 'group': 'Orders & Customers'},
+
+            # 4. Content
+            'vdlblogpost': {'order': 30, 'icon': '📰', 'group': 'Content'},
+            'vdlblogpostcategory': {'order': 31, 'icon': '📂', 'group': 'Content'},
+            'homepagecontent': {'order': 32, 'icon': '🏠', 'group': 'Content'},
+        }
+
+        # Create grouped app list
+        new_app_list = []
+
+        for app in app_list:
+            if app['app_label'] == 'vinsdelux':
+                # Group models by category
+                groups = {}
+
+                for model in app['models']:
+                    model_name = model['object_name'].lower()
+
+                    if model_name in custom_order:
+                        config = custom_order[model_name]
+                        model['_order'] = config['order']
+                        group_name = config['group']
+
+                        # Add icon to model name
+                        icon = config['icon']
+                        if not model['name'].startswith(icon):
+                            model['name'] = f"{icon} {model['name']}"
+
+                        if group_name not in groups:
+                            groups[group_name] = []
+                        groups[group_name].append(model)
+                    else:
+                        # Models not in custom order go to "Other"
+                        if 'Other' not in groups:
+                            groups['Other'] = []
+                        groups['Other'].append(model)
+
+                # Sort models within each group
+                for group_name in groups:
+                    groups[group_name].sort(key=lambda x: x.get('_order', 999))
+
+                # Create new apps for each group
+                group_order = ['Products', 'Vineyards', 'Orders & Customers', 'Content', 'Other']
+                group_icons = {
+                    'Products': '🍷',
+                    'Vineyards': '🌿',
+                    'Orders & Customers': '📦',
+                    'Content': '📝',
+                    'Other': '📋',
+                }
+
+                for group_key in group_order:
+                    if group_key in groups and groups[group_key]:
+                        new_app_list.append({
+                            'name': f"{group_icons.get(group_key, '')} {group_key}",
+                            'app_label': f'vinsdelux_{group_key.lower().replace(" ", "_").replace("&", "and")}',
+                            'app_url': app['app_url'],
+                            'has_module_perms': app['has_module_perms'],
+                            'models': groups[group_key],
+                        })
+            else:
+                new_app_list.append(app)
+
+        return new_app_list
+
+
+# Instantiate the custom admin site
+vinsdelux_admin_site = VinsDeluxAdminSite(name='vinsdelux_admin')
+
 # --- User Admin ---
 class VdlUserProfileInline(admin.StackedInline):
     model = VdlUserProfile
@@ -489,3 +594,28 @@ class VdlPlotReservationAdmin(admin.ModelAdmin):
         else:
             return format_html('<span style="color: orange;">Pending</span>')
     is_expired_status.short_description = 'Status'
+
+
+# ============================================================================
+# REGISTER MODELS TO CUSTOM VINSDELUX ADMIN SITE
+# ============================================================================
+
+# Products
+vinsdelux_admin_site.register(VdlCategory, VdlCategoryAdmin)
+vinsdelux_admin_site.register(VdlCoffret, VdlCoffretAdmin)
+vinsdelux_admin_site.register(VdlAdoptionPlan, VdlAdoptionPlanAdmin)
+vinsdelux_admin_site.register(VdlAdoptionPlanImage, VdlAdoptionPlanImageAdmin)
+
+# Vineyards
+vinsdelux_admin_site.register(VdlProducer, VdlProducerAdmin)
+vinsdelux_admin_site.register(VdlPlot, VdlPlotAdmin)
+vinsdelux_admin_site.register(VdlPlotReservation, VdlPlotReservationAdmin)
+
+# Orders & Customers
+vinsdelux_admin_site.register(VdlAddress, VdlAddressAdmin)
+vinsdelux_admin_site.register(VdlOrder, VdlOrderAdmin)
+
+# Content
+vinsdelux_admin_site.register(VdlBlogPostCategory, VdlBlogPostCategoryAdmin)
+vinsdelux_admin_site.register(VdlBlogPost, VdlBlogPostAdmin)
+vinsdelux_admin_site.register(HomepageContent, HomepageContentAdmin)
