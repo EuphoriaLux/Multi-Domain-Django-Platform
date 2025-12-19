@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load socialaccount %}
+{% load static %}
+
+{% block head_title %}{% trans "Sign In" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Adjust width and height based on your image dimensions */
+  .linkedin-login-button {
+    display: inline-block;
+    width: 250px;  /* update if necessary */
+    height: 60px;  /* update if necessary */
+    background: url("{% static 'linkedin/Retina/Sign-In-Large---Default.png' %}") no-repeat center center;
+    background-size: contain;
+    border: none;
+    text-indent: -9999px; /* hide text, but keep for accessibility */
+    cursor: pointer;
+  }
+  .linkedin-login-button:hover {
+    background-image: url("{% static 'linkedin/Retina/Sign-In-Large---Hover.png' %}");
+  }
+  .linkedin-login-button:active {
+    background-image: url("{% static 'linkedin/Retina/Sign-In-Large---Active.png' %}");
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="row">
+    <div class="col-md-6 offset-md-3 text-center">
+      <h1>{% trans "Sign In" %}</h1>
+      <a href="{% provider_login_url 'openid_connect_linkedin' %}" class="linkedin-login-button">
+        {% trans "Sign in with LinkedIn" %}
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
