@@ -61,14 +61,45 @@
             color: #999;
             margin-top: 1rem;
         }
+        .success-icon {
+            font-size: 48px;
+            margin-bottom: 1rem;
+            color: #9B59B6;
+        }
+        .close-btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .close-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(155, 89, 182, 0.4);
+        }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container" id="loading-container">
         <div class="spinner"></div>
         <h2>Signing you in…</h2>
         <p>Please wait a moment.</p>
         <p class="status" id="status"></p>
+    </div>
+
+    <!-- Shown when popup successfully authenticated but can't close automatically -->
+    <div class="container" id="popup-success-container" style="display: none;">
+        <div class="success-icon">&#10004;</div>
+        <h2>Login Successful!</h2>
+        <p>You're now logged in. Please close this window to continue.</p>
+        <button onclick="window.close()" class="close-btn">Close Window</button>
+        <p class="status" style="margin-top: 1rem;">Your main tab is ready to use.</p>
     </div>
 
     <script>
@@ -113,6 +144,16 @@
         }
 
         /**
+         * Show the popup success container (when window.close() fails)
+         */
+        function showPopupSuccessUI() {
+            var loadingContainer = document.getElementById('loading-container');
+            var successContainer = document.getElementById('popup-success-container');
+            if (loadingContainer) loadingContainer.style.display = 'none';
+            if (successContainer) successContainer.style.display = 'block';
+        }
+
+        /**
          * Handle popup mode - communicate with parent window
          */
         function handlePopupMode(success, redirectUrl) {
@@ -129,19 +170,26 @@
                     userName: USER_NAME
                 }, window.location.origin);
 
+                console.log('[OAuth Landing] Sent CRUSH_OAUTH_COMPLETE to parent');
                 updateStatus('Login successful! Closing...');
 
-                // Close popup after short delay
+                // Try to close popup immediately
                 setTimeout(function() {
-                    window.close();
-                }, 1000);
+                    try {
+                        window.close();
+                    } catch (e) {
+                        console.log('[OAuth Landing] window.close() threw error:', e);
+                    }
+                }, 500);
 
-                // Fallback: redirect if window doesn't close
+                // Check if close worked after 1.5 seconds
+                // If not, show "please close this window" UI instead of redirecting
                 setTimeout(function() {
                     if (!window.closed) {
-                        window.location.replace(redirectUrl);
+                        console.log('[OAuth Landing] Popup did not close, showing manual close UI');
+                        showPopupSuccessUI();
                     }
-                }, 3000);
+                }, 1500);
 
                 return true;
             } catch (e) {
