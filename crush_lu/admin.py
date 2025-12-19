@@ -709,8 +709,8 @@ class CrushCoachAdmin(admin.ModelAdmin):
 
 
 class CrushProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'get_email', 'age', 'gender', 'location', 'get_assigned_coach', 'is_approved', 'is_active', 'created_at', 'is_coach')
-    list_filter = ('is_approved', 'is_active', 'gender', 'created_at')
+    list_display = ('user', 'get_email', 'age', 'gender', 'location', 'completion_status', 'get_assigned_coach', 'is_approved', 'is_active', 'created_at', 'is_coach')
+    list_filter = ('is_approved', 'is_active', 'gender', 'completion_status', 'created_at')
     search_fields = ('user__username', 'user__email', 'location', 'bio')
     readonly_fields = ('created_at', 'updated_at', 'approved_at', 'get_assigned_coach')
     actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'export_profiles_csv']
@@ -2929,7 +2929,7 @@ class EmailPreferenceAdmin(admin.ModelAdmin):
     def get_unsubscribe_link(self, obj):
         """Display the unsubscribe URL for testing"""
         if obj.unsubscribe_token:
-            url = f"https://crush.lu/email/unsubscribe/{obj.unsubscribe_token}/"
+            url = f"https://crush.lu/unsubscribe/{obj.unsubscribe_token}/"
             return format_html(
                 '<div style="padding: 10px; background: #f8f9fa; border-radius: 5px;">'
                 '<strong>One-Click Unsubscribe URL:</strong><br>'
