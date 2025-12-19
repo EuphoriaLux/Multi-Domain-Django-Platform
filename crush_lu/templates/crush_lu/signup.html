@@ -150,9 +150,44 @@
         // Log debug info
         console.log('[Crush.lu Signup] PWA mode:', isPWA(), 'Android:', isAndroid());
 
-        // ANDROID PWA: Force OAuth to run in Chrome browser (not WebView/TWA)
+        // Detect Android browser from User Agent
+        // Returns package name for Intent URL
+        function getAndroidBrowserPackage() {
+            var ua = navigator.userAgent;
+
+            // Samsung Internet Browser
+            if (/SamsungBrowser/i.test(ua)) {
+                return { name: 'Samsung Internet', package: 'com.sec.android.app.sbrowser' };
+            }
+            // Firefox
+            if (/Firefox/i.test(ua) && !/Seamonkey/i.test(ua)) {
+                return { name: 'Firefox', package: 'org.mozilla.firefox' };
+            }
+            // Microsoft Edge
+            if (/Edg/i.test(ua) || /Edge/i.test(ua)) {
+                return { name: 'Edge', package: 'com.microsoft.emmx' };
+            }
+            // Opera
+            if (/OPR/i.test(ua) || /Opera/i.test(ua)) {
+                return { name: 'Opera', package: 'com.opera.browser' };
+            }
+            // Brave
+            if (/Brave/i.test(ua)) {
+                return { name: 'Brave', package: 'com.brave.browser' };
+            }
+            // DuckDuckGo
+            if (/DuckDuckGo/i.test(ua)) {
+                return { name: 'DuckDuckGo', package: 'com.duckduckgo.mobile.android' };
+            }
+            // Default to Chrome (most common on Android)
+            return { name: 'Chrome', package: 'com.android.chrome' };
+        }
+
+        // ANDROID PWA: Force OAuth to run in external browser (not WebView/TWA)
+        // We detect the user's browser and use the appropriate package name
         if (isPWA() && isAndroid()) {
-            console.log('[Crush.lu Signup] Android PWA detected: using Chrome Intent');
+            var browserInfo = getAndroidBrowserPackage();
+            console.log('[Crush.lu Signup] Android PWA detected: using ' + browserInfo.name + ' Intent');
 
             fbButton.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -160,19 +195,22 @@
 
                 // Show loading state
                 fbButton.classList.add('disabled');
-                fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening Chrome...';
+                fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening ' + browserInfo.name + '...';
 
-                // Build Intent URL for Chrome
+                // Build Intent URL for the detected browser
                 var intentUrl = 'intent://' + window.location.host + oauthUrl + '#Intent;' +
                     'scheme=https;' +
                     'action=android.intent.action.VIEW;' +
-                    'package=com.android.chrome;' +
+                    'package=' + browserInfo.package + ';' +
                     'S.browser_fallback_url=' + encodeURIComponent(fullOAuthUrl) + ';' +
                     'end;';
+
+                console.log('[Crush.lu Signup] Opening ' + browserInfo.name + ' with Intent URL');
 
                 try {
                     window.location.href = intentUrl;
                 } catch (err) {
+                    console.error('[Crush.lu Signup] Intent error:', err);
                     window.location.href = oauthUrl;
                 }
             });
