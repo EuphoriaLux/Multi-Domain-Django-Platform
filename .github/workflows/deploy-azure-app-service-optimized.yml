@@ -22,6 +22,12 @@ on:
       - 'CLAUDE.md'
   workflow_dispatch:
 
+# Cancel in-progress deployments when a new one starts
+# This prevents redundant deployments when merging multiple PRs quickly
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
 jobs:
   # Quick pre-deployment validation (runs in ~30 seconds)
   validate:
