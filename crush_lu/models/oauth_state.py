@@ -79,6 +79,13 @@ class OAuthState(models.Model):
         help_text="IP address of originating request"
     )
 
+    # Popup mode flag (for desktop OAuth flow)
+    # When popup=1 is passed, we store it here so it survives the OAuth redirect
+    is_popup = models.BooleanField(
+        default=False,
+        help_text="Whether this OAuth flow was initiated from a popup window"
+    )
+
     # OAuth completion result (for handling duplicate callbacks on Android PWA)
     # When the first callback succeeds, we store the result here so that
     # duplicate requests can retrieve the auth info without needing session cookies

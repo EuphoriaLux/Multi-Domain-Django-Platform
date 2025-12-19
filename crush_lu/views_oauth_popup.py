@@ -215,7 +215,20 @@ def oauth_landing(request):
             logger.error(f"[OAUTH-LANDING] Error recovering auth from database: {e}")
 
     # Check if this is popup mode (do this before any early returns)
+    # First try session, then fall back to database lookup using state parameter
     is_popup = request.session.pop('oauth_popup_mode', False)
+
+    # If not in session but we have a state_id, check the database
+    # This handles the case where session cookies weren't preserved across OAuth redirect
+    if not is_popup and state_id:
+        try:
+            from crush_lu.models import OAuthState
+            oauth_state = OAuthState.objects.filter(state_id=state_id).first()
+            if oauth_state and oauth_state.is_popup:
+                is_popup = True
+                logger.info(f"[OAUTH-LANDING] Retrieved is_popup=True from database for state {state_id[:8]}...")
+        except Exception as e:
+            logger.error(f"[OAUTH-LANDING] Error checking popup mode from database: {e}")
 
     # Clear OAuth provider flag
     request.session.pop('oauth_provider', None)
