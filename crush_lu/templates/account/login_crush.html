@@ -176,20 +176,58 @@
         // Log debug info
         console.log('[Crush.lu Login] PWA:', isPWA(), 'Android:', isAndroid(), 'iOS:', isIOS(), 'Mobile:', isMobile());
 
-        // ANDROID PWA: MUST force OAuth to run in Chrome browser (not WebView/TWA)
+        // Detect Android browser from User Agent
+        // Returns package name for Intent URL
+        function getAndroidBrowserPackage() {
+            var ua = navigator.userAgent;
+
+            // Samsung Internet Browser
+            if (/SamsungBrowser/i.test(ua)) {
+                return { name: 'Samsung Internet', package: 'com.sec.android.app.sbrowser' };
+            }
+            // Firefox
+            if (/Firefox/i.test(ua) && !/Seamonkey/i.test(ua)) {
+                return { name: 'Firefox', package: 'org.mozilla.firefox' };
+            }
+            // Microsoft Edge
+            if (/Edg/i.test(ua) || /Edge/i.test(ua)) {
+                return { name: 'Edge', package: 'com.microsoft.emmx' };
+            }
+            // Opera
+            if (/OPR/i.test(ua) || /Opera/i.test(ua)) {
+                return { name: 'Opera', package: 'com.opera.browser' };
+            }
+            // Brave
+            if (/Brave/i.test(ua)) {
+                return { name: 'Brave', package: 'com.brave.browser' };
+            }
+            // DuckDuckGo
+            if (/DuckDuckGo/i.test(ua)) {
+                return { name: 'DuckDuckGo', package: 'com.duckduckgo.mobile.android' };
+            }
+            // Default to Chrome (most common on Android)
+            return { name: 'Chrome', package: 'com.android.chrome' };
+        }
+
+        // ANDROID PWA: MUST force OAuth to run in external browser (not WebView/TWA)
         //
         // CRITICAL: Android PWAs run in a Trusted Web Activity (TWA) or Custom Tab
-        // which has a SEPARATE cookie store from Chrome. OAuth in the PWA container
+        // which has a SEPARATE cookie store from the main browser. OAuth in the PWA container
         // will write cookies that are NOT readable by subsequent PWA requests.
         //
-        // The ONLY solution is to open Chrome directly via Android Intent URL.
+        // The solution is to open the user's browser directly via Android Intent URL.
         // This bypasses the PWA/TWA entirely and cookies commit synchronously.
         //
-        // After login in Chrome, user returns to PWA.
-        // NOTE: Without Digital Asset Links, Chrome and PWA may have separate cookie stores.
-        // The session recovery check at page load handles this by checking /api/auth/status/.
+        // We detect the user's browser and use the appropriate package name:
+        // - Samsung Internet: com.sec.android.app.sbrowser
+        // - Chrome: com.android.chrome
+        // - Firefox: org.mozilla.firefox
+        // - Edge: com.microsoft.emmx
+        // - Opera: com.opera.browser
+        // - etc.
         if (isPWA() && isAndroid()) {
-            console.log('[Crush.lu Login] Android PWA detected: MUST use Chrome Intent');
+            var browserInfo = getAndroidBrowserPackage();
+            console.log('[Crush.lu Login] Android PWA detected: using ' + browserInfo.name + ' Intent');
 
             fbButton.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -197,28 +235,23 @@
 
                 // Show loading state
                 fbButton.classList.add('disabled');
-                fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening Chrome...';
+                fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening ' + browserInfo.name + '...';
 
-                // Build the Intent URL for Chrome
+                // Build the Intent URL for the detected browser
                 // Format: intent://HOST/PATH#Intent;scheme=SCHEME;package=PACKAGE;S.browser_fallback_url=URL;end;
-                //
-                // IMPORTANT: The path must NOT include the host prefix
-                // ACTION_VIEW is implicit, but we add it for clarity
                 var intentUrl = 'intent://' + window.location.host + oauthUrl + '#Intent;' +
                     'scheme=https;' +
                     'action=android.intent.action.VIEW;' +
-                    'package=com.android.chrome;' +
+                    'package=' + browserInfo.package + ';' +
                     'S.browser_fallback_url=' + encodeURIComponent(fullOAuthUrl) + ';' +
                     'end;';
 
-                console.log('[Crush.lu Login] Opening Chrome with Intent URL');
+                console.log('[Crush.lu Login] Opening ' + browserInfo.name + ' with Intent URL');
                 console.log('[Crush.lu Login] Intent:', intentUrl);
 
                 // CRITICAL: Use location.href directly for Intent URLs in PWA
                 // window.open() does NOT work reliably for intent:// URLs in WebViews
-                // The browser must handle the Intent scheme, not JavaScript
                 try {
-                    // Direct navigation is the most reliable way to trigger Intent
                     window.location.href = intentUrl;
                 } catch (err) {
                     console.error('[Crush.lu Login] Intent error:', err);
