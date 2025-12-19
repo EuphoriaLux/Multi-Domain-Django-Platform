@@ -94,7 +94,6 @@ def send_welcome_email(user, request):
     profile_url = f"{protocol}://{domain}/create-profile/"
 
     context = get_email_context_with_unsubscribe(user, request,
-        user=user,
         first_name=user.first_name,
         profile_url=profile_url,
     )
@@ -131,7 +130,6 @@ def send_profile_submission_confirmation(user, request):
     subject = "Profile Submitted for Review - Crush.lu"
 
     context = get_email_context_with_unsubscribe(user, request,
-        user=user,
         first_name=user.first_name,
     )
 
@@ -199,7 +197,6 @@ def send_profile_approved_notification(profile, request, coach_notes=None):
     subject = "Welcome to Crush.lu - Your Profile is Approved! 🎉"
 
     context = get_email_context_with_unsubscribe(profile.user, request,
-        user=profile.user,
         first_name=profile.user.first_name,
         coach_notes=coach_notes,
     )
@@ -298,7 +295,6 @@ def send_event_registration_confirmation(registration, request):
     subject = f"Event Registration Confirmed - {registration.event.title}"
 
     context = get_email_context_with_unsubscribe(registration.user, request,
-        user=registration.user,
         registration=registration,
         event=registration.event,
     )
@@ -396,7 +392,6 @@ def send_event_reminder(registration, request, days_until_event):
     subject = f"Event Reminder - {registration.event.title} in {days_until_event} days"
 
     context = get_email_context_with_unsubscribe(registration.user, request,
-        user=registration.user,
         registration=registration,
         event=registration.event,
         days_until_event=days_until_event,

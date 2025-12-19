@@ -37,6 +37,10 @@ class CrushSignupForm(SignupForm):
         """
         email = self.cleaned_data.get('email')
 
+        if email:
+            # Normalize: strip whitespace and lowercase
+            email = email.strip().lower()
+
         # Check if a user with this email already exists
         if User.objects.filter(email__iexact=email).exists():
             raise ValidationError(

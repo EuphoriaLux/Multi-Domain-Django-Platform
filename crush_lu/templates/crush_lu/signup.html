@@ -93,7 +93,7 @@
                         {% endif %}
                     </div>
 
-                    <button type="submit" class="btn btn-crush-primary w-100">Create Account</button>
+                    <button type="submit" class="btn btn-crush-primary w-100" id="signup-submit-btn">Create Account</button>
                 </form>
 
                 <hr class="my-4">
@@ -109,6 +109,38 @@
 {% endblock %}
 
 {% block extra_js %}
+<script>
+/**
+ * Double-submit prevention for signup form
+ * Prevents users from clicking the button multiple times while waiting
+ */
+(function() {
+    'use strict';
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var signupForm = document.querySelector('form[method="post"]');
+        var submitBtn = document.getElementById('signup-submit-btn');
+
+        if (signupForm && submitBtn) {
+            var isSubmitting = false;
+
+            signupForm.addEventListener('submit', function(e) {
+                if (isSubmitting) {
+                    // Prevent duplicate submission
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Mark as submitting and disable button
+                isSubmitting = true;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating Account...';
+            });
+        }
+    });
+})();
+</script>
+
 <script>
 /**
  * OAuth Handler for Crush.lu Signup
