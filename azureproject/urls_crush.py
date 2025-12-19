@@ -22,8 +22,9 @@ urlpatterns = base_patterns + api_patterns + [
     path('sitemap.xml', sitemap, {'sitemaps': crush_sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
 
     # Dedicated Crush.lu Admin Panel
-    path('crush-admin/', crush_admin_site.urls),
+    # Note: Dashboard must come BEFORE admin site to avoid path matching issues
     path('crush-admin/dashboard/', admin_views.crush_admin_dashboard, name='crush_admin_dashboard'),
+    path('crush-admin/', crush_admin_site.urls),
 
     # Standard Django Admin (all platforms)
     path('admin/', admin.site.urls),
