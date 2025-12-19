@@ -4,6 +4,7 @@ These make variables available to all templates
 """
 from django.db.models import Q
 from django.utils import timezone
+from django.conf import settings
 from .models import (
     EventConnection, CrushProfile, CrushCoach, SpecialUserExperience,
     JourneyProgress, ProfileSubmission, EventRegistration, MeetupEvent
@@ -86,3 +87,10 @@ def crush_user_context(request):
                 context['journey_progress'] = journey_progress
 
     return context
+
+
+def social_preview_context(request):
+    """Expose social preview settings for Open Graph/Twitter tags."""
+    return {
+        "social_preview_image_url": settings.SOCIAL_PREVIEW_IMAGE_URL,
+    }

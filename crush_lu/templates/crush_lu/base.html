@@ -28,7 +28,7 @@
     <meta property="og:url" content="https://crush.lu{{ request.path }}">
     <meta property="og:title" content="{% block og_title %}Crush.lu - Meet New People in Luxembourg{% endblock %}">
     <meta property="og:description" content="{% block og_description %}Privacy-first dating platform for Luxembourg. Meet real people at organized events - no endless swiping, just authentic connections.{% endblock %}">
-    <meta property="og:image" content="{% block og_image %}https://crush.lu{% static 'crush_lu/crush_social_preview.jpg' %}{% endblock %}">
+    <meta property="og:image" content="{% block og_image %}{{ social_preview_image_url }}{% endblock %}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:locale" content="{{ LANGUAGE_CODE|default:'en' }}_{{ LANGUAGE_CODE|default:'EN'|upper }}">
@@ -40,7 +40,7 @@
     <meta property="twitter:url" content="https://crush.lu{{ request.path }}">
     <meta property="twitter:title" content="{% block twitter_title %}Crush.lu - Meet New People in Luxembourg{% endblock %}">
     <meta property="twitter:description" content="{% block twitter_description %}Privacy-first dating platform for Luxembourg. Meet real people at organized events - no endless swiping, just authentic connections.{% endblock %}">
-    <meta property="twitter:image" content="{% block twitter_image %}https://crush.lu{% static 'crush_lu/crush_social_preview.jpg' %}{% endblock %}">
+    <meta property="twitter:image" content="{% block twitter_image %}{{ social_preview_image_url }}{% endblock %}">
 
     <!-- Additional SEO -->
     <meta name="description" content="{% block meta_description %}Privacy-first dating platform for Luxembourg. Coach-curated profiles and event-based meetups for authentic connections.{% endblock %}">
