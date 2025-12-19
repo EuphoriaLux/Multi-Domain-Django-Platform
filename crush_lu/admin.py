@@ -120,6 +120,7 @@ class CrushLuAdminSite(admin.AdminSite):
             'coachsession': {'order': 13, 'icon': '💬', 'group': 'Users & Profiles'},
             'useractivity': {'order': 14, 'icon': '📊', 'group': 'Users & Profiles'},
             'pushsubscription': {'order': 15, 'icon': '🔔', 'group': 'Users & Profiles'},
+            'emailpreference': {'order': 16, 'icon': '📧', 'group': 'Users & Profiles'},
 
             # 3. Events & Meetups
             'meetupevent': {'order': 20, 'icon': '🎉', 'group': 'Events & Meetups'},
@@ -131,6 +132,7 @@ class CrushLuAdminSite(admin.AdminSite):
             'presentationqueue': {'order': 26, 'icon': '📋', 'group': 'Events & Meetups'},
             'presentationrating': {'order': 27, 'icon': '⭐', 'group': 'Events & Meetups'},
             'speeddatingpair': {'order': 28, 'icon': '💑', 'group': 'Events & Meetups'},
+            'eventinvitation': {'order': 29, 'icon': '💌', 'group': 'Events & Meetups'},
 
             # 4. Connections & Messages
             'eventconnection': {'order': 30, 'icon': '🔗', 'group': 'Connections'},
