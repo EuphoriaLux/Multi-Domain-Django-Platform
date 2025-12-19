@@ -340,24 +340,108 @@
         </div>
     </div>
 
-    <!-- Profile Completion Funnel -->
+    <!-- Profile Completion Funnel - Shows users CURRENTLY at each step -->
     <div class="chart-container">
-        <h3 style="margin-top: 0; color: #333;">Profile Creation Funnel</h3>
-        <div class="funnel-step">
-            <span class="funnel-step-name">Step 1: Basic Info</span>
-            <span class="funnel-step-value">{{ step1_completed }}</span>
+        <h3 style="margin-top: 0;">Profile Completion Status</h3>
+        <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 14px;">
+            Shows where users are currently stuck in the profile creation process
+        </p>
+
+        <!-- Not Started -->
+        <div class="funnel-step" style="border-left-color: #dc3545;">
+            <div>
+                <span class="funnel-step-name">❌ Not Started</span>
+                <div class="progress-bar-container" style="width: 200px; height: 8px; margin-top: 5px;">
+                    <div class="progress-bar" style="width: {{ funnel_not_started_pct }}%; background: linear-gradient(90deg, #dc3545, #ff6b6b);"></div>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <span class="funnel-step-value" style="color: #dc3545;">{{ funnel_not_started }}</span>
+                <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_not_started_pct }}%</div>
+            </div>
         </div>
-        <div class="funnel-step">
-            <span class="funnel-step-name">Step 2: Photos & Bio</span>
-            <span class="funnel-step-value">{{ step2_completed }}</span>
+
+        <!-- Step 1 -->
+        <div class="funnel-step" style="border-left-color: #ffc107;">
+            <div>
+                <span class="funnel-step-name">📝 Step 1: Basic Info</span>
+                <div class="progress-bar-container" style="width: 200px; height: 8px; margin-top: 5px;">
+                    <div class="progress-bar" style="width: {{ funnel_step1_pct }}%; background: linear-gradient(90deg, #ffc107, #ffda6a);"></div>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <span class="funnel-step-value" style="color: #ffc107;">{{ funnel_step1 }}</span>
+                <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step1_pct }}%</div>
+            </div>
         </div>
-        <div class="funnel-step">
-            <span class="funnel-step-name">Step 3: Privacy Settings</span>
-            <span class="funnel-step-value">{{ step3_completed }}</span>
+
+        <!-- Step 2 -->
+        <div class="funnel-step" style="border-left-color: #17a2b8;">
+            <div>
+                <span class="funnel-step-name">📷 Step 2: Photos & Bio</span>
+                <div class="progress-bar-container" style="width: 200px; height: 8px; margin-top: 5px;">
+                    <div class="progress-bar" style="width: {{ funnel_step2_pct }}%; background: linear-gradient(90deg, #17a2b8, #63d5eb);"></div>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <span class="funnel-step-value" style="color: #17a2b8;">{{ funnel_step2 }}</span>
+                <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step2_pct }}%</div>
+            </div>
         </div>
-        <div class="funnel-step">
-            <span class="funnel-step-name">Submitted for Review</span>
-            <span class="funnel-step-value">{{ submitted }}</span>
+
+        <!-- Step 3 -->
+        <div class="funnel-step" style="border-left-color: #6f42c1;">
+            <div>
+                <span class="funnel-step-name">🔒 Step 3: Privacy Settings</span>
+                <div class="progress-bar-container" style="width: 200px; height: 8px; margin-top: 5px;">
+                    <div class="progress-bar" style="width: {{ funnel_step3_pct }}%; background: linear-gradient(90deg, #6f42c1, #a855f7);"></div>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <span class="funnel-step-value" style="color: #6f42c1;">{{ funnel_step3 }}</span>
+                <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step3_pct }}%</div>
+            </div>
+        </div>
+
+        <!-- Completed but not submitted -->
+        <div class="funnel-step" style="border-left-color: #fd7e14;">
+            <div>
+                <span class="funnel-step-name">✏️ Completed (Not Submitted)</span>
+                <div class="progress-bar-container" style="width: 200px; height: 8px; margin-top: 5px;">
+                    <div class="progress-bar" style="width: {{ funnel_completed_pct }}%; background: linear-gradient(90deg, #fd7e14, #ffb347);"></div>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <span class="funnel-step-value" style="color: #fd7e14;">{{ funnel_completed }}</span>
+                <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_completed_pct }}%</div>
+            </div>
+        </div>
+
+        <!-- Submitted for review -->
+        <div class="funnel-step" style="border-left-color: #28a745;">
+            <div>
+                <span class="funnel-step-name">✅ Submitted for Review</span>
+                <div class="progress-bar-container" style="width: 200px; height: 8px; margin-top: 5px;">
+                    <div class="progress-bar" style="width: {{ funnel_submitted_pct }}%; background: linear-gradient(90deg, #28a745, #5cb85c);"></div>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <span class="funnel-step-value" style="color: #28a745;">{{ funnel_submitted }}</span>
+                <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_submitted_pct }}%</div>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px; padding: 15px; background: var(--funnel-bg); border-radius: 8px;">
+            <strong style="color: var(--text-primary);">💡 Insight:</strong>
+            <span style="color: var(--text-secondary);">
+                {% if funnel_not_started > funnel_submitted %}
+                    {{ funnel_not_started }} users haven't started their profile yet - consider sending reminder emails.
+                {% elif funnel_step1 > 0 or funnel_step2 > 0 %}
+                    {{ funnel_step1|add:funnel_step2 }} users are stuck in steps 1-2 - they may need help with photos or bio.
+                {% else %}
+                    Great progress! Most users are completing their profiles.
+                {% endif %}
+            </span>
         </div>
     </div>
 
