@@ -233,10 +233,10 @@
 
     <!-- Quick Actions -->
     <div class="quick-actions">
-        <a href="{% url 'admin:crush_lu_crushprofile_changelist' %}" class="quick-action-btn">👤 View All Profiles</a>
-        <a href="{% url 'admin:crush_lu_profilesubmission_changelist' %}?status__exact=pending" class="quick-action-btn">📝 Pending Approvals ({{ pending_reviews }})</a>
-        <a href="{% url 'admin:crush_lu_meetupevent_changelist' %}" class="quick-action-btn">🎉 Manage Events</a>
-        <a href="{% url 'admin:crush_lu_specialuserexperience_changelist' %}" class="quick-action-btn">✨ Special Experiences</a>
+        <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}" class="quick-action-btn">👤 View All Profiles</a>
+        <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?status__exact=pending" class="quick-action-btn">📝 Pending Approvals ({{ pending_reviews }})</a>
+        <a href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}" class="quick-action-btn">🎉 Manage Events</a>
+        <a href="{% url 'crush_admin:crush_lu_specialuserexperience_changelist' %}" class="quick-action-btn">✨ Special Experiences</a>
     </div>
 
     <!-- User Metrics Section -->
@@ -448,7 +448,7 @@
             <tbody>
                 {% for event in popular_events %}
                 <tr>
-                    <td><a href="{% url 'admin:crush_lu_meetupevent_change' event.id %}">{{ event.title }}</a></td>
+                    <td><a href="{% url 'crush_admin:crush_lu_meetupevent_change' event.id %}">{{ event.title }}</a></td>
                     <td>{{ event.get_event_type_display }}</td>
                     <td>{{ event.date_time|date:"M d, Y" }}</td>
                     <td>{{ event.registration_count }}</td>
@@ -597,7 +597,7 @@
             </tbody>
         </table>
         <p style="margin-top: 15px;">
-            <a href="{% url 'admin:crush_lu_emailpreference_changelist' %}" class="quick-action-btn" style="display: inline-block;">
+            <a href="{% url 'crush_admin:crush_lu_emailpreference_changelist' %}" class="quick-action-btn" style="display: inline-block;">
                 Manage Email Preferences
             </a>
         </p>
@@ -621,7 +621,7 @@
                 <tbody>
                     {% for submission in recent_submissions %}
                     <tr>
-                        <td><a href="{% url 'admin:crush_lu_profilesubmission_change' submission.id %}">{{ submission.profile.user.get_full_name|default:submission.profile.user.username }}</a></td>
+                        <td><a href="{% url 'crush_admin:crush_lu_profilesubmission_change' submission.id %}">{{ submission.profile.user.get_full_name|default:submission.profile.user.username }}</a></td>
                         <td><span class="badge badge-warning">{{ submission.get_status_display }}</span></td>
                         <td>{{ submission.submitted_at|timesince }} ago</td>
                     </tr>
@@ -649,7 +649,7 @@
                     {% for registration in recent_event_registrations %}
                     <tr>
                         <td>{{ registration.user.get_full_name|default:registration.user.username }}</td>
-                        <td><a href="{% url 'admin:crush_lu_meetupevent_change' registration.event.id %}">{{ registration.event.title }}</a></td>
+                        <td><a href="{% url 'crush_admin:crush_lu_meetupevent_change' registration.event.id %}">{{ registration.event.title }}</a></td>
                         <td>{{ registration.registered_at|timesince }} ago</td>
                     </tr>
                     {% empty %}
