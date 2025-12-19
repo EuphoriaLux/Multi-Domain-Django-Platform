@@ -114,6 +114,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'django.template.context_processors.i18n',  # Ensure this line is present
                 'crush_lu.context_processors.crush_user_context',  # Crush.lu user context
+                'crush_lu.context_processors.social_preview_context',
                 'azureproject.analytics_context.analytics_ids',  # Domain-specific GA4/FB Pixel IDs
             ],
             # 'builtins': [ # Simplify builtins to only include allauth account tags
@@ -356,6 +357,11 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
 ]
 
+SOCIAL_PREVIEW_IMAGE_URL = os.getenv(
+    'SOCIAL_PREVIEW_IMAGE_URL',
+    'https://crush.lu/static/crush_lu/crush_social_preview.jpg'
+)
+
 # Azure Blob Storage Settings (Conditional for Development)
 if os.getenv('AZURE_ACCOUNT_NAME'):
     DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
@@ -363,6 +369,11 @@ if os.getenv('AZURE_ACCOUNT_NAME'):
     AZURE_ACCOUNT_KEY = os.getenv('AZURE_ACCOUNT_KEY')
     AZURE_CONTAINER_NAME = os.getenv('AZURE_CONTAINER_NAME')
     MEDIA_URL = f'https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}/'
+    if 'SOCIAL_PREVIEW_IMAGE_URL' not in os.environ:
+        SOCIAL_PREVIEW_IMAGE_URL = (
+            f'https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/'
+            f'{AZURE_CONTAINER_NAME}/crush_social_preview.jpg'
+        )
     print("Using Azure Blob Storage for media files.")
 else:
     MEDIA_URL = '/media/'
