@@ -3,9 +3,75 @@
 Email helper functions specific to Crush.lu platform.
 Handles profile submissions, coach notifications, event registrations, etc.
 """
+import logging
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from azureproject.email_utils import send_domain_email, get_domain_from_email
+
+logger = logging.getLogger(__name__)
+
+
+def get_unsubscribe_url(user, request):
+    """
+    Generate the unsubscribe URL for a user.
+
+    Args:
+        user: User object
+        request: Django request object for domain detection
+
+    Returns:
+        str: Full unsubscribe URL with token, or None if user has no email preferences
+    """
+    try:
+        from .models import EmailPreference
+        email_prefs = EmailPreference.get_or_create_for_user(user)
+
+        protocol = 'https' if request.is_secure() else 'http'
+        domain = request.get_host()
+        return f"{protocol}://{domain}/unsubscribe/{email_prefs.unsubscribe_token}/"
+    except Exception as e:
+        logger.warning(f"Could not generate unsubscribe URL for user {user.id}: {e}")
+        return None
+
+
+def get_email_context_with_unsubscribe(user, request, **extra_context):
+    """
+    Create email context with unsubscribe URL.
+
+    Args:
+        user: User object
+        request: Django request object
+        **extra_context: Additional context to include
+
+    Returns:
+        dict: Context dictionary with unsubscribe_url and all extra context
+    """
+    context = {
+        'unsubscribe_url': get_unsubscribe_url(user, request),
+        **extra_context
+    }
+    return context
+
+
+def can_send_email(user, email_type):
+    """
+    Check if we can send a specific type of email to a user.
+
+    Args:
+        user: User object
+        email_type: Type of email (profile_updates, event_reminders, new_connections, new_messages, marketing)
+
+    Returns:
+        bool: True if we can send, False if user has unsubscribed
+    """
+    try:
+        from .models import EmailPreference
+        email_prefs = EmailPreference.get_or_create_for_user(user)
+        return email_prefs.can_send(email_type)
+    except Exception as e:
+        logger.warning(f"Could not check email preferences for user {user.id}: {e}")
+        # Default to sending if we can't check preferences
+        return True
 
 
 def send_welcome_email(user, request):
@@ -27,11 +93,13 @@ def send_welcome_email(user, request):
     domain = request.get_host()
     profile_url = f"{protocol}://{domain}/create-profile/"
 
-    html_message = render_to_string('crush_lu/emails/welcome.html', {
-        'user': user,
-        'first_name': user.first_name,
-        'profile_url': profile_url,
-    })
+    context = get_email_context_with_unsubscribe(user, request,
+        user=user,
+        first_name=user.first_name,
+        profile_url=profile_url,
+    )
+
+    html_message = render_to_string('crush_lu/emails/welcome.html', context)
     plain_message = strip_tags(html_message)
 
     return send_domain_email(
@@ -55,12 +123,19 @@ def send_profile_submission_confirmation(user, request):
     Returns:
         int: Number of emails sent (1 on success, 0 on failure)
     """
+    # Check email preferences
+    if not can_send_email(user, 'profile_updates'):
+        logger.info(f"Skipping profile submission email to {user.email} - user unsubscribed")
+        return 0
+
     subject = "Profile Submitted for Review - Crush.lu"
 
-    html_message = render_to_string('crush_lu/emails/profile_submission_confirmation.html', {
-        'user': user,
-        'first_name': user.first_name,
-    })
+    context = get_email_context_with_unsubscribe(user, request,
+        user=user,
+        first_name=user.first_name,
+    )
+
+    html_message = render_to_string('crush_lu/emails/profile_submission_confirmation.html', context)
     plain_message = strip_tags(html_message)
 
     return send_domain_email(
@@ -116,13 +191,20 @@ def send_profile_approved_notification(profile, request, coach_notes=None):
     Returns:
         int: Number of emails sent
     """
+    # Check email preferences
+    if not can_send_email(profile.user, 'profile_updates'):
+        logger.info(f"Skipping profile approved email to {profile.user.email} - user unsubscribed")
+        return 0
+
     subject = "Welcome to Crush.lu - Your Profile is Approved! 🎉"
 
-    html_message = render_to_string('crush_lu/emails/profile_approved.html', {
-        'user': profile.user,
-        'first_name': profile.user.first_name,
-        'coach_notes': coach_notes,
-    })
+    context = get_email_context_with_unsubscribe(profile.user, request,
+        user=profile.user,
+        first_name=profile.user.first_name,
+        coach_notes=coach_notes,
+    )
+
+    html_message = render_to_string('crush_lu/emails/profile_approved.html', context)
     plain_message = strip_tags(html_message)
 
     return send_domain_email(
@@ -208,13 +290,20 @@ def send_event_registration_confirmation(registration, request):
     Returns:
         int: Number of emails sent
     """
+    # Check email preferences
+    if not can_send_email(registration.user, 'event_reminders'):
+        logger.info(f"Skipping event registration email to {registration.user.email} - user unsubscribed")
+        return 0
+
     subject = f"Event Registration Confirmed - {registration.event.title}"
 
-    html_message = render_to_string('crush_lu/emails/event_registration_confirmation.html', {
-        'user': registration.user,
-        'registration': registration,
-        'event': registration.event,
-    })
+    context = get_email_context_with_unsubscribe(registration.user, request,
+        user=registration.user,
+        registration=registration,
+        event=registration.event,
+    )
+
+    html_message = render_to_string('crush_lu/emails/event_registration_confirmation.html', context)
     plain_message = strip_tags(html_message)
 
     return send_domain_email(
@@ -299,14 +388,21 @@ def send_event_reminder(registration, request, days_until_event):
     Returns:
         int: Number of emails sent
     """
+    # Check email preferences
+    if not can_send_email(registration.user, 'event_reminders'):
+        logger.info(f"Skipping event reminder email to {registration.user.email} - user unsubscribed")
+        return 0
+
     subject = f"Event Reminder - {registration.event.title} in {days_until_event} days"
 
-    html_message = render_to_string('crush_lu/emails/event_reminder.html', {
-        'user': registration.user,
-        'registration': registration,
-        'event': registration.event,
-        'days_until_event': days_until_event,
-    })
+    context = get_email_context_with_unsubscribe(registration.user, request,
+        user=registration.user,
+        registration=registration,
+        event=registration.event,
+        days_until_event=days_until_event,
+    )
+
+    html_message = render_to_string('crush_lu/emails/event_reminder.html', context)
     plain_message = strip_tags(html_message)
 
     return send_domain_email(

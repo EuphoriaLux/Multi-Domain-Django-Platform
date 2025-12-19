@@ -109,6 +109,114 @@
             </div>
         </div>
 
+        <!-- Email Notifications Card -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-bell me-2"></i>Email Notifications</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'crush_lu:update_email_preferences' %}">
+                    {% csrf_token %}
+
+                    {% if email_prefs.unsubscribed_all %}
+                    <div class="alert alert-warning mb-3">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        You have unsubscribed from all emails. Toggle the switch below to re-enable notifications.
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-4">
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="unsubscribed_all" name="unsubscribed_all"
+                                   {% if email_prefs.unsubscribed_all %}checked{% endif %}
+                                   onchange="toggleAllNotifications(this.checked)">
+                            <label class="form-check-label fw-bold text-danger" for="unsubscribed_all">
+                                Unsubscribe from ALL emails
+                            </label>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div id="notification-options" {% if email_prefs.unsubscribed_all %}style="opacity: 0.5; pointer-events: none;"{% endif %}>
+                        <p class="text-muted small mb-3">Choose which emails you'd like to receive:</p>
+
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="email_profile_updates" name="email_profile_updates"
+                                   {% if email_prefs.email_profile_updates %}checked{% endif %}>
+                            <label class="form-check-label" for="email_profile_updates">
+                                <strong>Profile Updates</strong>
+                                <br><small class="text-muted">Emails about profile approval, revision requests</small>
+                            </label>
+                        </div>
+
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="email_event_reminders" name="email_event_reminders"
+                                   {% if email_prefs.email_event_reminders %}checked{% endif %}>
+                            <label class="form-check-label" for="email_event_reminders">
+                                <strong>Event Reminders</strong>
+                                <br><small class="text-muted">Reminders about upcoming events you're registered for</small>
+                            </label>
+                        </div>
+
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="email_new_connections" name="email_new_connections"
+                                   {% if email_prefs.email_new_connections %}checked{% endif %}>
+                            <label class="form-check-label" for="email_new_connections">
+                                <strong>New Connections</strong>
+                                <br><small class="text-muted">Notifications about new connection requests</small>
+                            </label>
+                        </div>
+
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="email_new_messages" name="email_new_messages"
+                                   {% if email_prefs.email_new_messages %}checked{% endif %}>
+                            <label class="form-check-label" for="email_new_messages">
+                                <strong>New Messages</strong>
+                                <br><small class="text-muted">Notifications about new messages from connections</small>
+                            </label>
+                        </div>
+
+                        <hr>
+
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="email_marketing" name="email_marketing"
+                                   {% if email_prefs.email_marketing %}checked{% endif %}>
+                            <label class="form-check-label" for="email_marketing">
+                                <strong>Marketing & Promotions</strong>
+                                <br><small class="text-muted">Newsletters, special offers, and promotions</small>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-crush-primary">
+                            <i class="bi bi-check-lg me-2"></i>Save Preferences
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script>
+        function toggleAllNotifications(unsubscribeAll) {
+            const optionsDiv = document.getElementById('notification-options');
+            if (unsubscribeAll) {
+                optionsDiv.style.opacity = '0.5';
+                optionsDiv.style.pointerEvents = 'none';
+            } else {
+                optionsDiv.style.opacity = '1';
+                optionsDiv.style.pointerEvents = 'auto';
+            }
+        }
+        </script>
+
         <!-- Privacy Card -->
         <div class="card mb-4">
             <div class="card-header">

@@ -11,7 +11,8 @@ from datetime import timedelta
 
 from .models import (
     CrushProfile, CrushCoach, ProfileSubmission, MeetupEvent, EventRegistration,
-    EventConnection, JourneyProgress, SpecialUserExperience, CoachSession
+    EventConnection, JourneyProgress, SpecialUserExperience, CoachSession,
+    EmailPreference
 )
 
 
@@ -205,6 +206,30 @@ def crush_admin_dashboard(request):
     avg_time_minutes = avg_time_minutes / 60
 
     # ============================================================================
+    # EMAIL PREFERENCE METRICS
+    # ============================================================================
+
+    total_email_preferences = EmailPreference.objects.count()
+    unsubscribed_all = EmailPreference.objects.filter(unsubscribed_all=True).count()
+    marketing_opted_in = EmailPreference.objects.filter(
+        email_marketing=True,
+        unsubscribed_all=False
+    ).count()
+
+    # Calculate opt-in rates
+    email_active_users = total_email_preferences - unsubscribed_all
+    marketing_opt_in_rate = (marketing_opted_in / email_active_users * 100) if email_active_users > 0 else 0
+
+    # Email category opt-in counts (excluding unsubscribed users)
+    email_category_stats = {
+        'profile_updates': EmailPreference.objects.filter(email_profile_updates=True, unsubscribed_all=False).count(),
+        'event_reminders': EmailPreference.objects.filter(email_event_reminders=True, unsubscribed_all=False).count(),
+        'new_connections': EmailPreference.objects.filter(email_new_connections=True, unsubscribed_all=False).count(),
+        'new_messages': EmailPreference.objects.filter(email_new_messages=True, unsubscribed_all=False).count(),
+        'marketing': marketing_opted_in,
+    }
+
+    # ============================================================================
     # RECENT ACTIVITY
     # ============================================================================
 
@@ -274,6 +299,14 @@ def crush_admin_dashboard(request):
         'journey_completion_rate': round(journey_completion_rate, 1),
         'avg_points': round(avg_points, 0),
         'avg_time_minutes': round(avg_time_minutes, 0),
+
+        # Email preference metrics
+        'total_email_preferences': total_email_preferences,
+        'unsubscribed_all': unsubscribed_all,
+        'marketing_opted_in': marketing_opted_in,
+        'marketing_opt_in_rate': round(marketing_opt_in_rate, 1),
+        'email_active_users': email_active_users,
+        'email_category_stats': email_category_stats,
 
         # Recent activity
         'recent_submissions': recent_submissions,

@@ -318,12 +318,16 @@
                         <div class="photo-upload-box">
                             <input type="file" name="photo_1" id="photo1" accept="image/*" class="d-none photo-input">
                             <label for="photo1" class="photo-label">
-                                <div class="photo-preview" id="preview1">
-                                    <i class="bi bi-camera photo-icon"></i>
-                                    <span class="photo-text">Add Photo 1</span>
+                                <div class="photo-preview {% if profile.photo_1 %}has-image{% endif %}" id="preview1">
+                                    {% if profile.photo_1 %}
+                                        <img src="{{ profile.photo_1.url }}" alt="Photo 1">
+                                    {% else %}
+                                        <i class="bi bi-camera photo-icon"></i>
+                                        <span class="photo-text">Add Photo 1</span>
+                                    {% endif %}
                                 </div>
                             </label>
-                            <button type="button" class="btn btn-sm btn-danger remove-photo d-none" data-target="photo1">
+                            <button type="button" class="btn btn-sm btn-danger remove-photo {% if not profile.photo_1 %}d-none{% endif %}" data-target="photo1">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
@@ -332,12 +336,16 @@
                         <div class="photo-upload-box">
                             <input type="file" name="photo_2" id="photo2" accept="image/*" class="d-none photo-input">
                             <label for="photo2" class="photo-label">
-                                <div class="photo-preview" id="preview2">
-                                    <i class="bi bi-camera photo-icon"></i>
-                                    <span class="photo-text">Add Photo 2</span>
+                                <div class="photo-preview {% if profile.photo_2 %}has-image{% endif %}" id="preview2">
+                                    {% if profile.photo_2 %}
+                                        <img src="{{ profile.photo_2.url }}" alt="Photo 2">
+                                    {% else %}
+                                        <i class="bi bi-camera photo-icon"></i>
+                                        <span class="photo-text">Add Photo 2</span>
+                                    {% endif %}
                                 </div>
                             </label>
-                            <button type="button" class="btn btn-sm btn-danger remove-photo d-none" data-target="photo2">
+                            <button type="button" class="btn btn-sm btn-danger remove-photo {% if not profile.photo_2 %}d-none{% endif %}" data-target="photo2">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
@@ -346,21 +354,32 @@
                         <div class="photo-upload-box">
                             <input type="file" name="photo_3" id="photo3" accept="image/*" class="d-none photo-input">
                             <label for="photo3" class="photo-label">
-                                <div class="photo-preview" id="preview3">
-                                    <i class="bi bi-camera photo-icon"></i>
-                                    <span class="photo-text">Add Photo 3</span>
+                                <div class="photo-preview {% if profile.photo_3 %}has-image{% endif %}" id="preview3">
+                                    {% if profile.photo_3 %}
+                                        <img src="{{ profile.photo_3.url }}" alt="Photo 3">
+                                    {% else %}
+                                        <i class="bi bi-camera photo-icon"></i>
+                                        <span class="photo-text">Add Photo 3</span>
+                                    {% endif %}
                                 </div>
                             </label>
-                            <button type="button" class="btn btn-sm btn-danger remove-photo d-none" data-target="photo3">
+                            <button type="button" class="btn btn-sm btn-danger remove-photo {% if not profile.photo_3 %}d-none{% endif %}" data-target="photo3">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
                     </div>
 
+                    {% if profile.photo_1 %}
+                    <div class="alert alert-success mt-3">
+                        <i class="bi bi-check-circle"></i>
+                        <strong>Great!</strong> We imported your photo from Facebook. You can keep it or upload a different one.
+                    </div>
+                    {% else %}
                     <div class="alert alert-info mt-3">
                         <i class="bi bi-info-circle"></i>
                         <strong>Tip:</strong> Use clear photos where your face is visible. Avoid group photos!
                     </div>
+                    {% endif %}
 
                     <!-- Privacy Settings -->
                     <div class="privacy-section mt-4">

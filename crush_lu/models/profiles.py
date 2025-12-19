@@ -661,3 +661,118 @@ class PushSubscription(models.Model):
             self.delete()
         else:
             self.save(update_fields=['failure_count'])
+
+
+class EmailPreference(models.Model):
+    """
+    User email notification preferences with GDPR-compliant unsubscribe support.
+
+    - All transactional/engagement emails ON by default
+    - Marketing emails OFF by default (GDPR compliance)
+    - Secure unsubscribe token for one-click unsubscribe without login
+    """
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='email_preference',
+        help_text="User who owns these email preferences"
+    )
+
+    # Secure unsubscribe token (no login required for unsubscribe)
+    unsubscribe_token = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        help_text="Secure token for one-click unsubscribe links"
+    )
+
+    # Email categories - mirrors PushSubscription preferences
+    email_profile_updates = models.BooleanField(
+        default=True,
+        help_text="Emails about profile approval, revision requests"
+    )
+    email_event_reminders = models.BooleanField(
+        default=True,
+        help_text="Reminders about upcoming events you're registered for"
+    )
+    email_new_connections = models.BooleanField(
+        default=True,
+        help_text="Notifications about new connection requests"
+    )
+    email_new_messages = models.BooleanField(
+        default=True,
+        help_text="Notifications about new messages from connections"
+    )
+    email_marketing = models.BooleanField(
+        default=False,  # OFF by default - GDPR compliance
+        help_text="Marketing emails, newsletters, promotions (requires explicit opt-in)"
+    )
+
+    # Master unsubscribe switch
+    unsubscribed_all = models.BooleanField(
+        default=False,
+        help_text="User has unsubscribed from ALL emails"
+    )
+
+    # Tracking
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Email Preference"
+        verbose_name_plural = "📧 Email Preferences"
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        status = "Unsubscribed" if self.unsubscribed_all else "Subscribed"
+        return f"{self.user.email} - {status}"
+
+    def can_send(self, email_type):
+        """
+        Check if we can send a specific type of email to this user.
+
+        Args:
+            email_type: One of 'profile_updates', 'event_reminders',
+                       'new_connections', 'new_messages', 'marketing'
+
+        Returns:
+            bool: True if email can be sent, False otherwise
+        """
+        # Master switch - if unsubscribed from all, never send
+        if self.unsubscribed_all:
+            return False
+
+        # Check specific category
+        category_map = {
+            'profile_updates': self.email_profile_updates,
+            'event_reminders': self.email_event_reminders,
+            'new_connections': self.email_new_connections,
+            'new_messages': self.email_new_messages,
+            'marketing': self.email_marketing,
+        }
+
+        return category_map.get(email_type, True)
+
+    def get_enabled_categories(self):
+        """Return list of enabled email categories (for admin display)"""
+        categories = []
+        if self.email_profile_updates:
+            categories.append('profile_updates')
+        if self.email_event_reminders:
+            categories.append('event_reminders')
+        if self.email_new_connections:
+            categories.append('new_connections')
+        if self.email_new_messages:
+            categories.append('new_messages')
+        if self.email_marketing:
+            categories.append('marketing')
+        return categories
+
+    @classmethod
+    def get_or_create_for_user(cls, user):
+        """
+        Get or create email preferences for a user.
+        Used as a fallback when sending emails to ensure preferences exist.
+        """
+        preference, created = cls.objects.get_or_create(user=user)
+        return preference

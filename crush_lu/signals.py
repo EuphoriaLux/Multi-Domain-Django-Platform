@@ -9,7 +9,7 @@ from allauth.socialaccount.signals import pre_social_login, social_account_updat
 from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth.models import User
 from django.utils import timezone
-from .models import MeetupEvent, EventActivityOption, CrushProfile, SpecialUserExperience
+from .models import MeetupEvent, EventActivityOption, CrushProfile, SpecialUserExperience, EmailPreference
 from .storage import initialize_user_storage
 import logging
 from datetime import datetime
@@ -46,6 +46,38 @@ def create_user_storage_folder(sender, instance, created, **kwargs):
     except Exception as e:
         # Don't fail user creation if storage initialization fails
         logger.error(f"Error creating storage folder for user {instance.id}: {str(e)}")
+
+
+@receiver(post_save, sender=User)
+def create_email_preference_for_user(sender, instance, created, **kwargs):
+    """
+    Create EmailPreference with default settings when a new user is created.
+
+    Default settings (GDPR compliant):
+    - All transactional/engagement emails: ON
+    - Marketing emails: OFF (requires explicit opt-in)
+
+    This ensures every user has email preferences from the start,
+    enabling proper unsubscribe functionality.
+    """
+    if not created:
+        return
+
+    try:
+        EmailPreference.objects.get_or_create(
+            user=instance,
+            defaults={
+                'email_profile_updates': True,
+                'email_event_reminders': True,
+                'email_new_connections': True,
+                'email_new_messages': True,
+                'email_marketing': False,  # OFF by default - GDPR compliance
+            }
+        )
+        logger.info(f"Created email preferences for new user {instance.id} ({instance.email})")
+    except Exception as e:
+        # Don't fail user creation if email preference creation fails
+        logger.error(f"Error creating email preferences for user {instance.id}: {str(e)}")
 
 
 @receiver(post_save, sender=MeetupEvent)

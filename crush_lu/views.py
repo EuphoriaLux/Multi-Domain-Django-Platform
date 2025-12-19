@@ -340,9 +340,99 @@ def data_deletion_status(request):
 @crush_login_required
 def account_settings(request):
     """
-    Account settings page with delete account option.
+    Account settings page with delete account option and email preferences.
     """
-    return render(request, 'crush_lu/account_settings.html')
+    from .models import EmailPreference
+
+    # Get or create email preferences for this user
+    email_prefs = EmailPreference.get_or_create_for_user(request.user)
+
+    return render(request, 'crush_lu/account_settings.html', {
+        'email_prefs': email_prefs,
+    })
+
+
+@crush_login_required
+@require_http_methods(["POST"])
+def update_email_preferences(request):
+    """
+    Handle email preference form submission.
+    """
+    from .models import EmailPreference
+
+    email_prefs = EmailPreference.get_or_create_for_user(request.user)
+
+    # Update preferences from form data
+    # Checkboxes: if checked, the name is in POST data; if unchecked, it's absent
+    email_prefs.unsubscribed_all = 'unsubscribed_all' in request.POST
+    email_prefs.email_profile_updates = 'email_profile_updates' in request.POST
+    email_prefs.email_event_reminders = 'email_event_reminders' in request.POST
+    email_prefs.email_new_connections = 'email_new_connections' in request.POST
+    email_prefs.email_new_messages = 'email_new_messages' in request.POST
+    email_prefs.email_marketing = 'email_marketing' in request.POST
+
+    email_prefs.save()
+
+    messages.success(request, 'Email preferences updated successfully!')
+    return redirect('crush_lu:account_settings')
+
+
+def email_unsubscribe(request, token):
+    """
+    One-click unsubscribe view.
+    Accessible without login - uses secure token for authentication.
+
+    GET: Show unsubscribe confirmation page
+    POST: Process unsubscribe action
+    """
+    from .models import EmailPreference
+
+    try:
+        email_prefs = EmailPreference.objects.get(unsubscribe_token=token)
+    except EmailPreference.DoesNotExist:
+        messages.error(request, 'Invalid unsubscribe link. Please check your email or contact support.')
+        return render(request, 'crush_lu/email_unsubscribe.html', {
+            'error': True,
+            'token': token,
+        })
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'unsubscribe_all':
+            # Unsubscribe from ALL emails
+            email_prefs.unsubscribed_all = True
+            email_prefs.save()
+            messages.success(request, 'You have been unsubscribed from all Crush.lu emails.')
+
+        elif action == 'unsubscribe_marketing':
+            # Only unsubscribe from marketing emails
+            email_prefs.email_marketing = False
+            email_prefs.save()
+            messages.success(request, 'You have been unsubscribed from marketing emails.')
+
+        elif action == 'resubscribe':
+            # Re-enable all emails
+            email_prefs.unsubscribed_all = False
+            email_prefs.email_profile_updates = True
+            email_prefs.email_event_reminders = True
+            email_prefs.email_new_connections = True
+            email_prefs.email_new_messages = True
+            email_prefs.save()
+            messages.success(request, 'You have been re-subscribed to Crush.lu emails.')
+
+        return render(request, 'crush_lu/email_unsubscribe.html', {
+            'success': True,
+            'email_prefs': email_prefs,
+            'token': token,
+        })
+
+    # GET request - show unsubscribe form
+    return render(request, 'crush_lu/email_unsubscribe.html', {
+        'email_prefs': email_prefs,
+        'token': token,
+        'user': email_prefs.user,
+    })
 
 
 @crush_login_required
