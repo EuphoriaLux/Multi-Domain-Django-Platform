@@ -127,6 +127,48 @@
                             </div>
                             <p class="text-muted small mb-3">Your main photo will be displayed first to other users.</p>
 
+                            <!-- Social Photo Import -->
+                            {% if social_photos %}
+                            <div class="social-import-compact mb-3">
+                                <small class="text-muted">
+                                    <i class="bi bi-cloud-download"></i> Import from:
+                                    {% for photo in social_photos %}
+                                        {% if photo.available %}
+                                        <span class="social-import-option">
+                                            {% if photo.provider == 'facebook' %}
+                                            <i class="fab fa-facebook text-primary"></i>
+                                            {% elif photo.provider == 'google' %}
+                                            <i class="fab fa-google text-danger"></i>
+                                            {% elif photo.provider == 'microsoft' %}
+                                            <i class="fab fa-microsoft text-info"></i>
+                                            {% endif %}
+                                            {{ photo.provider_display }}
+                                            <span class="import-slot-btns">
+                                                <button type="button" class="btn btn-link btn-xs p-0 import-social-photo-btn"
+                                                        data-account-id="{{ photo.account_id }}"
+                                                        data-slot="1" title="Import as Main">
+                                                    [Main]
+                                                </button>
+                                                <button type="button" class="btn btn-link btn-xs p-0 import-social-photo-btn"
+                                                        data-account-id="{{ photo.account_id }}"
+                                                        data-slot="2" title="Import as Photo 2">
+                                                    [#2]
+                                                </button>
+                                                <button type="button" class="btn btn-link btn-xs p-0 import-social-photo-btn"
+                                                        data-account-id="{{ photo.account_id }}"
+                                                        data-slot="3" title="Import as Photo 3">
+                                                    [#3]
+                                                </button>
+                                            </span>
+                                        </span>
+                                        {% if not forloop.last %}<span class="mx-2">|</span>{% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </small>
+                                <div id="social-photo-notification" class="mt-2" style="display: none;"></div>
+                            </div>
+                            {% endif %}
+
                             <div class="row g-3">
                                 <!-- Photo 1 (Main) -->
                                 <div class="col-md-4">
@@ -312,6 +354,63 @@
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
 }
+
+/* Social Photo Import Styles */
+.social-import-compact {
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(255, 107, 157, 0.05));
+    border: 1px dashed rgba(155, 89, 182, 0.3);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+}
+
+.social-import-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.social-import-option i {
+    font-size: 1rem;
+}
+
+.import-slot-btns {
+    margin-left: 0.25rem;
+}
+
+.import-slot-btns .btn-link {
+    font-size: 0.75rem;
+    color: #9B59B6;
+    text-decoration: none;
+    padding: 0 0.15rem;
+}
+
+.import-slot-btns .btn-link:hover {
+    color: #FF6B9D;
+    text-decoration: underline;
+}
+
+.import-slot-btns .btn-link:disabled {
+    color: #6c757d;
+    cursor: not-allowed;
+}
+
+#social-photo-notification {
+    font-size: 0.85rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+}
+
+#social-photo-notification.alert-success {
+    background-color: rgba(40, 167, 69, 0.1);
+    border: 1px solid rgba(40, 167, 69, 0.3);
+    color: #28a745;
+}
+
+#social-photo-notification.alert-danger {
+    background-color: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+    color: #dc3545;
+}
 </style>
 
 {% endblock %}
@@ -334,6 +433,102 @@ document.getElementById('editProfileForm').addEventListener('submit', function(e
     // if (!confirm('Are you sure you want to save these changes?')) {
     //     e.preventDefault();
     // }
+});
+
+// Social photo import functionality
+document.querySelectorAll('.import-social-photo-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+
+        const accountId = this.dataset.accountId;
+        const slot = parseInt(this.dataset.slot);
+        const originalText = this.textContent;
+        const notification = document.getElementById('social-photo-notification');
+
+        // Disable button and show loading
+        this.disabled = true;
+        this.textContent = '...';
+
+        // Get CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        fetch('{% url "crush_lu:import_social_photo" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                social_account_id: parseInt(accountId),
+                photo_slot: slot
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update photo preview
+                const previewId = 'preview-photo-' + slot;
+                const previewContainer = document.getElementById(previewId);
+
+                if (previewContainer) {
+                    // Check if it's a placeholder div or existing image
+                    if (previewContainer.classList.contains('photo-placeholder')) {
+                        // Replace placeholder with image
+                        const img = document.createElement('img');
+                        img.src = data.photo_url;
+                        img.alt = 'Photo ' + slot;
+                        img.className = 'photo-preview';
+                        img.id = previewId;
+                        previewContainer.parentNode.replaceChild(img, previewContainer);
+
+                        // Add "Current" badge if not present
+                        const container = img.closest('.photo-preview-container');
+                        if (container && !container.querySelector('.photo-badge')) {
+                            const badge = document.createElement('span');
+                            badge.className = 'photo-badge';
+                            badge.textContent = 'Imported';
+                            container.appendChild(badge);
+                        }
+                    } else {
+                        // Update existing image
+                        previewContainer.src = data.photo_url;
+
+                        // Update badge to "Imported"
+                        const badge = previewContainer.closest('.photo-preview-container')?.querySelector('.photo-badge');
+                        if (badge) {
+                            badge.textContent = 'Imported';
+                        }
+                    }
+                }
+
+                // Show success notification
+                notification.className = 'mt-2 alert-success';
+                notification.textContent = 'Photo imported successfully!';
+                notification.style.display = 'block';
+
+                // Hide notification after 3 seconds
+                setTimeout(() => {
+                    notification.style.display = 'none';
+                }, 3000);
+            } else {
+                // Show error notification
+                notification.className = 'mt-2 alert-danger';
+                notification.textContent = data.error || 'Failed to import photo';
+                notification.style.display = 'block';
+            }
+        })
+        .catch(error => {
+            console.error('Error importing photo:', error);
+            notification.className = 'mt-2 alert-danger';
+            notification.textContent = 'Network error. Please try again.';
+            notification.style.display = 'block';
+        })
+        .finally(() => {
+            // Re-enable button
+            this.disabled = false;
+            this.textContent = originalText;
+        });
+    });
 });
 </script>
 {% endblock %}

@@ -1,0 +1,336 @@
+"""
+Social Photos Module for Crush.lu
+
+This module provides helper functions for fetching, displaying, and importing
+profile photos from connected social accounts (Facebook, Google, Microsoft).
+
+Key features:
+- Get photo URLs from social account extra_data
+- Fetch Microsoft photos via Graph API (requires ProfilePhoto.Read.All permission)
+- Download and save social photos to any profile photo slot
+- Unified interface for all OAuth providers
+"""
+
+import logging
+import re
+import requests
+from django.core.files.base import ContentFile
+
+logger = logging.getLogger(__name__)
+
+# Provider display names
+PROVIDER_DISPLAY_NAMES = {
+    'facebook': 'Facebook',
+    'google': 'Google',
+    'microsoft': 'Microsoft',
+}
+
+
+def get_facebook_photo_url(social_account):
+    """
+    Get Facebook profile photo URL from social account.
+
+    Tries high-resolution first (720x720), falls back to standard picture.
+
+    Args:
+        social_account: SocialAccount instance for Facebook
+
+    Returns:
+        str: Photo URL or None if unavailable
+    """
+    extra_data = social_account.extra_data
+    facebook_id = extra_data.get('id')
+
+    # Try high-resolution photo first via Graph API
+    if facebook_id:
+        # Request 720x720 photo (maximum size for profile pictures)
+        url = f"https://graph.facebook.com/v24.0/{facebook_id}/picture?width=720&height=720&redirect=false"
+
+        # Try to get access token for authenticated request
+        try:
+            from allauth.socialaccount.models import SocialToken
+            token = SocialToken.objects.filter(account=social_account).first()
+            if token:
+                url += f"&access_token={token.token}"
+        except Exception:
+            pass
+
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+
+            if data.get('data', {}).get('url'):
+                return data['data']['url']
+        except Exception as e:
+            logger.warning(f"Could not get high-res Facebook photo: {str(e)}")
+
+    # Fallback to standard picture from extra_data
+    if 'picture' in extra_data:
+        if isinstance(extra_data['picture'], dict):
+            return extra_data['picture'].get('data', {}).get('url')
+        else:
+            return extra_data['picture']
+
+    return None
+
+
+def get_google_photo_url(social_account):
+    """
+    Get Google profile photo URL from social account.
+
+    Modifies the URL to request high-resolution version (720px).
+
+    Args:
+        social_account: SocialAccount instance for Google
+
+    Returns:
+        str: Photo URL or None if unavailable
+    """
+    extra_data = social_account.extra_data
+    picture_url = extra_data.get('picture')
+
+    if not picture_url:
+        return None
+
+    # Google photo URLs end with size parameter like =s96-c
+    # We can replace this with =s720-c for higher resolution
+    if '=s' in picture_url:
+        # Replace size parameter with 720
+        return re.sub(r'=s\d+(-c)?', '=s720-c', picture_url)
+    elif '?sz=' in picture_url:
+        # Alternative size parameter format
+        return re.sub(r'\?sz=\d+', '?sz=720', picture_url)
+
+    # Return original URL if no size parameter found
+    return picture_url
+
+
+def get_microsoft_photo_url(social_account):
+    """
+    Get Microsoft profile photo via Graph API.
+
+    Microsoft doesn't include photo URL in OAuth extra_data.
+    We need to fetch it using the stored access token.
+
+    Requires: ProfilePhoto.Read.All permission on Azure app registration.
+
+    Args:
+        social_account: SocialAccount instance for Microsoft
+
+    Returns:
+        str: Base64 data URL or None if unavailable
+    """
+    try:
+        from allauth.socialaccount.models import SocialToken
+
+        token = SocialToken.objects.filter(account=social_account).first()
+        if not token:
+            logger.warning(f"No access token found for Microsoft account {social_account.id}")
+            return None
+
+        # Fetch photo from Microsoft Graph API
+        response = requests.get(
+            'https://graph.microsoft.com/v1.0/me/photo/$value',
+            headers={'Authorization': f'Bearer {token.token}'},
+            timeout=10
+        )
+
+        if response.status_code == 200:
+            # Microsoft returns binary image data
+            # Convert to base64 data URL for display
+            import base64
+            content_type = response.headers.get('Content-Type', 'image/jpeg')
+            base64_data = base64.b64encode(response.content).decode('utf-8')
+            return f"data:{content_type};base64,{base64_data}"
+        elif response.status_code == 404:
+            # User has no profile photo set
+            logger.info(f"Microsoft user has no profile photo set")
+            return None
+        else:
+            logger.warning(f"Microsoft Graph API returned status {response.status_code}")
+            return None
+
+    except Exception as e:
+        logger.error(f"Error fetching Microsoft photo: {str(e)}")
+        return None
+
+
+def get_social_photo_url(social_account):
+    """
+    Get profile photo URL from any social account.
+
+    Unified interface for all OAuth providers.
+
+    Args:
+        social_account: SocialAccount instance
+
+    Returns:
+        str: Photo URL (or base64 data URL for Microsoft) or None
+    """
+    provider = social_account.provider
+
+    if provider == 'facebook':
+        return get_facebook_photo_url(social_account)
+    elif provider == 'google':
+        return get_google_photo_url(social_account)
+    elif provider == 'microsoft':
+        return get_microsoft_photo_url(social_account)
+    else:
+        logger.warning(f"Unknown provider: {provider}")
+        return None
+
+
+def get_all_social_photos(user):
+    """
+    Get all available social photos for a user.
+
+    Returns a list of dictionaries with photo information for each
+    connected social account.
+
+    Args:
+        user: Django User instance
+
+    Returns:
+        list: List of dicts with keys:
+            - provider: Provider name (facebook, google, microsoft)
+            - provider_display: Display name (Facebook, Google, Microsoft)
+            - photo_url: URL to photo or None
+            - available: Boolean indicating if photo is available
+            - account_id: SocialAccount ID for import API
+            - reason: Optional explanation if not available
+    """
+    from allauth.socialaccount.models import SocialAccount
+
+    # Only get Crush.lu supported providers
+    CRUSH_PROVIDERS = ['facebook', 'google', 'microsoft']
+
+    social_accounts = SocialAccount.objects.filter(
+        user=user,
+        provider__in=CRUSH_PROVIDERS
+    )
+
+    photos = []
+    for account in social_accounts:
+        photo_url = get_social_photo_url(account)
+
+        photo_info = {
+            'provider': account.provider,
+            'provider_display': PROVIDER_DISPLAY_NAMES.get(account.provider, account.provider.title()),
+            'photo_url': photo_url,
+            'available': photo_url is not None,
+            'account_id': account.id,
+        }
+
+        # Add reason if not available
+        if not photo_url:
+            if account.provider == 'microsoft':
+                photo_info['reason'] = 'No photo set or token expired'
+            else:
+                photo_info['reason'] = 'No photo available'
+
+        photos.append(photo_info)
+
+    return photos
+
+
+def download_and_save_social_photo(user, social_account, photo_slot):
+    """
+    Download photo from social account and save to specified profile photo slot.
+
+    Handles the different photo URL formats:
+    - Facebook/Google: Standard URLs
+    - Microsoft: Base64 data URLs (already fetched)
+
+    Args:
+        user: Django User instance
+        social_account: SocialAccount instance
+        photo_slot: Integer 1, 2, or 3 for photo_1, photo_2, photo_3
+
+    Returns:
+        dict: {'success': True, 'photo_url': '...'} or {'success': False, 'error': '...'}
+    """
+    from crush_lu.models import CrushProfile
+
+    # Validate photo_slot
+    if photo_slot not in [1, 2, 3]:
+        return {'success': False, 'error': 'Invalid photo slot. Must be 1, 2, or 3.'}
+
+    # Get user's profile
+    try:
+        profile = CrushProfile.objects.get(user=user)
+    except CrushProfile.DoesNotExist:
+        return {'success': False, 'error': 'No profile found. Please create a profile first.'}
+
+    # Get photo URL/data
+    photo_url = get_social_photo_url(social_account)
+    if not photo_url:
+        return {'success': False, 'error': f'No photo available from {social_account.provider}'}
+
+    try:
+        # Handle base64 data URLs (Microsoft)
+        if photo_url.startswith('data:'):
+            import base64
+            # Parse data URL: data:image/jpeg;base64,/9j/4AAQ...
+            header, data = photo_url.split(',', 1)
+            content_type = header.split(':')[1].split(';')[0]
+            image_data = base64.b64decode(data)
+
+            # Determine extension
+            ext = 'jpg'
+            if 'png' in content_type:
+                ext = 'png'
+            elif 'gif' in content_type:
+                ext = 'gif'
+            elif 'webp' in content_type:
+                ext = 'webp'
+        else:
+            # Download from URL (Facebook/Google)
+            response = requests.get(photo_url, timeout=15)
+            response.raise_for_status()
+
+            # Validate content type
+            content_type = response.headers.get('Content-Type', '')
+            if not content_type.startswith('image/'):
+                return {'success': False, 'error': 'URL did not return an image'}
+
+            image_data = response.content
+
+            # Determine extension
+            ext = 'jpg'
+            if 'png' in content_type:
+                ext = 'png'
+            elif 'gif' in content_type:
+                ext = 'gif'
+            elif 'webp' in content_type:
+                ext = 'webp'
+
+        # Save to appropriate photo field
+        filename = f'{social_account.provider}_{user.id}.{ext}'
+        photo_field = getattr(profile, f'photo_{photo_slot}')
+
+        # Delete existing photo if any
+        if photo_field:
+            try:
+                photo_field.delete(save=False)
+            except Exception:
+                pass
+
+        # Save new photo
+        photo_field.save(filename, ContentFile(image_data), save=False)
+        profile.save()
+
+        # Get the new photo URL for response
+        new_photo_url = photo_field.url if photo_field else None
+
+        logger.info(f"Saved {social_account.provider} photo to photo_{photo_slot} for user {user.id}")
+        return {'success': True, 'photo_url': new_photo_url}
+
+    except requests.exceptions.Timeout:
+        return {'success': False, 'error': 'Timeout downloading photo. Please try again.'}
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error downloading social photo: {str(e)}")
+        return {'success': False, 'error': 'Error downloading photo. Please try again.'}
+    except Exception as e:
+        logger.error(f"Unexpected error saving social photo: {str(e)}", exc_info=True)
+        return {'success': False, 'error': 'Unexpected error. Please try again.'}

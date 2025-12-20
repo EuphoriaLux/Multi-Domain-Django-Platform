@@ -258,3 +258,122 @@ def get_profile_progress(request):
 #     """
 #     messages.warning(request, 'Please use the profile review page to complete screening calls.')
 #     return redirect('crush_lu:coach_dashboard')
+
+
+# =============================================================================
+# SOCIAL PHOTO IMPORT API
+# =============================================================================
+
+@crush_login_required
+@require_http_methods(["GET"])
+def get_social_photos_api(request):
+    """
+    API endpoint to get all available social photos for current user.
+
+    GET /api/profile/social-photos/
+
+    Returns:
+        {
+            "photos": [
+                {
+                    "provider": "facebook",
+                    "provider_display": "Facebook",
+                    "photo_url": "https://...",
+                    "available": true,
+                    "account_id": 123
+                },
+                {
+                    "provider": "microsoft",
+                    "provider_display": "Microsoft",
+                    "photo_url": null,
+                    "available": false,
+                    "account_id": 456,
+                    "reason": "No photo set or token expired"
+                }
+            ]
+        }
+    """
+    from .social_photos import get_all_social_photos
+
+    try:
+        photos = get_all_social_photos(request.user)
+        return JsonResponse({'photos': photos})
+    except Exception as e:
+        logger.error(f"Error fetching social photos: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'error': 'Error fetching social photos'
+        }, status=500)
+
+
+@crush_login_required
+@require_http_methods(["POST"])
+def import_social_photo(request):
+    """
+    API endpoint to import a social account photo to a profile slot.
+
+    POST /api/profile/import-social-photo/
+    Body: {
+        "social_account_id": 123,
+        "photo_slot": 1  // 1, 2, or 3
+    }
+
+    Returns:
+        {"success": true, "photo_url": "https://..."}
+        {"success": false, "error": "No photo available for this provider"}
+    """
+    from allauth.socialaccount.models import SocialAccount
+    from .social_photos import download_and_save_social_photo
+
+    try:
+        data = json.loads(request.body)
+        social_account_id = data.get('social_account_id')
+        photo_slot = data.get('photo_slot')
+
+        # Validate input
+        if not social_account_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Missing social_account_id'
+            }, status=400)
+
+        if photo_slot not in [1, 2, 3]:
+            return JsonResponse({
+                'success': False,
+                'error': 'photo_slot must be 1, 2, or 3'
+            }, status=400)
+
+        # Get the social account and verify ownership
+        try:
+            social_account = SocialAccount.objects.get(
+                id=social_account_id,
+                user=request.user
+            )
+        except SocialAccount.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Social account not found'
+            }, status=404)
+
+        # Download and save the photo
+        result = download_and_save_social_photo(
+            request.user,
+            social_account,
+            photo_slot
+        )
+
+        if result['success']:
+            return JsonResponse(result)
+        else:
+            return JsonResponse(result, status=400)
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid JSON'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"Error importing social photo: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': 'Unexpected error. Please try again.'
+        }, status=500)

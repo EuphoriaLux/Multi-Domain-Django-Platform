@@ -313,6 +313,52 @@
                     <h3 class="card-title">Add Photos</h3>
                     <p class="card-subtitle">Upload at least one photo (optional but recommended)</p>
 
+                    <!-- Social Photo Import Section -->
+                    {% if social_photos %}
+                    <div class="social-import-section mb-4">
+                        <h6 class="mb-3"><i class="bi bi-cloud-download"></i> Import from Social Accounts</h6>
+                        <div class="social-photos-row">
+                            {% for photo in social_photos %}
+                                {% if photo.available %}
+                                <div class="social-photo-option">
+                                    <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }}">
+                                    <span class="provider-label">
+                                        {% if photo.provider == 'facebook' %}
+                                        <i class="fab fa-facebook text-primary"></i>
+                                        {% elif photo.provider == 'google' %}
+                                        <i class="fab fa-google text-danger"></i>
+                                        {% elif photo.provider == 'microsoft' %}
+                                        <i class="fab fa-microsoft text-info"></i>
+                                        {% endif %}
+                                    </span>
+                                    <div class="social-import-buttons mt-2">
+                                        <button type="button" class="btn btn-xs btn-crush-primary import-social-photo-btn"
+                                                data-account-id="{{ photo.account_id }}"
+                                                data-slot="1">
+                                            Main
+                                        </button>
+                                        <button type="button" class="btn btn-xs btn-outline-secondary import-social-photo-btn"
+                                                data-account-id="{{ photo.account_id }}"
+                                                data-slot="2">
+                                            #2
+                                        </button>
+                                        <button type="button" class="btn btn-xs btn-outline-secondary import-social-photo-btn"
+                                                data-account-id="{{ photo.account_id }}"
+                                                data-slot="3">
+                                            #3
+                                        </button>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        <div id="social-photo-notification" class="mt-2" style="display: none;"></div>
+                    </div>
+                    <div class="divider-with-text mb-4">
+                        <span>or upload your own</span>
+                    </div>
+                    {% endif %}
+
                     <div class="photo-upload-grid">
                         <!-- Photo 1 -->
                         <div class="photo-upload-box">
@@ -1058,6 +1104,81 @@
         flex-direction: column;
     }
 }
+
+/* Social Photo Import Styles */
+.social-import-section {
+    background: rgba(155, 89, 182, 0.05);
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px dashed #9B59B6;
+}
+
+.social-photos-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.social-photo-option {
+    position: relative;
+    text-align: center;
+    flex: 0 0 auto;
+}
+
+.social-photo-option img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+}
+
+.social-photo-option .provider-label {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: white;
+    padding: 4px 6px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.social-import-buttons {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+}
+
+.social-import-buttons .btn-xs {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+}
+
+.divider-with-text {
+    display: flex;
+    align-items: center;
+}
+
+.divider-with-text::before,
+.divider-with-text::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.divider-with-text span {
+    padding: 0 1rem;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+#social-photo-notification.alert {
+    font-size: 0.85rem;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0;
+}
 </style>
 
 {% endblock %}
@@ -1449,6 +1570,81 @@ profileForm.addEventListener('submit', function(e) {
             console.log('⏱️ Submit button re-enabled after timeout');
         }, 5000);
     }
+});
+
+// Social Photo Import Handler
+document.querySelectorAll('.import-social-photo-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+
+        const accountId = this.dataset.accountId;
+        const slot = parseInt(this.dataset.slot);
+        const button = this;
+        const originalHTML = button.innerHTML;
+
+        // Disable button and show loading
+        button.disabled = true;
+        button.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+
+        // Get CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        // Call import API
+        fetch('{% url "crush_lu:import_social_photo" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                social_account_id: parseInt(accountId),
+                photo_slot: slot
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            const notification = document.getElementById('social-photo-notification');
+            notification.style.display = 'block';
+
+            if (data.success) {
+                notification.className = 'mt-2 alert alert-success';
+                const slotName = slot === 1 ? 'Main Photo' : 'Photo ' + slot;
+                notification.innerHTML = '<i class="bi bi-check-circle me-1"></i>Imported to ' + slotName + '!';
+
+                // Update the photo preview
+                const previewId = 'preview' + slot;
+                const preview = document.getElementById(previewId);
+                if (preview && data.photo_url) {
+                    preview.classList.add('has-image');
+                    preview.innerHTML = '<img src="' + data.photo_url + '" alt="Photo ' + slot + '">';
+
+                    // Show remove button
+                    const removeBtn = preview.closest('.photo-upload-box').querySelector('.remove-photo');
+                    if (removeBtn) {
+                        removeBtn.classList.remove('d-none');
+                    }
+                }
+            } else {
+                notification.className = 'mt-2 alert alert-danger';
+                notification.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>' + (data.error || 'Error importing photo');
+            }
+
+            // Hide notification after 4 seconds
+            setTimeout(function() {
+                notification.style.display = 'none';
+            }, 4000);
+        })
+        .catch(error => {
+            const notification = document.getElementById('social-photo-notification');
+            notification.style.display = 'block';
+            notification.className = 'mt-2 alert alert-danger';
+            notification.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>Network error. Please try again.';
+        })
+        .finally(function() {
+            button.disabled = false;
+            button.innerHTML = originalHTML;
+        });
+    });
 });
 </script>
 {% endblock %}

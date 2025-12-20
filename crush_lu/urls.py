@@ -75,6 +75,10 @@ urlpatterns = [
     path('api/profile/complete/', views_profile.complete_profile_submission, name='complete_profile_submission'),
     path('api/profile/progress/', views_profile.get_profile_progress, name='get_profile_progress'),
 
+    # Social photo import API
+    path('api/profile/social-photos/', views_profile.get_social_photos_api, name='get_social_photos_api'),
+    path('api/profile/import-social-photo/', views_profile.import_social_photo, name='import_social_photo'),
+
     # User dashboard
     path('dashboard/', views.dashboard, name='dashboard'),
     path('profile/edit/', views.edit_profile, name='edit_profile'),

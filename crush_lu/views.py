@@ -344,6 +344,7 @@ def account_settings(request):
     and linked social accounts management.
     """
     from .models import EmailPreference
+    from .social_photos import get_all_social_photos
 
     # Get or create email preferences for this user
     email_prefs = EmailPreference.get_or_create_for_user(request.user)
@@ -362,12 +363,16 @@ def account_settings(request):
         provider__in=CRUSH_SOCIAL_PROVIDERS
     )
 
+    # Get social photos for import functionality
+    social_photos = get_all_social_photos(request.user)
+
     return render(request, 'crush_lu/account_settings.html', {
         'email_prefs': email_prefs,
         'google_connected': 'google' in connected_providers,
         'facebook_connected': 'facebook' in connected_providers,
         'microsoft_connected': 'microsoft' in connected_providers,
         'crush_social_accounts': crush_social_accounts,  # Filtered list for display
+        'social_photos': social_photos,  # Social photos for import
     })
 
 
@@ -734,9 +739,11 @@ def create_profile(request):
 
             # When validation fails, show Step 4 (review step) so user can see errors
             # and resubmit from the review screen
+            from .social_photos import get_all_social_photos
             context = {
                 'form': form,
                 'current_step': 'step3',  # Show review step where submit button is
+                'social_photos': get_all_social_photos(request.user),
             }
             return render(request, 'crush_lu/create_profile.html', context)
 
@@ -754,8 +761,12 @@ def create_profile(request):
             return redirect('crush_lu:edit_profile')
     except CrushProfile.DoesNotExist:
         # No profile yet - show creation form
+        from .social_photos import get_all_social_photos
         form = CrushProfileForm()
-        return render(request, 'crush_lu/create_profile.html', {'form': form})
+        return render(request, 'crush_lu/create_profile.html', {
+            'form': form,
+            'social_photos': get_all_social_photos(request.user),
+        })
 
 
 @crush_login_required
@@ -772,6 +783,8 @@ def edit_profile_simple(request):
     if not profile.is_approved:
         messages.warning(request, 'Your profile must be approved before using quick edit.')
         return redirect('crush_lu:edit_profile')
+
+    from .social_photos import get_all_social_photos
 
     if request.method == 'POST':
         form = CrushProfileForm(request.POST, request.FILES, instance=profile)
@@ -792,6 +805,7 @@ def edit_profile_simple(request):
     context = {
         'form': form,
         'profile': profile,
+        'social_photos': get_all_social_photos(request.user),
     }
     return render(request, 'crush_lu/edit_profile_simple.html', context)
 
