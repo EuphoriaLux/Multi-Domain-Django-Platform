@@ -31,11 +31,11 @@ def _get_or_create_profile(user):
 
     extra_data = social_account.extra_data
     email = user.email or extra_data.get('mail') or extra_data.get('userPrincipalName', '')
-    microsoft_id = extra_data.get('id', '')
-    microsoft_tenant_id = extra_data.get('tid', '')
-    job_title = extra_data.get('jobTitle', '')
-    department = extra_data.get('department', '')
-    office_location = extra_data.get('officeLocation', '')
+    microsoft_id = extra_data.get('id') or ''
+    microsoft_tenant_id = extra_data.get('tid') or ''
+    job_title = extra_data.get('jobTitle') or ''
+    department = extra_data.get('department') or ''
+    office_location = extra_data.get('officeLocation') or ''
 
     # Match to company
     company = None
