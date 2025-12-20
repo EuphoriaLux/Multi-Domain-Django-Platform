@@ -1,0 +1,37 @@
+{% extends "admin/base.html" %}
+{% load i18n %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('VinsDelux Management') }}{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    /* VinsDelux Admin Branding */
+    #header {
+        background: linear-gradient(135deg, #722F37, #8B4513) !important;
+    }
+    #branding h1, #branding h1 a:link, #branding h1 a:visited {
+        color: white !important;
+    }
+    #user-tools {
+        background: transparent;
+    }
+    #user-tools a {
+        color: rgba(255,255,255,0.9) !important;
+    }
+    #user-tools a:hover {
+        color: white !important;
+    }
+</style>
+{% endblock %}
+
+{% block branding %}
+<div id="site-name"><a href="{% url 'vinsdelux_admin:index' %}">{{ site_header|default:_('VinsDelux Management') }}</a></div>
+{% if user.is_anonymous %}
+  {% include "admin/color_theme_toggle.html" %}
+{% endif %}
+{% endblock %}
+
+{% block nav-global %}
+{% include "admin/includes/platform_nav.html" %}
+{% endblock %}

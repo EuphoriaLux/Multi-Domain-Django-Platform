@@ -1,0 +1,157 @@
+{% comment %}
+Global Admin Navigation Component
+
+This template provides navigation between different platform admin panels.
+Only visible to superusers.
+
+Context variables (from admin_navigation context processor):
+- admin_platforms: List of platform navigation items with URLs
+- current_admin_platform: Key of the currently active platform
+- show_admin_navigation: Boolean indicating if nav should be shown
+{% endcomment %}
+
+{% if show_admin_navigation and admin_platforms %}
+<style>
+    /* Platform Navigation Bar Styles */
+    .platform-nav {
+        background: linear-gradient(135deg, #2c3e50, #1a252f);
+        padding: 8px 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .platform-nav-label {
+        color: rgba(255,255,255,0.6);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-right: 8px;
+        font-weight: 500;
+    }
+
+    .platform-nav-links {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .platform-nav-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        background: rgba(255,255,255,0.08);
+        color: rgba(255,255,255,0.85) !important;
+        text-decoration: none !important;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+    }
+
+    .platform-nav-link:hover {
+        background: rgba(255,255,255,0.15);
+        color: white !important;
+        transform: translateY(-1px);
+        text-decoration: none !important;
+    }
+
+    .platform-nav-link.current {
+        background: var(--primary, #417690);
+        color: white !important;
+        border-color: rgba(255,255,255,0.2);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .platform-nav-link.current:hover {
+        background: var(--primary, #417690);
+        transform: none;
+    }
+
+    .platform-nav-icon {
+        font-size: 14px;
+    }
+
+    /* Platform-specific colors */
+    .platform-nav-link[data-platform="crush"] {
+        --platform-color: #9B59B6;
+    }
+    .platform-nav-link[data-platform="crush"].current {
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    }
+
+    .platform-nav-link[data-platform="powerup"] {
+        --platform-color: #f39c12;
+    }
+    .platform-nav-link[data-platform="powerup"].current {
+        background: linear-gradient(135deg, #f39c12, #e67e22);
+    }
+
+    .platform-nav-link[data-platform="vinsdelux"] {
+        --platform-color: #722F37;
+    }
+    .platform-nav-link[data-platform="vinsdelux"].current {
+        background: linear-gradient(135deg, #722F37, #8B4513);
+    }
+
+    .platform-nav-link[data-platform="delegation"] {
+        --platform-color: #3498db;
+    }
+    .platform-nav-link[data-platform="delegation"].current {
+        background: linear-gradient(135deg, #3498db, #2980b9);
+    }
+
+    .platform-nav-link[data-platform="default"] {
+        --platform-color: #417690;
+    }
+    .platform-nav-link[data-platform="default"].current {
+        background: #417690;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .platform-nav {
+            padding: 6px 10px;
+        }
+        .platform-nav-label {
+            display: none;
+        }
+        .platform-nav-link {
+            padding: 5px 10px;
+            font-size: 11px;
+        }
+        .platform-nav-link span:not(.platform-nav-icon) {
+            display: none;
+        }
+        .platform-nav-icon {
+            font-size: 16px;
+        }
+    }
+
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+        .platform-nav {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+        }
+    }
+</style>
+
+<nav class="platform-nav" aria-label="Platform Administration">
+    <span class="platform-nav-label">Platforms:</span>
+    <div class="platform-nav-links">
+        {% for platform in admin_platforms %}
+        <a href="{{ platform.url }}"
+           class="platform-nav-link{% if platform.is_current %} current{% endif %}"
+           data-platform="{{ platform.key }}"
+           title="{{ platform.description }}">
+            <span class="platform-nav-icon">{{ platform.icon }}</span>
+            <span>{{ platform.name }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</nav>
+{% endif %}
