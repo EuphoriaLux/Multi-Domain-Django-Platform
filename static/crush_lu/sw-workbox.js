@@ -1,6 +1,6 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v15 - Fixed hoisting bug + cache cleanup filter
+// Version: v16 - Icon cache fix + SW revalidation
 
 // ============================================================================
 // CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
@@ -50,7 +50,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v15-hoisting-fix';
+  const CACHE_VERSION = 'crush-v16-icon-cache-fix';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -328,7 +328,27 @@ if (workbox) {
 
   console.log('[Workbox] Static assets caching registered');
 
-  // Strategy 6: Cache First for images (long cache)
+  // Strategy 6a: Icons - StaleWhileRevalidate (update quickly, don't pin for 30 days)
+  // MUST be registered BEFORE the general image CacheFirst route
+  workbox.routing.registerRoute(
+    ({ url }) => url.pathname.startsWith('/static/crush_lu/icons/'),
+    new workbox.strategies.StaleWhileRevalidate({
+      cacheName: 'crush-icons',
+      plugins: [
+        new workbox.expiration.ExpirationPlugin({
+          maxEntries: 60,
+          maxAgeSeconds: 24 * 60 * 60, // 1 day - allows icons to update quickly
+        }),
+        new workbox.cacheableResponse.CacheableResponsePlugin({
+          statuses: [200],
+        }),
+      ],
+    })
+  );
+
+  console.log('[Workbox] Icon caching strategy registered (StaleWhileRevalidate)');
+
+  // Strategy 6b: Cache First for other images (long cache)
   workbox.routing.registerRoute(
     ({ request }) => request.destination === 'image',
     new workbox.strategies.CacheFirst({
@@ -503,7 +523,7 @@ if (workbox) {
     }
   });
 
-  console.log('[Workbox] Service worker v15 (hoisting fix) configured successfully!');
+  console.log('[Workbox] Service worker v16 (icon cache fix) configured successfully!');
 
 } else {
   console.error('[Workbox] Failed to load Workbox from local bundle!');

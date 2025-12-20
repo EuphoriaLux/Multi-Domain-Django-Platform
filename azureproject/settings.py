@@ -109,7 +109,9 @@ ROOT_URLCONF = 'azureproject.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],  # Empty - all templates in app-specific folders (core, entreprinder, crush_lu, etc.)
+        'DIRS': [
+            BASE_DIR / 'core' / 'templates',  # Core templates first (for admin overrides)
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -122,6 +124,7 @@ TEMPLATES = [
                 'crush_lu.context_processors.social_preview_context',  # Crush.lu social preview (PR #47)
                 'azureproject.content_images_context.content_images_context',  # Content images (Azure Blob)
                 'azureproject.analytics_context.analytics_ids',  # Domain-specific GA4/FB Pixel IDs
+                'azureproject.context_processors.admin_navigation',  # Global admin panel navigation
             ],
             # 'builtins': [ # Simplify builtins to only include allauth account tags
             #     'allauth.account.templatetags.account',
@@ -196,6 +199,9 @@ SESSION_COOKIE_SECURE = False  # Set to True in production (HTTPS only)
 SESSION_COOKIE_SAMESITE = 'Lax'  # CSRF protection while allowing navigation
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep session alive after browser close (critical for PWA)
 SESSION_REMEMBER_ME = True
+
+# PWA Manifest version - bump when updating icons to force cache refresh
+PWA_MANIFEST_VERSION = "v16"
 
 
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"

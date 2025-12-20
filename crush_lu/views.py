@@ -2785,14 +2785,11 @@ def service_worker_view(request):
         # Return with correct MIME type
         response = HttpResponse(sw_content, content_type='application/javascript')
 
-        # Cache headers: disable in dev, enable in production
-        # Service workers should be cached in production (versioning handled by Workbox)
-        if settings.DEBUG:
-            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-            response['Pragma'] = 'no-cache'
-            response['Expires'] = '0'
-        else:
-            response['Cache-Control'] = 'public, max-age=31536000, immutable'
+        # IMPORTANT: Never cache SW script as immutable - it must be revalidated
+        # so updates propagate to users. The SW itself handles internal caching.
+        response['Cache-Control'] = 'no-cache, max-age=0, must-revalidate'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
 
         return response
     except FileNotFoundError:
@@ -2801,11 +2798,19 @@ def service_worker_view(request):
 
 def manifest_view(request):
     """
-    Serve the PWA manifest.json with correct static URLs
-    This ensures icons work correctly with WhiteNoise hashed filenames in production
+    Serve the PWA manifest.json with correct static URLs.
+    Adds a version query param to force icon refresh on Android/Chrome.
     """
     from django.http import JsonResponse
     from django.templatetags.static import static
+    from django.conf import settings
+
+    # Get manifest version for cache busting
+    MANIFEST_VERSION = getattr(settings, "PWA_MANIFEST_VERSION", "v1")
+
+    def s(path: str) -> str:
+        """Return static URL with version query param for cache busting."""
+        return f"{static(path)}?v={MANIFEST_VERSION}"
 
     manifest = {
         "name": "Crush.lu - Privacy-First Dating in Luxembourg",
@@ -2814,55 +2819,55 @@ def manifest_view(request):
         "id": "/?source=pwa",
         "start_url": "/?source=pwa",
         "display": "standalone",
-        "background_color": "#ffffff",
+        "background_color": "#9B59B6",
         "theme_color": "#9B59B6",
         "orientation": "portrait-primary",
         "scope": "/",
         "icons": [
             {
-                "src": static('crush_lu/icons/android-launchericon-48-48.png'),
+                "src": s('crush_lu/icons/android-launchericon-48-48.png'),
                 "sizes": "48x48",
                 "type": "image/png",
                 "purpose": "any"
             },
             {
-                "src": static('crush_lu/icons/android-launchericon-72-72.png'),
+                "src": s('crush_lu/icons/android-launchericon-72-72.png'),
                 "sizes": "72x72",
                 "type": "image/png",
                 "purpose": "any"
             },
             {
-                "src": static('crush_lu/icons/android-launchericon-96-96.png'),
+                "src": s('crush_lu/icons/android-launchericon-96-96.png'),
                 "sizes": "96x96",
                 "type": "image/png",
                 "purpose": "any"
             },
             {
-                "src": static('crush_lu/icons/android-launchericon-144-144.png'),
+                "src": s('crush_lu/icons/android-launchericon-144-144.png'),
                 "sizes": "144x144",
                 "type": "image/png",
                 "purpose": "any"
             },
             {
-                "src": static('crush_lu/icons/android-launchericon-192-192.png'),
+                "src": s('crush_lu/icons/android-launchericon-192-192.png'),
                 "sizes": "192x192",
                 "type": "image/png",
                 "purpose": "any"
             },
             {
-                "src": static('crush_lu/icons/android-launchericon-512-512.png'),
+                "src": s('crush_lu/icons/android-launchericon-512-512.png'),
                 "sizes": "512x512",
                 "type": "image/png",
                 "purpose": "any"
             },
             {
-                "src": static('crush_lu/icons/android-launchericon-192-192-maskable.png'),
+                "src": s('crush_lu/icons/android-launchericon-192-192-maskable.png'),
                 "sizes": "192x192",
                 "type": "image/png",
                 "purpose": "maskable"
             },
             {
-                "src": static('crush_lu/icons/android-launchericon-512-512-maskable.png'),
+                "src": s('crush_lu/icons/android-launchericon-512-512-maskable.png'),
                 "sizes": "512x512",
                 "type": "image/png",
                 "purpose": "maskable"
@@ -2870,14 +2875,14 @@ def manifest_view(request):
         ],
         "screenshots": [
             {
-                "src": static('crush_lu/icons/android-launchericon-512-512.png'),
+                "src": s('crush_lu/icons/android-launchericon-512-512.png'),
                 "sizes": "512x512",
                 "type": "image/png",
                 "form_factor": "narrow",
                 "label": "Crush.lu Mobile View"
             },
             {
-                "src": static('crush_lu/icons/android-launchericon-512-512.png'),
+                "src": s('crush_lu/icons/android-launchericon-512-512.png'),
                 "sizes": "512x512",
                 "type": "image/png",
                 "form_factor": "wide",
@@ -2895,7 +2900,7 @@ def manifest_view(request):
                 "url": "/events/",
                 "icons": [
                     {
-                        "src": static('crush_lu/icons/shortcut-events.png'),
+                        "src": s('crush_lu/icons/shortcut-events.png'),
                         "sizes": "96x96"
                     }
                 ]
@@ -2907,7 +2912,7 @@ def manifest_view(request):
                 "url": "/dashboard/",
                 "icons": [
                     {
-                        "src": static('crush_lu/icons/shortcut-dashboard.png'),
+                        "src": s('crush_lu/icons/shortcut-dashboard.png'),
                         "sizes": "96x96"
                     }
                 ]
@@ -2919,7 +2924,7 @@ def manifest_view(request):
                 "url": "/connections/",
                 "icons": [
                     {
-                        "src": static('crush_lu/icons/shortcut-connections.png'),
+                        "src": s('crush_lu/icons/shortcut-connections.png'),
                         "sizes": "96x96"
                     }
                 ]
@@ -2937,15 +2942,15 @@ def manifest_view(request):
 @login_required
 def pwa_debug_view(request):
     """
-    Staff-only PWA debug page showing service worker state, cache info, and diagnostics.
+    Superuser-only PWA debug page showing service worker state, cache info, and diagnostics.
     Useful for debugging PWA issues in production.
     """
-    # Only allow staff/superusers
-    if not request.user.is_staff:
+    # Only allow Django superusers
+    if not request.user.is_superuser:
         from django.http import HttpResponseForbidden
-        return HttpResponseForbidden('Staff access required')
+        return HttpResponseForbidden('Superuser access required')
 
     return render(request, 'crush_lu/pwa_debug.html', {
-        'sw_version': 'crush-v15-hoisting-fix',  # Keep in sync with sw-workbox.js
+        'sw_version': 'crush-v16-icon-cache-fix',  # Keep in sync with sw-workbox.js
     })
 
