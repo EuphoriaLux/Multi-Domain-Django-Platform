@@ -5,7 +5,7 @@ Routes authentication to appropriate handlers based on request domain.
 """
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.account.adapter import DefaultAccountAdapter
-from allauth.exceptions import ImmediateHttpResponse
+from allauth.core.exceptions import ImmediateHttpResponse
 from django.urls import reverse
 from django.shortcuts import render
 import logging
