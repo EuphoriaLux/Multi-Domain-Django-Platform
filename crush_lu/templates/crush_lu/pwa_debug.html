@@ -1,0 +1,552 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+
+{% block title %}PWA Debug - Crush.lu{% endblock %}
+
+{% block extra_css %}
+<style>
+    .debug-container {
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+
+    .debug-header {
+        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+    }
+
+    .debug-header h1 {
+        margin: 0;
+        font-size: 1.75rem;
+    }
+
+    .debug-header p {
+        margin: 0.5rem 0 0;
+        opacity: 0.9;
+    }
+
+    .debug-section {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .debug-section h2 {
+        color: #9B59B6;
+        font-size: 1.25rem;
+        margin: 0 0 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .debug-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .debug-row:last-child {
+        border-bottom: none;
+    }
+
+    .debug-label {
+        font-weight: 500;
+        color: #666;
+    }
+
+    .debug-value {
+        font-family: monospace;
+        background: #f5f5f5;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .status-active {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .status-waiting {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .status-installing {
+        background: #cce5ff;
+        color: #004085;
+    }
+
+    .status-none {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .status-online {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .status-offline {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .cache-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .cache-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem;
+        background: #f9f9f9;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+        font-family: monospace;
+        font-size: 0.85rem;
+    }
+
+    .cache-item .cache-size {
+        color: #666;
+        font-size: 0.8rem;
+    }
+
+    .btn-action {
+        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-action:hover {
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
+    }
+
+    .btn-danger {
+        background: #dc3545;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .loading {
+        opacity: 0.5;
+        pointer-events: none;
+    }
+
+    #sw-log {
+        background: #1e1e1e;
+        color: #d4d4d4;
+        font-family: monospace;
+        font-size: 0.8rem;
+        padding: 1rem;
+        border-radius: 8px;
+        max-height: 200px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+
+    .log-entry {
+        margin-bottom: 0.25rem;
+    }
+
+    .log-time {
+        color: #6a9955;
+    }
+
+    .log-message {
+        color: #dcdcaa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="debug-container">
+    <div class="debug-header">
+        <h1>PWA Debug Panel</h1>
+        <p>Staff-only diagnostics for Crush.lu Progressive Web App</p>
+    </div>
+
+    <!-- Service Worker Status -->
+    <div class="debug-section">
+        <h2>Service Worker</h2>
+        <div class="debug-row">
+            <span class="debug-label">Status</span>
+            <span id="sw-status" class="status-badge status-none">Checking...</span>
+        </div>
+        <div class="debug-row">
+            <span class="debug-label">Expected Version</span>
+            <span class="debug-value">{{ sw_version }}</span>
+        </div>
+        <div class="debug-row">
+            <span class="debug-label">Scope</span>
+            <span id="sw-scope" class="debug-value">-</span>
+        </div>
+        <div class="debug-row">
+            <span class="debug-label">Script URL</span>
+            <span id="sw-script" class="debug-value">-</span>
+        </div>
+        <div class="debug-row">
+            <span class="debug-label">Actions</span>
+            <div class="action-buttons">
+                <button class="btn-action" onclick="checkForUpdate()">Check for Update</button>
+                <button class="btn-action" onclick="forceSkipWaiting()">Force Activate Waiting</button>
+                <button class="btn-action btn-danger" onclick="unregisterSW()">Unregister SW</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Network Status -->
+    <div class="debug-section">
+        <h2>Network Status</h2>
+        <div class="debug-row">
+            <span class="debug-label">Online</span>
+            <span id="network-status" class="status-badge status-none">Checking...</span>
+        </div>
+        <div class="debug-row">
+            <span class="debug-label">Connection Type</span>
+            <span id="connection-type" class="debug-value">-</span>
+        </div>
+        <div class="debug-row">
+            <span class="debug-label">Effective Type</span>
+            <span id="effective-type" class="debug-value">-</span>
+        </div>
+    </div>
+
+    <!-- Display Mode -->
+    <div class="debug-section">
+        <h2>Display Mode</h2>
+        <div class="debug-row">
+            <span class="debug-label">Current Mode</span>
+            <span id="display-mode" class="debug-value">-</span>
+        </div>
+        <div class="debug-row">
+            <span class="debug-label">Standalone</span>
+            <span id="is-standalone" class="status-badge status-none">-</span>
+        </div>
+        <div class="debug-row">
+            <span class="debug-label">PWA Installed</span>
+            <span id="pwa-installed" class="status-badge status-none">-</span>
+        </div>
+    </div>
+
+    <!-- Cache Storage -->
+    <div class="debug-section">
+        <h2>Cache Storage</h2>
+        <div class="debug-row">
+            <span class="debug-label">Cache Count</span>
+            <span id="cache-count" class="debug-value">0</span>
+        </div>
+        <ul id="cache-list" class="cache-list">
+            <li class="cache-item">Loading...</li>
+        </ul>
+        <div class="debug-row" style="margin-top: 1rem;">
+            <span class="debug-label">Actions</span>
+            <div class="action-buttons">
+                <button class="btn-action" onclick="refreshCacheList()">Refresh List</button>
+                <button class="btn-action btn-danger" onclick="clearAllCaches()">Clear All Caches</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Console Log -->
+    <div class="debug-section">
+        <h2>Service Worker Log</h2>
+        <div id="sw-log">Waiting for service worker messages...</div>
+        <div class="debug-row" style="margin-top: 1rem;">
+            <span class="debug-label">Actions</span>
+            <button class="btn-action" onclick="clearLog()">Clear Log</button>
+        </div>
+    </div>
+
+    <!-- System Info -->
+    <div class="debug-section">
+        <h2>System Info</h2>
+        <div class="debug-row">
+            <span class="debug-label">User Agent</span>
+            <span id="user-agent" class="debug-value" style="font-size: 0.75rem; word-break: break-all;">-</span>
+        </div>
+        <div class="debug-row">
+            <span class="debug-label">Platform</span>
+            <span id="platform" class="debug-value">-</span>
+        </div>
+        <div class="debug-row">
+            <span class="debug-label">Page Load Time</span>
+            <span id="load-time" class="debug-value">-</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize debug panel
+    document.addEventListener('DOMContentLoaded', async function() {
+        updateSWStatus();
+        updateNetworkStatus();
+        updateDisplayMode();
+        await refreshCacheList();
+        updateSystemInfo();
+        setupLogListener();
+
+        // Auto-refresh network status
+        window.addEventListener('online', updateNetworkStatus);
+        window.addEventListener('offline', updateNetworkStatus);
+    });
+
+    // Service Worker Status
+    async function updateSWStatus() {
+        const statusEl = document.getElementById('sw-status');
+        const scopeEl = document.getElementById('sw-scope');
+        const scriptEl = document.getElementById('sw-script');
+
+        if (!('serviceWorker' in navigator)) {
+            statusEl.textContent = 'Not Supported';
+            statusEl.className = 'status-badge status-none';
+            return;
+        }
+
+        try {
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (!registration) {
+                statusEl.textContent = 'Not Registered';
+                statusEl.className = 'status-badge status-none';
+                return;
+            }
+
+            scopeEl.textContent = registration.scope;
+            scriptEl.textContent = registration.active?.scriptURL || '-';
+
+            if (registration.waiting) {
+                statusEl.textContent = 'Waiting (update available)';
+                statusEl.className = 'status-badge status-waiting';
+            } else if (registration.installing) {
+                statusEl.textContent = 'Installing...';
+                statusEl.className = 'status-badge status-installing';
+            } else if (registration.active) {
+                statusEl.textContent = 'Active';
+                statusEl.className = 'status-badge status-active';
+            } else {
+                statusEl.textContent = 'Unknown';
+                statusEl.className = 'status-badge status-none';
+            }
+        } catch (error) {
+            statusEl.textContent = 'Error: ' + error.message;
+            statusEl.className = 'status-badge status-none';
+        }
+    }
+
+    // Network Status
+    function updateNetworkStatus() {
+        const statusEl = document.getElementById('network-status');
+        const typeEl = document.getElementById('connection-type');
+        const effectiveEl = document.getElementById('effective-type');
+
+        if (navigator.onLine) {
+            statusEl.textContent = 'Online';
+            statusEl.className = 'status-badge status-online';
+        } else {
+            statusEl.textContent = 'Offline';
+            statusEl.className = 'status-badge status-offline';
+        }
+
+        const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (conn) {
+            typeEl.textContent = conn.type || 'Unknown';
+            effectiveEl.textContent = conn.effectiveType || 'Unknown';
+        } else {
+            typeEl.textContent = 'Not Available';
+            effectiveEl.textContent = 'Not Available';
+        }
+    }
+
+    // Display Mode
+    function updateDisplayMode() {
+        const modeEl = document.getElementById('display-mode');
+        const standaloneEl = document.getElementById('is-standalone');
+        const installedEl = document.getElementById('pwa-installed');
+
+        const modes = ['standalone', 'fullscreen', 'minimal-ui', 'browser'];
+        let currentMode = 'browser';
+
+        for (const mode of modes) {
+            if (window.matchMedia(`(display-mode: ${mode})`).matches) {
+                currentMode = mode;
+                break;
+            }
+        }
+
+        modeEl.textContent = currentMode;
+
+        const isStandalone = currentMode === 'standalone' || currentMode === 'fullscreen' || navigator.standalone;
+        standaloneEl.textContent = isStandalone ? 'Yes' : 'No';
+        standaloneEl.className = 'status-badge ' + (isStandalone ? 'status-online' : 'status-none');
+
+        // Check if CrushPWA is available
+        const isPWA = window.CrushPWA?.isStandalone || isStandalone;
+        installedEl.textContent = isPWA ? 'Yes' : 'No';
+        installedEl.className = 'status-badge ' + (isPWA ? 'status-online' : 'status-none');
+    }
+
+    // Cache Storage
+    async function refreshCacheList() {
+        const listEl = document.getElementById('cache-list');
+        const countEl = document.getElementById('cache-count');
+
+        if (!('caches' in window)) {
+            listEl.innerHTML = '<li class="cache-item">Cache API not supported</li>';
+            return;
+        }
+
+        try {
+            const cacheNames = await caches.keys();
+            countEl.textContent = cacheNames.length;
+
+            if (cacheNames.length === 0) {
+                listEl.innerHTML = '<li class="cache-item">No caches found</li>';
+                return;
+            }
+
+            let html = '';
+            for (const name of cacheNames) {
+                const cache = await caches.open(name);
+                const keys = await cache.keys();
+                html += `<li class="cache-item">
+                    <span>${name}</span>
+                    <span class="cache-size">${keys.length} entries</span>
+                </li>`;
+            }
+            listEl.innerHTML = html;
+        } catch (error) {
+            listEl.innerHTML = `<li class="cache-item">Error: ${error.message}</li>`;
+        }
+    }
+
+    // System Info
+    function updateSystemInfo() {
+        document.getElementById('user-agent').textContent = navigator.userAgent;
+        document.getElementById('platform').textContent = navigator.platform || 'Unknown';
+
+        const perf = performance.getEntriesByType('navigation')[0];
+        if (perf) {
+            const loadTime = Math.round(perf.loadEventEnd - perf.startTime);
+            document.getElementById('load-time').textContent = loadTime + 'ms';
+        }
+    }
+
+    // Log Listener
+    function setupLogListener() {
+        if (navigator.serviceWorker) {
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                addLog('SW Message: ' + JSON.stringify(event.data));
+            });
+        }
+    }
+
+    function addLog(message) {
+        const logEl = document.getElementById('sw-log');
+        const time = new Date().toLocaleTimeString();
+        logEl.innerHTML += `<div class="log-entry"><span class="log-time">[${time}]</span> <span class="log-message">${message}</span></div>`;
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function clearLog() {
+        document.getElementById('sw-log').innerHTML = 'Log cleared.';
+    }
+
+    // Actions
+    async function checkForUpdate() {
+        addLog('Checking for updates...');
+        try {
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (registration) {
+                await registration.update();
+                addLog('Update check complete.');
+                setTimeout(updateSWStatus, 1000);
+            }
+        } catch (error) {
+            addLog('Update check failed: ' + error.message);
+        }
+    }
+
+    async function forceSkipWaiting() {
+        addLog('Forcing skip waiting...');
+        try {
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (registration?.waiting) {
+                registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                addLog('Skip waiting message sent.');
+            } else {
+                addLog('No waiting worker found.');
+            }
+        } catch (error) {
+            addLog('Skip waiting failed: ' + error.message);
+        }
+    }
+
+    async function unregisterSW() {
+        if (!confirm('Are you sure you want to unregister the service worker?')) return;
+
+        addLog('Unregistering service worker...');
+        try {
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (registration) {
+                await registration.unregister();
+                addLog('Service worker unregistered.');
+                updateSWStatus();
+            }
+        } catch (error) {
+            addLog('Unregister failed: ' + error.message);
+        }
+    }
+
+    async function clearAllCaches() {
+        if (!confirm('Are you sure you want to clear all caches?')) return;
+
+        addLog('Clearing all caches...');
+        try {
+            const cacheNames = await caches.keys();
+            for (const name of cacheNames) {
+                await caches.delete(name);
+                addLog('Deleted cache: ' + name);
+            }
+            addLog('All caches cleared.');
+            refreshCacheList();
+        } catch (error) {
+            addLog('Clear caches failed: ' + error.message);
+        }
+    }
+</script>
+{% endblock %}

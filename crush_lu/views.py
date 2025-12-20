@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.utils import timezone
@@ -2810,7 +2811,8 @@ def manifest_view(request):
         "name": "Crush.lu - Privacy-First Dating in Luxembourg",
         "short_name": "Crush.lu",
         "description": "Event-based dating platform for Luxembourg. Meet people at real events, not endless swiping.",
-        "start_url": "/",
+        "id": "/?source=pwa",
+        "start_url": "/?source=pwa",
         "display": "standalone",
         "background_color": "#ffffff",
         "theme_color": "#9B59B6",
@@ -2854,13 +2856,13 @@ def manifest_view(request):
                 "purpose": "any"
             },
             {
-                "src": static('crush_lu/icons/android-launchericon-192-192.png'),
+                "src": static('crush_lu/icons/android-launchericon-192-192-maskable.png'),
                 "sizes": "192x192",
                 "type": "image/png",
                 "purpose": "maskable"
             },
             {
-                "src": static('crush_lu/icons/android-launchericon-512-512.png'),
+                "src": static('crush_lu/icons/android-launchericon-512-512-maskable.png'),
                 "sizes": "512x512",
                 "type": "image/png",
                 "purpose": "maskable"
@@ -2931,4 +2933,19 @@ def manifest_view(request):
     response['Cache-Control'] = 'no-cache'
     return response
 
+
+@login_required
+def pwa_debug_view(request):
+    """
+    Staff-only PWA debug page showing service worker state, cache info, and diagnostics.
+    Useful for debugging PWA issues in production.
+    """
+    # Only allow staff/superusers
+    if not request.user.is_staff:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden('Staff access required')
+
+    return render(request, 'crush_lu/pwa_debug.html', {
+        'sw_version': 'crush-v15-hoisting-fix',  # Keep in sync with sw-workbox.js
+    })
 

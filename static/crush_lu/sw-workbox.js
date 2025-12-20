@@ -362,6 +362,43 @@ if (workbox) {
   );
 
   // ============================================================================
+  // Offline Fallback Handler
+  // ============================================================================
+  // Provides graceful fallbacks when requests fail (e.g., offline)
+
+  workbox.routing.setCatchHandler(async ({ event }) => {
+    // Return fallback SVG for failed image requests
+    if (event.request.destination === 'image') {
+      const fallbackSvg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+          <defs>
+            <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#9B59B6;stop-opacity:0.1"/>
+              <stop offset="100%" style="stop-color:#FF6B9D;stop-opacity:0.1"/>
+            </linearGradient>
+          </defs>
+          <rect fill="url(#grad)" width="200" height="200" rx="8"/>
+          <text x="100" y="90" text-anchor="middle" fill="#9B59B6" font-family="sans-serif" font-size="14" font-weight="500">
+            Image unavailable
+          </text>
+          <text x="100" y="115" text-anchor="middle" fill="#999" font-family="sans-serif" font-size="12">
+            You're offline
+          </text>
+        </svg>`;
+
+      return new Response(fallbackSvg, {
+        headers: { 'Content-Type': 'image/svg+xml' }
+      });
+    }
+
+    // For navigation requests that fail, the offlineFallback() handles it
+    // For other requests, return an error
+    return Response.error();
+  });
+
+  console.log('[Workbox] Offline fallback handler registered');
+
+  // ============================================================================
   // Background Sync (for future offline form submissions)
   // ============================================================================
 
@@ -434,18 +471,23 @@ if (workbox) {
 
   self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const urlToOpen = event.notification.data || '/';
+    const urlToOpen = new URL(event.notification.data || '/', self.location.origin);
 
     event.waitUntil(
       clients.matchAll({ type: 'window', includeUncontrolled: true })
         .then((clientList) => {
+          // Find any client on same origin and focus/navigate it
           for (const client of clientList) {
-            if (client.url === urlToOpen && 'focus' in client) {
+            const clientUrl = new URL(client.url);
+            if (clientUrl.origin === urlToOpen.origin && 'focus' in client) {
+              // Navigate existing client to the target URL and focus
+              client.navigate(urlToOpen.href);
               return client.focus();
             }
           }
+          // No existing client found, open new window
           if (clients.openWindow) {
-            return clients.openWindow(urlToOpen);
+            return clients.openWindow(urlToOpen.href);
           }
         })
     );

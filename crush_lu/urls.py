@@ -41,6 +41,7 @@ urlpatterns = [
     path('offline/', views.offline_view, name='offline'),
     path('sw-workbox.js', views.service_worker_view, name='service_worker'),
     path('manifest.json', views.manifest_view, name='manifest'),
+    path('pwa-debug/', views.pwa_debug_view, name='pwa_debug'),
 
     # Legal pages
     path('privacy-policy/', views.privacy_policy, name='privacy_policy'),
