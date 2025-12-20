@@ -755,8 +755,16 @@ def create_profile(request):
         if profile.completion_status == 'submitted':
             messages.info(request, 'Your profile has been submitted. Check the status below.')
             return redirect('crush_lu:profile_submitted')
+        elif profile.completion_status == 'not_started':
+            # Fresh profile (auto-created on login) - show creation form
+            from .social_photos import get_all_social_photos
+            form = CrushProfileForm(instance=profile)
+            return render(request, 'crush_lu/create_profile.html', {
+                'form': form,
+                'social_photos': get_all_social_photos(request.user),
+            })
         else:
-            # Incomplete profile - allow editing to continue
+            # Incomplete profile (in_progress, etc.) - redirect to edit
             messages.info(request, 'Continue completing your profile.')
             return redirect('crush_lu:edit_profile')
     except CrushProfile.DoesNotExist:
