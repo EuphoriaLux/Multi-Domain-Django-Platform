@@ -22,29 +22,25 @@ def _normalize_domain(domain):
 DOMAIN_EMAIL_CONFIG = {
     'crush.lu': {
         # Microsoft Graph API configuration (Graph API only - SMTP disabled by M365)
-        'USE_GRAPH_API': os.getenv('CRUSH_USE_GRAPH_API', 'True').lower() == 'true',
-        'GRAPH_TENANT_ID': os.getenv('CRUSH_GRAPH_TENANT_ID'),
-        'GRAPH_CLIENT_ID': os.getenv('CRUSH_GRAPH_CLIENT_ID'),
-        'GRAPH_CLIENT_SECRET': os.getenv('CRUSH_GRAPH_CLIENT_SECRET'),
-        'DEFAULT_FROM_EMAIL': os.getenv('CRUSH_DEFAULT_FROM_EMAIL', 'noreply@crush.lu'),
+        'USE_GRAPH_API': True,
+        'GRAPH_TENANT_ID': os.getenv('GRAPH_TENANT_ID'),
+        'GRAPH_CLIENT_ID': os.getenv('GRAPH_CLIENT_ID'),
+        'GRAPH_CLIENT_SECRET': os.getenv('GRAPH_CLIENT_SECRET'),
+        'DEFAULT_FROM_EMAIL': os.getenv('CRUSH_DEFAULT_FROM_EMAIL', 'info@crush.lu'),
     },
     'powerup.lu': {
-        'EMAIL_HOST': os.getenv('EMAIL_HOST', 'mail.power-up.lu'),
-        'EMAIL_PORT': int(os.getenv('EMAIL_PORT', '465')),
-        'EMAIL_HOST_USER': os.getenv('EMAIL_HOST_USER'),
-        'EMAIL_HOST_PASSWORD': os.getenv('EMAIL_HOST_PASSWORD'),
-        'EMAIL_USE_TLS': os.getenv('EMAIL_USE_TLS', 'False').lower() == 'true',
-        'EMAIL_USE_SSL': os.getenv('EMAIL_USE_SSL', 'True').lower() == 'true',
-        'DEFAULT_FROM_EMAIL': os.getenv('DEFAULT_FROM_EMAIL', os.getenv('EMAIL_HOST_USER')),
+        'USE_GRAPH_API': True,
+        'GRAPH_TENANT_ID': os.getenv('GRAPH_TENANT_ID'),
+        'GRAPH_CLIENT_ID': os.getenv('GRAPH_CLIENT_ID'),
+        'GRAPH_CLIENT_SECRET': os.getenv('GRAPH_CLIENT_SECRET'),
+        'DEFAULT_FROM_EMAIL': os.getenv('POWERUP_DEFAULT_FROM_EMAIL', 'info@powerup.lu'),
     },
     'vinsdelux.com': {
-        'EMAIL_HOST': os.getenv('VINSDELUX_EMAIL_HOST', os.getenv('EMAIL_HOST', 'mail.power-up.lu')),
-        'EMAIL_PORT': int(os.getenv('VINSDELUX_EMAIL_PORT', os.getenv('EMAIL_PORT', '465'))),
-        'EMAIL_HOST_USER': os.getenv('VINSDELUX_EMAIL_HOST_USER', os.getenv('EMAIL_HOST_USER')),
-        'EMAIL_HOST_PASSWORD': os.getenv('VINSDELUX_EMAIL_HOST_PASSWORD', os.getenv('EMAIL_HOST_PASSWORD')),
-        'EMAIL_USE_TLS': os.getenv('VINSDELUX_EMAIL_USE_TLS', os.getenv('EMAIL_USE_TLS', 'False')).lower() == 'true',
-        'EMAIL_USE_SSL': os.getenv('VINSDELUX_EMAIL_USE_SSL', os.getenv('EMAIL_USE_SSL', 'True')).lower() == 'true',
-        'DEFAULT_FROM_EMAIL': os.getenv('VINSDELUX_DEFAULT_FROM_EMAIL', os.getenv('DEFAULT_FROM_EMAIL', os.getenv('EMAIL_HOST_USER'))),
+        'USE_GRAPH_API': True,
+        'GRAPH_TENANT_ID': os.getenv('GRAPH_TENANT_ID'),
+        'GRAPH_CLIENT_ID': os.getenv('GRAPH_CLIENT_ID'),
+        'GRAPH_CLIENT_SECRET': os.getenv('GRAPH_CLIENT_SECRET'),
+        'DEFAULT_FROM_EMAIL': os.getenv('VINSDELUX_DEFAULT_FROM_EMAIL', 'info@vinsdelux.com'),
     },
 }
 
@@ -132,10 +128,11 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
                 client_secret=config['GRAPH_CLIENT_SECRET'],
                 from_email=email_from
             )
+        elif use_graph:
+            logger.error("Graph API enabled but credentials missing; refusing SMTP fallback")
+            raise ValueError("Graph API credentials are required for this domain.")
         else:
             # Use SMTP backend (for domains that don't have Graph API configured)
-            if use_graph:
-                logger.warning("Graph API enabled but credentials missing, falling back to SMTP")
 
             # Get SMTP settings with defaults to avoid KeyError
             connection = get_connection(
