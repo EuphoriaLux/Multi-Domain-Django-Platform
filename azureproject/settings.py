@@ -23,12 +23,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY')
+# Development fallback - production.py uses environment variable only
+SECRET_KEY = os.getenv('SECRET_KEY', 'dev-insecure-key-change-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.178.184', 'crush.lu', 'www.crush.lu', 'delegation.crush.lu', 'powerup.lu', 'www.powerup.lu', 'powerup.local', 'vinsdelux.com', 'www.vinsdelux.com', 'entreprinder.app', 'www.entreprinder.app']
+# Use centralized domain configuration for ALLOWED_HOSTS
+# See azureproject/domains.py for the list of configured domains
+from azureproject.domains import get_all_hosts
+ALLOWED_HOSTS = get_all_hosts()
 
 if 'CODESPACE_NAME' in os.environ:
     CSRF_TRUSTED_ORIGINS = [f'https://{os.getenv("CODESPACE_NAME")}-8000.{os.getenv("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")}']
@@ -315,16 +319,6 @@ SIMPLE_JWT = {
     'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
-#CACHES = {
-#        "default": {  
-#            "BACKEND": "django_redis.cache.RedisCache",
-#            "LOCATION": os.environ.get('CACHELOCATION'),
-#            "OPTIONS": {
-#                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-#        },
-#    }
-#}
-
 # Internationalization
 
 LOCALE_PATHS = [
@@ -337,9 +331,6 @@ LANGUAGE_CODE = 'en'
 TIME_ZONE = 'Europe/Luxembourg'
 
 USE_I18N = True
-
-# Use localization
-USE_L10N = True
 
 LANGUAGES = [
     ('en', _('English')),

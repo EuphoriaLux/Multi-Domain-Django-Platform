@@ -56,22 +56,24 @@ def _get_domain(request):
     return host
 
 
+def _is_crush_domain(request):
+    """Check if request is from crush.lu or localhost (dev default)."""
+    domain = _get_domain(request)
+    # crush.lu is the main domain, localhost routes to crush.lu in development
+    return domain == 'crush.lu' or domain == 'localhost'
+
+
+def _is_delegation_domain(request):
+    """Check if request is from delegation.crush.lu."""
+    domain = _get_domain(request)
+    return domain == 'delegation.crush.lu'
+
+
 class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
     """
     Multi-domain social account adapter.
     Routes to appropriate signup flow based on domain.
     """
-
-    def _is_delegation_domain(self, request):
-        """Check if request is from delegation.crush.lu"""
-        domain = _get_domain(request)
-        return domain == 'delegation.crush.lu'
-
-    def _is_crush_domain(self, request):
-        """Check if request is from crush.lu or localhost (dev default)"""
-        domain = _get_domain(request)
-        # crush.lu is the main domain, localhost routes to crush.lu in development
-        return domain == 'crush.lu' or domain == 'localhost'
 
     def pre_social_login(self, request, sociallogin):
         """
@@ -82,7 +84,7 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         super().pre_social_login(request, sociallogin)
 
         # Store the OAuth provider in session for PWA redirect handling
-        if self._is_crush_domain(request):
+        if _is_crush_domain(request):
             request.session['oauth_provider'] = sociallogin.account.provider
             is_popup = request.session.get('oauth_popup_mode', False)
             logger.debug(f"OAuth login via {sociallogin.account.provider} (popup: {is_popup})")
@@ -121,9 +123,9 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
 
     def get_signup_redirect_url(self, request):
         """Redirect to appropriate page after social signup based on domain."""
-        if self._is_delegation_domain(request):
+        if _is_delegation_domain(request):
             return '/dashboard/'
-        elif self._is_crush_domain(request):
+        elif _is_crush_domain(request):
             # CRITICAL FIX: Always redirect to oauth_landing for Crush.lu
             # This returns 200 OK with JavaScript-delayed redirect to fix
             # Android PWA cookie timing issue (302 fires before cookie commit)
@@ -138,17 +140,6 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
     Routes to appropriate pages based on domain.
     """
 
-    def _is_delegation_domain(self, request):
-        """Check if request is from delegation.crush.lu"""
-        domain = _get_domain(request)
-        return domain == 'delegation.crush.lu'
-
-    def _is_crush_domain(self, request):
-        """Check if request is from crush.lu or localhost (dev default)"""
-        domain = _get_domain(request)
-        # crush.lu is the main domain, localhost routes to crush.lu in development
-        return domain == 'crush.lu' or domain == 'localhost'
-
     def _get_crush_redirect_url(self, request):
         """Get the appropriate redirect URL for Crush.lu after login."""
         if hasattr(request.user, 'crushprofile'):
@@ -158,7 +149,7 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
 
     def get_login_redirect_url(self, request):
         """Redirect to appropriate dashboard after login based on domain."""
-        if self._is_delegation_domain(request):
+        if _is_delegation_domain(request):
             # Delegation domain: route based on profile status
             from crush_delegation.models import DelegationProfile
             try:
@@ -175,7 +166,7 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
                 pass
             return '/dashboard/'
 
-        elif self._is_crush_domain(request):
+        elif _is_crush_domain(request):
             # Check for special user experience (set by user_logged_in signal)
             # This must be checked FIRST as it takes priority over other redirects
             if request.session.get('special_experience_active'):
@@ -197,18 +188,18 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
 
     def get_signup_redirect_url(self, request):
         """Redirect to appropriate page after signup based on domain."""
-        if self._is_delegation_domain(request):
+        if _is_delegation_domain(request):
             return '/dashboard/'
-        elif self._is_crush_domain(request):
+        elif _is_crush_domain(request):
             return '/create-profile/'
         else:
             return '/profile/'
 
     def get_logout_redirect_url(self, request):
         """Redirect to home page after logout."""
-        if self._is_delegation_domain(request):
+        if _is_delegation_domain(request):
             return '/'
-        elif self._is_crush_domain(request):
+        elif _is_crush_domain(request):
             return '/'
         return '/'
 
@@ -217,7 +208,7 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
         Control signup availability per domain.
         Delegation domain only allows Microsoft OAuth, not form signup.
         """
-        if self._is_delegation_domain(request):
+        if _is_delegation_domain(request):
             # Disable traditional signup form on delegation domain
             return False
         return True
@@ -227,9 +218,9 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
         Return the domain-specific login URL.
         This controls where Allauth redirects for login pages.
         """
-        if self._is_crush_domain(request):
+        if _is_crush_domain(request):
             return '/login/'
-        elif self._is_delegation_domain(request):
+        elif _is_delegation_domain(request):
             return '/login/'
         # Default Allauth login URL for other domains
         return '/accounts/login/'
