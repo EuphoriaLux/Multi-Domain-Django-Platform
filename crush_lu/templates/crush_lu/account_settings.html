@@ -143,15 +143,16 @@
             </div>
         </div>
 
-        <!-- Social Account Photos Card -->
+        <!-- Social Account Photos Card (Display Only) -->
         {% if social_photos %}
         <div class="card mb-4">
             <div class="card-header">
                 <h5 class="mb-0"><i class="bi bi-camera me-2"></i>Social Account Photos</h5>
             </div>
             <div class="card-body">
-                <p class="text-muted mb-4">
-                    Import your social account profile photos to use on your Crush.lu dating profile.
+                <p class="text-muted mb-3">
+                    Photos from your connected social accounts. To use these photos on your dating profile,
+                    go to <a href="{% url 'crush_lu:edit_profile_simple' %}">Edit Profile</a>.
                 </p>
 
                 <div class="row g-3">
@@ -173,23 +174,9 @@
                             <div class="social-photo-preview">
                                 <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }} photo">
                             </div>
-                            <div class="import-buttons mt-2">
-                                <button class="btn btn-sm btn-crush-primary import-social-photo-btn"
-                                        data-account-id="{{ photo.account_id }}"
-                                        data-slot="1">
-                                    <i class="bi bi-star-fill"></i> Main
-                                </button>
-                                <button class="btn btn-sm btn-outline-primary import-social-photo-btn"
-                                        data-account-id="{{ photo.account_id }}"
-                                        data-slot="2">
-                                    Photo 2
-                                </button>
-                                <button class="btn btn-sm btn-outline-primary import-social-photo-btn"
-                                        data-account-id="{{ photo.account_id }}"
-                                        data-slot="3">
-                                    Photo 3
-                                </button>
-                            </div>
+                            <small class="text-success mt-2 d-block">
+                                <i class="bi bi-check-circle"></i> Available
+                            </small>
                             {% else %}
                             <div class="no-photo-placeholder">
                                 <i class="bi bi-image"></i>
@@ -201,8 +188,13 @@
                     {% endfor %}
                 </div>
 
-                <!-- Import notification area -->
-                <div id="social-photo-notification" class="mt-3" style="display: none;"></div>
+                {% if user.crushprofile %}
+                <div class="text-center mt-4">
+                    <a href="{% url 'crush_lu:edit_profile_simple' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-cloud-download me-2"></i>Import Photos to Profile
+                    </a>
+                </div>
+                {% endif %}
             </div>
         </div>
         {% endif %}
@@ -422,7 +414,7 @@
     </div>
 </div>
 
-<!-- Social Photo Import Styles -->
+<!-- Social Photo Display Styles -->
 <style>
     .social-photo-card {
         border: 2px solid #e9ecef;
@@ -488,91 +480,5 @@
         font-size: 0.8rem;
         text-align: center;
     }
-
-    .import-buttons {
-        display: flex;
-        gap: 0.25rem;
-        justify-content: center;
-        flex-wrap: wrap;
-    }
-
-    .import-buttons .btn {
-        font-size: 0.75rem;
-        padding: 0.25rem 0.5rem;
-    }
-
-    .import-buttons .btn i {
-        font-size: 0.7rem;
-    }
-
-    #social-photo-notification.alert {
-        margin-bottom: 0;
-    }
 </style>
-
-<!-- Social Photo Import JavaScript -->
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Handle import button clicks
-    document.querySelectorAll('.import-social-photo-btn').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-
-            const accountId = this.dataset.accountId;
-            const slot = parseInt(this.dataset.slot);
-            const button = this;
-            const originalHTML = button.innerHTML;
-
-            // Disable button and show loading
-            button.disabled = true;
-            button.innerHTML = '<i class="bi bi-hourglass-split"></i>';
-
-            // Get CSRF token
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-            // Call import API
-            fetch('{% url "crush_lu:import_social_photo" %}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
-                },
-                body: JSON.stringify({
-                    social_account_id: parseInt(accountId),
-                    photo_slot: slot
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                const notification = document.getElementById('social-photo-notification');
-                notification.style.display = 'block';
-
-                if (data.success) {
-                    notification.className = 'mt-3 alert alert-success';
-                    const slotName = slot === 1 ? 'Main Photo' : 'Photo ' + slot;
-                    notification.innerHTML = '<i class="bi bi-check-circle me-2"></i>Photo imported to ' + slotName + ' successfully!';
-                } else {
-                    notification.className = 'mt-3 alert alert-danger';
-                    notification.innerHTML = '<i class="bi bi-exclamation-circle me-2"></i>' + (data.error || 'Error importing photo');
-                }
-
-                // Hide notification after 5 seconds
-                setTimeout(function() {
-                    notification.style.display = 'none';
-                }, 5000);
-            })
-            .catch(error => {
-                const notification = document.getElementById('social-photo-notification');
-                notification.style.display = 'block';
-                notification.className = 'mt-3 alert alert-danger';
-                notification.innerHTML = '<i class="bi bi-exclamation-circle me-2"></i>Network error. Please try again.';
-            })
-            .finally(function() {
-                button.disabled = false;
-                button.innerHTML = originalHTML;
-            });
-        });
-    });
-});
-</script>
 {% endblock %}
