@@ -16,12 +16,12 @@ def add_unique_email_index(apps, schema_editor):
             WHERE email IS NOT NULL AND email != '';
         """)
     elif vendor == 'sqlite':
-        # SQLite: Use unique index with COLLATE NOCASE
-        # Note: SQLite doesn't support partial indexes with WHERE clause well
-        # So we just create a case-insensitive unique index
+        # SQLite 3.8.0+ supports partial indexes with WHERE clause
+        # Exclude empty/null emails to allow test users without emails
         schema_editor.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS auth_user_email_unique
-            ON auth_user (email COLLATE NOCASE);
+            ON auth_user (email COLLATE NOCASE)
+            WHERE email IS NOT NULL AND email != '';
         """)
     else:
         # MySQL/other: Simple unique index

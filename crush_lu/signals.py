@@ -99,8 +99,13 @@ def create_crush_profile_on_login(sender, request, user, **kwargs):
     if not request:
         return
 
-    # Get the host without port
-    host = request.get_host().split(':')[0].lower()
+    # Get the host without port - handle test client edge cases
+    try:
+        host = request.get_host().split(':')[0].lower()
+    except (KeyError, AttributeError):
+        # Test client may not have SERVER_NAME set
+        logger.debug("Could not determine host for login signal - skipping CrushProfile creation")
+        return
 
     # Only create profile for crush.lu domain logins
     if host not in CRUSH_LU_DOMAINS:
