@@ -1,4 +1,5 @@
-{% load socialaccount %}
+{% load delegation_tags %}
+{% get_microsoft_login_url as microsoft_url %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -100,7 +101,8 @@
 
                     <div class="text-center">
                         <p class="text-muted mb-4">Sign in with your Microsoft work account to access the delegation portal.</p>
-                        <a href="{% provider_login_url 'microsoft' %}" class="btn-microsoft">
+                        {% if microsoft_url %}
+                        <a href="{{ microsoft_url }}" class="btn-microsoft">
                             <svg class="microsoft-logo" viewBox="0 0 21 21">
                                 <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
                                 <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
@@ -109,6 +111,12 @@
                             </svg>
                             Sign in with Microsoft
                         </a>
+                        {% else %}
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            Microsoft authentication is not configured. Please contact the administrator.
+                        </div>
+                        {% endif %}
                     </div>
 
                     <div class="text-center mt-4">

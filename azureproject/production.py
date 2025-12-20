@@ -3,11 +3,45 @@ from .settings import *  # noqa
 from .settings import BASE_DIR
 
 # ============================================================================
+# Azure Internal IP Support (MUST be before ALLOWED_HOSTS)
+# ============================================================================
+# Azure's OpenTelemetry middleware runs BEFORE Django middleware and calls
+# request.build_absolute_uri() which triggers ALLOWED_HOSTS validation.
+# We must monkey-patch Django's validate_host to allow Azure internal IPs
+# (169.254.*) since middleware-based solutions run too late.
+
+from django.http import request as django_request
+
+_original_validate_host = django_request.validate_host
+
+
+def _custom_validate_host(host, allowed_hosts):
+    """
+    Custom host validation that allows Azure internal IPs (169.254.*).
+
+    Azure App Service uses 169.254.* IPs for internal health checks and
+    OpenTelemetry instrumentation. These requests have Host headers like
+    '169.254.129.4:8000' which fail standard ALLOWED_HOSTS validation.
+    """
+    # Extract hostname without port
+    host_without_port = host.split(':')[0] if host else ''
+
+    # Allow Azure internal IPs (169.254.* range)
+    if host_without_port.startswith('169.254.'):
+        return True
+
+    # Fall back to standard validation
+    return _original_validate_host(host, allowed_hosts)
+
+
+# Apply the monkey-patch
+django_request.validate_host = _custom_validate_host
+
+# ============================================================================
 # ALLOWED_HOSTS Configuration
 # ============================================================================
 # IMPORTANT: Only hostnames go here, NOT client IPs.
-# Azure internal IPs (169.254.*) are handled by AzureInternalIPMiddleware.
-# Health check IPs are CLIENT IPs, not Host headers - they don't belong here.
+# Azure internal IPs (169.254.*) are handled by the monkey-patch above.
 
 CUSTOM_DOMAINS = [d.strip() for d in os.environ.get('CUSTOM_DOMAINS', '').split(',') if d.strip()]
 
@@ -20,9 +54,6 @@ ALLOWED_HOSTS += CUSTOM_DOMAINS
 ALLOWED_HOSTS += [h.strip() for h in os.environ.get('ALLOWED_HOSTS_ENV', '').split(',') if h.strip()]
 # Add localhost for development
 ALLOWED_HOSTS += ['localhost', '127.0.0.1']
-
-# NOTE: Azure internal IPs (169.254.*) for OpenTelemetry health checks are
-# handled by AzureInternalIPMiddleware, NOT by monkey-patching validate_host.
 
 
 
