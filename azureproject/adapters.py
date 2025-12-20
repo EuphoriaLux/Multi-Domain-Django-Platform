@@ -177,6 +177,25 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         else:
             return '/profile/'
 
+    def get_connect_redirect_url(self, request, socialaccount):
+        """
+        Redirect to appropriate page after connecting/disconnecting a social account.
+
+        This handles both successful connections AND error cases (e.g., when trying
+        to connect an account that's already linked to a different user).
+
+        The error message is displayed via Django messages framework.
+        """
+        if _is_crush_domain(request):
+            # Redirect back to Crush.lu account settings page
+            return '/account/settings/'
+        elif _is_delegation_domain(request):
+            return '/account/settings/'
+        else:
+            # Default to Allauth's connections page for other domains
+            from django.urls import reverse
+            return reverse('socialaccount_connections')
+
 
 class MultiDomainAccountAdapter(DefaultAccountAdapter):
     """
