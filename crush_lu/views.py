@@ -340,15 +340,24 @@ def data_deletion_status(request):
 @crush_login_required
 def account_settings(request):
     """
-    Account settings page with delete account option and email preferences.
+    Account settings page with delete account option, email preferences,
+    and linked social accounts management.
     """
     from .models import EmailPreference
 
     # Get or create email preferences for this user
     email_prefs = EmailPreference.get_or_create_for_user(request.user)
 
+    # Get connected social providers for this user
+    connected_providers = set(
+        request.user.socialaccount_set.values_list('provider', flat=True)
+    )
+
     return render(request, 'crush_lu/account_settings.html', {
         'email_prefs': email_prefs,
+        'google_connected': 'google' in connected_providers,
+        'facebook_connected': 'facebook' in connected_providers,
+        'microsoft_connected': 'microsoft' in connected_providers,
     })
 
 
@@ -483,6 +492,47 @@ def set_password(request):
         'form': form,
         'social_accounts': request.user.socialaccount_set.all(),
     })
+
+
+@crush_login_required
+@require_http_methods(["POST"])
+def disconnect_social_account(request, social_account_id):
+    """
+    Disconnect a linked social account.
+
+    Security checks:
+    - User must have at least one other login method (password OR another social account)
+    - Only the account owner can disconnect their social accounts
+    """
+    from allauth.socialaccount.models import SocialAccount
+
+    try:
+        social_account = SocialAccount.objects.get(id=social_account_id, user=request.user)
+    except SocialAccount.DoesNotExist:
+        messages.error(request, 'Social account not found.')
+        return redirect('crush_lu:account_settings')
+
+    # Security check: ensure user has another login method
+    other_social_accounts = request.user.socialaccount_set.exclude(id=social_account_id).count()
+    has_password = request.user.has_usable_password()
+
+    if not has_password and other_social_accounts == 0:
+        messages.error(
+            request,
+            f'Cannot disconnect {social_account.provider.title()} - you need at least one login method. '
+            'Set a password first or connect another social account.'
+        )
+        return redirect('crush_lu:account_settings')
+
+    # Log the disconnection
+    provider_name = social_account.provider.title()
+    logger.info(f"User {request.user.id} disconnected {provider_name} account")
+
+    # Delete the social account
+    social_account.delete()
+
+    messages.success(request, f'{provider_name} account has been disconnected.')
+    return redirect('crush_lu:account_settings')
 
 
 @crush_login_required

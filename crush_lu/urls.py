@@ -84,6 +84,7 @@ urlpatterns = [
     path('account/settings/', views.account_settings, name='account_settings'),
     path('account/settings/email-preferences/', views.update_email_preferences, name='update_email_preferences'),
     path('account/set-password/', views.set_password, name='set_password'),
+    path('account/disconnect/<int:social_account_id>/', views.disconnect_social_account, name='disconnect_social_account'),
     path('account/delete/', views.delete_account, name='delete_account'),
 
     # Email unsubscribe (public access with token)

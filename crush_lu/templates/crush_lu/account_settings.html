@@ -1,4 +1,5 @@
 {% extends 'crush_lu/base.html' %}
+{% load socialaccount %}
 
 {% block title %}Account Settings - Crush.lu{% endblock %}
 
@@ -35,11 +36,100 @@
                             <i class="fab fa-facebook me-1"></i>
                             {% elif social.provider == 'google' %}
                             <i class="fab fa-google me-1"></i>
+                            {% elif social.provider == 'microsoft' %}
+                            <i class="fab fa-microsoft me-1"></i>
                             {% endif %}
                             {{ social.provider|title }}
                         </span>
                         {% endfor %}
                     </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Linked Accounts Card -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-link-45deg me-2"></i>Linked Accounts</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-4">
+                    Connect additional social accounts for easier login. You can use any connected account to log in.
+                </p>
+
+                {% get_providers as socialaccount_providers %}
+
+                <!-- Currently Connected Accounts -->
+                {% if user.socialaccount_set.exists %}
+                <h6 class="mb-3">Connected</h6>
+                <div class="list-group mb-4">
+                    {% for social in user.socialaccount_set.all %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            {% if social.provider == 'facebook' %}
+                            <i class="fab fa-facebook text-primary me-2" style="font-size: 1.5rem;"></i>
+                            <span class="fw-semibold">Facebook</span>
+                            {% elif social.provider == 'google' %}
+                            <i class="fab fa-google text-danger me-2" style="font-size: 1.5rem;"></i>
+                            <span class="fw-semibold">Google</span>
+                            {% elif social.provider == 'microsoft' %}
+                            <i class="fab fa-microsoft text-info me-2" style="font-size: 1.5rem;"></i>
+                            <span class="fw-semibold">Microsoft</span>
+                            {% else %}
+                            <i class="bi bi-link-45deg me-2" style="font-size: 1.5rem;"></i>
+                            <span class="fw-semibold">{{ social.provider|title }}</span>
+                            {% endif %}
+                            {% if social.extra_data.email %}
+                            <small class="text-muted d-block ps-4">{{ social.extra_data.email }}</small>
+                            {% endif %}
+                        </div>
+                        {% if user.socialaccount_set.count > 1 or user.has_usable_password %}
+                        <form method="post" action="{% url 'crush_lu:disconnect_social_account' social.id %}"
+                              onsubmit="return confirm('Are you sure you want to disconnect this {{ social.provider|title }} account?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                <i class="bi bi-x-lg me-1"></i>Disconnect
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="badge bg-secondary" title="You need at least one login method">
+                            <i class="bi bi-lock me-1"></i>Required
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Available Providers to Connect -->
+                {% if not google_connected or not facebook_connected %}
+                <h6 class="mb-3">Connect More Accounts</h6>
+                <div class="d-flex flex-wrap gap-2">
+                    {% if not google_connected %}
+                    <a href="{% provider_login_url 'google' process='connect' %}" class="btn btn-outline-danger">
+                        <i class="fab fa-google me-2"></i>Connect Google
+                    </a>
+                    {% endif %}
+                    {% if not facebook_connected %}
+                    <a href="{% provider_login_url 'facebook' process='connect' %}" class="btn btn-outline-primary">
+                        <i class="fab fa-facebook me-2"></i>Connect Facebook
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                {% if not user.socialaccount_set.exists %}
+                <p class="text-muted mb-3">
+                    You don't have any social accounts connected yet.
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{% provider_login_url 'google' process='connect' %}" class="btn btn-outline-danger">
+                        <i class="fab fa-google me-2"></i>Connect Google
+                    </a>
+                    <a href="{% provider_login_url 'facebook' process='connect' %}" class="btn btn-outline-primary">
+                        <i class="fab fa-facebook me-2"></i>Connect Facebook
+                    </a>
                 </div>
                 {% endif %}
             </div>

@@ -229,6 +229,13 @@ SOCIALACCOUNT_LOGIN_ON_GET = True
 # Don't send email verification for social account signups (email already verified by provider)
 SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
 
+# Automatic account linking settings
+# When a user logs in with a social provider (e.g., Google) using an email that already exists
+# in the database (from a previous signup via email/password or another social provider),
+# automatically link the social account to the existing user account.
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = True  # Enable email-based account linking
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True  # Auto-connect without confirmation
+
 # Social account provider settings
 SOCIALACCOUNT_PROVIDERS = {
     'facebook': {

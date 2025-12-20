@@ -104,27 +104,33 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         """Populate user with data from social provider."""
         user = super().populate_user(request, sociallogin, data)
 
+        # IMPORTANT: first_name and last_name must never be None - database has NOT NULL constraint
         # Handle Microsoft provider
         if sociallogin.account.provider == 'microsoft':
             extra_data = sociallogin.account.extra_data
-            user.first_name = extra_data.get('givenName', '') or data.get('first_name', '')
-            user.last_name = extra_data.get('surname', '') or data.get('last_name', '')
+            user.first_name = extra_data.get('givenName', '') or data.get('first_name', '') or ''
+            user.last_name = extra_data.get('surname', '') or data.get('last_name', '') or ''
             email = extra_data.get('mail') or extra_data.get('userPrincipalName')
             if email:
                 user.email = email
         # Handle Google provider
         elif sociallogin.account.provider == 'google':
             extra_data = sociallogin.account.extra_data
-            user.first_name = extra_data.get('given_name', '') or data.get('first_name', '')
-            user.last_name = extra_data.get('family_name', '') or data.get('last_name', '')
+            user.first_name = extra_data.get('given_name', '') or data.get('first_name', '') or ''
+            user.last_name = extra_data.get('family_name', '') or data.get('last_name', '') or ''
+            if extra_data.get('email'):
+                user.email = extra_data['email']
+        # Handle Facebook provider
+        elif sociallogin.account.provider == 'facebook':
+            extra_data = sociallogin.account.extra_data
+            user.first_name = extra_data.get('first_name', '') or data.get('first_name', '') or ''
+            user.last_name = extra_data.get('last_name', '') or data.get('last_name', '') or ''
             if extra_data.get('email'):
                 user.email = extra_data['email']
         else:
-            # Other providers (Facebook, LinkedIn, etc.)
-            if 'first_name' in data:
-                user.first_name = data['first_name']
-            if 'last_name' in data:
-                user.last_name = data['last_name']
+            # Other providers (LinkedIn, etc.)
+            user.first_name = data.get('first_name', '') or ''
+            user.last_name = data.get('last_name', '') or ''
 
         return user
 
