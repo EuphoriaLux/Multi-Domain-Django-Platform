@@ -60,8 +60,7 @@
                 </form>
 
                 {% get_providers as socialaccount_providers %}
-                {% for provider in socialaccount_providers %}
-                    {% if provider.id == "facebook" %}
+                {% if socialaccount_providers %}
                 <div class="my-4 text-center position-relative">
                     <hr>
                     <span class="position-absolute top-50 start-50 translate-middle bg-white px-3 text-muted">
@@ -70,13 +69,22 @@
                 </div>
 
                 <div class="d-grid gap-2 mb-4">
-                    <a href="{% provider_login_url 'facebook' %}" class="btn btn-outline-primary facebook-login-btn"
-                       data-facebook-url="{% provider_login_url 'facebook' %}">
+                    {% for provider in socialaccount_providers %}
+                        {% if provider.id == "google" %}
+                    <a href="{% provider_login_url 'google' %}" class="btn btn-outline-danger social-login-btn google-login-btn"
+                       data-oauth-url="{% provider_login_url 'google' %}" data-provider="Google">
+                        <i class="fab fa-google me-2"></i>Continue with Google
+                    </a>
+                        {% endif %}
+                        {% if provider.id == "facebook" %}
+                    <a href="{% provider_login_url 'facebook' %}" class="btn btn-outline-primary social-login-btn facebook-login-btn"
+                       data-oauth-url="{% provider_login_url 'facebook' %}" data-provider="Facebook">
                         <i class="fab fa-facebook me-2"></i>Continue with Facebook
                     </a>
+                        {% endif %}
+                    {% endfor %}
                 </div>
-                    {% endif %}
-                {% endfor %}
+                {% endif %}
 
                 <hr class="my-4">
 
@@ -98,7 +106,7 @@
 <script src="{% static 'crush_lu/js/oauth-popup.js' %}"></script>
 <script>
 /**
- * OAuth Handler for Crush.lu
+ * OAuth Handler for Crush.lu - Unified for Google and Facebook
  *
  * CRITICAL: Android PWA Cookie Timing Issue
  *
@@ -116,7 +124,7 @@
  * - Desktop browser: Use standard redirect (django-allauth default - simple and reliable)
  *
  * Flow for Android PWA:
- * PWA → open Chrome → Facebook login → redirect back → PWA reads existing cookie
+ * PWA → open Chrome → OAuth login → redirect back → PWA reads existing cookie
  */
 (function() {
     'use strict';
@@ -164,168 +172,125 @@
         return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        // Find Facebook login button
-        var fbButton = document.querySelector('.facebook-login-btn');
-        if (!fbButton) return;
+    // Detect Android browser from User Agent
+    // Returns package name for Intent URL
+    function getAndroidBrowserPackage() {
+        var ua = navigator.userAgent;
 
-        // Get the OAuth URL
-        var oauthUrl = fbButton.getAttribute('href');
-        var fullOAuthUrl = window.location.origin + oauthUrl;
+        // Samsung Internet Browser
+        if (/SamsungBrowser/i.test(ua)) {
+            return { name: 'Samsung Internet', package: 'com.sec.android.app.sbrowser' };
+        }
+        // Firefox
+        if (/Firefox/i.test(ua) && !/Seamonkey/i.test(ua)) {
+            return { name: 'Firefox', package: 'org.mozilla.firefox' };
+        }
+        // Microsoft Edge
+        if (/Edg/i.test(ua) || /Edge/i.test(ua)) {
+            return { name: 'Edge', package: 'com.microsoft.emmx' };
+        }
+        // Opera
+        if (/OPR/i.test(ua) || /Opera/i.test(ua)) {
+            return { name: 'Opera', package: 'com.opera.browser' };
+        }
+        // Brave
+        if (/Brave/i.test(ua)) {
+            return { name: 'Brave', package: 'com.brave.browser' };
+        }
+        // DuckDuckGo
+        if (/DuckDuckGo/i.test(ua)) {
+            return { name: 'DuckDuckGo', package: 'com.duckduckgo.mobile.android' };
+        }
+        // Default to Chrome (most common on Android)
+        return { name: 'Chrome', package: 'com.android.chrome' };
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Find all social login buttons (Google and Facebook)
+        var socialButtons = document.querySelectorAll('.social-login-btn');
+        if (!socialButtons.length) return;
 
         // Log debug info
         console.log('[Crush.lu Login] PWA:', isPWA(), 'Android:', isAndroid(), 'iOS:', isIOS(), 'Mobile:', isMobile());
 
-        // Detect Android browser from User Agent
-        // Returns package name for Intent URL
-        function getAndroidBrowserPackage() {
-            var ua = navigator.userAgent;
+        // Setup handler for each social button
+        socialButtons.forEach(function(button) {
+            var oauthUrl = button.getAttribute('data-oauth-url') || button.getAttribute('href');
+            var providerName = button.getAttribute('data-provider') || 'OAuth';
+            var fullOAuthUrl = window.location.origin + oauthUrl;
 
-            // Samsung Internet Browser
-            if (/SamsungBrowser/i.test(ua)) {
-                return { name: 'Samsung Internet', package: 'com.sec.android.app.sbrowser' };
-            }
-            // Firefox
-            if (/Firefox/i.test(ua) && !/Seamonkey/i.test(ua)) {
-                return { name: 'Firefox', package: 'org.mozilla.firefox' };
-            }
-            // Microsoft Edge
-            if (/Edg/i.test(ua) || /Edge/i.test(ua)) {
-                return { name: 'Edge', package: 'com.microsoft.emmx' };
-            }
-            // Opera
-            if (/OPR/i.test(ua) || /Opera/i.test(ua)) {
-                return { name: 'Opera', package: 'com.opera.browser' };
-            }
-            // Brave
-            if (/Brave/i.test(ua)) {
-                return { name: 'Brave', package: 'com.brave.browser' };
-            }
-            // DuckDuckGo
-            if (/DuckDuckGo/i.test(ua)) {
-                return { name: 'DuckDuckGo', package: 'com.duckduckgo.mobile.android' };
-            }
-            // Default to Chrome (most common on Android)
-            return { name: 'Chrome', package: 'com.android.chrome' };
-        }
+            // ANDROID PWA: MUST force OAuth to run in external browser (not WebView/TWA)
+            if (isPWA() && isAndroid()) {
+                var browserInfo = getAndroidBrowserPackage();
+                console.log('[Crush.lu Login] Android PWA detected for ' + providerName + ': using ' + browserInfo.name);
 
-        // ANDROID PWA: MUST force OAuth to run in external browser (not WebView/TWA)
-        //
-        // CRITICAL: Android PWAs run in a Trusted Web Activity (TWA) or Custom Tab
-        // which has a SEPARATE cookie store from the main browser. OAuth in the PWA container
-        // will write cookies that are NOT readable by subsequent PWA requests.
-        //
-        // Different approaches for different browsers:
-        // - Chrome TWA: Use Android Intent URL (works reliably)
-        // - Samsung Internet: Use window.open() - Intent URLs don't work in Samsung PWA WebView
-        // - Other browsers: Try Intent first, fallback to window.open()
-        if (isPWA() && isAndroid()) {
-            var browserInfo = getAndroidBrowserPackage();
-            console.log('[Crush.lu Login] Android PWA detected: using ' + browserInfo.name);
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
 
-            fbButton.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
+                    // Show loading state
+                    button.classList.add('disabled');
+                    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening ' + browserInfo.name + '...';
 
-                // Show loading state
-                fbButton.classList.add('disabled');
-                fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening ' + browserInfo.name + '...';
+                    // Samsung Internet PWA doesn't support Intent URLs properly
+                    if (browserInfo.package === 'com.sec.android.app.sbrowser') {
+                        console.log('[Crush.lu Login] Samsung Internet PWA: using window.open()');
 
-                // Samsung Internet PWA doesn't support Intent URLs properly
-                // It runs in a WebView that ignores intent:// protocol
-                // Solution: Use window.open() to force external browser
-                if (browserInfo.package === 'com.sec.android.app.sbrowser') {
-                    console.log('[Crush.lu Login] Samsung Internet PWA: using window.open()');
-
-                    // Try multiple methods to break out of Samsung PWA WebView
-                    // Method 1: window.open with _system target (works in some WebViews)
-                    var newWindow = window.open(fullOAuthUrl, '_system');
-
-                    // Method 2: If _system didn't work, try _blank
-                    if (!newWindow || newWindow.closed) {
-                        newWindow = window.open(fullOAuthUrl, '_blank');
+                        var newWindow = window.open(fullOAuthUrl, '_system');
+                        if (!newWindow || newWindow.closed) {
+                            newWindow = window.open(fullOAuthUrl, '_blank');
+                        }
+                        if (!newWindow || newWindow.closed) {
+                            console.log('[Crush.lu Login] window.open blocked, using location.href fallback');
+                            window.location.href = oauthUrl;
+                        }
+                        return;
                     }
 
-                    // Method 3: If window.open was blocked, use location.href as fallback
-                    // This will navigate within the PWA but OAuth might still work
-                    if (!newWindow || newWindow.closed) {
-                        console.log('[Crush.lu Login] window.open blocked, using location.href fallback');
+                    // For Chrome and other browsers: Use Intent URL
+                    var intentUrl = 'intent://' + window.location.host + oauthUrl + '#Intent;' +
+                        'scheme=https;' +
+                        'action=android.intent.action.VIEW;' +
+                        'package=' + browserInfo.package + ';' +
+                        'S.browser_fallback_url=' + encodeURIComponent(fullOAuthUrl) + ';' +
+                        'end;';
+
+                    console.log('[Crush.lu Login] Opening ' + browserInfo.name + ' with Intent URL for ' + providerName);
+
+                    try {
+                        window.location.href = intentUrl;
+                    } catch (err) {
+                        console.error('[Crush.lu Login] Intent error:', err);
                         window.location.href = oauthUrl;
                     }
+                });
 
-                    return;
-                }
+                return;
+            }
 
-                // For Chrome and other browsers: Use Intent URL
-                // Format: intent://HOST/PATH#Intent;scheme=SCHEME;package=PACKAGE;S.browser_fallback_url=URL;end;
-                var intentUrl = 'intent://' + window.location.host + oauthUrl + '#Intent;' +
-                    'scheme=https;' +
-                    'action=android.intent.action.VIEW;' +
-                    'package=' + browserInfo.package + ';' +
-                    'S.browser_fallback_url=' + encodeURIComponent(fullOAuthUrl) + ';' +
-                    'end;';
+            // ANDROID BROWSER (not PWA): Use direct OAuth
+            if (isAndroid()) {
+                console.log('[Crush.lu Login] Android browser detected for ' + providerName);
 
-                console.log('[Crush.lu Login] Opening ' + browserInfo.name + ' with Intent URL');
-                console.log('[Crush.lu Login] Intent:', intentUrl);
-
-                // CRITICAL: Use location.href directly for Intent URLs in PWA
-                // window.open() does NOT work reliably for intent:// URLs in WebViews
-                try {
-                    window.location.href = intentUrl;
-                } catch (err) {
-                    console.error('[Crush.lu Login] Intent error:', err);
-                    // Ultimate fallback: direct OAuth (will have cookie issues but at least works)
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    button.classList.add('disabled');
+                    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening login...';
                     window.location.href = oauthUrl;
-                }
-            });
+                });
 
-            return;
-        }
+                return;
+            }
 
-        // ANDROID BROWSER (not PWA): Still use Intent to avoid Service Worker issues
-        // Even in Chrome browser mode, the Service Worker can cause navigation replay
-        if (isAndroid()) {
-            console.log('[Crush.lu Login] Android browser detected: using Intent for clean OAuth');
+            // iOS PWA and Desktop: Use standard redirect
+            console.log('[Crush.lu Login] Standard redirect for ' + providerName);
 
-            fbButton.addEventListener('click', function(e) {
-                e.preventDefault();
-
-                // Show loading state
-                fbButton.classList.add('disabled');
-                fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening login...';
-
-                // In browser mode, we can try direct OAuth first
-                // The Intent is a fallback if we detect issues
-                window.location.href = oauthUrl;
-            });
-
-            return;
-        }
-
-        // iOS PWA: Use standard redirect (iOS handles cookies better than Android)
-        if (isPWA() && isIOS()) {
-            console.log('[Crush.lu Login] iOS PWA detected: using standard redirect');
-
-            fbButton.addEventListener('click', function(e) {
+            button.addEventListener('click', function(e) {
                 // Show loading state but let the default link action proceed
-                fbButton.classList.add('disabled');
-                fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Redirecting to Facebook...';
-                // Don't prevent default - let the redirect happen
+                button.classList.add('disabled');
+                button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Redirecting to ' + providerName + '...';
+                // Don't prevent default - let django-allauth handle the OAuth redirect naturally
             });
-
-            return;
-        }
-
-        // DESKTOP BROWSER: Use standard redirect (django-allauth default behavior)
-        // This is simpler and more reliable than popup OAuth
-        // The popup complexity is only needed for PWA where we don't want to navigate away
-        console.log('[Crush.lu Login] Desktop browser: using standard redirect (django-allauth default)');
-
-        fbButton.addEventListener('click', function(e) {
-            // Show loading state but let the default link action proceed
-            fbButton.classList.add('disabled');
-            fbButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Redirecting to Facebook...';
-            // Don't prevent default - let django-allauth handle the OAuth redirect naturally
         });
     });
 })();

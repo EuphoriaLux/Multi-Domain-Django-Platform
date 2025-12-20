@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.openid_connect',
     'allauth.socialaccount.providers.linkedin_oauth2',
     'allauth.socialaccount.providers.facebook',
+    'allauth.socialaccount.providers.google',
     'allauth.socialaccount.providers.microsoft',
     # Third-party apps
     'crispy_forms',
@@ -245,6 +246,11 @@ SOCIALACCOUNT_PROVIDERS = {
         'EXCHANGE_TOKEN': True,
         'VERIFIED_EMAIL': False,
         'VERSION': 'v24.0',
+    },
+    'google': {
+        'SCOPE': ['profile', 'email'],
+        'AUTH_PARAMS': {'access_type': 'online'},
+        'OAUTH_PKCE_ENABLED': True,
     },
     'microsoft': {
         # 'common' allows any Microsoft account (personal + work/school from any org)

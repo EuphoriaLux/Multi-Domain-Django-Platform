@@ -112,6 +112,13 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
             email = extra_data.get('mail') or extra_data.get('userPrincipalName')
             if email:
                 user.email = email
+        # Handle Google provider
+        elif sociallogin.account.provider == 'google':
+            extra_data = sociallogin.account.extra_data
+            user.first_name = extra_data.get('given_name', '') or data.get('first_name', '')
+            user.last_name = extra_data.get('family_name', '') or data.get('last_name', '')
+            if extra_data.get('email'):
+                user.email = extra_data['email']
         else:
             # Other providers (Facebook, LinkedIn, etc.)
             if 'first_name' in data:

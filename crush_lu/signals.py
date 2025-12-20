@@ -564,3 +564,176 @@ def check_special_user_experience(sender, request, user, **kwargs):
 
     except Exception as e:
         logger.error(f"Error in check_special_user_experience handler: {str(e)}", exc_info=True)
+
+
+# =============================================================================
+# GOOGLE OAUTH PROFILE INTEGRATION
+# =============================================================================
+
+def get_high_res_google_photo_url(extra_data):
+    """
+    Get high-resolution Google profile photo URL.
+
+    Google profile photos can be resized by modifying the URL:
+    - Original: https://lh3.googleusercontent.com/a/...=s96-c
+    - High-res: https://lh3.googleusercontent.com/a/...=s720-c
+
+    Args:
+        extra_data: Google extra_data dictionary containing 'picture' field
+
+    Returns:
+        str: URL to high-resolution photo, or None if unavailable
+    """
+    picture_url = extra_data.get('picture')
+    if not picture_url:
+        return None
+
+    # Google photo URLs end with size parameter like =s96-c
+    # We can replace this with =s720-c for higher resolution
+    import re
+    # Match patterns like =s96-c, =s96, ?sz=96
+    if '=s' in picture_url:
+        # Replace size parameter with 720
+        high_res_url = re.sub(r'=s\d+(-c)?', '=s720-c', picture_url)
+        logger.info(f"Enhanced Google photo URL to high-res")
+        return high_res_url
+    elif '?sz=' in picture_url:
+        # Alternative size parameter format
+        high_res_url = re.sub(r'\?sz=\d+', '?sz=720', picture_url)
+        logger.info(f"Enhanced Google photo URL to high-res (sz format)")
+        return high_res_url
+
+    # Return original URL if no size parameter found
+    return picture_url
+
+
+def download_and_save_google_photo(profile, photo_url, user_id):
+    """
+    Download photo from Google URL and save to CrushProfile.
+
+    Args:
+        profile: CrushProfile instance
+        photo_url: URL to download photo from
+        user_id: User ID for filename
+
+    Returns:
+        bool: True if photo was saved, False otherwise
+    """
+    try:
+        response = requests.get(photo_url, timeout=15)
+        response.raise_for_status()
+
+        # Validate content type is an image
+        content_type = response.headers.get('Content-Type', '')
+        if not content_type.startswith('image/'):
+            logger.warning(f"Google photo URL returned non-image content: {content_type}")
+            return False
+
+        # Determine file extension from content type
+        ext = 'jpg'  # Default
+        if 'png' in content_type:
+            ext = 'png'
+        elif 'gif' in content_type:
+            ext = 'gif'
+        elif 'webp' in content_type:
+            ext = 'webp'
+
+        profile.photo_1.save(
+            f'google_{user_id}.{ext}',
+            ContentFile(response.content),
+            save=False
+        )
+        return True
+    except requests.exceptions.Timeout:
+        logger.error(f"Timeout downloading Google photo for user {user_id}")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error downloading Google photo for user {user_id}: {str(e)}")
+    except Exception as e:
+        logger.error(f"Unexpected error saving Google photo for user {user_id}: {str(e)}")
+
+    return False
+
+
+@receiver(pre_social_login)
+def update_google_profile_on_login(sender, request, sociallogin, **kwargs):
+    """
+    Update CrushProfile with Google data when user logs in with Google.
+    Only processes Google logins for Crush.lu domain.
+
+    This handles EXISTING users logging in again - updates profile if photo missing.
+    """
+    # Only process Google logins
+    if sociallogin.account.provider != 'google':
+        return
+
+    # Only process for crush.lu domain
+    host = request.get_host().split(':')[0].lower()
+    if host not in ['crush.lu', 'www.crush.lu', 'localhost', '127.0.0.1']:
+        logger.info(f"Skipping Google login processing for non-Crush domain: {host}")
+        return
+
+    logger.info(f"pre_social_login signal received for Google provider")
+
+    try:
+        extra_data = sociallogin.account.extra_data
+        logger.debug(f"Google extra_data keys: {list(extra_data.keys())}")
+
+        # If user exists, update their CrushProfile
+        if hasattr(sociallogin.user, 'id') and sociallogin.user.id:
+            try:
+                profile = CrushProfile.objects.get(user=sociallogin.user)
+
+                # Download and save profile photo if available and not already set
+                if not profile.photo_1:
+                    photo_url = get_high_res_google_photo_url(extra_data)
+                    if photo_url:
+                        if download_and_save_google_photo(profile, photo_url, sociallogin.user.id):
+                            logger.info(f"Saved Google photo for user {sociallogin.user.email}")
+
+                profile.save()
+                logger.info(f"Updated CrushProfile for existing Google user {sociallogin.user.email}")
+
+            except CrushProfile.DoesNotExist:
+                logger.info(f"No CrushProfile exists yet for user {sociallogin.user.email}")
+
+    except Exception as e:
+        logger.error(f"Error in Google pre_social_login handler: {str(e)}", exc_info=True)
+
+
+@receiver(post_save, sender=SocialAccount)
+def create_crush_profile_from_google(sender, instance, created, **kwargs):
+    """
+    Create CrushProfile when a new Google SocialAccount is created.
+    Pre-fill profile data from Google information including profile photo.
+
+    This handles NEW users signing up via Google - creates profile with Google photo.
+    """
+    if instance.provider != 'google':
+        return
+
+    if not created:
+        return
+
+    logger.info(f"SocialAccount post_save signal for Google (user: {instance.user.email})")
+
+    try:
+        # Get or create CrushProfile
+        profile, profile_created = CrushProfile.objects.get_or_create(user=instance.user)
+
+        if profile_created:
+            logger.info(f"Created new CrushProfile for Google user {instance.user.email}")
+
+        extra_data = instance.extra_data
+
+        # Download and save Google photo if not already set
+        if not profile.photo_1:
+            photo_url = get_high_res_google_photo_url(extra_data)
+            if photo_url:
+                if download_and_save_google_photo(profile, photo_url, instance.user.id):
+                    logger.info(f"Saved Google photo for new user {instance.user.email}")
+
+        profile.save()
+        logger.info(f"Updated CrushProfile from Google data in post_save")
+
+    except Exception as e:
+        logger.error(f"Error in Google SocialAccount post_save handler: {str(e)}", exc_info=True)
