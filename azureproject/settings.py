@@ -251,13 +251,16 @@ SOCIALACCOUNT_PROVIDERS = {
             'picture.type(large)',
         ],
         'EXCHANGE_TOKEN': True,
-        'VERIFIED_EMAIL': False,
+        # Trust Facebook emails as verified (required for auto-linking)
+        'VERIFIED_EMAIL': True,
         'VERSION': 'v24.0',
     },
     'google': {
         'SCOPE': ['profile', 'email'],
         'AUTH_PARAMS': {'access_type': 'online'},
         'OAUTH_PKCE_ENABLED': True,
+        # Trust Google emails as verified (required for auto-linking)
+        'VERIFIED_EMAIL': True,
     },
     'microsoft': {
         # 'common' allows any Microsoft account (personal + work/school from any org)
@@ -265,8 +268,15 @@ SOCIALACCOUNT_PROVIDERS = {
         # Use specific tenant ID to restrict to single organization
         'TENANT': 'common',
         'SCOPE': ['User.Read', 'profile', 'email', 'openid'],
+        # Trust Microsoft emails as verified (required for auto-linking)
+        'VERIFIED_EMAIL': True,
     },
 }
+
+# Trust emails from these providers as verified (enables auto-linking to existing accounts)
+# When a user logs in with a social provider using an email that exists in the database,
+# the social account will be automatically linked if the provider is in this list.
+SOCIALACCOUNT_EMAIL_VERIFIED_PROVIDERS = ['google', 'facebook', 'microsoft']
 
 
 # Use CustomSignupForm for Entreprinder (will be overridden by adapters for other domains)
