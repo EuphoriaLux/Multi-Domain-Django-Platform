@@ -82,6 +82,12 @@
                         <i class="fab fa-facebook me-2"></i>Continue with Facebook
                     </a>
                         {% endif %}
+                        {% if provider.id == "microsoft" %}
+                    <a href="{% provider_login_url 'microsoft' %}" class="btn btn-outline-info social-login-btn microsoft-login-btn"
+                       data-oauth-url="{% provider_login_url 'microsoft' %}" data-provider="Microsoft">
+                        <i class="fab fa-microsoft me-2"></i>Continue with Microsoft
+                    </a>
+                        {% endif %}
                     {% endfor %}
                 </div>
                 {% endif %}
