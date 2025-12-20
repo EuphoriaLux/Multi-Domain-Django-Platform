@@ -348,9 +348,18 @@ def account_settings(request):
     # Get or create email preferences for this user
     email_prefs = EmailPreference.get_or_create_for_user(request.user)
 
-    # Get connected social providers for this user
+    # Crush.lu only supports these social providers
+    # (LinkedIn is PowerUP-only, not shown in Crush.lu account settings)
+    CRUSH_SOCIAL_PROVIDERS = ['google', 'facebook', 'microsoft']
+
+    # Get connected social providers for this user (filtered to Crush.lu providers)
     connected_providers = set(
         request.user.socialaccount_set.values_list('provider', flat=True)
+    )
+
+    # Filter social accounts to only show Crush.lu-supported providers
+    crush_social_accounts = request.user.socialaccount_set.filter(
+        provider__in=CRUSH_SOCIAL_PROVIDERS
     )
 
     return render(request, 'crush_lu/account_settings.html', {
@@ -358,6 +367,7 @@ def account_settings(request):
         'google_connected': 'google' in connected_providers,
         'facebook_connected': 'facebook' in connected_providers,
         'microsoft_connected': 'microsoft' in connected_providers,
+        'crush_social_accounts': crush_social_accounts,  # Filtered list for display
     })
 
 

@@ -26,11 +26,11 @@
                     <div class="col-sm-4 text-muted">Member since</div>
                     <div class="col-sm-8">{{ user.date_joined|date:"F j, Y" }}</div>
                 </div>
-                {% if user.socialaccount_set.exists %}
+                {% if crush_social_accounts %}
                 <div class="row">
                     <div class="col-sm-4 text-muted">Connected accounts</div>
                     <div class="col-sm-8">
-                        {% for social in user.socialaccount_set.all %}
+                        {% for social in crush_social_accounts %}
                         <span class="badge bg-primary me-1">
                             {% if social.provider == 'facebook' %}
                             <i class="fab fa-facebook me-1"></i>
@@ -60,11 +60,11 @@
 
                 {% get_providers as socialaccount_providers %}
 
-                <!-- Currently Connected Accounts -->
-                {% if user.socialaccount_set.exists %}
+                <!-- Currently Connected Accounts (Crush.lu providers only) -->
+                {% if crush_social_accounts %}
                 <h6 class="mb-3">Connected</h6>
                 <div class="list-group mb-4">
-                    {% for social in user.socialaccount_set.all %}
+                    {% for social in crush_social_accounts %}
                     <div class="list-group-item d-flex justify-content-between align-items-center">
                         <div>
                             {% if social.provider == 'facebook' %}
@@ -84,7 +84,7 @@
                             <small class="text-muted d-block ps-4">{{ social.extra_data.email }}</small>
                             {% endif %}
                         </div>
-                        {% if user.socialaccount_set.count > 1 or user.has_usable_password %}
+                        {% if crush_social_accounts.count > 1 or user.has_usable_password %}
                         <form method="post" action="{% url 'crush_lu:disconnect_social_account' social.id %}"
                               onsubmit="return confirm('Are you sure you want to disconnect this {{ social.provider|title }} account?');">
                             {% csrf_token %}
@@ -124,7 +124,7 @@
                 </div>
                 {% endif %}
 
-                {% if not user.socialaccount_set.exists %}
+                {% if not crush_social_accounts %}
                 <p class="text-muted mb-3">
                     You don't have any social accounts connected yet.
                 </p>
@@ -144,7 +144,7 @@
         </div>
 
         <!-- Password Management Card -->
-        {% if user.socialaccount_set.exists and not user.has_usable_password %}
+        {% if crush_social_accounts and not user.has_usable_password %}
         <!-- Set Password Card (for social login users without password) -->
         <div class="card mb-4">
             <div class="card-header">
@@ -154,7 +154,7 @@
                 <p class="text-muted mb-3">
                     You can set a password to enable login with your email ({{ user.email }})
                     in addition to your
-                    {% for social in user.socialaccount_set.all %}
+                    {% for social in crush_social_accounts %}
                         {{ social.provider|title }}{% if not forloop.last %}, {% endif %}
                     {% endfor %} account.
                 </p>
@@ -172,7 +172,7 @@
             <div class="card-body">
                 <p class="text-muted mb-3">
                     You have a password set for email login.
-                    {% if user.socialaccount_set.exists %}
+                    {% if crush_social_accounts %}
                     You can also login with your connected social accounts.
                     {% endif %}
                 </p>
