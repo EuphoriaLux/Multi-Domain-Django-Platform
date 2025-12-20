@@ -103,20 +103,20 @@
                 {% endif %}
 
                 <!-- Available Providers to Connect -->
-                {% if not google_connected or not facebook_connected or not microsoft_connected %}
+                {% if google_available and not google_connected or facebook_available and not facebook_connected or microsoft_available and not microsoft_connected %}
                 <h6 class="mb-3">Connect More Accounts</h6>
                 <div class="d-flex flex-wrap gap-2">
-                    {% if not google_connected %}
+                    {% if google_available and not google_connected %}
                     <a href="{% provider_login_url 'google' process='connect' %}" class="btn btn-outline-danger">
                         <i class="fab fa-google me-2"></i>Connect Google
                     </a>
                     {% endif %}
-                    {% if not facebook_connected %}
+                    {% if facebook_available and not facebook_connected %}
                     <a href="{% provider_login_url 'facebook' process='connect' %}" class="btn btn-outline-primary">
                         <i class="fab fa-facebook me-2"></i>Connect Facebook
                     </a>
                     {% endif %}
-                    {% if not microsoft_connected %}
+                    {% if microsoft_available and not microsoft_connected %}
                     <a href="{% provider_login_url 'microsoft' process='connect' %}" class="btn btn-outline-info">
                         <i class="fab fa-microsoft me-2"></i>Connect Microsoft
                     </a>
@@ -128,17 +128,27 @@
                 <p class="text-muted mb-3">
                     You don't have any social accounts connected yet.
                 </p>
+                {% if google_available or facebook_available or microsoft_available %}
                 <div class="d-flex flex-wrap gap-2">
+                    {% if google_available %}
                     <a href="{% provider_login_url 'google' process='connect' %}" class="btn btn-outline-danger">
                         <i class="fab fa-google me-2"></i>Connect Google
                     </a>
+                    {% endif %}
+                    {% if facebook_available %}
                     <a href="{% provider_login_url 'facebook' process='connect' %}" class="btn btn-outline-primary">
                         <i class="fab fa-facebook me-2"></i>Connect Facebook
                     </a>
+                    {% endif %}
+                    {% if microsoft_available %}
                     <a href="{% provider_login_url 'microsoft' process='connect' %}" class="btn btn-outline-info">
                         <i class="fab fa-microsoft me-2"></i>Connect Microsoft
                     </a>
+                    {% endif %}
                 </div>
+                {% else %}
+                <p class="text-muted small">Social login providers are not configured for this site.</p>
+                {% endif %}
                 {% endif %}
             </div>
         </div>
@@ -414,71 +424,5 @@
     </div>
 </div>
 
-<!-- Social Photo Display Styles -->
-<style>
-    .social-photo-card {
-        border: 2px solid #e9ecef;
-        border-radius: 12px;
-        padding: 1rem;
-        text-align: center;
-        transition: all 0.3s ease;
-        height: 100%;
-    }
-
-    .social-photo-card:hover {
-        border-color: #9B59B6;
-        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.15);
-    }
-
-    .provider-badge {
-        font-size: 0.9rem;
-        font-weight: 600;
-        color: #6c757d;
-        margin-bottom: 0.75rem;
-    }
-
-    .provider-badge i {
-        font-size: 1.25rem;
-        margin-right: 0.5rem;
-        vertical-align: middle;
-    }
-
-    .social-photo-preview {
-        width: 100%;
-        max-width: 150px;
-        margin: 0 auto;
-    }
-
-    .social-photo-preview img {
-        width: 100%;
-        aspect-ratio: 1;
-        object-fit: cover;
-        border-radius: 8px;
-    }
-
-    .no-photo-placeholder {
-        width: 100%;
-        max-width: 150px;
-        aspect-ratio: 1;
-        margin: 0 auto;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: #f8f9fa;
-        border-radius: 8px;
-        color: #6c757d;
-        padding: 1rem;
-    }
-
-    .no-photo-placeholder i {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .no-photo-placeholder span {
-        font-size: 0.8rem;
-        text-align: center;
-    }
-</style>
+<!-- Styles are in static/crush_lu/css/components/social-photos.css -->
 {% endblock %}

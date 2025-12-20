@@ -343,6 +343,8 @@ def account_settings(request):
     Account settings page with delete account option, email preferences,
     and linked social accounts management.
     """
+    from allauth.socialaccount.models import SocialApp
+    from django.contrib.sites.models import Site
     from .models import EmailPreference
     from .social_photos import get_all_social_photos
 
@@ -366,11 +368,24 @@ def account_settings(request):
     # Get social photos for import functionality
     social_photos = get_all_social_photos(request.user)
 
+    # Check which providers are actually configured for this site
+    # This prevents template errors when SocialApp doesn't exist
+    try:
+        current_site = Site.objects.get_current(request)
+        available_providers = set(
+            SocialApp.objects.filter(sites=current_site).values_list('provider', flat=True)
+        )
+    except Exception:
+        available_providers = set()
+
     return render(request, 'crush_lu/account_settings.html', {
         'email_prefs': email_prefs,
         'google_connected': 'google' in connected_providers,
         'facebook_connected': 'facebook' in connected_providers,
         'microsoft_connected': 'microsoft' in connected_providers,
+        'google_available': 'google' in available_providers,
+        'facebook_available': 'facebook' in available_providers,
+        'microsoft_available': 'microsoft' in available_providers,
         'crush_social_accounts': crush_social_accounts,  # Filtered list for display
         'social_photos': social_photos,  # Social photos for import
     })

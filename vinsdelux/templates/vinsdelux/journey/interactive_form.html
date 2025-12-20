@@ -8,16 +8,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% trans "VinsDelux Interactive Journey" %}</title>
     
-    <!-- Bootstrap CSS -->
-    <link href="{% static 'bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
-    
-    <!-- Custom Journey Game CSS -->
+    <!-- Vendor assets -->
+    <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'vendor/fontawesome/css/all.min.css' %}" rel="stylesheet">
+
+    <!-- VinsDelux Journey Game CSS (TODO: consolidate to vinsdelux/css/pages/journey.css) -->
     <link href="{% static 'css/vinsdelux-journey-game.css' %}" rel="stylesheet">
     <link href="{% static 'css/vinsdelux-images-fix.css' %}" rel="stylesheet">
     <link href="{% static 'css/vinsdelux-plot-selector.css' %}" rel="stylesheet">
-    
-    <!-- Font Awesome -->
-    <link href="{% static 'fontawesome/css/all.min.css' %}" rel="stylesheet">
 </head>
 <body>
     
@@ -947,7 +945,7 @@
     </div>
     
     <!-- Scripts -->
-    <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
     
     <!-- Pass Django data to JavaScript -->
     <script>

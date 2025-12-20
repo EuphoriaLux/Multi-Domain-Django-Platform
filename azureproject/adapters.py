@@ -61,8 +61,8 @@ def _get_domain(request):
 def _is_crush_domain(request):
     """Check if request is from crush.lu or localhost (dev default)."""
     domain = _get_domain(request)
-    # crush.lu is the main domain, localhost routes to crush.lu in development
-    return domain == 'crush.lu' or domain == 'localhost'
+    # crush.lu is the main domain, localhost/127.0.0.1 routes to crush.lu in development
+    return domain in ('crush.lu', 'localhost', '127.0.0.1')
 
 
 def _is_delegation_domain(request):
