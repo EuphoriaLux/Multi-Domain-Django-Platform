@@ -737,3 +737,98 @@ def create_crush_profile_from_google(sender, instance, created, **kwargs):
 
     except Exception as e:
         logger.error(f"Error in Google SocialAccount post_save handler: {str(e)}", exc_info=True)
+
+
+# =============================================================================
+# MICROSOFT OAUTH PROFILE INTEGRATION
+# =============================================================================
+
+def get_microsoft_photo_url(extra_data):
+    """
+    Get Microsoft profile photo URL.
+
+    Microsoft Graph API provides profile photos via a separate endpoint.
+    The extra_data doesn't typically include the photo URL directly.
+    We need to use the Graph API to fetch it.
+
+    Args:
+        extra_data: Microsoft extra_data dictionary
+
+    Returns:
+        str: URL to fetch photo from, or None if unavailable
+    """
+    # Microsoft doesn't provide photo URL in extra_data like Google/Facebook
+    # The photo must be fetched from Graph API: /me/photo/$value
+    # For now, we return None - photos would need to be fetched with access token
+    return None
+
+
+@receiver(pre_social_login)
+def update_microsoft_profile_on_login(sender, request, sociallogin, **kwargs):
+    """
+    Update CrushProfile with Microsoft data when user logs in with Microsoft.
+    Only processes Microsoft logins for Crush.lu domain.
+
+    This handles EXISTING users logging in again.
+    """
+    # Only process Microsoft logins
+    if sociallogin.account.provider != 'microsoft':
+        return
+
+    # Only process for crush.lu domain
+    host = request.get_host().split(':')[0].lower()
+    if host not in ['crush.lu', 'www.crush.lu', 'localhost', '127.0.0.1']:
+        logger.info(f"Skipping Microsoft login processing for non-Crush domain: {host}")
+        return
+
+    logger.info(f"pre_social_login signal received for Microsoft provider")
+
+    try:
+        extra_data = sociallogin.account.extra_data
+        logger.debug(f"Microsoft extra_data keys: {list(extra_data.keys())}")
+        logger.info(f"Microsoft extra_data: displayName={extra_data.get('displayName')}, "
+                   f"givenName={extra_data.get('givenName')}, surname={extra_data.get('surname')}, "
+                   f"mail={extra_data.get('mail')}, userPrincipalName={extra_data.get('userPrincipalName')}")
+
+        # If user exists, update their CrushProfile
+        if hasattr(sociallogin.user, 'id') and sociallogin.user.id:
+            try:
+                profile = CrushProfile.objects.get(user=sociallogin.user)
+                profile.save()
+                logger.info(f"Updated CrushProfile for existing Microsoft user {sociallogin.user.email}")
+
+            except CrushProfile.DoesNotExist:
+                logger.info(f"No CrushProfile exists yet for user {sociallogin.user.email}")
+
+    except Exception as e:
+        logger.error(f"Error in Microsoft pre_social_login handler: {str(e)}", exc_info=True)
+
+
+@receiver(post_save, sender=SocialAccount)
+def create_crush_profile_from_microsoft(sender, instance, created, **kwargs):
+    """
+    Create CrushProfile when a new Microsoft SocialAccount is created.
+
+    This handles NEW users signing up via Microsoft - creates basic profile.
+    Note: Microsoft doesn't provide profile photo in OAuth extra_data like Google/Facebook.
+    """
+    if instance.provider != 'microsoft':
+        return
+
+    if not created:
+        return
+
+    logger.info(f"SocialAccount post_save signal for Microsoft (user: {instance.user.email})")
+
+    try:
+        # Get or create CrushProfile
+        profile, profile_created = CrushProfile.objects.get_or_create(user=instance.user)
+
+        if profile_created:
+            logger.info(f"Created new CrushProfile for Microsoft user {instance.user.email}")
+
+        profile.save()
+        logger.info(f"Updated CrushProfile from Microsoft data in post_save")
+
+    except Exception as e:
+        logger.error(f"Error in Microsoft SocialAccount post_save handler: {str(e)}", exc_info=True)

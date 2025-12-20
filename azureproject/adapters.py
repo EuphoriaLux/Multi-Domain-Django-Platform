@@ -5,7 +5,9 @@ Routes authentication to appropriate handlers based on request domain.
 """
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.account.adapter import DefaultAccountAdapter
+from allauth.exceptions import ImmediateHttpResponse
 from django.urls import reverse
+from django.shortcuts import render
 import logging
 
 logger = logging.getLogger(__name__)
@@ -83,11 +85,40 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         """
         super().pre_social_login(request, sociallogin)
 
+        # Debug logging for Microsoft OAuth troubleshooting
+        provider = sociallogin.account.provider
+        logger.info(f"[OAUTH-ADAPTER] pre_social_login: provider={provider}, "
+                   f"is_existing={sociallogin.is_existing}, "
+                   f"user_id={getattr(sociallogin.user, 'id', None)}, "
+                   f"uid={sociallogin.account.uid[:20] if sociallogin.account.uid else 'None'}...")
+
+        if provider == 'microsoft':
+            extra = sociallogin.account.extra_data
+            logger.info(f"[OAUTH-ADAPTER] Microsoft extra_data: "
+                       f"displayName={extra.get('displayName')}, "
+                       f"mail={extra.get('mail')}, "
+                       f"userPrincipalName={extra.get('userPrincipalName')}")
+
         # Store the OAuth provider in session for PWA redirect handling
         if _is_crush_domain(request):
             request.session['oauth_provider'] = sociallogin.account.provider
             is_popup = request.session.get('oauth_popup_mode', False)
             logger.debug(f"OAuth login via {sociallogin.account.provider} (popup: {is_popup})")
+
+    def on_authentication_error(self, request, provider_id, error=None, exception=None, extra_context=None):
+        """
+        Handle authentication errors with detailed logging.
+        This helps debug OAuth issues like Microsoft login failures.
+        """
+        logger.error(f"[OAUTH-ADAPTER] Authentication error: provider={provider_id}, "
+                    f"error={error}, exception={exception}")
+
+        if exception:
+            import traceback
+            logger.error(f"[OAUTH-ADAPTER] Exception traceback:\n{traceback.format_exc()}")
+
+        # Let the default handler show the error page
+        return super().on_authentication_error(request, provider_id, error, exception, extra_context)
 
     def is_auto_signup_allowed(self, request, sociallogin):
         """Allow automatic signup for social logins on all domains."""
