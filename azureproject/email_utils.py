@@ -7,17 +7,20 @@ import os
 from django.core.mail import EmailMessage
 
 
+def _normalize_domain(domain):
+    """
+    Normalize domain by removing www. prefix.
+    This allows a single config entry to handle both www and non-www variants.
+    """
+    if domain.startswith('www.'):
+        return domain[4:]
+    return domain
+
+
 # Domain-specific email configurations
+# Note: www.* variants are handled by _normalize_domain() in get_domain_email_config()
 DOMAIN_EMAIL_CONFIG = {
     'crush.lu': {
-        # Microsoft Graph API configuration (Graph API only - SMTP disabled by M365)
-        'USE_GRAPH_API': os.getenv('CRUSH_USE_GRAPH_API', 'True').lower() == 'true',
-        'GRAPH_TENANT_ID': os.getenv('CRUSH_GRAPH_TENANT_ID'),
-        'GRAPH_CLIENT_ID': os.getenv('CRUSH_GRAPH_CLIENT_ID'),
-        'GRAPH_CLIENT_SECRET': os.getenv('CRUSH_GRAPH_CLIENT_SECRET'),
-        'DEFAULT_FROM_EMAIL': os.getenv('CRUSH_DEFAULT_FROM_EMAIL', 'noreply@crush.lu'),
-    },
-    'www.crush.lu': {
         # Microsoft Graph API configuration (Graph API only - SMTP disabled by M365)
         'USE_GRAPH_API': os.getenv('CRUSH_USE_GRAPH_API', 'True').lower() == 'true',
         'GRAPH_TENANT_ID': os.getenv('CRUSH_GRAPH_TENANT_ID'),
@@ -34,25 +37,7 @@ DOMAIN_EMAIL_CONFIG = {
         'EMAIL_USE_SSL': os.getenv('EMAIL_USE_SSL', 'True').lower() == 'true',
         'DEFAULT_FROM_EMAIL': os.getenv('DEFAULT_FROM_EMAIL', os.getenv('EMAIL_HOST_USER')),
     },
-    'www.powerup.lu': {
-        'EMAIL_HOST': os.getenv('EMAIL_HOST', 'mail.power-up.lu'),
-        'EMAIL_PORT': int(os.getenv('EMAIL_PORT', '465')),
-        'EMAIL_HOST_USER': os.getenv('EMAIL_HOST_USER'),
-        'EMAIL_HOST_PASSWORD': os.getenv('EMAIL_HOST_PASSWORD'),
-        'EMAIL_USE_TLS': os.getenv('EMAIL_USE_TLS', 'False').lower() == 'true',
-        'EMAIL_USE_SSL': os.getenv('EMAIL_USE_SSL', 'True').lower() == 'true',
-        'DEFAULT_FROM_EMAIL': os.getenv('DEFAULT_FROM_EMAIL', os.getenv('EMAIL_HOST_USER')),
-    },
     'vinsdelux.com': {
-        'EMAIL_HOST': os.getenv('VINSDELUX_EMAIL_HOST', os.getenv('EMAIL_HOST', 'mail.power-up.lu')),
-        'EMAIL_PORT': int(os.getenv('VINSDELUX_EMAIL_PORT', os.getenv('EMAIL_PORT', '465'))),
-        'EMAIL_HOST_USER': os.getenv('VINSDELUX_EMAIL_HOST_USER', os.getenv('EMAIL_HOST_USER')),
-        'EMAIL_HOST_PASSWORD': os.getenv('VINSDELUX_EMAIL_HOST_PASSWORD', os.getenv('EMAIL_HOST_PASSWORD')),
-        'EMAIL_USE_TLS': os.getenv('VINSDELUX_EMAIL_USE_TLS', os.getenv('EMAIL_USE_TLS', 'False')).lower() == 'true',
-        'EMAIL_USE_SSL': os.getenv('VINSDELUX_EMAIL_USE_SSL', os.getenv('EMAIL_USE_SSL', 'True')).lower() == 'true',
-        'DEFAULT_FROM_EMAIL': os.getenv('VINSDELUX_DEFAULT_FROM_EMAIL', os.getenv('DEFAULT_FROM_EMAIL', os.getenv('EMAIL_HOST_USER'))),
-    },
-    'www.vinsdelux.com': {
         'EMAIL_HOST': os.getenv('VINSDELUX_EMAIL_HOST', os.getenv('EMAIL_HOST', 'mail.power-up.lu')),
         'EMAIL_PORT': int(os.getenv('VINSDELUX_EMAIL_PORT', os.getenv('EMAIL_PORT', '465'))),
         'EMAIL_HOST_USER': os.getenv('VINSDELUX_EMAIL_HOST_USER', os.getenv('EMAIL_HOST_USER')),
@@ -82,6 +67,9 @@ def get_domain_email_config(request=None, domain=None):
     else:
         # Default to powerup.lu if no request or domain provided
         host = 'powerup.lu'
+
+    # Normalize domain (strip www.) to use single config for both variants
+    host = _normalize_domain(host)
 
     # Get config for this domain, or fallback to powerup.lu
     return DOMAIN_EMAIL_CONFIG.get(host, DOMAIN_EMAIL_CONFIG['powerup.lu'])

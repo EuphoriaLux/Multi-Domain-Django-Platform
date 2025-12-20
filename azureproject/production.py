@@ -42,26 +42,25 @@ DEBUG = False
 # Override authentication protocol for production (always HTTPS)
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
 
-# WhiteNoise configuration and Middleware list
-MIDDLEWARE = [
-    'azureproject.middleware.HealthCheckMiddleware',  # MUST be first - bypasses all other middleware for /healthz/
-    'django.middleware.security.SecurityMiddleware',
-    'azureproject.redirect_www_middleware.AzureInternalIPMiddleware',  # Handle Azure internal IPs first
-    'azureproject.redirect_www_middleware.RedirectWWWToRootDomainMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.locale.LocaleMiddleware',
-    'django.middleware.common.CommonMiddleware',  # MUST be before SafeCurrentSiteMiddleware
-    'azureproject.middleware.SafeCurrentSiteMiddleware',  # Safe site detection (auto-creates missing Sites)
-    'azureproject.middleware.DomainURLRoutingMiddleware',  # Multi-domain routing
-    'azureproject.middleware.ForceAdminToEnglishMiddleware',  # Force admin to English
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'azureproject.middleware.OAuthCallbackProtectionMiddleware',  # Prevent duplicate OAuth callbacks (Android PWA fix)
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',
-]
+# ============================================================================
+# MIDDLEWARE Configuration (extends settings.py base middleware)
+# ============================================================================
+# Instead of duplicating the entire list, we extend the base middleware from
+# settings.py with production-specific additions for Azure hosting.
+
+MIDDLEWARE = list(MIDDLEWARE)  # Copy the list from settings.py (imported via *)
+
+# Insert Azure-specific middleware after SecurityMiddleware (index 1)
+MIDDLEWARE.insert(2, 'azureproject.redirect_www_middleware.AzureInternalIPMiddleware')  # Handle Azure internal IPs
+MIDDLEWARE.insert(3, 'azureproject.redirect_www_middleware.RedirectWWWToRootDomainMiddleware')  # WWW redirect
+
+# Add ForceAdminToEnglish after DomainURLRoutingMiddleware
+domain_routing_idx = MIDDLEWARE.index('azureproject.middleware.DomainURLRoutingMiddleware')
+MIDDLEWARE.insert(domain_routing_idx + 1, 'azureproject.middleware.ForceAdminToEnglishMiddleware')
+
+# Add OAuth protection after AuthenticationMiddleware (Android PWA fix)
+auth_idx = MIDDLEWARE.index('django.contrib.auth.middleware.AuthenticationMiddleware')
+MIDDLEWARE.insert(auth_idx + 1, 'azureproject.middleware.OAuthCallbackProtectionMiddleware')
 
 # Set default URL configuration; this will be overridden by our middleware as needed.
 # Using powerup as default to match middleware fallback behavior
@@ -165,8 +164,17 @@ VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
 VAPID_ADMIN_EMAIL = os.getenv('VAPID_ADMIN_EMAIL', 'noreply@crush.lu')
 
 # Configure Postgres database based on connection string of the libpq Keyword/Value form
-conn_str = os.environ['AZURE_POSTGRESQL_CONNECTIONSTRING']
-conn_str_params = {pair.split('=')[0]: pair.split('=')[1] for pair in conn_str.split(' ')}
+from django.core.exceptions import ImproperlyConfigured
+
+try:
+    conn_str = os.environ['AZURE_POSTGRESQL_CONNECTIONSTRING']
+    conn_str_params = {pair.split('=')[0]: pair.split('=')[1] for pair in conn_str.split(' ')}
+except KeyError:
+    raise ImproperlyConfigured(
+        "AZURE_POSTGRESQL_CONNECTIONSTRING environment variable is required in production. "
+        "Format: 'dbname=xxx host=xxx user=xxx password=xxx'"
+    )
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -235,19 +243,6 @@ CSRF_COOKIE_HTTPONLY = False
 # SSL redirect - Azure App Service handles this at load balancer level
 # Setting to False avoids redirect loops since Azure terminates SSL
 SECURE_SSL_REDIRECT = False
-
-# Uncomment and configure the following if you wish to use cache-backed sessions:
-# SESSION_ENGINE = "django.contrib.sessions.backends.cache"
-# CACHES = {
-#    "default": {
-#        "BACKEND": "django_redis.cache.RedisCache",
-#        "LOCATION": os.environ.get('AZURE_REDIS_CONNECTIONSTRING'),
-#        "OPTIONS": {
-#            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-#            "COMPRESSOR": "django_redis.compressors.zlib.ZlibCompressor",
-#        },
-#    }
-# }
 
 # Logging configuration - reduce verbosity in production
 LOGGING = {
