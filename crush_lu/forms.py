@@ -130,11 +130,30 @@ class CrushProfileForm(forms.ModelForm):
         help_text='Required'
     )
 
-    # Override location to make it required
-    location = forms.CharField(
+    # Override location to make it required with proper choices
+    LOCATION_CHOICES = [
+        ('', 'Select your city...'),
+        ('Luxembourg City', 'Luxembourg City'),
+        ('Esch-sur-Alzette', 'Esch-sur-Alzette'),
+        ('Differdange', 'Differdange'),
+        ('Dudelange', 'Dudelange'),
+        ('Ettelbruck', 'Ettelbruck'),
+        ('Diekirch', 'Diekirch'),
+        ('Wiltz', 'Wiltz'),
+        ('Echternach', 'Echternach'),
+        ('Grevenmacher', 'Grevenmacher'),
+        ('Remich', 'Remich'),
+        ('Vianden', 'Vianden'),
+        ('Clervaux', 'Clervaux'),
+        ('Mersch', 'Mersch'),
+        ('Mondorf-les-Bains', 'Mondorf-les-Bains'),
+        ('Other', 'Other'),
+    ]
+
+    location = forms.ChoiceField(
         required=True,
-        max_length=100,
-        widget=forms.Select(attrs={'class': 'form-control'}),
+        choices=LOCATION_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-control form-select-lg'}),
         help_text='Your city in Luxembourg'
     )
 

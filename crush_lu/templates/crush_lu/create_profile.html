@@ -150,19 +150,7 @@
                         <label for="{{ form.location.id_for_label }}">
                             <i class="bi bi-geo-alt"></i> Location in Luxembourg *
                         </label>
-                        <select name="location" id="{{ form.location.id_for_label }}" class="form-select form-select-lg" required>
-                            <option value="">Select your city...</option>
-                            <option value="Luxembourg City" {% if profile.location == 'Luxembourg City' %}selected{% endif %}>Luxembourg City</option>
-                            <option value="Esch-sur-Alzette" {% if profile.location == 'Esch-sur-Alzette' %}selected{% endif %}>Esch-sur-Alzette</option>
-                            <option value="Differdange" {% if profile.location == 'Differdange' %}selected{% endif %}>Differdange</option>
-                            <option value="Dudelange" {% if profile.location == 'Dudelange' %}selected{% endif %}>Dudelange</option>
-                            <option value="Ettelbruck" {% if profile.location == 'Ettelbruck' %}selected{% endif %}>Ettelbruck</option>
-                            <option value="Diekirch" {% if profile.location == 'Diekirch' %}selected{% endif %}>Diekirch</option>
-                            <option value="Wiltz" {% if profile.location == 'Wiltz' %}selected{% endif %}>Wiltz</option>
-                            <option value="Echternach" {% if profile.location == 'Echternach' %}selected{% endif %}>Echternach</option>
-                            <option value="Grevenmacher" {% if profile.location == 'Grevenmacher' %}selected{% endif %}>Grevenmacher</option>
-                            <option value="Other" {% if profile.location == 'Other' %}selected{% endif %}>Other</option>
-                        </select>
+                        {{ form.location }}
                         {% if form.location.errors %}
                             <div class="invalid-feedback d-block">{{ form.location.errors.0 }}</div>
                         {% endif %}
@@ -316,46 +304,65 @@
                     <!-- Social Photo Import Section -->
                     {% if social_photos %}
                     <div class="social-import-section mb-4">
-                        <h6 class="mb-3"><i class="bi bi-cloud-download"></i> Import from Social Accounts</h6>
-                        <div class="social-photos-row">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h6 class="mb-0"><i class="bi bi-cloud-download me-2"></i>Import from Social Accounts</h6>
+                            <span class="badge bg-success">Quick Import</span>
+                        </div>
+                        <p class="text-muted small mb-3">Use your existing profile photos from connected accounts</p>
+
+                        <div class="social-photos-grid">
                             {% for photo in social_photos %}
+                            <div class="social-photo-card">
+                                <div class="provider-header">
+                                    {% if photo.provider == 'facebook' %}
+                                    <i class="fab fa-facebook text-primary"></i>
+                                    {% elif photo.provider == 'google' %}
+                                    <i class="fab fa-google text-danger"></i>
+                                    {% elif photo.provider == 'microsoft' %}
+                                    <i class="fab fa-microsoft text-info"></i>
+                                    {% endif %}
+                                    <span>{{ photo.provider_display }}</span>
+                                </div>
+
                                 {% if photo.available %}
-                                <div class="social-photo-option">
-                                    <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }}">
-                                    <span class="provider-label">
-                                        {% if photo.provider == 'facebook' %}
-                                        <i class="fab fa-facebook text-primary"></i>
-                                        {% elif photo.provider == 'google' %}
-                                        <i class="fab fa-google text-danger"></i>
-                                        {% elif photo.provider == 'microsoft' %}
-                                        <i class="fab fa-microsoft text-info"></i>
-                                        {% endif %}
-                                    </span>
-                                    <div class="social-import-buttons mt-2">
-                                        <button type="button" class="btn btn-xs btn-crush-primary import-social-photo-btn"
-                                                data-account-id="{{ photo.account_id }}"
-                                                data-slot="1">
-                                            Main
-                                        </button>
-                                        <button type="button" class="btn btn-xs btn-outline-secondary import-social-photo-btn"
-                                                data-account-id="{{ photo.account_id }}"
-                                                data-slot="2">
-                                            #2
-                                        </button>
-                                        <button type="button" class="btn btn-xs btn-outline-secondary import-social-photo-btn"
-                                                data-account-id="{{ photo.account_id }}"
-                                                data-slot="3">
-                                            #3
-                                        </button>
-                                    </div>
+                                <div class="social-photo-preview-wrapper">
+                                    <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }} photo" class="social-photo-img">
+                                </div>
+                                <div class="import-buttons-row">
+                                    <button type="button" class="btn btn-sm btn-crush-primary import-social-photo-btn"
+                                            data-account-id="{{ photo.account_id }}"
+                                            data-slot="1"
+                                            title="Set as main photo">
+                                        <i class="bi bi-star-fill"></i> Main
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary import-social-photo-btn"
+                                            data-account-id="{{ photo.account_id }}"
+                                            data-slot="2"
+                                            title="Import as Photo 2">
+                                        #2
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary import-social-photo-btn"
+                                            data-account-id="{{ photo.account_id }}"
+                                            data-slot="3"
+                                            title="Import as Photo 3">
+                                        #3
+                                    </button>
+                                </div>
+                                {% else %}
+                                <div class="no-photo-available">
+                                    <i class="bi bi-image"></i>
+                                    <span>{{ photo.reason|default:"No photo available" }}</span>
                                 </div>
                                 {% endif %}
+                            </div>
                             {% endfor %}
                         </div>
-                        <div id="social-photo-notification" class="mt-2" style="display: none;"></div>
+
+                        <!-- Import notification -->
+                        <div id="social-photo-notification" class="mt-3" style="display: none;"></div>
                     </div>
                     <div class="divider-with-text mb-4">
-                        <span>or upload your own</span>
+                        <span>or upload your own photos</span>
                     </div>
                     {% endif %}
 
@@ -1107,53 +1114,97 @@
 
 /* Social Photo Import Styles */
 .social-import-section {
-    background: rgba(155, 89, 182, 0.05);
-    border-radius: 12px;
-    padding: 1rem;
-    border: 1px dashed #9B59B6;
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.08), rgba(255, 107, 157, 0.08));
+    border-radius: 16px;
+    padding: 1.25rem;
+    border: 2px dashed rgba(155, 89, 182, 0.4);
 }
 
-.social-photos-row {
-    display: flex;
+.social-photos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 1rem;
-    flex-wrap: wrap;
-    justify-content: center;
+    max-width: 500px;
+    margin: 0 auto;
 }
 
-.social-photo-option {
-    position: relative;
-    text-align: center;
-    flex: 0 0 auto;
-}
-
-.social-photo-option img {
-    width: 100px;
-    height: 100px;
-    object-fit: cover;
-    border-radius: 8px;
-    border: 2px solid #e9ecef;
-}
-
-.social-photo-option .provider-label {
-    position: absolute;
-    top: -8px;
-    right: -8px;
+.social-photo-card {
     background: white;
-    padding: 4px 6px;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 12px;
+    padding: 0.875rem;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
 }
 
-.social-import-buttons {
+.social-photo-card:hover {
+    border-color: #9B59B6;
+    box-shadow: 0 4px 16px rgba(155, 89, 182, 0.15);
+    transform: translateY(-2px);
+}
+
+.provider-header {
     display: flex;
-    gap: 4px;
+    align-items: center;
     justify-content: center;
+    gap: 0.4rem;
+    margin-bottom: 0.6rem;
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.85rem;
 }
 
-.social-import-buttons .btn-xs {
+.provider-header i {
+    font-size: 1.1rem;
+}
+
+.social-photo-preview-wrapper {
+    margin-bottom: 0.6rem;
+}
+
+.social-photo-img {
+    width: 100%;
+    max-width: 100px;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 3px solid #e9ecef;
+}
+
+.import-buttons-row {
+    display: flex;
+    gap: 0.25rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.import-buttons-row .btn {
     font-size: 0.7rem;
-    padding: 2px 6px;
+    padding: 0.3rem 0.5rem;
+}
+
+.import-buttons-row .btn i {
+    font-size: 0.65rem;
+}
+
+.no-photo-available {
+    padding: 1.5rem 0.75rem;
+    color: #6c757d;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.no-photo-available i {
+    font-size: 1.75rem;
+    opacity: 0.5;
+}
+
+.no-photo-available span {
+    font-size: 0.75rem;
+    text-align: center;
 }
 
 .divider-with-text {
@@ -1165,19 +1216,32 @@
 .divider-with-text::after {
     content: '';
     flex: 1;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 2px solid #e9ecef;
 }
 
 .divider-with-text span {
-    padding: 0 1rem;
+    padding: 0 1.25rem;
     color: #6c757d;
     font-size: 0.9rem;
+    font-weight: 500;
 }
 
-#social-photo-notification.alert {
+#social-photo-notification {
+    border-radius: 8px;
+    padding: 0.6rem 0.875rem;
     font-size: 0.85rem;
-    padding: 0.5rem 0.75rem;
-    margin-bottom: 0;
+}
+
+#social-photo-notification.alert-success {
+    background-color: rgba(40, 167, 69, 0.1);
+    border: 1px solid rgba(40, 167, 69, 0.3);
+    color: #28a745;
+}
+
+#social-photo-notification.alert-danger {
+    background-color: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+    color: #dc3545;
 }
 </style>
 

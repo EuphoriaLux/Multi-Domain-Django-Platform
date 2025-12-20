@@ -129,12 +129,15 @@
 
                             <!-- Social Photo Import -->
                             {% if social_photos %}
-                            <div class="social-import-compact mb-3">
-                                <small class="text-muted">
-                                    <i class="bi bi-cloud-download"></i> Import from:
+                            <div class="social-import-section mb-4">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <i class="bi bi-cloud-download text-primary"></i>
+                                    <span class="fw-semibold">Import from Social Accounts</span>
+                                </div>
+                                <div class="social-photos-row">
                                     {% for photo in social_photos %}
-                                        {% if photo.available %}
-                                        <span class="social-import-option">
+                                    <div class="social-photo-mini-card">
+                                        <div class="provider-icon">
                                             {% if photo.provider == 'facebook' %}
                                             <i class="fab fa-facebook text-primary"></i>
                                             {% elif photo.provider == 'google' %}
@@ -142,29 +145,34 @@
                                             {% elif photo.provider == 'microsoft' %}
                                             <i class="fab fa-microsoft text-info"></i>
                                             {% endif %}
-                                            {{ photo.provider_display }}
-                                            <span class="import-slot-btns">
-                                                <button type="button" class="btn btn-link btn-xs p-0 import-social-photo-btn"
-                                                        data-account-id="{{ photo.account_id }}"
-                                                        data-slot="1" title="Import as Main">
-                                                    [Main]
-                                                </button>
-                                                <button type="button" class="btn btn-link btn-xs p-0 import-social-photo-btn"
-                                                        data-account-id="{{ photo.account_id }}"
-                                                        data-slot="2" title="Import as Photo 2">
-                                                    [#2]
-                                                </button>
-                                                <button type="button" class="btn btn-link btn-xs p-0 import-social-photo-btn"
-                                                        data-account-id="{{ photo.account_id }}"
-                                                        data-slot="3" title="Import as Photo 3">
-                                                    [#3]
-                                                </button>
-                                            </span>
-                                        </span>
-                                        {% if not forloop.last %}<span class="mx-2">|</span>{% endif %}
+                                        </div>
+                                        {% if photo.available %}
+                                        <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }}" class="social-mini-img">
+                                        <div class="import-btns">
+                                            <button type="button" class="btn btn-xs btn-crush-primary import-social-photo-btn"
+                                                    data-account-id="{{ photo.account_id }}"
+                                                    data-slot="1" title="Set as Main Photo">
+                                                <i class="bi bi-star-fill"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-xs btn-outline-secondary import-social-photo-btn"
+                                                    data-account-id="{{ photo.account_id }}"
+                                                    data-slot="2" title="Import as Photo 2">
+                                                2
+                                            </button>
+                                            <button type="button" class="btn btn-xs btn-outline-secondary import-social-photo-btn"
+                                                    data-account-id="{{ photo.account_id }}"
+                                                    data-slot="3" title="Import as Photo 3">
+                                                3
+                                            </button>
+                                        </div>
+                                        {% else %}
+                                        <div class="no-photo-mini">
+                                            <i class="bi bi-image"></i>
+                                        </div>
                                         {% endif %}
+                                    </div>
                                     {% endfor %}
-                                </small>
+                                </div>
                                 <div id="social-photo-notification" class="mt-2" style="display: none;"></div>
                             </div>
                             {% endif %}
@@ -356,42 +364,90 @@
 }
 
 /* Social Photo Import Styles */
-.social-import-compact {
-    background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(255, 107, 157, 0.05));
-    border: 1px dashed rgba(155, 89, 182, 0.3);
-    border-radius: 8px;
-    padding: 0.75rem 1rem;
+.social-import-section {
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.06), rgba(255, 107, 157, 0.06));
+    border: 2px dashed rgba(155, 89, 182, 0.35);
+    border-radius: 12px;
+    padding: 1rem;
 }
 
-.social-import-option {
-    display: inline-flex;
+.social-photos-row {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.social-photo-mini-card {
+    background: white;
+    border-radius: 10px;
+    padding: 0.6rem;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    position: relative;
+    min-width: 90px;
+    transition: all 0.2s ease;
+}
+
+.social-photo-mini-card:hover {
+    box-shadow: 0 4px 12px rgba(155, 89, 182, 0.15);
+    transform: translateY(-1px);
+}
+
+.provider-icon {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: white;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    display: flex;
     align-items: center;
-    gap: 0.25rem;
-}
-
-.social-import-option i {
-    font-size: 1rem;
-}
-
-.import-slot-btns {
-    margin-left: 0.25rem;
-}
-
-.import-slot-btns .btn-link {
+    justify-content: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.12);
     font-size: 0.75rem;
-    color: #9B59B6;
-    text-decoration: none;
-    padding: 0 0.15rem;
 }
 
-.import-slot-btns .btn-link:hover {
-    color: #FF6B9D;
-    text-decoration: underline;
+.social-mini-img {
+    width: 70px;
+    height: 70px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+    margin-bottom: 0.5rem;
 }
 
-.import-slot-btns .btn-link:disabled {
-    color: #6c757d;
-    cursor: not-allowed;
+.import-btns {
+    display: flex;
+    gap: 3px;
+    justify-content: center;
+}
+
+.import-btns .btn-xs {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.4rem;
+    min-width: 24px;
+}
+
+.import-btns .btn-xs i {
+    font-size: 0.6rem;
+}
+
+.no-photo-mini {
+    width: 70px;
+    height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8f9fa;
+    border-radius: 8px;
+    color: #adb5bd;
+    margin: 0 auto 0.5rem;
+}
+
+.no-photo-mini i {
+    font-size: 1.5rem;
 }
 
 #social-photo-notification {
