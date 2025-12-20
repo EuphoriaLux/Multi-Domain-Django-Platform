@@ -1,0 +1,602 @@
+/* ===========================================
+   VINSDELUX JOURNEY GAME PAGE
+   Interactive wine discovery journey
+   =========================================== */
+
+/* ==========================================
+   JOURNEY VARIABLES
+   Dark theme for immersive experience
+   ========================================== */
+
+.journey-game-container {
+    --journey-bg-dark: #1a0e08;
+    --journey-bg-medium: #2c1810;
+    --journey-bg-light: #3d2418;
+    --journey-wine-primary: var(--vdl-burgundy);
+    --journey-wine-secondary: #DC143C;
+    --journey-wine-tertiary: #B22222;
+    --journey-wine-light: #CD5C5C;
+    --journey-wine-dark: #4B0000;
+    --journey-gold: var(--vdl-gold);
+    --journey-silver: #C0C0C0;
+    --journey-bronze: #CD7F32;
+    --journey-success: #28a745;
+    --journey-warning: #ffc107;
+    --journey-danger: #dc3545;
+    --journey-info: #17a2b8;
+}
+
+/* ==========================================
+   CONTAINER & BACKGROUND
+   ========================================== */
+
+.journey-game-container {
+    min-height: 100vh;
+    background: var(--journey-bg-dark);
+    color: white;
+    font-family: var(--vdl-font-sans);
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Background Effects */
+.game-background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.vineyard-background {
+    width: 100%;
+    height: 100%;
+    opacity: 0.1;
+}
+
+.parallax-layer {
+    position: absolute;
+    width: 110%;
+    height: 110%;
+    background-size: cover;
+    background-position: center;
+}
+
+.parallax-layer.layer-1 {
+    background: linear-gradient(135deg,
+        rgba(114, 47, 55, 0.1) 0%,
+        rgba(75, 0, 0, 0.2) 100%);
+    animation: float 20s ease-in-out infinite;
+}
+
+.parallax-layer.layer-2 {
+    background: radial-gradient(circle at 50% 50%,
+        rgba(220, 20, 60, 0.05) 0%,
+        transparent 70%);
+    animation: float 25s ease-in-out infinite reverse;
+}
+
+.ambient-particles {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-image:
+        radial-gradient(circle, rgba(212, 175, 55, 0.1) 2px, transparent 2px),
+        radial-gradient(circle, rgba(212, 175, 55, 0.05) 1px, transparent 1px);
+    background-size: 50px 50px, 25px 25px;
+    animation: particleFloat 30s linear infinite;
+}
+
+/* ==========================================
+   JOURNEY ANIMATIONS
+   ========================================== */
+
+@keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(-20px, -20px) scale(1.05); }
+    66% { transform: translate(20px, -10px) scale(0.95); }
+}
+
+@keyframes particleFloat {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-100px); }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.9; }
+}
+
+@keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideInUp {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes glow {
+    0%, 100% { box-shadow: 0 0 5px var(--journey-wine-primary); }
+    50% { box-shadow: 0 0 20px var(--journey-wine-primary), 0 0 40px var(--journey-wine-secondary); }
+}
+
+/* ==========================================
+   ACHIEVEMENT POPUP
+   ========================================== */
+
+.achievement-popup {
+    position: fixed;
+    top: 100px;
+    right: -400px;
+    width: 350px;
+    background: linear-gradient(135deg, var(--journey-bg-medium), var(--journey-bg-dark));
+    border: 2px solid var(--journey-gold);
+    border-radius: var(--vdl-radius-xl);
+    padding: var(--vdl-space-xl);
+    box-shadow: var(--vdl-shadow-elevated), 0 0 30px rgba(212, 175, 55, 0.3);
+    transition: right 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    z-index: 1000;
+}
+
+.achievement-popup.show {
+    right: 20px;
+}
+
+.achievement-content {
+    display: flex;
+    align-items: center;
+    gap: var(--vdl-space-md);
+}
+
+.achievement-icon {
+    font-size: 48px;
+    color: var(--journey-gold);
+    animation: pulse 2s infinite;
+}
+
+.achievement-text h4 {
+    margin: 0 0 var(--vdl-space-xs);
+    color: var(--journey-gold);
+    font-size: 1.125rem;
+    font-family: var(--vdl-font-display);
+}
+
+.achievement-text p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.875rem;
+}
+
+.achievement-points {
+    margin-left: auto;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--journey-gold);
+}
+
+/* ==========================================
+   GAME HEADER
+   ========================================== */
+
+.game-header {
+    position: sticky;
+    top: 0;
+    background: linear-gradient(180deg, var(--journey-bg-dark), transparent);
+    backdrop-filter: blur(10px);
+    z-index: 100;
+    padding: var(--vdl-space-xl) 0;
+    border-bottom: 1px solid rgba(114, 47, 55, 0.3);
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--vdl-space-2xl);
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 var(--vdl-space-xl);
+}
+
+.game-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--vdl-space-md);
+}
+
+.brand-logo {
+    height: 40px;
+    width: auto;
+}
+
+.brand-tagline {
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.6);
+    font-style: italic;
+}
+
+/* ==========================================
+   PROGRESS BAR
+   ========================================== */
+
+.journey-progress-bar {
+    flex: 1;
+    max-width: 600px;
+}
+
+.progress-track {
+    position: relative;
+    height: 40px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: var(--vdl-radius-xl);
+    overflow: hidden;
+    border: 1px solid rgba(114, 47, 55, 0.3);
+}
+
+.progress-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--journey-wine-primary), var(--journey-wine-secondary));
+    border-radius: var(--vdl-radius-xl);
+    transition: width 0.5s ease;
+    box-shadow: 0 0 20px rgba(114, 47, 55, 0.5);
+}
+
+.progress-milestones {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--vdl-space-xl);
+}
+
+.milestone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: var(--journey-bg-dark);
+    border: 2px solid var(--journey-wine-primary);
+    border-radius: 50%;
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.6);
+    transition: all var(--vdl-transition-standard);
+    cursor: pointer;
+    position: relative;
+}
+
+.milestone[data-unlocked="true"] {
+    background: var(--journey-wine-primary);
+    color: white;
+    animation: pulse 2s infinite;
+}
+
+.milestone.completed {
+    background: var(--journey-gold);
+    border-color: var(--journey-gold);
+    color: var(--journey-bg-dark);
+}
+
+.milestone-label {
+    position: absolute;
+    bottom: -25px;
+    font-size: 0.625rem;
+    white-space: nowrap;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.progress-stats {
+    display: flex;
+    gap: var(--vdl-space-xl);
+    margin-top: var(--vdl-space-sm);
+    justify-content: center;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: var(--vdl-space-xs);
+    font-size: 0.875rem;
+}
+
+.stat-item i {
+    color: var(--journey-wine-secondary);
+}
+
+.stat-value {
+    font-weight: bold;
+    color: white;
+}
+
+.stat-label {
+    color: rgba(255, 255, 255, 0.6);
+    margin-left: 3px;
+}
+
+/* ==========================================
+   USER MENU
+   ========================================== */
+
+.user-menu {
+    display: flex;
+    gap: var(--vdl-space-sm);
+}
+
+.user-menu button {
+    padding: var(--vdl-space-sm) var(--vdl-space-md);
+    background: rgba(114, 47, 55, 0.2);
+    border: 1px solid var(--journey-wine-primary);
+    border-radius: var(--vdl-radius-md);
+    color: white;
+    cursor: pointer;
+    transition: all var(--vdl-transition-standard);
+    display: flex;
+    align-items: center;
+    gap: var(--vdl-space-sm);
+}
+
+.user-menu button:hover {
+    background: var(--journey-wine-primary);
+    transform: translateY(-2px);
+    box-shadow: var(--vdl-shadow-soft);
+}
+
+/* ==========================================
+   MAIN CONTENT
+   ========================================== */
+
+.game-main {
+    position: relative;
+    z-index: 1;
+    padding: var(--vdl-space-2xl) 0;
+}
+
+/* Journey Steps */
+.journey-step {
+    display: none;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.5s ease;
+}
+
+.journey-step.active {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.step-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 var(--vdl-space-xl);
+}
+
+.step-header {
+    text-align: center;
+    margin-bottom: var(--vdl-space-2xl);
+}
+
+.step-title {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: bold;
+    font-family: var(--vdl-font-display);
+    background: linear-gradient(135deg, var(--journey-wine-primary), var(--journey-wine-secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: var(--vdl-space-sm);
+    animation: slideInUp 0.5s ease;
+}
+
+.step-subtitle {
+    font-size: 1.125rem;
+    color: rgba(255, 255, 255, 0.8);
+    animation: slideInUp 0.5s ease 0.1s backwards;
+}
+
+/* ==========================================
+   PLOT SELECTION (JOURNEY VERSION)
+   ========================================== */
+
+.plot-selection-container {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--vdl-space-2xl);
+    margin-bottom: var(--vdl-space-2xl);
+}
+
+@media (max-width: 991.98px) {
+    .plot-selection-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Vineyard Map */
+.vineyard-map {
+    position: relative;
+    background: linear-gradient(135deg, #3a5f3a, #2d4a2d);
+    border-radius: var(--vdl-radius-xl);
+    padding: var(--vdl-space-xl);
+    min-height: 500px;
+    overflow: hidden;
+    box-shadow: var(--vdl-shadow-elevated);
+}
+
+.map-canvas {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 400px;
+    transition: transform 0.5s ease;
+}
+
+/* Plot Markers */
+.plot-marker {
+    position: absolute;
+    cursor: pointer;
+    transform: translate(-50%, -100%);
+    transition: all var(--vdl-transition-standard);
+}
+
+.plot-marker:hover {
+    transform: translate(-50%, -100%) scale(1.2);
+}
+
+.plot-marker.selected {
+    animation: pulse 2s infinite;
+}
+
+.plot-marker.highlighted .marker-pin {
+    color: var(--journey-gold);
+    filter: drop-shadow(0 0 10px var(--journey-gold));
+}
+
+.marker-pin {
+    font-size: 32px;
+    color: var(--journey-wine-primary);
+    filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.marker-label {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--journey-bg-dark);
+    padding: var(--vdl-space-xs) var(--vdl-space-sm);
+    border-radius: var(--vdl-radius-sm);
+    font-size: 0.75rem;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity var(--vdl-transition-standard);
+}
+
+.plot-marker:hover .marker-label {
+    opacity: 1;
+}
+
+/* ==========================================
+   NAVIGATION BUTTONS
+   ========================================== */
+
+.journey-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--vdl-space-2xl);
+    padding-top: var(--vdl-space-xl);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-journey {
+    padding: var(--vdl-space-md) var(--vdl-space-xl);
+    border-radius: var(--vdl-radius-md);
+    font-weight: 600;
+    font-family: var(--vdl-font-sans);
+    cursor: pointer;
+    transition: all var(--vdl-transition-standard);
+    display: flex;
+    align-items: center;
+    gap: var(--vdl-space-sm);
+}
+
+.btn-journey-prev {
+    background: transparent;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
+.btn-journey-prev:hover {
+    border-color: white;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-journey-next {
+    background: linear-gradient(135deg, var(--journey-gold), var(--vdl-gold-light));
+    border: none;
+    color: var(--journey-bg-dark);
+}
+
+.btn-journey-next:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(212, 175, 55, 0.4);
+}
+
+.btn-journey-next:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
+
+@media (max-width: 991.98px) {
+    .header-content {
+        flex-direction: column;
+        gap: var(--vdl-space-lg);
+    }
+
+    .journey-progress-bar {
+        width: 100%;
+        max-width: none;
+    }
+
+    .vineyard-map {
+        min-height: 350px;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .achievement-popup {
+        width: 90%;
+        left: 5%;
+        right: 5%;
+    }
+
+    .achievement-popup.show {
+        right: 5%;
+    }
+
+    .progress-stats {
+        flex-wrap: wrap;
+        gap: var(--vdl-space-md);
+    }
+
+    .user-menu {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ==========================================
+   ACCESSIBILITY
+   ========================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    .parallax-layer,
+    .ambient-particles,
+    .achievement-icon,
+    .milestone[data-unlocked="true"],
+    .plot-marker.selected {
+        animation: none;
+    }
+
+    .journey-step,
+    .step-title,
+    .step-subtitle {
+        animation: none;
+    }
+}

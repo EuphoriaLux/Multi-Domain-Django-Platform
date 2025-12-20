@@ -1,8 +1,14 @@
-/* FinOps Hub Styles */
+/* FinOps Hub Styles
+   Part of PowerUP/Entreprinder platform
+   Uses PowerUP design tokens for consistency */
+
+/* Import PowerUP design tokens for consistent branding */
+/* Note: These styles extend PowerUP base styles from powerup.css */
+
 .finops-card {
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
+    border-radius: var(--powerup-radius-lg, 8px);
+    box-shadow: var(--powerup-shadow-card, 0 2px 4px rgba(0,0,0,0.1));
+    margin-bottom: var(--powerup-space-lg, 20px);
 }
 
 .finops-card-header {

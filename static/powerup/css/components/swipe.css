@@ -1,0 +1,455 @@
+/* ===========================================
+   POWERUP SWIPE COMPONENT
+   Tinder-style entrepreneur matching interface
+   =========================================== */
+
+/* ==========================================
+   SWIPE CARD CONTAINER
+   ========================================== */
+
+.swipe-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    padding: var(--powerup-space-xl);
+}
+
+/* ==========================================
+   SWIPE CARD
+   ========================================== */
+
+.swipe-card {
+    max-width: 400px;
+    width: 100%;
+    margin: 0 auto;
+    border-radius: var(--powerup-radius-xl);
+    overflow: hidden;
+    box-shadow: var(--powerup-shadow-card);
+    position: relative;
+    transition: transform var(--powerup-transition-normal),
+                box-shadow var(--powerup-transition-normal);
+    background: var(--powerup-white);
+    cursor: grab;
+}
+
+.swipe-card:active {
+    cursor: grabbing;
+}
+
+.swipe-card:hover {
+    box-shadow: var(--powerup-shadow-card-hover);
+}
+
+/* Card dragging states */
+.swipe-card.dragging {
+    transition: none;
+}
+
+.swipe-card.swiping-right {
+    transform: translateX(100px) rotate(10deg);
+}
+
+.swipe-card.swiping-left {
+    transform: translateX(-100px) rotate(-10deg);
+}
+
+/* Card Image */
+.swipe-card .card-img-top {
+    height: 300px;
+    width: 100%;
+    object-fit: cover;
+    transition: transform var(--powerup-transition-normal);
+}
+
+.swipe-card:hover .card-img-top {
+    transform: scale(1.02);
+}
+
+/* Card Body */
+.swipe-card .card-body {
+    padding: var(--powerup-space-lg);
+}
+
+/* ==========================================
+   PROFILE INFORMATION
+   ========================================== */
+
+.profile-info {
+    margin-bottom: var(--powerup-space-md);
+}
+
+.profile-info h5 {
+    font-family: var(--powerup-font-display);
+    font-size: var(--powerup-text-xl);
+    font-weight: var(--powerup-font-bold);
+    color: var(--powerup-text-primary);
+    margin-bottom: var(--powerup-space-xs);
+}
+
+.profile-info p {
+    margin-bottom: var(--powerup-space-xs);
+    color: var(--powerup-text-secondary);
+    font-size: var(--powerup-text-sm);
+}
+
+.profile-info .location {
+    display: flex;
+    align-items: center;
+    gap: var(--powerup-space-xs);
+    color: var(--powerup-gray);
+}
+
+.profile-info .location i {
+    color: var(--powerup-blue);
+}
+
+/* Bio Section */
+.bio {
+    font-style: italic;
+    color: var(--powerup-text-secondary);
+    margin-bottom: var(--powerup-space-lg);
+    line-height: var(--powerup-leading-relaxed);
+    font-size: var(--powerup-text-sm);
+    padding: var(--powerup-space-md);
+    background: var(--powerup-pearl);
+    border-radius: var(--powerup-radius-md);
+    border-left: 3px solid var(--powerup-blue);
+}
+
+/* Skills/Interests Tags */
+.profile-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--powerup-space-sm);
+    margin-bottom: var(--powerup-space-md);
+}
+
+.profile-tag {
+    background: var(--powerup-blue-alpha-10);
+    color: var(--powerup-blue);
+    padding: var(--powerup-space-xs) var(--powerup-space-sm);
+    border-radius: var(--powerup-radius-full);
+    font-size: var(--powerup-text-xs);
+    font-weight: var(--powerup-font-medium);
+}
+
+/* ==========================================
+   SWIPE BUTTONS
+   ========================================== */
+
+.swipe-buttons {
+    display: flex;
+    justify-content: center;
+    gap: var(--powerup-space-xl);
+    margin-top: var(--powerup-space-xl);
+    padding: var(--powerup-space-md) 0;
+}
+
+.swipe-btn {
+    width: 70px;
+    height: 70px;
+    border-radius: var(--powerup-radius-full);
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--powerup-transition-bounce);
+    border: none;
+    cursor: pointer;
+    box-shadow: var(--powerup-shadow-md);
+}
+
+.swipe-btn:hover {
+    transform: scale(1.1);
+}
+
+.swipe-btn:active {
+    transform: scale(0.95);
+}
+
+/* Dislike Button */
+.swipe-btn-dislike {
+    background: linear-gradient(135deg, var(--powerup-danger) 0%, var(--powerup-danger-dark) 100%);
+    color: var(--powerup-white);
+}
+
+.swipe-btn-dislike:hover {
+    box-shadow: 0 8px 24px rgba(255, 77, 77, 0.4);
+}
+
+/* Like Button */
+.swipe-btn-like {
+    background: linear-gradient(135deg, var(--powerup-success) 0%, var(--powerup-success-dark) 100%);
+    color: var(--powerup-white);
+}
+
+.swipe-btn-like:hover {
+    box-shadow: 0 8px 24px rgba(76, 175, 80, 0.4);
+}
+
+/* Super Like (optional) */
+.swipe-btn-super {
+    background: linear-gradient(135deg, var(--powerup-blue) 0%, var(--powerup-blue-dark) 100%);
+    color: var(--powerup-white);
+    width: 50px;
+    height: 50px;
+    font-size: 18px;
+}
+
+.swipe-btn-super:hover {
+    box-shadow: 0 8px 24px rgba(0, 102, 204, 0.4);
+}
+
+/* ==========================================
+   SWIPE OVERLAY
+   ========================================== */
+
+.swipe-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    font-weight: var(--powerup-font-bold);
+    color: var(--powerup-white);
+    opacity: 0;
+    transition: opacity var(--powerup-transition-fast);
+    pointer-events: none;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.swipe-overlay.like {
+    background-color: rgba(76, 175, 80, 0.85);
+}
+
+.swipe-overlay.dislike {
+    background-color: rgba(255, 77, 77, 0.85);
+}
+
+.swipe-overlay.visible {
+    opacity: 1;
+}
+
+/* Overlay icons/stamps */
+.swipe-overlay .stamp {
+    border: 5px solid var(--powerup-white);
+    padding: var(--powerup-space-md) var(--powerup-space-xl);
+    border-radius: var(--powerup-radius-lg);
+    transform: rotate(-20deg);
+}
+
+.swipe-overlay.like .stamp {
+    border-color: var(--powerup-white);
+}
+
+.swipe-overlay.dislike .stamp {
+    border-color: var(--powerup-white);
+}
+
+/* ==========================================
+   MATCH POPUP
+   ========================================== */
+
+.match-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    background: var(--powerup-white);
+    padding: var(--powerup-space-2xl);
+    border-radius: var(--powerup-radius-xl);
+    box-shadow: var(--powerup-shadow-xl);
+    z-index: var(--powerup-z-modal);
+    display: none;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    opacity: 0;
+    transition: opacity var(--powerup-transition-normal),
+                transform var(--powerup-transition-bounce);
+}
+
+.match-popup.show {
+    display: block;
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.match-popup-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: var(--powerup-z-modal-backdrop);
+    display: none;
+}
+
+.match-popup-backdrop.show {
+    display: block;
+}
+
+/* Match celebration */
+.match-popup .match-icon {
+    font-size: 64px;
+    margin-bottom: var(--powerup-space-md);
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.match-popup .match-photos {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--powerup-space-md);
+    margin-bottom: var(--powerup-space-lg);
+}
+
+.match-popup img {
+    width: 80px;
+    height: 80px;
+    border-radius: var(--powerup-radius-full);
+    object-fit: cover;
+    border: 3px solid var(--powerup-success);
+    box-shadow: var(--powerup-shadow-md);
+}
+
+.match-popup h2 {
+    font-family: var(--powerup-font-display);
+    color: var(--powerup-success);
+    margin-bottom: var(--powerup-space-sm);
+    font-size: var(--powerup-text-2xl);
+}
+
+.match-popup p {
+    color: var(--powerup-text-secondary);
+    margin-bottom: var(--powerup-space-xl);
+}
+
+.match-popup .btn-group {
+    display: flex;
+    gap: var(--powerup-space-md);
+    justify-content: center;
+}
+
+.match-popup button {
+    padding: var(--powerup-space-md) var(--powerup-space-xl);
+    border: none;
+    border-radius: var(--powerup-radius-lg);
+    cursor: pointer;
+    font-weight: var(--powerup-font-semibold);
+    transition: all var(--powerup-transition-normal);
+}
+
+.match-popup .btn-primary {
+    background: linear-gradient(135deg, var(--powerup-success) 0%, var(--powerup-success-dark) 100%);
+    color: var(--powerup-white);
+}
+
+.match-popup .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+.match-popup .btn-secondary {
+    background: var(--powerup-pearl);
+    color: var(--powerup-text-secondary);
+}
+
+.match-popup .btn-secondary:hover {
+    background: var(--powerup-silver);
+}
+
+/* ==========================================
+   EMPTY STATE
+   ========================================== */
+
+.swipe-empty-state {
+    text-align: center;
+    padding: var(--powerup-space-3xl);
+    color: var(--powerup-text-secondary);
+}
+
+.swipe-empty-state i {
+    font-size: 64px;
+    color: var(--powerup-gray-lighter);
+    margin-bottom: var(--powerup-space-lg);
+}
+
+.swipe-empty-state h3 {
+    font-family: var(--powerup-font-display);
+    color: var(--powerup-text-primary);
+    margin-bottom: var(--powerup-space-sm);
+}
+
+.swipe-empty-state p {
+    max-width: 300px;
+    margin: 0 auto var(--powerup-space-lg);
+    line-height: var(--powerup-leading-relaxed);
+}
+
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
+
+@media (max-width: 480px) {
+    .swipe-card {
+        max-width: 100%;
+        border-radius: var(--powerup-radius-lg);
+    }
+
+    .swipe-card .card-img-top {
+        height: 250px;
+    }
+
+    .swipe-buttons {
+        gap: var(--powerup-space-lg);
+    }
+
+    .swipe-btn {
+        width: 60px;
+        height: 60px;
+        font-size: 20px;
+    }
+
+    .match-popup {
+        padding: var(--powerup-space-xl);
+    }
+
+    .match-popup img {
+        width: 60px;
+        height: 60px;
+    }
+}
+
+/* ==========================================
+   ACCESSIBILITY
+   ========================================== */
+
+.swipe-btn:focus-visible {
+    outline: 3px solid var(--powerup-blue);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .swipe-card,
+    .swipe-btn,
+    .swipe-overlay,
+    .match-popup,
+    .match-popup .match-icon {
+        transition: none;
+        animation: none;
+    }
+}

@@ -1,0 +1,419 @@
+/* ===========================================
+   VINSDELUX CARD COMPONENTS
+   Premium card system for wine products
+   =========================================== */
+
+/* ==========================================
+   BASE CARD
+   ========================================== */
+
+.vdl-card {
+    background: var(--vdl-cream);
+    border-radius: var(--vdl-radius-lg);
+    box-shadow: var(--vdl-shadow-soft);
+    padding: var(--vdl-space-2xl);
+    transition: all var(--vdl-transition-standard);
+    position: relative;
+    overflow: hidden;
+}
+
+.vdl-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--vdl-burgundy) 0%, var(--vdl-gold) 100%);
+}
+
+.vdl-card:hover {
+    box-shadow: var(--vdl-shadow-medium);
+    transform: translateY(-4px);
+}
+
+/* Premium variant */
+.vdl-card-premium {
+    background: linear-gradient(145deg, var(--vdl-cream) 0%, var(--vdl-pearl) 100%);
+    border: 1px solid var(--vdl-gold-alpha-20);
+}
+
+.vdl-card-premium::before {
+    background: var(--vdl-gold);
+    height: 6px;
+}
+
+/* Card sections */
+.vdl-card-header {
+    margin-bottom: var(--vdl-space-lg);
+    padding-bottom: var(--vdl-space-lg);
+    border-bottom: 1px solid var(--vdl-silver);
+}
+
+.vdl-card-body {
+    margin-bottom: var(--vdl-space-lg);
+}
+
+.vdl-card-footer {
+    padding-top: var(--vdl-space-lg);
+    border-top: 1px solid var(--vdl-silver);
+}
+
+/* ==========================================
+   ADOPTION PLAN CARD
+   ========================================== */
+
+.adoption-plan-card {
+    border: 2px solid #E8E8E8;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    background: white;
+    overflow: hidden;
+}
+
+.adoption-plan-card:hover {
+    border-color: var(--vdl-gold);
+    box-shadow: 0 8px 24px rgba(114, 47, 55, 0.15);
+    transform: translateY(-4px);
+}
+
+.adoption-plan-card .card-body {
+    padding: 2rem;
+}
+
+.adoption-plan-card .card-title {
+    color: var(--vdl-burgundy);
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+
+.adoption-plan-card .card-text {
+    color: #666;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+}
+
+.adoption-plan-card ul li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #F0F0F0;
+    color: #444;
+}
+
+.adoption-plan-card ul li:last-child {
+    border-bottom: none;
+}
+
+.adoption-plan-card ul li strong {
+    color: var(--vdl-burgundy);
+    margin-right: 0.5rem;
+}
+
+/* ==========================================
+   PLOT CARD
+   ========================================== */
+
+.plot-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    position: relative;
+    cursor: pointer;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.plot-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+}
+
+.plot-card.selected {
+    border: 3px solid var(--vdl-gold);
+    box-shadow: 0 12px 40px rgba(212, 175, 55, 0.25);
+    transform: translateY(-4px);
+}
+
+.plot-card.unavailable {
+    opacity: 0.6;
+    filter: grayscale(50%);
+}
+
+.plot-card-header {
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, #8e3a42 100%);
+    color: white;
+}
+
+.plot-card-image {
+    position: relative;
+    height: 140px;
+    overflow: hidden;
+}
+
+.plot-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s;
+}
+
+.plot-card:hover .plot-card-image img {
+    transform: scale(1.1);
+}
+
+.plot-card-body {
+    padding: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.plot-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.plot-description {
+    color: #666;
+    line-height: 1.4;
+    margin-bottom: 15px;
+    min-height: 40px;
+    font-size: 14px;
+}
+
+.plot-card-footer {
+    padding: 12px 15px;
+    background: #f8f9fa;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* ==========================================
+   PLOT DETAILS
+   ========================================== */
+
+.plot-details {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #555;
+    font-size: 13px;
+}
+
+.detail-item i {
+    color: var(--vdl-burgundy);
+    width: 16px;
+    font-size: 14px;
+}
+
+/* ==========================================
+   GRAPE TAGS
+   ========================================== */
+
+.plot-grapes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.grape-tag {
+    background: linear-gradient(135deg, var(--vdl-burgundy), #8e3a42);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* ==========================================
+   FEATURE BADGES
+   ========================================== */
+
+.plot-features {
+    margin-bottom: 15px;
+}
+
+.feature-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #e8f5e9;
+    color: #2e7d32;
+    padding: 5px 10px;
+    font-size: 12px;
+    border-radius: 20px;
+    margin: 5px;
+}
+
+.feature-badge i {
+    color: #4caf50;
+}
+
+/* ==========================================
+   AVAILABILITY BADGE
+   ========================================== */
+
+.plot-availability {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.plot-availability.available {
+    background: #4caf50;
+}
+
+.plot-availability.unavailable {
+    background: #f44336;
+}
+
+/* ==========================================
+   PRICE DISPLAY
+   ========================================== */
+
+.plot-price {
+    display: flex;
+    flex-direction: column;
+}
+
+.price-label {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.price-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--vdl-burgundy);
+}
+
+/* ==========================================
+   RATING DISPLAY
+   ========================================== */
+
+.plot-rating {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.stars {
+    color: #ffd700;
+    letter-spacing: 2px;
+}
+
+.rating-value {
+    font-weight: 600;
+}
+
+.reviews {
+    font-size: 12px;
+    opacity: 0.9;
+}
+
+/* ==========================================
+   REGION BADGE
+   ========================================== */
+
+.plot-region-badge {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--vdl-burgundy);
+    padding: 8px 15px;
+    border-radius: 25px;
+    font-weight: 600;
+    font-size: 14px;
+    backdrop-filter: blur(10px);
+}
+
+/* ==========================================
+   PLOT CARDS GRID
+   ========================================== */
+
+.plot-cards-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+    margin-bottom: 30px;
+    padding: 0 5px;
+}
+
+@media (min-width: 1400px) {
+    .plot-cards-container {
+        grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .plot-cards-container {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+}
+
+/* ==========================================
+   CARD ANIMATIONS
+   ========================================== */
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.plot-card {
+    animation: fadeIn 0.5s ease backwards;
+}
+
+.plot-card:nth-child(n) {
+    animation-delay: calc(0.05s * var(--index, 1));
+}
+
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
+
+@media (max-width: 991.98px) {
+    .vdl-card {
+        padding: var(--vdl-space-xl);
+    }
+}
+
+@media (max-width: 575.98px) {
+    .vdl-card {
+        padding: var(--vdl-space-lg);
+        border-radius: var(--vdl-radius-md);
+    }
+}

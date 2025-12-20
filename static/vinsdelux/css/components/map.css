@@ -1,0 +1,720 @@
+/* ===========================================
+   VINSDELUX MAP COMPONENTS
+   Interactive vineyard map and controls
+   =========================================== */
+
+/* ==========================================
+   MAP SECTION WRAPPER
+   ========================================== */
+
+.vdl-map-section {
+    padding: var(--vdl-space-3xl) 0;
+    background: linear-gradient(165deg, var(--vdl-cream) 0%, var(--vdl-pearl) 35%, var(--vdl-mist) 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Subtle texture overlay for premium feel */
+.vdl-map-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image:
+        radial-gradient(circle at 25% 25%, var(--vdl-gold-alpha-10) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, var(--vdl-burgundy-alpha-05) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.vdl-map-section > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* ==========================================
+   MAP CONTAINER
+   ========================================== */
+
+.vdl-map-wrapper,
+.map-container,
+.map-wrapper {
+    background: linear-gradient(145deg, white 0%, var(--vdl-parchment) 100%);
+    border-radius: var(--vdl-radius-xl);
+    box-shadow: var(--vdl-shadow-medium);
+    padding: var(--vdl-space-2xl);
+    margin-bottom: var(--vdl-space-2xl);
+    border: 1px solid var(--vdl-gold-alpha-20);
+    position: relative;
+    overflow: hidden;
+    transition: all var(--vdl-transition-standard);
+}
+
+/* Elegant top border accent */
+.vdl-map-wrapper::before,
+.map-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg,
+        var(--vdl-burgundy) 0%,
+        var(--vdl-gold) 25%,
+        var(--vdl-gold-light) 50%,
+        var(--vdl-gold) 75%,
+        var(--vdl-burgundy) 100%);
+    border-radius: var(--vdl-radius-xl) var(--vdl-radius-xl) 0 0;
+}
+
+.vdl-map-wrapper:hover,
+.map-container:hover {
+    box-shadow: var(--vdl-shadow-elevated);
+    transform: translateY(-2px);
+}
+
+/* ==========================================
+   MAP CANVAS
+   ========================================== */
+
+#vineyard-map,
+#map-canvas,
+.interactive-map {
+    height: 500px;
+    width: 100%;
+    border-radius: var(--vdl-radius-lg);
+    overflow: hidden;
+    border: 2px solid var(--vdl-gold-alpha-25);
+    box-shadow:
+        var(--vdl-shadow-soft),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    position: relative;
+    transition: all var(--vdl-transition-standard);
+    cursor: grab;
+}
+
+#vineyard-map:active,
+#map-canvas:active,
+.interactive-map:active {
+    cursor: grabbing;
+}
+
+/* Map placeholder styling */
+.map-placeholder {
+    position: relative;
+    width: 100%;
+    height: 500px;
+    background: linear-gradient(135deg, #f0f4f7 0%, #e1e8ed 100%);
+    border-radius: var(--vdl-radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.map-placeholder::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px),
+        repeating-linear-gradient(-45deg, transparent, transparent 35px, rgba(0,0,0,.03) 35px, rgba(0,0,0,.03) 70px);
+    pointer-events: none;
+}
+
+.map-message {
+    text-align: center;
+    z-index: 1;
+    padding: var(--vdl-space-2xl);
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: var(--vdl-radius-lg);
+    box-shadow: var(--vdl-shadow-medium);
+}
+
+.map-message i {
+    font-size: 48px;
+    color: var(--vdl-burgundy);
+    margin-bottom: var(--vdl-space-md);
+}
+
+.map-message h4 {
+    color: var(--vdl-charcoal);
+    margin-bottom: var(--vdl-space-sm);
+    font-size: 1.25rem;
+    font-family: var(--vdl-font-display);
+}
+
+.map-message p {
+    color: var(--vdl-text-secondary);
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+/* ==========================================
+   MAP HEADER
+   ========================================== */
+
+.vdl-map-header {
+    text-align: center;
+    margin-bottom: var(--vdl-space-3xl);
+    padding: var(--vdl-space-xl) 0;
+}
+
+.vdl-map-header h2 {
+    font-family: var(--vdl-font-display);
+    color: var(--vdl-burgundy);
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: var(--vdl-space-lg);
+    position: relative;
+    display: inline-block;
+    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-light) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Sophisticated underline with golden ratio proportions */
+.vdl-map-header h2::after {
+    content: '';
+    position: absolute;
+    bottom: calc(-1 * var(--vdl-space-sm));
+    left: 50%;
+    transform: translateX(-50%);
+    width: 89px;
+    height: 4px;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        var(--vdl-gold-dark) 15%,
+        var(--vdl-gold) 50%,
+        var(--vdl-gold-light) 85%,
+        transparent 100%);
+    border-radius: var(--vdl-radius-sm);
+    animation: subtle-glow 3s ease-in-out infinite;
+}
+
+@keyframes subtle-glow {
+    0%, 100% { opacity: 0.8; transform: translateX(-50%) scaleX(1); }
+    50% { opacity: 1; transform: translateX(-50%) scaleX(1.05); }
+}
+
+.vdl-map-header p {
+    font-family: var(--vdl-font-serif);
+    color: var(--vdl-text-secondary);
+    font-size: 1.2rem;
+    max-width: 680px;
+    margin: var(--vdl-space-xl) auto 0;
+    line-height: 1.65;
+    font-weight: 400;
+    font-style: italic;
+}
+
+/* ==========================================
+   MAP CONTROLS
+   ========================================== */
+
+.vdl-map-controls,
+.map-controls,
+.map-overlay-controls {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--vdl-space-sm);
+    z-index: 500;
+}
+
+.vdl-map-action-btn,
+.map-control-btn,
+.map-controls button {
+    width: 42px;
+    height: 42px;
+    background: white;
+    border: 2px solid var(--vdl-silver);
+    border-radius: var(--vdl-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--vdl-transition-standard);
+    font-size: 18px;
+    color: var(--vdl-text-secondary);
+    box-shadow: var(--vdl-shadow-soft);
+}
+
+.vdl-map-action-btn:hover,
+.map-control-btn:hover,
+.map-controls button:hover {
+    background: var(--vdl-burgundy);
+    border-color: var(--vdl-burgundy);
+    color: white;
+    transform: scale(1.1);
+}
+
+/* Floating Map Actions */
+.vdl-map-actions {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* ==========================================
+   MAP LEGEND
+   ========================================== */
+
+.vdl-map-legend,
+.map-legend {
+    display: flex;
+    gap: var(--vdl-space-2xl);
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: var(--vdl-space-md);
+}
+
+/* Bottom-positioned legend for interactive maps */
+.map-legend {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    padding: var(--vdl-space-md);
+    border-radius: var(--vdl-radius-md);
+    box-shadow: var(--vdl-shadow-soft);
+    max-width: 200px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--vdl-space-xs);
+}
+
+.map-legend h5 {
+    margin: 0 0 var(--vdl-space-sm) 0;
+    font-size: 0.875rem;
+    color: var(--vdl-text-secondary);
+    font-family: var(--vdl-font-sans);
+}
+
+.vdl-legend-item,
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--vdl-space-md);
+    padding: var(--vdl-space-md) var(--vdl-space-lg);
+    background: linear-gradient(135deg, var(--vdl-mist) 0%, var(--vdl-pearl) 100%);
+    border-radius: var(--vdl-radius-md);
+    border: 1px solid var(--vdl-silver);
+    transition: all var(--vdl-transition-standard);
+    position: relative;
+    overflow: hidden;
+}
+
+.legend-item {
+    padding: 0;
+    background: none;
+    border: none;
+    gap: var(--vdl-space-sm);
+    font-size: 0.75rem;
+    color: var(--vdl-text-secondary);
+}
+
+.vdl-legend-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg,
+        transparent,
+        var(--vdl-gold-alpha-10),
+        transparent);
+    transition: left var(--vdl-transition-slow);
+}
+
+.vdl-legend-item:hover {
+    background: linear-gradient(135deg, var(--vdl-pearl) 0%, white 100%);
+    border-color: var(--vdl-gold-alpha-25);
+    transform: translateY(-3px);
+    box-shadow: var(--vdl-shadow-medium);
+}
+
+.vdl-legend-item:hover::before {
+    left: 100%;
+}
+
+/* Premium Wine Markers */
+.vdl-legend-marker,
+.legend-marker {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.vdl-legend-marker {
+    width: 28px;
+    height: 32px;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    box-shadow:
+        0 3px 8px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.vdl-legend-marker::before {
+    content: '';
+    position: absolute;
+    top: 15%;
+    left: 15%;
+    right: 15%;
+    bottom: 15%;
+    border-radius: inherit;
+    background: linear-gradient(135deg,
+        rgba(255, 255, 255, 0.3) 0%,
+        transparent 50%,
+        rgba(0, 0, 0, 0.1) 100%);
+    pointer-events: none;
+}
+
+.vdl-legend-marker.available,
+.legend-marker.available {
+    background: linear-gradient(135deg,
+        var(--vdl-gold) 0%,
+        var(--vdl-gold-dark) 50%,
+        var(--vdl-gold-light) 100%);
+    border: 2px solid var(--vdl-burgundy);
+}
+
+.vdl-legend-marker.selected,
+.legend-marker.selected {
+    background: linear-gradient(135deg,
+        var(--vdl-burgundy) 0%,
+        var(--vdl-burgundy-dark) 50%,
+        var(--vdl-burgundy-light) 100%);
+    border: 2px solid var(--vdl-gold);
+    animation: gentle-pulse 2s ease-in-out infinite;
+}
+
+@keyframes gentle-pulse {
+    0%, 100% { transform: rotate(-45deg) scale(1); }
+    50% { transform: rotate(-45deg) scale(1.05); }
+}
+
+.vdl-legend-text {
+    font-family: var(--vdl-font-sans);
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--vdl-charcoal);
+    letter-spacing: 0.02em;
+    text-transform: capitalize;
+}
+
+/* ==========================================
+   MAP INFO CARDS
+   ========================================== */
+
+.vdl-map-info-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.vdl-info-card {
+    background: white;
+    border-radius: var(--vdl-radius-lg);
+    padding: var(--vdl-space-xl);
+    text-align: center;
+    border: 1px solid var(--vdl-silver);
+    transition: all var(--vdl-transition-standard);
+}
+
+.vdl-info-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--vdl-shadow-medium);
+    border-color: var(--vdl-gold);
+}
+
+.vdl-info-card-icon {
+    width: 50px;
+    height: 50px;
+    margin: 0 auto var(--vdl-space-md);
+    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-dark) 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--vdl-gold);
+    font-size: 22px;
+}
+
+.vdl-info-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--vdl-burgundy);
+    margin-bottom: var(--vdl-space-sm);
+    font-family: var(--vdl-font-sans);
+}
+
+.vdl-info-card-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--vdl-gold);
+    font-family: var(--vdl-font-display);
+}
+
+/* ==========================================
+   SIDEBAR
+   ========================================== */
+
+.vdl-sidebar {
+    background: white;
+    border-radius: var(--vdl-radius-xl);
+    box-shadow: var(--vdl-shadow-medium);
+    padding: var(--vdl-space-2xl);
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+}
+
+.vdl-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.vdl-sidebar::-webkit-scrollbar-track {
+    background: var(--vdl-pearl);
+    border-radius: 3px;
+}
+
+.vdl-sidebar::-webkit-scrollbar-thumb {
+    background: var(--vdl-gold);
+    border-radius: 3px;
+}
+
+/* Selected Producer Card */
+.vdl-selected-producer {
+    background: linear-gradient(135deg, var(--vdl-pearl) 0%, white 100%);
+    border: 2px solid var(--vdl-gold);
+    border-radius: var(--vdl-radius-lg);
+    padding: var(--vdl-space-xl);
+    margin-bottom: var(--vdl-space-xl);
+    text-align: center;
+}
+
+.vdl-selected-producer h4 {
+    color: var(--vdl-burgundy);
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: var(--vdl-space-sm);
+    font-family: var(--vdl-font-display);
+}
+
+.vdl-selected-producer p {
+    color: var(--vdl-text-secondary);
+    margin: 0;
+}
+
+/* ==========================================
+   PRODUCER CARDS GRID
+   ========================================== */
+
+.vdl-producers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+    margin-top: 30px;
+    padding: 20px;
+    background: white;
+    border-radius: var(--vdl-radius-lg);
+}
+
+.vdl-producer-card {
+    background: white;
+    border: 2px solid var(--vdl-silver);
+    border-radius: var(--vdl-radius-lg);
+    padding: var(--vdl-space-xl);
+    text-align: center;
+    transition: all var(--vdl-transition-standard);
+    cursor: pointer;
+}
+
+.vdl-producer-card:hover {
+    border-color: var(--vdl-gold);
+    transform: translateY(-4px);
+    box-shadow: var(--vdl-shadow-medium);
+}
+
+.vdl-producer-card.selected {
+    background: linear-gradient(135deg, var(--vdl-pearl) 0%, white 100%);
+    border-color: var(--vdl-burgundy);
+}
+
+.vdl-producer-card-icon {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto var(--vdl-space-lg);
+    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-dark) 100%);
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.vdl-producer-card-icon i {
+    color: var(--vdl-gold);
+    font-size: 24px;
+    transform: rotate(45deg);
+}
+
+.vdl-producer-card h5 {
+    color: var(--vdl-burgundy);
+    font-size: 1.125rem;
+    font-weight: 700;
+    margin-bottom: var(--vdl-space-sm);
+    font-family: var(--vdl-font-display);
+}
+
+.vdl-producer-card p {
+    color: var(--vdl-text-secondary);
+    font-size: 0.875rem;
+    margin-bottom: var(--vdl-space-lg);
+}
+
+.vdl-producer-card-price {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--vdl-cream) 0%, var(--vdl-pearl) 100%);
+    border: 1px solid var(--vdl-gold-alpha-25);
+    padding: var(--vdl-space-md) var(--vdl-space-lg);
+    border-radius: var(--vdl-radius-xl);
+    color: var(--vdl-burgundy);
+    font-weight: 700;
+    font-size: 1.1rem;
+    font-family: var(--vdl-font-sans);
+    transition: all var(--vdl-transition-standard);
+}
+
+.vdl-producer-card:hover .vdl-producer-card-price {
+    background: linear-gradient(135deg, var(--vdl-gold-alpha-10) 0%, var(--vdl-gold-alpha-25) 100%);
+    border-color: var(--vdl-gold);
+    transform: scale(1.05);
+}
+
+/* ==========================================
+   MAP ANIMATION
+   ========================================== */
+
+.vdl-map-container {
+    animation: fadeInUp 0.8s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
+
+@media (max-width: 991.98px) {
+    .vdl-map-section {
+        padding: var(--vdl-space-2xl) 0;
+    }
+
+    #vineyard-map,
+    #map-canvas,
+    .interactive-map,
+    .map-placeholder {
+        height: 400px;
+    }
+
+    .vdl-sidebar {
+        position: relative;
+        top: 0;
+        margin-top: var(--vdl-space-2xl);
+        max-height: none;
+    }
+
+    .vdl-map-header h2 {
+        font-size: 2rem;
+    }
+
+    .vdl-map-info-cards {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 575.98px) {
+    #vineyard-map,
+    #map-canvas,
+    .interactive-map,
+    .map-placeholder {
+        height: 350px;
+    }
+
+    .vdl-map-wrapper,
+    .map-container,
+    .map-wrapper {
+        padding: var(--vdl-space-lg);
+        border-radius: var(--vdl-radius-lg);
+    }
+
+    .vdl-map-legend {
+        flex-direction: column;
+        gap: var(--vdl-space-sm);
+    }
+
+    .vdl-legend-item {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ==========================================
+   ACCESSIBILITY
+   ========================================== */
+
+.vdl-map-action-btn:focus,
+.map-control-btn:focus,
+.vdl-legend-item:focus,
+.vdl-producer-card:focus {
+    outline: 3px solid var(--vdl-gold);
+    outline-offset: 2px;
+    box-shadow:
+        var(--vdl-shadow-medium),
+        0 0 0 6px var(--vdl-gold-alpha-25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vdl-map-container,
+    .vdl-map-header,
+    .vdl-map-info-cards,
+    .vdl-sidebar {
+        animation: none;
+    }
+
+    .vdl-legend-marker.selected {
+        animation: none;
+    }
+}

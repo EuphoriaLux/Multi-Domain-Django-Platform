@@ -1,0 +1,52 @@
+/* ===========================================
+   SHARED BOOTSTRAP OVERRIDES
+   Minimal customizations applied across all domains
+   =========================================== */
+
+/* Improved focus states for accessibility */
+:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+/* Consistent form input styling */
+.form-control:focus,
+.form-select:focus {
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.15);
+}
+
+/* Smoother transitions for interactive elements */
+.btn,
+.nav-link,
+.dropdown-item {
+    transition: all 0.2s ease;
+}
+
+/* Improve card shadows */
+.card {
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Consistent border radius */
+.btn {
+    border-radius: 8px;
+}
+
+.card {
+    border-radius: 12px;
+}
+
+/* Better dropdown styling */
+.dropdown-menu {
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+/* Responsive container max-widths */
+@media (min-width: 1400px) {
+    .container-xxl, .container-xl, .container-lg, .container-md, .container-sm, .container {
+        max-width: 1320px;
+    }
+}

@@ -1,0 +1,147 @@
+/* ===========================================
+   VINSDELUX DESIGN TOKENS
+   Luxury wine theme - design system foundation
+   =========================================== */
+
+:root {
+    /* ==========================================
+       PRIMARY COLORS - Luxury Wine Palette
+       ========================================== */
+    --vdl-burgundy: #722F37;
+    --vdl-burgundy-light: #8B4049;
+    --vdl-burgundy-dark: #5A252A;
+    --vdl-burgundy-alpha-90: rgba(114, 47, 55, 0.9);
+    --vdl-burgundy-alpha-80: rgba(114, 47, 55, 0.8);
+    --vdl-burgundy-alpha-10: rgba(114, 47, 55, 0.1);
+
+    --vdl-gold: #D4AF37;
+    --vdl-gold-light: #E6C45A;
+    --vdl-gold-dark: #B8941F;
+    --vdl-gold-alpha-90: rgba(212, 175, 55, 0.9);
+    --vdl-gold-alpha-20: rgba(212, 175, 55, 0.2);
+
+    /* Legacy aliases for backward compatibility */
+    --wine-primary: #722F37;
+    --wine-secondary: #8B4049;
+    --wine-tertiary: #B22222;
+    --wine-light: #CD5C5C;
+    --wine-dark: #4B0000;
+    --gold: #D4AF37;
+
+    /* ==========================================
+       SUPPORTING COLORS
+       ========================================== */
+    --vdl-cream: #FAF7F2;
+    --vdl-pearl: #F5F1E8;
+    --vdl-charcoal: #2C2C2C;
+    --vdl-ash: #4A4A4A;
+    --vdl-silver: #E8E5E1;
+
+    /* Legacy background aliases */
+    --bg-dark: #1a0e08;
+    --bg-medium: #2c1810;
+    --bg-light: #3d2418;
+
+    /* Status Colors */
+    --vdl-success: #28a745;
+    --vdl-warning: #ffc107;
+    --vdl-danger: #dc3545;
+    --vdl-info: #17a2b8;
+
+    /* ==========================================
+       TYPOGRAPHY
+       ========================================== */
+    /* Font Families */
+    --vdl-font-display: 'Playfair Display', 'Times New Roman', serif;
+    --vdl-font-serif: 'Source Serif Pro', 'Georgia', serif;
+    --vdl-font-sans: 'Inter', 'Helvetica Neue', sans-serif;
+
+    /* Type Scale - Golden Ratio (1.618) Based */
+    --vdl-text-xs: 0.75rem;    /* 12px */
+    --vdl-text-sm: 0.875rem;   /* 14px */
+    --vdl-text-base: 1rem;     /* 16px */
+    --vdl-text-lg: 1.125rem;   /* 18px */
+    --vdl-text-xl: 1.25rem;    /* 20px */
+    --vdl-text-2xl: 1.618rem;  /* ~26px */
+    --vdl-text-3xl: 2.058rem;  /* ~33px */
+    --vdl-text-4xl: 3.236rem;  /* ~52px */
+    --vdl-text-5xl: 5.236rem;  /* ~84px */
+
+    /* ==========================================
+       SPACING SYSTEM - Golden Ratio Progression
+       ========================================== */
+    --vdl-space-xs: 0.25rem;   /* 4px */
+    --vdl-space-sm: 0.5rem;    /* 8px */
+    --vdl-space-md: 0.75rem;   /* 12px */
+    --vdl-space-lg: 1rem;      /* 16px */
+    --vdl-space-xl: 1.618rem;  /* ~26px */
+    --vdl-space-2xl: 2.618rem; /* ~42px */
+    --vdl-space-3xl: 4.236rem; /* ~68px */
+    --vdl-space-4xl: 6.854rem; /* ~110px */
+
+    /* Shared spacing scale (matches other projects) */
+    --space-xs: 0.25rem;
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+    --space-lg: 1.5rem;
+    --space-xl: 2rem;
+
+    /* ==========================================
+       SHADOWS - Sophisticated depth
+       ========================================== */
+    --vdl-shadow-soft: 0 2px 8px rgba(114, 47, 55, 0.08);
+    --vdl-shadow-medium: 0 4px 16px rgba(114, 47, 55, 0.12);
+    --vdl-shadow-hard: 0 8px 32px rgba(114, 47, 55, 0.16);
+    --vdl-shadow-dramatic: 0 12px 48px rgba(114, 47, 55, 0.24);
+
+    /* Legacy shadow aliases */
+    --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
+    --shadow-md: 0 4px 8px rgba(0,0,0,0.2);
+    --shadow-lg: 0 8px 16px rgba(0,0,0,0.3);
+    --shadow-xl: 0 16px 32px rgba(0,0,0,0.4);
+
+    /* ==========================================
+       BORDER RADIUS
+       ========================================== */
+    --vdl-radius-sm: 4px;
+    --vdl-radius-md: 8px;
+    --vdl-radius-lg: 12px;
+    --vdl-radius-xl: 16px;
+    --vdl-radius-2xl: 20px;
+
+    /* Legacy aliases */
+    --border-radius: 12px;
+    --border-radius-lg: 20px;
+
+    /* ==========================================
+       TRANSITIONS
+       ========================================== */
+    --vdl-transition-fast: 200ms ease-out;
+    --vdl-transition-standard: 350ms ease-out;
+    --vdl-transition-slow: 500ms ease-out;
+
+    /* Legacy aliases */
+    --transition-fast: 0.3s;
+    --transition-medium: 0.5s;
+    --transition-slow: 0.8s;
+
+    /* ==========================================
+       LAYOUT
+       ========================================== */
+    --vdl-container-max: 1400px;
+    --vdl-section-padding: 8rem 0;
+    --vdl-card-gap: 3rem;
+}
+
+/* ==========================================
+   RESPONSIVE ADJUSTMENTS
+   ========================================== */
+
+/* Mobile - 575px and below */
+@media (max-width: 575.98px) {
+    :root {
+        --vdl-space-4xl: 3rem;
+        --vdl-space-3xl: 2rem;
+        --vdl-space-2xl: 1.5rem;
+    }
+}

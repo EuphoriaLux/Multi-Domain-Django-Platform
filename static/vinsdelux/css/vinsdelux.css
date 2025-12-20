@@ -1,0 +1,91 @@
+/* ===========================================
+   VINSDELUX CSS ENTRY POINT
+   Premium Wine Adoption Platform
+
+   This is the main entry point for VinsDelux styles.
+   Import this single file in templates to get all styles.
+   =========================================== */
+
+/**
+ * VinsDelux Design System
+ *
+ * Color Palette:
+ * - Burgundy (#722F37) - Primary brand color, tradition & wine
+ * - Gold (#D4AF37) - Accent, luxury & exclusivity
+ * - Cream (#FAF7F2) - Background, elegance
+ * - Pearl (#F5F1E8) - Secondary background
+ *
+ * Typography:
+ * - Playfair Display - Headings, luxury feel
+ * - Source Serif Pro - Body text, readability
+ * - Inter - UI elements, modern clarity
+ *
+ * Spacing: Golden Ratio based (1.618)
+ */
+
+/* ==========================================
+   CORE - Design Tokens & Variables
+   ========================================== */
+@import url('core/variables.css');
+
+/* ==========================================
+   LAYOUT - Base styles & structure
+   ========================================== */
+@import url('layout/base.css');
+
+/* ==========================================
+   COMPONENTS - Reusable UI elements
+   ========================================== */
+@import url('components/buttons.css');
+@import url('components/cards.css');
+@import url('components/forms.css');
+@import url('components/map.css');
+
+/* ==========================================
+   PAGES - Page-specific styles
+   ========================================== */
+@import url('pages/plot-selection.css');
+@import url('pages/journey.css');
+@import url('pages/adoption-plans.css');
+
+/* ==========================================
+   LEGACY SUPPORT
+
+   These styles provide backward compatibility
+   with older class names during migration.
+   Can be removed after full migration.
+   ========================================== */
+
+/* Map legacy class aliases */
+.wine-card { /* alias for .vdl-card */ }
+.plot-selector { /* alias for plot-selection-container */ }
+
+/* Ensure smooth transition for existing pages */
+body {
+    /* Override any conflicting base styles */
+}
+
+/* ==========================================
+   PRINT STYLES
+   ========================================== */
+@media print {
+    .vdl-map-section,
+    .game-header,
+    .user-menu,
+    .plot-card-footer {
+        display: none;
+    }
+
+    .vdl-card,
+    .adoption-plan-card {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        break-inside: avoid;
+    }
+
+    body {
+        font-size: 12pt;
+        color: black;
+        background: white;
+    }
+}

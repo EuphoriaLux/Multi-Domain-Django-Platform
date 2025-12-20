@@ -1,0 +1,269 @@
+/* ===========================================
+   VINSDELUX BASE LAYOUT
+   Foundation layout and typography styles
+   =========================================== */
+
+/* ==========================================
+   TYPOGRAPHY BASE STYLES
+   ========================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Source+Serif+Pro:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap');
+
+/* Heading Hierarchy */
+.vdl-h1,
+.vdl-heading-display {
+    font-family: var(--vdl-font-display);
+    font-size: var(--vdl-text-4xl);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--vdl-burgundy);
+    margin-bottom: var(--vdl-space-xl);
+}
+
+.vdl-h2,
+.vdl-heading-primary {
+    font-family: var(--vdl-font-display);
+    font-size: var(--vdl-text-3xl);
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    color: var(--vdl-burgundy);
+    margin-bottom: var(--vdl-space-lg);
+}
+
+.vdl-h3,
+.vdl-heading-secondary {
+    font-family: var(--vdl-font-serif);
+    font-size: var(--vdl-text-2xl);
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--vdl-burgundy);
+    margin-bottom: var(--vdl-space-md);
+}
+
+.vdl-h4,
+.vdl-heading-tertiary {
+    font-family: var(--vdl-font-serif);
+    font-size: var(--vdl-text-xl);
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--vdl-ash);
+    margin-bottom: var(--vdl-space-md);
+}
+
+/* Body Text */
+.vdl-body-large {
+    font-family: var(--vdl-font-serif);
+    font-size: var(--vdl-text-lg);
+    line-height: 1.6;
+    color: var(--vdl-charcoal);
+}
+
+.vdl-body,
+.vdl-body-regular {
+    font-family: var(--vdl-font-sans);
+    font-size: var(--vdl-text-base);
+    line-height: 1.6;
+    color: var(--vdl-charcoal);
+}
+
+.vdl-body-small {
+    font-family: var(--vdl-font-sans);
+    font-size: var(--vdl-text-sm);
+    line-height: 1.5;
+    color: var(--vdl-ash);
+}
+
+.vdl-caption {
+    font-family: var(--vdl-font-sans);
+    font-size: var(--vdl-text-xs);
+    line-height: 1.4;
+    color: var(--vdl-ash);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* ==========================================
+   CONTAINER SYSTEM
+   ========================================== */
+
+.vdl-container {
+    max-width: var(--vdl-container-max);
+    margin: 0 auto;
+    padding: 0 var(--vdl-space-xl);
+}
+
+.vdl-container-xl {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 var(--vdl-space-2xl);
+}
+
+/* ==========================================
+   SECTION LAYOUTS
+   ========================================== */
+
+.vdl-section {
+    padding: var(--vdl-space-4xl) 0;
+}
+
+.vdl-section-dark {
+    background: var(--bg-dark);
+    color: var(--vdl-cream);
+}
+
+.vdl-section-light {
+    background: var(--vdl-pearl);
+}
+
+/* ==========================================
+   HERO SECTION
+   ========================================== */
+
+.vdl-hero {
+    position: relative;
+    height: 100vh;
+    min-height: 600px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: linear-gradient(145deg, var(--vdl-burgundy-alpha-90), var(--vdl-burgundy-alpha-80));
+}
+
+.vdl-hero-video {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: translate(-50%, -50%);
+    z-index: -1;
+}
+
+.vdl-hero-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(145deg, var(--vdl-burgundy-alpha-80), var(--vdl-burgundy-alpha-90));
+    z-index: 1;
+}
+
+.vdl-hero-content {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    color: var(--vdl-cream);
+    max-width: 800px;
+    padding: var(--vdl-space-2xl);
+}
+
+.vdl-hero-title {
+    font-family: var(--vdl-font-display);
+    font-size: var(--vdl-text-5xl);
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: var(--vdl-space-xl);
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.vdl-hero-subtitle {
+    font-family: var(--vdl-font-serif);
+    font-size: var(--vdl-text-xl);
+    line-height: 1.6;
+    margin-bottom: var(--vdl-space-2xl);
+    opacity: 0.9;
+}
+
+/* ==========================================
+   UTILITY CLASSES
+   ========================================== */
+
+/* Text Alignment */
+.vdl-text-center { text-align: center; }
+.vdl-text-left { text-align: left; }
+.vdl-text-right { text-align: right; }
+
+/* Text Colors */
+.vdl-text-burgundy { color: var(--vdl-burgundy); }
+.vdl-text-gold { color: var(--vdl-gold); }
+.vdl-text-cream { color: var(--vdl-cream); }
+.vdl-text-charcoal { color: var(--vdl-charcoal); }
+
+/* Background Colors */
+.vdl-bg-burgundy { background-color: var(--vdl-burgundy); }
+.vdl-bg-gold { background-color: var(--vdl-gold); }
+.vdl-bg-cream { background-color: var(--vdl-cream); }
+.vdl-bg-pearl { background-color: var(--vdl-pearl); }
+
+/* Margins */
+.vdl-mb-0 { margin-bottom: 0; }
+.vdl-mb-xs { margin-bottom: var(--vdl-space-xs); }
+.vdl-mb-sm { margin-bottom: var(--vdl-space-sm); }
+.vdl-mb-md { margin-bottom: var(--vdl-space-md); }
+.vdl-mb-lg { margin-bottom: var(--vdl-space-lg); }
+.vdl-mb-xl { margin-bottom: var(--vdl-space-xl); }
+.vdl-mb-2xl { margin-bottom: var(--vdl-space-2xl); }
+
+/* Display */
+.vdl-d-none { display: none; }
+.vdl-d-block { display: block; }
+.vdl-d-flex { display: flex; }
+.vdl-d-grid { display: grid; }
+
+/* ==========================================
+   RESPONSIVE ADJUSTMENTS
+   ========================================== */
+
+/* Large Desktop - 1200px+ */
+@media (min-width: 1200px) {
+    .vdl-hero-title {
+        font-size: 6rem;
+    }
+}
+
+/* Desktop - 992px to 1199px */
+@media (max-width: 1199.98px) {
+    .vdl-hero-title {
+        font-size: var(--vdl-text-4xl);
+    }
+}
+
+/* Tablet - 768px to 991px */
+@media (max-width: 991.98px) {
+    .vdl-hero {
+        height: 70vh;
+        min-height: 500px;
+    }
+
+    .vdl-hero-title {
+        font-size: var(--vdl-text-3xl);
+    }
+}
+
+/* Mobile Large - 576px to 767px */
+@media (max-width: 767.98px) {
+    .vdl-hero-title {
+        font-size: var(--vdl-text-2xl);
+    }
+
+    .vdl-hero-content {
+        padding: var(--vdl-space-lg);
+    }
+
+    .vdl-container {
+        padding: 0 var(--vdl-space-lg);
+    }
+}
+
+/* Mobile - 575px and below */
+@media (max-width: 575.98px) {
+    .vdl-hero {
+        height: 60vh;
+        min-height: 400px;
+    }
+}

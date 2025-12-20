@@ -1,0 +1,460 @@
+/* ===========================================
+   VINSDELUX ADOPTION PLANS PAGE
+   Wine vineyard adoption subscription display
+   =========================================== */
+
+/* ==========================================
+   PAGE LAYOUT
+   ========================================== */
+
+.adoption-plans-section {
+    padding: var(--vdl-space-3xl) 0;
+    background: linear-gradient(165deg, var(--vdl-cream) 0%, var(--vdl-pearl) 50%, var(--vdl-mist) 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+.adoption-plans-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image:
+        radial-gradient(circle at 20% 30%, var(--vdl-burgundy-alpha-05) 0%, transparent 40%),
+        radial-gradient(circle at 80% 70%, var(--vdl-gold-alpha-10) 0%, transparent 40%);
+    pointer-events: none;
+}
+
+.adoption-plans-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 var(--vdl-space-xl);
+    position: relative;
+    z-index: 1;
+}
+
+/* ==========================================
+   SECTION HEADER
+   ========================================== */
+
+.adoption-plans-header {
+    text-align: center;
+    margin-bottom: var(--vdl-space-3xl);
+}
+
+.adoption-plans-header h1,
+.adoption-plans-header h2 {
+    font-family: var(--vdl-font-display);
+    color: var(--vdl-burgundy);
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 700;
+    margin-bottom: var(--vdl-space-lg);
+    position: relative;
+    display: inline-block;
+}
+
+.adoption-plans-header h1::after,
+.adoption-plans-header h2::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 3px;
+    background: linear-gradient(90deg, var(--vdl-gold), var(--vdl-gold-light));
+    border-radius: 2px;
+}
+
+.adoption-plans-header p {
+    font-family: var(--vdl-font-serif);
+    color: var(--vdl-text-secondary);
+    font-size: 1.25rem;
+    max-width: 700px;
+    margin: var(--vdl-space-xl) auto 0;
+    line-height: 1.7;
+}
+
+/* ==========================================
+   PLANS GRID
+   ========================================== */
+
+.adoption-plans-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: var(--vdl-space-2xl);
+    margin-bottom: var(--vdl-space-3xl);
+}
+
+@media (min-width: 1200px) {
+    .adoption-plans-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* ==========================================
+   ADOPTION PLAN CARD
+   ========================================== */
+
+.adoption-plan-card {
+    background: white;
+    border: 2px solid var(--vdl-silver);
+    border-radius: var(--vdl-radius-xl);
+    transition: all var(--vdl-transition-standard);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.adoption-plan-card:hover {
+    border-color: var(--vdl-gold);
+    box-shadow: 0 8px 32px rgba(114, 47, 55, 0.15);
+    transform: translateY(-8px);
+}
+
+/* Featured Plan */
+.adoption-plan-card.featured {
+    border-color: var(--vdl-gold);
+    box-shadow: 0 8px 32px rgba(212, 175, 55, 0.2);
+}
+
+.adoption-plan-card.featured::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, var(--vdl-gold), var(--vdl-gold-light), var(--vdl-gold));
+}
+
+.featured-badge {
+    position: absolute;
+    top: var(--vdl-space-md);
+    right: var(--vdl-space-md);
+    background: linear-gradient(135deg, var(--vdl-gold), var(--vdl-gold-light));
+    color: var(--vdl-charcoal);
+    padding: var(--vdl-space-xs) var(--vdl-space-md);
+    border-radius: var(--vdl-radius-xl);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Card Header */
+.adoption-plan-card .card-header,
+.plan-header {
+    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-light) 100%);
+    color: white;
+    padding: var(--vdl-space-xl);
+    text-align: center;
+}
+
+.adoption-plan-card .card-title,
+.plan-title {
+    font-family: var(--vdl-font-display);
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: var(--vdl-space-sm);
+}
+
+.plan-subtitle {
+    font-size: 0.875rem;
+    opacity: 0.9;
+    margin: 0;
+}
+
+/* Card Body */
+.adoption-plan-card .card-body,
+.plan-body {
+    padding: var(--vdl-space-xl);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.adoption-plan-card .card-text,
+.plan-description {
+    color: var(--vdl-text-secondary);
+    line-height: 1.6;
+    margin-bottom: var(--vdl-space-xl);
+    font-size: 0.9375rem;
+}
+
+/* Price Display */
+.plan-price {
+    text-align: center;
+    margin-bottom: var(--vdl-space-xl);
+    padding: var(--vdl-space-lg);
+    background: var(--vdl-pearl);
+    border-radius: var(--vdl-radius-lg);
+}
+
+.price-amount {
+    font-family: var(--vdl-font-display);
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--vdl-burgundy);
+}
+
+.price-period {
+    font-size: 1rem;
+    color: var(--vdl-text-secondary);
+    margin-left: var(--vdl-space-xs);
+}
+
+.price-note {
+    display: block;
+    font-size: 0.8125rem;
+    color: var(--vdl-text-muted);
+    margin-top: var(--vdl-space-xs);
+}
+
+/* Features List */
+.adoption-plan-card ul,
+.plan-features {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--vdl-space-xl);
+    flex: 1;
+}
+
+.adoption-plan-card ul li,
+.plan-features li {
+    padding: var(--vdl-space-md) 0;
+    border-bottom: 1px solid var(--vdl-pearl);
+    color: var(--vdl-charcoal);
+    display: flex;
+    align-items: flex-start;
+    gap: var(--vdl-space-sm);
+    font-size: 0.9375rem;
+}
+
+.adoption-plan-card ul li:last-child,
+.plan-features li:last-child {
+    border-bottom: none;
+}
+
+.adoption-plan-card ul li strong {
+    color: var(--vdl-burgundy);
+    font-weight: 600;
+    margin-right: var(--vdl-space-xs);
+}
+
+.plan-features li::before {
+    content: '✓';
+    color: var(--vdl-gold);
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+/* CTA Button */
+.plan-cta {
+    margin-top: auto;
+}
+
+.btn-adopt {
+    display: block;
+    width: 100%;
+    padding: var(--vdl-space-lg);
+    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-light) 100%);
+    color: white;
+    border: none;
+    border-radius: var(--vdl-radius-md);
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: var(--vdl-font-sans);
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all var(--vdl-transition-standard);
+}
+
+.btn-adopt:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(114, 47, 55, 0.35);
+    color: white;
+    text-decoration: none;
+}
+
+.adoption-plan-card.featured .btn-adopt {
+    background: linear-gradient(135deg, var(--vdl-gold) 0%, var(--vdl-gold-light) 100%);
+    color: var(--vdl-charcoal);
+}
+
+.adoption-plan-card.featured .btn-adopt:hover {
+    box-shadow: 0 8px 24px rgba(212, 175, 55, 0.4);
+}
+
+/* ==========================================
+   BENEFITS SECTION
+   ========================================== */
+
+.adoption-benefits {
+    background: white;
+    border-radius: var(--vdl-radius-xl);
+    padding: var(--vdl-space-3xl);
+    margin-top: var(--vdl-space-3xl);
+    box-shadow: var(--vdl-shadow-soft);
+}
+
+.benefits-title {
+    font-family: var(--vdl-font-display);
+    color: var(--vdl-burgundy);
+    font-size: 1.75rem;
+    text-align: center;
+    margin-bottom: var(--vdl-space-2xl);
+}
+
+.benefits-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--vdl-space-2xl);
+}
+
+.benefit-item {
+    text-align: center;
+    padding: var(--vdl-space-xl);
+}
+
+.benefit-icon {
+    width: 70px;
+    height: 70px;
+    margin: 0 auto var(--vdl-space-lg);
+    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-light) 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--vdl-gold);
+    font-size: 1.75rem;
+    box-shadow: 0 4px 16px rgba(114, 47, 55, 0.2);
+}
+
+.benefit-item h4 {
+    font-family: var(--vdl-font-display);
+    color: var(--vdl-burgundy);
+    font-size: 1.125rem;
+    margin-bottom: var(--vdl-space-sm);
+}
+
+.benefit-item p {
+    color: var(--vdl-text-secondary);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* ==========================================
+   FAQ SECTION
+   ========================================== */
+
+.adoption-faq {
+    margin-top: var(--vdl-space-3xl);
+}
+
+.faq-title {
+    font-family: var(--vdl-font-display);
+    color: var(--vdl-burgundy);
+    font-size: 1.75rem;
+    text-align: center;
+    margin-bottom: var(--vdl-space-2xl);
+}
+
+.faq-list {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.faq-item {
+    background: white;
+    border-radius: var(--vdl-radius-lg);
+    margin-bottom: var(--vdl-space-md);
+    box-shadow: var(--vdl-shadow-soft);
+    overflow: hidden;
+}
+
+.faq-question {
+    width: 100%;
+    padding: var(--vdl-space-xl);
+    background: none;
+    border: none;
+    text-align: left;
+    font-family: var(--vdl-font-sans);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--vdl-charcoal);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: color var(--vdl-transition-standard);
+}
+
+.faq-question:hover {
+    color: var(--vdl-burgundy);
+}
+
+.faq-question i {
+    transition: transform var(--vdl-transition-standard);
+    color: var(--vdl-gold);
+}
+
+.faq-item.active .faq-question i {
+    transform: rotate(180deg);
+}
+
+.faq-answer {
+    padding: 0 var(--vdl-space-xl) var(--vdl-space-xl);
+    color: var(--vdl-text-secondary);
+    line-height: 1.7;
+    display: none;
+}
+
+.faq-item.active .faq-answer {
+    display: block;
+}
+
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
+
+@media (max-width: 991.98px) {
+    .adoption-plans-section {
+        padding: var(--vdl-space-2xl) 0;
+    }
+
+    .adoption-plans-grid {
+        grid-template-columns: 1fr;
+        max-width: 500px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .adoption-benefits {
+        padding: var(--vdl-space-2xl);
+    }
+}
+
+@media (max-width: 575.98px) {
+    .adoption-plans-container {
+        padding: 0 var(--vdl-space-lg);
+    }
+
+    .adoption-plan-card .card-body,
+    .plan-body {
+        padding: var(--vdl-space-lg);
+    }
+
+    .price-amount {
+        font-size: 2rem;
+    }
+
+    .benefits-grid {
+        grid-template-columns: 1fr;
+    }
+}

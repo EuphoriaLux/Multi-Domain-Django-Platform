@@ -1,0 +1,543 @@
+/* ===========================================
+   VINSDELUX PLOT SELECTION PAGE
+   Interactive vineyard plot selection experience
+   =========================================== */
+
+/* ==========================================
+   PAGE CONTAINER
+   ========================================== */
+
+.plot-selection-container {
+    padding: var(--vdl-space-2xl) var(--vdl-space-xl);
+    background: linear-gradient(135deg, var(--vdl-pearl) 0%, var(--vdl-cream) 100%);
+    min-height: 100vh;
+    position: relative;
+}
+
+/* ==========================================
+   SELECTION LAYOUT
+   ========================================== */
+
+.plot-selection-layout {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--vdl-space-2xl);
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+@media (max-width: 1199.98px) {
+    .plot-selection-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ==========================================
+   PLOT CARDS GRID
+   ========================================== */
+
+.plot-cards-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--vdl-space-xl);
+    margin-bottom: var(--vdl-space-2xl);
+    padding: 0 var(--vdl-space-xs);
+}
+
+@media (min-width: 1400px) {
+    .plot-cards-container {
+        grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    }
+}
+
+@media (max-width: 575.98px) {
+    .plot-cards-container {
+        grid-template-columns: 1fr;
+        gap: var(--vdl-space-lg);
+    }
+}
+
+/* ==========================================
+   PLOT CARD
+   ========================================== */
+
+.plot-card {
+    background: white;
+    border-radius: var(--vdl-radius-xl);
+    overflow: hidden;
+    box-shadow: var(--vdl-shadow-soft);
+    transition: all var(--vdl-transition-standard);
+    position: relative;
+    cursor: pointer;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    animation: fadeIn 0.5s ease backwards;
+}
+
+.plot-card:nth-child(n) {
+    animation-delay: calc(0.05s * var(--index, 1));
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.plot-card:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--vdl-shadow-elevated);
+}
+
+.plot-card.selected {
+    border: 3px solid var(--vdl-gold);
+    box-shadow: 0 12px 40px rgba(212, 175, 55, 0.25);
+    transform: translateY(-4px);
+}
+
+.plot-card.unavailable {
+    opacity: 0.6;
+    filter: grayscale(50%);
+    pointer-events: none;
+}
+
+/* Card Header */
+.plot-card-header {
+    padding: var(--vdl-space-md) var(--vdl-space-xl);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-light) 100%);
+    color: white;
+}
+
+/* Card Image */
+.plot-card-image {
+    position: relative;
+    height: 140px;
+    overflow: hidden;
+}
+
+.plot-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+
+.plot-card:hover .plot-card-image img {
+    transform: scale(1.1);
+}
+
+/* Region badge overlay */
+.plot-region-badge {
+    position: absolute;
+    top: var(--vdl-space-md);
+    left: var(--vdl-space-md);
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--vdl-burgundy);
+    padding: var(--vdl-space-sm) var(--vdl-space-md);
+    border-radius: var(--vdl-radius-xl);
+    font-weight: 600;
+    font-size: 0.875rem;
+    backdrop-filter: blur(10px);
+}
+
+/* Card Body */
+.plot-card-body {
+    padding: var(--vdl-space-xl);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.plot-name {
+    font-family: var(--vdl-font-display);
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--vdl-charcoal);
+    margin-bottom: var(--vdl-space-sm);
+}
+
+.plot-description {
+    color: var(--vdl-text-secondary);
+    line-height: 1.4;
+    margin-bottom: var(--vdl-space-md);
+    min-height: 40px;
+    font-size: 0.875rem;
+}
+
+/* Plot Details Grid */
+.plot-details {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--vdl-space-md);
+    margin-bottom: var(--vdl-space-md);
+    padding: var(--vdl-space-md);
+    background: var(--vdl-pearl);
+    border-radius: var(--vdl-radius-md);
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: var(--vdl-space-sm);
+    color: var(--vdl-text-secondary);
+    font-size: 0.8125rem;
+}
+
+.detail-item i {
+    color: var(--vdl-burgundy);
+    width: 16px;
+    font-size: 0.875rem;
+}
+
+/* Grape Tags */
+.plot-grapes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--vdl-space-sm);
+    margin-bottom: var(--vdl-space-xl);
+}
+
+.grape-tag {
+    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-light) 100%);
+    color: white;
+    padding: var(--vdl-space-xs) var(--vdl-space-md);
+    border-radius: var(--vdl-radius-xl);
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+
+/* Feature Badges */
+.plot-features {
+    margin-bottom: var(--vdl-space-md);
+}
+
+.feature-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--vdl-space-xs);
+    background: #e8f5e9;
+    color: #2e7d32;
+    padding: var(--vdl-space-xs) var(--vdl-space-sm);
+    font-size: 0.75rem;
+    border-radius: var(--vdl-radius-xl);
+    margin: var(--vdl-space-xs);
+}
+
+.feature-badge i {
+    color: #4caf50;
+}
+
+/* Card Footer */
+.plot-card-footer {
+    padding: var(--vdl-space-md) var(--vdl-space-md);
+    background: var(--vdl-pearl);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* ==========================================
+   AVAILABILITY & RATING
+   ========================================== */
+
+.plot-availability {
+    padding: var(--vdl-space-xs) var(--vdl-space-md);
+    border-radius: var(--vdl-radius-xl);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: white;
+}
+
+.plot-availability.available {
+    background: #4caf50;
+}
+
+.plot-availability.unavailable {
+    background: #f44336;
+}
+
+.plot-rating {
+    display: flex;
+    align-items: center;
+    gap: var(--vdl-space-xs);
+}
+
+.stars {
+    color: #ffd700;
+    letter-spacing: 2px;
+}
+
+.rating-value {
+    font-weight: 600;
+    color: white;
+}
+
+.reviews {
+    font-size: 0.75rem;
+    opacity: 0.9;
+    color: white;
+}
+
+/* ==========================================
+   PRICE DISPLAY
+   ========================================== */
+
+.plot-price {
+    display: flex;
+    flex-direction: column;
+}
+
+.price-label {
+    font-size: 0.75rem;
+    color: var(--vdl-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.price-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--vdl-burgundy);
+    font-family: var(--vdl-font-display);
+}
+
+/* ==========================================
+   ACTION BUTTONS
+   ========================================== */
+
+.plot-actions {
+    display: flex;
+    gap: var(--vdl-space-sm);
+}
+
+.btn-compare,
+.btn-select-plot {
+    padding: var(--vdl-space-sm) var(--vdl-space-lg);
+    border: none;
+    border-radius: var(--vdl-radius-md);
+    font-weight: 600;
+    font-size: 0.875rem;
+    font-family: var(--vdl-font-sans);
+    cursor: pointer;
+    transition: all var(--vdl-transition-standard);
+}
+
+.btn-compare {
+    background: white;
+    color: var(--vdl-burgundy);
+    border: 2px solid var(--vdl-burgundy);
+}
+
+.btn-compare:hover:not(:disabled) {
+    background: var(--vdl-burgundy);
+    color: white;
+}
+
+.btn-select-plot {
+    background: linear-gradient(135deg, var(--vdl-gold) 0%, var(--vdl-gold-light) 100%);
+    color: var(--vdl-charcoal);
+}
+
+.btn-select-plot:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(212, 175, 55, 0.4);
+}
+
+.btn-compare:disabled,
+.btn-select-plot:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ==========================================
+   SELECTION SIDEBAR
+   ========================================== */
+
+.plot-selection-sidebar {
+    position: sticky;
+    top: var(--vdl-space-xl);
+}
+
+.selection-summary-card {
+    background: white;
+    border-radius: var(--vdl-radius-xl);
+    box-shadow: var(--vdl-shadow-medium);
+    padding: var(--vdl-space-xl);
+    margin-bottom: var(--vdl-space-xl);
+}
+
+.selection-summary-card h3 {
+    font-family: var(--vdl-font-display);
+    color: var(--vdl-burgundy);
+    margin-bottom: var(--vdl-space-lg);
+    font-size: 1.25rem;
+}
+
+.selected-plots-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--vdl-space-xl);
+}
+
+.selected-plots-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--vdl-space-md);
+    background: var(--vdl-pearl);
+    border-radius: var(--vdl-radius-md);
+    margin-bottom: var(--vdl-space-sm);
+}
+
+.selected-plots-list .plot-info {
+    flex: 1;
+}
+
+.selected-plots-list .plot-title {
+    font-weight: 600;
+    color: var(--vdl-charcoal);
+}
+
+.selected-plots-list .plot-region {
+    font-size: 0.8125rem;
+    color: var(--vdl-text-secondary);
+}
+
+.selected-plots-list .remove-btn {
+    background: none;
+    border: none;
+    color: var(--vdl-burgundy);
+    cursor: pointer;
+    padding: var(--vdl-space-xs);
+    transition: color var(--vdl-transition-standard);
+}
+
+.selected-plots-list .remove-btn:hover {
+    color: #dc3545;
+}
+
+.selection-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: var(--vdl-space-lg);
+    border-top: 2px solid var(--vdl-pearl);
+    margin-bottom: var(--vdl-space-lg);
+}
+
+.selection-total .label {
+    font-weight: 600;
+    color: var(--vdl-charcoal);
+}
+
+.selection-total .total-price {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--vdl-burgundy);
+    font-family: var(--vdl-font-display);
+}
+
+.btn-proceed {
+    width: 100%;
+    padding: var(--vdl-space-lg);
+    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-light) 100%);
+    color: white;
+    border: none;
+    border-radius: var(--vdl-radius-md);
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: var(--vdl-font-sans);
+    cursor: pointer;
+    transition: all var(--vdl-transition-standard);
+}
+
+.btn-proceed:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(114, 47, 55, 0.35);
+}
+
+.btn-proceed:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ==========================================
+   EMPTY STATE
+   ========================================== */
+
+.no-plots-message {
+    text-align: center;
+    padding: var(--vdl-space-3xl);
+    background: white;
+    border-radius: var(--vdl-radius-xl);
+    box-shadow: var(--vdl-shadow-soft);
+}
+
+.no-plots-message i {
+    font-size: 3rem;
+    color: var(--vdl-gold);
+    margin-bottom: var(--vdl-space-lg);
+}
+
+.no-plots-message h4 {
+    font-family: var(--vdl-font-display);
+    color: var(--vdl-burgundy);
+    margin-bottom: var(--vdl-space-sm);
+}
+
+.no-plots-message p {
+    color: var(--vdl-text-secondary);
+    margin: 0;
+}
+
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
+
+@media (max-width: 991.98px) {
+    .plot-selection-container {
+        padding: var(--vdl-space-xl);
+    }
+
+    .plot-selection-sidebar {
+        position: relative;
+        top: 0;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .plot-selection-container {
+        padding: var(--vdl-space-lg);
+    }
+
+    .plot-card-header {
+        padding: var(--vdl-space-sm) var(--vdl-space-md);
+    }
+
+    .plot-card-body {
+        padding: var(--vdl-space-lg);
+    }
+
+    .plot-details {
+        grid-template-columns: 1fr;
+    }
+
+    .plot-actions {
+        flex-direction: column;
+    }
+
+    .btn-compare,
+    .btn-select-plot {
+        width: 100%;
+    }
+}

@@ -1,0 +1,170 @@
+/* ===========================================
+   VINSDELUX BUTTON COMPONENTS
+   Premium button system
+   =========================================== */
+
+/* ==========================================
+   BASE BUTTON
+   ========================================== */
+
+.vdl-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--vdl-space-sm);
+    padding: var(--vdl-space-md) var(--vdl-space-xl);
+    border: 2px solid transparent;
+    border-radius: var(--vdl-radius-md);
+    font-family: var(--vdl-font-sans);
+    font-size: var(--vdl-text-base);
+    font-weight: 500;
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all var(--vdl-transition-standard);
+    position: relative;
+    overflow: hidden;
+}
+
+.vdl-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left var(--vdl-transition-slow);
+}
+
+.vdl-btn:hover::before {
+    left: 100%;
+}
+
+/* ==========================================
+   BUTTON VARIANTS
+   ========================================== */
+
+/* Primary - Burgundy gradient */
+.vdl-btn-primary {
+    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-dark) 100%);
+    color: var(--vdl-cream);
+    box-shadow: var(--vdl-shadow-medium);
+}
+
+.vdl-btn-primary:hover {
+    background: linear-gradient(135deg, var(--vdl-burgundy-light) 0%, var(--vdl-burgundy) 100%);
+    box-shadow: var(--vdl-shadow-hard);
+    transform: translateY(-2px);
+}
+
+/* Secondary - Outlined */
+.vdl-btn-secondary {
+    background: transparent;
+    color: var(--vdl-burgundy);
+    border-color: var(--vdl-burgundy);
+}
+
+.vdl-btn-secondary:hover {
+    background: var(--vdl-burgundy);
+    color: var(--vdl-cream);
+}
+
+/* Accent - Gold gradient */
+.vdl-btn-accent {
+    background: linear-gradient(135deg, var(--vdl-gold) 0%, var(--vdl-gold-dark) 100%);
+    color: var(--vdl-burgundy);
+    box-shadow: var(--vdl-shadow-medium);
+}
+
+.vdl-btn-accent:hover {
+    background: linear-gradient(135deg, var(--vdl-gold-light) 0%, var(--vdl-gold) 100%);
+    box-shadow: var(--vdl-shadow-hard);
+    transform: translateY(-2px);
+}
+
+/* ==========================================
+   BUTTON SIZES
+   ========================================== */
+
+.vdl-btn-sm {
+    padding: var(--vdl-space-xs) var(--vdl-space-md);
+    font-size: var(--vdl-text-sm);
+}
+
+.vdl-btn-lg {
+    padding: var(--vdl-space-lg) var(--vdl-space-2xl);
+    font-size: var(--vdl-text-lg);
+}
+
+/* ==========================================
+   BUTTON STATES
+   ========================================== */
+
+.vdl-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.vdl-btn:disabled:hover {
+    transform: none;
+    box-shadow: var(--vdl-shadow-medium);
+}
+
+.vdl-btn:disabled::before {
+    display: none;
+}
+
+/* ==========================================
+   LEGACY BUTTON STYLES (backward compat)
+   ========================================== */
+
+.select-plan-btn {
+    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, #8B0000 100%);
+    border: none;
+    color: white;
+    padding: 0.75rem 2rem;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.select-plan-btn:hover {
+    background: linear-gradient(135deg, #8B0000 0%, var(--vdl-burgundy) 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(114, 47, 55, 0.3);
+}
+
+.select-plan-btn:disabled {
+    background: #28a745;
+    cursor: not-allowed;
+}
+
+.btn-reset-filters {
+    padding: 10px 20px;
+    background: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.btn-reset-filters:hover {
+    background: #5a6268;
+}
+
+/* ==========================================
+   MOBILE RESPONSIVE
+   ========================================== */
+
+@media (max-width: 767.98px) {
+    .vdl-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}

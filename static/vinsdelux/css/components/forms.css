@@ -1,0 +1,618 @@
+/* ===========================================
+   VINSDELUX FORM COMPONENTS
+   Premium form styling for wine adoption
+   =========================================== */
+
+/* ==========================================
+   BASE FORM STYLES
+   ========================================== */
+
+.vdl-form {
+    background: white;
+    border-radius: var(--vdl-radius-xl);
+    padding: var(--vdl-space-2xl);
+    box-shadow: var(--vdl-shadow-medium);
+}
+
+.vdl-form-header {
+    margin-bottom: var(--vdl-space-xl);
+    padding-bottom: var(--vdl-space-lg);
+    border-bottom: 2px solid var(--vdl-pearl);
+}
+
+.vdl-form-header h2 {
+    font-family: var(--vdl-font-display);
+    color: var(--vdl-burgundy);
+    font-size: 1.75rem;
+    margin-bottom: var(--vdl-space-sm);
+}
+
+.vdl-form-header p {
+    color: var(--vdl-text-secondary);
+    margin: 0;
+}
+
+/* ==========================================
+   FORM GROUPS
+   ========================================== */
+
+.vdl-form-group {
+    margin-bottom: var(--vdl-space-xl);
+}
+
+.vdl-form-group label {
+    display: block;
+    font-family: var(--vdl-font-sans);
+    font-weight: 600;
+    color: var(--vdl-charcoal);
+    margin-bottom: var(--vdl-space-sm);
+    font-size: 0.9375rem;
+}
+
+.vdl-form-group .required::after {
+    content: ' *';
+    color: var(--vdl-burgundy);
+}
+
+.vdl-form-hint {
+    display: block;
+    font-size: 0.8125rem;
+    color: var(--vdl-text-secondary);
+    margin-top: var(--vdl-space-xs);
+}
+
+/* ==========================================
+   INPUT FIELDS
+   ========================================== */
+
+.vdl-input,
+.vdl-select,
+.vdl-textarea {
+    width: 100%;
+    padding: var(--vdl-space-md) var(--vdl-space-lg);
+    font-family: var(--vdl-font-sans);
+    font-size: 1rem;
+    color: var(--vdl-charcoal);
+    background: white;
+    border: 2px solid var(--vdl-silver);
+    border-radius: var(--vdl-radius-md);
+    transition: all var(--vdl-transition-standard);
+}
+
+.vdl-input:hover,
+.vdl-select:hover,
+.vdl-textarea:hover {
+    border-color: var(--vdl-gold-alpha-50);
+}
+
+.vdl-input:focus,
+.vdl-select:focus,
+.vdl-textarea:focus {
+    outline: none;
+    border-color: var(--vdl-burgundy);
+    box-shadow: 0 0 0 4px var(--vdl-burgundy-alpha-10);
+}
+
+.vdl-input.error,
+.vdl-select.error,
+.vdl-textarea.error {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.1);
+}
+
+.vdl-input::placeholder,
+.vdl-textarea::placeholder {
+    color: var(--vdl-text-muted);
+}
+
+/* Textarea specific */
+.vdl-textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+/* ==========================================
+   SELECT STYLING
+   ========================================== */
+
+.vdl-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23722F37' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--vdl-space-lg) center;
+    padding-right: var(--vdl-space-2xl);
+    cursor: pointer;
+}
+
+/* ==========================================
+   CHECKBOX & RADIO
+   ========================================== */
+
+.vdl-checkbox,
+.vdl-radio {
+    display: flex;
+    align-items: center;
+    gap: var(--vdl-space-sm);
+    cursor: pointer;
+    padding: var(--vdl-space-sm) 0;
+}
+
+.vdl-checkbox input,
+.vdl-radio input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.vdl-checkbox .checkmark,
+.vdl-radio .checkmark {
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--vdl-silver);
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--vdl-transition-standard);
+    flex-shrink: 0;
+}
+
+.vdl-checkbox .checkmark {
+    border-radius: var(--vdl-radius-sm);
+}
+
+.vdl-radio .checkmark {
+    border-radius: 50%;
+}
+
+.vdl-checkbox:hover .checkmark,
+.vdl-radio:hover .checkmark {
+    border-color: var(--vdl-burgundy);
+}
+
+.vdl-checkbox input:checked + .checkmark,
+.vdl-radio input:checked + .checkmark {
+    background: var(--vdl-burgundy);
+    border-color: var(--vdl-burgundy);
+}
+
+.vdl-checkbox input:checked + .checkmark::after {
+    content: '';
+    width: 6px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    margin-bottom: 2px;
+}
+
+.vdl-radio input:checked + .checkmark::after {
+    content: '';
+    width: 10px;
+    height: 10px;
+    background: white;
+    border-radius: 50%;
+}
+
+.vdl-checkbox .label-text,
+.vdl-radio .label-text {
+    font-family: var(--vdl-font-sans);
+    color: var(--vdl-charcoal);
+    font-size: 0.9375rem;
+}
+
+/* Feature checkboxes grid */
+.feature-checkboxes {
+    display: flex;
+    gap: var(--vdl-space-lg);
+    flex-wrap: wrap;
+}
+
+/* ==========================================
+   FILTER COMPONENTS
+   ========================================== */
+
+.plot-filters,
+.vdl-filters {
+    background: white;
+    padding: var(--vdl-space-xl);
+    border-radius: var(--vdl-radius-xl);
+    margin-bottom: var(--vdl-space-2xl);
+    box-shadow: var(--vdl-shadow-soft);
+    display: flex;
+    gap: var(--vdl-space-xl);
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.filter-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.filter-group label {
+    display: block;
+    margin-bottom: var(--vdl-space-sm);
+    font-weight: 600;
+    color: var(--vdl-charcoal);
+    font-family: var(--vdl-font-sans);
+}
+
+.filter-group select {
+    width: 100%;
+    padding: var(--vdl-space-md);
+    border: 2px solid var(--vdl-silver);
+    border-radius: var(--vdl-radius-md);
+    font-size: 0.875rem;
+    transition: border-color var(--vdl-transition-standard);
+    background: white;
+}
+
+.filter-group select:focus {
+    border-color: var(--vdl-burgundy);
+    outline: none;
+}
+
+.btn-reset-filters {
+    padding: var(--vdl-space-md) var(--vdl-space-xl);
+    background: var(--vdl-text-secondary);
+    color: white;
+    border: none;
+    border-radius: var(--vdl-radius-md);
+    cursor: pointer;
+    transition: background var(--vdl-transition-standard);
+    font-family: var(--vdl-font-sans);
+    font-weight: 500;
+}
+
+.btn-reset-filters:hover {
+    background: var(--vdl-charcoal);
+}
+
+/* ==========================================
+   DETAILS PANEL
+   ========================================== */
+
+#plot-details-panel,
+.plot-details-panel {
+    position: fixed;
+    right: -450px;
+    top: 80px;
+    width: 420px;
+    height: calc(100vh - 100px);
+    background: white;
+    border-radius: var(--vdl-radius-xl) 0 0 var(--vdl-radius-xl);
+    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.15);
+    transition: right 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    z-index: 1000;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#plot-details-panel.active,
+.plot-details-panel.active {
+    right: 0;
+}
+
+.plot-details-header {
+    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-light) 100%);
+    color: white;
+    padding: var(--vdl-space-xl);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.plot-details-header h2 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-family: var(--vdl-font-display);
+}
+
+.region-badge {
+    background: rgba(255, 255, 255, 0.2);
+    padding: var(--vdl-space-sm) var(--vdl-space-md);
+    border-radius: var(--vdl-radius-xl);
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.plot-details-content,
+.details-content {
+    padding: var(--vdl-space-xl);
+}
+
+.details-section {
+    margin-bottom: var(--vdl-space-2xl);
+}
+
+.details-section h3 {
+    color: var(--vdl-burgundy);
+    margin-bottom: var(--vdl-space-md);
+    font-size: 1.125rem;
+    font-family: var(--vdl-font-display);
+    border-bottom: 2px solid var(--vdl-pearl);
+    padding-bottom: var(--vdl-space-sm);
+}
+
+.characteristics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--vdl-space-md);
+}
+
+.characteristic {
+    display: flex;
+    flex-direction: column;
+}
+
+.characteristic label {
+    font-size: 0.75rem;
+    color: var(--vdl-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: var(--vdl-space-xs);
+}
+
+.characteristic span {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--vdl-charcoal);
+}
+
+.grape-varieties {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--vdl-space-md);
+}
+
+.grape-variety {
+    display: flex;
+    align-items: center;
+    gap: var(--vdl-space-sm);
+    background: var(--vdl-pearl);
+    padding: var(--vdl-space-sm) var(--vdl-space-lg);
+    border-radius: var(--vdl-radius-xl);
+}
+
+.grape-icon {
+    width: 30px;
+    height: 30px;
+    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-light) 100%);
+    border-radius: 50%;
+}
+
+.features-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.features-list li {
+    padding: var(--vdl-space-md) 0;
+    border-bottom: 1px solid var(--vdl-pearl);
+    display: flex;
+    align-items: center;
+    gap: var(--vdl-space-sm);
+    color: var(--vdl-charcoal);
+}
+
+.features-list li:last-child {
+    border-bottom: none;
+}
+
+.features-list i {
+    color: var(--vdl-gold);
+    width: 20px;
+}
+
+.investment-info {
+    background: var(--vdl-pearl);
+    padding: var(--vdl-space-xl);
+    border-radius: var(--vdl-radius-lg);
+}
+
+.investment-item {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--vdl-space-sm) 0;
+}
+
+.investment-item .label {
+    color: var(--vdl-text-secondary);
+}
+
+.investment-item .value {
+    font-weight: 600;
+    color: var(--vdl-burgundy);
+}
+
+/* Close button */
+.close-panel-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--vdl-transition-standard);
+    color: white;
+    font-size: 20px;
+    z-index: 11;
+}
+
+.close-panel-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: rotate(90deg);
+}
+
+/* Confirm buttons */
+.btn-confirm-selection,
+.btn-confirm {
+    width: 100%;
+    padding: var(--vdl-space-lg);
+    background: linear-gradient(135deg, var(--vdl-gold) 0%, var(--vdl-gold-light) 100%);
+    color: var(--vdl-charcoal);
+    border: none;
+    border-radius: var(--vdl-radius-md);
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: var(--vdl-font-sans);
+    cursor: pointer;
+    transition: all var(--vdl-transition-standard);
+    margin-top: var(--vdl-space-xl);
+    position: sticky;
+    bottom: var(--vdl-space-xl);
+}
+
+.btn-confirm-selection:hover:not(:disabled),
+.btn-confirm:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(212, 175, 55, 0.35);
+}
+
+.btn-confirm-selection:disabled,
+.btn-confirm:disabled {
+    background: var(--vdl-silver);
+    color: var(--vdl-text-secondary);
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ==========================================
+   COMPARISON PANEL
+   ========================================== */
+
+.comparison-panel {
+    position: fixed;
+    bottom: -300px;
+    left: 0;
+    right: 0;
+    height: 300px;
+    background: white;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.2);
+    transition: bottom 0.4s;
+    z-index: 999;
+}
+
+.comparison-panel.active {
+    bottom: 0;
+}
+
+.comparison-header {
+    background: var(--vdl-charcoal);
+    color: white;
+    padding: var(--vdl-space-md) var(--vdl-space-2xl);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.btn-close-comparison {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.comparison-content {
+    padding: var(--vdl-space-2xl);
+}
+
+/* ==========================================
+   TOOLTIP
+   ========================================== */
+
+.plot-tooltip {
+    position: fixed;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: var(--vdl-space-md) var(--vdl-space-lg);
+    border-radius: var(--vdl-radius-md);
+    font-size: 0.8125rem;
+    pointer-events: none;
+    z-index: 10000;
+    display: none;
+    max-width: 250px;
+    line-height: 1.5;
+    font-family: var(--vdl-font-sans);
+}
+
+/* ==========================================
+   LOADING STATE
+   ========================================== */
+
+.plot-loading,
+.loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
+    flex-direction: column;
+    gap: var(--vdl-space-xl);
+}
+
+.plot-loading::after,
+.spinner {
+    content: '';
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--vdl-pearl);
+    border-top-color: var(--vdl-burgundy);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-spinner.active {
+    display: flex;
+}
+
+.loading-spinner:not(.active) {
+    display: none;
+}
+
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
+
+@media (max-width: 768px) {
+    #plot-details-panel,
+    .plot-details-panel {
+        width: 100%;
+        right: -100%;
+        top: 0;
+        height: 100vh;
+        border-radius: 0;
+    }
+
+    .plot-filters,
+    .vdl-filters {
+        flex-direction: column;
+    }
+
+    .filter-group {
+        width: 100%;
+    }
+
+    .characteristics-grid {
+        grid-template-columns: 1fr;
+    }
+}

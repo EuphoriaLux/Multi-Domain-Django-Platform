@@ -1,0 +1,159 @@
+/* ===========================================
+   POWERUP CSS DESIGN TOKENS
+   Entrepreneur Networking Platform
+
+   Color Philosophy:
+   - Blue: Trust, professionalism, technology
+   - Orange: Energy, creativity, action
+   - Gray: Stability, balance, reliability
+   =========================================== */
+
+:root {
+    /* ==========================================
+       PRIMARY COLORS
+       ========================================== */
+
+    /* PowerUP Blue - Primary brand color */
+    --powerup-blue: #0066CC;
+    --powerup-blue-light: #3399FF;
+    --powerup-blue-dark: #004D99;
+    --powerup-blue-alpha-90: rgba(0, 102, 204, 0.9);
+    --powerup-blue-alpha-50: rgba(0, 102, 204, 0.5);
+    --powerup-blue-alpha-20: rgba(0, 102, 204, 0.2);
+    --powerup-blue-alpha-10: rgba(0, 102, 204, 0.1);
+
+    /* PowerUP Orange - Accent/Action color */
+    --powerup-orange: #FF6B00;
+    --powerup-orange-light: #FF8533;
+    --powerup-orange-dark: #CC5500;
+    --powerup-orange-alpha-50: rgba(255, 107, 0, 0.5);
+    --powerup-orange-alpha-20: rgba(255, 107, 0, 0.2);
+
+    /* Success/Match Green */
+    --powerup-success: #4CAF50;
+    --powerup-success-light: #81C784;
+    --powerup-success-dark: #388E3C;
+
+    /* Dislike/Pass Red */
+    --powerup-danger: #FF4D4D;
+    --powerup-danger-light: #FF8080;
+    --powerup-danger-dark: #CC3D3D;
+
+    /* ==========================================
+       NEUTRAL COLORS
+       ========================================== */
+
+    --powerup-charcoal: #333333;
+    --powerup-gray: #666666;
+    --powerup-gray-light: #999999;
+    --powerup-gray-lighter: #CCCCCC;
+    --powerup-silver: #E8E8E8;
+    --powerup-pearl: #F5F5F5;
+    --powerup-white: #FFFFFF;
+
+    /* ==========================================
+       SEMANTIC COLORS
+       ========================================== */
+
+    --powerup-text-primary: var(--powerup-charcoal);
+    --powerup-text-secondary: var(--powerup-gray);
+    --powerup-text-muted: var(--powerup-gray-light);
+    --powerup-border: var(--powerup-gray-lighter);
+    --powerup-background: var(--powerup-pearl);
+
+    /* ==========================================
+       TYPOGRAPHY
+       ========================================== */
+
+    --powerup-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --powerup-font-display: 'Poppins', var(--powerup-font-sans);
+
+    /* Font sizes - modular scale (1.25) */
+    --powerup-text-xs: 0.75rem;    /* 12px */
+    --powerup-text-sm: 0.875rem;   /* 14px */
+    --powerup-text-base: 1rem;     /* 16px */
+    --powerup-text-lg: 1.125rem;   /* 18px */
+    --powerup-text-xl: 1.25rem;    /* 20px */
+    --powerup-text-2xl: 1.5rem;    /* 24px */
+    --powerup-text-3xl: 1.875rem;  /* 30px */
+    --powerup-text-4xl: 2.25rem;   /* 36px */
+
+    /* Font weights */
+    --powerup-font-normal: 400;
+    --powerup-font-medium: 500;
+    --powerup-font-semibold: 600;
+    --powerup-font-bold: 700;
+
+    /* Line heights */
+    --powerup-leading-tight: 1.25;
+    --powerup-leading-normal: 1.5;
+    --powerup-leading-relaxed: 1.75;
+
+    /* ==========================================
+       SPACING
+       ========================================== */
+
+    --powerup-space-xs: 0.25rem;   /* 4px */
+    --powerup-space-sm: 0.5rem;    /* 8px */
+    --powerup-space-md: 1rem;      /* 16px */
+    --powerup-space-lg: 1.5rem;    /* 24px */
+    --powerup-space-xl: 2rem;      /* 32px */
+    --powerup-space-2xl: 3rem;     /* 48px */
+    --powerup-space-3xl: 4rem;     /* 64px */
+
+    /* ==========================================
+       BORDERS & RADIUS
+       ========================================== */
+
+    --powerup-radius-sm: 4px;
+    --powerup-radius-md: 8px;
+    --powerup-radius-lg: 12px;
+    --powerup-radius-xl: 16px;
+    --powerup-radius-2xl: 24px;
+    --powerup-radius-full: 9999px;
+
+    --powerup-border-width: 1px;
+    --powerup-border-width-thick: 2px;
+
+    /* ==========================================
+       SHADOWS
+       ========================================== */
+
+    --powerup-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --powerup-shadow-md: 0 4px 8px rgba(0, 0, 0, 0.1);
+    --powerup-shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.12);
+    --powerup-shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.15);
+    --powerup-shadow-card: 0 4px 8px rgba(0, 0, 0, 0.1);
+    --powerup-shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.15);
+
+    /* ==========================================
+       TRANSITIONS
+       ========================================== */
+
+    --powerup-transition-fast: 150ms ease;
+    --powerup-transition-normal: 300ms ease;
+    --powerup-transition-slow: 500ms ease;
+    --powerup-transition-bounce: 300ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    /* ==========================================
+       Z-INDEX SCALE
+       ========================================== */
+
+    --powerup-z-dropdown: 100;
+    --powerup-z-sticky: 200;
+    --powerup-z-fixed: 300;
+    --powerup-z-modal-backdrop: 400;
+    --powerup-z-modal: 500;
+    --powerup-z-popover: 600;
+    --powerup-z-tooltip: 700;
+}
+
+/* ==========================================
+   DARK MODE (Optional - for future)
+   ========================================== */
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        /* Can be extended for dark mode support */
+    }
+}

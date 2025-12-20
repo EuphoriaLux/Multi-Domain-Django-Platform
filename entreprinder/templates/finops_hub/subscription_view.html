@@ -4,7 +4,7 @@
 {% block title %}FinOps Hub - Subscriptions{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'finops_hub/css/finops.css' %}">
+<link rel="stylesheet" href="{% static 'powerup/css/pages/finops.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -162,7 +162,7 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="{% static 'finops_hub/js/finops_charts.js' %}"></script>
+<script src="{% static 'powerup/js/finops_hub/finops_charts.js' %}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const subscriptions = {{ subscriptions|safe }};

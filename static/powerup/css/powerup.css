@@ -1,0 +1,303 @@
+/* ===========================================
+   POWERUP CSS ENTRY POINT
+   Entrepreneur Networking Platform
+
+   This is the main entry point for PowerUP styles.
+   Import this single file in templates to get all styles.
+   =========================================== */
+
+/**
+ * PowerUP Design System
+ *
+ * Color Palette:
+ * - Blue (#0066CC) - Primary brand color, trust & technology
+ * - Orange (#FF6B00) - Accent, energy & action
+ * - Green (#4CAF50) - Success, matches
+ * - Red (#FF4D4D) - Pass/dislike
+ *
+ * Typography:
+ * - Poppins - Display/headings
+ * - Inter - Body text, UI elements
+ *
+ * Target Audience:
+ * - Entrepreneurs in Luxembourg
+ * - Professional networking focus
+ */
+
+/* ==========================================
+   CORE - Design Tokens & Variables
+   ========================================== */
+@import url('core/variables.css');
+
+/* ==========================================
+   COMPONENTS - Reusable UI elements
+   ========================================== */
+@import url('components/swipe.css');
+
+/* ==========================================
+   BASE STYLES
+   ========================================== */
+
+/* PowerUP specific navbar styling */
+.navbar-powerup {
+    background: linear-gradient(135deg, var(--powerup-blue) 0%, var(--powerup-blue-dark) 100%);
+    box-shadow: var(--powerup-shadow-md);
+}
+
+.navbar-powerup .navbar-brand {
+    font-family: var(--powerup-font-display);
+    font-weight: var(--powerup-font-bold);
+    color: var(--powerup-white);
+}
+
+.navbar-powerup .nav-link {
+    color: rgba(255, 255, 255, 0.9);
+    transition: color var(--powerup-transition-fast);
+}
+
+.navbar-powerup .nav-link:hover {
+    color: var(--powerup-white);
+}
+
+/* ==========================================
+   BUTTONS
+   ========================================== */
+
+.btn-powerup-primary {
+    background: linear-gradient(135deg, var(--powerup-blue) 0%, var(--powerup-blue-dark) 100%);
+    color: var(--powerup-white);
+    border: none;
+    border-radius: var(--powerup-radius-lg);
+    padding: var(--powerup-space-md) var(--powerup-space-xl);
+    font-weight: var(--powerup-font-semibold);
+    transition: all var(--powerup-transition-normal);
+}
+
+.btn-powerup-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 102, 204, 0.4);
+    color: var(--powerup-white);
+}
+
+.btn-powerup-secondary {
+    background: transparent;
+    color: var(--powerup-blue);
+    border: 2px solid var(--powerup-blue);
+    border-radius: var(--powerup-radius-lg);
+    padding: var(--powerup-space-md) var(--powerup-space-xl);
+    font-weight: var(--powerup-font-semibold);
+    transition: all var(--powerup-transition-normal);
+}
+
+.btn-powerup-secondary:hover {
+    background: var(--powerup-blue);
+    color: var(--powerup-white);
+}
+
+.btn-powerup-accent {
+    background: linear-gradient(135deg, var(--powerup-orange) 0%, var(--powerup-orange-dark) 100%);
+    color: var(--powerup-white);
+    border: none;
+    border-radius: var(--powerup-radius-lg);
+    padding: var(--powerup-space-md) var(--powerup-space-xl);
+    font-weight: var(--powerup-font-semibold);
+    transition: all var(--powerup-transition-normal);
+}
+
+.btn-powerup-accent:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(255, 107, 0, 0.4);
+    color: var(--powerup-white);
+}
+
+/* ==========================================
+   CARDS
+   ========================================== */
+
+.card-powerup {
+    background: var(--powerup-white);
+    border: none;
+    border-radius: var(--powerup-radius-xl);
+    box-shadow: var(--powerup-shadow-card);
+    transition: all var(--powerup-transition-normal);
+    overflow: hidden;
+}
+
+.card-powerup:hover {
+    box-shadow: var(--powerup-shadow-card-hover);
+    transform: translateY(-4px);
+}
+
+.card-powerup .card-header {
+    background: linear-gradient(135deg, var(--powerup-blue) 0%, var(--powerup-blue-dark) 100%);
+    color: var(--powerup-white);
+    border: none;
+    padding: var(--powerup-space-lg);
+}
+
+.card-powerup .card-body {
+    padding: var(--powerup-space-lg);
+}
+
+/* ==========================================
+   ENTREPRENEUR PROFILE CARDS
+   ========================================== */
+
+.entrepreneur-card {
+    background: var(--powerup-white);
+    border-radius: var(--powerup-radius-xl);
+    box-shadow: var(--powerup-shadow-card);
+    overflow: hidden;
+    transition: all var(--powerup-transition-normal);
+}
+
+.entrepreneur-card:hover {
+    box-shadow: var(--powerup-shadow-card-hover);
+    transform: translateY(-4px);
+}
+
+.entrepreneur-card .profile-image {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+
+.entrepreneur-card .card-content {
+    padding: var(--powerup-space-lg);
+}
+
+.entrepreneur-card .name {
+    font-family: var(--powerup-font-display);
+    font-size: var(--powerup-text-lg);
+    font-weight: var(--powerup-font-bold);
+    color: var(--powerup-text-primary);
+    margin-bottom: var(--powerup-space-xs);
+}
+
+.entrepreneur-card .industry {
+    color: var(--powerup-blue);
+    font-size: var(--powerup-text-sm);
+    font-weight: var(--powerup-font-medium);
+    margin-bottom: var(--powerup-space-sm);
+}
+
+.entrepreneur-card .bio {
+    color: var(--powerup-text-secondary);
+    font-size: var(--powerup-text-sm);
+    line-height: var(--powerup-leading-relaxed);
+}
+
+/* ==========================================
+   MATCH DISPLAY
+   ========================================== */
+
+.matches-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--powerup-space-xl);
+}
+
+.match-card {
+    background: var(--powerup-white);
+    border-radius: var(--powerup-radius-xl);
+    box-shadow: var(--powerup-shadow-card);
+    overflow: hidden;
+    border-left: 4px solid var(--powerup-success);
+}
+
+.match-card .match-header {
+    display: flex;
+    align-items: center;
+    gap: var(--powerup-space-md);
+    padding: var(--powerup-space-lg);
+    background: var(--powerup-pearl);
+}
+
+.match-card .match-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: var(--powerup-radius-full);
+    object-fit: cover;
+    border: 3px solid var(--powerup-success);
+}
+
+.match-card .match-info {
+    flex: 1;
+}
+
+.match-card .match-name {
+    font-weight: var(--powerup-font-bold);
+    color: var(--powerup-text-primary);
+}
+
+.match-card .match-date {
+    font-size: var(--powerup-text-xs);
+    color: var(--powerup-text-muted);
+}
+
+.match-card .match-actions {
+    padding: var(--powerup-space-md);
+    display: flex;
+    gap: var(--powerup-space-sm);
+}
+
+/* ==========================================
+   FORM STYLING
+   ========================================== */
+
+.form-powerup .form-control {
+    border: 2px solid var(--powerup-border);
+    border-radius: var(--powerup-radius-md);
+    padding: var(--powerup-space-md);
+    transition: all var(--powerup-transition-fast);
+}
+
+.form-powerup .form-control:focus {
+    border-color: var(--powerup-blue);
+    box-shadow: 0 0 0 4px var(--powerup-blue-alpha-20);
+}
+
+.form-powerup label {
+    font-weight: var(--powerup-font-medium);
+    color: var(--powerup-text-primary);
+    margin-bottom: var(--powerup-space-xs);
+}
+
+/* ==========================================
+   UTILITIES
+   ========================================== */
+
+.text-powerup-primary {
+    color: var(--powerup-blue);
+}
+
+.text-powerup-accent {
+    color: var(--powerup-orange);
+}
+
+.bg-powerup-primary {
+    background-color: var(--powerup-blue);
+}
+
+.bg-powerup-light {
+    background-color: var(--powerup-pearl);
+}
+
+/* ==========================================
+   PRINT STYLES
+   ========================================== */
+
+@media print {
+    .swipe-container,
+    .swipe-buttons,
+    .match-popup {
+        display: none;
+    }
+
+    .card-powerup,
+    .entrepreneur-card,
+    .match-card {
+        box-shadow: none;
+        border: 1px solid var(--powerup-border);
+    }
+}

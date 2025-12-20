@@ -16,13 +16,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Vinsdelux{% endblock %}</title>
 
-    <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap.min.css' %}">
-    <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}">
-    <link rel="stylesheet" href="{% static 'css/custom.css' %}">
-    
-    <!-- Futuristic Journey CSS -->
-    <link rel="stylesheet" href="{% static 'css/vdl-journey-futuristic.css' %}">
-    <link rel="stylesheet" href="{% static 'css/vdl-journey-mobile.css' %}">
+    <!-- Vendor assets -->
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
+    <!-- Shared assets -->
+    <link rel="stylesheet" href="{% static 'shared/css/bootstrap-overrides.css' %}">
+    <!-- VinsDelux Design System -->
+    <link rel="stylesheet" href="{% static 'vinsdelux/css/vinsdelux.css' %}">
     {% block extra_css %}
     <style>
       /* LinkedIn Login Button Styling */
@@ -30,17 +30,17 @@
           display: inline-block;
           width: 250px;  /* Adjust width if necessary */
           height: 60px;  /* Adjust height if necessary */
-          background: url("{% static 'linkedin/Retina/Sign-In-Small---Default.png' %}") no-repeat center center;
+          background: url("{% static 'vendor/linkedin/Retina/Sign-In-Small---Default.png' %}") no-repeat center center;
           background-size: contain;
           border: none;
           text-indent: -9999px; /* Hides text but remains accessible */
           cursor: pointer;
       }
       .linkedin-login-button:hover {
-          background-image: url("{% static 'linkedin/Retina/Sign-In-Small---Hover.png' %}");
+          background-image: url("{% static 'vendor/linkedin/Retina/Sign-In-Small---Hover.png' %}");
       }
       .linkedin-login-button:active {
-          background-image: url("{% static 'linkedin/Retina/Sign-In-Small---Active.png' %}");
+          background-image: url("{% static 'vendor/linkedin/Retina/Sign-In-Small---Active.png' %}");
       }
     </style>
     {% endblock %}
@@ -174,7 +174,7 @@
         </div>
     </footer>
 
-    <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
     
     <!-- External Libraries -->
     <!-- Leaflet.js for interactive maps -->
