@@ -1741,6 +1741,19 @@ def respond_connection(request, connection_id, action):
         status='pending'
     )
 
+    # Security: Verify user actually attended the event
+    try:
+        user_registration = EventRegistration.objects.get(
+            event=connection.event,
+            user=request.user
+        )
+        if not user_registration.can_make_connections:
+            messages.error(request, 'You must have attended this event to respond to connections.')
+            return redirect('crush_lu:my_connections')
+    except EventRegistration.DoesNotExist:
+        messages.error(request, 'You are not registered for this event.')
+        return redirect('crush_lu:my_connections')
+
     if action == 'accept':
         connection.status = 'accepted'
         connection.save()
@@ -2770,10 +2783,16 @@ def service_worker_view(request):
 
         # Return with correct MIME type
         response = HttpResponse(sw_content, content_type='application/javascript')
-        # Prevent caching during development
-        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        response['Pragma'] = 'no-cache'
-        response['Expires'] = '0'
+
+        # Cache headers: disable in dev, enable in production
+        # Service workers should be cached in production (versioning handled by Workbox)
+        if settings.DEBUG:
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+        else:
+            response['Cache-Control'] = 'public, max-age=31536000, immutable'
+
         return response
     except FileNotFoundError:
         return HttpResponse('Service worker not found', status=404)
@@ -2799,61 +2818,49 @@ def manifest_view(request):
         "scope": "/",
         "icons": [
             {
-                "src": static('crush_lu/icons/icon-72x72.png'),
+                "src": static('crush_lu/icons/android-launchericon-48-48.png'),
+                "sizes": "48x48",
+                "type": "image/png",
+                "purpose": "any"
+            },
+            {
+                "src": static('crush_lu/icons/android-launchericon-72-72.png'),
                 "sizes": "72x72",
                 "type": "image/png",
                 "purpose": "any"
             },
             {
-                "src": static('crush_lu/icons/icon-96x96.png'),
+                "src": static('crush_lu/icons/android-launchericon-96-96.png'),
                 "sizes": "96x96",
                 "type": "image/png",
                 "purpose": "any"
             },
             {
-                "src": static('crush_lu/icons/icon-128x128.png'),
-                "sizes": "128x128",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": static('crush_lu/icons/icon-144x144.png'),
+                "src": static('crush_lu/icons/android-launchericon-144-144.png'),
                 "sizes": "144x144",
                 "type": "image/png",
                 "purpose": "any"
             },
             {
-                "src": static('crush_lu/icons/icon-152x152.png'),
-                "sizes": "152x152",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": static('crush_lu/icons/icon-192x192.png'),
+                "src": static('crush_lu/icons/android-launchericon-192-192.png'),
                 "sizes": "192x192",
                 "type": "image/png",
                 "purpose": "any"
             },
             {
-                "src": static('crush_lu/icons/icon-384x384.png'),
-                "sizes": "384x384",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": static('crush_lu/icons/icon-512x512.png'),
+                "src": static('crush_lu/icons/android-launchericon-512-512.png'),
                 "sizes": "512x512",
                 "type": "image/png",
                 "purpose": "any"
             },
             {
-                "src": static('crush_lu/icons/manifest-icon-192.maskable.png'),
+                "src": static('crush_lu/icons/android-launchericon-192-192.png'),
                 "sizes": "192x192",
                 "type": "image/png",
                 "purpose": "maskable"
             },
             {
-                "src": static('crush_lu/icons/manifest-icon-512.maskable.png'),
+                "src": static('crush_lu/icons/android-launchericon-512-512.png'),
                 "sizes": "512x512",
                 "type": "image/png",
                 "purpose": "maskable"
@@ -2861,14 +2868,14 @@ def manifest_view(request):
         ],
         "screenshots": [
             {
-                "src": static('crush_lu/icons/icon-512x512.png'),
+                "src": static('crush_lu/icons/android-launchericon-512-512.png'),
                 "sizes": "512x512",
                 "type": "image/png",
                 "form_factor": "narrow",
                 "label": "Crush.lu Mobile View"
             },
             {
-                "src": static('crush_lu/icons/icon-512x512.png'),
+                "src": static('crush_lu/icons/android-launchericon-512-512.png'),
                 "sizes": "512x512",
                 "type": "image/png",
                 "form_factor": "wide",
@@ -2920,6 +2927,8 @@ def manifest_view(request):
 
     response = JsonResponse(manifest)
     response['Content-Type'] = 'application/manifest+json'
+    # Prevent aggressive caching to avoid stale icon issues during updates
+    response['Cache-Control'] = 'no-cache'
     return response
 
 
