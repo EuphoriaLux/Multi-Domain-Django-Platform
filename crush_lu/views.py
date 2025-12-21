@@ -813,9 +813,18 @@ def edit_profile_simple(request):
     if request.method == 'POST':
         form = CrushProfileForm(request.POST, request.FILES, instance=profile)
         if form.is_valid():
-            profile = form.save(commit=False)
+            updated_profile = form.save(commit=False)
+
+            # SECURITY: Prevent changing verified phone numbers
+            if profile.phone_verified:
+                # Keep the original verified phone number
+                updated_profile.phone_number = profile.phone_number
+                updated_profile.phone_verified = True
+                updated_profile.phone_verified_at = profile.phone_verified_at
+                updated_profile.phone_verification_uid = profile.phone_verification_uid
+
             # Keep approved status - this is just an edit
-            profile.save()
+            updated_profile.save()
             messages.success(request, 'Profile updated successfully!')
             return redirect('crush_lu:dashboard')
         else:
