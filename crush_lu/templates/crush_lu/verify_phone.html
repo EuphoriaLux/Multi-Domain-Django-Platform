@@ -47,10 +47,15 @@
                                        name="phone_number"
                                        value="{{ current_phone }}"
                                        required>
+                                <!-- Real-time validation icons -->
+                                <span class="phone-valid-icon"><i class="bi bi-check-circle-fill"></i></span>
+                                <span class="phone-error-icon"><i class="bi bi-exclamation-circle-fill"></i></span>
                             </div>
-                            <div class="form-text">
+                            <div class="form-text" id="phone-helper-text">
                                 Select your country and enter your phone number
                             </div>
+                            <!-- Validation feedback message -->
+                            <div class="invalid-feedback" id="phone-validation-feedback" style="display: none;"></div>
                         </div>
 
                         <button type="button" id="send-code-btn" class="btn btn-crush-primary w-100">
@@ -168,6 +173,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Store the pre-filled value before initializing intl-tel-input
     const prefilledValue = phoneInput ? phoneInput.value : '';
 
+    // UI elements for validation feedback
+    const phoneWrapper = document.querySelector('.phone-input-wrapper');
+    const phoneHelperText = document.getElementById('phone-helper-text');
+    const phoneValidationFeedback = document.getElementById('phone-validation-feedback');
+
     // Initialize intl-tel-input with utilsScript for placeholder support
     if (window.intlTelInput && phoneInput) {
         // Clear the input COMPLETELY before initializing
@@ -176,7 +186,22 @@ document.addEventListener('DOMContentLoaded', function() {
         phoneInput.setAttribute('value', '');
 
         iti = window.intlTelInput(phoneInput, {
-            initialCountry: "lu",
+            // AUTO-DETECT country via IP lookup (cool feature #1!)
+            // Falls back to Luxembourg if IP lookup fails
+            initialCountry: "auto",
+            geoIpLookup: function(callback) {
+                fetch('https://ipapi.co/json/')
+                    .then(response => response.json())
+                    .then(data => {
+                        const countryCode = (data && data.country_code) ? data.country_code.toLowerCase() : 'lu';
+                        console.log('Geo IP detected country:', countryCode);
+                        callback(countryCode);
+                    })
+                    .catch(() => {
+                        console.log('Geo IP lookup failed, defaulting to Luxembourg');
+                        callback('lu');
+                    });
+            },
             preferredCountries: ["lu", "de", "fr", "be"],
             // Allowed countries - add more as needed based on your user base
             onlyCountries: ["lu", "de", "fr", "be", "nl", "ch", "at", "it", "es", "pt", "gb", "ie", "us", "ca", "se", "dz"],
@@ -239,7 +264,57 @@ document.addEventListener('DOMContentLoaded', function() {
         // Listen for country change to ensure placeholder is updated
         phoneInput.addEventListener('countrychange', function() {
             console.log('Country changed, placeholder should update');
+            // Re-validate when country changes
+            validatePhoneRealtime();
         });
+
+        // REAL-TIME VALIDATION FEEDBACK (cool feature #2!)
+        // Validates as user types and shows visual feedback
+        phoneInput.addEventListener('input', validatePhoneRealtime);
+        phoneInput.addEventListener('blur', validatePhoneRealtime);
+
+        function validatePhoneRealtime() {
+            // Only validate if there's input
+            const inputValue = phoneInput.value.trim();
+            if (!inputValue) {
+                // Reset to neutral state
+                phoneWrapper.classList.remove('is-valid', 'is-invalid');
+                phoneInput.classList.remove('is-valid', 'is-invalid');
+                phoneValidationFeedback.style.display = 'none';
+                phoneHelperText.style.display = 'block';
+                return;
+            }
+
+            if (iti.isValidNumber()) {
+                // Valid number - show green checkmark
+                phoneWrapper.classList.add('is-valid');
+                phoneWrapper.classList.remove('is-invalid');
+                phoneInput.classList.add('is-valid');
+                phoneInput.classList.remove('is-invalid');
+                phoneValidationFeedback.style.display = 'none';
+                phoneHelperText.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Valid phone number</span>';
+                console.log('Phone valid:', iti.getNumber());
+            } else {
+                // Invalid number - show red warning with specific error
+                const errorCode = iti.getValidationError();
+                const errorMessages = {
+                    0: 'Invalid phone number format',
+                    1: 'Invalid country code',
+                    2: 'Phone number is too short',
+                    3: 'Phone number is too long',
+                    4: 'Invalid phone number'
+                };
+                const errorMsg = errorMessages[errorCode] || 'Please check the phone number';
+
+                phoneWrapper.classList.add('is-invalid');
+                phoneWrapper.classList.remove('is-valid');
+                phoneInput.classList.add('is-invalid');
+                phoneInput.classList.remove('is-valid');
+                phoneValidationFeedback.textContent = errorMsg;
+                phoneValidationFeedback.style.display = 'block';
+                phoneHelperText.style.display = 'none';
+            }
+        }
     }
 
     // Initialize PhoneVerification with intl-tel-input support

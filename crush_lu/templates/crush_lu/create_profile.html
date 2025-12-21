@@ -1205,7 +1205,22 @@ document.addEventListener('DOMContentLoaded', function() {
         phoneInput.value = '';
 
         iti = window.intlTelInput(phoneInput, {
-            initialCountry: "lu",
+            // AUTO-DETECT country via IP lookup
+            // Falls back to Luxembourg if IP lookup fails
+            initialCountry: "auto",
+            geoIpLookup: function(callback) {
+                fetch('https://ipapi.co/json/')
+                    .then(response => response.json())
+                    .then(data => {
+                        const countryCode = (data && data.country_code) ? data.country_code.toLowerCase() : 'lu';
+                        console.log('Geo IP detected country:', countryCode);
+                        callback(countryCode);
+                    })
+                    .catch(() => {
+                        console.log('Geo IP lookup failed, defaulting to Luxembourg');
+                        callback('lu');
+                    });
+            },
             preferredCountries: ["lu", "de", "fr", "be"],
             // Allowed countries - add more as needed based on your user base
             onlyCountries: ["lu", "de", "fr", "be", "nl", "ch", "at", "it", "es", "pt", "gb", "ie", "us", "ca", "se", "dz"],

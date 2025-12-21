@@ -264,3 +264,49 @@ input.iti__tel-input {
 .phone-input-wrapper.is-invalid .phone-error-icon {
     display: block;
 }
+
+/* ============================================
+   REAL-TIME VALIDATION FEEDBACK STYLES
+   ============================================ */
+
+/* Valid state - green border and checkmark */
+.phone-input-wrapper.is-valid .iti input,
+.phone-input-wrapper.is-valid input.form-control {
+    border-color: #28a745 !important;
+    background-image: none; /* Remove Bootstrap's background icon */
+}
+
+/* Invalid state - red border */
+.phone-input-wrapper.is-invalid .iti input,
+.phone-input-wrapper.is-invalid input.form-control {
+    border-color: #dc3545 !important;
+    background-image: none; /* Remove Bootstrap's background icon */
+}
+
+/* Validation feedback text below input */
+.phone-input-wrapper + .invalid-feedback {
+    display: block;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 0.875em;
+    color: #dc3545;
+}
+
+/* Smooth transition for validation states */
+.iti input,
+.iti input.form-control {
+    transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+/* Focus state with validation colors */
+.phone-input-wrapper.is-valid .iti input:focus,
+.phone-input-wrapper.is-valid input.form-control:focus {
+    border-color: #28a745 !important;
+    box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25) !important;
+}
+
+.phone-input-wrapper.is-invalid .iti input:focus,
+.phone-input-wrapper.is-invalid input.form-control:focus {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+}
