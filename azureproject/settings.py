@@ -317,6 +317,26 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'noreply
 # VinsDelux can use VINSDELUX_EMAIL_* variables for custom configuration
 # See azureproject/email_utils.py for implementation
 
+# ============================================================================
+# FIREBASE / GOOGLE IDENTITY PLATFORM CONFIGURATION
+# ============================================================================
+# Used for phone number verification in Crush.lu
+# Token verification uses Google's public JWKS keys - no service account needed
+FIREBASE_PROJECT_ID = os.environ.get(
+    "FIREBASE_PROJECT_ID",
+    "***REDACTED***"  # Default for Crush.lu
+)
+
+# Client-side Firebase configuration (safe to expose)
+FIREBASE_API_KEY = os.environ.get(
+    "FIREBASE_API_KEY",
+    "***REDACTED***"
+)
+FIREBASE_AUTH_DOMAIN = os.environ.get(
+    "FIREBASE_AUTH_DOMAIN",
+    "***REDACTED***"
+)
+
 CORS_ALLOWED_ORIGINS = [
 ]
 

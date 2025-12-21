@@ -10,6 +10,19 @@
     </a>
 </div>
 
+{% if profile and not profile.phone_verified %}
+<!-- Phone Verification Banner -->
+<div class="alert alert-warning d-flex align-items-center justify-content-between mb-4" role="alert">
+    <div>
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <strong>Phone verification required!</strong> Please verify your phone number to access all features.
+    </div>
+    <a href="{% url 'crush_lu:verify_phone' %}" class="btn btn-warning btn-sm">
+        <i class="bi bi-phone"></i> Verify Now
+    </a>
+</div>
+{% endif %}
+
 <div class="row g-4 mb-4">
     <!-- Profile Status Card -->
     <div class="col-md-6">

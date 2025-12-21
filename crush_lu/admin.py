@@ -709,14 +709,18 @@ class CrushCoachAdmin(admin.ModelAdmin):
 
 
 class CrushProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'get_email', 'age', 'gender', 'location', 'completion_status', 'get_assigned_coach', 'is_approved', 'is_active', 'created_at', 'is_coach')
-    list_filter = ('is_approved', 'is_active', 'gender', 'completion_status', 'created_at')
-    search_fields = ('user__username', 'user__email', 'location', 'bio')
-    readonly_fields = ('created_at', 'updated_at', 'approved_at', 'get_assigned_coach')
+    list_display = ('user', 'get_email', 'age', 'gender', 'location', 'phone_verified_icon', 'completion_status', 'get_assigned_coach', 'is_approved', 'is_active', 'created_at', 'is_coach')
+    list_filter = ('is_approved', 'is_active', 'phone_verified', 'gender', 'completion_status', 'created_at')
+    search_fields = ('user__username', 'user__email', 'location', 'bio', 'phone_number')
+    readonly_fields = ('created_at', 'updated_at', 'approved_at', 'get_assigned_coach', 'phone_verified_at', 'phone_verification_uid')
     actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'export_profiles_csv']
     fieldsets = (
         ('User Information', {
             'fields': ('user', 'date_of_birth', 'gender', 'phone_number', 'location')
+        }),
+        ('Phone Verification', {
+            'fields': ('phone_verified', 'phone_verified_at', 'phone_verification_uid'),
+            'description': 'Phone verification via Firebase/Google Identity Platform SMS OTP'
         }),
         ('Profile Content', {
             'fields': ('bio', 'interests', 'looking_for')
@@ -749,6 +753,15 @@ class CrushProfileAdmin(admin.ModelAdmin):
         return obj.user.email
     get_email.short_description = 'Email'
     get_email.admin_order_field = 'user__email'  # Allow sorting by email
+
+    def phone_verified_icon(self, obj):
+        """Display phone verification status with icon"""
+        if obj.phone_verified:
+            return format_html('<span style="color: green;" title="Phone verified">✅</span>')
+        else:
+            return format_html('<span style="color: red;" title="Phone not verified">❌</span>')
+    phone_verified_icon.short_description = 'Phone'
+    phone_verified_icon.admin_order_field = 'phone_verified'
 
     def is_coach(self, obj):
         """Check if this user is also a coach"""

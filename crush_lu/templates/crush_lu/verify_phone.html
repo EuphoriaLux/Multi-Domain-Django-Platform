@@ -1,0 +1,285 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+
+{% block title %}Verify Your Phone - Crush.lu{% endblock %}
+
+{% block extra_head %}
+<!-- Firebase SDK for Phone Authentication -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <div class="mb-3">
+                            <i class="bi bi-phone-vibrate" style="font-size: 3rem; color: var(--crush-primary);"></i>
+                        </div>
+                        <h2 class="h4">Verify Your Phone Number</h2>
+                        <p class="text-muted">
+                            We'll send a verification code via SMS to confirm your phone number.
+                        </p>
+                    </div>
+
+                    <!-- Phone Input Section -->
+                    <div id="phone-input-section">
+                        <div class="mb-3">
+                            <label for="phone_number" class="form-label">Phone Number</label>
+                            <div class="input-group">
+                                <input type="tel"
+                                       class="form-control"
+                                       id="phone_number"
+                                       name="phone_number"
+                                       value="{{ current_phone }}"
+                                       placeholder="+352 XX XX XX XX"
+                                       required>
+                            </div>
+                            <div class="form-text">
+                                Enter your phone number in international format (e.g., +352 for Luxembourg)
+                            </div>
+                        </div>
+
+                        <button type="button" id="send-code-btn" class="btn btn-crush-primary w-100">
+                            <i class="bi bi-send me-2"></i>Send Verification Code
+                        </button>
+                    </div>
+
+                    <!-- OTP Input Section (hidden initially) -->
+                    <div id="otp-section" style="display: none;">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            A 6-digit code has been sent to <strong id="display-phone"></strong>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="otp-code" class="form-label">Verification Code</label>
+                            <input type="text"
+                                   class="form-control form-control-lg text-center"
+                                   id="otp-code"
+                                   maxlength="6"
+                                   pattern="[0-9]{6}"
+                                   placeholder="000000"
+                                   autocomplete="one-time-code"
+                                   inputmode="numeric"
+                                   style="letter-spacing: 0.5em; font-size: 1.5rem;">
+                        </div>
+
+                        <button type="button" id="verify-code-btn" class="btn btn-crush-primary w-100 mb-3">
+                            <i class="bi bi-check-circle me-2"></i>Verify Code
+                        </button>
+
+                        <div class="text-center">
+                            <button type="button" id="resend-code-btn" class="btn btn-link" disabled>
+                                Resend code in <span id="resend-timer">60</span>s
+                            </button>
+                        </div>
+
+                        <div class="text-center mt-2">
+                            <button type="button" id="change-phone-btn" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-arrow-left me-1"></i>Change Phone Number
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Success Section (hidden initially) -->
+                    <div id="success-section" style="display: none;">
+                        <div class="text-center">
+                            <div class="mb-3">
+                                <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                            </div>
+                            <h4 class="text-success">Phone Verified!</h4>
+                            <p class="text-muted" id="verified-phone-display"></p>
+                            <a href="{% url 'crush_lu:dashboard' %}" class="btn btn-crush-primary">
+                                <i class="bi bi-house me-2"></i>Back to Dashboard
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Error Display -->
+                    <div id="error-display" class="alert alert-danger mt-3" style="display: none;"></div>
+
+                    <!-- reCAPTCHA container (invisible) -->
+                    <div id="recaptcha-container"></div>
+                </div>
+            </div>
+
+            <div class="text-center mt-4">
+                <a href="{% url 'crush_lu:dashboard' %}" class="text-muted">
+                    <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'crush_lu/js/phone-verification.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // UI Elements
+    const phoneInputSection = document.getElementById('phone-input-section');
+    const otpSection = document.getElementById('otp-section');
+    const successSection = document.getElementById('success-section');
+    const errorDisplay = document.getElementById('error-display');
+
+    const phoneInput = document.getElementById('phone_number');
+    const sendCodeBtn = document.getElementById('send-code-btn');
+    const otpInput = document.getElementById('otp-code');
+    const verifyCodeBtn = document.getElementById('verify-code-btn');
+    const resendCodeBtn = document.getElementById('resend-code-btn');
+    const changePhoneBtn = document.getElementById('change-phone-btn');
+    const displayPhone = document.getElementById('display-phone');
+    const resendTimer = document.getElementById('resend-timer');
+    const verifiedPhoneDisplay = document.getElementById('verified-phone-display');
+
+    let resendCountdown = null;
+
+    // Initialize PhoneVerification
+    const phoneVerification = new PhoneVerification({
+        phoneInputId: 'phone_number',
+        verifyButtonId: 'send-code-btn',
+        recaptchaContainerId: 'recaptcha-container',
+        csrfToken: '{{ csrf_token }}',
+        onVerified: function(phoneNumber) {
+            // Show success state
+            phoneInputSection.style.display = 'none';
+            otpSection.style.display = 'none';
+            successSection.style.display = 'block';
+            verifiedPhoneDisplay.textContent = 'Your number ' + phoneNumber + ' has been verified.';
+            hideError();
+        },
+        onCodeSent: function(phone) {
+            // Show OTP section
+            phoneInputSection.style.display = 'none';
+            otpSection.style.display = 'block';
+            displayPhone.textContent = phone;
+            otpInput.focus();
+            startResendTimer();
+            hideError();
+        },
+        onError: function(error) {
+            showError(error);
+        },
+        onStateChange: function(state) {
+            // Update button states based on verification state
+            if (state === 'sending') {
+                sendCodeBtn.disabled = true;
+                sendCodeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending...';
+            } else if (state === 'code_sent') {
+                sendCodeBtn.disabled = false;
+                sendCodeBtn.innerHTML = '<i class="bi bi-send me-2"></i>Send Verification Code';
+            } else if (state === 'verifying') {
+                verifyCodeBtn.disabled = true;
+                verifyCodeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Verifying...';
+            } else if (state === 'error') {
+                sendCodeBtn.disabled = false;
+                sendCodeBtn.innerHTML = '<i class="bi bi-send me-2"></i>Send Verification Code';
+                verifyCodeBtn.disabled = false;
+                verifyCodeBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Verify Code';
+            }
+        }
+    });
+
+    // Send code button
+    sendCodeBtn.addEventListener('click', async function() {
+        hideError();
+        await phoneVerification.sendVerificationCode();
+    });
+
+    // Verify code button
+    verifyCodeBtn.addEventListener('click', async function() {
+        hideError();
+        const code = otpInput.value.trim();
+        if (code.length !== 6) {
+            showError('Please enter the 6-digit code');
+            return;
+        }
+        await phoneVerification.verifyCode(code);
+    });
+
+    // Allow Enter key to submit OTP
+    otpInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            verifyCodeBtn.click();
+        }
+    });
+
+    // Resend code button
+    resendCodeBtn.addEventListener('click', async function() {
+        hideError();
+        await phoneVerification.sendVerificationCode();
+    });
+
+    // Change phone number button
+    changePhoneBtn.addEventListener('click', function() {
+        phoneVerification.reset();
+        otpSection.style.display = 'none';
+        phoneInputSection.style.display = 'block';
+        otpInput.value = '';
+        hideError();
+        if (resendCountdown) {
+            clearInterval(resendCountdown);
+            resendCountdown = null;
+        }
+    });
+
+    // Resend timer
+    function startResendTimer() {
+        let seconds = 60;
+        resendCodeBtn.disabled = true;
+        resendTimer.textContent = seconds;
+        resendCodeBtn.innerHTML = 'Resend code in <span id="resend-timer">' + seconds + '</span>s';
+
+        if (resendCountdown) {
+            clearInterval(resendCountdown);
+        }
+
+        resendCountdown = setInterval(function() {
+            seconds--;
+            const timerSpan = document.getElementById('resend-timer');
+            if (timerSpan) {
+                timerSpan.textContent = seconds;
+            }
+            if (seconds <= 0) {
+                clearInterval(resendCountdown);
+                resendCountdown = null;
+                resendCodeBtn.disabled = false;
+                resendCodeBtn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Resend Code';
+            }
+        }, 1000);
+    }
+
+    // Error display helpers
+    function showError(message) {
+        errorDisplay.textContent = message;
+        errorDisplay.style.display = 'block';
+    }
+
+    function hideError() {
+        errorDisplay.style.display = 'none';
+    }
+
+    // Auto-format phone input
+    phoneInput.addEventListener('input', function() {
+        // Remove non-digit characters except + at the start
+        let value = this.value;
+        if (!value.startsWith('+')) {
+            value = value.replace(/\D/g, '');
+        } else {
+            value = '+' + value.slice(1).replace(/\D/g, '');
+        }
+        this.value = value;
+    });
+
+    // Only allow digits in OTP input
+    otpInput.addEventListener('input', function() {
+        this.value = this.value.replace(/\D/g, '').slice(0, 6);
+    });
+});
+</script>
+{% endblock %}

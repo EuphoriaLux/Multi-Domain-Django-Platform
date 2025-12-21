@@ -20,6 +20,7 @@ class NoCacheLoginView(LoginView):
 from . import views_profile
 from . import views_media
 from . import views_oauth_popup
+from . import views_phone_verification
 from . import api_views
 from . import views_journey
 from . import api_journey
@@ -79,6 +80,13 @@ urlpatterns = [
     # Social photo import API
     path('api/profile/social-photos/', views_profile.get_social_photos_api, name='get_social_photos_api'),
     path('api/profile/import-social-photo/', views_profile.import_social_photo, name='import_social_photo'),
+
+    # Phone verification API (Firebase/Google Identity Platform)
+    path('api/phone/mark-verified/', views_phone_verification.mark_phone_verified, name='api_phone_mark_verified'),
+    path('api/phone/status/', views_phone_verification.phone_verification_status, name='api_phone_status'),
+
+    # Phone verification page (for existing users)
+    path('verify-phone/', views_phone_verification.verify_phone_page, name='verify_phone'),
 
     # User dashboard
     path('dashboard/', views.dashboard, name='dashboard'),

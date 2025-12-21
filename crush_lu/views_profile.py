@@ -67,7 +67,19 @@ def save_profile_step1(request):
                 }, status=400)
 
         # Update basic info
-        profile.phone_number = data.get('phone_number', '').strip()
+        new_phone_number = data.get('phone_number', '').strip()
+
+        # Check if phone number changed - reset verification if so
+        # Note: When phone is verified via Firebase, phone_number is set from the token
+        # so we don't want users changing it afterwards without re-verification
+        if profile.phone_number and new_phone_number != profile.phone_number:
+            # Phone number changed - reset verification status
+            profile.phone_verified = False
+            profile.phone_verified_at = None
+            profile.phone_verification_uid = None
+            logger.info(f"Phone number changed for user {request.user.id}, resetting verification")
+
+        profile.phone_number = new_phone_number
         profile.date_of_birth = date_of_birth
         profile.gender = data.get('gender', '')
         profile.location = data.get('location', '')
@@ -103,6 +115,14 @@ def save_profile_step2(request):
         data = json.loads(request.body)
 
         profile = CrushProfile.objects.get(user=request.user)
+
+        # SECURITY: Enforce phone verification before allowing Step 2
+        if not profile.phone_verified:
+            return JsonResponse({
+                'success': False,
+                'error': 'Phone verification required. Please verify your phone number before continuing.',
+                'phone_verification_required': True
+            }, status=403)
 
         # Validate looking_for is provided
         looking_for = data.get('looking_for', '').strip()
@@ -223,6 +243,7 @@ def get_profile_progress(request):
             'exists': True,
             'completion_status': profile.completion_status,
             'phone_number': profile.phone_number or '',
+            'phone_verified': profile.phone_verified,
             'has_basic_info': bool(profile.phone_number and profile.date_of_birth),
             'has_about': bool(profile.bio and profile.interests),
             'has_photos': bool(profile.photo_1 or profile.photo_2 or profile.photo_3),
@@ -230,7 +251,8 @@ def get_profile_progress(request):
     except CrushProfile.DoesNotExist:
         return JsonResponse({
             'exists': False,
-            'completion_status': None
+            'completion_status': None,
+            'phone_verified': False
         })
 
 

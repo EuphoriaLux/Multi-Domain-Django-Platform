@@ -166,6 +166,11 @@
                                     <i class="bi bi-calendar-event"></i> Events
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'crush_lu:dashboard' %}?user_view=1">
+                                    <i class="bi bi-house-heart"></i> My Profile
+                                </a>
+                            </li>
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="coachToolsDropdown" role="button" data-bs-toggle="dropdown">
                                     <i class="bi bi-tools"></i> Coach Tools
@@ -194,6 +199,10 @@
                                     <i class="bi bi-person-circle"></i> {{ user.first_name|default:user.username }}
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="{% url 'crush_lu:dashboard' %}?user_view=1"><i class="bi bi-house-heart"></i> My Dashboard</a></li>
+                                    {% if user.crushprofile %}
+                                    <li><a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}"><i class="bi bi-pencil"></i> Edit Profile</a></li>
+                                    {% endif %}
                                     <li><a class="dropdown-item" href="{% url 'crush_lu:account_settings' %}"><i class="bi bi-gear"></i> Account Settings</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item" href="{% url 'crush_lu:logout' %}"><i class="bi bi-box-arrow-right"></i> Logout</a></li>

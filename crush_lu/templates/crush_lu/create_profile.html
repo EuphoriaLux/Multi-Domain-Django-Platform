@@ -1,4 +1,5 @@
 {% extends 'crush_lu/base.html' %}
+{% load static %}
 
 {% block title %}Create Your Profile - Crush.lu{% endblock %}
 
@@ -76,27 +77,60 @@
                     <h3 class="card-title">Basic Information</h3>
                     <p class="card-subtitle">Let's start with the essentials</p>
 
-                    <!-- Phone Number (MOST IMPORTANT) -->
-                    <div class="form-group-modern mb-4 priority-field">
+                    <!-- Phone Number with Verification (REQUIRED) -->
+                    <div class="form-group-modern mb-4 priority-field" id="phone-verification-container">
                         <label for="{{ form.phone_number.id_for_label }}">
                             <i class="bi bi-phone"></i> Phone Number *
-                            <span class="badge bg-danger ms-2">Required</span>
+                            <span class="badge bg-danger ms-2" id="phone-required-badge">Verification Required</span>
+                            <span class="badge bg-success ms-2 d-none" id="phone-verified-badge">
+                                <i class="bi bi-check-circle"></i> Verified
+                            </span>
                         </label>
-                        <input type="tel"
-                               name="phone_number"
-                               id="{{ form.phone_number.id_for_label }}"
-                               class="form-control form-control-lg"
-                               placeholder="+352 XX XX XX XX"
-                               value="{{ profile.phone_number|default:'' }}"
-                               required>
+
+                        <div class="input-group input-group-lg">
+                            <input type="tel"
+                                   name="phone_number"
+                                   id="{{ form.phone_number.id_for_label }}"
+                                   class="form-control"
+                                   placeholder="+352 XX XX XX XX"
+                                   value="{{ profile.phone_number|default:'' }}"
+                                   {% if profile.phone_verified %}readonly{% endif %}
+                                   required>
+                            <button type="button"
+                                    class="btn btn-outline-primary {% if profile.phone_verified %}d-none{% endif %}"
+                                    id="verify-phone-btn"
+                                    {% if not profile.phone_number %}disabled{% endif %}>
+                                <i class="bi bi-shield-check"></i> Verify
+                            </button>
+                            <button type="button"
+                                    class="btn btn-outline-secondary {% if not profile.phone_verified %}d-none{% endif %}"
+                                    id="change-phone-btn">
+                                <i class="bi bi-pencil"></i> Change
+                            </button>
+                        </div>
+
                         <small class="form-text">
-                            <i class="bi bi-shield-check text-success"></i>
-                            Required for coach screening and event coordination
+                            <i class="bi bi-info-circle text-muted"></i>
+                            You must verify your phone number before continuing.
+                            We'll send you a 6-digit code via SMS.
                         </small>
+
                         {% if form.phone_number.errors %}
                             <div class="invalid-feedback d-block">{{ form.phone_number.errors.0 }}</div>
                         {% endif %}
+
+                        <!-- Phone verification error messages -->
+                        <div class="alert alert-danger mt-2 d-none" id="phone-verify-error"></div>
+
+                        <!-- Hidden input to track verification status -->
+                        <input type="hidden"
+                               name="phone_verified"
+                               id="phone_verified_input"
+                               value="{% if profile.phone_verified %}true{% else %}false{% endif %}">
                     </div>
+
+                    <!-- reCAPTCHA container (invisible) -->
+                    <div id="recaptcha-container"></div>
 
                     <!-- Date of Birth -->
                     <div class="form-group-modern mb-4">
@@ -156,9 +190,18 @@
                         {% endif %}
                     </div>
 
-                    <button type="button" class="btn btn-crush-primary btn-lg w-100 mt-4 next-step">
+                    <button type="button"
+                            class="btn btn-crush-primary btn-lg w-100 mt-4 next-step"
+                            id="step1-continue-btn"
+                            {% if not profile.phone_verified %}disabled{% endif %}>
                         Continue <i class="bi bi-arrow-right"></i>
                     </button>
+
+                    <!-- Warning when button is disabled -->
+                    <div class="alert alert-warning mt-3 {% if profile.phone_verified %}d-none{% endif %}" id="phone-verify-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Please verify your phone number to continue.
+                    </div>
                 </div>
             </div>
 
@@ -567,9 +610,92 @@
 
 <!-- Styles are in static/crush_lu/css/components/profile-creation.css and social-photos.css -->
 
+<!-- Phone Verification Modal -->
+<div class="modal fade" id="phoneVerifyModal" tabindex="-1" aria-labelledby="phoneVerifyModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="phoneVerifyModalLabel">
+                    <i class="bi bi-phone"></i> Verify Your Phone
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Step 1: Sending code -->
+                <div id="verify-step-sending" class="text-center d-none">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Sending...</span>
+                    </div>
+                    <p>Sending verification code to your phone...</p>
+                </div>
+
+                <!-- Step 2: Enter code -->
+                <div id="verify-step-code" class="d-none">
+                    <p class="text-center mb-3">
+                        We sent a 6-digit code to<br>
+                        <strong id="verify-phone-display"></strong>
+                    </p>
+
+                    <div class="d-flex justify-content-center gap-2 mb-4">
+                        <input type="text" class="form-control form-control-lg text-center otp-input"
+                               maxlength="1" inputmode="numeric" pattern="[0-9]" style="width: 50px;">
+                        <input type="text" class="form-control form-control-lg text-center otp-input"
+                               maxlength="1" inputmode="numeric" pattern="[0-9]" style="width: 50px;">
+                        <input type="text" class="form-control form-control-lg text-center otp-input"
+                               maxlength="1" inputmode="numeric" pattern="[0-9]" style="width: 50px;">
+                        <input type="text" class="form-control form-control-lg text-center otp-input"
+                               maxlength="1" inputmode="numeric" pattern="[0-9]" style="width: 50px;">
+                        <input type="text" class="form-control form-control-lg text-center otp-input"
+                               maxlength="1" inputmode="numeric" pattern="[0-9]" style="width: 50px;">
+                        <input type="text" class="form-control form-control-lg text-center otp-input"
+                               maxlength="1" inputmode="numeric" pattern="[0-9]" style="width: 50px;">
+                    </div>
+
+                    <div class="alert alert-danger d-none" id="otp-error"></div>
+
+                    <button type="button" class="btn btn-crush-primary w-100" id="verify-code-btn">
+                        Verify Code
+                    </button>
+
+                    <div class="text-center mt-3">
+                        <span class="text-muted" id="resend-timer">Resend available in <span id="resend-countdown">60</span>s</span>
+                        <button type="button" class="btn btn-link d-none" id="resend-code-btn">
+                            <i class="bi bi-arrow-repeat"></i> Resend Code
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Verifying -->
+                <div id="verify-step-verifying" class="text-center d-none">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Verifying...</span>
+                    </div>
+                    <p>Verifying your code...</p>
+                </div>
+
+                <!-- Step 4: Success -->
+                <div id="verify-step-success" class="text-center d-none">
+                    <div class="text-success mb-3" style="font-size: 4rem;">
+                        <i class="bi bi-check-circle-fill"></i>
+                    </div>
+                    <h5>Phone Verified!</h5>
+                    <p class="text-muted">Your phone number has been verified successfully.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
+<!-- Firebase SDK for phone authentication -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+<!-- Phone verification module -->
+<script src="{% static 'crush_lu/js/phone-verification.js' %}"></script>
+
 <script>
 // Multi-step form management
 {% if current_step %}
@@ -1032,5 +1158,302 @@ document.querySelectorAll('.import-social-photo-btn').forEach(function(btn) {
         });
     });
 });
+
+// ============================================================================
+// PHONE VERIFICATION SYSTEM
+// ============================================================================
+
+// State
+let phoneVerification = null;
+let isPhoneVerified = {{ profile.phone_verified|yesno:"true,false"|default:"false" }};
+let resendTimer = null;
+let resendCountdown = 60;
+
+// Initialize phone verification
+document.addEventListener('DOMContentLoaded', function() {
+    const phoneInput = document.getElementById('{{ form.phone_number.id_for_label }}');
+    const verifyBtn = document.getElementById('verify-phone-btn');
+    const changeBtn = document.getElementById('change-phone-btn');
+    const continueBtn = document.getElementById('step1-continue-btn');
+
+    // Enable/disable verify button based on phone input
+    if (phoneInput) {
+        phoneInput.addEventListener('input', function() {
+            const phone = this.value.trim();
+            if (verifyBtn) {
+                verifyBtn.disabled = phone.length < 6;
+            }
+        });
+    }
+
+    // Initialize PhoneVerification class
+    phoneVerification = new PhoneVerification({
+        phoneInputId: '{{ form.phone_number.id_for_label }}',
+        verifyButtonId: 'verify-phone-btn',
+        recaptchaContainerId: 'recaptcha-container',
+        csrfToken: '{{ csrf_token }}',
+        onVerified: handlePhoneVerified,
+        onError: handlePhoneError,
+        onCodeSent: handleCodeSent,
+        onStateChange: handleStateChange
+    });
+
+    // Verify button click
+    if (verifyBtn) {
+        verifyBtn.addEventListener('click', async function() {
+            await startPhoneVerification();
+        });
+    }
+
+    // Change phone button click
+    if (changeBtn) {
+        changeBtn.addEventListener('click', function() {
+            resetPhoneVerification();
+        });
+    }
+
+    // Verify code button click
+    const verifyCodeBtn = document.getElementById('verify-code-btn');
+    if (verifyCodeBtn) {
+        verifyCodeBtn.addEventListener('click', async function() {
+            await verifyOTPCode();
+        });
+    }
+
+    // Resend code button click
+    const resendCodeBtn = document.getElementById('resend-code-btn');
+    if (resendCodeBtn) {
+        resendCodeBtn.addEventListener('click', async function() {
+            await resendVerificationCode();
+        });
+    }
+
+    // OTP input handling (auto-focus next input)
+    const otpInputs = document.querySelectorAll('.otp-input');
+    otpInputs.forEach((input, index) => {
+        input.addEventListener('input', function(e) {
+            const value = e.target.value;
+            if (value.length === 1 && index < otpInputs.length - 1) {
+                otpInputs[index + 1].focus();
+            }
+            // Auto-verify when all digits entered
+            if (index === otpInputs.length - 1 && value.length === 1) {
+                const code = Array.from(otpInputs).map(i => i.value).join('');
+                if (code.length === 6) {
+                    verifyOTPCode();
+                }
+            }
+        });
+
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                otpInputs[index - 1].focus();
+            }
+        });
+
+        // Allow paste
+        input.addEventListener('paste', function(e) {
+            e.preventDefault();
+            const paste = (e.clipboardData || window.clipboardData).getData('text');
+            const digits = paste.replace(/\D/g, '').slice(0, 6);
+            digits.split('').forEach((digit, i) => {
+                if (otpInputs[i]) {
+                    otpInputs[i].value = digit;
+                }
+            });
+            if (digits.length === 6) {
+                verifyOTPCode();
+            }
+        });
+    });
+
+    // Check verification status on load
+    checkPhoneStatus();
+});
+
+async function startPhoneVerification() {
+    const modal = new bootstrap.Modal(document.getElementById('phoneVerifyModal'));
+    showModalStep('sending');
+    modal.show();
+
+    const result = await phoneVerification.sendVerificationCode();
+
+    if (!result.success) {
+        showModalStep('code');
+        showOTPError(result.error);
+    }
+}
+
+function handleCodeSent(phone) {
+    showModalStep('code');
+    document.getElementById('verify-phone-display').textContent = maskPhoneNumber(phone);
+    startResendTimer();
+    // Focus first OTP input
+    document.querySelector('.otp-input')?.focus();
+}
+
+function handleStateChange(state) {
+    console.log('Phone verification state:', state);
+}
+
+async function verifyOTPCode() {
+    const otpInputs = document.querySelectorAll('.otp-input');
+    const code = Array.from(otpInputs).map(i => i.value).join('');
+
+    if (code.length !== 6) {
+        showOTPError('Please enter the 6-digit code');
+        return;
+    }
+
+    showModalStep('verifying');
+    const result = await phoneVerification.verifyCode(code);
+
+    if (!result.success) {
+        showModalStep('code');
+        showOTPError(result.error);
+        // Clear OTP inputs for retry
+        otpInputs.forEach(i => i.value = '');
+        otpInputs[0]?.focus();
+    }
+}
+
+function handlePhoneVerified(phoneNumber) {
+    showModalStep('success');
+    isPhoneVerified = true;
+
+    // Update UI
+    updatePhoneVerificationUI(phoneNumber);
+
+    // Close modal after delay
+    setTimeout(() => {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('phoneVerifyModal'));
+        modal?.hide();
+    }, 2000);
+}
+
+function handlePhoneError(error) {
+    showOTPError(error);
+}
+
+function showModalStep(step) {
+    const steps = ['sending', 'code', 'verifying', 'success'];
+    steps.forEach(s => {
+        const el = document.getElementById(`verify-step-${s}`);
+        if (el) {
+            el.classList.toggle('d-none', s !== step);
+        }
+    });
+}
+
+function showOTPError(message) {
+    const errorEl = document.getElementById('otp-error');
+    if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.classList.remove('d-none');
+    }
+}
+
+function updatePhoneVerificationUI(phoneNumber) {
+    const phoneInput = document.getElementById('{{ form.phone_number.id_for_label }}');
+    const verifyBtn = document.getElementById('verify-phone-btn');
+    const changeBtn = document.getElementById('change-phone-btn');
+    const continueBtn = document.getElementById('step1-continue-btn');
+    const requiredBadge = document.getElementById('phone-required-badge');
+    const verifiedBadge = document.getElementById('phone-verified-badge');
+    const warningEl = document.getElementById('phone-verify-warning');
+    const hiddenInput = document.getElementById('phone_verified_input');
+
+    if (phoneInput) {
+        phoneInput.value = phoneNumber;
+        phoneInput.readOnly = true;
+    }
+    if (verifyBtn) verifyBtn.classList.add('d-none');
+    if (changeBtn) changeBtn.classList.remove('d-none');
+    if (continueBtn) continueBtn.disabled = false;
+    if (requiredBadge) requiredBadge.classList.add('d-none');
+    if (verifiedBadge) verifiedBadge.classList.remove('d-none');
+    if (warningEl) warningEl.classList.add('d-none');
+    if (hiddenInput) hiddenInput.value = 'true';
+
+    showNotification('Phone verified successfully!', 'success');
+}
+
+function resetPhoneVerification() {
+    const phoneInput = document.getElementById('{{ form.phone_number.id_for_label }}');
+    const verifyBtn = document.getElementById('verify-phone-btn');
+    const changeBtn = document.getElementById('change-phone-btn');
+    const continueBtn = document.getElementById('step1-continue-btn');
+    const requiredBadge = document.getElementById('phone-required-badge');
+    const verifiedBadge = document.getElementById('phone-verified-badge');
+    const warningEl = document.getElementById('phone-verify-warning');
+    const hiddenInput = document.getElementById('phone_verified_input');
+
+    isPhoneVerified = false;
+
+    if (phoneInput) {
+        phoneInput.readOnly = false;
+        phoneInput.value = '';
+        phoneInput.focus();
+    }
+    if (verifyBtn) {
+        verifyBtn.classList.remove('d-none');
+        verifyBtn.disabled = true;
+    }
+    if (changeBtn) changeBtn.classList.add('d-none');
+    if (continueBtn) continueBtn.disabled = true;
+    if (requiredBadge) requiredBadge.classList.remove('d-none');
+    if (verifiedBadge) verifiedBadge.classList.add('d-none');
+    if (warningEl) warningEl.classList.remove('d-none');
+    if (hiddenInput) hiddenInput.value = 'false';
+
+    // Reset phone verification instance
+    phoneVerification?.reset();
+}
+
+async function resendVerificationCode() {
+    document.getElementById('resend-code-btn').classList.add('d-none');
+    document.getElementById('resend-timer').classList.remove('d-none');
+    startResendTimer();
+
+    showModalStep('sending');
+    await phoneVerification.sendVerificationCode();
+}
+
+function startResendTimer() {
+    resendCountdown = 60;
+    document.getElementById('resend-countdown').textContent = resendCountdown;
+    document.getElementById('resend-timer').classList.remove('d-none');
+    document.getElementById('resend-code-btn').classList.add('d-none');
+
+    if (resendTimer) clearInterval(resendTimer);
+
+    resendTimer = setInterval(() => {
+        resendCountdown--;
+        document.getElementById('resend-countdown').textContent = resendCountdown;
+
+        if (resendCountdown <= 0) {
+            clearInterval(resendTimer);
+            document.getElementById('resend-timer').classList.add('d-none');
+            document.getElementById('resend-code-btn').classList.remove('d-none');
+        }
+    }, 1000);
+}
+
+function maskPhoneNumber(phone) {
+    if (phone.length < 8) return phone;
+    return phone.slice(0, 7) + '***' + phone.slice(-2);
+}
+
+async function checkPhoneStatus() {
+    try {
+        const status = await phoneVerification.checkStatus();
+        if (status.phone_verified && status.phone_number) {
+            isPhoneVerified = true;
+            updatePhoneVerificationUI(status.phone_number);
+        }
+    } catch (error) {
+        console.error('Failed to check phone status:', error);
+    }
+}
 </script>
 {% endblock %}
