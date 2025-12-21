@@ -1,0 +1,266 @@
+/**
+ * intl-tel-input customizations for Crush.lu
+ * Styles for the international phone number input component
+ *
+ * NOTE: The library handles its own input padding dynamically based on dial code width.
+ * We only customize appearance, not layout/sizing.
+ */
+
+/* ============================================
+   LAYOUT WRAPPER FOR PHONE + BUTTON
+   ============================================ */
+
+/* Container for phone input and verify button side by side */
+.phone-input-with-button {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.phone-input-with-button .phone-input-wrapper {
+    flex: 1;
+    min-width: 0;
+}
+
+.phone-input-with-button .btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* ============================================
+   INTL-TEL-INPUT CORE STYLES
+   ============================================ */
+
+/* Full width container - this is important */
+.iti {
+    width: 100%;
+    display: block;
+}
+
+/* Ensure the input takes full width within the iti container */
+.iti input,
+.iti input.iti__tel-input,
+.iti input[type="tel"] {
+    width: 100%;
+}
+
+/* ============================================
+   SEPARATE DIAL CODE FIX (prevents overlap)
+   ============================================ */
+
+/*
+ * When separateDialCode: true is used, the library creates a container
+ * with the flag and dial code on the left. The library calculates and sets
+ * padding dynamically via inline styles based on the dial code width.
+ *
+ * CRITICAL: Bootstrap's form-control has its own padding that can conflict.
+ * We need to ensure the library's padding-left takes precedence.
+ */
+
+/* Ensure the selected country container displays properly */
+.iti__selected-country-primary {
+    display: flex;
+    align-items: center;
+    padding-right: 6px;
+}
+
+/* Space between flag and dial code */
+.iti--separate-dial-code .iti__selected-dial-code {
+    margin-left: 6px;
+}
+
+/*
+ * CRITICAL FIX: Force minimum padding-left for the input when separateDialCode is used.
+ * The library sets padding-left inline, but Bootstrap's form-control might reset it.
+ * Using !important to ensure our padding takes precedence over Bootstrap.
+ *
+ * intl-tel-input v18 uses these classes:
+ * - .iti--separate-dial-code (when separateDialCode: true)
+ * - .iti--show-selected-dial-code (always added with separateDialCode)
+ *
+ * For +352 (4 chars + space), we need approximately:
+ * - Flag: ~24px
+ * - Arrow dropdown: ~16px
+ * - Dial code text "+352": ~40px
+ * - Spacing/padding: ~20px
+ * Total: ~100px minimum, use 105px for safety
+ */
+
+/*
+ * NUCLEAR OPTION: Override ALL intl-tel-input inputs with high specificity
+ * The library sets inline padding-left styles, but something is overriding them.
+ * We use multiple high-specificity selectors to ensure our padding wins.
+ */
+
+/* Base selector - any input inside .iti container */
+.iti input[type="tel"] {
+    padding-left: 110px !important;
+}
+
+/* Target the specific class intl-tel-input adds in v18 */
+input.iti__tel-input {
+    padding-left: 110px !important;
+}
+
+/* Higher specificity with container */
+.iti input.iti__tel-input {
+    padding-left: 110px !important;
+}
+
+/* With form-control class (Bootstrap) */
+.iti input.form-control {
+    padding-left: 110px !important;
+}
+
+/* Maximum specificity - chain all possible classes */
+.iti.iti--allow-dropdown.iti--separate-dial-code.iti--show-selected-dial-code input.iti__tel-input.form-control {
+    padding-left: 110px !important;
+}
+
+/* Fallback for any combination */
+.phone-input-wrapper .iti input,
+.phone-input-wrapper input[type="tel"] {
+    padding-left: 110px !important;
+}
+
+/* ============================================
+   APPEARANCE CUSTOMIZATION
+   ============================================ */
+
+/* Selected country button styling */
+.iti__selected-country {
+    background: #f8f9fa;
+    border-right: 1px solid #dee2e6;
+}
+
+.iti__selected-country:hover {
+    background: #e9ecef;
+}
+
+/* Dial code display */
+.iti__selected-dial-code {
+    font-weight: 500;
+    color: #333;
+}
+
+/* Dropdown styling */
+.iti__dropdown-content {
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Search input in dropdown */
+.iti__search-input {
+    border-radius: 6px;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+}
+
+.iti__search-input:focus {
+    outline: none;
+    border-color: var(--crush-primary, #9B59B6);
+    box-shadow: 0 0 0 2px rgba(155, 89, 182, 0.2);
+}
+
+/* Country list items */
+.iti__country:hover {
+    background-color: rgba(155, 89, 182, 0.1);
+}
+
+.iti__country--highlight {
+    background-color: rgba(155, 89, 182, 0.15);
+}
+
+/* Dial code in dropdown */
+.iti__dial-code {
+    color: #666;
+}
+
+/* ============================================
+   BOOTSTRAP INTEGRATION
+   ============================================ */
+
+/* Focus state matching Crush.lu theme */
+.iti .form-control:focus {
+    border-color: var(--crush-primary, #9B59B6);
+    box-shadow: 0 0 0 0.2rem rgba(155, 89, 182, 0.25);
+}
+
+/* Validation states */
+.iti--valid .form-control {
+    border-color: #28a745;
+}
+
+.iti--invalid .form-control {
+    border-color: #dc3545;
+}
+
+/* ============================================
+   MOBILE ADJUSTMENTS
+   ============================================ */
+
+@media (max-width: 576px) {
+    /* Stack phone input and button on mobile */
+    .phone-input-with-button {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .phone-input-with-button .btn {
+        width: 100%;
+    }
+
+    /* Prevents iOS zoom on focus (16px minimum) */
+    .iti input,
+    .iti input.iti__tel-input,
+    .iti input[type="tel"] {
+        font-size: 16px;
+    }
+
+    /* Larger touch targets in dropdown */
+    .iti__country {
+        padding: 12px;
+    }
+
+    /* Better dropdown on mobile */
+    .iti--fullscreen-popup .iti__dropdown-content {
+        max-height: 80vh;
+    }
+}
+
+/* ============================================
+   PHONE VERIFICATION SPECIFIC
+   ============================================ */
+
+.phone-input-wrapper {
+    position: relative;
+}
+
+.phone-input-wrapper .phone-valid-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #28a745;
+    display: none;
+    z-index: 2;
+}
+
+.phone-input-wrapper.is-valid .phone-valid-icon {
+    display: block;
+}
+
+.phone-input-wrapper .phone-error-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #dc3545;
+    display: none;
+    z-index: 2;
+}
+
+.phone-input-wrapper.is-invalid .phone-error-icon {
+    display: block;
+}

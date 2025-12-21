@@ -3,6 +3,22 @@
 
 {% block title %}Verify Your Phone - Crush.lu{% endblock %}
 
+{% block extra_css %}
+<!-- intl-tel-input CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/css/intlTelInput.css">
+<!-- Custom intl-tel-input styling for Crush.lu -->
+<link rel="stylesheet" href="{% static 'crush_lu/css/components/intl-tel-input.css' %}">
+<!-- Inline override to ensure padding is applied (backup for cache issues) -->
+<style>
+    /* Force padding-left to prevent dial code overlap - inline for highest priority */
+    .iti input[type="tel"],
+    .iti input.form-control,
+    .iti input.iti__tel-input,
+    .phone-input-wrapper .iti input {
+        padding-left: 110px !important;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container py-5">
@@ -24,17 +40,16 @@
                     <div id="phone-input-section">
                         <div class="mb-3">
                             <label for="phone_number" class="form-label">Phone Number</label>
-                            <div class="input-group">
+                            <div class="phone-input-wrapper">
                                 <input type="tel"
                                        class="form-control"
                                        id="phone_number"
                                        name="phone_number"
                                        value="{{ current_phone }}"
-                                       placeholder="+352 XX XX XX XX"
                                        required>
                             </div>
                             <div class="form-text">
-                                Enter your phone number in international format (e.g., +352 for Luxembourg)
+                                Select your country and enter your phone number
                             </div>
                         </div>
 
@@ -117,6 +132,9 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
+<!-- intl-tel-input JS (only core library, utils loaded via loadUtils option) -->
+<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/intlTelInput.min.js"></script>
+
 <!-- Firebase Configuration from Django settings (via environment variables) -->
 <script>
     window.FIREBASE_API_KEY = "{{ firebase_api_key }}";
@@ -145,13 +163,92 @@ document.addEventListener('DOMContentLoaded', function() {
     const verifiedPhoneDisplay = document.getElementById('verified-phone-display');
 
     let resendCountdown = null;
+    let iti = null;
 
-    // Initialize PhoneVerification
+    // Store the pre-filled value before initializing intl-tel-input
+    const prefilledValue = phoneInput ? phoneInput.value : '';
+
+    // Initialize intl-tel-input with utilsScript for placeholder support
+    if (window.intlTelInput && phoneInput) {
+        // Clear the input COMPLETELY before initializing
+        // This prevents the library from seeing any existing value during init
+        phoneInput.value = '';
+        phoneInput.setAttribute('value', '');
+
+        iti = window.intlTelInput(phoneInput, {
+            initialCountry: "lu",
+            preferredCountries: ["lu", "de", "fr", "be"],
+            // Allowed countries - add more as needed based on your user base
+            onlyCountries: ["lu", "de", "fr", "be", "nl", "ch", "at", "it", "es", "pt", "gb", "ie", "us", "ca", "se", "dz"],
+            separateDialCode: true,
+            nationalMode: false,
+            formatOnDisplay: true,
+            autoPlaceholder: "aggressive",
+            // Load utils script for placeholder and validation support (v18 syntax)
+            utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/utils.js"
+        });
+
+        // Store iti instance globally for PhoneVerification to access
+        window.itiInstance = iti;
+
+        // When utils load, set the pre-filled number properly using the library's API
+        iti.promise.then(function() {
+            console.log('intl-tel-input utils loaded');
+
+            // CRITICAL: Force padding-left via JS to prevent overlap
+            // This runs AFTER the library initializes, overriding any inline styles
+            phoneInput.style.setProperty('padding-left', '110px', 'important');
+
+            // If there was a pre-filled value, set it using the library's setNumber method
+            if (prefilledValue) {
+                // Normalize the number - ensure it has country code for proper parsing
+                let numberToSet = prefilledValue.trim().replace(/\s/g, '');
+
+                // Handle different storage formats:
+                // 1. E.164 format (+352621163882) - already correct, from verified phones
+                // 2. National format (621163882) - legacy data, assume Luxembourg
+                // 3. With leading zeros (00352621163882) - normalize to E.164
+                if (numberToSet.startsWith('+')) {
+                    // Already E.164 format - use as-is
+                    console.log('Phone already in E.164 format');
+                } else if (numberToSet.startsWith('00')) {
+                    // International format with 00 prefix (e.g., 00352...)
+                    numberToSet = '+' + numberToSet.slice(2);
+                } else {
+                    // National format without country code - assume Luxembourg
+                    // Remove any leading zeros first
+                    numberToSet = numberToSet.replace(/^0+/, '');
+                    numberToSet = '+352' + numberToSet;
+                    console.log('Assumed Luxembourg for national format');
+                }
+
+                console.log('Setting number (E.164 format):', numberToSet);
+
+                // setNumber expects E.164 format and will properly display just the national part
+                // when separateDialCode is true (it separates +352 into the dial code display)
+                iti.setNumber(numberToSet);
+
+                console.log('Number set. Display value:', phoneInput.value);
+                console.log('Full number via getNumber():', iti.getNumber());
+            }
+
+            // Log placeholder status
+            console.log('Placeholder:', phoneInput.placeholder);
+        });
+
+        // Listen for country change to ensure placeholder is updated
+        phoneInput.addEventListener('countrychange', function() {
+            console.log('Country changed, placeholder should update');
+        });
+    }
+
+    // Initialize PhoneVerification with intl-tel-input support
     const phoneVerification = new PhoneVerification({
         phoneInputId: 'phone_number',
         verifyButtonId: 'send-code-btn',
         recaptchaContainerId: 'recaptcha-container',
         csrfToken: '{{ csrf_token }}',
+        useIntlTelInput: true,
         onVerified: function(phoneNumber) {
             // Show success state
             phoneInputSection.style.display = 'none';
@@ -195,7 +292,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // Send code button
     sendCodeBtn.addEventListener('click', async function() {
         hideError();
-        await phoneVerification.sendVerificationCode();
+
+        // Validate phone number using intl-tel-input
+        if (iti && !iti.isValidNumber()) {
+            const errorCode = iti.getValidationError();
+            const errorMessages = {
+                0: 'Invalid phone number',
+                1: 'Invalid country code',
+                2: 'Phone number is too short',
+                3: 'Phone number is too long',
+                4: 'Invalid phone number'
+            };
+            showError(errorMessages[errorCode] || 'Please enter a valid phone number');
+            return;
+        }
+
+        // Get full international number from intl-tel-input
+        const phoneNumber = iti ? iti.getNumber() : phoneInput.value;
+        await phoneVerification.sendVerificationCode(phoneNumber);
     });
 
     // Verify code button
@@ -219,7 +333,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Resend code button
     resendCodeBtn.addEventListener('click', async function() {
         hideError();
-        await phoneVerification.sendVerificationCode();
+        const phoneNumber = iti ? iti.getNumber() : phoneInput.value;
+        await phoneVerification.sendVerificationCode(phoneNumber);
     });
 
     // Change phone number button
@@ -270,18 +385,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function hideError() {
         errorDisplay.style.display = 'none';
     }
-
-    // Auto-format phone input
-    phoneInput.addEventListener('input', function() {
-        // Remove non-digit characters except + at the start
-        let value = this.value;
-        if (!value.startsWith('+')) {
-            value = value.replace(/\D/g, '');
-        } else {
-            value = '+' + value.slice(1).replace(/\D/g, '');
-        }
-        this.value = value;
-    });
 
     // Only allow digits in OTP input
     otpInput.addEventListener('input', function() {
