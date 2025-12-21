@@ -3,11 +3,6 @@
 
 {% block title %}Verify Your Phone - Crush.lu{% endblock %}
 
-{% block extra_head %}
-<!-- Firebase SDK for Phone Authentication -->
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-{% endblock %}
 
 {% block content %}
 <div class="container py-5">
@@ -118,6 +113,11 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Firebase SDK for Phone Authentication -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+<!-- Phone Verification Module -->
 <script src="{% static 'crush_lu/js/phone-verification.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
