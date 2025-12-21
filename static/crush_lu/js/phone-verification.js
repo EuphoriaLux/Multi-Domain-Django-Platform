@@ -37,12 +37,19 @@ class PhoneVerification {
         // UI state
         this.state = 'idle'; // idle, sending, code_sent, verifying, verified, error
 
-        // Firebase config from global or defaults
+        // Firebase config from options or global window variables (set by Django template)
+        // IMPORTANT: No hardcoded defaults - config must be provided via environment variables
         this.firebaseConfig = options.firebaseConfig || {
-            apiKey: window.FIREBASE_API_KEY || "***REDACTED***",
-            authDomain: window.FIREBASE_AUTH_DOMAIN || "***REDACTED***",
-            projectId: window.FIREBASE_PROJECT_ID || "***REDACTED***"
+            apiKey: window.FIREBASE_API_KEY,
+            authDomain: window.FIREBASE_AUTH_DOMAIN,
+            projectId: window.FIREBASE_PROJECT_ID
         };
+
+        // Validate config is present
+        if (!this.firebaseConfig.apiKey || !this.firebaseConfig.projectId) {
+            console.error('Firebase configuration missing. Set FIREBASE_API_KEY and FIREBASE_PROJECT_ID environment variables.');
+            return;
+        }
 
         this.initFirebase();
     }

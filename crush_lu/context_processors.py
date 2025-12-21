@@ -94,3 +94,17 @@ def social_preview_context(request):
     return {
         "social_preview_image_url": settings.SOCIAL_PREVIEW_IMAGE_URL,
     }
+
+
+def firebase_config(request):
+    """
+    Add Firebase configuration to template context.
+
+    These values come from environment variables and are safe to expose
+    to the client (they are client-side API keys, protected by domain restrictions).
+    """
+    return {
+        'firebase_api_key': getattr(settings, 'FIREBASE_API_KEY', ''),
+        'firebase_auth_domain': getattr(settings, 'FIREBASE_AUTH_DOMAIN', ''),
+        'firebase_project_id': getattr(settings, 'FIREBASE_PROJECT_ID', ''),
+    }

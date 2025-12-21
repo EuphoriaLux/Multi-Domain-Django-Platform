@@ -19,6 +19,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_protect
+from django.conf import settings
 
 from .google_idp_verify import verify_firebase_id_token, get_phone_from_token, get_firebase_uid_from_token
 from .models import CrushProfile
@@ -175,6 +176,10 @@ def verify_phone_page(request):
     context = {
         'profile': profile,
         'current_phone': profile.phone_number or '',
+        # Firebase config from environment variables
+        'firebase_api_key': settings.FIREBASE_API_KEY,
+        'firebase_auth_domain': settings.FIREBASE_AUTH_DOMAIN,
+        'firebase_project_id': settings.FIREBASE_PROJECT_ID,
     }
 
     return render(request, 'crush_lu/verify_phone.html', context)

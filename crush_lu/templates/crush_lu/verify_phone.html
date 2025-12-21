@@ -117,6 +117,13 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
+<!-- Firebase Configuration from Django settings (via environment variables) -->
+<script>
+    window.FIREBASE_API_KEY = "{{ firebase_api_key }}";
+    window.FIREBASE_AUTH_DOMAIN = "{{ firebase_auth_domain }}";
+    window.FIREBASE_PROJECT_ID = "{{ firebase_project_id }}";
+</script>
+
 <!-- Phone Verification Module -->
 <script src="{% static 'crush_lu/js/phone-verification.js' %}"></script>
 <script>

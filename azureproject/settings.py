@@ -122,6 +122,7 @@ TEMPLATES = [
                 'django.template.context_processors.i18n',  # Ensure this line is present
                 'crush_lu.context_processors.crush_user_context',  # Crush.lu user context
                 'crush_lu.context_processors.social_preview_context',  # Crush.lu social preview (PR #47)
+                'crush_lu.context_processors.firebase_config',  # Firebase config for phone verification
                 'azureproject.content_images_context.content_images_context',  # Content images (Azure Blob)
                 'azureproject.analytics_context.analytics_ids',  # Domain-specific GA4/FB Pixel IDs
                 'azureproject.context_processors.admin_navigation',  # Global admin panel navigation
@@ -322,20 +323,10 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'noreply
 # ============================================================================
 # Used for phone number verification in Crush.lu
 # Token verification uses Google's public JWKS keys - no service account needed
-FIREBASE_PROJECT_ID = os.environ.get(
-    "FIREBASE_PROJECT_ID",
-    "***REDACTED***"  # Default for Crush.lu
-)
-
-# Client-side Firebase configuration (safe to expose)
-FIREBASE_API_KEY = os.environ.get(
-    "FIREBASE_API_KEY",
-    "***REDACTED***"
-)
-FIREBASE_AUTH_DOMAIN = os.environ.get(
-    "FIREBASE_AUTH_DOMAIN",
-    "***REDACTED***"
-)
+# IMPORTANT: Set these environment variables in production - no defaults for security
+FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "")
+FIREBASE_API_KEY = os.environ.get("FIREBASE_API_KEY", "")
+FIREBASE_AUTH_DOMAIN = os.environ.get("FIREBASE_AUTH_DOMAIN", "")
 
 CORS_ALLOWED_ORIGINS = [
 ]
