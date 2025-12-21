@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Preserve Bootstrap compatibility after Tailwind base reset */
+@layer base {
+  /* Ensure Bootstrap buttons work correctly after Tailwind reset */
+  button, [type="button"], [type="reset"], [type="submit"] {
+    background-color: transparent;
+  }
+
+  /* Restore heading styles that Tailwind base removes */
+  h1, h2, h3, h4, h5, h6 {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+}
+
+/* Custom Tailwind components using Crush.lu design tokens */
+@layer components {
+  /* Crush button using Tailwind utilities */
+  .tw-btn-crush {
+    @apply tw-bg-gradient-to-r tw-from-crush-purple tw-to-crush-pink
+           tw-text-white tw-font-medium tw-py-3 tw-px-8
+           tw-rounded-crush-pill tw-transition-all tw-duration-300
+           hover:tw-translate-y-[-2px] hover:tw-shadow-crush-purple;
+  }
+
+  /* Crush card using Tailwind utilities */
+  .tw-card-crush {
+    @apply tw-bg-white tw-rounded-crush-lg tw-shadow-crush-sm
+           tw-transition-all tw-duration-300
+           hover:tw-translate-y-[-5px] hover:tw-shadow-crush-lg;
+  }
+
+  /* Text gradient utility */
+  .tw-text-gradient {
+    @apply tw-bg-gradient-to-r tw-from-crush-purple tw-to-crush-pink
+           tw-bg-clip-text tw-text-transparent;
+  }
+
+  /* HTMX loading indicator styles */
+  .htmx-indicator {
+    @apply tw-opacity-0 tw-transition-opacity tw-duration-200;
+  }
+
+  .htmx-request .htmx-indicator {
+    @apply tw-opacity-100;
+  }
+
+  .htmx-request.htmx-indicator {
+    @apply tw-opacity-100;
+  }
+}

@@ -5,6 +5,7 @@ djangorestframework-simplejwt==5.5.1
 django-crispy-forms==2.5
 crispy-bootstrap5==2025.6
 django-cors-headers==4.9.0
+django-htmx==1.19.0  # HTMX server-side integration
 
 # Database
 psycopg2-binary==2.9.11  # Updated from 2.9.10 (security & bug fixes)

@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
+    'django_htmx',  # HTMX server-side integration
     'azureproject',  # For custom analytics templatetags
     'cookie_consent',  # GDPR cookie consent banner
 ]
@@ -91,6 +92,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
+    'django_htmx.middleware.HtmxMiddleware',  # HTMX request detection
 ]
 
 
