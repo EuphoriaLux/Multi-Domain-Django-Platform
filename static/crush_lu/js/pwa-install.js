@@ -63,7 +63,7 @@ class PWAInstaller {
             <div class="container">
                 <div class="row align-items-center py-3">
                     <div class="col-auto">
-                        <i class="bi bi-phone" style="font-size: 2rem; color: #FF6B9D;"></i>
+                        <i class="bi bi-phone" style="font-size: 2rem; color: var(--crush-pink, #FF6B9D);"></i>
                     </div>
                     <div class="col">
                         <h6 class="mb-0">Install Crush.lu App</h6>
@@ -164,9 +164,9 @@ if ('serviceWorker' in navigator) {
 const style = document.createElement('style');
 style.textContent = `
     .pwa-install-banner {
-        background: linear-gradient(135deg, rgba(155, 89, 182, 0.1) 0%, rgba(255, 107, 157, 0.1) 100%);
+        background: var(--gradient-subtle, linear-gradient(135deg, rgba(155, 89, 182, 0.1) 0%, rgba(255, 107, 157, 0.1) 100%));
         border-bottom: 2px solid rgba(155, 89, 182, 0.2);
-        animation: slideDown 0.3s ease-out;
+        animation: slideDown var(--transition-base, 0.3s ease);
     }
 
     @keyframes slideDown {
@@ -181,17 +181,17 @@ style.textContent = `
     }
 
     .pwa-install-banner .btn-crush-primary {
-        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+        background: var(--gradient-primary, linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%));
         border: none;
         color: white;
-        font-weight: 600;
-        padding: 0.5rem 1rem;
-        border-radius: 50px;
+        font-weight: var(--font-semibold, 600);
+        padding: var(--space-2, 0.5rem) var(--space-4, 1rem);
+        border-radius: var(--radius-pill, 50px);
     }
 
     .pwa-install-banner .btn-crush-primary:hover {
         transform: translateY(-2px);
-        box-shadow: 0 5px 10px rgba(155, 89, 182, 0.3);
+        box-shadow: var(--shadow-purple, 0 5px 10px rgba(155, 89, 182, 0.3));
     }
 `;
 document.head.appendChild(style);

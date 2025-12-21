@@ -1,0 +1,435 @@
+{% extends 'crush_lu/base.html' %}
+{% load socialaccount %}
+{% load static %}
+
+{% block title %}{% if mode == 'signup' %}Join{% else %}Login{% endif %} - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card auth-card">
+            <div class="card-body p-4 p-md-5">
+                <!-- Tab Navigation -->
+                <ul class="nav nav-pills auth-tabs mb-4" role="tablist">
+                    <li class="nav-item flex-fill" role="presentation">
+                        <button class="nav-link w-100 {% if mode != 'signup' %}active{% endif %}"
+                                id="login-tab" data-bs-toggle="pill" data-bs-target="#login-panel"
+                                type="button" role="tab" aria-controls="login-panel"
+                                aria-selected="{% if mode != 'signup' %}true{% else %}false{% endif %}">
+                            Login
+                        </button>
+                    </li>
+                    <li class="nav-item flex-fill" role="presentation">
+                        <button class="nav-link w-100 {% if mode == 'signup' %}active{% endif %}"
+                                id="signup-tab" data-bs-toggle="pill" data-bs-target="#signup-panel"
+                                type="button" role="tab" aria-controls="signup-panel"
+                                aria-selected="{% if mode == 'signup' %}true{% else %}false{% endif %}">
+                            Join Now
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Social Login Buttons (shared) -->
+                {% get_providers as socialaccount_providers %}
+                {% if socialaccount_providers %}
+                <div class="d-grid gap-3 mb-4">
+                    {% for provider in socialaccount_providers %}
+                        {% if provider.id == "google" %}
+                    <a href="{% provider_login_url 'google' %}" class="social-login-btn google-btn"
+                       data-oauth-url="{% provider_login_url 'google' %}" data-provider="Google">
+                        <span class="social-icon">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                            </svg>
+                        </span>
+                        Continue with Google
+                    </a>
+                        {% endif %}
+                        {% if provider.id == "facebook" %}
+                    <a href="{% provider_login_url 'facebook' %}" class="social-login-btn facebook-btn"
+                       data-oauth-url="{% provider_login_url 'facebook' %}" data-provider="Facebook">
+                        <span class="social-icon">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" fill="#ffffff"/>
+                            </svg>
+                        </span>
+                        Continue with Facebook
+                    </a>
+                        {% endif %}
+                        {% if provider.id == "microsoft" %}
+                    <a href="{% provider_login_url 'microsoft' %}" class="social-login-btn microsoft-btn"
+                       data-oauth-url="{% provider_login_url 'microsoft' %}" data-provider="Microsoft">
+                        <span class="social-icon">
+                            <svg viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                                <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                                <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                                <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                            </svg>
+                        </span>
+                        Continue with Microsoft
+                    </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                <div class="social-login-divider">Or use email</div>
+                {% endif %}
+
+                <!-- Tab Content -->
+                <div class="tab-content">
+                    <!-- Login Panel -->
+                    <div class="tab-pane fade {% if mode != 'signup' %}show active{% endif %}"
+                         id="login-panel" role="tabpanel" aria-labelledby="login-tab">
+                        <form method="post" action="{% url 'account_login' %}" novalidate id="login-form">
+                            {% csrf_token %}
+
+                            {% if login_form.non_field_errors %}
+                                <div class="alert alert-danger">
+                                    {{ login_form.non_field_errors }}
+                                </div>
+                            {% endif %}
+
+                            <div class="mb-3">
+                                <label for="id_login" class="form-label">Email</label>
+                                <input type="email" class="form-control {% if login_form.login.errors %}is-invalid{% endif %}"
+                                       id="id_login" name="login"
+                                       value="{{ login_form.login.value|default:'' }}" required autofocus
+                                       placeholder="your@email.com">
+                                {% if login_form.login.errors %}
+                                    <div class="invalid-feedback">{{ login_form.login.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="id_password" class="form-label">Password</label>
+                                <input type="password" class="form-control {% if login_form.password.errors %}is-invalid{% endif %}"
+                                       id="id_password" name="password" required>
+                                {% if login_form.password.errors %}
+                                    <div class="invalid-feedback">{{ login_form.password.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            {% if redirect_field_value %}
+                            <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+                            {% endif %}
+
+                            <button type="submit" class="btn btn-crush-primary w-100" id="login-submit-btn">Login</button>
+                        </form>
+                    </div>
+
+                    <!-- Signup Panel -->
+                    <div class="tab-pane fade {% if mode == 'signup' %}show active{% endif %}"
+                         id="signup-panel" role="tabpanel" aria-labelledby="signup-tab">
+                        <form method="post" action="{% url 'crush_lu:signup' %}" novalidate id="signup-form">
+                            {% csrf_token %}
+
+                            {% if signup_form.non_field_errors %}
+                                <div class="alert alert-danger">
+                                    {{ signup_form.non_field_errors }}
+                                </div>
+                            {% endif %}
+
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <label for="id_first_name" class="form-label">First Name</label>
+                                    <input type="text" class="form-control {% if signup_form.first_name.errors %}is-invalid{% endif %}"
+                                           id="id_first_name" name="first_name"
+                                           value="{{ signup_form.first_name.value|default:'' }}" required>
+                                    {% if signup_form.first_name.errors %}
+                                        <div class="invalid-feedback">{{ signup_form.first_name.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-6 mb-3">
+                                    <label for="id_last_name" class="form-label">Last Name</label>
+                                    <input type="text" class="form-control {% if signup_form.last_name.errors %}is-invalid{% endif %}"
+                                           id="id_last_name" name="last_name"
+                                           value="{{ signup_form.last_name.value|default:'' }}" required>
+                                    {% if signup_form.last_name.errors %}
+                                        <div class="invalid-feedback">{{ signup_form.last_name.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="id_email" class="form-label">Email</label>
+                                <input type="email" class="form-control {% if signup_form.email.errors %}is-invalid{% endif %}"
+                                       id="id_email" name="email"
+                                       value="{{ signup_form.email.value|default:'' }}" required>
+                                {% if signup_form.email.errors %}
+                                    <div class="invalid-feedback">{{ signup_form.email.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="id_password1" class="form-label">Password</label>
+                                <input type="password" class="form-control {% if signup_form.password1.errors %}is-invalid{% endif %}"
+                                       id="id_password1" name="password1" required>
+                                {% if signup_form.password1.errors %}
+                                    <div class="invalid-feedback">{{ signup_form.password1.errors.0 }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">At least 8 characters</small>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="id_password2" class="form-label">Confirm Password</label>
+                                <input type="password" class="form-control {% if signup_form.password2.errors %}is-invalid{% endif %}"
+                                       id="id_password2" name="password2" required>
+                                {% if signup_form.password2.errors %}
+                                    <div class="invalid-feedback">{{ signup_form.password2.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            <button type="submit" class="btn btn-crush-primary w-100" id="signup-submit-btn">Create Account</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Privacy Notice -->
+                <div class="text-center mt-4">
+                    <small class="text-muted">
+                        Your privacy is our priority. Crush.lu accounts are separate from other platforms.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Auth Card Styling */
+.auth-card {
+    border: none;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+}
+
+/* Auth Tabs */
+.auth-tabs {
+    background: #e9e3f0;
+    border-radius: 50px;
+    padding: 5px;
+    border: 1px solid #d4c8e0;
+}
+
+.auth-tabs .nav-link {
+    border-radius: 50px;
+    color: #1a1a1a !important;
+    font-weight: 700;
+    font-size: 1.05rem;
+    padding: 14px 28px;
+    transition: all 0.3s ease;
+    border: none;
+    background: transparent;
+    opacity: 1 !important;
+}
+
+.auth-tabs .nav-link:not(.active) {
+    color: #1a1a1a !important;
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.auth-tabs .nav-link:hover:not(.active) {
+    color: #9B59B6 !important;
+    background: rgba(255, 255, 255, 0.8);
+}
+
+.auth-tabs .nav-link.active {
+    background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+    color: white !important;
+    box-shadow: 0 4px 15px rgba(155, 89, 182, 0.4);
+}
+
+/* Smooth tab transitions */
+.tab-pane {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'crush_lu/js/oauth-popup.js' %}"></script>
+<script>
+/**
+ * Unified Auth Page Handler
+ */
+(function() {
+    'use strict';
+
+    // Check if user is already authenticated
+    (function checkExistingSession() {
+        fetch('/api/auth/status/', {
+            method: 'GET',
+            credentials: 'include',
+            cache: 'no-store',
+            headers: { 'Accept': 'application/json' }
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.authenticated) {
+                console.log('[Crush.lu Auth] Already authenticated, redirecting...');
+                window.location.replace(data.redirect_url || '/dashboard/');
+            }
+        })
+        .catch(function() { /* ignore errors */ });
+    })();
+
+    // PWA and device detection functions
+    function isPWA() {
+        var standaloneMedia = window.matchMedia('(display-mode: standalone)').matches;
+        var iosStandalone = window.navigator.standalone === true;
+        var androidApp = document.referrer.indexOf('android-app://') === 0;
+        return standaloneMedia || iosStandalone || androidApp;
+    }
+
+    function isAndroid() {
+        return /Android/i.test(navigator.userAgent);
+    }
+
+    function isIOS() {
+        return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    }
+
+    function isMobile() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+
+    function getAndroidBrowserPackage() {
+        var ua = navigator.userAgent;
+        if (/SamsungBrowser/i.test(ua)) return { name: 'Samsung Internet', package: 'com.sec.android.app.sbrowser' };
+        if (/Firefox/i.test(ua) && !/Seamonkey/i.test(ua)) return { name: 'Firefox', package: 'org.mozilla.firefox' };
+        if (/Edg/i.test(ua) || /Edge/i.test(ua)) return { name: 'Edge', package: 'com.microsoft.emmx' };
+        if (/OPR/i.test(ua) || /Opera/i.test(ua)) return { name: 'Opera', package: 'com.opera.browser' };
+        if (/Brave/i.test(ua)) return { name: 'Brave', package: 'com.brave.browser' };
+        if (/DuckDuckGo/i.test(ua)) return { name: 'DuckDuckGo', package: 'com.duckduckgo.mobile.android' };
+        return { name: 'Chrome', package: 'com.android.chrome' };
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Form submission handling
+        var loginForm = document.getElementById('login-form');
+        var signupForm = document.getElementById('signup-form');
+        var loginBtn = document.getElementById('login-submit-btn');
+        var signupBtn = document.getElementById('signup-submit-btn');
+
+        // Double-submit prevention for login
+        if (loginForm && loginBtn) {
+            var isLoginSubmitting = false;
+            loginForm.addEventListener('submit', function(e) {
+                if (isLoginSubmitting) {
+                    e.preventDefault();
+                    return false;
+                }
+                isLoginSubmitting = true;
+                loginBtn.disabled = true;
+                loginBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Logging in...';
+            });
+        }
+
+        // Double-submit prevention for signup
+        if (signupForm && signupBtn) {
+            var isSignupSubmitting = false;
+            signupForm.addEventListener('submit', function(e) {
+                if (isSignupSubmitting) {
+                    e.preventDefault();
+                    return false;
+                }
+                isSignupSubmitting = true;
+                signupBtn.disabled = true;
+                signupBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Creating Account...';
+            });
+        }
+
+        // Social login button handling
+        var socialButtons = document.querySelectorAll('.social-login-btn');
+        if (!socialButtons.length) return;
+
+        console.log('[Crush.lu Auth] PWA:', isPWA(), 'Android:', isAndroid(), 'iOS:', isIOS(), 'Mobile:', isMobile());
+
+        socialButtons.forEach(function(button) {
+            var oauthUrl = button.getAttribute('data-oauth-url') || button.getAttribute('href');
+            var providerName = button.getAttribute('data-provider') || 'OAuth';
+            var fullOAuthUrl = window.location.origin + oauthUrl;
+
+            // ANDROID PWA: Force external browser
+            if (isPWA() && isAndroid()) {
+                var browserInfo = getAndroidBrowserPackage();
+                console.log('[Crush.lu Auth] Android PWA detected for ' + providerName + ': using ' + browserInfo.name);
+
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    button.classList.add('disabled');
+                    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Opening ' + browserInfo.name + '...';
+
+                    if (browserInfo.package === 'com.sec.android.app.sbrowser') {
+                        var newWindow = window.open(fullOAuthUrl, '_system');
+                        if (!newWindow || newWindow.closed) newWindow = window.open(fullOAuthUrl, '_blank');
+                        if (!newWindow || newWindow.closed) window.location.href = oauthUrl;
+                        return;
+                    }
+
+                    var intentUrl = 'intent://' + window.location.host + oauthUrl + '#Intent;' +
+                        'scheme=https;action=android.intent.action.VIEW;package=' + browserInfo.package + ';' +
+                        'S.browser_fallback_url=' + encodeURIComponent(fullOAuthUrl) + ';end;';
+
+                    try {
+                        window.location.href = intentUrl;
+                    } catch (err) {
+                        window.location.href = oauthUrl;
+                    }
+                });
+                return;
+            }
+
+            // ANDROID BROWSER (not PWA)
+            if (isAndroid()) {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    button.classList.add('disabled');
+                    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Opening login...';
+                    window.location.href = oauthUrl;
+                });
+                return;
+            }
+
+            // iOS and Desktop: Standard redirect
+            button.addEventListener('click', function(e) {
+                button.classList.add('disabled');
+                button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Redirecting to ' + providerName + '...';
+            });
+        });
+
+        // Update URL when switching tabs (without reload)
+        var loginTab = document.getElementById('login-tab');
+        var signupTab = document.getElementById('signup-tab');
+
+        if (loginTab) {
+            loginTab.addEventListener('shown.bs.tab', function() {
+                history.replaceState(null, '', '{% url "crush_lu:login" %}');
+                document.title = 'Login - Crush.lu';
+            });
+        }
+
+        if (signupTab) {
+            signupTab.addEventListener('shown.bs.tab', function() {
+                history.replaceState(null, '', '{% url "crush_lu:signup" %}');
+                document.title = 'Join - Crush.lu';
+            });
+        }
+    });
+})();
+</script>
+{% endblock %}

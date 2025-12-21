@@ -624,14 +624,20 @@ def signup(request):
     """
     User registration with Allauth integration
     Supports both manual signup and social login (LinkedIn, Google, etc.)
+    Uses unified auth template with login/signup tabs
     """
+    from allauth.account.forms import LoginForm
+
+    signup_form = CrushSignupForm()
+    login_form = LoginForm()
+
     if request.method == 'POST':
-        form = CrushSignupForm(request.POST)
-        if form.is_valid():
+        signup_form = CrushSignupForm(request.POST)
+        if signup_form.is_valid():
             try:
                 # Allauth's save() method handles EmailAddress creation automatically
                 # This will raise IntegrityError if email/username already exists
-                user = form.save(request)
+                user = signup_form.save(request)
 
                 # Send welcome email immediately after account creation
                 try:
@@ -657,7 +663,7 @@ def signup(request):
                     messages.error(
                         request,
                         'An account with this email already exists. '
-                        'Please <a href="/crush/login/">login</a> or use a different email.'
+                        'Please login or use a different email.'
                     )
                 else:
                     messages.error(
@@ -665,12 +671,12 @@ def signup(request):
                         'An error occurred while creating your account. Please try again.'
                     )
 
-                # Re-render the form with the error
-                return render(request, 'crush_lu/signup.html', {'form': form})
-    else:
-        form = CrushSignupForm()
-
-    return render(request, 'crush_lu/signup.html', {'form': form})
+    context = {
+        'signup_form': signup_form,
+        'login_form': login_form,
+        'mode': 'signup',
+    }
+    return render(request, 'crush_lu/auth.html', context)
 
 
 @crush_login_required

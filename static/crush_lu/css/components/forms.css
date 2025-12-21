@@ -12,11 +12,11 @@
 .crush-form select,
 .crush-form textarea {
     width: 100%;
-    padding: 0.5rem;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 1rem;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    padding: var(--space-2);
+    border: 1px solid var(--crush-light);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-base);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .crush-form input[type="text"]:focus,
@@ -26,7 +26,7 @@
 .crush-form input[type="password"]:focus,
 .crush-form select:focus,
 .crush-form textarea:focus {
-    border-color: #9B59B6;
+    border-color: var(--crush-purple);
     box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.1);
     outline: none;
 }
@@ -35,39 +35,39 @@
 .crush-form input[type="checkbox"] {
     width: 20px;
     height: 20px;
-    margin-right: 10px;
-    accent-color: #9B59B6;
+    margin-right: var(--space-2);
+    accent-color: var(--crush-purple);
 }
 
 /* Form labels */
 .crush-form .form-label {
-    font-weight: 500;
-    margin-bottom: 0.5rem;
+    font-weight: var(--font-medium);
+    margin-bottom: var(--space-2);
     display: block;
 }
 
 /* Help text */
 .crush-form .form-text,
 .crush-form small.text-muted {
-    font-size: 0.85rem;
-    color: #6c757d;
-    margin-top: 0.25rem;
+    font-size: var(--text-sm);
+    color: var(--crush-gray);
+    margin-top: var(--space-1);
 }
 
 /* Error text */
 .crush-form .text-danger {
-    font-size: 0.85rem;
+    font-size: var(--text-sm);
 }
 
 /* Form sections */
 .crush-form hr {
     border: none;
-    border-top: 1px solid #e9ecef;
-    margin: 1.5rem 0;
+    border-top: 1px solid var(--crush-light);
+    margin: var(--space-lg) 0;
 }
 
 /* Form section headers */
 .crush-form h5 {
-    color: #333;
-    margin-bottom: 1rem;
+    color: var(--crush-dark);
+    margin-bottom: var(--space-md);
 }

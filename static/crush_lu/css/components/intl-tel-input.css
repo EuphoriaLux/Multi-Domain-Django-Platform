@@ -13,7 +13,7 @@
 /* Container for phone input and verify button side by side */
 .phone-input-with-button {
     display: flex;
-    gap: 10px;
+    gap: var(--space-2);
     align-items: stretch;
 }
 
@@ -129,37 +129,38 @@ input.iti__tel-input {
 
 /* Selected country button styling */
 .iti__selected-country {
-    background: #f8f9fa;
-    border-right: 1px solid #dee2e6;
+    background: var(--crush-light);
+    border-right: 1px solid var(--crush-light);
 }
 
 .iti__selected-country:hover {
-    background: #e9ecef;
+    background: var(--crush-light);
+    filter: brightness(0.95);
 }
 
 /* Dial code display */
 .iti__selected-dial-code {
-    font-weight: 500;
-    color: #333;
+    font-weight: var(--font-medium);
+    color: var(--crush-dark);
 }
 
 /* Dropdown styling */
 .iti__dropdown-content {
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
     border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 /* Search input in dropdown */
 .iti__search-input {
     border-radius: 6px;
-    padding: 8px 12px;
-    border: 1px solid #ddd;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--crush-light);
 }
 
 .iti__search-input:focus {
     outline: none;
-    border-color: var(--crush-primary, #9B59B6);
+    border-color: var(--crush-purple);
     box-shadow: 0 0 0 2px rgba(155, 89, 182, 0.2);
 }
 
@@ -174,7 +175,7 @@ input.iti__tel-input {
 
 /* Dial code in dropdown */
 .iti__dial-code {
-    color: #666;
+    color: var(--crush-gray);
 }
 
 /* ============================================
@@ -183,17 +184,17 @@ input.iti__tel-input {
 
 /* Focus state matching Crush.lu theme */
 .iti .form-control:focus {
-    border-color: var(--crush-primary, #9B59B6);
+    border-color: var(--crush-purple);
     box-shadow: 0 0 0 0.2rem rgba(155, 89, 182, 0.25);
 }
 
 /* Validation states */
 .iti--valid .form-control {
-    border-color: #28a745;
+    border-color: var(--crush-success);
 }
 
 .iti--invalid .form-control {
-    border-color: #dc3545;
+    border-color: var(--crush-danger);
 }
 
 /* ============================================
@@ -204,7 +205,7 @@ input.iti__tel-input {
     /* Stack phone input and button on mobile */
     .phone-input-with-button {
         flex-direction: column;
-        gap: 8px;
+        gap: var(--space-2);
     }
 
     .phone-input-with-button .btn {
@@ -215,12 +216,12 @@ input.iti__tel-input {
     .iti input,
     .iti input.iti__tel-input,
     .iti input[type="tel"] {
-        font-size: 16px;
+        font-size: var(--text-base);
     }
 
     /* Larger touch targets in dropdown */
     .iti__country {
-        padding: 12px;
+        padding: var(--space-3);
     }
 
     /* Better dropdown on mobile */
@@ -239,10 +240,10 @@ input.iti__tel-input {
 
 .phone-input-wrapper .phone-valid-icon {
     position: absolute;
-    right: 12px;
+    right: var(--space-3);
     top: 50%;
     transform: translateY(-50%);
-    color: #28a745;
+    color: var(--crush-success);
     display: none;
     z-index: 2;
 }
@@ -253,10 +254,10 @@ input.iti__tel-input {
 
 .phone-input-wrapper .phone-error-icon {
     position: absolute;
-    right: 12px;
+    right: var(--space-3);
     top: 50%;
     transform: translateY(-50%);
-    color: #dc3545;
+    color: var(--crush-danger);
     display: none;
     z-index: 2;
 }
@@ -272,14 +273,14 @@ input.iti__tel-input {
 /* Valid state - green border and checkmark */
 .phone-input-wrapper.is-valid .iti input,
 .phone-input-wrapper.is-valid input.form-control {
-    border-color: #28a745 !important;
+    border-color: var(--crush-success) !important;
     background-image: none; /* Remove Bootstrap's background icon */
 }
 
 /* Invalid state - red border */
 .phone-input-wrapper.is-invalid .iti input,
 .phone-input-wrapper.is-invalid input.form-control {
-    border-color: #dc3545 !important;
+    border-color: var(--crush-danger) !important;
     background-image: none; /* Remove Bootstrap's background icon */
 }
 
@@ -287,26 +288,26 @@ input.iti__tel-input {
 .phone-input-wrapper + .invalid-feedback {
     display: block;
     width: 100%;
-    margin-top: 0.25rem;
-    font-size: 0.875em;
-    color: #dc3545;
+    margin-top: var(--space-1);
+    font-size: var(--text-sm);
+    color: var(--crush-danger);
 }
 
 /* Smooth transition for validation states */
 .iti input,
 .iti input.form-control {
-    transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 /* Focus state with validation colors */
 .phone-input-wrapper.is-valid .iti input:focus,
 .phone-input-wrapper.is-valid input.form-control:focus {
-    border-color: #28a745 !important;
+    border-color: var(--crush-success) !important;
     box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25) !important;
 }
 
 .phone-input-wrapper.is-invalid .iti input:focus,
 .phone-input-wrapper.is-invalid input.form-control:focus {
-    border-color: #dc3545 !important;
+    border-color: var(--crush-danger) !important;
     box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
 }

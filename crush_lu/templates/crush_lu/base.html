@@ -104,8 +104,8 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
-    <!-- Crush.lu Custom Styles -->
-    <link rel="stylesheet" href="{% static 'crush_lu/css/crush.css' %}">
+    <!-- Crush.lu Custom Styles (Modular) -->
+    <link rel="stylesheet" href="{% static 'crush_lu/css/crush-modular.css' %}">
 
     {% block extra_css %}{% endblock %}
 </head>
@@ -328,11 +328,8 @@
                             <a class="nav-link" href="{% url 'crush_lu:event_list' %}">Events</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'crush_lu:login' %}">Login</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link px-3 btn btn-light text-dark rounded-pill" href="{% url 'crush_lu:signup' %}">
-                                <strong>Join Now</strong>
+                            <a class="nav-link px-3 btn btn-light text-dark rounded-pill" href="{% url 'crush_lu:login' %}">
+                                <strong>Login / Join</strong>
                             </a>
                         </li>
                     {% endif %}

@@ -61,31 +61,50 @@
 
                 {% get_providers as socialaccount_providers %}
                 {% if socialaccount_providers %}
-                <div class="my-4 text-center position-relative">
-                    <hr>
-                    <span class="position-absolute top-50 start-50 translate-middle bg-white px-3 text-muted">
-                        <small>Or continue with</small>
-                    </span>
-                </div>
+                <div class="social-login-divider">Or continue with</div>
 
-                <div class="d-grid gap-2 mb-4">
+                <div class="d-grid gap-3 mb-4">
                     {% for provider in socialaccount_providers %}
                         {% if provider.id == "google" %}
-                    <a href="{% provider_login_url 'google' %}" class="btn btn-outline-danger social-login-btn google-login-btn"
+                    <a href="{% provider_login_url 'google' %}" class="social-login-btn google-btn"
                        data-oauth-url="{% provider_login_url 'google' %}" data-provider="Google">
-                        <i class="fab fa-google me-2"></i>Continue with Google
+                        <span class="social-icon">
+                            <!-- Official Google "G" Logo SVG -->
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                            </svg>
+                        </span>
+                        Continue with Google
                     </a>
                         {% endif %}
                         {% if provider.id == "facebook" %}
-                    <a href="{% provider_login_url 'facebook' %}" class="btn btn-outline-primary social-login-btn facebook-login-btn"
+                    <a href="{% provider_login_url 'facebook' %}" class="social-login-btn facebook-btn"
                        data-oauth-url="{% provider_login_url 'facebook' %}" data-provider="Facebook">
-                        <i class="fab fa-facebook me-2"></i>Continue with Facebook
+                        <span class="social-icon">
+                            <!-- Official Facebook "f" Logo SVG -->
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" fill="#ffffff"/>
+                            </svg>
+                        </span>
+                        Continue with Facebook
                     </a>
                         {% endif %}
                         {% if provider.id == "microsoft" %}
-                    <a href="{% provider_login_url 'microsoft' %}" class="btn btn-outline-info social-login-btn microsoft-login-btn"
+                    <a href="{% provider_login_url 'microsoft' %}" class="social-login-btn microsoft-btn"
                        data-oauth-url="{% provider_login_url 'microsoft' %}" data-provider="Microsoft">
-                        <i class="fab fa-microsoft me-2"></i>Continue with Microsoft
+                        <span class="social-icon">
+                            <!-- Official Microsoft Logo SVG (4 squares) -->
+                            <svg viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                                <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                                <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                                <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                            </svg>
+                        </span>
+                        Continue with Microsoft
                     </a>
                         {% endif %}
                     {% endfor %}
@@ -236,7 +255,7 @@
 
                     // Show loading state
                     button.classList.add('disabled');
-                    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening ' + browserInfo.name + '...';
+                    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Opening ' + browserInfo.name + '...';
 
                     // Samsung Internet PWA doesn't support Intent URLs properly
                     if (browserInfo.package === 'com.sec.android.app.sbrowser') {
@@ -281,7 +300,7 @@
                 button.addEventListener('click', function(e) {
                     e.preventDefault();
                     button.classList.add('disabled');
-                    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Opening login...';
+                    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Opening login...';
                     window.location.href = oauthUrl;
                 });
 
@@ -294,7 +313,7 @@
             button.addEventListener('click', function(e) {
                 // Show loading state but let the default link action proceed
                 button.classList.add('disabled');
-                button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Redirecting to ' + providerName + '...';
+                button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Redirecting to ' + providerName + '...';
                 // Don't prevent default - let django-allauth handle the OAuth redirect naturally
             });
         });

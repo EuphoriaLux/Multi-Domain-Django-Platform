@@ -1,14 +1,28 @@
 from django.urls import path
 from django.views.decorators.cache import never_cache
+from django.shortcuts import render, redirect
+from django.contrib import messages
 from allauth.account.views import LoginView, LogoutView
+from allauth.account.forms import LoginForm
 from . import views
+from .forms import CrushSignupForm
 
 
-# Wrap LoginView with never_cache to prevent browser caching
-# CRITICAL: Android browsers cache the login page aggressively, preventing
-# JavaScript updates (like Intent URL fix) from reaching users
-class NoCacheLoginView(LoginView):
-    """LoginView with aggressive no-cache headers to prevent stale JavaScript."""
+# Unified Auth View - combines login and signup in tabbed interface
+class UnifiedAuthView(LoginView):
+    """
+    Unified authentication view with login/signup tabs.
+    Extends LoginView to handle login form processing.
+    """
+    template_name = 'crush_lu/auth.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Add signup form for the signup tab
+        context['signup_form'] = CrushSignupForm()
+        context['login_form'] = context.get('form')  # Allauth's login form
+        context['mode'] = 'login'
+        return context
 
     def dispatch(self, request, *args, **kwargs):
         response = super().dispatch(request, *args, **kwargs)
@@ -53,9 +67,9 @@ urlpatterns = [
     # Facebook Data Deletion Callback (required by Facebook)
     path('facebook/data-deletion/', views.facebook_data_deletion_callback, name='facebook_data_deletion'),
 
-    # Authentication - using AllAuth views for consistent auth flow
-    # NoCacheLoginView adds no-cache headers to prevent stale JS being served
-    path('login/', NoCacheLoginView.as_view(), name='login'),
+    # Authentication - Unified auth view with login/signup tabs
+    # UnifiedAuthView combines login and signup into a single tabbed experience
+    path('login/', UnifiedAuthView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('oauth-complete/', views.oauth_complete, name='oauth_complete'),
 

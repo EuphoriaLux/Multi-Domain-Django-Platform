@@ -106,17 +106,17 @@ class PWAUpdater {
                 left: 0;
                 right: 0;
                 z-index: 9999;
-                background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+                background: var(--gradient-primary, linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%));
                 color: white;
-                padding: 12px 16px;
+                padding: var(--space-3, 12px) var(--space-4, 16px);
                 display: flex;
                 flex-wrap: wrap;
                 align-items: center;
                 justify-content: space-between;
-                gap: 12px;
-                box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
+                gap: var(--space-3, 12px);
+                box-shadow: var(--shadow-purple, 0 4px 12px rgba(155, 89, 182, 0.3));
                 transform: translateY(-100%);
-                transition: transform 0.3s ease-out;
+                transition: transform var(--transition-base, 0.3s ease);
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             }
 
@@ -127,41 +127,41 @@ class PWAUpdater {
             .pwa-update-content {
                 display: flex;
                 align-items: center;
-                gap: 8px;
+                gap: var(--space-2, 8px);
                 flex: 1;
             }
 
             .pwa-update-icon {
-                font-size: 1.2em;
+                font-size: var(--text-xl, 1.2em);
             }
 
             .pwa-update-text {
-                font-size: 14px;
-                font-weight: 500;
+                font-size: var(--text-sm, 14px);
+                font-weight: var(--font-medium, 500);
             }
 
             .pwa-update-actions {
                 display: flex;
-                gap: 8px;
+                gap: var(--space-2, 8px);
             }
 
             .pwa-update-btn {
                 border: none;
-                border-radius: 20px;
-                padding: 8px 16px;
-                font-size: 13px;
-                font-weight: 600;
+                border-radius: var(--radius-xl, 20px);
+                padding: var(--space-2, 8px) var(--space-4, 16px);
+                font-size: var(--text-sm, 13px);
+                font-weight: var(--font-semibold, 600);
                 cursor: pointer;
-                transition: all 0.2s ease;
+                transition: all var(--transition-fast, 0.2s ease);
             }
 
             .pwa-update-btn-primary {
                 background: white;
-                color: #9B59B6;
+                color: var(--crush-purple, #9B59B6);
             }
 
             .pwa-update-btn-primary:hover {
-                background: #f8f8f8;
+                background: var(--crush-light, #f8f8f8);
                 transform: scale(1.05);
             }
 

@@ -1,0 +1,225 @@
+/* ===================
+   Social Login Buttons
+   Official Brand Colors & SVG Icons
+   =================== */
+
+/* Base Social Button Styles */
+.social-login-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: 500;
+    border-radius: 8px;
+    border: 1px solid;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.social-login-btn:hover {
+    text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.social-login-btn:active {
+    transform: translateY(0);
+}
+
+.social-login-btn.disabled {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+/* Social Icon Container */
+.social-login-btn .social-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.social-login-btn .social-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* ===================
+   Google Button
+   Brand Guidelines: https://developers.google.com/identity/branding-guidelines
+   =================== */
+.social-login-btn.google-btn {
+    background-color: #ffffff;
+    border-color: #dadce0;
+    color: #3c4043;
+}
+
+.social-login-btn.google-btn:hover {
+    background-color: #f8f9fa;
+    border-color: #dadce0;
+    color: #3c4043;
+}
+
+.social-login-btn.google-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.3);
+}
+
+/* ===================
+   Facebook Button
+   Brand Guidelines: https://about.meta.com/brand/resources/facebook/logo/
+   =================== */
+.social-login-btn.facebook-btn {
+    background-color: #1877f2;
+    border-color: #1877f2;
+    color: #ffffff;
+}
+
+.social-login-btn.facebook-btn:hover {
+    background-color: #166fe5;
+    border-color: #166fe5;
+    color: #ffffff;
+}
+
+.social-login-btn.facebook-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.3);
+}
+
+/* ===================
+   Microsoft Button
+   Brand Guidelines: https://learn.microsoft.com/en-us/entra/identity-platform/howto-add-branding-in-apps
+   =================== */
+.social-login-btn.microsoft-btn {
+    background-color: #ffffff;
+    border-color: #8c8c8c;
+    color: #5e5e5e;
+}
+
+.social-login-btn.microsoft-btn:hover {
+    background-color: #f8f8f8;
+    border-color: #8c8c8c;
+    color: #5e5e5e;
+}
+
+.social-login-btn.microsoft-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.3);
+}
+
+/* ===================
+   Apple Button (if needed later)
+   Brand Guidelines: https://developer.apple.com/design/human-interface-guidelines/sign-in-with-apple
+   =================== */
+.social-login-btn.apple-btn {
+    background-color: #000000;
+    border-color: #000000;
+    color: #ffffff;
+}
+
+.social-login-btn.apple-btn:hover {
+    background-color: #333333;
+    border-color: #333333;
+    color: #ffffff;
+}
+
+.social-login-btn.apple-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.3);
+}
+
+/* ===================
+   LinkedIn Button (if needed later)
+   =================== */
+.social-login-btn.linkedin-btn {
+    background-color: #0a66c2;
+    border-color: #0a66c2;
+    color: #ffffff;
+}
+
+.social-login-btn.linkedin-btn:hover {
+    background-color: #004182;
+    border-color: #004182;
+    color: #ffffff;
+}
+
+.social-login-btn.linkedin-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(10, 102, 194, 0.3);
+}
+
+/* ===================
+   Divider with "or"
+   =================== */
+.social-login-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 24px 0;
+    color: #6c757d;
+    font-size: 14px;
+}
+
+.social-login-divider::before,
+.social-login-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.social-login-divider::before {
+    margin-right: 16px;
+}
+
+.social-login-divider::after {
+    margin-left: 16px;
+}
+
+/* ===================
+   Dark Mode Support
+   =================== */
+@media (prefers-color-scheme: dark) {
+    .social-login-btn.google-btn {
+        background-color: #131314;
+        border-color: #8e918f;
+        color: #e3e3e3;
+    }
+
+    .social-login-btn.google-btn:hover {
+        background-color: #1f1f1f;
+    }
+
+    .social-login-btn.microsoft-btn {
+        background-color: #2f2f2f;
+        border-color: #6b6b6b;
+        color: #ffffff;
+    }
+
+    .social-login-btn.microsoft-btn:hover {
+        background-color: #3d3d3d;
+    }
+}
+
+/* ===================
+   Loading State
+   =================== */
+.social-login-btn .spinner-border {
+    width: 20px;
+    height: 20px;
+    border-width: 2px;
+}
+
+.social-login-btn.google-btn .spinner-border {
+    color: #4285f4;
+}
+
+.social-login-btn.facebook-btn .spinner-border {
+    color: #ffffff;
+}
+
+.social-login-btn.microsoft-btn .spinner-border {
+    color: #0078d4;
+}
