@@ -84,7 +84,7 @@
                     <!-- Login Panel -->
                     <div class="tab-pane fade {% if mode != 'signup' %}show active{% endif %}"
                          id="login-panel" role="tabpanel" aria-labelledby="login-tab">
-                        <form method="post" action="{% url 'account_login' %}" novalidate id="login-form">
+                        <form method="post" action="{% url 'crush_lu:login' %}" novalidate id="login-form">
                             {% csrf_token %}
 
                             {% if login_form.non_field_errors %}
