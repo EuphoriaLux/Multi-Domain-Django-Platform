@@ -59,6 +59,18 @@
     font-size: var(--text-sm);
 }
 
+/* Warning links - restore visibility after global link reset */
+.text-warning a {
+    color: var(--crush-warning, #f39c12);
+    text-decoration: underline;
+    font-weight: var(--font-medium);
+}
+
+.text-warning a:hover {
+    color: var(--crush-dark);
+    text-decoration: underline;
+}
+
 /* Form sections */
 .crush-form hr {
     border: none;
