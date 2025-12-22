@@ -1,6 +1,6 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v16 - Icon cache fix + SW revalidation
+// Version: v17 - Fix CSRF 403 on login POST (exclude auth from bgSync)
 
 // ============================================================================
 // CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
@@ -50,7 +50,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v16-icon-cache-fix';
+  const CACHE_VERSION = 'crush-v17-csrf-fix';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -440,11 +440,16 @@ if (workbox) {
   });
 
   // Use background sync for POST requests (event registrations, etc.)
+  // IMPORTANT: Exclude auth-related POSTs - they have CSRF tokens that can't be replayed
   workbox.routing.registerRoute(
     ({ url, request }) =>
       request.method === 'POST' &&
       !url.pathname.startsWith('/api/') &&
-      !url.pathname.startsWith('/admin/'),
+      !url.pathname.startsWith('/admin/') &&
+      !url.pathname.startsWith('/login') &&
+      !url.pathname.startsWith('/logout') &&
+      !url.pathname.startsWith('/accounts/') &&
+      !url.pathname.startsWith('/signup'),
     new workbox.strategies.NetworkOnly({
       plugins: [bgSyncPlugin],
     }),
@@ -523,7 +528,7 @@ if (workbox) {
     }
   });
 
-  console.log('[Workbox] Service worker v16 (icon cache fix) configured successfully!');
+  console.log('[Workbox] Service worker v17 (CSRF fix) configured successfully!');
 
 } else {
   console.error('[Workbox] Failed to load Workbox from local bundle!');
