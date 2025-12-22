@@ -467,3 +467,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # CSRF Cookie Settings (required for JavaScript AJAX requests)
 # Allow JavaScript to read the CSRF cookie for fetch/XMLHttpRequest
 CSRF_COOKIE_HTTPONLY = False
+
+# Custom CSRF failure view with detailed logging
+CSRF_FAILURE_VIEW = 'azureproject.middleware.csrf_failure_view'

@@ -7,10 +7,11 @@ This module contains middleware for:
 - Safe site detection (auto-creates missing Site objects)
 - Domain-based URL routing
 - Admin language forcing
+- Custom CSRF failure handling
 """
 import logging
 from django.utils import translation
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 from django.contrib.sites.models import Site
 
 from .domains import (
@@ -22,6 +23,35 @@ from .domains import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def csrf_failure_view(request, reason=""):
+    """
+    Custom CSRF failure view with detailed logging.
+
+    This helps diagnose CSRF issues by logging:
+    - Request path and method
+    - Origin and Referer headers
+    - CSRF cookie presence
+    - Session cookie presence
+    - User agent
+    """
+    logger.error(
+        f"[CSRF FAILURE] path={request.path}, method={request.method}, "
+        f"reason={reason}, "
+        f"origin={request.META.get('HTTP_ORIGIN', 'None')}, "
+        f"referer={request.META.get('HTTP_REFERER', 'None')}, "
+        f"has_csrf_cookie={'csrftoken' in request.COOKIES}, "
+        f"has_session={'sessionid' in request.COOKIES}, "
+        f"host={request.get_host()}, "
+        f"user_agent={request.META.get('HTTP_USER_AGENT', 'None')[:100]}"
+    )
+
+    return HttpResponseForbidden(
+        f"CSRF verification failed. Reason: {reason}. "
+        f"Please refresh the page and try again.",
+        content_type="text/plain"
+    )
 
 
 class HealthCheckMiddleware:
