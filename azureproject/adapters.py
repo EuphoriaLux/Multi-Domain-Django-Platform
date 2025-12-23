@@ -203,6 +203,43 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
     Routes to appropriate pages based on domain.
     """
 
+    def get_client_ip(self, request) -> str:
+        """
+        Get the client IP address from the request.
+
+        Azure App Service sets X-Forwarded-For with IP:PORT format (e.g., '94.252.75.68:22272'),
+        but allauth's default implementation expects just the IP address.
+        This override strips the port number to prevent "Invalid IP address" errors.
+        """
+        import ipaddress
+        from django.core.exceptions import PermissionDenied
+
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        if x_forwarded_for:
+            # Azure may include port: "94.252.75.68:22272" - extract just IP
+            ip_value = x_forwarded_for.split(",")[0].strip()
+            # Strip port if present (handles both IPv4:port and [IPv6]:port)
+            if ':' in ip_value:
+                # Check if it's IPv6 (contains multiple colons) or IPv4:port
+                if ip_value.count(':') == 1:
+                    # IPv4:port format - strip the port
+                    ip_value = ip_value.split(':')[0]
+                elif ip_value.startswith('['):
+                    # [IPv6]:port format
+                    ip_value = ip_value.split(']')[0][1:]
+                # else: plain IPv6 without port, use as-is
+        else:
+            ip_value = request.META.get("REMOTE_ADDR", "")
+
+        # Validate it's a proper IP address
+        try:
+            ip_addr = ipaddress.ip_address(ip_value)
+        except ValueError:
+            logger.warning(f"Invalid IP address in request: {ip_value!r}")
+            raise PermissionDenied(f"Invalid IP address: {ip_value!r}")
+
+        return str(ip_addr)
+
     def _get_crush_redirect_url(self, request):
         """Get the appropriate redirect URL for Crush.lu after login."""
         if hasattr(request.user, 'crushprofile'):
