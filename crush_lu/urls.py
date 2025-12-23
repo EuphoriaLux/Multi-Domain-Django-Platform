@@ -30,11 +30,13 @@ class UnifiedAuthView(LoginView):
     def dispatch(self, request, *args, **kwargs):
         # Diagnostic logging for 403 debugging
         if request.method == 'POST':
-            # Check SOCIALACCOUNT_ONLY setting - this is the cause of 403!
+            # Check SOCIALACCOUNT_ONLY setting - this could be the cause of 403!
             from allauth import app_settings as allauth_app_settings
+            from django.conf import settings
             logger.warning(
                 f"[LOGIN-DEBUG] POST to /login/ - "
                 f"SOCIALACCOUNT_ONLY={allauth_app_settings.SOCIALACCOUNT_ONLY}, "
+                f"settings.SOCIALACCOUNT_ONLY={getattr(settings, 'SOCIALACCOUNT_ONLY', 'NOT_SET')}, "
                 f"has_csrf_cookie={'csrftoken' in request.COOKIES}, "
                 f"csrf_token_in_post={'csrfmiddlewaretoken' in request.POST}, "
                 f"origin={request.META.get('HTTP_ORIGIN', 'None')}, "
@@ -42,7 +44,13 @@ class UnifiedAuthView(LoginView):
                 f"host={request.get_host()}, "
                 f"content_type={request.content_type}"
             )
-        response = super().dispatch(request, *args, **kwargs)
+
+        # Call parent's dispatch - wrap to catch any exceptions for logging
+        try:
+            response = super().dispatch(request, *args, **kwargs)
+        except Exception as e:
+            logger.error(f"[LOGIN-DEBUG] Exception in dispatch: {type(e).__name__}: {e}")
+            raise
         # Log response status for debugging
         if request.method == 'POST':
             logger.warning(

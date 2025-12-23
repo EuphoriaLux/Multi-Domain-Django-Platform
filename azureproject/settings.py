@@ -194,6 +194,10 @@ SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_STORE_TOKENS = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
 
+# IMPORTANT: Explicitly allow email/password login (not social-only)
+# This MUST be False to allow email/password login via UnifiedAuthView
+SOCIALACCOUNT_ONLY = False
+
 
 # Session Configuration for PWA
 SESSION_COOKIE_AGE = 1209600  # 14 days (2 weeks) - longer session for PWA
