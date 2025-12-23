@@ -354,6 +354,12 @@ LOGGING = {
             'level': 'INFO',  # Enable INFO logging for OAuth debugging
             'propagate': False,
         },
+        # CSRF failure debugging
+        'azureproject.middleware': {
+            'handlers': ['console'],
+            'level': 'ERROR',  # Log CSRF failures
+            'propagate': False,
+        },
     },
 }
 
