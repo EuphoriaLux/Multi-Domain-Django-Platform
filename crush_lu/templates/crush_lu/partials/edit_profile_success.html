@@ -1,0 +1,23 @@
+{% load static %}
+
+<div class="tw-bg-green-50 tw-border tw-border-green-200 tw-rounded-crush-lg tw-p-6 tw-text-center tw-animate-fadeIn">
+    <div class="tw-text-green-600 tw-text-5xl tw-mb-4">
+        <i class="bi bi-check-circle-fill"></i>
+    </div>
+    <h3 class="tw-text-green-800 tw-font-semibold tw-text-xl tw-mb-2">
+        Profile Updated Successfully!
+    </h3>
+    <p class="tw-text-green-700 tw-mb-6">
+        Your changes have been saved.
+    </p>
+    <div class="tw-flex tw-flex-col sm:tw-flex-row tw-gap-3 tw-justify-center">
+        <a href="{% url 'crush_lu:dashboard' %}" class="btn btn-crush-primary">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </a>
+        <button type="button"
+                class="btn btn-outline-secondary"
+                onclick="window.location.reload()">
+            <i class="bi bi-pencil"></i> Continue Editing
+        </button>
+    </div>
+</div>

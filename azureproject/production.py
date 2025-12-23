@@ -352,19 +352,19 @@ LOGGING = {
         'crush_lu.oauth_statekit': {
             'handlers': ['console'],
             'level': 'INFO',  # Enable INFO logging for OAuth debugging
-            'propagate': False,
+            'propagate': True,  # MUST propagate to root for Azure App Insights
         },
         # Login/CSRF debugging - WARNING level to capture debug logs
         'azureproject.middleware': {
             'handlers': ['console'],
             'level': 'WARNING',  # Log login debug and CSRF failures
-            'propagate': False,
+            'propagate': True,  # MUST propagate to root for Azure App Insights
         },
         # Crush.lu app logging for login debugging
         'crush_lu': {
             'handlers': ['console'],
             'level': 'WARNING',  # Log login debug from UnifiedAuthView
-            'propagate': False,
+            'propagate': True,  # MUST propagate to root for Azure App Insights
         },
     },
 }

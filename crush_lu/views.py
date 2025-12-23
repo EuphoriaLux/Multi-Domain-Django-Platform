@@ -819,34 +819,28 @@ def edit_profile_simple(request):
     if request.method == 'POST':
         form = CrushProfileForm(request.POST, request.FILES, instance=profile)
         if form.is_valid():
-            updated_profile = form.save(commit=False)
+            # Phone protection is handled at model level in CrushProfile.save()
+            updated_profile = form.save()
 
-            # SECURITY: Phone number change protection
-            new_phone = updated_profile.phone_number
-            old_phone = profile.phone_number
+            # HTMX: Return success partial without page reload
+            if request.htmx:
+                return render(request, 'crush_lu/partials/edit_profile_success.html', {
+                    'profile': updated_profile,
+                })
 
-            if profile.phone_verified:
-                # Case 1: Phone is already verified - keep the original verified number
-                updated_profile.phone_number = old_phone
-                updated_profile.phone_verified = True
-                updated_profile.phone_verified_at = profile.phone_verified_at
-                updated_profile.phone_verification_uid = profile.phone_verification_uid
-            elif new_phone != old_phone:
-                # Case 2: Phone NOT verified AND user is trying to change it
-                # Reject the change - they must verify their current number first
-                updated_profile.phone_number = old_phone
-                messages.warning(
-                    request,
-                    'To change your phone number, please verify your current number first. '
-                    'Go to the phone verification page to verify.'
-                )
-
-            # Keep approved status - this is just an edit
-            updated_profile.save()
             messages.success(request, 'Profile updated successfully!')
             return redirect('crush_lu:dashboard')
         else:
-            # Show validation errors
+            # HTMX: Return form with errors for inline display
+            if request.htmx:
+                return render(request, 'crush_lu/partials/edit_profile_form.html', {
+                    'form': form,
+                    'profile': profile,
+                    'social_photos': get_all_social_photos(request.user),
+                    'has_errors': True,
+                })
+
+            # Traditional form: show validation errors via messages
             for field, errors in form.errors.items():
                 for error in errors:
                     messages.error(request, f"{field.replace('_', ' ').title()}: {error}")
@@ -893,28 +887,11 @@ def edit_profile(request):
             pass
 
     # 3. Default: Use multi-step form for incomplete or rejected profiles
-    # Store original phone for change detection
-    original_phone = profile.phone_number
-    original_phone_verified = profile.phone_verified
-
     if request.method == 'POST':
         form = CrushProfileForm(request.POST, request.FILES, instance=profile)
         if form.is_valid():
+            # Phone protection is handled at model level in CrushProfile.save()
             profile = form.save(commit=False)
-
-            # SECURITY: Phone number change protection (same as edit_profile_simple)
-            if original_phone_verified:
-                # Phone was verified - keep the original
-                profile.phone_number = original_phone
-                profile.phone_verified = True
-            elif profile.phone_number != original_phone and original_phone:
-                # Phone NOT verified AND user is trying to change an existing number
-                # Reject the change - they must verify first
-                profile.phone_number = original_phone
-                messages.warning(
-                    request,
-                    'To change your phone number, please verify your current number first.'
-                )
 
             # Mark as submitted when completing the form
             profile.completion_status = 'submitted'

@@ -10,301 +10,24 @@
             <div class="card shadow-sm">
                 <div class="card-body p-4">
                     <div class="text-center mb-4">
-                        <h1 class="h3 mb-2">✏️ Edit Your Profile</h1>
+                        <h1 class="h3 mb-2">Edit Your Profile</h1>
                         <p class="text-muted">Update your information below</p>
                         {% if profile.is_approved %}
-                            <span class="badge bg-success">✓ Profile Approved</span>
+                            <span class="badge bg-success">Profile Approved</span>
                         {% endif %}
                     </div>
 
-                    <form method="post" enctype="multipart/form-data" id="editProfileForm">
+                    <form method="post"
+                          enctype="multipart/form-data"
+                          id="editProfileForm"
+                          hx-post="{% url 'crush_lu:edit_profile' %}"
+                          hx-target="#form-container"
+                          hx-swap="innerHTML"
+                          hx-indicator="#submit-indicator">
                         {% csrf_token %}
 
-                        {% if form.non_field_errors %}
-                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                {{ form.non_field_errors }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                            </div>
-                        {% endif %}
-
-                        <!-- Contact Information Section -->
-                        <div class="section-card mb-4">
-                            <h5 class="section-title">📞 Contact Information</h5>
-
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="{{ form.phone_number.id_for_label }}" class="form-label">
-                                        Phone Number *
-                                        {% if profile.phone_verified %}
-                                            <span class="badge bg-success ms-2"><i class="bi bi-check-circle"></i> Verified</span>
-                                        {% endif %}
-                                    </label>
-                                    {% if profile.phone_verified %}
-                                        <input type="text" class="form-control" value="{{ profile.phone_number }}" readonly disabled>
-                                        <input type="hidden" name="phone_number" value="{{ profile.phone_number }}">
-                                        <small class="text-muted">
-                                            <i class="bi bi-lock"></i> Verified phone numbers cannot be changed.
-                                            Contact support if you need to update it.
-                                        </small>
-                                    {% else %}
-                                        {{ form.phone_number }}
-                                        <small class="text-warning">
-                                            <i class="bi bi-exclamation-triangle"></i>
-                                            <a href="{% url 'crush_lu:verify_phone' %}">Verify your phone number</a> to lock it.
-                                        </small>
-                                    {% endif %}
-                                    {% if form.phone_number.errors %}
-                                        <div class="invalid-feedback d-block">{{ form.phone_number.errors.0 }}</div>
-                                    {% endif %}
-                                </div>
-
-                                <div class="col-md-6 mb-3">
-                                    <label for="{{ form.location.id_for_label }}" class="form-label">
-                                        Location in Luxembourg *
-                                    </label>
-                                    {{ form.location }}
-                                    {% if form.location.errors %}
-                                        <div class="invalid-feedback d-block">{{ form.location.errors.0 }}</div>
-                                    {% endif %}
-                                </div>
-                            </div>
-
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="{{ form.date_of_birth.id_for_label }}" class="form-label">
-                                        Date of Birth *
-                                    </label>
-                                    {{ form.date_of_birth }}
-                                    {% if form.date_of_birth.errors %}
-                                        <div class="invalid-feedback d-block">{{ form.date_of_birth.errors.0 }}</div>
-                                    {% endif %}
-                                </div>
-
-                                <div class="col-md-6 mb-3">
-                                    <label for="{{ form.gender.id_for_label }}" class="form-label">
-                                        Gender *
-                                    </label>
-                                    {{ form.gender }}
-                                    {% if form.gender.errors %}
-                                        <div class="invalid-feedback d-block">{{ form.gender.errors.0 }}</div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- About You Section -->
-                        <div class="section-card mb-4">
-                            <h5 class="section-title">✍️ About You</h5>
-
-                            <div class="mb-3">
-                                <label for="{{ form.bio.id_for_label }}" class="form-label">
-                                    Bio
-                                    <small class="text-muted">(Tell us about yourself)</small>
-                                </label>
-                                {{ form.bio }}
-                                <div class="char-counter">
-                                    <span id="bioCounter">{{ profile.bio|length|default:"0" }}</span>/500 characters
-                                </div>
-                                {% if form.bio.errors %}
-                                    <div class="invalid-feedback d-block">{{ form.bio.errors.0 }}</div>
-                                {% endif %}
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="{{ form.interests.id_for_label }}" class="form-label">
-                                    Interests
-                                    <small class="text-muted">(What do you enjoy?)</small>
-                                </label>
-                                {{ form.interests }}
-                                <div class="char-counter">
-                                    <span id="interestsCounter">{{ profile.interests|length|default:"0" }}</span>/300 characters
-                                </div>
-                                {% if form.interests.errors %}
-                                    <div class="invalid-feedback d-block">{{ form.interests.errors.0 }}</div>
-                                {% endif %}
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="{{ form.looking_for.id_for_label }}" class="form-label">
-                                    What are you looking for? *
-                                </label>
-                                {{ form.looking_for }}
-                                {% if form.looking_for.errors %}
-                                    <div class="invalid-feedback d-block">{{ form.looking_for.errors.0 }}</div>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <!-- Photos Section -->
-                        <div class="section-card mb-4">
-                            <div class="photo-section-header">
-                                <h5 class="section-title mb-0" style="border-bottom: none; padding-bottom: 0;"><i class="bi bi-images"></i> Photos</h5>
-                                <span class="photo-count">Up to 3</span>
-                            </div>
-                            <p class="text-muted small mb-3">Your main photo will be displayed first to other users.</p>
-
-                            <!-- Social Photo Import -->
-                            {% if social_photos %}
-                            <div class="social-import-section mb-4">
-                                <div class="d-flex align-items-center gap-2 mb-2">
-                                    <i class="bi bi-cloud-download text-primary"></i>
-                                    <span class="fw-semibold">Import from Social Accounts</span>
-                                </div>
-                                <div class="social-photos-row">
-                                    {% for photo in social_photos %}
-                                    <div class="social-photo-mini-card">
-                                        <div class="provider-icon">
-                                            {% if photo.provider == 'facebook' %}
-                                            <i class="fab fa-facebook text-primary"></i>
-                                            {% elif photo.provider == 'google' %}
-                                            <i class="fab fa-google text-danger"></i>
-                                            {% elif photo.provider == 'microsoft' %}
-                                            <i class="fab fa-microsoft text-info"></i>
-                                            {% endif %}
-                                        </div>
-                                        {% if photo.available %}
-                                        <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }}" class="social-mini-img">
-                                        <div class="import-btns">
-                                            <button type="button" class="btn btn-xs btn-crush-primary import-social-photo-btn"
-                                                    data-account-id="{{ photo.account_id }}"
-                                                    data-slot="1" title="Set as Main Photo">
-                                                <i class="bi bi-star-fill"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-xs btn-outline-secondary import-social-photo-btn"
-                                                    data-account-id="{{ photo.account_id }}"
-                                                    data-slot="2" title="Import as Photo 2">
-                                                2
-                                            </button>
-                                            <button type="button" class="btn btn-xs btn-outline-secondary import-social-photo-btn"
-                                                    data-account-id="{{ photo.account_id }}"
-                                                    data-slot="3" title="Import as Photo 3">
-                                                3
-                                            </button>
-                                        </div>
-                                        {% else %}
-                                        <div class="no-photo-mini">
-                                            <i class="bi bi-image"></i>
-                                        </div>
-                                        {% endif %}
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                                <div id="social-photo-notification" class="mt-2" style="display: none;"></div>
-                            </div>
-                            {% endif %}
-
-                            <div class="row g-3">
-                                <!-- Photo 1 (Main) -->
-                                <div class="col-md-4">
-                                    <div class="photo-upload-card photo-upload-card--main">
-                                        <div class="photo-label">
-                                            <i class="bi bi-star-fill main-indicator"></i> Main Photo
-                                        </div>
-                                        <div class="photo-preview-container">
-                                            {% if profile.photo_1 %}
-                                                <img src="{{ profile.photo_1.url }}" alt="Photo 1" class="photo-preview" id="preview-photo-1">
-                                                <span class="photo-badge">Current</span>
-                                            {% else %}
-                                                <div class="photo-placeholder" id="preview-photo-1">
-                                                    <i class="bi bi-person-circle"></i>
-                                                    <span>Required</span>
-                                                </div>
-                                            {% endif %}
-                                        </div>
-                                        <input type="file" name="photo_1" id="id_photo_1" accept="image/*">
-                                        {% if form.photo_1.errors %}
-                                            <div class="invalid-feedback d-block">{{ form.photo_1.errors.0 }}</div>
-                                        {% endif %}
-                                        <div class="photo-help">
-                                            {% if profile.photo_1 %}Upload to replace{% else %}Your primary photo{% endif %}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Photo 2 -->
-                                <div class="col-md-4">
-                                    <div class="photo-upload-card">
-                                        <div class="photo-label">Photo 2</div>
-                                        <div class="photo-preview-container">
-                                            {% if profile.photo_2 %}
-                                                <img src="{{ profile.photo_2.url }}" alt="Photo 2" class="photo-preview" id="preview-photo-2">
-                                                <span class="photo-badge">Current</span>
-                                            {% else %}
-                                                <div class="photo-placeholder" id="preview-photo-2">
-                                                    <i class="bi bi-image"></i>
-                                                    <span>Optional</span>
-                                                </div>
-                                            {% endif %}
-                                        </div>
-                                        <input type="file" name="photo_2" id="id_photo_2" accept="image/*">
-                                        {% if form.photo_2.errors %}
-                                            <div class="invalid-feedback d-block">{{ form.photo_2.errors.0 }}</div>
-                                        {% endif %}
-                                        <div class="photo-help">Show more of you</div>
-                                    </div>
-                                </div>
-
-                                <!-- Photo 3 -->
-                                <div class="col-md-4">
-                                    <div class="photo-upload-card">
-                                        <div class="photo-label">Photo 3</div>
-                                        <div class="photo-preview-container">
-                                            {% if profile.photo_3 %}
-                                                <img src="{{ profile.photo_3.url }}" alt="Photo 3" class="photo-preview" id="preview-photo-3">
-                                                <span class="photo-badge">Current</span>
-                                            {% else %}
-                                                <div class="photo-placeholder" id="preview-photo-3">
-                                                    <i class="bi bi-image"></i>
-                                                    <span>Optional</span>
-                                                </div>
-                                            {% endif %}
-                                        </div>
-                                        <input type="file" name="photo_3" id="id_photo_3" accept="image/*">
-                                        {% if form.photo_3.errors %}
-                                            <div class="invalid-feedback d-block">{{ form.photo_3.errors.0 }}</div>
-                                        {% endif %}
-                                        <div class="photo-help">Add variety</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Privacy Settings Section -->
-                        <div class="section-card mb-4">
-                            <h5 class="section-title">🔒 Privacy Settings</h5>
-
-                            <div class="form-check mb-3">
-                                {{ form.show_full_name }}
-                                <label class="form-check-label" for="{{ form.show_full_name.id_for_label }}">
-                                    Show my full name
-                                    <small class="text-muted d-block">Otherwise only first name is shown</small>
-                                </label>
-                            </div>
-
-                            <div class="form-check mb-3">
-                                {{ form.show_exact_age }}
-                                <label class="form-check-label" for="{{ form.show_exact_age.id_for_label }}">
-                                    Show my exact age
-                                    <small class="text-muted d-block">Otherwise show age range (e.g., 25-29)</small>
-                                </label>
-                            </div>
-
-                            <div class="form-check mb-3">
-                                {{ form.blur_photos }}
-                                <label class="form-check-label" for="{{ form.blur_photos.id_for_label }}">
-                                    Blur my photos until mutual interest
-                                </label>
-                            </div>
-                        </div>
-
-                        <!-- Action Buttons -->
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-between">
-                            <a href="{% url 'crush_lu:dashboard' %}" class="btn btn-outline-secondary">
-                                <i class="bi bi-arrow-left"></i> Cancel
-                            </a>
-                            <button type="submit" class="btn btn-crush-primary btn-lg">
-                                <i class="bi bi-check-circle"></i> Save Changes
-                            </button>
+                        <div id="form-container">
+                            {% include 'crush_lu/partials/edit_profile_form.html' %}
                         </div>
                     </form>
                 </div>
@@ -320,116 +43,143 @@
 {% block extra_js %}
 <script src="{% static 'crush_lu/js/photo-preview.js' %}"></script>
 <script>
-// Character counters
-document.getElementById('{{ form.bio.id_for_label }}')?.addEventListener('input', function() {
-    document.getElementById('bioCounter').textContent = this.value.length;
-});
+// Character counters - reinitialize after HTMX swaps
+function initCharacterCounters() {
+    const bioField = document.getElementById('id_bio');
+    const interestsField = document.getElementById('id_interests');
 
-document.getElementById('{{ form.interests.id_for_label }}')?.addEventListener('input', function() {
-    document.getElementById('interestsCounter').textContent = this.value.length;
-});
+    if (bioField) {
+        bioField.addEventListener('input', function() {
+            const counter = document.getElementById('bioCounter');
+            if (counter) counter.textContent = this.value.length;
+        });
+    }
 
-// Form submission confirmation
-document.getElementById('editProfileForm').addEventListener('submit', function(e) {
-    // Optional: Add confirmation dialog
-    // if (!confirm('Are you sure you want to save these changes?')) {
-    //     e.preventDefault();
-    // }
+    if (interestsField) {
+        interestsField.addEventListener('input', function() {
+            const counter = document.getElementById('interestsCounter');
+            if (counter) counter.textContent = this.value.length;
+        });
+    }
+}
+
+// Initialize on page load
+initCharacterCounters();
+
+// Reinitialize after HTMX swaps
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    if (event.detail.target.id === 'form-container') {
+        initCharacterCounters();
+
+        // Scroll to first error if present
+        const firstError = event.detail.target.querySelector('.invalid-feedback');
+        if (firstError) {
+            firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    // Animate photo card after upload
+    if (event.detail.target.id && event.detail.target.id.startsWith('photo-card-')) {
+        const card = event.detail.target.querySelector('.photo-upload-card');
+        if (card) {
+            card.classList.add('tw-animate-pulse');
+            setTimeout(() => card.classList.remove('tw-animate-pulse'), 1000);
+        }
+    }
 });
 
 // Social photo import functionality
-document.querySelectorAll('.import-social-photo-btn').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-        e.preventDefault();
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.import-social-photo-btn');
+    if (!btn) return;
 
-        const accountId = this.dataset.accountId;
-        const slot = parseInt(this.dataset.slot);
-        const originalText = this.textContent;
-        const notification = document.getElementById('social-photo-notification');
+    e.preventDefault();
 
-        // Disable button and show loading
-        this.disabled = true;
-        this.textContent = '...';
+    const accountId = btn.dataset.accountId;
+    const slot = parseInt(btn.dataset.slot);
+    const originalContent = btn.innerHTML;
+    const notification = document.getElementById('social-photo-notification');
 
-        // Get CSRF token
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    // Disable button and show loading
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-arrow-repeat tw-animate-spin"></i>';
 
-        fetch('{% url "crush_lu:import_social_photo" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
-            },
-            body: JSON.stringify({
-                social_account_id: parseInt(accountId),
-                photo_slot: slot
-            })
+    // Get CSRF token
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    fetch('{% url "crush_lu:import_social_photo" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+            social_account_id: parseInt(accountId),
+            photo_slot: slot
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Update photo preview
-                const previewId = 'preview-photo-' + slot;
-                const previewContainer = document.getElementById(previewId);
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update photo preview
+            const previewId = 'preview-photo-' + slot;
+            const previewContainer = document.getElementById(previewId);
 
-                if (previewContainer) {
-                    // Check if it's a placeholder div or existing image
-                    if (previewContainer.classList.contains('photo-placeholder')) {
-                        // Replace placeholder with image
-                        const img = document.createElement('img');
-                        img.src = data.photo_url;
-                        img.alt = 'Photo ' + slot;
-                        img.className = 'photo-preview';
-                        img.id = previewId;
-                        previewContainer.parentNode.replaceChild(img, previewContainer);
+            if (previewContainer) {
+                if (previewContainer.classList.contains('photo-placeholder')) {
+                    // Replace placeholder with image
+                    const img = document.createElement('img');
+                    img.src = data.photo_url;
+                    img.alt = 'Photo ' + slot;
+                    img.className = 'photo-preview';
+                    img.id = previewId;
+                    previewContainer.parentNode.replaceChild(img, previewContainer);
 
-                        // Add "Current" badge if not present
-                        const container = img.closest('.photo-preview-container');
-                        if (container && !container.querySelector('.photo-badge')) {
-                            const badge = document.createElement('span');
-                            badge.className = 'photo-badge';
-                            badge.textContent = 'Imported';
-                            container.appendChild(badge);
-                        }
-                    } else {
-                        // Update existing image
-                        previewContainer.src = data.photo_url;
-
-                        // Update badge to "Imported"
-                        const badge = previewContainer.closest('.photo-preview-container')?.querySelector('.photo-badge');
-                        if (badge) {
-                            badge.textContent = 'Imported';
-                        }
+                    // Add badge
+                    const container = img.closest('.photo-preview-container');
+                    if (container && !container.querySelector('.photo-badge')) {
+                        const badge = document.createElement('span');
+                        badge.className = 'photo-badge tw-bg-green-500';
+                        badge.textContent = 'Imported';
+                        container.appendChild(badge);
+                    }
+                } else {
+                    // Update existing image
+                    previewContainer.src = data.photo_url;
+                    const badge = previewContainer.closest('.photo-preview-container')?.querySelector('.photo-badge');
+                    if (badge) {
+                        badge.textContent = 'Imported';
+                        badge.classList.add('tw-bg-green-500');
                     }
                 }
+            }
 
-                // Show success notification
-                notification.className = 'mt-2 alert-success';
+            // Show success notification
+            if (notification) {
+                notification.className = 'mt-2 alert alert-success';
                 notification.textContent = 'Photo imported successfully!';
                 notification.style.display = 'block';
-
-                // Hide notification after 3 seconds
-                setTimeout(() => {
-                    notification.style.display = 'none';
-                }, 3000);
-            } else {
-                // Show error notification
-                notification.className = 'mt-2 alert-danger';
+                setTimeout(() => notification.style.display = 'none', 3000);
+            }
+        } else {
+            if (notification) {
+                notification.className = 'mt-2 alert alert-danger';
                 notification.textContent = data.error || 'Failed to import photo';
                 notification.style.display = 'block';
             }
-        })
-        .catch(error => {
-            console.error('Error importing photo:', error);
-            notification.className = 'mt-2 alert-danger';
+        }
+    })
+    .catch(error => {
+        console.error('Error importing photo:', error);
+        if (notification) {
+            notification.className = 'mt-2 alert alert-danger';
             notification.textContent = 'Network error. Please try again.';
             notification.style.display = 'block';
-        })
-        .finally(() => {
-            // Re-enable button
-            this.disabled = false;
-            this.textContent = originalText;
-        });
+        }
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
     });
 });
 </script>

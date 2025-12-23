@@ -1,0 +1,41 @@
+<div class="photo-upload-card {% if is_main %}photo-upload-card--main{% endif %}">
+    <div class="photo-label">
+        {% if is_main %}<i class="bi bi-star-fill main-indicator"></i> Main Photo{% else %}Photo {{ slot }}{% endif %}
+    </div>
+    <div class="photo-preview-container">
+        {% if photo %}
+            <img src="{{ photo.url }}" alt="Photo {{ slot }}" class="photo-preview" id="preview-photo-{{ slot }}">
+            <span class="photo-badge {% if just_uploaded %}tw-bg-green-500{% endif %}">
+                {% if just_uploaded %}Uploaded{% else %}Current{% endif %}
+            </span>
+        {% else %}
+            <div class="photo-placeholder" id="preview-photo-{{ slot }}">
+                <i class="bi bi-{% if is_main %}person-circle{% else %}image{% endif %}"></i>
+                <span>{% if is_main %}Required{% else %}Optional{% endif %}</span>
+            </div>
+        {% endif %}
+    </div>
+    <input type="file"
+           name="photo_{{ slot }}"
+           id="id_photo_{{ slot }}"
+           accept="image/*"
+           hx-post="{% url 'crush_lu:upload_profile_photo' slot %}"
+           hx-target="#photo-card-{{ slot }}"
+           hx-swap="innerHTML"
+           hx-encoding="multipart/form-data"
+           hx-indicator="#photo-indicator-{{ slot }}">
+    <div id="photo-indicator-{{ slot }}" class="htmx-indicator tw-mt-2 tw-text-center">
+        <span class="tw-text-crush-purple tw-text-sm">
+            <i class="bi bi-arrow-repeat tw-animate-spin"></i> Uploading...
+        </span>
+    </div>
+    <div class="photo-help">
+        {% if is_main %}
+            {% if photo %}Upload to replace{% else %}Your primary photo{% endif %}
+        {% elif slot == 2 %}
+            Show more of you
+        {% else %}
+            Add variety
+        {% endif %}
+    </div>
+</div>

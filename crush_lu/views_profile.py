@@ -399,3 +399,91 @@ def import_social_photo(request):
             'success': False,
             'error': 'Unexpected error. Please try again.'
         }, status=500)
+
+
+@crush_login_required
+@require_http_methods(["POST"])
+def upload_profile_photo(request, slot):
+    """
+    HTMX endpoint for individual photo uploads.
+    Returns the updated photo card partial for inline replacement.
+
+    POST /api/profile/upload-photo/<slot>/
+    Files: photo_<slot>
+    """
+    from django.shortcuts import get_object_or_404
+    from .forms import CrushProfileForm
+
+    # Validate slot
+    if slot not in [1, 2, 3]:
+        return render(request, 'crush_lu/partials/photo_card.html', {
+            'slot': slot,
+            'photo': None,
+            'is_main': slot == 1,
+            'error': 'Invalid photo slot',
+        })
+
+    try:
+        profile = get_object_or_404(CrushProfile, user=request.user)
+
+        # Get uploaded file
+        photo_file = request.FILES.get(f'photo_{slot}')
+        if not photo_file:
+            return render(request, 'crush_lu/partials/photo_card.html', {
+                'slot': slot,
+                'photo': getattr(profile, f'photo_{slot}'),
+                'is_main': slot == 1,
+                'error': 'No file provided',
+            })
+
+        # Validate photo using form validation
+        temp_form = CrushProfileForm(
+            data={},
+            files={f'photo_{slot}': photo_file},
+            instance=profile
+        )
+
+        # Check if the photo field is valid
+        photo_field_name = f'photo_{slot}'
+        if temp_form.fields.get(photo_field_name):
+            try:
+                cleaned_photo = temp_form.fields[photo_field_name].clean(photo_file)
+                setattr(profile, photo_field_name, cleaned_photo)
+                profile.save(update_fields=[photo_field_name])
+
+                logger.info(f"Photo {slot} uploaded for user {request.user.id}")
+
+                return render(request, 'crush_lu/partials/photo_card.html', {
+                    'slot': slot,
+                    'photo': getattr(profile, photo_field_name),
+                    'is_main': slot == 1,
+                    'just_uploaded': True,
+                })
+            except Exception as e:
+                logger.warning(f"Photo validation failed: {e}")
+                return render(request, 'crush_lu/partials/photo_card.html', {
+                    'slot': slot,
+                    'photo': getattr(profile, photo_field_name),
+                    'is_main': slot == 1,
+                    'error': str(e),
+                })
+
+        # Fallback - save without validation (shouldn't happen)
+        setattr(profile, photo_field_name, photo_file)
+        profile.save(update_fields=[photo_field_name])
+
+        return render(request, 'crush_lu/partials/photo_card.html', {
+            'slot': slot,
+            'photo': getattr(profile, photo_field_name),
+            'is_main': slot == 1,
+            'just_uploaded': True,
+        })
+
+    except Exception as e:
+        logger.error(f"Error uploading photo {slot}: {str(e)}", exc_info=True)
+        return render(request, 'crush_lu/partials/photo_card.html', {
+            'slot': slot,
+            'photo': None,
+            'is_main': slot == 1,
+            'error': 'Upload failed. Please try again.',
+        })

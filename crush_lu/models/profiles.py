@@ -400,6 +400,36 @@ class CrushProfile(models.Model):
         """Alias for location field"""
         return self.location
 
+    def save(self, *args, **kwargs):
+        """
+        Override save to enforce phone verification protection at model level.
+        Once a phone is verified, it cannot be changed without explicit reset.
+        This is the single source of truth for phone protection logic.
+        """
+        if self.pk:  # Only on update, not create
+            try:
+                old_instance = CrushProfile.objects.get(pk=self.pk)
+                if old_instance.phone_verified:
+                    # Preserve verified phone data - cannot be changed
+                    self.phone_number = old_instance.phone_number
+                    self.phone_verified = old_instance.phone_verified
+                    self.phone_verified_at = old_instance.phone_verified_at
+                    self.phone_verification_uid = old_instance.phone_verification_uid
+            except CrushProfile.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)
+
+    def reset_phone_verification(self):
+        """
+        Explicitly reset phone verification (admin/support use only).
+        This is the only way to change a verified phone number.
+        """
+        self.phone_verified = False
+        self.phone_verified_at = None
+        self.phone_verification_uid = None
+        # Use update_fields to bypass the save() protection
+        super().save(update_fields=['phone_verified', 'phone_verified_at', 'phone_verification_uid'])
+
 
 class ProfileSubmission(models.Model):
     """Track profile submissions for coach review"""
