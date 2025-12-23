@@ -30,8 +30,11 @@ class UnifiedAuthView(LoginView):
     def dispatch(self, request, *args, **kwargs):
         # Diagnostic logging for 403 debugging
         if request.method == 'POST':
+            # Check SOCIALACCOUNT_ONLY setting - this is the cause of 403!
+            from allauth import app_settings as allauth_app_settings
             logger.warning(
                 f"[LOGIN-DEBUG] POST to /login/ - "
+                f"SOCIALACCOUNT_ONLY={allauth_app_settings.SOCIALACCOUNT_ONLY}, "
                 f"has_csrf_cookie={'csrftoken' in request.COOKIES}, "
                 f"csrf_token_in_post={'csrfmiddlewaretoken' in request.POST}, "
                 f"origin={request.META.get('HTTP_ORIGIN', 'None')}, "
