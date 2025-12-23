@@ -6,6 +6,9 @@ from allauth.account.views import LoginView, LogoutView
 from allauth.account.forms import LoginForm
 from . import views
 from .forms import CrushSignupForm
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # Unified Auth View - combines login and signup in tabbed interface
@@ -25,7 +28,24 @@ class UnifiedAuthView(LoginView):
         return context
 
     def dispatch(self, request, *args, **kwargs):
+        # Diagnostic logging for 403 debugging
+        if request.method == 'POST':
+            logger.warning(
+                f"[LOGIN-DEBUG] POST to /login/ - "
+                f"has_csrf_cookie={'csrftoken' in request.COOKIES}, "
+                f"csrf_token_in_post={'csrfmiddlewaretoken' in request.POST}, "
+                f"origin={request.META.get('HTTP_ORIGIN', 'None')}, "
+                f"referer={request.META.get('HTTP_REFERER', 'None')[:80] if request.META.get('HTTP_REFERER') else 'None'}, "
+                f"host={request.get_host()}, "
+                f"content_type={request.content_type}"
+            )
         response = super().dispatch(request, *args, **kwargs)
+        # Log response status for debugging
+        if request.method == 'POST':
+            logger.warning(
+                f"[LOGIN-DEBUG] Response status={response.status_code}, "
+                f"content_length={len(response.content) if hasattr(response, 'content') else 'N/A'}"
+            )
         # Aggressive no-cache headers - critical for Android PWA
         response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         response['Pragma'] = 'no-cache'
@@ -94,6 +114,9 @@ urlpatterns = [
     # Social photo import API
     path('api/profile/social-photos/', views_profile.get_social_photos_api, name='get_social_photos_api'),
     path('api/profile/import-social-photo/', views_profile.import_social_photo, name='import_social_photo'),
+
+    # HTMX photo upload endpoint
+    path('api/profile/upload-photo/<int:slot>/', views_profile.upload_profile_photo, name='upload_profile_photo'),
 
     # Phone verification API (Firebase/Google Identity Platform)
     path('api/phone/mark-verified/', views_phone_verification.mark_phone_verified, name='api_phone_mark_verified'),

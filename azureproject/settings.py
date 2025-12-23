@@ -87,6 +87,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',  # MUST be before SafeCurrentSiteMiddleware
     'azureproject.middleware.SafeCurrentSiteMiddleware',  # Safe site detection (auto-creates missing Sites)
     'azureproject.middleware.DomainURLRoutingMiddleware',  # Multi-domain routing
+    'azureproject.middleware.LoginPostDebugMiddleware',  # DEBUG: Log /login/ POSTs before CSRF check
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',

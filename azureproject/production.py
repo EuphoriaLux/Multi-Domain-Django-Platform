@@ -354,10 +354,16 @@ LOGGING = {
             'level': 'INFO',  # Enable INFO logging for OAuth debugging
             'propagate': False,
         },
-        # CSRF failure debugging
+        # Login/CSRF debugging - WARNING level to capture debug logs
         'azureproject.middleware': {
             'handlers': ['console'],
-            'level': 'ERROR',  # Log CSRF failures
+            'level': 'WARNING',  # Log login debug and CSRF failures
+            'propagate': False,
+        },
+        # Crush.lu app logging for login debugging
+        'crush_lu': {
+            'handlers': ['console'],
+            'level': 'WARNING',  # Log login debug from UnifiedAuthView
             'propagate': False,
         },
     },

@@ -25,6 +25,39 @@ from .domains import (
 logger = logging.getLogger(__name__)
 
 
+class LoginPostDebugMiddleware:
+    """
+    Debug middleware to log ALL POST requests to /login/ BEFORE CSRF processing.
+
+    This helps diagnose if 403 errors come from CSRF middleware or elsewhere.
+    MUST be placed BEFORE CsrfViewMiddleware in MIDDLEWARE list.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Log ALL POSTs to /login/ before any processing
+        if request.method == 'POST' and request.path == '/login/':
+            logger.warning(
+                f"[PRE-CSRF-DEBUG] POST /login/ ENTERING - "
+                f"has_csrf_cookie={'csrftoken' in request.COOKIES}, "
+                f"origin={request.META.get('HTTP_ORIGIN', 'None')}, "
+                f"host={request.get_host()}"
+            )
+
+        response = self.get_response(request)
+
+        # Log response AFTER processing
+        if request.method == 'POST' and request.path == '/login/':
+            logger.warning(
+                f"[PRE-CSRF-DEBUG] POST /login/ RESPONSE - "
+                f"status={response.status_code}, "
+                f"content_length={len(response.content) if hasattr(response, 'content') else 'N/A'}"
+            )
+
+        return response
+
+
 def csrf_failure_view(request, reason=""):
     """
     Custom CSRF failure view with detailed logging.
