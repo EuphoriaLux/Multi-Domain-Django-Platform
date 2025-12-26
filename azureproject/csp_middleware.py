@@ -222,19 +222,20 @@ class CSPMiddleware:
         - () = disabled entirely
         - (self) = allowed only on same origin
         - (*) = allowed everywhere (not recommended)
+
+        Note: Only use standardized features recognized by Chrome/Firefox.
+        Deprecated/non-standard features cause console warnings:
+        - ambient-light-sensor, battery, document-domain (deprecated)
+        - execution-while-not-rendered, execution-while-out-of-viewport (never standardized)
+        - speaker-selection (not widely supported)
         """
         policies = [
-            # Disable dangerous/unused features
+            # Disable dangerous/unused features (standardized only)
             "accelerometer=()",
-            "ambient-light-sensor=()",
             "autoplay=()",
-            "battery=()",
             "camera=()",              # Not used - disable for privacy
             "display-capture=()",
-            "document-domain=()",
             "encrypted-media=()",
-            "execution-while-not-rendered=()",
-            "execution-while-out-of-viewport=()",
             "fullscreen=(self)",      # Allow fullscreen on same origin
             "gamepad=()",
             "geolocation=()",         # Not used - disable for privacy
@@ -253,7 +254,6 @@ class CSPMiddleware:
             "publickey-credentials-get=()",
             "screen-wake-lock=()",
             "serial=()",
-            "speaker-selection=()",
             "usb=()",
             "web-share=(self)",       # Allow Web Share API on same origin
             "xr-spatial-tracking=()",
