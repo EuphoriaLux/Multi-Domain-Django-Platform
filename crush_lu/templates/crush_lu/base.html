@@ -103,7 +103,7 @@
     <link rel="apple-touch-icon" sizes="57x57" href="{% static 'crush_lu/icons/ios/57.png' %}">
     <link rel="apple-touch-icon" href="{% static 'crush_lu/icons/ios/180.png' %}">
 
-    <!-- Critical CSS - Inlined for fastest FCP (above-the-fold styles) -->
+    <!-- Critical CSS - Inlined for fastest FCP/LCP (above-the-fold styles) -->
     <style>
         /* Critical CSS for Crush.lu - prevents FOUC and enables fast first paint */
         :root{--crush-pink:#FF6B9D;--crush-purple:#9B59B6;--crush-dark:#2C3E50;--crush-light:#F8F9FA}
@@ -127,6 +127,16 @@
         .flex{display:flex}.items-center{align-items:center}.justify-between{justify-content:space-between}
         .py-3{padding-top:.75rem;padding-bottom:.75rem}
         .text-white{color:#fff}
+        /* Hero section critical styles for LCP optimization */
+        .hero-section{background:linear-gradient(135deg,#9B59B6 0%,#FF6B9D 100%);color:#fff;padding:5rem 1rem;margin:-1rem -1rem 0;position:relative;overflow:hidden;border-radius:0 0 50px 50px}
+        .hero-content{position:relative;z-index:1;max-width:1200px;margin:0 auto}
+        .hero-title{font-size:clamp(2.5rem,6vw,4.5rem);font-weight:800;margin-bottom:1.5rem;line-height:1.2}
+        .hero-subtitle{font-size:clamp(1.1rem,2.5vw,1.5rem);opacity:.95;margin-bottom:2.5rem;max-width:700px}
+        .hero-emoji{font-size:clamp(8rem,20vw,15rem);display:inline-block}
+        .hero-cta{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;align-items:center}
+        .btn-hero-primary{background:#fff;color:#9B59B6;font-weight:600;padding:1rem 2.5rem;border-radius:50px;border:none;font-size:1.1rem;box-shadow:0 8px 20px rgba(0,0,0,.2);text-decoration:none;display:inline-block}
+        .btn-hero-secondary{background:rgba(255,255,255,.2);color:#fff;font-weight:600;padding:1rem 2.5rem;border-radius:50px;border:2px solid #fff;font-size:1.1rem;text-decoration:none;display:inline-block}
+        @media(max-width:767px){.hero-section{padding:3rem 1rem}.hero-cta{flex-direction:column}.hero-cta .btn-hero-primary,.hero-cta .btn-hero-secondary{width:100%;max-width:300px;text-align:center}}
     </style>
 
     <!-- Tailwind CSS (primary styling framework) -->

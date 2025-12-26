@@ -16,6 +16,7 @@
     border-radius: 0 0 50px 50px;
 }
 
+/* Decorative circles - animations deferred for better LCP */
 .hero-section::before {
     content: '';
     position: absolute;
@@ -25,7 +26,11 @@
     border-radius: 50%;
     top: -250px;
     right: -250px;
-    animation: pulse 4s ease-in-out infinite;
+    opacity: 0.5;
+    /* Animation deferred to not block initial paint */
+    animation: heroDecorPulse 4s ease-in-out infinite;
+    animation-delay: 0.5s;
+    will-change: transform, opacity;
 }
 
 .hero-section::after {
@@ -37,10 +42,15 @@
     border-radius: 50%;
     bottom: -150px;
     left: -150px;
-    animation: pulse 3s ease-in-out infinite;
+    opacity: 0.5;
+    /* Animation deferred to not block initial paint */
+    animation: heroDecorPulse 3s ease-in-out infinite;
+    animation-delay: 0.5s;
+    will-change: transform, opacity;
 }
 
-@keyframes pulse {
+/* Renamed to avoid conflict with critical CSS pulse animation */
+@keyframes heroDecorPulse {
     0%, 100% { transform: scale(1); opacity: 0.5; }
     50% { transform: scale(1.1); opacity: 0.3; }
 }
@@ -68,8 +78,11 @@
 
 .hero-emoji {
     font-size: clamp(8rem, 20vw, 15rem);
-    animation: float 3s ease-in-out infinite;
     display: inline-block;
+    /* Animation deferred to prioritize LCP text */
+    animation: float 3s ease-in-out infinite;
+    animation-delay: 0.3s;
+    will-change: transform;
 }
 
 @keyframes float {
