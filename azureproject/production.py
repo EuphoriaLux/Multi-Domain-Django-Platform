@@ -294,6 +294,36 @@ CSRF_COOKIE_HTTPONLY = False
 SECURE_SSL_REDIRECT = False
 
 # Logging configuration - reduce verbosity in production
+# ============================================================================
+# Azure Monitor OpenTelemetry Integration
+# ============================================================================
+# This sends Python logs to Application Insights where you can query them
+# using KQL in the 'traces' table. CSP violations will appear there.
+
+# Initialize Azure Monitor OpenTelemetry for logging export
+_APPINSIGHTS_CONNECTION_STRING = os.getenv('APPLICATIONINSIGHTS_CONNECTION_STRING')
+if _APPINSIGHTS_CONNECTION_STRING:
+    try:
+        from azure.monitor.opentelemetry import configure_azure_monitor
+        configure_azure_monitor(
+            connection_string=_APPINSIGHTS_CONNECTION_STRING,
+            # Only enable logging, disable traces/metrics to avoid duplication
+            # with Azure's autoinstrumentation
+            enable_live_metrics=False,
+            instrumentation_options={
+                "azure_sdk": {"enabled": False},
+                "django": {"enabled": False},  # Autoinstrumentation handles this
+                "fastapi": {"enabled": False},
+                "flask": {"enabled": False},
+                "psycopg2": {"enabled": False},
+                "requests": {"enabled": False},
+                "urllib": {"enabled": False},
+                "urllib3": {"enabled": False},
+            },
+        )
+    except ImportError:
+        pass  # azure-monitor-opentelemetry not installed
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -388,7 +418,8 @@ LOGGING = {
             'level': 'WARNING',  # Log login debug from UnifiedAuthView
             'propagate': True,  # MUST propagate to root for Azure App Insights
         },
-        # CSP violation reports
+        # CSP violation reports - sent to Application Insights via OpenTelemetry
+        # Query in App Insights: traces | where message contains "CSP Violation"
         'csp_reports': {
             'handlers': ['console'],
             'level': 'WARNING',  # Log CSP violations
