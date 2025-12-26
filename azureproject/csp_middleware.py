@@ -104,6 +104,7 @@ class CSPMiddleware:
             "https://www.gstatic.com",
             "https://apis.google.com",
             "https://www.googletagmanager.com",
+            "https://www.google.com",  # reCAPTCHA
             # Facebook SDK
             "https://connect.facebook.net",
             # Microsoft
@@ -147,6 +148,10 @@ class CSPMiddleware:
             "https://identitytoolkit.googleapis.com",
             "https://securetoken.googleapis.com",
             "https://www.googleapis.com",
+            # reCAPTCHA
+            "https://www.google.com",
+            # Geo-IP lookup for phone country detection
+            "https://ipapi.co",
             # Azure Blob Storage (media files)
             "https://*.blob.core.windows.net",
             # WebSocket for HTMX (if used)
