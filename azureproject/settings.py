@@ -82,6 +82,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'azureproject.middleware.HealthCheckMiddleware',  # MUST be first - bypasses all other middleware for /healthz/
     'django.middleware.security.SecurityMiddleware',
+    'django.middleware.gzip.GZipMiddleware',  # Compress HTML responses (27 KiB savings per Lighthouse)
     'azureproject.csp_middleware.CSPMiddleware',  # Content Security Policy header
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',

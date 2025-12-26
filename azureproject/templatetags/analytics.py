@@ -241,6 +241,11 @@ def appinsights_head(context):
     The SDK automatically correlates browser telemetry with server-side
     telemetry using the same instrumentation key.
 
+    PERFORMANCE: Loads asynchronously to avoid render-blocking.
+    - Preconnect hint for faster connection establishment
+    - SDK loaded with async attribute
+    - Stub functions queue events until SDK is ready
+
     Usage in templates:
         {% load analytics %}
         {% appinsights_head %}
@@ -266,52 +271,65 @@ def appinsights_head(context):
         user_id = hashlib.sha256(str(request.user.id).encode()).hexdigest()[:16]
 
     # Application Insights JavaScript SDK v3 (via CDN)
-    # Using the official Microsoft CDN with SRI integrity
-    script = f'''<!-- Azure Application Insights Browser SDK -->
+    # PERFORMANCE: Load asynchronously to avoid render-blocking (840ms savings)
+    # The stub functions queue events until the real SDK loads
+    script = f'''<!-- Azure Application Insights Browser SDK (async, non-blocking) -->
+<link rel="preconnect" href="https://js.monitor.azure.com" crossorigin>
 <script{nonce_attr}>
-  // Application Insights Configuration
-  var aiConfig = {{
-    connectionString: "{connection_string}",
-    enableAutoRouteTracking: true,
-    enableCorsCorrelation: true,
-    enableRequestHeaderTracking: true,
-    enableResponseHeaderTracking: true,
-    enableAjaxPerfTracking: true,
-    maxBatchInterval: 15000,
-    disableFetchTracking: false,
-    disableExceptionTracking: false,
-    autoTrackPageVisitTime: true
-  }};
-  {f'aiConfig.accountId = "{user_id}";' if user_id else ''}
-</script>
-<script src="https://js.monitor.azure.com/scripts/b/ai.3.gbl.min.js"{nonce_attr} crossorigin="anonymous"></script>
-<script{nonce_attr}>
-  // Initialize Application Insights
-  var sdkInstance = "appInsightsSDK";
-  window[sdkInstance] = "appInsights";
+  // Application Insights stub - queues events until SDK loads
   window.appInsights = window.appInsights || {{
-    config: aiConfig,
+    config: {{
+      connectionString: "{connection_string}",
+      enableAutoRouteTracking: true,
+      enableCorsCorrelation: true,
+      enableRequestHeaderTracking: true,
+      enableResponseHeaderTracking: true,
+      enableAjaxPerfTracking: true,
+      maxBatchInterval: 15000,
+      disableFetchTracking: false,
+      disableExceptionTracking: false,
+      autoTrackPageVisitTime: true
+    }},
     queue: [],
-    trackEvent: function(e) {{ this.queue.push({{ type: "trackEvent", data: e }}); }},
-    trackPageView: function(e) {{ this.queue.push({{ type: "trackPageView", data: e }}); }},
-    trackException: function(e) {{ this.queue.push({{ type: "trackException", data: e }}); }},
-    trackTrace: function(e) {{ this.queue.push({{ type: "trackTrace", data: e }}); }},
-    trackDependency: function(e) {{ this.queue.push({{ type: "trackDependency", data: e }}); }},
-    trackMetric: function(e) {{ this.queue.push({{ type: "trackMetric", data: e }}); }},
-    setAuthenticatedUserContext: function(a, b) {{ this.queue.push({{ type: "setAuthenticatedUserContext", accountId: a, authenticatedUserId: b }}); }},
-    clearAuthenticatedUserContext: function() {{ this.queue.push({{ type: "clearAuthenticatedUserContext" }}); }}
+    trackEvent: function(e) {{ this.queue.push(["trackEvent", e]); }},
+    trackPageView: function(e) {{ this.queue.push(["trackPageView", e]); }},
+    trackException: function(e) {{ this.queue.push(["trackException", e]); }},
+    trackTrace: function(e) {{ this.queue.push(["trackTrace", e]); }},
+    trackDependency: function(e) {{ this.queue.push(["trackDependency", e]); }},
+    trackMetric: function(e) {{ this.queue.push(["trackMetric", e]); }},
+    setAuthenticatedUserContext: function(a, b) {{ this.queue.push(["setAuthenticatedUserContext", a, b]); }},
+    clearAuthenticatedUserContext: function() {{ this.queue.push(["clearAuthenticatedUserContext"]); }}
   }};
-
-  // Process queue when SDK loads
-  (function(sdk) {{
-    if (sdk.appInsights && sdk.appInsights.config) {{
-      var appInsights = new sdk.ApplicationInsights({{config: aiConfig}});
-      appInsights.loadAppInsights();
-      appInsights.trackPageView();
-      window.appInsights = appInsights;
-      {f'appInsights.setAuthenticatedUserContext("{user_id}");' if user_id else ''}
-    }}
-  }})(window.Microsoft || {{}});
+  {f'window.appInsights.queue.push(["setAuthenticatedUserContext", "{user_id}"]);' if user_id else ''}
+</script>
+<script{nonce_attr}>
+  // Load SDK asynchronously (non-blocking)
+  (function() {{
+    var script = document.createElement('script');
+    script.src = 'https://js.monitor.azure.com/scripts/b/ai.3.gbl.min.js';
+    script.crossOrigin = 'anonymous';
+    script.async = true;
+    {f'script.nonce = "{nonce}";' if nonce else ''}
+    script.onload = function() {{
+      // SDK loaded - initialize and process queued events
+      if (window.Microsoft && window.Microsoft.ApplicationInsights) {{
+        var ai = new window.Microsoft.ApplicationInsights.ApplicationInsights({{config: window.appInsights.config}});
+        ai.loadAppInsights();
+        // Process queued events
+        var queue = window.appInsights.queue || [];
+        for (var i = 0; i < queue.length; i++) {{
+          var item = queue[i];
+          var method = item[0];
+          if (typeof ai[method] === 'function') {{
+            ai[method].apply(ai, item.slice(1));
+          }}
+        }}
+        ai.trackPageView();
+        window.appInsights = ai;
+      }}
+    }};
+    document.head.appendChild(script);
+  }})();
 </script>'''
 
     return mark_safe(script)
