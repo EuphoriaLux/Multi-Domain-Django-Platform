@@ -12,13 +12,13 @@
             </p>
         </div>
         <div class="cookie-banner-actions">
-            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="showCookieSettings()">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="cookie-btn-customize">
                 {% trans "Customize" %}
             </button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="declineAllCookies()">
+            <button type="button" class="btn btn-secondary btn-sm" id="cookie-btn-decline">
                 {% trans "Decline All" %}
             </button>
-            <button type="button" class="btn btn-primary btn-sm" onclick="acceptAllCookies()">
+            <button type="button" class="btn btn-primary btn-sm" id="cookie-btn-accept">
                 {% trans "Accept All" %}
             </button>
         </div>
@@ -30,7 +30,7 @@
     <div class="cookie-modal-content">
         <div class="cookie-modal-header">
             <h4 id="cookie-settings-title">{% trans "Cookie Preferences" %}</h4>
-            <button type="button" class="cookie-modal-close" onclick="hideCookieSettings()" aria-label="{% trans 'Close' %}">&times;</button>
+            <button type="button" class="cookie-modal-close" id="cookie-modal-close" aria-label="{% trans 'Close' %}">&times;</button>
         </div>
         <div class="cookie-modal-body">
             <div class="cookie-group">
@@ -80,8 +80,8 @@
             </div>
         </div>
         <div class="cookie-modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="hideCookieSettings()">{% trans "Cancel" %}</button>
-            <button type="button" class="btn btn-primary" onclick="saveCustomCookies()">{% trans "Save Preferences" %}</button>
+            <button type="button" class="btn btn-secondary" id="cookie-btn-cancel">{% trans "Cancel" %}</button>
+            <button type="button" class="btn btn-primary" id="cookie-btn-save">{% trans "Save Preferences" %}</button>
         </div>
     </div>
 </div>
@@ -350,7 +350,7 @@
         document.cookie = 'cookie_consent_' + groupName + "=" + value + ";" + expires + ";path=/;SameSite=Lax";
     }
 
-    window.acceptAllCookies = function() {
+    function acceptAllCookies() {
         const consent = {
             essential: true,
             analytics: true,
@@ -362,9 +362,9 @@
         setDjangoCookieConsent('marketing', true);
         hideBanner();
         dispatchConsentEvent(consent);
-    };
+    }
 
-    window.declineAllCookies = function() {
+    function declineAllCookies() {
         const consent = {
             essential: true,
             analytics: false,
@@ -376,17 +376,17 @@
         setDjangoCookieConsent('marketing', false);
         hideBanner();
         dispatchConsentEvent(consent);
-    };
+    }
 
-    window.showCookieSettings = function() {
+    function showCookieSettings() {
         document.getElementById('cookie-settings-modal').style.display = 'flex';
-    };
+    }
 
-    window.hideCookieSettings = function() {
+    function hideCookieSettings() {
         document.getElementById('cookie-settings-modal').style.display = 'none';
-    };
+    }
 
-    window.saveCustomCookies = function() {
+    function saveCustomCookies() {
         const analyticsChecked = document.getElementById('cookie-analytics').checked;
         const marketingChecked = document.getElementById('cookie-marketing').checked;
 
@@ -403,7 +403,7 @@
         hideBanner();
         hideCookieSettings();
         dispatchConsentEvent(consent);
-    };
+    }
 
     // Close modal on outside click
     document.addEventListener('click', function(e) {
@@ -420,8 +420,31 @@
         }
     });
 
+    // Bind button event listeners (CSP-compliant - no inline handlers)
+    function bindButtonEvents() {
+        // Banner buttons
+        var btnCustomize = document.getElementById('cookie-btn-customize');
+        var btnDecline = document.getElementById('cookie-btn-decline');
+        var btnAccept = document.getElementById('cookie-btn-accept');
+
+        // Modal buttons
+        var btnModalClose = document.getElementById('cookie-modal-close');
+        var btnCancel = document.getElementById('cookie-btn-cancel');
+        var btnSave = document.getElementById('cookie-btn-save');
+
+        if (btnCustomize) btnCustomize.addEventListener('click', showCookieSettings);
+        if (btnDecline) btnDecline.addEventListener('click', declineAllCookies);
+        if (btnAccept) btnAccept.addEventListener('click', acceptAllCookies);
+        if (btnModalClose) btnModalClose.addEventListener('click', hideCookieSettings);
+        if (btnCancel) btnCancel.addEventListener('click', hideCookieSettings);
+        if (btnSave) btnSave.addEventListener('click', saveCustomCookies);
+    }
+
     // Check if consent already given on page load
     document.addEventListener('DOMContentLoaded', function() {
+        // Bind event listeners
+        bindButtonEvents();
+
         const consent = getCookie(COOKIE_NAME);
         if (!consent) {
             // No consent cookie found - show banner
