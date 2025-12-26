@@ -288,7 +288,9 @@ def appinsights_head(context):
       maxBatchInterval: 15000,
       disableFetchTracking: false,
       disableExceptionTracking: false,
-      autoTrackPageVisitTime: true
+      autoTrackPageVisitTime: false,  // Disabled to avoid deprecated 'unload' event warning
+      disableFlushOnBeforeUnload: true,  // Don't flush on beforeUnload (avoids deprecated event)
+      onunloadDisableBeacon: true  // Don't use Beacon API on unload
     }},
     queue: [],
     trackEvent: function(e) {{ this.queue.push(["trackEvent", e]); }},
