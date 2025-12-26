@@ -4,40 +4,42 @@
 {% block title %}Account Settings - Crush.lu{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <h1 class="mb-4">Account Settings</h1>
+<div class="flex justify-center">
+    <div class="w-full max-w-3xl">
+        <h1 class="text-3xl font-bold text-gray-900 mb-6">Account Settings</h1>
 
         <!-- Account Info Card -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-person-circle me-2"></i>Account Information</h5>
+        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+                    {% include "crush_lu/icons/user-circle.html" with class="w-5 h-5 text-purple-600" %}Account Information
+                </h5>
             </div>
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-sm-4 text-muted">Email</div>
-                    <div class="col-sm-8">{{ user.email }}</div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                    <div class="text-gray-500">Email</div>
+                    <div class="sm:col-span-2 text-gray-900">{{ user.email }}</div>
                 </div>
-                <div class="row mb-3">
-                    <div class="col-sm-4 text-muted">Name</div>
-                    <div class="col-sm-8">{{ user.first_name }} {{ user.last_name }}</div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                    <div class="text-gray-500">Name</div>
+                    <div class="sm:col-span-2 text-gray-900">{{ user.first_name }} {{ user.last_name }}</div>
                 </div>
-                <div class="row mb-3">
-                    <div class="col-sm-4 text-muted">Member since</div>
-                    <div class="col-sm-8">{{ user.date_joined|date:"F j, Y" }}</div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                    <div class="text-gray-500">Member since</div>
+                    <div class="sm:col-span-2 text-gray-900">{{ user.date_joined|date:"F j, Y" }}</div>
                 </div>
                 {% if crush_social_accounts %}
-                <div class="row">
-                    <div class="col-sm-4 text-muted">Connected accounts</div>
-                    <div class="col-sm-8">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="text-gray-500">Connected accounts</div>
+                    <div class="sm:col-span-2">
                         {% for social in crush_social_accounts %}
-                        <span class="badge bg-primary me-1">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 mr-1">
                             {% if social.provider == 'facebook' %}
-                            <i class="fab fa-facebook me-1"></i>
+                            <i class="fab fa-facebook mr-1"></i>
                             {% elif social.provider == 'google' %}
-                            <i class="fab fa-google me-1"></i>
+                            <i class="fab fa-google mr-1"></i>
                             {% elif social.provider == 'microsoft' %}
-                            <i class="fab fa-microsoft me-1"></i>
+                            <i class="fab fa-microsoft mr-1"></i>
                             {% endif %}
                             {{ social.provider|title }}
                         </span>
@@ -49,12 +51,14 @@
         </div>
 
         <!-- Linked Accounts Card -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-link-45deg me-2"></i>Linked Accounts</h5>
+        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+                    {% include "crush_lu/icons/link.html" with class="w-5 h-5 text-purple-600" %}Linked Accounts
+                </h5>
             </div>
-            <div class="card-body">
-                <p class="text-muted mb-4">
+            <div class="p-6">
+                <p class="text-gray-500 mb-6">
                     Connect additional social accounts for easier login. You can use any connected account to log in.
                 </p>
 
@@ -62,39 +66,39 @@
 
                 <!-- Currently Connected Accounts (Crush.lu providers only) -->
                 {% if crush_social_accounts %}
-                <h6 class="mb-3">Connected</h6>
-                <div class="list-group mb-4">
+                <h6 class="text-sm font-semibold text-gray-700 mb-3">Connected</h6>
+                <div class="divide-y divide-gray-100 mb-6">
                     {% for social in crush_social_accounts %}
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
+                    <div class="py-4 flex justify-between items-center">
+                        <div class="flex items-center">
                             {% if social.provider == 'facebook' %}
-                            <i class="fab fa-facebook text-primary me-2" style="font-size: 1.5rem;"></i>
-                            <span class="fw-semibold">Facebook</span>
+                            <i class="fab fa-facebook text-blue-600 mr-3 text-2xl"></i>
+                            <span class="font-semibold">Facebook</span>
                             {% elif social.provider == 'google' %}
-                            <i class="fab fa-google text-danger me-2" style="font-size: 1.5rem;"></i>
-                            <span class="fw-semibold">Google</span>
+                            <i class="fab fa-google text-red-500 mr-3 text-2xl"></i>
+                            <span class="font-semibold">Google</span>
                             {% elif social.provider == 'microsoft' %}
-                            <i class="fab fa-microsoft text-info me-2" style="font-size: 1.5rem;"></i>
-                            <span class="fw-semibold">Microsoft</span>
+                            <i class="fab fa-microsoft text-blue-400 mr-3 text-2xl"></i>
+                            <span class="font-semibold">Microsoft</span>
                             {% else %}
-                            <i class="bi bi-link-45deg me-2" style="font-size: 1.5rem;"></i>
-                            <span class="fw-semibold">{{ social.provider|title }}</span>
+                            {% include "crush_lu/icons/link.html" with class="w-7 h-7" %}
+                            <span class="font-semibold">{{ social.provider|title }}</span>
                             {% endif %}
                             {% if social.extra_data.email %}
-                            <small class="text-muted d-block ps-4">{{ social.extra_data.email }}</small>
+                            <small class="text-gray-500 ml-2">{{ social.extra_data.email }}</small>
                             {% endif %}
                         </div>
                         {% if crush_social_accounts.count > 1 or user.has_usable_password %}
                         <form method="post" action="{% url 'crush_lu:disconnect_social_account' social.id %}"
                               onsubmit="return confirm('Are you sure you want to disconnect this {{ social.provider|title }} account?');">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-outline-danger btn-sm">
-                                <i class="bi bi-x-lg me-1"></i>Disconnect
+                            <button type="submit" class="border border-red-300 text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg text-sm transition-colors flex items-center">
+                                {% include "crush_lu/icons/x-mark.html" with class="w-5 h-5" %}Disconnect
                             </button>
                         </form>
                         {% else %}
-                        <span class="badge bg-secondary" title="You need at least one login method">
-                            <i class="bi bi-lock me-1"></i>Required
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600" title="You need at least one login method">
+                            {% include "crush_lu/icons/lock-closed.html" with class="w-5 h-5" %}Required
                         </span>
                         {% endif %}
                     </div>
@@ -104,50 +108,50 @@
 
                 <!-- Available Providers to Connect -->
                 {% if google_available and not google_connected or facebook_available and not facebook_connected or microsoft_available and not microsoft_connected %}
-                <h6 class="mb-3">Connect More Accounts</h6>
-                <div class="d-flex flex-wrap gap-2">
+                <h6 class="text-sm font-semibold text-gray-700 mb-3">Connect More Accounts</h6>
+                <div class="flex flex-wrap gap-2">
                     {% if google_available and not google_connected %}
-                    <a href="{% provider_login_url 'google' process='connect' %}" class="btn btn-outline-danger">
-                        <i class="fab fa-google me-2"></i>Connect Google
+                    <a href="{% provider_login_url 'google' process='connect' %}" class="border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors flex items-center">
+                        <i class="fab fa-google mr-2"></i>Connect Google
                     </a>
                     {% endif %}
                     {% if facebook_available and not facebook_connected %}
-                    <a href="{% provider_login_url 'facebook' process='connect' %}" class="btn btn-outline-primary">
-                        <i class="fab fa-facebook me-2"></i>Connect Facebook
+                    <a href="{% provider_login_url 'facebook' process='connect' %}" class="border border-blue-300 text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors flex items-center">
+                        <i class="fab fa-facebook mr-2"></i>Connect Facebook
                     </a>
                     {% endif %}
                     {% if microsoft_available and not microsoft_connected %}
-                    <a href="{% provider_login_url 'microsoft' process='connect' %}" class="btn btn-outline-info">
-                        <i class="fab fa-microsoft me-2"></i>Connect Microsoft
+                    <a href="{% provider_login_url 'microsoft' process='connect' %}" class="border border-sky-300 text-sky-600 hover:bg-sky-50 px-4 py-2 rounded-lg transition-colors flex items-center">
+                        <i class="fab fa-microsoft mr-2"></i>Connect Microsoft
                     </a>
                     {% endif %}
                 </div>
                 {% endif %}
 
                 {% if not crush_social_accounts %}
-                <p class="text-muted mb-3">
+                <p class="text-gray-500 mb-4">
                     You don't have any social accounts connected yet.
                 </p>
                 {% if google_available or facebook_available or microsoft_available %}
-                <div class="d-flex flex-wrap gap-2">
+                <div class="flex flex-wrap gap-2">
                     {% if google_available %}
-                    <a href="{% provider_login_url 'google' process='connect' %}" class="btn btn-outline-danger">
-                        <i class="fab fa-google me-2"></i>Connect Google
+                    <a href="{% provider_login_url 'google' process='connect' %}" class="border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors flex items-center">
+                        <i class="fab fa-google mr-2"></i>Connect Google
                     </a>
                     {% endif %}
                     {% if facebook_available %}
-                    <a href="{% provider_login_url 'facebook' process='connect' %}" class="btn btn-outline-primary">
-                        <i class="fab fa-facebook me-2"></i>Connect Facebook
+                    <a href="{% provider_login_url 'facebook' process='connect' %}" class="border border-blue-300 text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors flex items-center">
+                        <i class="fab fa-facebook mr-2"></i>Connect Facebook
                     </a>
                     {% endif %}
                     {% if microsoft_available %}
-                    <a href="{% provider_login_url 'microsoft' process='connect' %}" class="btn btn-outline-info">
-                        <i class="fab fa-microsoft me-2"></i>Connect Microsoft
+                    <a href="{% provider_login_url 'microsoft' process='connect' %}" class="border border-sky-300 text-sky-600 hover:bg-sky-50 px-4 py-2 rounded-lg transition-colors flex items-center">
+                        <i class="fab fa-microsoft mr-2"></i>Connect Microsoft
                     </a>
                     {% endif %}
                 </div>
                 {% else %}
-                <p class="text-muted small">Social login providers are not configured for this site.</p>
+                <p class="text-gray-400 text-sm">Social login providers are not configured for this site.</p>
                 {% endif %}
                 {% endif %}
             </div>
@@ -155,53 +159,53 @@
 
         <!-- Social Account Photos Card (Display Only) -->
         {% if social_photos %}
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-camera me-2"></i>Social Account Photos</h5>
+        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+                    {% include "crush_lu/icons/camera.html" with class="w-5 h-5 text-purple-600" %}Social Account Photos
+                </h5>
             </div>
-            <div class="card-body">
-                <p class="text-muted mb-3">
+            <div class="p-6">
+                <p class="text-gray-500 mb-4">
                     Photos from your connected social accounts. To use these photos on your dating profile,
-                    go to <a href="{% url 'crush_lu:edit_profile_simple' %}">Edit Profile</a>.
+                    go to <a href="{% url 'crush_lu:edit_profile_simple' %}" class="text-purple-600 hover:text-purple-800">Edit Profile</a>.
                 </p>
 
-                <div class="row g-3">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {% for photo in social_photos %}
-                    <div class="col-md-4">
-                        <div class="social-photo-card">
-                            <div class="provider-badge">
-                                {% if photo.provider == 'facebook' %}
-                                <i class="fab fa-facebook text-primary"></i>
-                                {% elif photo.provider == 'google' %}
-                                <i class="fab fa-google text-danger"></i>
-                                {% elif photo.provider == 'microsoft' %}
-                                <i class="fab fa-microsoft text-info"></i>
-                                {% endif %}
-                                {{ photo.provider_display }}
-                            </div>
-
-                            {% if photo.available %}
-                            <div class="social-photo-preview">
-                                <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }} photo">
-                            </div>
-                            <small class="text-success mt-2 d-block">
-                                <i class="bi bi-check-circle"></i> Available
-                            </small>
-                            {% else %}
-                            <div class="no-photo-placeholder">
-                                <i class="bi bi-image"></i>
-                                <span>{{ photo.reason }}</span>
-                            </div>
+                    <div class="social-photo-card">
+                        <div class="provider-badge">
+                            {% if photo.provider == 'facebook' %}
+                            <i class="fab fa-facebook text-blue-600"></i>
+                            {% elif photo.provider == 'google' %}
+                            <i class="fab fa-google text-red-500"></i>
+                            {% elif photo.provider == 'microsoft' %}
+                            <i class="fab fa-microsoft text-sky-500"></i>
                             {% endif %}
+                            {{ photo.provider_display }}
                         </div>
+
+                        {% if photo.available %}
+                        <div class="social-photo-preview">
+                            <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }} photo">
+                        </div>
+                        <small class="text-green-600 mt-2 block">
+                            {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Available
+                        </small>
+                        {% else %}
+                        <div class="no-photo-placeholder">
+                            {% include "crush_lu/icons/photo.html" with class="w-5 h-5" %}
+                            <span>{{ photo.reason }}</span>
+                        </div>
+                        {% endif %}
                     </div>
                     {% endfor %}
                 </div>
 
                 {% if user.crushprofile %}
-                <div class="text-center mt-4">
-                    <a href="{% url 'crush_lu:edit_profile_simple' %}" class="btn btn-outline-primary">
-                        <i class="bi bi-cloud-download me-2"></i>Import Photos to Profile
+                <div class="text-center mt-6">
+                    <a href="{% url 'crush_lu:edit_profile_simple' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                        {% include "crush_lu/icons/cloud-arrow-down.html" with class="w-5 h-5" %}Import Photos to Profile
                     </a>
                 </div>
                 {% endif %}
@@ -212,213 +216,222 @@
         <!-- Password Management Card -->
         {% if crush_social_accounts and not user.has_usable_password %}
         <!-- Set Password Card (for social login users without password) -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-key me-2"></i>Password Login</h5>
+        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+                    {% include "crush_lu/icons/key.html" with class="w-5 h-5 text-purple-600" %}Password Login
+                </h5>
             </div>
-            <div class="card-body">
-                <p class="text-muted mb-3">
+            <div class="p-6">
+                <p class="text-gray-500 mb-4">
                     You can set a password to enable login with your email ({{ user.email }})
                     in addition to your
                     {% for social in crush_social_accounts %}
                         {{ social.provider|title }}{% if not forloop.last %}, {% endif %}
                     {% endfor %} account.
                 </p>
-                <a href="{% url 'crush_lu:set_password' %}" class="btn btn-outline-primary">
-                    <i class="bi bi-key me-2"></i>Set Password
+                <a href="{% url 'crush_lu:set_password' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                    {% include "crush_lu/icons/key.html" with class="w-5 h-5" %}Set Password
                 </a>
             </div>
         </div>
         {% elif user.has_usable_password %}
         <!-- Change Password Card (for users with password) -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-key me-2"></i>Password</h5>
+        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+                    {% include "crush_lu/icons/key.html" with class="w-5 h-5 text-purple-600" %}Password
+                </h5>
             </div>
-            <div class="card-body">
-                <p class="text-muted mb-3">
+            <div class="p-6">
+                <p class="text-gray-500 mb-4">
                     You have a password set for email login.
                     {% if crush_social_accounts %}
                     You can also login with your connected social accounts.
                     {% endif %}
                 </p>
-                <a href="{% url 'account_change_password' %}" class="btn btn-outline-primary">
-                    <i class="bi bi-pencil me-2"></i>Change Password
+                <a href="{% url 'account_change_password' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                    {% include "crush_lu/icons/pencil.html" with class="w-5 h-5" %}Change Password
                 </a>
             </div>
         </div>
         {% endif %}
 
         <!-- Profile Link Card -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-heart me-2"></i>Dating Profile</h5>
+        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+                    {% include "crush_lu/icons/heart.html" with class="w-5 h-5 text-purple-600" %}Dating Profile
+                </h5>
             </div>
-            <div class="card-body">
+            <div class="p-6">
                 {% if user.crushprofile %}
-                <p class="mb-3">
-                    <span class="badge {% if user.crushprofile.is_approved %}bg-success{% else %}bg-warning{% endif %}">
+                <p class="mb-4">
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium {% if user.crushprofile.is_approved %}bg-green-100 text-green-800{% else %}bg-amber-100 text-amber-800{% endif %}">
                         {% if user.crushprofile.is_approved %}Approved{% else %}Pending Review{% endif %}
                     </span>
                 </p>
-                <a href="{% url 'crush_lu:edit_profile' %}" class="btn btn-outline-primary">
-                    <i class="bi bi-pencil me-2"></i>Edit Profile
+                <a href="{% url 'crush_lu:edit_profile' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                    {% include "crush_lu/icons/pencil.html" with class="w-5 h-5" %}Edit Profile
                 </a>
                 {% else %}
-                <p class="text-muted mb-3">You haven't created a dating profile yet.</p>
-                <a href="{% url 'crush_lu:create_profile' %}" class="btn btn-crush-primary">
-                    <i class="bi bi-plus-circle me-2"></i>Create Profile
+                <p class="text-gray-500 mb-4">You haven't created a dating profile yet.</p>
+                <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary px-4 py-2 rounded-lg inline-flex items-center">
+                    {% include "crush_lu/icons/plus-circle.html" with class="w-5 h-5" %}Create Profile
                 </a>
                 {% endif %}
             </div>
         </div>
 
         <!-- Email Notifications Card -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-bell me-2"></i>Email Notifications</h5>
+        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+                    {% include "crush_lu/icons/bell.html" with class="w-5 h-5 text-purple-600" %}Email Notifications
+                </h5>
             </div>
-            <div class="card-body">
-                <form method="post" action="{% url 'crush_lu:update_email_preferences' %}">
+            <div class="p-6">
+                <form method="post" action="{% url 'crush_lu:update_email_preferences' %}" x-data="{ unsubscribeAll: {{ email_prefs.unsubscribed_all|yesno:'true,false' }} }">
                     {% csrf_token %}
 
                     {% if email_prefs.unsubscribed_all %}
-                    <div class="alert alert-warning mb-3">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
+                    <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 mb-4">
+                        {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}
                         You have unsubscribed from all emails. Toggle the switch below to re-enable notifications.
                     </div>
                     {% endif %}
 
-                    <div class="mb-4">
-                        <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" role="switch"
-                                   id="unsubscribed_all" name="unsubscribed_all"
-                                   {% if email_prefs.unsubscribed_all %}checked{% endif %}
-                                   onchange="toggleAllNotifications(this.checked)">
-                            <label class="form-check-label fw-bold text-danger" for="unsubscribed_all">
-                                Unsubscribe from ALL emails
+                    <div class="mb-6">
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" class="sr-only peer" name="unsubscribed_all"
+                                   x-model="unsubscribeAll"
+                                   {% if email_prefs.unsubscribed_all %}checked{% endif %}>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                            <span class="ml-3 text-sm font-bold text-red-600">Unsubscribe from ALL emails</span>
+                        </label>
+                    </div>
+
+                    <hr class="my-6 border-gray-200">
+
+                    <div :class="{ 'opacity-50 pointer-events-none': unsubscribeAll }">
+                        <p class="text-gray-500 text-sm mb-4">Choose which emails you'd like to receive:</p>
+
+                        <div class="space-y-4">
+                            <label class="flex items-start cursor-pointer">
+                                <div class="relative mt-0.5">
+                                    <input type="checkbox" class="sr-only peer" name="email_profile_updates"
+                                           {% if email_prefs.email_profile_updates %}checked{% endif %}>
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                </div>
+                                <div class="ml-3">
+                                    <strong class="text-gray-900">Profile Updates</strong>
+                                    <p class="text-gray-500 text-sm">Emails about profile approval, revision requests</p>
+                                </div>
+                            </label>
+
+                            <label class="flex items-start cursor-pointer">
+                                <div class="relative mt-0.5">
+                                    <input type="checkbox" class="sr-only peer" name="email_event_reminders"
+                                           {% if email_prefs.email_event_reminders %}checked{% endif %}>
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                </div>
+                                <div class="ml-3">
+                                    <strong class="text-gray-900">Event Reminders</strong>
+                                    <p class="text-gray-500 text-sm">Reminders about upcoming events you're registered for</p>
+                                </div>
+                            </label>
+
+                            <label class="flex items-start cursor-pointer">
+                                <div class="relative mt-0.5">
+                                    <input type="checkbox" class="sr-only peer" name="email_new_connections"
+                                           {% if email_prefs.email_new_connections %}checked{% endif %}>
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                </div>
+                                <div class="ml-3">
+                                    <strong class="text-gray-900">New Connections</strong>
+                                    <p class="text-gray-500 text-sm">Notifications about new connection requests</p>
+                                </div>
+                            </label>
+
+                            <label class="flex items-start cursor-pointer">
+                                <div class="relative mt-0.5">
+                                    <input type="checkbox" class="sr-only peer" name="email_new_messages"
+                                           {% if email_prefs.email_new_messages %}checked{% endif %}>
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                </div>
+                                <div class="ml-3">
+                                    <strong class="text-gray-900">New Messages</strong>
+                                    <p class="text-gray-500 text-sm">Notifications about new messages from connections</p>
+                                </div>
+                            </label>
+
+                            <hr class="my-4 border-gray-200">
+
+                            <label class="flex items-start cursor-pointer">
+                                <div class="relative mt-0.5">
+                                    <input type="checkbox" class="sr-only peer" name="email_marketing"
+                                           {% if email_prefs.email_marketing %}checked{% endif %}>
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                </div>
+                                <div class="ml-3">
+                                    <strong class="text-gray-900">Marketing & Promotions</strong>
+                                    <p class="text-gray-500 text-sm">Newsletters, special offers, and promotions</p>
+                                </div>
                             </label>
                         </div>
                     </div>
 
-                    <hr>
-
-                    <div id="notification-options" {% if email_prefs.unsubscribed_all %}style="opacity: 0.5; pointer-events: none;"{% endif %}>
-                        <p class="text-muted small mb-3">Choose which emails you'd like to receive:</p>
-
-                        <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" role="switch"
-                                   id="email_profile_updates" name="email_profile_updates"
-                                   {% if email_prefs.email_profile_updates %}checked{% endif %}>
-                            <label class="form-check-label" for="email_profile_updates">
-                                <strong>Profile Updates</strong>
-                                <br><small class="text-muted">Emails about profile approval, revision requests</small>
-                            </label>
-                        </div>
-
-                        <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" role="switch"
-                                   id="email_event_reminders" name="email_event_reminders"
-                                   {% if email_prefs.email_event_reminders %}checked{% endif %}>
-                            <label class="form-check-label" for="email_event_reminders">
-                                <strong>Event Reminders</strong>
-                                <br><small class="text-muted">Reminders about upcoming events you're registered for</small>
-                            </label>
-                        </div>
-
-                        <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" role="switch"
-                                   id="email_new_connections" name="email_new_connections"
-                                   {% if email_prefs.email_new_connections %}checked{% endif %}>
-                            <label class="form-check-label" for="email_new_connections">
-                                <strong>New Connections</strong>
-                                <br><small class="text-muted">Notifications about new connection requests</small>
-                            </label>
-                        </div>
-
-                        <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" role="switch"
-                                   id="email_new_messages" name="email_new_messages"
-                                   {% if email_prefs.email_new_messages %}checked{% endif %}>
-                            <label class="form-check-label" for="email_new_messages">
-                                <strong>New Messages</strong>
-                                <br><small class="text-muted">Notifications about new messages from connections</small>
-                            </label>
-                        </div>
-
-                        <hr>
-
-                        <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" role="switch"
-                                   id="email_marketing" name="email_marketing"
-                                   {% if email_prefs.email_marketing %}checked{% endif %}>
-                            <label class="form-check-label" for="email_marketing">
-                                <strong>Marketing & Promotions</strong>
-                                <br><small class="text-muted">Newsletters, special offers, and promotions</small>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="mt-4">
-                        <button type="submit" class="btn btn-crush-primary">
-                            <i class="bi bi-check-lg me-2"></i>Save Preferences
+                    <div class="mt-6">
+                        <button type="submit" class="btn-crush-primary px-6 py-2 rounded-lg inline-flex items-center">
+                            {% include "crush_lu/icons/check.html" with class="w-5 h-5" %}Save Preferences
                         </button>
                     </div>
                 </form>
             </div>
         </div>
 
-        <script>
-        function toggleAllNotifications(unsubscribeAll) {
-            const optionsDiv = document.getElementById('notification-options');
-            if (unsubscribeAll) {
-                optionsDiv.style.opacity = '0.5';
-                optionsDiv.style.pointerEvents = 'none';
-            } else {
-                optionsDiv.style.opacity = '1';
-                optionsDiv.style.pointerEvents = 'auto';
-            }
-        }
-        </script>
-
         <!-- Privacy Card -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-shield-lock me-2"></i>Privacy & Data</h5>
+        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+                    {% include "crush_lu/icons/shield-check.html" with class="w-5 h-5 text-purple-600" %}Privacy & Data
+                </h5>
             </div>
-            <div class="card-body">
-                <div class="d-flex flex-column gap-3">
-                    <a href="{% url 'crush_lu:privacy_policy' %}" class="text-decoration-none">
-                        <i class="bi bi-file-text me-2"></i>Privacy Policy
+            <div class="p-6">
+                <div class="flex flex-col gap-3">
+                    <a href="{% url 'crush_lu:privacy_policy' %}" class="text-purple-600 hover:text-purple-800 flex items-center">
+                        {% include "crush_lu/icons/document-text.html" with class="w-5 h-5" %}Privacy Policy
                     </a>
-                    <a href="{% url 'crush_lu:data_deletion' %}" class="text-decoration-none">
-                        <i class="bi bi-info-circle me-2"></i>Data Deletion Information
+                    <a href="{% url 'crush_lu:data_deletion' %}" class="text-purple-600 hover:text-purple-800 flex items-center">
+                        {% include "crush_lu/icons/information-circle.html" with class="w-5 h-5" %}Data Deletion Information
                     </a>
                 </div>
             </div>
         </div>
 
         <!-- Danger Zone Card -->
-        <div class="card border-danger">
-            <div class="card-header bg-danger text-white">
-                <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Danger Zone</h5>
+        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden border-2 border-red-500">
+            <div class="bg-red-500 text-white px-6 py-4">
+                <h5 class="text-lg font-semibold flex items-center">
+                    {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}Danger Zone
+                </h5>
             </div>
-            <div class="card-body">
-                <h6 class="text-danger">Delete Account</h6>
-                <p class="text-muted small mb-3">
+            <div class="p-6">
+                <h6 class="font-semibold text-red-600 mb-2">Delete Account</h6>
+                <p class="text-gray-500 text-sm mb-4">
                     Once you delete your account, there is no going back. All your data including
                     your profile, photos, event registrations, connections, and messages will be
                     permanently deleted.
                 </p>
-                <a href="{% url 'crush_lu:delete_account' %}" class="btn btn-outline-danger">
-                    <i class="bi bi-trash me-2"></i>Delete My Account
+                <a href="{% url 'crush_lu:delete_account' %}" class="border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                    {% include "crush_lu/icons/trash.html" with class="w-5 h-5" %}Delete My Account
                 </a>
             </div>
         </div>
 
-        <div class="text-center mt-4">
-            <a href="{% url 'crush_lu:dashboard' %}" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
+        <div class="text-center mt-6">
+            <a href="{% url 'crush_lu:dashboard' %}" class="border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %}Back to Dashboard
             </a>
         </div>
     </div>

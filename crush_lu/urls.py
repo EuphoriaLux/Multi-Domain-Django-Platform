@@ -2,10 +2,12 @@ from django.urls import path
 from django.views.decorators.cache import never_cache
 from django.shortcuts import render, redirect
 from django.contrib import messages
+from django.http import HttpResponse
 from allauth.account.views import LoginView, LogoutView
 from allauth.account.forms import LoginForm
 from . import views
 from .forms import CrushSignupForm
+from .throttling import LoginRateThrottle
 import logging
 
 logger = logging.getLogger(__name__)
@@ -28,6 +30,19 @@ class UnifiedAuthView(LoginView):
         return context
 
     def dispatch(self, request, *args, **kwargs):
+        # Rate limiting for POST requests (login attempts)
+        if request.method == 'POST':
+            throttle = LoginRateThrottle()
+            if not throttle.allow_request(request, self):
+                wait = throttle.wait()
+                logger.warning(f"[RATE-LIMIT] Login rate limit exceeded for IP: {throttle.get_ident(request)}")
+                return HttpResponse(
+                    f'Too many login attempts. Please try again in {int(wait)} seconds.',
+                    status=429,
+                    content_type='text/plain',
+                    headers={'Retry-After': str(int(wait))}
+                )
+
         # Diagnostic logging for 403 debugging
         if request.method == 'POST':
             # Check SOCIALACCOUNT_ONLY setting - this could be the cause of 403!
@@ -53,9 +68,10 @@ class UnifiedAuthView(LoginView):
             raise
         # Log response status for debugging
         if request.method == 'POST':
+            # Note: Don't access response.content on TemplateResponse before it's rendered
             logger.warning(
                 f"[LOGIN-DEBUG] Response status={response.status_code}, "
-                f"content_length={len(response.content) if hasattr(response, 'content') else 'N/A'}"
+                f"response_type={type(response).__name__}"
             )
         # Aggressive no-cache headers - critical for Android PWA
         response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
@@ -211,6 +227,8 @@ urlpatterns = [
     # Post-event connections
     path('events/<int:event_id>/attendees/', views.event_attendees, name='event_attendees'),
     path('events/<int:event_id>/connect/<int:user_id>/', views.request_connection, name='request_connection'),
+    path('events/<int:event_id>/connect-inline/<int:user_id>/', views.request_connection_inline, name='request_connection_inline'),
+    path('events/<int:event_id>/connection-actions/<int:user_id>/', views.connection_actions, name='connection_actions'),
     path('connections/', views.my_connections, name='my_connections'),
     path('connections/<int:connection_id>/', views.connection_detail, name='connection_detail'),
     path('connections/<int:connection_id>/<str:action>/', views.respond_connection, name='respond_connection'),

@@ -98,13 +98,7 @@
     <link rel="apple-touch-icon" sizes="57x57" href="{% static 'crush_lu/icons/ios/57.png' %}">
     <link rel="apple-touch-icon" href="{% static 'crush_lu/icons/ios/180.png' %}">
 
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-
-    <!-- Tailwind CSS (utilities with tw- prefix) -->
+    <!-- Tailwind CSS (primary styling framework) -->
     <link rel="stylesheet" href="{% static 'crush_lu/css/tailwind.css' %}">
 
     <!-- Crush.lu Custom Styles (Modular) -->
@@ -127,230 +121,450 @@
         </div>
     </div>
 
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark">
+    <!-- Navigation (Alpine.js powered) -->
+    <nav class="crush-navbar" x-data="{ mobileMenuOpen: false, coachToolsOpen: false, coachProfileOpen: false, eventsOpen: false, userMenuOpen: false }">
         <div class="container">
-            {% if user.is_authenticated %}
-                <a class="navbar-brand" href="{% url 'crush_lu:dashboard' %}">💕 Crush.lu</a>
-            {% else %}
-                <a class="navbar-brand" href="{% url 'crush_lu:home' %}">💕 Crush.lu</a>
-            {% endif %}
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+            <div class="flex justify-between items-center py-3">
+                <!-- Brand -->
+                {% if user.is_authenticated %}
+                    <a class="navbar-brand" href="{% url 'crush_lu:dashboard' %}">💕 Crush.lu</a>
+                {% else %}
+                    <a class="navbar-brand" href="{% url 'crush_lu:home' %}">💕 Crush.lu</a>
+                {% endif %}
+
+                <!-- Mobile menu button -->
+                <button @click="mobileMenuOpen = !mobileMenuOpen"
+                        class="lg:hidden text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
+                        aria-label="Toggle menu">
+                    <!-- Hamburger icon -->
+                    <svg x-show="!mobileMenuOpen" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                    <!-- Close icon -->
+                    <svg x-show="mobileMenuOpen" x-cloak class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+
+                <!-- Desktop Navigation -->
+                <div class="hidden lg:flex items-center space-x-1">
                     {% if user.is_authenticated %}
                         {# Check if user is a coach #}
                         {% if user.crushcoach and user.crushcoach.is_active %}
                             {# COACH NAVIGATION #}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'crush_lu:coach_dashboard' %}">
-                                    <i class="bi bi-speedometer2"></i> Coach Dashboard
-                                    {% if pending_screening_count > 0 %}
-                                        <span class="badge bg-warning text-dark rounded-pill">{{ pending_screening_count }}</span>
-                                    {% endif %}
-                                </a>
-                            </li>
+                            <a class="nav-link" href="{% url 'crush_lu:coach_dashboard' %}">
+                                {% include "crush_lu/icons/chart-bar.html" with class="w-4 h-4" %}
+                                <span>Coach Dashboard</span>
+                                {% if pending_screening_count > 0 %}
+                                    <span class="badge badge-warning">{{ pending_screening_count }}</span>
+                                {% endif %}
+                            </a>
                             {% if has_special_journey %}
-                            <li class="nav-item">
-                                <a class="nav-link special-journey" href="{% url 'crush_lu:journey_map' %}">
-                                    <i class="bi bi-star-fill" style="color: gold;"></i> Special Journey
-                                    {% if not journey_started %}
-                                        <span class="badge bg-warning text-dark">New!</span>
-                                    {% endif %}
-                                </a>
-                            </li>
+                            <a class="nav-link special-journey" href="{% url 'crush_lu:journey_map' %}">
+                                {% include "crush_lu/icons/star.html" with class="w-4 h-4 text-yellow-400" %}
+                                <span>Special Journey</span>
+                                {% if not journey_started %}
+                                    <span class="badge badge-warning">New!</span>
+                                {% endif %}
+                            </a>
                             {% endif %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'crush_lu:coach_sessions' %}">
-                                    <i class="bi bi-calendar-check"></i> My Sessions
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'crush_lu:event_list' %}">
-                                    <i class="bi bi-calendar-event"></i> Events
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'crush_lu:dashboard' %}?user_view=1">
-                                    <i class="bi bi-house-heart"></i> My Profile
-                                </a>
-                            </li>
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="coachToolsDropdown" role="button" data-bs-toggle="dropdown">
-                                    <i class="bi bi-tools"></i> Coach Tools
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="{% url 'crush_lu:coach_dashboard' %}">
-                                        <i class="bi bi-clipboard-check"></i> Review Queue
+                            <a class="nav-link" href="{% url 'crush_lu:coach_sessions' %}">
+                                {% include "crush_lu/icons/calendar.html" with class="w-4 h-4" %}
+                                <span>My Sessions</span>
+                            </a>
+                            <a class="nav-link" href="{% url 'crush_lu:event_list' %}">
+                                {% include "crush_lu/icons/calendar.html" with class="w-4 h-4" %}
+                                <span>Events</span>
+                            </a>
+                            <a class="nav-link" href="{% url 'crush_lu:dashboard' %}?user_view=1">
+                                {% include "crush_lu/icons/home.html" with class="w-4 h-4" %}
+                                <span>My Profile</span>
+                            </a>
+
+                            <!-- Coach Tools Dropdown -->
+                            <div class="dropdown" @click.away="coachToolsOpen = false">
+                                <button @click="coachToolsOpen = !coachToolsOpen" class="nav-link">
+                                    {% include "crush_lu/icons/cog.html" with class="w-4 h-4" %}
+                                    <span>Coach Tools</span>
+                                    {% include "crush_lu/icons/chevron-down.html" with class="w-3 h-3" %}
+                                </button>
+                                <div x-show="coachToolsOpen"
+                                     x-transition:enter="transition ease-out duration-100"
+                                     x-transition:enter-start="opacity-0 scale-95"
+                                     x-transition:enter-end="opacity-100 scale-100"
+                                     x-transition:leave="transition ease-in duration-75"
+                                     x-transition:leave-start="opacity-100 scale-100"
+                                     x-transition:leave-end="opacity-0 scale-95"
+                                     x-cloak
+                                     class="dropdown-menu show">
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_dashboard' %}">
+                                        {% include "crush_lu/icons/clipboard.html" with class="w-4 h-4 inline mr-2" %}
+                                        Review Queue
                                         {% if pending_screening_count > 0 %}
-                                            <span class="badge bg-warning text-dark rounded-pill ms-2">{{ pending_screening_count }}</span>
+                                            <span class="badge badge-warning ml-2">{{ pending_screening_count }}</span>
                                         {% endif %}
-                                    </a></li>
-                                    <li><a class="dropdown-item" href="{% url 'crush_lu:coach_journey_dashboard' %}">
-                                        <i class="bi bi-map"></i> Journey Management
-                                    </a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="{% url 'crush_lu:coach_sessions' %}">
-                                        <i class="bi bi-chat-dots"></i> All Sessions
-                                    </a></li>
-                                    <li><a class="dropdown-item" href="{% url 'crush_lu:event_list' %}">
-                                        <i class="bi bi-calendar3"></i> Manage Events
-                                    </a></li>
-                                </ul>
-                            </li>
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="coachDropdown" role="button" data-bs-toggle="dropdown">
-                                    <i class="bi bi-person-circle"></i> {{ user.first_name|default:user.username }}
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="{% url 'crush_lu:dashboard' %}?user_view=1"><i class="bi bi-house-heart"></i> My Dashboard</a></li>
+                                    </a>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_journey_dashboard' %}">
+                                        {% include "crush_lu/icons/map-pin.html" with class="w-4 h-4 inline mr-2" %}
+                                        Journey Management
+                                    </a>
+                                    <div class="dropdown-divider"></div>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_sessions' %}">
+                                        {% include "crush_lu/icons/chat-bubble-left-right.html" with class="w-4 h-4 inline mr-2" %}
+                                        All Sessions
+                                    </a>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:event_list' %}">
+                                        {% include "crush_lu/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
+                                        Manage Events
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- Coach Profile Dropdown -->
+                            <div class="dropdown" @click.away="coachProfileOpen = false">
+                                <button @click="coachProfileOpen = !coachProfileOpen" class="nav-link">
+                                    {% include "crush_lu/icons/user-circle.html" with class="w-4 h-4" %}
+                                    <span>{{ user.first_name|default:user.username }}</span>
+                                    {% include "crush_lu/icons/chevron-down.html" with class="w-3 h-3" %}
+                                </button>
+                                <div x-show="coachProfileOpen"
+                                     x-transition:enter="transition ease-out duration-100"
+                                     x-transition:enter-start="opacity-0 scale-95"
+                                     x-transition:enter-end="opacity-100 scale-100"
+                                     x-transition:leave="transition ease-in duration-75"
+                                     x-transition:leave-start="opacity-100 scale-100"
+                                     x-transition:leave-end="opacity-0 scale-95"
+                                     x-cloak
+                                     class="dropdown-menu show">
+                                    <a class="dropdown-item" href="{% url 'crush_lu:dashboard' %}?user_view=1">
+                                        {% include "crush_lu/icons/home.html" with class="w-4 h-4 inline mr-2" %}
+                                        My Dashboard
+                                    </a>
                                     {% if user.crushprofile %}
-                                    <li><a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}"><i class="bi bi-pencil"></i> Edit Profile</a></li>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}">
+                                        {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
+                                        Edit Profile
+                                    </a>
                                     {% endif %}
-                                    <li><a class="dropdown-item" href="{% url 'crush_lu:account_settings' %}"><i class="bi bi-gear"></i> Account Settings</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="{% url 'crush_lu:logout' %}"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
-                                </ul>
-                            </li>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:account_settings' %}">
+                                        {% include "crush_lu/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
+                                        Account Settings
+                                    </a>
+                                    <div class="dropdown-divider"></div>
+                                    <a class="dropdown-item text-red-600 hover:bg-red-50" href="{% url 'crush_lu:logout' %}">
+                                        {% include "crush_lu/icons/arrow-right-on-rectangle.html" with class="w-4 h-4 inline mr-2" %}
+                                        Logout
+                                    </a>
+                                </div>
+                            </div>
                         {% else %}
                             {# DATING USER NAVIGATION #}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'crush_lu:dashboard' %}">
-                                    <i class="bi bi-house-heart"></i> Dashboard
-                                    {% if profile_needs_action %}
-                                        <span class="badge bg-warning text-dark rounded-pill" title="Profile needs revision">!</span>
-                                    {% endif %}
-                                </a>
-                            </li>
+                            <a class="nav-link" href="{% url 'crush_lu:dashboard' %}">
+                                {% include "crush_lu/icons/home.html" with class="w-4 h-4" %}
+                                <span>Dashboard</span>
+                                {% if profile_needs_action %}
+                                    <span class="badge badge-warning" title="Profile needs revision">!</span>
+                                {% endif %}
+                            </a>
                             {% if has_special_journey %}
-                            <li class="nav-item">
-                                <a class="nav-link special-journey" href="{% url 'crush_lu:journey_map' %}">
-                                    <i class="bi bi-star-fill" style="color: gold;"></i> Special Journey
-                                    {% if not journey_started %}
-                                        <span class="badge bg-warning text-dark">New!</span>
-                                    {% endif %}
-                                </a>
-                            </li>
+                            <a class="nav-link special-journey" href="{% url 'crush_lu:journey_map' %}">
+                                {% include "crush_lu/icons/star.html" with class="w-4 h-4 text-yellow-400" %}
+                                <span>Special Journey</span>
+                                {% if not journey_started %}
+                                    <span class="badge badge-warning">New!</span>
+                                {% endif %}
+                            </a>
                             {% endif %}
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="eventsDropdown" role="button" data-bs-toggle="dropdown">
-                                    <i class="bi bi-calendar-event"></i> Events
+
+                            <!-- Events Dropdown -->
+                            <div class="dropdown" @click.away="eventsOpen = false">
+                                <button @click="eventsOpen = !eventsOpen" class="nav-link">
+                                    {% include "crush_lu/icons/calendar.html" with class="w-4 h-4" %}
+                                    <span>Events</span>
                                     {% if upcoming_events_count > 0 %}
-                                        <span class="badge bg-info rounded-pill">{{ upcoming_events_count }}</span>
+                                        <span class="badge badge-info">{{ upcoming_events_count }}</span>
                                     {% endif %}
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li class="dropdown-header">Upcoming Events</li>
+                                    {% include "crush_lu/icons/chevron-down.html" with class="w-3 h-3" %}
+                                </button>
+                                <div x-show="eventsOpen"
+                                     x-transition:enter="transition ease-out duration-100"
+                                     x-transition:enter-start="opacity-0 scale-95"
+                                     x-transition:enter-end="opacity-100 scale-100"
+                                     x-transition:leave="transition ease-in duration-75"
+                                     x-transition:leave-start="opacity-100 scale-100"
+                                     x-transition:leave-end="opacity-0 scale-95"
+                                     x-cloak
+                                     class="dropdown-menu show">
+                                    <div class="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Upcoming Events</div>
                                     {% if upcoming_events %}
                                         {% for registration in upcoming_events %}
-                                            <li>
-                                                <a class="dropdown-item" href="{% url 'crush_lu:event_detail' registration.event.id %}">
-                                                    <div class="d-flex justify-content-between align-items-start">
-                                                        <div>
-                                                            <strong>{{ registration.event.title|truncatewords:4 }}</strong>
-                                                            <br>
-                                                            <small class="text-muted">
-                                                                {{ registration.event.date_time|date:"M d, g:i A" }}
-                                                            </small>
-                                                        </div>
-                                                        {% if registration.status == 'waitlist' %}
-                                                            <span class="badge bg-secondary ms-2">Waitlist</span>
-                                                        {% else %}
-                                                            <span class="badge bg-success ms-2">✓</span>
-                                                        {% endif %}
+                                            <a class="dropdown-item" href="{% url 'crush_lu:event_detail' registration.event.id %}">
+                                                <div class="flex justify-between items-start">
+                                                    <div>
+                                                        <strong>{{ registration.event.title|truncatewords:4 }}</strong>
+                                                        <br>
+                                                        <small class="text-gray-500">
+                                                            {{ registration.event.date_time|date:"M d, g:i A" }}
+                                                        </small>
                                                     </div>
-                                                </a>
-                                            </li>
+                                                    {% if registration.status == 'waitlist' %}
+                                                        <span class="badge badge-secondary ml-2">Waitlist</span>
+                                                    {% else %}
+                                                        <span class="badge badge-success ml-2">✓</span>
+                                                    {% endif %}
+                                                </div>
+                                            </a>
                                         {% endfor %}
-                                        <li><hr class="dropdown-divider"></li>
+                                        <div class="dropdown-divider"></div>
                                     {% else %}
-                                        <li><span class="dropdown-item-text text-muted">No upcoming events</span></li>
-                                        <li><hr class="dropdown-divider"></li>
+                                        <span class="block px-4 py-2 text-gray-500">No upcoming events</span>
+                                        <div class="dropdown-divider"></div>
                                     {% endif %}
-                                    <li><a class="dropdown-item" href="{% url 'crush_lu:event_list' %}">
-                                        <i class="bi bi-search"></i> Browse All Events
-                                    </a></li>
-                                </ul>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'crush_lu:my_connections' %}">
-                                    <i class="bi bi-people"></i> Connections
-                                    {% if pending_requests_count > 0 %}
-                                        <span class="badge bg-danger rounded-pill">{{ pending_requests_count }}</span>
-                                    {% endif %}
-                                </a>
-                            </li>
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
-                                    <i class="bi bi-person-circle"></i> {{ user.first_name|default:user.username }}
+                                    <a class="dropdown-item" href="{% url 'crush_lu:event_list' %}">
+                                        {% include "crush_lu/icons/magnifying-glass.html" with class="w-4 h-4 inline mr-2" %}
+                                        Browse All Events
+                                    </a>
+                                </div>
+                            </div>
+
+                            <a class="nav-link" href="{% url 'crush_lu:my_connections' %}">
+                                {% include "crush_lu/icons/users.html" with class="w-4 h-4" %}
+                                <span>Connections</span>
+                                {% if pending_requests_count > 0 %}
+                                    <span class="badge badge-danger">{{ pending_requests_count }}</span>
+                                {% endif %}
+                            </a>
+
+                            <!-- User Profile Dropdown -->
+                            <div class="dropdown" @click.away="userMenuOpen = false">
+                                <button @click="userMenuOpen = !userMenuOpen" class="nav-link">
+                                    {% include "crush_lu/icons/user-circle.html" with class="w-4 h-4" %}
+                                    <span>{{ user.first_name|default:user.username }}</span>
                                     {% if profile_status == 'pending' %}
-                                        <span class="badge bg-info" title="Profile pending review">⏳</span>
+                                        <span class="badge badge-info" title="Profile pending review">⏳</span>
                                     {% elif profile_status == 'rejected' %}
-                                        <span class="badge bg-danger" title="Profile rejected">✗</span>
+                                        <span class="badge badge-danger" title="Profile rejected">✗</span>
                                     {% elif profile_status == 'revision' %}
-                                        <span class="badge bg-warning text-dark" title="Profile needs revision">!</span>
+                                        <span class="badge badge-warning" title="Profile needs revision">!</span>
                                     {% elif profile_is_approved %}
-                                        <span class="badge bg-success" title="Profile approved">✓</span>
+                                        <span class="badge badge-success" title="Profile approved">✓</span>
                                     {% endif %}
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-end">
+                                    {% include "crush_lu/icons/chevron-down.html" with class="w-3 h-3" %}
+                                </button>
+                                <div x-show="userMenuOpen"
+                                     x-transition:enter="transition ease-out duration-100"
+                                     x-transition:enter-start="opacity-0 scale-95"
+                                     x-transition:enter-end="opacity-100 scale-100"
+                                     x-transition:leave="transition ease-in duration-75"
+                                     x-transition:leave-start="opacity-100 scale-100"
+                                     x-transition:leave-end="opacity-0 scale-95"
+                                     x-cloak
+                                     class="dropdown-menu show">
                                     {% if user.crushprofile %}
-                                        <li class="dropdown-header">
+                                        <div class="px-4 py-2 text-xs font-semibold text-gray-500">
                                             Profile Status:
                                             {% if profile_status == 'pending' %}
-                                                <span class="text-info">Pending Review</span>
+                                                <span class="text-blue-500">Pending Review</span>
                                             {% elif profile_status == 'rejected' %}
-                                                <span class="text-danger">Rejected</span>
+                                                <span class="text-red-500">Rejected</span>
                                             {% elif profile_status == 'revision' %}
-                                                <span class="text-warning">Needs Revision</span>
+                                                <span class="text-yellow-600">Needs Revision</span>
                                             {% elif profile_is_approved %}
-                                                <span class="text-success">Approved ✓</span>
+                                                <span class="text-green-500">Approved ✓</span>
                                             {% else %}
-                                                <span class="text-muted">Not Submitted</span>
+                                                <span class="text-gray-500">Not Submitted</span>
                                             {% endif %}
-                                        </li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}"><i class="bi bi-pencil"></i> Edit Profile</a></li>
+                                        </div>
+                                        <div class="dropdown-divider"></div>
+                                        <a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}">
+                                            {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
+                                            Edit Profile
+                                        </a>
                                     {% else %}
-                                        <li><a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}"><i class="bi bi-person-plus"></i> Create Profile</a></li>
+                                        <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
+                                            {% include "crush_lu/icons/user-plus.html" with class="w-4 h-4 inline mr-2" %}
+                                            Create Profile
+                                        </a>
                                     {% endif %}
-                                    <li><a class="dropdown-item" href="{% url 'crush_lu:account_settings' %}"><i class="bi bi-gear"></i> Account Settings</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="{% url 'crush_lu:logout' %}"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
-                                </ul>
-                            </li>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:account_settings' %}">
+                                        {% include "crush_lu/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
+                                        Account Settings
+                                    </a>
+                                    <div class="dropdown-divider"></div>
+                                    <a class="dropdown-item text-red-600 hover:bg-red-50" href="{% url 'crush_lu:logout' %}">
+                                        {% include "crush_lu/icons/arrow-right-on-rectangle.html" with class="w-4 h-4 inline mr-2" %}
+                                        Logout
+                                    </a>
+                                </div>
+                            </div>
                         {% endif %}
                     {% else %}
                         {# GUEST NAVIGATION #}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'crush_lu:about' %}">About</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'crush_lu:how_it_works' %}">How It Works</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'crush_lu:event_list' %}">Events</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link px-3 btn btn-light text-dark rounded-pill" href="{% url 'crush_lu:login' %}">
-                                <strong>Login / Join</strong>
-                            </a>
-                        </li>
+                        <a class="nav-link" href="{% url 'crush_lu:about' %}">About</a>
+                        <a class="nav-link" href="{% url 'crush_lu:how_it_works' %}">How It Works</a>
+                        <a class="nav-link" href="{% url 'crush_lu:event_list' %}">Events</a>
+                        <a class="inline-flex items-center bg-white text-gray-800 px-4 py-2 rounded-full font-semibold hover:bg-gray-100 transition-colors shadow-sm" href="{% url 'crush_lu:login' %}">
+                            Login / Join
+                        </a>
                     {% endif %}
-                </ul>
+                </div>
+            </div>
+
+            <!-- Mobile Navigation Menu -->
+            <div x-show="mobileMenuOpen"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 -translate-y-2"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100 translate-y-0"
+                 x-transition:leave-end="opacity-0 -translate-y-2"
+                 x-cloak
+                 class="lg:hidden pb-4 border-t border-white/20 mt-2 pt-4">
+                <div class="flex flex-col space-y-2">
+                    {% if user.is_authenticated %}
+                        {% if user.crushcoach and user.crushcoach.is_active %}
+                            {# COACH MOBILE NAVIGATION #}
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_dashboard' %}">
+                                {% include "crush_lu/icons/chart-bar.html" with class="w-4 h-4 inline mr-2" %}
+                                Coach Dashboard
+                                {% if pending_screening_count > 0 %}
+                                    <span class="badge badge-warning ml-1">{{ pending_screening_count }}</span>
+                                {% endif %}
+                            </a>
+                            {% if has_special_journey %}
+                            <a class="nav-link block special-journey" href="{% url 'crush_lu:journey_map' %}">
+                                {% include "crush_lu/icons/star.html" with class="w-4 h-4 inline mr-2 text-yellow-400" %}
+                                Special Journey
+                            </a>
+                            {% endif %}
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_sessions' %}">
+                                {% include "crush_lu/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
+                                My Sessions
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:event_list' %}">
+                                {% include "crush_lu/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
+                                Events
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:dashboard' %}?user_view=1">
+                                {% include "crush_lu/icons/home.html" with class="w-4 h-4 inline mr-2" %}
+                                My Profile
+                            </a>
+                            <div class="border-t border-white/20 my-2"></div>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_journey_dashboard' %}">
+                                {% include "crush_lu/icons/map-pin.html" with class="w-4 h-4 inline mr-2" %}
+                                Journey Management
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}">
+                                {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
+                                Edit Profile
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:account_settings' %}">
+                                {% include "crush_lu/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
+                                Account Settings
+                            </a>
+                            <div class="border-t border-white/20 my-2"></div>
+                            <a class="nav-link block text-red-200" href="{% url 'crush_lu:logout' %}">
+                                {% include "crush_lu/icons/arrow-right-on-rectangle.html" with class="w-4 h-4 inline mr-2" %}
+                                Logout
+                            </a>
+                        {% else %}
+                            {# DATING USER MOBILE NAVIGATION #}
+                            <a class="nav-link block" href="{% url 'crush_lu:dashboard' %}">
+                                {% include "crush_lu/icons/home.html" with class="w-4 h-4 inline mr-2" %}
+                                Dashboard
+                                {% if profile_needs_action %}
+                                    <span class="badge badge-warning ml-1">!</span>
+                                {% endif %}
+                            </a>
+                            {% if has_special_journey %}
+                            <a class="nav-link block special-journey" href="{% url 'crush_lu:journey_map' %}">
+                                {% include "crush_lu/icons/star.html" with class="w-4 h-4 inline mr-2 text-yellow-400" %}
+                                Special Journey
+                            </a>
+                            {% endif %}
+                            <a class="nav-link block" href="{% url 'crush_lu:event_list' %}">
+                                {% include "crush_lu/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
+                                Events
+                                {% if upcoming_events_count > 0 %}
+                                    <span class="badge badge-info ml-1">{{ upcoming_events_count }}</span>
+                                {% endif %}
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:my_connections' %}">
+                                {% include "crush_lu/icons/users.html" with class="w-4 h-4 inline mr-2" %}
+                                Connections
+                                {% if pending_requests_count > 0 %}
+                                    <span class="badge badge-danger ml-1">{{ pending_requests_count }}</span>
+                                {% endif %}
+                            </a>
+                            <div class="border-t border-white/20 my-2"></div>
+                            {% if user.crushprofile %}
+                            <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}">
+                                {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
+                                Edit Profile
+                            </a>
+                            {% else %}
+                            <a class="nav-link block" href="{% url 'crush_lu:create_profile' %}">
+                                {% include "crush_lu/icons/user-plus.html" with class="w-4 h-4 inline mr-2" %}
+                                Create Profile
+                            </a>
+                            {% endif %}
+                            <a class="nav-link block" href="{% url 'crush_lu:account_settings' %}">
+                                {% include "crush_lu/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
+                                Account Settings
+                            </a>
+                            <div class="border-t border-white/20 my-2"></div>
+                            <a class="nav-link block text-red-200" href="{% url 'crush_lu:logout' %}">
+                                {% include "crush_lu/icons/arrow-right-on-rectangle.html" with class="w-4 h-4 inline mr-2" %}
+                                Logout
+                            </a>
+                        {% endif %}
+                    {% else %}
+                        {# GUEST MOBILE NAVIGATION #}
+                        <a class="nav-link block" href="{% url 'crush_lu:about' %}">About</a>
+                        <a class="nav-link block" href="{% url 'crush_lu:how_it_works' %}">How It Works</a>
+                        <a class="nav-link block" href="{% url 'crush_lu:event_list' %}">Events</a>
+                        <div class="border-t border-white/20 my-2"></div>
+                        <a class="block bg-white text-gray-800 px-4 py-2 rounded-full font-semibold text-center hover:bg-gray-100 transition-colors shadow-sm" href="{% url 'crush_lu:login' %}">
+                            Login / Join
+                        </a>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </nav>
 
-    <!-- Messages -->
+    <!-- Messages (Alpine.js dismissible) -->
     {% if messages %}
-        <div class="container mt-3">
+        <div class="container mt-4">
             {% for message in messages %}
-                <div class="alert {{ message.tags }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <div x-data="{ show: true }"
+                     x-show="show"
+                     x-transition:enter="transition ease-out duration-300"
+                     x-transition:enter-start="opacity-0 -translate-y-2"
+                     x-transition:enter-end="opacity-100 translate-y-0"
+                     x-transition:leave="transition ease-in duration-200"
+                     x-transition:leave-start="opacity-100 translate-y-0"
+                     x-transition:leave-end="opacity-0 -translate-y-2"
+                     class="alert {% if 'success' in message.tags %}alert-success{% elif 'error' in message.tags or 'danger' in message.tags %}alert-danger{% elif 'warning' in message.tags %}alert-warning{% else %}alert-info{% endif %} alert-dismissible"
+                     role="alert">
+                    <div class="flex items-center">
+                        {% if 'success' in message.tags %}
+                            {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5 mr-3 flex-shrink-0" %}
+                        {% elif 'error' in message.tags or 'danger' in message.tags %}
+                            {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5 mr-3 flex-shrink-0" %}
+                        {% elif 'warning' in message.tags %}
+                            {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5 mr-3 flex-shrink-0" %}
+                        {% else %}
+                            {% include "crush_lu/icons/exclamation-circle.html" with class="w-5 h-5 mr-3 flex-shrink-0" %}
+                        {% endif %}
+                        <span class="flex-1">{{ message }}</span>
+                    </div>
+                    <button @click="show = false"
+                            type="button"
+                            class="btn-close absolute top-4 right-4"
+                            aria-label="Close">
+                        {% include "crush_lu/icons/x-mark.html" with class="w-5 h-5" %}
+                    </button>
                 </div>
             {% endfor %}
         </div>
@@ -361,50 +575,69 @@
         {% block content %}{% endblock %}
     </main>
 
-    <!-- Footer -->
-    <footer>
+    <!-- Footer (Tailwind Grid) -->
+    <footer class="bg-crush-dark text-white py-12 mt-auto">
         <div class="container">
-            <div class="row">
-                <div class="col-md-4">
-                    <h5>💕 Crush.lu</h5>
-                    <p>Meet new people. Make real connections.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <!-- Brand Column -->
+                <div class="lg:col-span-1">
+                    <h5 class="text-xl font-bold mb-4">💕 Crush.lu</h5>
+                    <p class="text-white/70">Meet new people. Make real connections.</p>
                 </div>
-                <div class="col-md-3">
-                    <h6>Quick Links</h6>
-                    <ul class="list-unstyled">
-                        <li><a href="{% url 'crush_lu:about' %}" class="text-white-50">About Us</a></li>
-                        <li><a href="{% url 'crush_lu:how_it_works' %}" class="text-white-50">How It Works</a></li>
-                        <li><a href="{% url 'crush_lu:event_list' %}" class="text-white-50">Events</a></li>
+
+                <!-- Quick Links -->
+                <div>
+                    <h6 class="font-semibold mb-4 text-white/90">Quick Links</h6>
+                    <ul class="space-y-2">
+                        <li><a href="{% url 'crush_lu:about' %}" class="text-white/60 hover:text-white transition-colors">About Us</a></li>
+                        <li><a href="{% url 'crush_lu:how_it_works' %}" class="text-white/60 hover:text-white transition-colors">How It Works</a></li>
+                        <li><a href="{% url 'crush_lu:event_list' %}" class="text-white/60 hover:text-white transition-colors">Events</a></li>
                     </ul>
                 </div>
-                <div class="col-md-3">
-                    <h6>Legal</h6>
-                    <ul class="list-unstyled">
-                        <li><a href="{% url 'crush_lu:privacy_policy' %}" class="text-white-50">Privacy Policy</a></li>
-                        <li><a href="{% url 'crush_lu:terms_of_service' %}" class="text-white-50">Terms of Service</a></li>
-                        <li><a href="{% url 'crush_lu:data_deletion' %}" class="text-white-50">Data Deletion</a></li>
+
+                <!-- Legal -->
+                <div>
+                    <h6 class="font-semibold mb-4 text-white/90">Legal</h6>
+                    <ul class="space-y-2">
+                        <li><a href="{% url 'crush_lu:privacy_policy' %}" class="text-white/60 hover:text-white transition-colors">Privacy Policy</a></li>
+                        <li><a href="{% url 'crush_lu:terms_of_service' %}" class="text-white/60 hover:text-white transition-colors">Terms of Service</a></li>
+                        <li><a href="{% url 'crush_lu:data_deletion' %}" class="text-white/60 hover:text-white transition-colors">Data Deletion</a></li>
                     </ul>
                 </div>
-                <div class="col-md-3">
-                    <h6>Privacy First</h6>
-                    <p class="text-white-50">Your privacy matters. All profiles are reviewed by our Crush Coaches.</p>
+
+                <!-- Privacy First -->
+                <div>
+                    <h6 class="font-semibold mb-4 text-white/90">Privacy First</h6>
+                    <p class="text-white/60">Your privacy matters. All profiles are reviewed by our Crush Coaches.</p>
                 </div>
             </div>
-            <hr class="bg-white-50">
-            <div class="text-center">
-                <small>&copy; 2025 Crush.lu - Made with 💕 in Luxembourg</small>
+
+            <!-- Copyright -->
+            <div class="border-t border-white/20 mt-8 pt-8 text-center">
+                <small class="text-white/60">&copy; 2025 Crush.lu - Made with 💕 in Luxembourg</small>
             </div>
         </div>
     </footer>
 
     <!-- HTMX (HTML-driven interactivity) -->
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4"
+            integrity="sha384-M06VwgoUOHG3FN0UchwWKqh9jS4ejwpoL0yjF3EVljtsxFwFETEYMkyNL5lXbJ5/"
+            crossorigin="anonymous"></script>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Alpine.js (lightweight JS for interactive UI components) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"
+            integrity="sha384-Rpe/8orFUm5Q1GplYBHxbuA8Az8O8C5sAoOsdbRWkqPjKFaxPgGZipj4zeHL7lxX"
+            crossorigin="anonymous"></script>
+
+    <!-- Bootstrap 5 JS Bundle (for modals in legacy templates - to be migrated to Alpine.js) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+            crossorigin="anonymous"></script>
 
     <!-- Sortable.js for drag-and-drop with touch support -->
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"
+            integrity="sha384-BSxuMLxX+FCbTdYec3TbXlnMGEEM2QXTFdtDaveen71o+jswm2J36+xFqp8k4VHM"
+            crossorigin="anonymous"></script>
 
     <!-- Crush.lu Utilities (CSRF, sanitization, logging) -->
     <script src="{% static 'crush_lu/js/utils.js' %}"></script>

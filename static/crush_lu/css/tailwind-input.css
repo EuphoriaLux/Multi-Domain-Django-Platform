@@ -2,83 +2,633 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Preserve Bootstrap compatibility after Tailwind base reset */
+/* =============================================================================
+   ALPINE.JS CLOAK
+   Prevents flash of unstyled content before Alpine initializes
+   ============================================================================= */
+[x-cloak] {
+  display: none !important;
+}
+
+/* =============================================================================
+   BOOTSTRAP UTILITY CLASS COMPATIBILITY
+   These classes are used in legacy templates for show/hide behavior
+   ============================================================================= */
+.d-none {
+  display: none !important;
+}
+
+.d-block {
+  display: block !important;
+}
+
+.d-flex {
+  display: flex !important;
+}
+
+.d-inline {
+  display: inline !important;
+}
+
+.d-inline-block {
+  display: inline-block !important;
+}
+
+/* Visibility utilities */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* =============================================================================
+   TAILWIND BASE LAYER
+   Resets and base element styles
+   ============================================================================= */
 @layer base {
-  /* Ensure Bootstrap buttons work correctly after Tailwind reset */
-  button, [type="button"], [type="reset"], [type="submit"] {
-    background-color: transparent;
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
   }
 
-  /* Restore heading styles that Tailwind base removes */
-  h1, h2, h3, h4, h5, h6 {
-    font-size: inherit;
-    font-weight: inherit;
+  /* Base body styles */
+  body {
+    @apply text-crush-dark bg-crush-light antialiased;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  /* Heading defaults */
+  h1 { @apply text-4xl font-bold; }
+  h2 { @apply text-3xl font-bold; }
+  h3 { @apply text-2xl font-semibold; }
+  h4 { @apply text-xl font-semibold; }
+  h5 { @apply text-lg font-medium; }
+  h6 { @apply text-base font-medium; }
+
+  /* Link defaults */
+  a {
+    @apply text-crush-purple hover:text-crush-purple-dark transition-colors duration-200;
+  }
+
+  /* Focus ring for accessibility */
+  :focus-visible {
+    @apply outline-none ring-2 ring-crush-purple ring-offset-2;
   }
 }
 
-/* Custom Tailwind components using Crush.lu design tokens */
+/* =============================================================================
+   TAILWIND COMPONENTS LAYER
+   Reusable component classes (Bootstrap replacements)
+   ============================================================================= */
 @layer components {
-  /* Crush button using Tailwind utilities */
-  .tw-btn-crush {
-    @apply tw-bg-gradient-to-r tw-from-crush-purple tw-to-crush-pink
-           tw-text-white tw-font-medium tw-py-3 tw-px-8
-           tw-rounded-crush-pill tw-transition-all tw-duration-300
-           hover:tw-translate-y-[-2px] hover:tw-shadow-crush-purple;
+
+  /* =========================================================================
+     CONTAINER
+     ========================================================================= */
+  .container {
+    @apply mx-auto px-4 max-w-7xl;
   }
 
-  /* Crush card using Tailwind utilities */
-  .tw-card-crush {
-    @apply tw-bg-white tw-rounded-crush-lg tw-shadow-crush-sm
-           tw-transition-all tw-duration-300
-           hover:tw-translate-y-[-5px] hover:tw-shadow-crush-lg;
+  /* =========================================================================
+     BUTTONS
+     Note: Using inline styles instead of @apply btn to avoid circular deps
+     ========================================================================= */
+  .btn,
+  .btn-crush-primary,
+  .btn-primary,
+  .btn-secondary,
+  .btn-outline-primary,
+  .btn-outline-secondary,
+  .btn-outline-danger,
+  .btn-success,
+  .btn-danger,
+  .btn-warning,
+  .btn-info {
+    @apply inline-flex items-center justify-center font-medium
+           rounded-full transition-all duration-300 cursor-pointer
+           focus:outline-none focus:ring-2 focus:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
-  /* Text gradient utility */
-  .tw-text-gradient {
-    @apply tw-bg-gradient-to-r tw-from-crush-purple tw-to-crush-pink
-           tw-bg-clip-text tw-text-transparent;
+  /* Primary gradient button (Crush.lu brand) */
+  .btn-crush-primary {
+    @apply bg-gradient-to-r from-crush-purple to-crush-pink
+           text-white py-3 px-8 hover:-translate-y-0.5
+           hover:shadow-crush-purple focus:ring-crush-purple;
   }
 
-  /* HTMX loading indicator styles */
+  /* Standard primary button */
+  .btn-primary {
+    @apply bg-crush-purple text-white py-3 px-6
+           hover:bg-crush-purple-dark focus:ring-crush-purple;
+  }
+
+  /* Secondary button */
+  .btn-secondary {
+    @apply bg-gray-600 text-white py-3 px-6
+           hover:bg-gray-700 focus:ring-gray-500;
+  }
+
+  /* Outline variants */
+  .btn-outline-primary {
+    @apply border-2 border-crush-purple text-crush-purple
+           py-3 px-6 bg-transparent
+           hover:bg-crush-purple hover:text-white focus:ring-crush-purple;
+  }
+
+  .btn-outline-secondary {
+    @apply border border-gray-400 text-gray-600 py-2 px-6
+           bg-transparent hover:bg-gray-100 focus:ring-gray-400;
+  }
+
+  .btn-outline-danger {
+    @apply border border-red-500 text-red-500 py-2 px-6
+           bg-transparent hover:bg-red-500 hover:text-white focus:ring-red-400;
+  }
+
+  /* Status buttons */
+  .btn-success {
+    @apply bg-green-500 text-white py-3 px-6
+           hover:bg-green-600 focus:ring-green-400;
+  }
+
+  .btn-danger {
+    @apply bg-red-500 text-white py-3 px-6
+           hover:bg-red-600 focus:ring-red-400;
+  }
+
+  .btn-warning {
+    @apply bg-yellow-500 text-crush-dark py-3 px-6
+           hover:bg-yellow-600 focus:ring-yellow-400;
+  }
+
+  .btn-info {
+    @apply bg-blue-500 text-white py-3 px-6
+           hover:bg-blue-600 focus:ring-blue-400;
+  }
+
+  /* Button sizes */
+  .btn-sm { @apply py-2 px-4 text-sm; }
+  .btn-lg { @apply py-4 px-8 text-lg; }
+
+  /* Full width button */
+  .btn-block { @apply w-full; }
+
+  /* Link-styled button */
+  .btn-link {
+    @apply text-crush-purple hover:text-crush-purple-dark
+           underline bg-transparent border-none p-0;
+  }
+
+  /* Close button (for modals, alerts) */
+  .btn-close {
+    @apply p-1 text-gray-400 hover:text-gray-600
+           bg-transparent border-none cursor-pointer
+           transition-colors duration-200;
+  }
+
+  /* =========================================================================
+     CARDS
+     ========================================================================= */
+  .card {
+    @apply bg-white rounded-2xl shadow-crush-sm overflow-hidden;
+  }
+
+  .card-body {
+    @apply p-6;
+  }
+
+  .card-header {
+    @apply px-6 py-4 bg-gray-50 border-b border-gray-100;
+  }
+
+  .card-footer {
+    @apply px-6 py-4 bg-gray-50 border-t border-gray-100;
+  }
+
+  .card-title {
+    @apply text-lg font-semibold text-crush-dark mb-2;
+  }
+
+  .card-text {
+    @apply text-gray-600;
+  }
+
+  /* Card with hover effect */
+  .card-hover {
+    @apply bg-white rounded-2xl shadow-crush-sm overflow-hidden
+           transition-all duration-300
+           hover:-translate-y-1 hover:shadow-crush-lg;
+  }
+
+  /* Full height card for grid layouts */
+  .card.h-100, .h-100 {
+    @apply h-full;
+  }
+
+  /* =========================================================================
+     FORMS
+     ========================================================================= */
+  .form-control {
+    @apply w-full px-4 py-3 border border-gray-300 rounded-xl
+           bg-white text-crush-dark
+           focus:ring-2 focus:ring-crush-purple focus:border-transparent
+           transition-all duration-200
+           placeholder:text-gray-400;
+  }
+
+  .form-control:disabled {
+    @apply bg-gray-100 cursor-not-allowed;
+  }
+
+  .form-control.is-invalid {
+    @apply border-red-500 focus:ring-red-400;
+  }
+
+  .form-label {
+    @apply block font-medium text-gray-700 mb-2;
+  }
+
+  .form-text {
+    @apply text-sm text-gray-500 mt-1;
+  }
+
+  .form-group {
+    @apply mb-4;
+  }
+
+  /* Select dropdown - inline form-control styles to avoid circular dep */
+  .form-select {
+    @apply w-full px-4 py-3 border border-gray-300 rounded-xl
+           bg-white text-crush-dark
+           focus:ring-2 focus:ring-crush-purple focus:border-transparent
+           transition-all duration-200
+           placeholder:text-gray-400
+           appearance-none
+           bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3d%22http%3a%2f%2fwww.w3.org%2f2000%2fsvg%22%20viewBox%3d%220%200%2024%2024%22%20fill%3d%22none%22%20stroke%3d%22%236b7280%22%20stroke-width%3d%222%22%20stroke-linecap%3d%22round%22%20stroke-linejoin%3d%22round%22%3e%3cpolyline%20points%3d%226%209%2012%2015%2018%209%22%3e%3c%2fpolyline%3e%3c%2fsvg%3e')]
+           bg-[length:1.5rem] bg-[right_0.75rem_center] bg-no-repeat pr-10;
+  }
+
+  /* Checkboxes and radios */
+  .form-check {
+    @apply flex items-center gap-2;
+  }
+
+  .form-check-input {
+    @apply w-5 h-5 text-crush-purple border-gray-300 rounded
+           focus:ring-crush-purple focus:ring-2 cursor-pointer;
+  }
+
+  .form-check-input[type="radio"] {
+    @apply rounded-full;
+  }
+
+  .form-check-label {
+    @apply text-gray-700 cursor-pointer;
+  }
+
+  /* Input group */
+  .input-group {
+    @apply flex;
+  }
+
+  .input-group > .form-control {
+    @apply flex-1 rounded-none first:rounded-l-xl last:rounded-r-xl;
+  }
+
+  .input-group-text {
+    @apply px-4 py-3 bg-gray-100 border border-gray-300
+           text-gray-600 flex items-center;
+  }
+
+  /* Invalid feedback */
+  .invalid-feedback {
+    @apply text-sm text-red-600 mt-1;
+  }
+
+  /* =========================================================================
+     ALERTS
+     ========================================================================= */
+  .alert {
+    @apply flex items-start gap-3 p-4 rounded-xl mb-4;
+  }
+
+  .alert-success {
+    @apply bg-green-100 text-green-800 border border-green-200;
+  }
+
+  .alert-danger {
+    @apply bg-red-100 text-red-800 border border-red-200;
+  }
+
+  .alert-warning {
+    @apply bg-yellow-100 text-yellow-800 border border-yellow-200;
+  }
+
+  .alert-info {
+    @apply bg-blue-100 text-blue-800 border border-blue-200;
+  }
+
+  .alert-dismissible {
+    @apply pr-12 relative;
+  }
+
+  .alert-dismissible .btn-close {
+    @apply absolute top-4 right-4;
+  }
+
+  /* =========================================================================
+     BADGES
+     ========================================================================= */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full
+           text-xs font-semibold;
+  }
+
+  .badge-primary, .bg-primary {
+    @apply bg-crush-purple text-white;
+  }
+
+  .badge-secondary, .bg-secondary {
+    @apply bg-gray-500 text-white;
+  }
+
+  .badge-success, .bg-success {
+    @apply bg-green-500 text-white;
+  }
+
+  .badge-danger, .bg-danger {
+    @apply bg-red-500 text-white;
+  }
+
+  .badge-warning, .bg-warning {
+    @apply bg-yellow-500 text-crush-dark;
+  }
+
+  .badge-info, .bg-info {
+    @apply bg-blue-500 text-white;
+  }
+
+  /* =========================================================================
+     NAVIGATION
+     ========================================================================= */
+  /* Using crush-navbar to avoid Bootstrap's .navbar class conflict */
+  .crush-navbar {
+    @apply bg-gradient-to-r from-crush-purple to-crush-pink shadow-sm;
+  }
+
+  .navbar-brand {
+    @apply text-white font-bold text-2xl no-underline
+           hover:text-white hover:opacity-90;
+  }
+
+  .nav-link {
+    @apply inline-flex items-center gap-1.5 text-white/90 hover:text-white px-3 py-2
+           transition-colors duration-200 no-underline font-medium whitespace-nowrap;
+  }
+
+  .nav-link svg {
+    @apply shrink-0;
+  }
+
+  .nav-link.active {
+    @apply text-white font-semibold;
+  }
+
+  /* Dropdown menu */
+  .dropdown {
+    @apply relative;
+  }
+
+  .dropdown-menu {
+    @apply absolute right-0 mt-2 w-56 bg-white rounded-xl
+           shadow-lg border border-gray-100 py-2 z-50
+           opacity-0 invisible transition-all duration-150;
+  }
+
+  .dropdown.show .dropdown-menu,
+  .dropdown-menu.show {
+    @apply opacity-100 visible;
+  }
+
+  .dropdown-item {
+    @apply flex items-center gap-2 px-4 py-2 text-gray-700 no-underline
+           hover:bg-gray-50 hover:text-crush-purple
+           transition-colors duration-150;
+  }
+
+  .dropdown-divider {
+    @apply my-2 border-t border-gray-100;
+  }
+
+  /* =========================================================================
+     MODALS (Bootstrap 5 JS + Tailwind CSS compatible)
+     ========================================================================= */
+  .modal-backdrop {
+    @apply fixed inset-0 bg-black/50 z-40;
+  }
+
+  .modal {
+    @apply fixed inset-0 z-50 overflow-y-auto hidden;
+  }
+
+  /* Bootstrap adds .show class when modal is opened */
+  .modal.show {
+    @apply flex;
+  }
+
+  .modal-dialog {
+    @apply flex min-h-full items-center justify-center p-4 mx-auto;
+  }
+
+  .modal-dialog-centered {
+    @apply items-center;
+  }
+
+  .modal-content {
+    @apply relative bg-white rounded-2xl shadow-xl max-w-lg w-full;
+  }
+
+  .modal-header {
+    @apply flex items-center justify-between p-6 border-b border-gray-100;
+  }
+
+  .modal-title {
+    @apply text-xl font-semibold text-crush-dark;
+  }
+
+  .modal-body {
+    @apply p-6;
+  }
+
+  .modal-footer {
+    @apply flex items-center justify-end gap-3 p-6 border-t border-gray-100;
+  }
+
+  /* Bootstrap .btn-close styling */
+  .btn-close {
+    @apply p-2 rounded-full hover:bg-gray-100 transition-colors cursor-pointer;
+    background: transparent url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/%3e%3c/svg%3e") center/1em auto no-repeat;
+    width: 2rem;
+    height: 2rem;
+    opacity: 0.5;
+  }
+
+  .btn-close:hover {
+    opacity: 1;
+  }
+
+  /* Bootstrap fade transition */
+  .modal.fade .modal-dialog {
+    @apply transform transition-all duration-300;
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+
+  .modal.fade.show .modal-dialog {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  /* =========================================================================
+     LISTS
+     ========================================================================= */
+  .list-group {
+    @apply divide-y divide-gray-200 rounded-xl overflow-hidden border border-gray-200;
+  }
+
+  .list-group-item {
+    @apply px-4 py-3 bg-white hover:bg-gray-50
+           transition-colors duration-150;
+  }
+
+  .list-group-item:first-child {
+    @apply rounded-t-xl;
+  }
+
+  .list-group-item:last-child {
+    @apply rounded-b-xl;
+  }
+
+  /* =========================================================================
+     TABLES
+     ========================================================================= */
+  .table {
+    @apply min-w-full divide-y divide-gray-200;
+  }
+
+  .table thead {
+    @apply bg-gray-50;
+  }
+
+  .table th {
+    @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
+  }
+
+  .table td {
+    @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900;
+  }
+
+  .table tbody tr {
+    @apply border-b border-gray-200;
+  }
+
+  .table-hover tbody tr:hover {
+    @apply bg-gray-50;
+  }
+
+  /* =========================================================================
+     TYPOGRAPHY UTILITIES
+     ========================================================================= */
+  .lead {
+    @apply text-xl text-gray-600;
+  }
+
+  .display-1 { @apply text-6xl font-bold; }
+  .display-2 { @apply text-5xl font-bold; }
+  .display-3 { @apply text-4xl font-bold; }
+  .display-4 { @apply text-3xl font-bold; }
+  .display-5 { @apply text-2xl font-bold; }
+  .display-6 { @apply text-xl font-bold; }
+
+  .text-muted {
+    @apply text-gray-500;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-crush-purple to-crush-pink
+           bg-clip-text text-transparent;
+  }
+
+  /* =========================================================================
+     LOADING / SPINNERS
+     ========================================================================= */
+  .spinner {
+    @apply inline-block w-5 h-5 border-2 border-current border-r-transparent
+           rounded-full animate-spin;
+  }
+
+  .spinner-sm { @apply w-4 h-4 border; }
+  .spinner-lg { @apply w-8 h-8 border-4; }
+
+  /* =========================================================================
+     HTMX INDICATORS
+     ========================================================================= */
   .htmx-indicator {
-    @apply tw-opacity-0 tw-transition-opacity tw-duration-200;
+    @apply opacity-0 transition-opacity duration-200;
   }
 
-  .htmx-request .htmx-indicator {
-    @apply tw-opacity-100;
-  }
-
+  .htmx-request .htmx-indicator,
   .htmx-request.htmx-indicator {
-    @apply tw-opacity-100;
+    @apply opacity-100;
   }
 
   /* Hide button text during HTMX request */
   .htmx-request .button-text {
-    @apply tw-opacity-30;
+    @apply opacity-30;
+  }
+
+  /* Hide content during HTMX request */
+  .htmx-request .htmx-hide-on-request {
+    @apply hidden;
   }
 
   /* Disable form during submission */
   form.htmx-request {
-    @apply tw-pointer-events-none tw-opacity-80;
+    @apply pointer-events-none opacity-80;
+  }
+
+  /* Disable button during HTMX request */
+  button.htmx-request,
+  .htmx-request button {
+    @apply pointer-events-none opacity-70;
   }
 
   /* Smooth swap transitions */
   .htmx-swapping {
-    @apply tw-opacity-50;
+    @apply opacity-50;
     transition: opacity 200ms ease-out;
   }
 
   .htmx-settling {
-    @apply tw-opacity-100;
+    @apply opacity-100;
     transition: opacity 200ms ease-in;
   }
 
-  /* Fade in animation */
-  .tw-animate-fadeIn {
-    animation: tw-fadeIn 0.3s ease-out;
+  /* =========================================================================
+     ANIMATIONS
+     ========================================================================= */
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-out;
   }
 
-  @keyframes tw-fadeIn {
+  @keyframes fadeIn {
     from {
       opacity: 0;
       transform: translateY(-10px);
@@ -89,31 +639,162 @@
     }
   }
 
-  /* Pulse animation for success states */
-  .tw-animate-pulse {
-    animation: tw-pulse 1s ease-in-out;
+  .animate-pulse-once {
+    animation: pulseOnce 1s ease-in-out;
   }
 
-  @keyframes tw-pulse {
-    0%, 100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.7;
-    }
+  @keyframes pulseOnce {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
   }
 
-  /* Spin animation for loading */
-  .tw-animate-spin {
-    animation: tw-spin 1s linear infinite;
+  /* =========================================================================
+     UTILITY CLASSES (Bootstrap compatibility)
+     ========================================================================= */
+  /* Display */
+  .d-none { @apply hidden; }
+  .d-block { @apply block; }
+  .d-inline { @apply inline; }
+  .d-inline-block { @apply inline-block; }
+  .d-flex { @apply flex; }
+  .d-inline-flex { @apply inline-flex; }
+  .d-grid { @apply grid; }
+
+  /* Responsive display */
+  .d-sm-none { @apply sm:hidden; }
+  .d-sm-block { @apply sm:block; }
+  .d-sm-flex { @apply sm:flex; }
+  .d-md-none { @apply md:hidden; }
+  .d-md-block { @apply md:block; }
+  .d-md-flex { @apply md:flex; }
+  .d-lg-none { @apply lg:hidden; }
+  .d-lg-block { @apply lg:block; }
+  .d-lg-flex { @apply lg:flex; }
+
+  /* Flexbox */
+  .flex-column { @apply flex-col; }
+  .flex-grow-1 { @apply flex-grow; }
+  .flex-fill { @apply flex-1; }
+
+  /* Justify content */
+  .justify-content-start { @apply justify-start; }
+  .justify-content-end { @apply justify-end; }
+  .justify-content-center { @apply justify-center; }
+  .justify-content-between { @apply justify-between; }
+  .justify-content-around { @apply justify-around; }
+  .justify-content-evenly { @apply justify-evenly; }
+
+  /* Align items */
+  .align-items-start { @apply items-start; }
+  .align-items-end { @apply items-end; }
+  .align-items-center { @apply items-center; }
+  .align-items-baseline { @apply items-baseline; }
+  .align-items-stretch { @apply items-stretch; }
+
+  /* Align self */
+  .align-self-start { @apply self-start; }
+  .align-self-end { @apply self-end; }
+  .align-self-center { @apply self-center; }
+
+  /* Gap - using native Tailwind (gap-1 through gap-5 work directly) */
+
+  /* Text alignment - Bootstrap naming to Tailwind */
+  .text-start { text-align: left; }
+  .text-end { text-align: right; }
+  /* .text-center already exists in Tailwind */
+
+  /* Text colors - Bootstrap semantic colors */
+  .text-primary { color: #9B59B6; }  /* crush-purple */
+  .text-secondary { color: #6b7280; }  /* gray-600 */
+  .text-success { color: #16a34a; }  /* green-600 */
+  .text-danger { color: #dc2626; }  /* red-600 */
+  .text-warning { color: #ca8a04; }  /* yellow-600 */
+  .text-info { color: #0284c7; }  /* blue-600 */
+  .text-dark { color: #2C3E50; }  /* crush-dark */
+  /* .text-white already exists in Tailwind */
+
+  /* Width/Height - Bootstrap aliases */
+  .w-100 { @apply w-full; }
+  .h-100 { @apply h-full; }
+  .mw-100 { @apply max-w-full; }
+  .mh-100 { @apply max-h-full; }
+  /* .w-auto, .h-auto already exist in Tailwind */
+
+  /* Position */
+  .position-relative { @apply relative; }
+  .position-absolute { @apply absolute; }
+  .position-fixed { @apply fixed; }
+  .position-sticky { @apply sticky; }
+
+  /* Overflow - already exists in Tailwind with same names */
+  /* .overflow-auto, .overflow-hidden, .overflow-visible, .overflow-scroll */
+
+  /* Border - Bootstrap naming aliases */
+  .border-top { @apply border-t border-gray-200; }
+  .border-bottom { @apply border-b border-gray-200; }
+  .border-start { @apply border-l border-gray-200; }
+  .border-end { @apply border-r border-gray-200; }
+  .rounded-circle { @apply rounded-full; }
+  .rounded-pill { @apply rounded-full; }
+  /* .border, .border-0, .rounded, .shadow*, .visible, .invisible, .opacity-*
+     already exist in Tailwind with same names */
+
+  /* User select */
+  .user-select-none { @apply select-none; }
+  .user-select-all { @apply select-all; }
+
+  /* Text truncation */
+  .text-truncate { @apply truncate; }
+  .text-nowrap { @apply whitespace-nowrap; }
+
+  /* Spacing is already compatible (mb-3, mt-4, p-4, etc.) */
+  /* Tailwind uses the same naming convention as Bootstrap 5 */
+
+  /* Margin auto - Bootstrap naming to Tailwind */
+  .ms-auto { @apply ml-auto; }
+  .me-auto { @apply mr-auto; }
+  /* mx-auto, my-auto already exist in Tailwind with same names */
+}
+
+/* =============================================================================
+   TAILWIND UTILITIES LAYER
+   Custom utility extensions
+   ============================================================================= */
+@layer utilities {
+  /* Text balance for headings (with fallback) */
+  .text-balance {
+    text-wrap: balance;
+    /* Fallback for older browsers - no visual effect but no errors */
   }
 
-  @keyframes tw-spin {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
+  /* Gradient text */
+  .text-gradient-crush {
+    @apply bg-gradient-to-r from-crush-purple to-crush-pink
+           bg-clip-text text-transparent;
+  }
+
+  /* Soft white text (for dark backgrounds) */
+  .text-white-50 {
+    @apply text-white/50;
+  }
+
+  .text-white-75 {
+    @apply text-white/75;
+  }
+
+  /* Safe area padding for mobile */
+  .safe-area-inset-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Aspect ratios */
+  .aspect-square { aspect-ratio: 1 / 1; }
+  .aspect-video { aspect-ratio: 16 / 9; }
+  .aspect-portrait { aspect-ratio: 3 / 4; }
+
+  /* Backdrop blur (with Safari prefix) */
+  .backdrop-blur-crush {
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
   }
 }

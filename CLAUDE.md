@@ -11,169 +11,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Focus on writing working code, not documentation, unless instructed otherwise
 - If asked to document something, be concise and only document what's necessary
 
-## Recommended Development Agents
+## Development Agents
 
-This project uses specialized Claude agents for specific development tasks. Agents are defined in `.claude/agents/` and provide focused expertise for common development scenarios.
+Specialized Claude agents are defined in `.claude/agents/` for common development tasks:
 
-### Existing Agents
-
-**css-expert** (`.claude/agents/css-expert.md`)
-- Use for: Styling tasks, responsive design, Bootstrap customization, UI modernization
-- Expertise: Bootstrap 5, CSS Grid, Flexbox, animations, responsive design
-- Context: Understands all four platforms (Entreprinder, VinsDelux, Crush.lu, PowerUP) and their styling approaches
-- Best for: Creating new components, debugging layout issues, implementing modern CSS features
-
-**javascript-expert** (`.claude/agents/javascript-expert.md`)
-- Use for: Frontend JavaScript development, API integrations, interactive features
-- Expertise: ES6+, React/Vue/Angular, async programming, DOM manipulation
-- Best for: Swipe interfaces, plot selection systems, journey challenges, event voting systems
-
-**visual-ui-debugger** (`.claude/agents/visual-ui-debugger.md`)
-- Use for: Analyzing screenshots of UI issues, identifying visual bugs
-- Expertise: CSS debugging, layout analysis, responsive design issues
-- Best for: When you have screenshots showing styling problems
-
-### Recommended Additional Agents to Create
-
-**django-expert**
-- **Purpose**: Django backend development, models, views, URL routing, middleware
-- **When to use**: Creating new models, implementing views, debugging ORM queries, authentication flows
-- **Expertise areas**:
-  - Django 5.1+ features and best practices
-  - Multi-domain architecture with URL routing
-  - Django Allauth and OAuth2 integration
-  - Model relationships and migrations
-  - Class-based views vs function views
-  - Django REST Framework API development
-  - Middleware development
-  - Signal handlers and lifecycle hooks
-  - Django admin customization
-- **Project context**: Should understand domain routing, i18n, Azure deployment
-
-**email-template-expert**
-- **Purpose**: HTML email template creation with Django template syntax
-- **When to use**: Creating new notification emails, improving email design
-- **Expertise areas**:
-  - HTML email best practices (table-based layouts)
-  - Inline CSS for email clients
-  - Email client compatibility (Outlook, Gmail, Apple Mail)
-  - Responsive email design
-  - Django template inheritance for emails
-  - Plain text alternatives
-  - Email testing strategies
-- **Project context**: Should understand Crush.lu email system, Microsoft Graph backend, existing email templates
-
-**azure-deployment-expert**
-- **Purpose**: Azure infrastructure, deployment, and production issues
-- **When to use**: Deployment problems, Azure configuration, production debugging
-- **Expertise areas**:
-  - Azure App Service configuration
-  - Azure Blob Storage (public and private containers)
-  - PostgreSQL Azure Database
-  - Bicep infrastructure as code
-  - Azure Developer CLI (azd)
-  - WhiteNoise static file serving
-  - Environment variable management
-  - Azure Application Insights
-  - Health check endpoints
-  - Production vs development settings
-- **Project context**: Should understand multi-domain setup, middleware requirements, storage strategy
-
-**database-expert**
-- **Purpose**: Database modeling, migrations, query optimization
-- **When to use**: Complex queries, model design, migration issues, performance optimization
-- **Expertise areas**:
-  - PostgreSQL-specific features and optimization
-  - Django ORM query optimization (select_related, prefetch_related)
-  - Complex model relationships (ManyToMany, ForeignKey, OneToOne)
-  - Migration strategies and conflict resolution
-  - Database indexing and performance
-  - JSON fields for flexible data (JourneyProgress, event metadata)
-  - Transaction management
-  - Data integrity and constraints
-- **Project context**: Should understand existing model architecture across all four platforms
-
-**api-expert**
-- **Purpose**: REST API development with Django REST Framework
-- **When to use**: Creating/updating APIs, debugging API issues, JWT authentication
-- **Expertise areas**:
-  - Django REST Framework serializers, viewsets, routers
-  - JWT authentication and token management
-  - API versioning strategies
-  - Pagination and filtering
-  - CORS configuration
-  - API documentation (OpenAPI/Swagger)
-  - Rate limiting and throttling
-  - Error handling and validation
-  - JSON response formatting
-- **Project context**: Should understand VinsDelux plot selection API, Crush.lu journey API
-
-**testing-expert**
-- **Purpose**: Writing tests, test-driven development, CI/CD
-- **When to use**: Creating unit tests, integration tests, fixing failing tests
-- **Expertise areas**:
-  - Django TestCase and pytest
-  - Model testing strategies
-  - View and API testing
-  - Test fixtures and factories
-  - Selenium/Playwright for frontend testing
-  - Mock objects and patching
-  - Test coverage analysis
-  - CI/CD with GitHub Actions
-  - Testing email functionality
-  - Testing multi-domain routing
-- **Project context**: Should understand existing test structure, domain-specific test requirements
-
-**security-expert**
-- **Purpose**: Security reviews, authentication, authorization, data privacy
-- **When to use**: Security audits, privacy features, authentication issues
-- **Expertise areas**:
-  - CSRF protection
-  - XSS prevention
-  - SQL injection prevention
-  - Authentication best practices
-  - Authorization and permissions
-  - Privacy controls (Crush.lu photo privacy, profile approval)
-  - SAS token generation and validation
-  - Invitation token security
-  - Session management
-  - Password policies and reset flows
-- **Project context**: Should understand Crush.lu privacy features, private storage, invitation system
-
-**migration-expert**
-- **Purpose**: Data migrations, version upgrades, refactoring assistance
-- **When to use**: Upgrading Django/Python versions, major refactoring, data migrations
-- **Expertise areas**:
-  - Django migrations (data migrations vs schema migrations)
-  - Backward compatibility strategies
-  - Zero-downtime deployments
-  - Dependency upgrades
-  - Breaking change mitigation
-  - Rollback strategies
-  - Database backup and restore
-- **Project context**: Should understand multi-app architecture, production constraints
-
-### Creating Custom Agents
-
-To create a new agent, add a markdown file in `.claude/agents/`:
-
-```markdown
----
-name: agent-name
-description: Short description of when to use this agent
-model: sonnet  # or haiku for faster, cheaper tasks
----
-
-[Agent instructions and expertise areas]
-```
-
-**Agent Best Practices**:
-- Keep agent descriptions clear and specific
-- Include examples of when to use the agent
-- Provide project context in the agent prompt
-- Reference existing code patterns and conventions
-- Balance between general expertise and project-specific knowledge
-- Use `model: sonnet` for complex tasks, `model: haiku` for simple tasks
+- **api-expert** - REST API development with Django REST Framework
+- **azure-deployment-expert** - Azure infrastructure and deployment
+- **css-expert** - Styling, Tailwind CSS, responsive design
+- **database-expert** - Database modeling and query optimization
+- **django-expert** - Django backend development
+- **email-template-expert** - HTML email templates
+- **javascript-expert** - Frontend JavaScript, HTMX, Alpine.js
+- **migration-expert** - Data migrations and version upgrades
+- **security-expert** - Security reviews and authentication
+- **testing-expert** - Unit tests, Playwright browser tests
+- **visual-ui-debugger** - Analyzing screenshots for UI issues
 
 ## Project Overview
 
@@ -188,10 +40,26 @@ Entreprinder is a multi-domain Django application serving four distinct platform
 - **Framework**: Django 5.1 with Python 3.10+
 - **Database**: SQLite (dev), PostgreSQL (prod)
 - **Authentication**: Django Allauth with LinkedIn OAuth2
-- **Frontend**: Bootstrap 5, Crispy Forms, custom JavaScript for interactive features
+- **Frontend**: Tailwind CSS, HTMX, Alpine.js, Crispy Forms
 - **Storage**: Local filesystem (dev), Azure Blob Storage (prod)
 - **API**: Django REST Framework with JWT authentication
 - **Deployment**: Azure App Service with WhiteNoise for static files
+- **Code Style**: Black/Ruff with 88 character line length (configured in `pyproject.toml`)
+
+## Frontend Stack
+
+- **Tailwind CSS**: Custom configuration in `tailwind.config.js` with Crush.lu design tokens
+  - Custom colors: `crush-purple`, `crush-pink`, `crush-dark`, `crush-light`
+  - Custom border radius: `crush-sm`, `crush-md`, `crush-lg`, `crush-pill`
+  - Custom shadows: `crush-purple`, `crush-pink`, `crush-sm`, `crush-md`, `crush-lg`
+  - Plugins: `@tailwindcss/forms`, `@tailwindcss/typography`
+- **HTMX**: Progressive enhancement for dynamic content loading without full page reloads
+- **Alpine.js**: Lightweight JavaScript framework for interactive UI components
+- **Crispy Forms**: Django form rendering with Tailwind CSS template pack
+
+CSS files:
+- Input: `static/crush_lu/css/tailwind-input.css`
+- Output: `static/crush_lu/css/tailwind.css`
 
 ## Development Commands
 
@@ -200,16 +68,42 @@ Entreprinder is a multi-domain Django application serving four distinct platform
 # Run development server
 python manage.py runserver
 
-# Run tests for specific app
-python manage.py test entreprinder
-python manage.py test matching
-python manage.py test vinsdelux
+# Run all tests with pytest
+pytest
 
-# Run all tests
-python manage.py test
+# Run specific test file
+pytest crush_lu/tests/test_models.py
 
-# Check for issues with flake8
-flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+# Run single test
+pytest crush_lu/tests/test_models.py::TestCrushProfile::test_age_calculation
+
+# Run tests with Playwright browser automation
+pytest -m playwright
+
+# Run only fast tests (skip Playwright)
+pytest -m "not playwright"
+```
+
+### Frontend Development (Tailwind CSS)
+```bash
+# Install Node.js dependencies
+npm install
+
+# Build Tailwind CSS for production
+npm run build:css
+
+# Watch mode for Tailwind CSS development
+npm run watch:css
+```
+
+### Code Formatting
+```bash
+# Format with black
+black .
+
+# Lint with ruff
+ruff check .
+ruff check . --fix
 ```
 
 ### Database Management
@@ -546,9 +440,23 @@ The application supports two email backends:
 
 ## Testing Strategy
 
-- **Unit Tests**: Each app has `tests.py` for model and view tests
-- **Frontend Tests**: Selenium-based tests in `vinsdelux/tests/test_frontend.py`
+- **Test Runner**: pytest with pytest-django and pytest-playwright
+- **Unit Tests**: Each app has `tests/` directory for model and view tests
+- **Browser Tests**: Playwright-based tests for frontend interactions
 - **CI/CD**: GitHub Actions runs tests on Python 3.10 and 3.11 with PostgreSQL
+- **Configuration**: `pytest.ini` and `conftest.py` for shared fixtures
+
+### pytest Fixtures (conftest.py)
+
+Key fixtures available for Crush.lu tests:
+- `test_user` - Basic authenticated user
+- `test_user_with_profile` - User with approved CrushProfile
+- `coach_user` - User with CrushCoach privileges
+- `sample_event` - Published MeetupEvent 7 days in future
+- `event_with_registrations` - Event with confirmed registrations
+- `connection_pair` - Two users with mutual EventConnection
+- `unapproved_user` - User pending profile approval
+- `authenticated_page` - Playwright page with logged-in session
 
 ## Key Models
 
@@ -989,10 +897,12 @@ Comprehensive email notification system using Django templates.
 
 #### Frontend Design
 
-- Bootstrap 5 with custom CSS variables
-- Color scheme: Purple (#9B59B6) and Pink (#FF6B9D) gradients
+- Tailwind CSS with custom design tokens (see `tailwind.config.js`)
+- Color scheme: Purple (`crush-purple` #9B59B6) and Pink (`crush-pink` #FF6B9D) gradients
 - Responsive design with mobile-first approach
 - Card-based layouts for events and profiles
-- Custom `.btn-crush-primary` button style with gradient and hover effects
+- Custom button styles with gradient and hover effects
 - Emoji-enhanced UX for visual appeal to younger audience
+- HTMX for dynamic content loading without full page reloads
+- Alpine.js for interactive UI components
 - Custom CSS in `static/crush_lu/css/` for journey, admin, and event styling

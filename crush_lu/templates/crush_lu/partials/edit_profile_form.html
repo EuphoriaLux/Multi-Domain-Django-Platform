@@ -2,7 +2,7 @@
 
 {% if has_errors %}
 <div class="alert alert-danger alert-dismissible fade show tw-mb-4" role="alert">
-    <i class="bi bi-exclamation-triangle-fill tw-me-2"></i>
+    {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}
     Please correct the errors below.
     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
@@ -19,12 +19,12 @@
 <div class="section-card mb-4">
     <h5 class="section-title">📞 Contact Information</h5>
 
-    <div class="row">
-        <div class="col-md-6 mb-3">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="mb-3">
             <label for="{{ form.phone_number.id_for_label }}" class="form-label">
                 Phone Number *
                 {% if profile.phone_verified %}
-                    <span class="badge bg-success ms-2"><i class="bi bi-check-circle"></i> Verified</span>
+                    <span class="badge bg-success ml-2">{% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Verified</span>
                 {% endif %}
             </label>
             {% if profile.phone_verified %}
@@ -32,54 +32,54 @@
                     <input type="text" class="form-control tw-bg-gray-100" value="{{ profile.phone_number }}" readonly disabled>
                     <input type="hidden" name="phone_number" value="{{ profile.phone_number }}">
                     <span class="tw-absolute tw-right-3 tw-top-1/2 tw--translate-y-1/2">
-                        <i class="bi bi-lock tw-text-green-500"></i>
+                        {% include "crush_lu/icons/lock-closed.html" with class="w-5 h-5 tw-text-green-500" %}
                     </span>
                 </div>
                 <small class="text-muted">
-                    <i class="bi bi-info-circle"></i> Verified phone numbers cannot be changed.
+                    {% include "crush_lu/icons/information-circle.html" with class="w-5 h-5" %} Verified phone numbers cannot be changed.
                     Contact support if you need to update it.
                 </small>
             {% else %}
-                {{ form.phone_number }}
+                <div class="phone-input-wrapper">
+                    {{ form.phone_number }}
+                </div>
                 <small class="text-warning">
-                    <i class="bi bi-exclamation-triangle"></i>
+                    {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}
                     <a href="{% url 'crush_lu:verify_phone' %}">Verify your phone number</a> to lock it.
                 </small>
             {% endif %}
             {% if form.phone_number.errors %}
-                <div class="invalid-feedback d-block">{{ form.phone_number.errors.0 }}</div>
+                <div class="text-red-600 text-sm mt-1">{{ form.phone_number.errors.0 }}</div>
             {% endif %}
         </div>
 
-        <div class="col-md-6 mb-3">
+        <div class="mb-3">
             <label for="{{ form.location.id_for_label }}" class="form-label">
                 Location in Luxembourg *
             </label>
             {{ form.location }}
             {% if form.location.errors %}
-                <div class="invalid-feedback d-block">{{ form.location.errors.0 }}</div>
+                <div class="text-red-600 text-sm mt-1">{{ form.location.errors.0 }}</div>
             {% endif %}
         </div>
-    </div>
 
-    <div class="row">
-        <div class="col-md-6 mb-3">
+        <div class="mb-3">
             <label for="{{ form.date_of_birth.id_for_label }}" class="form-label">
                 Date of Birth *
             </label>
             {{ form.date_of_birth }}
             {% if form.date_of_birth.errors %}
-                <div class="invalid-feedback d-block">{{ form.date_of_birth.errors.0 }}</div>
+                <div class="text-red-600 text-sm mt-1">{{ form.date_of_birth.errors.0 }}</div>
             {% endif %}
         </div>
 
-        <div class="col-md-6 mb-3">
+        <div class="mb-3">
             <label for="{{ form.gender.id_for_label }}" class="form-label">
                 Gender *
             </label>
             {{ form.gender }}
             {% if form.gender.errors %}
-                <div class="invalid-feedback d-block">{{ form.gender.errors.0 }}</div>
+                <div class="text-red-600 text-sm mt-1">{{ form.gender.errors.0 }}</div>
             {% endif %}
         </div>
     </div>
@@ -99,7 +99,7 @@
             <span id="bioCounter">{{ profile.bio|length|default:"0" }}</span>/500 characters
         </div>
         {% if form.bio.errors %}
-            <div class="invalid-feedback d-block">{{ form.bio.errors.0 }}</div>
+            <div class="text-red-600 text-sm mt-1">{{ form.bio.errors.0 }}</div>
         {% endif %}
     </div>
 
@@ -113,7 +113,7 @@
             <span id="interestsCounter">{{ profile.interests|length|default:"0" }}</span>/300 characters
         </div>
         {% if form.interests.errors %}
-            <div class="invalid-feedback d-block">{{ form.interests.errors.0 }}</div>
+            <div class="text-red-600 text-sm mt-1">{{ form.interests.errors.0 }}</div>
         {% endif %}
     </div>
 
@@ -123,7 +123,7 @@
         </label>
         {{ form.looking_for }}
         {% if form.looking_for.errors %}
-            <div class="invalid-feedback d-block">{{ form.looking_for.errors.0 }}</div>
+            <div class="text-red-600 text-sm mt-1">{{ form.looking_for.errors.0 }}</div>
         {% endif %}
     </div>
 </div>
@@ -131,7 +131,7 @@
 <!-- Photos Section -->
 <div class="section-card mb-4">
     <div class="photo-section-header">
-        <h5 class="section-title mb-0" style="border-bottom: none; padding-bottom: 0;"><i class="bi bi-images"></i> Photos</h5>
+        <h5 class="section-title mb-0" style="border-bottom: none; padding-bottom: 0;">{% include "crush_lu/icons/photo.html" with class="w-5 h-5" %} Photos</h5>
         <span class="photo-count">Up to 3</span>
     </div>
     <p class="text-muted small mb-3">Your main photo will be displayed first to other users.</p>
@@ -139,8 +139,8 @@
     <!-- Social Photo Import -->
     {% if social_photos %}
     <div class="social-import-section mb-4">
-        <div class="d-flex align-items-center gap-2 mb-2">
-            <i class="bi bi-cloud-download text-primary"></i>
+        <div class="flex items-center gap-2 mb-2">
+            {% include "crush_lu/icons/cloud-arrow-down.html" with class="w-5 h-5 text-primary" %}
             <span class="fw-semibold">Import from Social Accounts</span>
         </div>
         <div class="social-photos-row">
@@ -158,17 +158,17 @@
                 {% if photo.available %}
                 <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }}" class="social-mini-img">
                 <div class="import-btns">
-                    <button type="button" class="btn btn-xs btn-crush-primary import-social-photo-btn"
+                    <button type="button" class="btn-crush-primary text-xs px-2 py-1 import-social-photo-btn"
                             data-account-id="{{ photo.account_id }}"
                             data-slot="1" title="Set as Main Photo">
-                        <i class="bi bi-star-fill"></i>
+                        {% include "crush_lu/icons/star.html" with class="w-5 h-5" %}
                     </button>
-                    <button type="button" class="btn btn-xs btn-outline-secondary import-social-photo-btn"
+                    <button type="button" class="px-2 py-1 text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 rounded import-social-photo-btn"
                             data-account-id="{{ photo.account_id }}"
                             data-slot="2" title="Import as Photo 2">
                         2
                     </button>
-                    <button type="button" class="btn btn-xs btn-outline-secondary import-social-photo-btn"
+                    <button type="button" class="px-2 py-1 text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 rounded import-social-photo-btn"
                             data-account-id="{{ photo.account_id }}"
                             data-slot="3" title="Import as Photo 3">
                         3
@@ -176,7 +176,7 @@
                 </div>
                 {% else %}
                 <div class="no-photo-mini">
-                    <i class="bi bi-image"></i>
+                    {% include "crush_lu/icons/photo.html" with class="w-5 h-5" %}
                 </div>
                 {% endif %}
             </div>
@@ -186,19 +186,19 @@
     </div>
     {% endif %}
 
-    <div class="row g-3">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <!-- Photo 1 (Main) -->
-        <div class="col-md-4" id="photo-card-1">
+        <div id="photo-card-1">
             {% include 'crush_lu/partials/photo_card.html' with slot=1 photo=profile.photo_1 is_main=True %}
         </div>
 
         <!-- Photo 2 -->
-        <div class="col-md-4" id="photo-card-2">
+        <div id="photo-card-2">
             {% include 'crush_lu/partials/photo_card.html' with slot=2 photo=profile.photo_2 is_main=False %}
         </div>
 
         <!-- Photo 3 -->
-        <div class="col-md-4" id="photo-card-3">
+        <div id="photo-card-3">
             {% include 'crush_lu/partials/photo_card.html' with slot=3 photo=profile.photo_3 is_main=False %}
         </div>
     </div>
@@ -212,7 +212,7 @@
         {{ form.show_full_name }}
         <label class="form-check-label" for="{{ form.show_full_name.id_for_label }}">
             Show my full name
-            <small class="text-muted d-block">Otherwise only first name is shown</small>
+            <small class="text-muted block">Otherwise only first name is shown</small>
         </label>
     </div>
 
@@ -220,7 +220,7 @@
         {{ form.show_exact_age }}
         <label class="form-check-label" for="{{ form.show_exact_age.id_for_label }}">
             Show my exact age
-            <small class="text-muted d-block">Otherwise show age range (e.g., 25-29)</small>
+            <small class="text-muted block">Otherwise show age range (e.g., 25-29)</small>
         </label>
     </div>
 
@@ -233,16 +233,16 @@
 </div>
 
 <!-- Action Buttons -->
-<div class="d-grid gap-2 d-md-flex justify-content-md-between">
-    <a href="{% url 'crush_lu:dashboard' %}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Cancel
+<div class="flex flex-col md:flex-row gap-3 md:justify-between">
+    <a href="{% url 'crush_lu:dashboard' %}" class="inline-flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
+        {% include "crush_lu/icons/arrow-left.html" with class="w-4 h-4" %} Cancel
     </a>
-    <button type="submit" class="btn btn-crush-primary btn-lg tw-relative">
-        <span id="submit-indicator" class="htmx-indicator tw-absolute tw-inset-0 tw-flex tw-items-center tw-justify-center tw-bg-crush-purple tw-rounded-crush-pill">
-            <i class="bi bi-arrow-repeat tw-animate-spin tw-mr-2"></i> Saving...
+    <button type="submit" class="btn-crush-primary relative px-6 py-3 text-lg inline-flex items-center justify-center gap-2">
+        <span id="submit-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-crush-purple rounded-lg">
+            {% include "crush_lu/icons/loading.html" with class="w-5 h-5 animate-spin" %} Saving...
         </span>
         <span class="button-text">
-            <i class="bi bi-check-circle"></i> Save Changes
+            {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Save Changes
         </span>
     </button>
 </div>

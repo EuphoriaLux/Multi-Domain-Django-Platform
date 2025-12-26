@@ -6,55 +6,51 @@
 {% block meta_robots %}noindex, nofollow{% endblock %}
 
 {% block content %}
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-5">
-            <div class="card shadow-sm">
-                <div class="card-body text-center p-5">
-                    <!-- Success Icon -->
-                    <div class="mb-4">
-                        <div class="success-icon-wrapper">
-                            <svg class="success-icon" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
-                                <circle class="success-icon-circle" cx="26" cy="26" r="25" fill="none"/>
-                                <path class="success-icon-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
-                            </svg>
-                        </div>
-                    </div>
-
-                    <h2 class="mb-3">Welcome, {{ user.first_name|default:user.username }}!</h2>
-                    <p class="text-muted mb-4">
-                        You've successfully logged in to Crush.lu.
-                    </p>
-
-                    <!-- PWA Return Instructions (shown on Android browser) -->
-                    <div id="pwa-instructions" class="alert alert-info d-none">
-                        <p class="mb-2"><strong>Almost there!</strong></p>
-                        <p class="mb-0 small">
-                            If you're using the Crush.lu app, tap the button below to return to the app.
-                        </p>
-                    </div>
-
-                    <!-- Primary Action Button -->
-                    <a href="{{ final_destination }}"
-                       id="continue-btn"
-                       class="btn btn-crush-primary btn-lg w-100 mb-3">
-                        Continue to Crush.lu
-                    </a>
-
-                    <!-- PWA Return Button (hidden by default, shown on Android) -->
-                    <button id="pwa-return-btn"
-                            class="btn btn-outline-primary w-100 d-none"
-                            onclick="returnToPWA()">
-                        <i class="fas fa-mobile-alt me-2"></i>
-                        Open in Crush.lu App
-                    </button>
-
-                    <p class="text-muted small mt-4 mb-0">
-                        <i class="fas fa-shield-alt me-1"></i>
-                        Your session is secure
-                    </p>
+<div class="max-w-md mx-auto py-12 px-4">
+    <div class="bg-white rounded-xl shadow-sm">
+        <div class="text-center p-8">
+            <!-- Success Icon -->
+            <div class="mb-6">
+                <div class="success-icon-wrapper">
+                    <svg class="success-icon" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
+                        <circle class="success-icon-circle" cx="26" cy="26" r="25" fill="none"/>
+                        <path class="success-icon-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                    </svg>
                 </div>
             </div>
+
+            <h2 class="text-2xl font-bold mb-3">Welcome, {{ user.first_name|default:user.username }}!</h2>
+            <p class="text-gray-500 mb-6">
+                You've successfully logged in to Crush.lu.
+            </p>
+
+            <!-- PWA Return Instructions (shown on Android browser) -->
+            <div id="pwa-instructions" class="hidden bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-4">
+                <p class="font-semibold mb-1">Almost there!</p>
+                <p class="text-sm">
+                    If you're using the Crush.lu app, tap the button below to return to the app.
+                </p>
+            </div>
+
+            <!-- Primary Action Button -->
+            <a href="{{ final_destination }}"
+               id="continue-btn"
+               class="btn-crush-primary w-full py-4 text-lg mb-4 inline-block text-center">
+                Continue to Crush.lu
+            </a>
+
+            <!-- PWA Return Button (hidden by default, shown on Android) -->
+            <button id="pwa-return-btn"
+                    class="hidden w-full py-3 px-4 border border-purple-500 text-purple-600 hover:bg-purple-50 rounded-lg font-medium transition-colors"
+                    onclick="returnToPWA()">
+                {% include "crush_lu/icons/device-mobile.html" with class="w-4 h-4" %}
+                Open in Crush.lu App
+            </button>
+
+            <p class="text-gray-400 text-sm mt-6 flex items-center justify-center gap-1">
+                {% include "crush_lu/icons/shield-check.html" with class="w-4 h-4" %}
+                Your session is secure
+            </p>
         </div>
     </div>
 </div>
@@ -143,8 +139,8 @@
 
     // Show PWA instructions for Android users in browser
     function showPWAInstructions() {
-        document.getElementById('pwa-instructions').classList.remove('d-none');
-        document.getElementById('pwa-return-btn').classList.remove('d-none');
+        document.getElementById('pwa-instructions').classList.remove('hidden');
+        document.getElementById('pwa-return-btn').classList.remove('hidden');
     }
 
     // Attempt to return to PWA using various methods

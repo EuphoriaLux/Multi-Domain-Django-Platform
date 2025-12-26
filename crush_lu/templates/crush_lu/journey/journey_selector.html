@@ -234,7 +234,7 @@
 {% block content %}
 <div class="journey-selector-container">
     <a href="{% url 'crush_lu:special_welcome' %}" class="back-link">
-        <i class="bi bi-arrow-left"></i> Back to Welcome
+        {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back to Welcome
     </a>
 
     <div class="selector-header">

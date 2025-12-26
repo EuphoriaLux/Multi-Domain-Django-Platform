@@ -1,0 +1,33 @@
+<div id="connection-actions-{{ recipient.id }}" class="space-y-2">
+    <form hx-post="{% url 'crush_lu:request_connection_inline' event.id recipient.id %}"
+          hx-target="#connection-actions-{{ recipient.id }}"
+          hx-swap="outerHTML"
+          class="space-y-2">
+        {% csrf_token %}
+        <div>
+            <textarea name="note"
+                      rows="2"
+                      placeholder="Add a note (optional)..."
+                      class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"></textarea>
+        </div>
+        <div class="flex gap-2">
+            <button type="submit"
+                    class="btn-crush-primary px-3 py-1.5 text-sm inline-flex items-center gap-1">
+                <span class="htmx-indicator">
+                    {% include "crush_lu/icons/loading.html" with class="w-4 h-4 animate-spin" %}
+                </span>
+                <span class="htmx-hide-on-request inline-flex items-center gap-1">
+                    {% include "crush_lu/icons/heart.html" with class="w-4 h-4" %}
+                    Send Request
+                </span>
+            </button>
+            <button type="button"
+                    hx-get="{% url 'crush_lu:connection_actions' event.id recipient.id %}"
+                    hx-target="#connection-actions-{{ recipient.id }}"
+                    hx-swap="outerHTML"
+                    class="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                Cancel
+            </button>
+        </div>
+    </form>
+</div>

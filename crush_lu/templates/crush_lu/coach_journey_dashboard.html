@@ -3,118 +3,55 @@
 
 {% block title %}Journey Management - Coach Dashboard{% endblock %}
 
-{% block extra_css %}
-<style>
-    .journey-card {
-        border: 1px solid #e0e0e0;
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 20px;
-        background: white;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .journey-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 15px;
-        padding-bottom: 15px;
-        border-bottom: 2px solid #9B59B6;
-    }
-    .journey-stats {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 15px;
-        margin: 15px 0;
-    }
-    .stat-box {
-        background: #f8f9fa;
-        padding: 15px;
-        border-radius: 8px;
-        text-align: center;
-    }
-    .stat-number {
-        font-size: 2em;
-        font-weight: bold;
-        color: #9B59B6;
-    }
-    .stat-label {
-        font-size: 0.9em;
-        color: #666;
-    }
-    .progress-list {
-        margin-top: 15px;
-    }
-    .progress-item {
-        padding: 10px;
-        border-left: 3px solid #9B59B6;
-        background: #f8f9fa;
-        margin-bottom: 10px;
-        border-radius: 4px;
-    }
-    .btn-edit-journey {
-        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 25px;
-        font-weight: 600;
-    }
-    .btn-edit-journey:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
-        color: white;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-12">
-            <h2 class="mb-4">
-                <i class="bi bi-map"></i> Journey Management Dashboard
-            </h2>
-            <p class="text-muted">Manage all active Wonderland Journey experiences and monitor user progress.</p>
-        </div>
+<div class="max-w-6xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold flex items-center gap-2">
+            {% include "crush_lu/icons/map.html" with class="w-5 h-5" %} Journey Management Dashboard
+        </h2>
+        <p class="text-gray-500 mt-1">Manage all active Wonderland Journey experiences and monitor user progress.</p>
     </div>
 
     {% if journeys_with_progress %}
         {% for item in journeys_with_progress %}
-        <div class="journey-card">
-            <div class="journey-header">
+        <div class="bg-white rounded-xl shadow-sm mb-6 p-6">
+            <!-- Journey Header -->
+            <div class="flex flex-col md:flex-row md:justify-between md:items-center pb-4 mb-4 border-b-2 border-purple-500">
                 <div>
-                    <h3>{{ item.journey.journey_name }}</h3>
-                    <p class="text-muted mb-0">
+                    <h3 class="text-xl font-semibold">{{ item.journey.journey_name }}</h3>
+                    <p class="text-gray-500">
                         For: <strong>{{ item.journey.special_experience.first_name }} {{ item.journey.special_experience.last_name }}</strong>
                     </p>
-                    <p class="text-muted mb-0">
-                        <i class="bi bi-calendar"></i> {{ item.journey.total_chapters }} Chapters |
-                        <i class="bi bi-clock"></i> ~{{ item.journey.estimated_duration_minutes }} minutes
+                    <p class="text-gray-500">
+                        {% include "crush_lu/icons/calendar.html" with class="w-5 h-5" %} {{ item.journey.total_chapters }} Chapters |
+                        {% include "crush_lu/icons/clock.html" with class="w-5 h-5" %} ~{{ item.journey.estimated_duration_minutes }} minutes
                     </p>
                 </div>
-                <div>
-                    <a href="{% url 'crush_lu:coach_edit_journey' item.journey.id %}" class="btn btn-edit-journey">
-                        <i class="bi bi-pencil-square"></i> Edit Journey
+                <div class="mt-4 md:mt-0">
+                    <a href="{% url 'crush_lu:coach_edit_journey' item.journey.id %}"
+                       class="inline-flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold rounded-full transition-all hover:-translate-y-0.5 hover:shadow-lg">
+                        {% include "crush_lu/icons/pencil-square.html" with class="w-5 h-5" %} Edit Journey
                     </a>
                 </div>
             </div>
 
-            <div class="journey-stats">
-                <div class="stat-box">
-                    <div class="stat-number">{{ item.total_users }}</div>
-                    <div class="stat-label">Total Users</div>
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 my-4">
+                <div class="bg-gray-50 p-4 rounded-lg text-center">
+                    <div class="text-3xl font-bold text-purple-600">{{ item.total_users }}</div>
+                    <div class="text-sm text-gray-500">Total Users</div>
                 </div>
-                <div class="stat-box">
-                    <div class="stat-number">{{ item.completed_users }}</div>
-                    <div class="stat-label">Completed</div>
+                <div class="bg-gray-50 p-4 rounded-lg text-center">
+                    <div class="text-3xl font-bold text-purple-600">{{ item.completed_users }}</div>
+                    <div class="text-sm text-gray-500">Completed</div>
                 </div>
-                <div class="stat-box">
-                    <div class="stat-number">{{ item.journey.chapters.count }}</div>
-                    <div class="stat-label">Chapters</div>
+                <div class="bg-gray-50 p-4 rounded-lg text-center">
+                    <div class="text-3xl font-bold text-purple-600">{{ item.journey.chapters.count }}</div>
+                    <div class="text-sm text-gray-500">Chapters</div>
                 </div>
-                <div class="stat-box">
-                    <div class="stat-number">
+                <div class="bg-gray-50 p-4 rounded-lg text-center">
+                    <div class="text-3xl font-bold text-purple-600">
                         {% with total_challenges=0 %}
                             {% for chapter in item.journey.chapters.all %}
                                 {% with total_challenges=total_challenges|add:chapter.challenges.count %}{% endwith %}
@@ -122,27 +59,33 @@
                             {{ total_challenges }}
                         {% endwith %}
                     </div>
-                    <div class="stat-label">Challenges</div>
+                    <div class="text-sm text-gray-500">Challenges</div>
                 </div>
             </div>
 
+            <!-- Recent Progress -->
             {% if item.recent_progress %}
-            <div class="progress-list">
-                <h5>Recent User Activity</h5>
+            <div class="mt-6">
+                <h5 class="font-semibold mb-3">Recent User Activity</h5>
                 {% for progress in item.recent_progress %}
-                <div class="progress-item">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
+                <div class="p-3 border-l-4 border-purple-500 bg-gray-50 rounded-r-lg mb-3">
+                    <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+                        <div class="flex items-center flex-wrap gap-2">
                             <strong>{{ progress.user.username }}</strong>
-                            <span class="badge bg-secondary">Chapter {{ progress.current_chapter }}</span>
+                            <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-gray-500 text-white rounded">
+                                Chapter {{ progress.current_chapter }}
+                            </span>
                             {% if progress.is_completed %}
-                                <span class="badge bg-success">✅ Completed</span>
+                            <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-green-500 text-white rounded">
+                                Completed
+                            </span>
                             {% endif %}
                         </div>
-                        <div>
-                            <span class="text-muted">{{ progress.total_points }} pts</span>
-                            <a href="{% url 'crush_lu:coach_view_user_progress' progress.id %}" class="btn btn-sm btn-outline-primary ms-2">
-                                <i class="bi bi-eye"></i> View Progress
+                        <div class="flex items-center gap-3">
+                            <span class="text-gray-500">{{ progress.total_points }} pts</span>
+                            <a href="{% url 'crush_lu:coach_view_user_progress' progress.id %}"
+                               class="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-purple-500 text-purple-600 hover:bg-purple-50 font-medium rounded-lg transition-colors">
+                                {% include "crush_lu/icons/eye.html" with class="w-5 h-5" %} View Progress
                             </a>
                         </div>
                     </div>
@@ -150,25 +93,27 @@
                 {% endfor %}
             </div>
             {% else %}
-            <p class="text-muted mt-3">No users have started this journey yet.</p>
+            <p class="text-gray-400 mt-4">No users have started this journey yet.</p>
             {% endif %}
         </div>
         {% endfor %}
     {% else %}
-        <div class="alert alert-info">
-            <i class="bi bi-info-circle"></i> No active journeys found. Create a journey from the Special User Experience admin panel.
+        <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 flex items-center gap-2">
+            {% include "crush_lu/icons/information-circle.html" with class="w-5 h-5" %}
+            No active journeys found. Create a journey from the Special User Experience admin panel.
         </div>
     {% endif %}
 
-    <div class="row mt-4">
-        <div class="col-12">
-            <a href="{% url 'crush_lu:coach_dashboard' %}" class="btn btn-secondary">
-                <i class="bi bi-arrow-left"></i> Back to Coach Dashboard
-            </a>
-            <a href="/crush-admin/crush_lu/specialuserexperience/" class="btn btn-outline-primary">
-                <i class="bi bi-plus-circle"></i> Create New Journey
-            </a>
-        </div>
+    <!-- Action Buttons -->
+    <div class="flex flex-wrap gap-3 mt-8">
+        <a href="{% url 'crush_lu:coach_dashboard' %}"
+           class="inline-flex items-center gap-2 px-5 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg transition-colors">
+            {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back to Coach Dashboard
+        </a>
+        <a href="/crush-admin/crush_lu/specialuserexperience/"
+           class="inline-flex items-center gap-2 px-5 py-3 border border-purple-500 text-purple-600 hover:bg-purple-50 font-semibold rounded-lg transition-colors">
+            {% include "crush_lu/icons/plus-circle.html" with class="w-5 h-5" %} Create New Journey
+        </a>
     </div>
 </div>
 {% endblock %}

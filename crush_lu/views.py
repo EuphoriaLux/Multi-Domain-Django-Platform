@@ -1213,7 +1213,20 @@ def event_register(request, event_id):
             except Exception as e:
                 logger.error(f"Failed to send event registration email: {e}")
 
+            # Return HTMX partial or redirect
+            if request.headers.get('HX-Request'):
+                return render(request, 'crush_lu/_event_registration_success.html', {
+                    'event': event,
+                    'registration': registration,
+                })
             return redirect('crush_lu:dashboard')
+        else:
+            # Form invalid - for HTMX, re-render the form with errors
+            if request.headers.get('HX-Request'):
+                return render(request, 'crush_lu/_event_registration_form.html', {
+                    'event': event,
+                    'form': form,
+                })
     else:
         form = EventRegistrationForm()
 
@@ -1285,11 +1298,16 @@ def coach_dashboard(request):
 
 
 @crush_login_required
+@require_http_methods(["POST"])
 def coach_mark_review_call_complete(request, submission_id):
     """Mark screening call as complete during profile review"""
     try:
         coach = CrushCoach.objects.get(user=request.user, is_active=True)
     except CrushCoach.DoesNotExist:
+        if request.headers.get('HX-Request'):
+            return render(request, 'crush_lu/_htmx_error.html', {
+                'message': 'You do not have coach access.'
+            })
         messages.error(request, 'You do not have coach access.')
         return redirect('crush_lu:dashboard')
 
@@ -1299,15 +1317,19 @@ def coach_mark_review_call_complete(request, submission_id):
         coach=coach
     )
 
-    if request.method == 'POST':
-        submission.review_call_completed = True
-        submission.review_call_date = timezone.now()
-        submission.review_call_notes = request.POST.get('call_notes', '')
-        submission.save()
+    submission.review_call_completed = True
+    submission.review_call_date = timezone.now()
+    submission.review_call_notes = request.POST.get('call_notes', '')
+    submission.save()
 
-        messages.success(request, f'✅ Screening call marked complete for {submission.profile.user.first_name}. You can now approve the profile.')
-        return redirect('crush_lu:coach_review_profile', submission_id=submission.id)
+    # Return HTMX partial or redirect
+    if request.headers.get('HX-Request'):
+        return render(request, 'crush_lu/_screening_call_section.html', {
+            'submission': submission,
+            'profile': submission.profile,
+        })
 
+    messages.success(request, f'Screening call marked complete for {submission.profile.user.first_name}. You can now approve the profile.')
     return redirect('crush_lu:coach_review_profile', submission_id=submission.id)
 
 
@@ -1574,33 +1596,154 @@ def coach_edit_challenge(request, challenge_id):
 
 @crush_login_required
 def coach_view_user_progress(request, progress_id):
-    """View a specific user's journey progress and answers"""
+    """View a specific user's journey progress and answers - Enhanced Report View"""
     try:
         coach = CrushCoach.objects.get(user=request.user, is_active=True)
     except CrushCoach.DoesNotExist:
         messages.error(request, 'You do not have coach access.')
         return redirect('crush_lu:dashboard')
 
-    from .models import JourneyProgress, ChallengeAttempt
+    from .models import JourneyProgress, ChallengeAttempt, JourneyChapter, JourneyChallenge
+    from collections import defaultdict
 
     progress = get_object_or_404(
         JourneyProgress.objects.select_related('user', 'journey'),
         id=progress_id
     )
 
-    # Get all chapter progress with attempts
-    chapter_progress_list = progress.chapter_completions.all().select_related('chapter').prefetch_related('attempts__challenge')
+    # Get all chapters for this journey with their challenges
+    chapters = JourneyChapter.objects.filter(
+        journey=progress.journey
+    ).prefetch_related('challenges').order_by('chapter_number')
 
     # Get all challenge attempts for this journey
     all_attempts = ChallengeAttempt.objects.filter(
         chapter_progress__journey_progress=progress
-    ).select_related('challenge', 'chapter_progress__chapter').order_by('attempted_at')
+    ).select_related(
+        'challenge',
+        'challenge__chapter',
+        'chapter_progress__chapter'
+    ).order_by('attempted_at')
+
+    # Build a structured report: for each challenge, get the FINAL successful attempt
+    # or the last attempt if none were successful
+    challenge_results = {}  # challenge_id -> best attempt
+    challenge_attempt_counts = defaultdict(int)  # challenge_id -> total attempts
+
+    for attempt in all_attempts:
+        challenge_id = attempt.challenge_id
+        challenge_attempt_counts[challenge_id] += 1
+
+        # Keep the attempt if:
+        # 1. No attempt recorded yet for this challenge
+        # 2. This attempt is correct (overrides incorrect)
+        # 3. This attempt earned more points
+        if challenge_id not in challenge_results:
+            challenge_results[challenge_id] = attempt
+        elif attempt.is_correct and not challenge_results[challenge_id].is_correct:
+            challenge_results[challenge_id] = attempt
+        elif attempt.points_earned > challenge_results[challenge_id].points_earned:
+            challenge_results[challenge_id] = attempt
+
+    # Build chapter data with challenges and results
+    chapter_data = []
+    total_challenges = 0
+    completed_challenges = 0
+    questionnaire_responses = []
+
+    for chapter in chapters:
+        chapter_info = {
+            'chapter': chapter,
+            'challenges': [],
+            'chapter_points': 0,
+            'is_completed': False,
+        }
+
+        # Check if chapter is completed
+        chapter_progress = progress.chapter_completions.filter(chapter=chapter).first()
+        if chapter_progress:
+            chapter_info['is_completed'] = chapter_progress.is_completed
+            chapter_info['chapter_points'] = chapter_progress.points_earned
+
+        for challenge in chapter.challenges.all():
+            total_challenges += 1
+            result = challenge_results.get(challenge.id)
+            attempt_count = challenge_attempt_counts.get(challenge.id, 0)
+
+            # Determine if this is a questionnaire challenge (no correct answer)
+            is_questionnaire = not challenge.correct_answer or challenge.challenge_type in ['open_text', 'would_you_rather']
+
+            # Parse the user's answer for multiple choice to show the full option text
+            display_answer = None
+            if result:
+                completed_challenges += 1
+                display_answer = result.user_answer
+
+                # For multiple choice, map the letter to the full option
+                if challenge.challenge_type == 'multiple_choice' and challenge.options:
+                    answer_key = result.user_answer.strip().upper()
+                    if answer_key in challenge.options:
+                        display_answer = f"{answer_key}: {challenge.options[answer_key]}"
+
+                # For timeline sorting, show as readable list
+                if challenge.challenge_type == 'timeline_sort' and challenge.options:
+                    try:
+                        order = result.user_answer.split(',')
+                        items = challenge.options.get('items', [])
+                        if items:
+                            display_answer = [items[int(i)] for i in order if i.strip().isdigit() and int(i) < len(items)]
+                    except (ValueError, IndexError):
+                        pass
+
+                # Collect questionnaire responses for insights section
+                if is_questionnaire and result.user_answer:
+                    questionnaire_responses.append({
+                        'chapter': chapter,
+                        'challenge': challenge,
+                        'answer': result.user_answer,
+                        'display_answer': display_answer,
+                    })
+
+            challenge_info = {
+                'challenge': challenge,
+                'result': result,
+                'attempt_count': attempt_count,
+                'is_questionnaire': is_questionnaire,
+                'display_answer': display_answer,
+                'options': challenge.options,
+            }
+            chapter_info['challenges'].append(challenge_info)
+
+        chapter_data.append(chapter_info)
+
+    # Calculate journey statistics
+    journey_duration = None
+    if progress.started_at and progress.final_response_at:
+        journey_duration = progress.final_response_at - progress.started_at
+
+    stats = {
+        'total_challenges': total_challenges,
+        'completed_challenges': completed_challenges,
+        'total_attempts': sum(challenge_attempt_counts.values()),
+        'avg_attempts_per_challenge': round(sum(challenge_attempt_counts.values()) / max(completed_challenges, 1), 1),
+        'journey_duration': journey_duration,
+        'hardest_challenge': max(challenge_attempt_counts.items(), key=lambda x: x[1]) if challenge_attempt_counts else None,
+    }
+
+    # Find the hardest challenge details
+    if stats['hardest_challenge']:
+        hardest_id = stats['hardest_challenge'][0]
+        hardest_challenge = JourneyChallenge.objects.filter(id=hardest_id).first()
+        stats['hardest_challenge_obj'] = hardest_challenge
+        stats['hardest_challenge_attempts'] = stats['hardest_challenge'][1]
 
     context = {
         'coach': coach,
         'progress': progress,
-        'chapter_progress_list': chapter_progress_list,
-        'all_attempts': all_attempts,
+        'chapter_data': chapter_data,
+        'stats': stats,
+        'questionnaire_responses': questionnaire_responses,
+        'all_attempts': all_attempts,  # Keep for backward compatibility
     }
     return render(request, 'crush_lu/coach_view_user_progress.html', context)
 
@@ -1759,6 +1902,143 @@ def request_connection(request, event_id, user_id):
 
 
 @crush_login_required
+@require_http_methods(["GET", "POST"])
+def request_connection_inline(request, event_id, user_id):
+    """HTMX: Inline connection request form and processing"""
+    event = get_object_or_404(MeetupEvent, id=event_id)
+    recipient = get_object_or_404(CrushProfile, user_id=user_id).user
+
+    # Verify requester attended the event
+    requester_reg = get_object_or_404(
+        EventRegistration,
+        event=event,
+        user=request.user
+    )
+
+    if not requester_reg.can_make_connections:
+        return render(request, 'crush_lu/_htmx_error.html', {
+            'message': 'You must attend this event before making connections.'
+        })
+
+    # Verify recipient attended the event
+    recipient_reg = get_object_or_404(
+        EventRegistration,
+        event=event,
+        user=recipient
+    )
+
+    if not recipient_reg.can_make_connections:
+        return render(request, 'crush_lu/_htmx_error.html', {
+            'message': 'This person did not attend the event.'
+        })
+
+    # Check if connection already exists
+    existing = EventConnection.objects.filter(
+        Q(requester=request.user, recipient=recipient, event=event) |
+        Q(requester=recipient, recipient=request.user, event=event)
+    ).first()
+
+    if existing:
+        return render(request, 'crush_lu/_htmx_error.html', {
+            'message': 'Connection request already exists.'
+        })
+
+    if request.method == 'POST':
+        note = request.POST.get('note', '').strip()
+
+        # Create connection request
+        connection = EventConnection.objects.create(
+            requester=request.user,
+            recipient=recipient,
+            event=event,
+            requester_note=note
+        )
+
+        # Check if this is mutual (recipient already requested requester)
+        reverse_connection = EventConnection.objects.filter(
+            requester=recipient,
+            recipient=request.user,
+            event=event
+        ).first()
+
+        is_mutual = False
+        if reverse_connection:
+            # Mutual interest! Both move to accepted
+            connection.status = 'accepted'
+            connection.save()
+            reverse_connection.status = 'accepted'
+            reverse_connection.save()
+
+            # Assign coach to facilitate
+            connection.assign_coach()
+            reverse_connection.assigned_coach = connection.assigned_coach
+            reverse_connection.save()
+            is_mutual = True
+
+        return render(request, 'crush_lu/_connection_request_success.html', {
+            'recipient': recipient,
+            'is_mutual': is_mutual
+        })
+
+    # GET: Show inline form
+    return render(request, 'crush_lu/_request_connection_form.html', {
+        'event': event,
+        'recipient': recipient,
+    })
+
+
+@crush_login_required
+def connection_actions(request, event_id, user_id):
+    """HTMX: Get current connection actions for an attendee"""
+    event = get_object_or_404(MeetupEvent, id=event_id)
+    target_user = get_object_or_404(CrushProfile, user_id=user_id).user
+
+    # Determine connection status
+    connection_status = None
+    connection_id = None
+
+    # Check if current user sent a request to target
+    sent = EventConnection.objects.filter(
+        requester=request.user,
+        recipient=target_user,
+        event=event
+    ).first()
+
+    if sent:
+        if sent.status in ['accepted', 'coach_reviewing', 'coach_approved', 'shared']:
+            connection_status = 'mutual'
+        else:
+            connection_status = 'sent'
+
+    # Check if target user sent a request to current user
+    received = EventConnection.objects.filter(
+        requester=target_user,
+        recipient=request.user,
+        event=event
+    ).first()
+
+    if received:
+        if received.status == 'pending':
+            connection_status = 'received'
+            connection_id = received.id
+        elif received.status in ['accepted', 'coach_reviewing', 'coach_approved', 'shared']:
+            connection_status = 'mutual'
+
+    # Build attendee object for template
+    attendee = {
+        'user': target_user,
+        'connection_status': connection_status,
+        'connection_id': connection_id,
+    }
+
+    return render(request, 'crush_lu/_attendee_connection_actions.html', {
+        'attendee': attendee,
+        'event': event,
+    })
+
+
+@crush_login_required
+@require_http_methods(["GET", "POST"])
 def respond_connection(request, connection_id, action):
     """Accept or decline a connection request"""
     connection = get_object_or_404(
@@ -1775,11 +2055,25 @@ def respond_connection(request, connection_id, action):
             user=request.user
         )
         if not user_registration.can_make_connections:
+            if request.headers.get('HX-Request'):
+                return render(request, 'crush_lu/_htmx_error.html', {
+                    'message': 'You must have attended this event to respond to connections.'
+                })
             messages.error(request, 'You must have attended this event to respond to connections.')
             return redirect('crush_lu:my_connections')
     except EventRegistration.DoesNotExist:
+        if request.headers.get('HX-Request'):
+            return render(request, 'crush_lu/_htmx_error.html', {
+                'message': 'You are not registered for this event.'
+            })
         messages.error(request, 'You are not registered for this event.')
         return redirect('crush_lu:my_connections')
+
+    # Determine which template to use based on HX-Target
+    # If coming from attendees page, target is connection-actions-{user_id}
+    # If coming from my_connections, target is connection-{connection_id}
+    hx_target = request.headers.get('HX-Target', '')
+    is_attendees_page = 'connection-actions-' in hx_target
 
     if action == 'accept':
         connection.status = 'accepted'
@@ -1788,12 +2082,48 @@ def respond_connection(request, connection_id, action):
         # Assign coach
         connection.assign_coach()
 
+        # Return HTMX partial or redirect
+        if request.headers.get('HX-Request'):
+            if is_attendees_page:
+                # For attendees page, return simpler response with attendee context
+                attendee = {
+                    'user': connection.requester,
+                    'connection_status': 'mutual',
+                    'connection_id': connection.id,
+                }
+                return render(request, 'crush_lu/_attendee_connection_response.html', {
+                    'attendee': attendee,
+                    'action': 'accept'
+                })
+            return render(request, 'crush_lu/_connection_response.html', {
+                'connection': connection,
+                'action': 'accept'
+            })
         messages.success(request, 'Connection accepted! A coach will help facilitate your introduction.')
     elif action == 'decline':
         connection.status = 'declined'
         connection.save()
+
+        # Return HTMX partial or redirect
+        if request.headers.get('HX-Request'):
+            if is_attendees_page:
+                attendee = {
+                    'user': connection.requester,
+                }
+                return render(request, 'crush_lu/_attendee_connection_response.html', {
+                    'attendee': attendee,
+                    'action': 'decline'
+                })
+            return render(request, 'crush_lu/_connection_response.html', {
+                'connection': connection,
+                'action': 'decline'
+            })
         messages.info(request, 'Connection request declined.')
     else:
+        if request.headers.get('HX-Request'):
+            return render(request, 'crush_lu/_htmx_error.html', {
+                'message': 'Invalid action.'
+            })
         messages.error(request, 'Invalid action.')
 
     return redirect('crush_lu:my_connections')

@@ -1,0 +1,60 @@
+<div id="connection-{{ connection.id }}" class="bg-white rounded-xl shadow-sm p-4">
+    <div class="flex items-center">
+        <!-- Profile Photo -->
+        <div class="mr-4">
+            {% if connection.requester.crushprofile.photo_1 %}
+                <img src="{{ connection.requester.crushprofile.photo_1.url }}"
+                     alt="{{ connection.requester.first_name }}"
+                     class="w-14 h-14 rounded-full object-cover">
+            {% else %}
+                <div class="w-14 h-14 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center">
+                    <span class="text-white text-lg font-semibold">{{ connection.requester.first_name|first }}</span>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Info -->
+        <div class="flex-grow">
+            <h5 class="font-semibold mb-1">{{ connection.requester.first_name }} wants to connect</h5>
+            <p class="text-gray-500 text-sm mb-1 flex items-center gap-1">
+                {% include "crush_lu/icons/calendar.html" with class="w-4 h-4" %}
+                From {{ connection.event.title }}
+            </p>
+            {% if connection.requester_note %}
+                <p class="text-sm flex items-center gap-1">
+                    {% include "crush_lu/icons/chat-bubble-left.html" with class="w-4 h-4" %}
+                    "{{ connection.requester_note }}"
+                </p>
+            {% endif %}
+        </div>
+
+        <!-- Actions -->
+        <div class="ml-4">
+            <div class="flex gap-2">
+                <button hx-post="{% url 'crush_lu:respond_connection' connection.id 'accept' %}"
+                        hx-target="#connection-{{ connection.id }}"
+                        hx-swap="outerHTML"
+                        class="inline-flex items-center gap-1 px-4 py-2 text-sm font-semibold bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors">
+                    <span class="htmx-indicator">
+                        {% include "crush_lu/icons/loading.html" with class="w-4 h-4 animate-spin" %}
+                    </span>
+                    <span class="htmx-hide-on-request inline-flex items-center gap-1">
+                        {% include "crush_lu/icons/check-circle.html" with class="w-4 h-4" %}
+                        Accept
+                    </span>
+                </button>
+                <button hx-post="{% url 'crush_lu:respond_connection' connection.id 'decline' %}"
+                        hx-target="#connection-{{ connection.id }}"
+                        hx-swap="outerHTML"
+                        class="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+                    <span class="htmx-indicator">
+                        {% include "crush_lu/icons/loading.html" with class="w-4 h-4 animate-spin" %}
+                    </span>
+                    <span class="htmx-hide-on-request">
+                        Decline
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

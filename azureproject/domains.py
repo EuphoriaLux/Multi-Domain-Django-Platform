@@ -39,7 +39,8 @@ DOMAINS = {
 }
 
 # Development configuration
-DEV_HOSTS = ['localhost', '127.0.0.1', '192.168.178.184']
+# Note: 'testserver' is added for pytest-django live_server fixture
+DEV_HOSTS = ['localhost', '127.0.0.1', '192.168.178.184', 'testserver']
 DEV_DEFAULT = 'crush.lu'  # Change this to test different sites locally
 
 # Production fallback (used for unknown domains and Azure hostnames)

@@ -79,6 +79,7 @@ class CrushProfileForm(forms.ModelForm):
         required=True,
         max_length=20,
         widget=forms.TextInput(attrs={
+            'type': 'tel',
             'placeholder': '+352 XX XX XX XX',
             'class': 'form-control form-control-lg'
         }),
@@ -213,7 +214,8 @@ class CrushProfileForm(forms.ModelForm):
 
         Security checks:
         - File size limit: 10MB
-        - File type: JPEG, PNG, WebP only
+        - File type: JPEG, PNG, WebP only (both extension AND content)
+        - MIME type validation: Verify actual file content matches extension
         - Image dimensions: Max 4000x4000px
         - Content validation: Verify it's actually an image
         """
@@ -235,7 +237,31 @@ class CrushProfileForm(forms.ModelForm):
                 f"{field_name} must be a JPEG, PNG, or WebP image. You uploaded: {ext}"
             )
 
-        # Verify it's actually an image (content validation)
+        # Verify MIME type matches actual content (prevents disguised malicious files)
+        try:
+            import magic
+            # Read first 2KB for MIME detection
+            file_header = photo.read(2048)
+            photo.seek(0)  # Reset file pointer
+
+            mime = magic.from_buffer(file_header, mime=True)
+            allowed_mimes = ['image/jpeg', 'image/png', 'image/webp']
+
+            if mime not in allowed_mimes:
+                raise ValidationError(
+                    f"{field_name} content type ({mime}) does not match allowed image types. "
+                    f"Please upload a genuine JPEG, PNG, or WebP image."
+                )
+        except ImportError:
+            # python-magic not installed, skip MIME check
+            # This allows graceful degradation in development
+            pass
+        except Exception:
+            # Handle magic library errors (e.g., libmagic not found on system)
+            # Pillow verify below provides backup validation
+            pass
+
+        # Verify it's actually an image (content validation with Pillow)
         try:
             img = Image.open(photo)
             img.verify()  # Verify it's a valid image
@@ -266,6 +292,9 @@ class CrushProfileForm(forms.ModelForm):
             # Reset file pointer for saving
             photo.seek(0)
 
+        except ValidationError:
+            # Re-raise our own ValidationErrors
+            raise
         except Exception as e:
             raise ValidationError(
                 f"{field_name} is not a valid image file. Error: {str(e)}"

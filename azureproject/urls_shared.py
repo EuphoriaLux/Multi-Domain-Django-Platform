@@ -14,6 +14,8 @@ from django.urls import path, include
 from django.http import HttpResponse
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from .views import csp_report
+
 
 def health_check(request):
     """
@@ -29,6 +31,7 @@ def health_check(request):
 # These provide essential functionality that every domain needs
 base_patterns = [
     path('healthz/', health_check, name='health_check'),
+    path('csp-report/', csp_report, name='csp_report'),  # CSP violation reports
     path('i18n/', include('django.conf.urls.i18n')),
     path('accounts/', include('allauth.urls')),
     path('cookies/', include('cookie_consent.urls')),  # GDPR cookie consent

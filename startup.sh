@@ -12,6 +12,10 @@ echo "🐍 Python version: $(python --version)"
 # Run migrations with no-input for faster execution
 python manage.py migrate --no-input
 
+# Create cache table for database-backed caching (rate limiting)
+# This is idempotent - safe to run on every deployment
+python manage.py createcachetable --dry-run 2>/dev/null || python manage.py createcachetable
+
 # Only deploy media/data on initial deployment or when explicitly needed
 # Set INITIAL_DEPLOYMENT=true in Azure portal only for first deployment
 if [ "$INITIAL_DEPLOYMENT" = "true" ]; then

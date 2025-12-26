@@ -4,56 +4,21 @@
 {% block title %}Event Voting Lobby - {{ event.title }} - Crush.lu{% endblock %}
 
 {% block extra_css %}
-<style>
-    .countdown-timer {
-        font-size: 4rem;
-        font-weight: bold;
-        color: #9B59B6;
-        text-align: center;
-        margin: 2rem 0;
-    }
-
-    .activity-preview-card {
-        border: 2px solid #e9ecef;
-        border-radius: 15px;
-        padding: 1.5rem;
-        margin-bottom: 1rem;
-        transition: all 0.3s ease;
-    }
-
-    .activity-preview-card:hover {
-        border-color: #9B59B6;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.15);
-    }
-
-    .activity-icon {
-        font-size: 2.5rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .status-card {
-        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
-        color: white;
-        border-radius: 15px;
-        padding: 2rem;
-        text-align: center;
-    }
-</style>
+{# Styles moved to static/crush_lu/css/pages/voting.css #}
 {% endblock %}
 
 {% block content %}
 <!-- Hidden data for JavaScript -->
 <div id="event-id-data" data-event-id="{{ event.id }}" style="display: none;"></div>
 
-<div class="row justify-content-center">
-    <div class="col-lg-10">
-        <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn btn-outline-secondary mb-3">
-            ← Back to Event
+<div class="flex justify-center">
+    <div class="w-full max-w-4xl px-4">
+        <a href="{% url 'crush_lu:event_detail' event.id %}" class="inline-flex items-center gap-2 px-4 py-2 mb-4 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
+            {% include "crush_lu/icons/arrow-left.html" with class="w-4 h-4" %} Back to Event
         </a>
 
-        <div class="card mb-4">
-            <div class="card-body p-5">
+        <div class="bg-white rounded-xl shadow-sm mb-4">
+            <div class="p-8">
                 <div class="text-center mb-4">
                     <h1 class="display-4">{{ event.title }}</h1>
                     <p class="lead text-muted">Activity Voting Lobby</p>
@@ -61,10 +26,10 @@
                 </div>
 
                 {% if user_vote %}
-                <div class="alert alert-success mb-4">
-                    <h5>✓ You've Already Voted!</h5>
-                    <p class="mb-0">Your choice: <strong>{{ user_vote.selected_option.display_name }}</strong></p>
-                    <a href="{% url 'crush_lu:event_voting_results' event.id %}" class="btn btn-sm btn-success mt-2">
+                <div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4 mb-4">
+                    <h5 class="font-semibold">✓ You've Already Voted!</h5>
+                    <p class="mb-2">Your choice: <strong>{{ user_vote.selected_option.display_name }}</strong></p>
+                    <a href="{% url 'crush_lu:event_voting_results' event.id %}" class="inline-flex items-center px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors mt-2">
                         View Results
                     </a>
                 </div>
@@ -76,7 +41,7 @@
                         {{ voting_session.time_remaining|floatformat:0 }}s
                     </div>
                     <p class="mb-3">Time remaining to vote</p>
-                    <a href="{% url 'crush_lu:event_activity_vote' event.id %}" class="btn btn-light btn-lg">
+                    <a href="{% url 'crush_lu:event_activity_vote' event.id %}" class="inline-flex items-center px-6 py-3 bg-white text-gray-800 font-semibold rounded-lg hover:bg-gray-100 transition-colors text-lg">
                         Cast Your Vote Now
                     </a>
                     {% else %}
@@ -91,18 +56,18 @@
 
                 <hr class="my-4">
 
-                <div class="row mb-4">
-                    <div class="col-md-4 text-center">
-                        <h3 class="text-primary">{{ total_attendees }}</h3>
-                        <p class="text-muted">Attendees</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div class="text-center">
+                        <h3 class="text-crush-purple">{{ total_attendees }}</h3>
+                        <p class="text-gray-500">Attendees</p>
                     </div>
-                    <div class="col-md-4 text-center">
-                        <h3 class="text-primary" id="total-votes-count">{{ voting_session.total_votes }}</h3>
-                        <p class="text-muted">Votes Cast</p>
+                    <div class="text-center">
+                        <h3 class="text-crush-purple" id="total-votes-count">{{ voting_session.total_votes }}</h3>
+                        <p class="text-gray-500">Votes Cast</p>
                     </div>
-                    <div class="col-md-4 text-center">
-                        <h3 class="text-primary">30</h3>
-                        <p class="text-muted">Minutes to Vote</p>
+                    <div class="text-center">
+                        <h3 class="text-crush-purple">30</h3>
+                        <p class="text-gray-500">Minutes to Vote</p>
                     </div>
                 </div>
 
@@ -111,47 +76,41 @@
                     Here's what you'll be voting on. The winning activity will determine how the event flows!
                 </p>
 
-                <div class="row">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <!-- Speed Dating -->
-                    <div class="col-md-4 mb-3">
-                        <div class="activity-preview-card">
-                            <div class="activity-icon text-center">💕</div>
-                            <h5 class="text-center mb-2">Speed Dating</h5>
-                            <p class="text-muted small text-center">
-                                Choose from random order, alphabetic, or by hair color variants.
-                                Quick 3-5 minute conversations in organized formats.
-                            </p>
-                        </div>
+                    <div class="activity-preview-card">
+                        <div class="activity-icon text-center">💕</div>
+                        <h5 class="text-center mb-2">Speed Dating</h5>
+                        <p class="text-gray-500 text-sm text-center">
+                            Choose from random order, alphabetic, or by hair color variants.
+                            Quick 3-5 minute conversations in organized formats.
+                        </p>
                     </div>
 
                     <!-- Presentation Round -->
-                    <div class="col-md-4 mb-3">
-                        <div class="activity-preview-card">
-                            <div class="activity-icon text-center">🎤</div>
-                            <h5 class="text-center mb-2">90 Second Presentations</h5>
-                            <p class="text-muted small text-center">
-                                Everyone introduces themselves creatively. Options include favorite music,
-                                predefined questions, or sharing a favorite photo story.
-                            </p>
-                        </div>
+                    <div class="activity-preview-card">
+                        <div class="activity-icon text-center">🎤</div>
+                        <h5 class="text-center mb-2">90 Second Presentations</h5>
+                        <p class="text-gray-500 text-sm text-center">
+                            Everyone introduces themselves creatively. Options include favorite music,
+                            predefined questions, or sharing a favorite photo story.
+                        </p>
                     </div>
 
                     <!-- Mystery Event -->
-                    <div class="col-md-4 mb-3">
-                        <div class="activity-preview-card">
-                            <div class="activity-icon text-center">🎭</div>
-                            <h5 class="text-center mb-2">Mystery Event</h5>
-                            <p class="text-muted small text-center">
-                                Trust the coaches! A surprise activity designed to help you connect
-                                in unexpected ways.
-                            </p>
-                        </div>
+                    <div class="activity-preview-card">
+                        <div class="activity-icon text-center">🎭</div>
+                        <h5 class="text-center mb-2">Mystery Event</h5>
+                        <p class="text-gray-500 text-sm text-center">
+                            Trust the coaches! A surprise activity designed to help you connect
+                            in unexpected ways.
+                        </p>
                     </div>
                 </div>
 
-                <div class="alert alert-info mt-4">
-                    <h5>How It Works:</h5>
-                    <ol class="mb-0">
+                <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mt-4">
+                    <h5 class="font-semibold mb-2">How It Works:</h5>
+                    <ol class="list-decimal list-inside space-y-1">
                         <li>Voting opens <strong>15 minutes after the event starts</strong></li>
                         <li>You have <strong>30 minutes</strong> to cast your vote</li>
                         <li>Choose your favorite activity format</li>

@@ -214,13 +214,13 @@
     <!-- Back Button -->
     <div class="mb-4">
         <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
-            <i class="bi bi-arrow-left"></i> Back to Chapter
+            {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back to Chapter
         </a>
     </div>
 
     <div class="challenge-card">
         <div class="challenge-type-badge">
-            <i class="bi bi-pencil-fill"></i> Open Response
+            {% include "crush_lu/icons/pencil.html" with class="w-5 h-5" %} Open Response
         </div>
 
         <div class="points-display">
@@ -239,7 +239,7 @@
         {% if existing_attempt %}
         <!-- Already Completed -->
         <div class="message-box success active">
-            <h3><i class="bi bi-check-circle-fill"></i> Already Submitted!</h3>
+            <h3>{% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Already Submitted!</h3>
             <p>You've already shared your response and earned <strong>{{ existing_attempt.points_earned }} points</strong>.</p>
 
             <div class="personal-message">
@@ -255,7 +255,7 @@
 
             <div class="mt-4">
                 <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
-                    Continue to Next Challenge <i class="bi bi-arrow-right"></i>
+                    Continue to Next Challenge {% include "crush_lu/icons/arrow-right.html" with class="w-5 h-5" %}
                 </a>
             </div>
         </div>
@@ -285,7 +285,7 @@
         </div>
 
         <button id="submitBtn" class="submit-btn" disabled>
-            <i class="bi bi-send-fill"></i> Submit Response
+            {% include "crush_lu/icons/paper-airplane.html" with class="w-5 h-5" %} Submit Response
         </button>
 
         <!-- Message Box -->
@@ -314,10 +314,10 @@ document.addEventListener('DOMContentLoaded', function() {
             // Enable submit button if there's meaningful content (at least 10 characters)
             if (length >= 10) {
                 submitBtn.removeAttribute('disabled');
-                submitBtn.innerHTML = '<i class="bi bi-send-fill"></i> Submit Response';
+                submitBtn.innerHTML = '{% include "crush_lu/icons/paper-airplane.html" with class="w-5 h-5" %} Submit Response';
             } else {
                 submitBtn.setAttribute('disabled', 'disabled');
-                submitBtn.innerHTML = '<i class="bi bi-send-fill"></i> Submit Response (min 10 characters)';
+                submitBtn.innerHTML = '{% include "crush_lu/icons/paper-airplane.html" with class="w-5 h-5" %} Submit Response (min 10 characters)';
             }
 
             // Color coding for character count
@@ -346,7 +346,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             submitBtn.setAttribute('disabled', 'disabled');
-            submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Submitting...';
+            submitBtn.innerHTML = '{% include "crush_lu/icons/hourglass.html" with class="w-5 h-5" %} Submitting...';
 
             fetch('{% url "crush_lu:api_submit_challenge" %}', {
                 method: 'POST',
@@ -365,8 +365,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Answer submitted successfully
                     const isQuestionnaire = {{ chapter.chapter_number }} in [2, 4, 5];
                     const title = isQuestionnaire
-                        ? '<i class="bi bi-heart-fill"></i> Thank you for sharing!'
-                        : '<i class="bi bi-check-circle-fill"></i> Submitted!';
+                        ? '{% include "crush_lu/icons/heart.html" with class="w-5 h-5" %} Thank you for sharing!'
+                        : '{% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Submitted!';
 
                     messageBox.innerHTML = `
                         <h3>${title}</h3>
@@ -376,7 +376,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="mt-4">
                             <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
-                                Continue <i class="bi bi-arrow-right"></i>
+                                Continue {% include "crush_lu/icons/arrow-right.html" with class="w-5 h-5" %}
                             </a>
                         </div>
                     `;
@@ -390,14 +390,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     // Shouldn't happen with open text
                     submitBtn.removeAttribute('disabled');
-                    submitBtn.innerHTML = '<i class="bi bi-send-fill"></i> Submit Response';
+                    submitBtn.innerHTML = '{% include "crush_lu/icons/paper-airplane.html" with class="w-5 h-5" %} Submit Response';
                     showMessage('Something went wrong. Please try again.', 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
                 submitBtn.removeAttribute('disabled');
-                submitBtn.innerHTML = '<i class="bi bi-send-fill"></i> Submit Response';
+                submitBtn.innerHTML = '{% include "crush_lu/icons/paper-airplane.html" with class="w-5 h-5" %} Submit Response';
                 showMessage('An error occurred. Please try again.', 'error');
             });
         });

@@ -4,118 +4,18 @@
 {% block title %}My Presentation Scores - {{ event.title }} - Crush.lu{% endblock %}
 
 {% block extra_css %}
-<style>
-    .scores-container {
-        max-width: 900px;
-        margin: 0 auto;
-    }
-
-    .score-card {
-        border: 3px solid #9B59B6;
-        border-radius: 20px;
-        padding: 3rem;
-        margin-bottom: 2rem;
-        background: linear-gradient(135deg, rgba(155, 89, 182, 0.05) 0%, rgba(255, 107, 157, 0.05) 100%);
-        text-align: center;
-    }
-
-    .big-score {
-        font-size: 6rem;
-        font-weight: bold;
-        color: #9B59B6;
-        margin: 2rem 0;
-    }
-
-    .rank-display {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #FF6B9D;
-        margin: 1rem 0;
-    }
-
-    .rating-bar {
-        display: flex;
-        align-items: center;
-        margin-bottom: 1rem;
-        gap: 1rem;
-    }
-
-    .rating-label {
-        min-width: 80px;
-        font-weight: bold;
-        color: #9B59B6;
-    }
-
-    .rating-progress {
-        flex: 1;
-        height: 30px;
-        background: #e9ecef;
-        border-radius: 15px;
-        overflow: hidden;
-    }
-
-    .rating-progress-fill {
-        height: 100%;
-        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: bold;
-        transition: width 0.5s ease;
-    }
-
-    .rating-count {
-        min-width: 50px;
-        text-align: right;
-        font-weight: bold;
-    }
-
-    .individual-ratings {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1rem;
-        justify-content: center;
-        margin: 2rem 0;
-    }
-
-    .rating-bubble {
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.5rem;
-        font-weight: bold;
-        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
-    }
-
-    .privacy-notice {
-        background: #f8f9fa;
-        border-left: 4px solid #9B59B6;
-        padding: 1rem;
-        margin: 2rem 0;
-    }
-
-    .medal {
-        font-size: 4rem;
-        margin-bottom: 1rem;
-    }
-</style>
+{# Styles moved to static/crush_lu/css/pages/scoring.css #}
 {% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-10 scores-container">
-        <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn btn-outline-secondary mb-3">
-            ← Back to Event
+<div class="flex justify-center">
+    <div class="w-full max-w-4xl px-4 scores-container">
+        <a href="{% url 'crush_lu:event_detail' event.id %}" class="inline-flex items-center gap-2 px-4 py-2 mb-4 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
+            {% include "crush_lu/icons/arrow-left.html" with class="w-4 h-4" %} Back to Event
         </a>
 
-        <div class="card">
-            <div class="card-body p-5">
+        <div class="bg-white rounded-xl shadow-sm">
+            <div class="p-8">
                 <div class="text-center mb-4">
                     <h1 class="display-5">🎤 Your Presentation Scores</h1>
                     <p class="lead text-muted">{{ event.title }}</p>
@@ -149,8 +49,8 @@
                     </p>
                 </div>
 
-                <div class="row">
-                    <div class="col-md-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
                         <h4 class="mb-3">Rating Distribution</h4>
                         {% for stars, count in rating_distribution.items reversed %}
                         <div class="rating-bar">
@@ -170,9 +70,9 @@
                         {% endfor %}
                     </div>
 
-                    <div class="col-md-6">
+                    <div>
                         <h4 class="mb-3">Individual Ratings</h4>
-                        <p class="text-muted small">Each bubble represents one rating you received (sorted high to low)</p>
+                        <p class="text-gray-500 text-sm">Each bubble represents one rating you received (sorted high to low)</p>
                         <div class="individual-ratings">
                             {% for rating in individual_ratings %}
                             <div class="rating-bubble">{{ rating }}★</div>
@@ -181,21 +81,21 @@
                     </div>
                 </div>
 
-                <div class="alert alert-info mt-4 text-center">
-                    <h5>What's Next?</h5>
-                    <p class="mb-3">These scores were used to create optimal pairs for Phase 3: Speed Dating!</p>
+                <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mt-4 text-center">
+                    <h5 class="font-semibold mb-2">What's Next?</h5>
+                    <p class="mb-2">These scores were used to create optimal pairs for Phase 3: Speed Dating!</p>
                     <p class="mb-0">The matching algorithm pairs people based on mutual high ratings.</p>
                 </div>
 
                 {% else %}
-                <div class="alert alert-warning text-center">
-                    <h4>No Ratings Received</h4>
+                <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-4 text-center">
+                    <h4 class="font-semibold mb-2">No Ratings Received</h4>
                     <p class="mb-0">You didn't receive any ratings during this event, or presentations haven't been completed yet.</p>
                 </div>
                 {% endif %}
 
-                <div class="text-center mt-4">
-                    <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn btn-crush-primary btn-lg">
+                <div class="text-center mt-6">
+                    <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3 text-lg">
                         Continue to Speed Dating
                     </a>
                 </div>

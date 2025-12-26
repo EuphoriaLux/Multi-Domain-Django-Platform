@@ -3,35 +3,38 @@
 
 {% block title %}Edit Your Profile - Crush.lu{% endblock %}
 
+{% block extra_css %}
+<!-- intl-tel-input CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/css/intlTelInput.css">
+<!-- Custom intl-tel-input styling for Crush.lu -->
+<link rel="stylesheet" href="{% static 'crush_lu/css/components/intl-tel-input.css' %}">
+{% endblock %}
+
 {% block content %}
-<div class="container py-4">
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <div class="card shadow-sm">
-                <div class="card-body p-4">
-                    <div class="text-center mb-4">
-                        <h1 class="h3 mb-2">Edit Your Profile</h1>
-                        <p class="text-muted">Update your information below</p>
-                        {% if profile.is_approved %}
-                            <span class="badge bg-success">Profile Approved</span>
-                        {% endif %}
-                    </div>
-
-                    <form method="post"
-                          enctype="multipart/form-data"
-                          id="editProfileForm"
-                          hx-post="{% url 'crush_lu:edit_profile' %}"
-                          hx-target="#form-container"
-                          hx-swap="innerHTML"
-                          hx-indicator="#submit-indicator">
-                        {% csrf_token %}
-
-                        <div id="form-container">
-                            {% include 'crush_lu/partials/edit_profile_form.html' %}
-                        </div>
-                    </form>
-                </div>
+<div class="max-w-3xl mx-auto">
+    <div class="card shadow-sm">
+        <div class="card-body p-6 lg:p-8">
+            <div class="text-center mb-6">
+                <h1 class="text-2xl font-bold mb-2">Edit Your Profile</h1>
+                <p class="text-gray-500">Update your information below</p>
+                {% if profile.is_approved %}
+                    <span class="badge badge-success mt-2">Profile Approved</span>
+                {% endif %}
             </div>
+
+            <form method="post"
+                  enctype="multipart/form-data"
+                  id="editProfileForm"
+                  hx-post="{% url 'crush_lu:edit_profile' %}"
+                  hx-target="#form-container"
+                  hx-swap="innerHTML"
+                  hx-indicator="#submit-indicator">
+                {% csrf_token %}
+
+                <div id="form-container">
+                    {% include 'crush_lu/partials/edit_profile_form.html' %}
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -41,6 +44,9 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- intl-tel-input JS -->
+<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/intlTelInput.min.js"></script>
+
 <script src="{% static 'crush_lu/js/photo-preview.js' %}"></script>
 <script>
 // Character counters - reinitialize after HTMX swaps
@@ -82,8 +88,8 @@ document.body.addEventListener('htmx:afterSwap', function(event) {
     if (event.detail.target.id && event.detail.target.id.startsWith('photo-card-')) {
         const card = event.detail.target.querySelector('.photo-upload-card');
         if (card) {
-            card.classList.add('tw-animate-pulse');
-            setTimeout(() => card.classList.remove('tw-animate-pulse'), 1000);
+            card.classList.add('animate-pulse');
+            setTimeout(() => card.classList.remove('animate-pulse'), 1000);
         }
     }
 });
@@ -102,7 +108,7 @@ document.addEventListener('click', function(e) {
 
     // Disable button and show loading
     btn.disabled = true;
-    btn.innerHTML = '<i class="bi bi-arrow-repeat tw-animate-spin"></i>';
+    btn.innerHTML = '<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>';
 
     // Get CSRF token
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -139,7 +145,7 @@ document.addEventListener('click', function(e) {
                     const container = img.closest('.photo-preview-container');
                     if (container && !container.querySelector('.photo-badge')) {
                         const badge = document.createElement('span');
-                        badge.className = 'photo-badge tw-bg-green-500';
+                        badge.className = 'photo-badge bg-green-500';
                         badge.textContent = 'Imported';
                         container.appendChild(badge);
                     }
@@ -149,7 +155,7 @@ document.addEventListener('click', function(e) {
                     const badge = previewContainer.closest('.photo-preview-container')?.querySelector('.photo-badge');
                     if (badge) {
                         badge.textContent = 'Imported';
-                        badge.classList.add('tw-bg-green-500');
+                        badge.classList.add('bg-green-500');
                     }
                 }
             }
@@ -181,6 +187,98 @@ document.addEventListener('click', function(e) {
         btn.disabled = false;
         btn.innerHTML = originalContent;
     });
+});
+
+// Initialize intl-tel-input for phone number field
+function initIntlTelInput() {
+    // Try to find phone input by ID or by name attribute
+    let phoneInput = document.getElementById('id_phone_number');
+    if (!phoneInput) {
+        phoneInput = document.querySelector('input[name="phone_number"]:not([type="hidden"]):not([readonly]):not([disabled])');
+    }
+    if (!phoneInput || !window.intlTelInput) {
+        console.log('intl-tel-input: Phone input not found or library not loaded');
+        return;
+    }
+
+    // Skip if already initialized or phone is verified (readonly)
+    if (phoneInput.readOnly || phoneInput.disabled || phoneInput.dataset.itiInitialized) {
+        console.log('intl-tel-input: Phone input is readonly/disabled or already initialized');
+        return;
+    }
+
+    console.log('intl-tel-input: Initializing for phone input:', phoneInput.id || phoneInput.name);
+
+    // Store pre-filled value
+    const prefilledValue = phoneInput.value || '';
+    phoneInput.value = '';
+
+    const iti = window.intlTelInput(phoneInput, {
+        initialCountry: "auto",
+        geoIpLookup: function(callback) {
+            fetch('https://ipapi.co/json/')
+                .then(response => response.json())
+                .then(data => {
+                    const countryCode = (data && data.country_code) ? data.country_code.toLowerCase() : 'lu';
+                    callback(countryCode);
+                })
+                .catch(() => callback('lu'));
+        },
+        preferredCountries: ["lu", "de", "fr", "be"],
+        onlyCountries: ["lu", "de", "fr", "be", "nl", "ch", "at", "it", "es", "pt", "gb", "ie", "us", "ca", "se", "dz"],
+        separateDialCode: true,
+        nationalMode: false,
+        formatOnDisplay: true,
+        autoPlaceholder: "aggressive",
+        utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/utils.js"
+    });
+
+    // Mark as initialized
+    phoneInput.dataset.itiInitialized = 'true';
+    window.itiInstance = iti;
+
+    // Set pre-filled value after utils load
+    iti.promise.then(function() {
+        phoneInput.style.setProperty('padding-left', '110px', 'important');
+
+        if (prefilledValue) {
+            let numberToSet = prefilledValue.trim().replace(/\s/g, '');
+            if (!numberToSet.startsWith('+')) {
+                if (numberToSet.startsWith('00')) {
+                    numberToSet = '+' + numberToSet.slice(2);
+                } else {
+                    numberToSet = '+352' + numberToSet.replace(/^0+/, '');
+                }
+            }
+            iti.setNumber(numberToSet);
+        }
+    });
+
+    // Update hidden field with full international number on form submit
+    const form = phoneInput.closest('form');
+    if (form) {
+        form.addEventListener('submit', function() {
+            if (iti && iti.isValidNumber()) {
+                phoneInput.value = iti.getNumber();
+            }
+        });
+    }
+}
+
+// Initialize on page load - wait for DOM and library to be ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initIntlTelInput);
+} else {
+    // DOM already loaded, init immediately
+    initIntlTelInput();
+}
+
+// Reinitialize after HTMX swaps (in case the form is replaced)
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    if (event.detail.target.id === 'form-container') {
+        // Small delay to ensure DOM is updated
+        setTimeout(initIntlTelInput, 100);
+    }
 });
 </script>
 {% endblock %}

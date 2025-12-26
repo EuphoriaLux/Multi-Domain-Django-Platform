@@ -3,51 +3,60 @@
 {% block title %}Delete Account - Crush.lu{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-6">
-        <div class="card border-danger">
-            <div class="card-header bg-danger text-white">
-                <h4 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Delete Your Account</h4>
+<div class="flex justify-center">
+    <div class="w-full max-w-xl">
+        <div class="bg-white rounded-xl shadow-lg border-2 border-red-500 overflow-hidden">
+            <div class="bg-red-500 text-white px-6 py-4">
+                <h4 class="text-xl font-semibold flex items-center">
+                    {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}Delete Your Account
+                </h4>
             </div>
-            <div class="card-body p-4">
+            <div class="p-6">
                 {% if messages %}
                 {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <div class="mb-4 p-4 rounded-lg {% if message.tags == 'error' %}bg-red-50 border border-red-200 text-red-800{% elif message.tags == 'warning' %}bg-amber-50 border border-amber-200 text-amber-800{% else %}bg-blue-50 border border-blue-200 text-blue-800{% endif %}"
+                     x-data="{ show: true }" x-show="show" x-transition>
+                    <div class="flex justify-between items-start">
+                        <span>{{ message }}</span>
+                        <button @click="show = false" class="ml-4 text-current opacity-70 hover:opacity-100">
+                            {% include "crush_lu/icons/x-mark.html" with class="w-5 h-5" %}
+                        </button>
+                    </div>
                 </div>
                 {% endfor %}
                 {% endif %}
 
-                <div class="alert alert-warning">
-                    <h5><i class="bi bi-exclamation-circle me-2"></i>Warning: This action is permanent!</h5>
+                <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 mb-4">
+                    <h5 class="font-semibold flex items-center mb-1">
+                        {% include "crush_lu/icons/exclamation-circle.html" with class="w-5 h-5" %}Warning: This action is permanent!
+                    </h5>
                     <p class="mb-0">Once you delete your account, it cannot be recovered.</p>
                 </div>
 
-                <h5 class="mt-4 mb-3">What will be deleted:</h5>
-                <ul class="list-group list-group-flush mb-4">
-                    <li class="list-group-item d-flex align-items-center">
-                        <i class="bi bi-person-x text-danger me-3"></i>
+                <h5 class="mt-6 mb-4 font-semibold text-gray-900">What will be deleted:</h5>
+                <ul class="divide-y divide-gray-100 mb-6">
+                    <li class="py-3 flex items-center">
+                        {% include "crush_lu/icons/user-minus.html" with class="w-6 h-6 text-red-500" %}
                         Your profile and all personal information
                     </li>
-                    <li class="list-group-item d-flex align-items-center">
-                        <i class="bi bi-image text-danger me-3"></i>
+                    <li class="py-3 flex items-center">
+                        {% include "crush_lu/icons/photo.html" with class="w-6 h-6 text-red-500" %}
                         All your profile photos
                     </li>
-                    <li class="list-group-item d-flex align-items-center">
-                        <i class="bi bi-calendar-x text-danger me-3"></i>
+                    <li class="py-3 flex items-center">
+                        {% include "crush_lu/icons/calendar.html" with class="w-6 h-6 text-red-500" %}
                         All event registrations
                     </li>
-                    <li class="list-group-item d-flex align-items-center">
-                        <i class="bi bi-people text-danger me-3"></i>
+                    <li class="py-3 flex items-center">
+                        {% include "crush_lu/icons/users.html" with class="w-6 h-6 text-red-500" %}
                         All connections with other users
                     </li>
-                    <li class="list-group-item d-flex align-items-center">
-                        <i class="bi bi-chat-dots text-danger me-3"></i>
+                    <li class="py-3 flex items-center">
+                        {% include "crush_lu/icons/chat-bubble-left-ellipsis.html" with class="w-6 h-6 text-red-500" %}
                         All messages you've sent or received
                     </li>
-                    <li class="list-group-item d-flex align-items-center">
-                        <i class="bi bi-facebook text-danger me-3"></i>
+                    <li class="py-3 flex items-center">
+                        {% include "crush_lu/icons/globe-alt.html" with class="w-6 h-6 text-red-500" %}
                         Facebook account connection
                     </li>
                 </ul>
@@ -57,29 +66,29 @@
 
                     {% if user.has_usable_password %}
                     <div class="mb-4">
-                        <label for="password" class="form-label">Enter your password to confirm:</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
+                        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Enter your password to confirm:</label>
+                        <input type="password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="password" name="password" required>
                     </div>
                     {% else %}
-                    <div class="alert alert-info small">
-                        <i class="bi bi-info-circle me-2"></i>
+                    <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-4 text-sm">
+                        {% include "crush_lu/icons/information-circle.html" with class="w-5 h-5" %}
                         Since you signed up with Facebook, no password is required.
                     </div>
                     {% endif %}
 
-                    <div class="mb-4">
-                        <label for="confirm_text" class="form-label">
+                    <div class="mb-6">
+                        <label for="confirm_text" class="block text-sm font-medium text-gray-700 mb-1">
                             Type <strong>DELETE MY ACCOUNT</strong> to confirm:
                         </label>
-                        <input type="text" class="form-control" id="confirm_text" name="confirm_text"
+                        <input type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="confirm_text" name="confirm_text"
                                placeholder="DELETE MY ACCOUNT" required autocomplete="off">
                     </div>
 
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-danger" id="deleteBtn" disabled>
-                            <i class="bi bi-trash me-2"></i>Permanently Delete My Account
+                    <div class="flex flex-col gap-2">
+                        <button type="submit" class="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center" id="deleteBtn" disabled>
+                            {% include "crush_lu/icons/trash.html" with class="w-5 h-5" %}Permanently Delete My Account
                         </button>
-                        <a href="{% url 'crush_lu:account_settings' %}" class="btn btn-outline-secondary">
+                        <a href="{% url 'crush_lu:account_settings' %}" class="w-full border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-3 px-6 rounded-lg transition-colors text-center">
                             Cancel
                         </a>
                     </div>
@@ -87,10 +96,10 @@
             </div>
         </div>
 
-        <div class="text-center mt-4">
-            <p class="text-muted small">
+        <div class="text-center mt-6">
+            <p class="text-gray-500 text-sm">
                 Changed your mind? You can also
-                <a href="{% url 'crush_lu:edit_profile' %}">deactivate your profile</a>
+                <a href="{% url 'crush_lu:edit_profile' %}" class="text-purple-600 hover:text-purple-800">deactivate your profile</a>
                 temporarily instead of deleting everything.
             </p>
         </div>

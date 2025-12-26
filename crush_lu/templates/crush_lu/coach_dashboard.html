@@ -3,101 +3,94 @@
 {% block title %}Coach Dashboard - Crush.lu{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col">
-        <h2>Coach Dashboard 🎯</h2>
-        <p class="lead">Welcome, Coach {{ coach.user.get_full_name }}!</p>
-    </div>
+<div class="mb-6">
+    <h2 class="text-2xl font-bold">Coach Dashboard 🎯</h2>
+    <p class="text-lg text-gray-500">Welcome, Coach {{ coach.user.get_full_name }}!</p>
 </div>
 
 <!-- Coach Stats -->
-<div class="row g-4 mb-4">
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h3 class="text-primary">{{ pending_submissions|length }}</h3>
-                <p class="text-muted mb-0">Pending Reviews</p>
-            </div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div class="bg-white rounded-xl shadow-sm text-center">
+        <div class="p-6">
+            <h3 class="text-3xl font-bold text-crush-purple">{{ pending_submissions|length }}</h3>
+            <p class="text-gray-500 mb-0">Pending Reviews</p>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h3 class="text-success">{{ recent_reviews|length }}</h3>
-                <p class="text-muted mb-0">Recent Reviews</p>
-            </div>
+    <div class="bg-white rounded-xl shadow-sm text-center">
+        <div class="p-6">
+            <h3 class="text-3xl font-bold text-green-600">{{ recent_reviews|length }}</h3>
+            <p class="text-gray-500 mb-0">Recent Reviews</p>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h3>{{ coach.max_active_reviews }}</h3>
-                <p class="text-muted mb-0">Max Reviews</p>
-            </div>
+    <div class="bg-white rounded-xl shadow-sm text-center">
+        <div class="p-6">
+            <h3 class="text-3xl font-bold">{{ coach.max_active_reviews }}</h3>
+            <p class="text-gray-500 mb-0">Max Reviews</p>
         </div>
     </div>
 </div>
 
 <!-- Coach Info -->
-<div class="card mb-4" style="background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(255, 107, 157, 0.1));">
-    <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start">
+<div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 rounded-xl shadow-sm mb-6">
+    <div class="p-6">
+        <div class="flex justify-between items-start">
             <div>
-                <h5>Your Specializations</h5>
-                <p class="mb-0">{{ coach.specializations|default:"Not set" }}</p>
+                <h5 class="font-semibold mb-2">Your Specializations</h5>
+                <p class="mb-0 text-gray-600">{{ coach.specializations|default:"Not set" }}</p>
             </div>
-            <a href="{% url 'crush_lu:coach_edit_profile' %}" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-pencil"></i> Edit
+            <a href="{% url 'crush_lu:coach_edit_profile' %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+                {% include "crush_lu/icons/pencil.html" with class="w-4 h-4" %}
+                <span>Edit</span>
             </a>
         </div>
     </div>
 </div>
 
 <!-- Quick Actions -->
-<div class="row g-3 mb-4">
-    <div class="col-md-6">
-        <div class="card h-100" style="border-left: 4px solid #9B59B6;">
-            <div class="card-body">
-                <h5><i class="bi bi-map"></i> Journey Management</h5>
-                <p class="text-muted">Manage active Wonderland Journey experiences and view user progress.</p>
-                <a href="{% url 'crush_lu:coach_journey_dashboard' %}" class="btn btn-sm btn-crush-primary">
-                    <i class="bi bi-arrow-right"></i> Manage Journeys
-                </a>
-            </div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <div class="bg-white rounded-xl shadow-sm h-full border-l-4 border-crush-purple">
+        <div class="p-6">
+            <h5 class="font-semibold mb-2 flex items-center gap-2">
+                {% include "crush_lu/icons/map-pin.html" with class="w-5 h-5" %}
+                Journey Management
+            </h5>
+            <p class="text-gray-500 mb-4">Manage active Wonderland Journey experiences and view user progress.</p>
+            <a href="{% url 'crush_lu:coach_journey_dashboard' %}" class="btn-crush-primary inline-flex items-center gap-1 text-sm px-3 py-1.5">
+                {% include "crush_lu/icons/arrow-right.html" with class="w-4 h-4" %}
+                <span>Manage Journeys</span>
+            </a>
         </div>
     </div>
 </div>
 <!-- Note: Screening Dashboard was deprecated - screening calls now happen during profile review -->
 
 <!-- Pending Submissions -->
-<div class="card mb-4">
-    <div class="card-header">
-        <h5 class="mb-0">Pending Profile Reviews</h5>
+<div class="bg-white rounded-xl shadow-sm mb-6">
+    <div class="px-6 py-4 border-b border-gray-100">
+        <h5 class="font-semibold mb-0">Pending Profile Reviews</h5>
     </div>
-    <div class="card-body">
+    <div class="p-6">
         {% if pending_submissions %}
-            <div class="list-group list-group-flush">
+            <div class="divide-y divide-gray-100">
                 {% for submission in pending_submissions %}
-                    <div class="list-group-item">
-                        <div class="d-flex justify-content-between align-items-start">
+                    <div class="py-4 first:pt-0 last:pb-0">
+                        <div class="flex justify-between items-start">
                             <div>
-                                <h6 class="mb-1">{{ submission.profile.user.get_full_name }}</h6>
-                                <p class="mb-1 text-muted">
-                                    <small>
-                                        {% if submission.profile.age %}{{ submission.profile.age }} years old{% else %}Age not set{% endif %} | {{ submission.profile.location|default:"Location not set" }}<br>
-                                        {{ submission.profile.get_looking_for_display }}
-                                    </small>
+                                <h6 class="font-semibold mb-1">{{ submission.profile.user.get_full_name }}</h6>
+                                <p class="text-gray-500 text-sm mb-1">
+                                    {% if submission.profile.age %}{{ submission.profile.age }} years old{% else %}Age not set{% endif %} | {{ submission.profile.location|default:"Location not set" }}<br>
+                                    {{ submission.profile.get_looking_for_display }}
                                 </p>
-                                <p class="mb-0">
-                                    <small><strong>Submitted:</strong> {{ submission.submitted_at|date:"M j, Y g:i A" }}</small>
+                                <p class="text-sm mb-0">
+                                    <strong>Submitted:</strong> {{ submission.submitted_at|date:"M j, Y g:i A" }}
                                 </p>
                             </div>
                             <div>
-                                <span class="badge bg-warning">Pending</span>
+                                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full">Pending</span>
                             </div>
                         </div>
-                        <div class="mt-2">
-                            <a href="{% url 'crush_lu:coach_review_profile' submission.id %}" class="btn btn-sm btn-crush-primary">
+                        <div class="mt-3">
+                            <a href="{% url 'crush_lu:coach_review_profile' submission.id %}" class="btn-crush-primary text-sm px-3 py-1.5">
                                 Review Profile
                             </a>
                         </div>
@@ -105,7 +98,7 @@
                 {% endfor %}
             </div>
         {% else %}
-            <p class="text-muted text-center py-4">
+            <p class="text-gray-500 text-center py-8">
                 No pending reviews at the moment. Great work! 🎉
             </p>
         {% endif %}
@@ -113,29 +106,29 @@
 </div>
 
 <!-- Recent Reviews -->
-<div class="card">
-    <div class="card-header">
-        <h5 class="mb-0">Recent Reviews</h5>
+<div class="bg-white rounded-xl shadow-sm">
+    <div class="px-6 py-4 border-b border-gray-100">
+        <h5 class="font-semibold mb-0">Recent Reviews</h5>
     </div>
-    <div class="card-body">
+    <div class="p-6">
         {% if recent_reviews %}
-            <div class="list-group list-group-flush">
+            <div class="divide-y divide-gray-100">
                 {% for submission in recent_reviews %}
-                    <div class="list-group-item">
-                        <div class="d-flex justify-content-between align-items-start">
+                    <div class="py-4 first:pt-0 last:pb-0">
+                        <div class="flex justify-between items-start">
                             <div>
-                                <h6 class="mb-1">{{ submission.profile.user.get_full_name }}</h6>
-                                <p class="mb-0">
-                                    <small>Reviewed: {{ submission.reviewed_at|date:"M j, Y g:i A" }}</small>
+                                <h6 class="font-semibold mb-1">{{ submission.profile.user.get_full_name }}</h6>
+                                <p class="text-sm text-gray-500 mb-0">
+                                    Reviewed: {{ submission.reviewed_at|date:"M j, Y g:i A" }}
                                 </p>
                             </div>
                             <div>
                                 {% if submission.status == 'approved' %}
-                                    <span class="badge bg-success">Approved</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">Approved</span>
                                 {% elif submission.status == 'rejected' %}
-                                    <span class="badge bg-danger">Rejected</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded-full">Rejected</span>
                                 {% elif submission.status == 'revision' %}
-                                    <span class="badge bg-info">Revision Requested</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">Revision Requested</span>
                                 {% endif %}
                             </div>
                         </div>
@@ -143,7 +136,7 @@
                 {% endfor %}
             </div>
         {% else %}
-            <p class="text-muted text-center py-4">
+            <p class="text-gray-500 text-center py-8">
                 No recent reviews yet.
             </p>
         {% endif %}

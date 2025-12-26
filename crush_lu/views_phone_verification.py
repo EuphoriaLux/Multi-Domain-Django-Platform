@@ -23,6 +23,7 @@ from django.conf import settings
 
 from .google_idp_verify import verify_firebase_id_token, get_phone_from_token, get_firebase_uid_from_token
 from .models import CrushProfile
+from .decorators import ratelimit
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,7 @@ logger = logging.getLogger(__name__)
 @login_required
 @require_POST
 @csrf_protect
+@ratelimit(key='user', rate='5/15m', method='POST')  # Rate limit phone verification
 def mark_phone_verified(request):
     """
     Mark phone as verified after verifying Firebase ID token.
@@ -161,6 +163,8 @@ def verify_phone_page(request):
 
     Users who need to verify their phone (e.g., existing users before
     phone verification was mandatory) can use this page.
+
+    Supports `next` query parameter for redirecting after successful verification.
     """
     try:
         profile = request.user.crushprofile
@@ -168,14 +172,25 @@ def verify_phone_page(request):
         # No profile yet, redirect to profile creation
         return redirect('crush_lu:create_profile')
 
-    # If already verified, redirect to dashboard with message
+    # Get the redirect URL from query params (for returning to create_profile, etc.)
+    next_url = request.GET.get('next', '')
+
+    # Validate next_url to prevent open redirect vulnerabilities
+    # Only allow relative URLs or URLs to our own domain
+    if next_url and not next_url.startswith('/'):
+        next_url = ''
+
+    # If already verified, redirect to next or dashboard with message
     if profile.phone_verified:
         messages.info(request, "Your phone number is already verified.")
+        if next_url:
+            return redirect(next_url)
         return redirect('crush_lu:dashboard')
 
     context = {
         'profile': profile,
         'current_phone': profile.phone_number or '',
+        'next_url': next_url,  # Pass to template for redirect after verification
         # Firebase config from environment variables
         'firebase_api_key': settings.FIREBASE_API_KEY,
         'firebase_auth_domain': settings.FIREBASE_AUTH_DOMAIN,

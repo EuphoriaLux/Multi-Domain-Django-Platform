@@ -5,7 +5,8 @@
 /* ===================
    Navbar
    =================== */
-.navbar {
+/* Using crush-navbar to avoid Bootstrap's .navbar class conflict */
+.crush-navbar {
     background: var(--gradient-primary);
     box-shadow: var(--shadow-sm);
 }
@@ -25,17 +26,23 @@
    Navigation Links
    =================== */
 .nav-link {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.375rem; /* 6px - gap-1.5 */
     color: rgba(255, 255, 255, 0.9) !important;
     transition: color var(--transition-base);
     font-weight: var(--font-medium);
+    white-space: nowrap;
 }
 
 .nav-link:hover {
     color: white !important;
 }
 
+.nav-link svg,
 .nav-link i {
-    margin-right: 4px;
+    flex-shrink: 0;
+    margin-right: 0; /* Reset margin since we use gap */
 }
 
 /* ===================
@@ -164,3 +171,4 @@
     box-shadow: none;
     outline: 2px solid rgba(255, 255, 255, 0.5);
 }
+

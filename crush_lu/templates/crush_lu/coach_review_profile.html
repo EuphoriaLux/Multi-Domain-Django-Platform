@@ -3,68 +3,69 @@
 {% block title %}Review Profile - Crush.lu{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-lg-8">
-        <a href="{% url 'crush_lu:coach_dashboard' %}" class="btn btn-outline-secondary mb-3">
-            ← Back to Dashboard
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2">
+        <a href="{% url 'crush_lu:coach_dashboard' %}" class="inline-flex items-center gap-2 px-4 py-2 mb-4 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
+            {% include "crush_lu/icons/arrow-left.html" with class="w-4 h-4" %}
+            Back to Dashboard
         </a>
 
-        <div class="card mb-4">
-            <div class="card-header">
-                <h4 class="mb-0">Profile Review</h4>
+        <div class="bg-white rounded-xl shadow-sm mb-6">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h4 class="font-semibold mb-0">Profile Review</h4>
             </div>
-            <div class="card-body">
-                <h5>{{ profile.user.get_full_name }}</h5>
-                <p class="text-muted">{{ profile.user.email }}</p>
+            <div class="p-6">
+                <h5 class="text-xl font-semibold">{{ profile.user.get_full_name }}</h5>
+                <p class="text-gray-500">{{ profile.user.email }}</p>
 
-                <hr>
+                <hr class="my-4 border-gray-200">
 
-                <div class="row mb-3">
-                    <div class="col-md-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
                         <p><strong>Age:</strong> {% if profile.age %}{{ profile.age }}{% else %}Not set{% endif %} {% if profile.date_of_birth %}({{ profile.date_of_birth }}){% endif %}</p>
                         <p><strong>Gender:</strong> {{ profile.get_gender_display|default:"Not set" }}</p>
                         <p><strong>Location:</strong> {{ profile.location|default:"Not set" }}</p>
                     </div>
-                    <div class="col-md-6">
+                    <div>
                         <p><strong>Phone:</strong> {{ profile.phone_number|default:"Not provided" }}</p>
                         <p><strong>Looking for:</strong> {{ profile.get_looking_for_display }}</p>
                     </div>
                 </div>
 
-                <hr>
+                <hr class="my-4 border-gray-200">
 
-                <h6>Bio</h6>
-                <p>{{ profile.bio }}</p>
+                <h6 class="font-semibold mb-2">Bio</h6>
+                <p class="text-gray-600 mb-4">{{ profile.bio }}</p>
 
-                <h6>Interests</h6>
-                <p>{{ profile.interests }}</p>
+                <h6 class="font-semibold mb-2">Interests</h6>
+                <p class="text-gray-600 mb-4">{{ profile.interests }}</p>
 
-                <hr>
+                <hr class="my-4 border-gray-200">
 
-                <h6>Privacy Settings</h6>
-                <ul>
+                <h6 class="font-semibold mb-2">Privacy Settings</h6>
+                <ul class="list-disc list-inside text-gray-600 mb-4">
                     <li>Show full name: {% if profile.show_full_name %}Yes{% else %}No{% endif %}</li>
                     <li>Show exact age: {% if profile.show_exact_age %}Yes{% else %}No{% endif %}</li>
                     <li>Blur photos: {% if profile.blur_photos %}Yes{% else %}No{% endif %}</li>
                 </ul>
 
-                <hr>
+                <hr class="my-4 border-gray-200">
 
-                <h6>Photos</h6>
-                <div class="row">
+                <h6 class="font-semibold mb-3">Photos</h6>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {% if profile.photo_1 %}
-                        <div class="col-md-4 mb-3">
-                            <img src="{{ profile.photo_1.url }}" class="img-fluid rounded" alt="Photo 1">
+                        <div>
+                            <img src="{{ profile.photo_1.url }}" class="w-full rounded-lg" alt="Photo 1">
                         </div>
                     {% endif %}
                     {% if profile.photo_2 %}
-                        <div class="col-md-4 mb-3">
-                            <img src="{{ profile.photo_2.url }}" class="img-fluid rounded" alt="Photo 2">
+                        <div>
+                            <img src="{{ profile.photo_2.url }}" class="w-full rounded-lg" alt="Photo 2">
                         </div>
                     {% endif %}
                     {% if profile.photo_3 %}
-                        <div class="col-md-4 mb-3">
-                            <img src="{{ profile.photo_3.url }}" class="img-fluid rounded" alt="Photo 3">
+                        <div>
+                            <img src="{{ profile.photo_3.url }}" class="w-full rounded-lg" alt="Photo 3">
                         </div>
                     {% endif %}
                 </div>
@@ -72,76 +73,49 @@
         </div>
     </div>
 
-    <div class="col-lg-4">
-        <!-- Screening Call Status -->
-        <div class="card mb-3">
-            <div class="card-header {% if submission.review_call_completed %}bg-success text-white{% else %}bg-warning text-dark{% endif %}">
-                <h6 class="mb-0">
-                    {% if submission.review_call_completed %}
-                        ✅ Screening Call Completed
-                    {% else %}
-                        ⚠️ Screening Call Required
-                    {% endif %}
-                </h6>
-            </div>
-            <div class="card-body">
-                {% if submission.review_call_completed %}
-                    <p class="small mb-2"><strong>Completed:</strong> {{ submission.review_call_date|date:"M d, Y g:i A" }}</p>
-                    <p class="small mb-0"><strong>Notes:</strong> {{ submission.review_call_notes|default:"No notes recorded" }}</p>
-                {% else %}
-                    <p class="small mb-3">📞 You must complete a screening call with <strong>{{ profile.user.first_name }}</strong> before approving this profile.</p>
-                    <p class="small mb-2"><strong>Phone:</strong> {{ profile.phone_number }}</p>
-                    <form method="post" action="{% url 'crush_lu:coach_mark_review_call_complete' submission.id %}">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <label class="form-label small">Call Notes:</label>
-                            <textarea name="call_notes" class="form-control form-control-sm" rows="3" placeholder="Notes from screening call..." required></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-sm btn-success w-100">Mark Call Complete</button>
-                    </form>
-                {% endif %}
-            </div>
-        </div>
+    <div class="lg:col-span-1">
+        <!-- Screening Call Status (HTMX-powered) -->
+        {% include 'crush_lu/_screening_call_section.html' %}
 
         <!-- Review Decision -->
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">Review Decision</h5>
+        <div class="bg-white rounded-xl shadow-sm mb-4">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h5 class="font-semibold mb-0">Review Decision</h5>
             </div>
-            <div class="card-body">
+            <div class="p-6">
                 <form method="post">
                     {% csrf_token %}
 
-                    <div class="mb-3">
-                        <label for="{{ form.status.id_for_label }}" class="form-label">Decision *</label>
+                    <div class="mb-4">
+                        <label for="{{ form.status.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Decision *</label>
                         {{ form.status }}
                     </div>
 
-                    <div class="mb-3">
-                        <label for="{{ form.coach_notes.id_for_label }}" class="form-label">
+                    <div class="mb-4">
+                        <label for="{{ form.coach_notes.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
                             Internal Notes (not visible to user)
                         </label>
                         {{ form.coach_notes }}
                     </div>
 
                     <div class="mb-4">
-                        <label for="{{ form.feedback_to_user.id_for_label }}" class="form-label">
+                        <label for="{{ form.feedback_to_user.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
                             Feedback to User (visible if rejected/revision)
                         </label>
                         {{ form.feedback_to_user }}
                     </div>
 
-                    <button type="submit" class="btn btn-crush-primary w-100">
+                    <button type="submit" class="btn-crush-primary w-full py-3">
                         Submit Review
                     </button>
                 </form>
             </div>
         </div>
 
-        <div class="card mt-3">
-            <div class="card-body">
-                <h6>Review Guidelines</h6>
-                <ul class="small mb-0">
+        <div class="bg-white rounded-xl shadow-sm">
+            <div class="p-6">
+                <h6 class="font-semibold mb-2">Review Guidelines</h6>
+                <ul class="text-sm text-gray-600 list-disc list-inside space-y-1">
                     <li><strong>Complete screening call first!</strong></li>
                     <li>Check for appropriate content</li>
                     <li>Verify photos are clear and appropriate</li>
@@ -153,13 +127,4 @@
         </div>
     </div>
 </div>
-
-<style>
-    select, textarea {
-        width: 100%;
-        padding: 0.5rem;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-    }
-</style>
 {% endblock %}

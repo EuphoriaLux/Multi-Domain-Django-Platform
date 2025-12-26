@@ -1,0 +1,277 @@
+/**
+ * Voting System Styles
+ * Styles for event voting lobby, results, and demo pages
+ */
+
+/* ===================
+   Countdown Timer
+   =================== */
+.countdown-timer {
+    font-size: 4rem;
+    font-weight: bold;
+    color: var(--crush-purple);
+    text-align: center;
+    margin: 2rem 0;
+}
+
+.countdown-demo {
+    background: linear-gradient(135deg, var(--crush-pink) 0%, var(--crush-purple) 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 15px;
+    text-align: center;
+}
+
+.timer-display {
+    font-size: 3rem;
+    font-weight: bold;
+    font-family: monospace;
+}
+
+/* ===================
+   Activity Cards
+   =================== */
+.activity-preview-card {
+    border: 2px solid #e9ecef;
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+}
+
+.activity-preview-card:hover {
+    border-color: var(--crush-purple);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(155, 89, 182, 0.15);
+}
+
+.activity-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.activity-group-card {
+    border: 2px solid #e9ecef;
+    border-radius: 15px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+/* ===================
+   Variant Options
+   =================== */
+.variant-option-item {
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.variant-option-item:hover {
+    border-color: var(--crush-purple);
+    background-color: rgba(155, 89, 182, 0.05);
+}
+
+.variant-option-item:has(input:checked) {
+    border-color: var(--crush-purple);
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.15) 0%, rgba(255, 107, 157, 0.15) 100%);
+    box-shadow: 0 4px 12px rgba(155, 89, 182, 0.2);
+}
+
+.variant-radio {
+    width: 1.5rem;
+    height: 1.5rem;
+    cursor: pointer;
+}
+
+/* ===================
+   Status Card
+   =================== */
+.status-card {
+    background: linear-gradient(135deg, var(--crush-purple) 0%, var(--crush-pink) 100%);
+    color: white;
+    border-radius: 15px;
+    padding: 2rem;
+    text-align: center;
+}
+
+/* ===================
+   Results Display
+   =================== */
+.winner-banner {
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+    color: #333;
+    padding: 3rem;
+    border-radius: 20px;
+    text-align: center;
+    margin-bottom: 2rem;
+    box-shadow: 0 10px 30px rgba(255, 215, 0, 0.3);
+}
+
+.winner-icon {
+    font-size: 5rem;
+    margin-bottom: 1rem;
+}
+
+.result-option-card {
+    border: 2px solid #e9ecef;
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.result-option-card.winner-option {
+    border: 3px solid #FFD700;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 165, 0, 0.1) 100%);
+    box-shadow: 0 8px 24px rgba(255, 215, 0, 0.2);
+}
+
+.result-option-card.user-voted {
+    border-color: var(--crush-purple);
+}
+
+/* ===================
+   Progress Bars
+   =================== */
+.vote-progress {
+    height: 30px;
+    border-radius: 15px;
+    background-color: #e9ecef;
+    overflow: hidden;
+    margin-top: 1rem;
+}
+
+.vote-progress-bar {
+    height: 100%;
+    background: linear-gradient(135deg, var(--crush-purple) 0%, var(--crush-pink) 100%);
+    transition: width 0.5s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+}
+
+.winner-option .vote-progress-bar {
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+    color: #333;
+}
+
+.progress-bar-demo {
+    height: 30px;
+    border-radius: 15px;
+    background-color: #e9ecef;
+    overflow: hidden;
+    margin-top: 1rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(135deg, var(--crush-purple) 0%, var(--crush-pink) 100%);
+    transition: width 0.5s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+}
+
+/* ===================
+   Stats Card
+   =================== */
+.stats-card {
+    background: linear-gradient(135deg, var(--crush-purple) 0%, var(--crush-pink) 100%);
+    color: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.badge-user-vote {
+    background-color: var(--crush-purple);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+}
+
+/* ===================
+   Results Preview
+   =================== */
+.results-preview {
+    border: 2px solid #FFD700;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 165, 0, 0.1) 100%);
+    border-radius: 15px;
+    padding: 2rem;
+    margin-bottom: 1rem;
+}
+
+/* ===================
+   Demo Sections
+   =================== */
+.demo-section {
+    border: 2px solid #e9ecef;
+    border-radius: 15px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    background: white;
+}
+
+.demo-section.active {
+    border-color: var(--crush-purple);
+    box-shadow: 0 8px 24px rgba(155, 89, 182, 0.2);
+}
+
+/* ===================
+   Tour Overlay
+   =================== */
+.tour-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 9998;
+    display: none;
+}
+
+.tour-overlay.active {
+    display: block;
+}
+
+.tour-tooltip {
+    position: absolute;
+    background: white;
+    border-radius: 15px;
+    padding: 2rem;
+    max-width: 400px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    z-index: 9999;
+    display: none;
+}
+
+.tour-tooltip.active {
+    display: block;
+}
+
+.tour-tooltip h3 {
+    color: var(--crush-purple);
+    margin-bottom: 1rem;
+}
+
+.tour-tooltip-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.tour-highlight {
+    position: relative;
+    z-index: 10000;
+    box-shadow: 0 0 0 99999px rgba(0, 0, 0, 0.7);
+}

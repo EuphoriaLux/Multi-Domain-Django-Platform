@@ -4,10 +4,7 @@
 {% block title %}Create Your Profile - Crush.lu{% endblock %}
 
 {% block extra_css %}
-<!-- intl-tel-input CSS -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/css/intlTelInput.css">
-<!-- Custom intl-tel-input styling for Crush.lu -->
-<link rel="stylesheet" href="{% static 'crush_lu/css/components/intl-tel-input.css' %}">
+<!-- Profile creation styles are in static/crush_lu/css/components/profile-creation.css -->
 {% endblock %}
 
 {% block content %}
@@ -87,48 +84,49 @@
                     <!-- Phone Number with Verification (REQUIRED) -->
                     <div class="form-group-modern mb-4 priority-field" id="phone-verification-container">
                         <label for="{{ form.phone_number.id_for_label }}">
-                            <i class="bi bi-phone"></i> Phone Number *
-                            <span class="badge bg-danger ms-2" id="phone-required-badge">Verification Required</span>
-                            <span class="badge bg-success ms-2 d-none" id="phone-verified-badge">
-                                <i class="bi bi-check-circle"></i> Verified
+                            {% include "crush_lu/icons/phone.html" with class="w-5 h-5" %} Phone Number *
+                            {% if profile.phone_verified %}
+                            <span class="badge bg-success ms-2">
+                                {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Verified
                             </span>
+                            {% else %}
+                            <span class="badge bg-danger ms-2">Verification Required</span>
+                            {% endif %}
                         </label>
 
-                        <div class="phone-input-with-button">
-                            <div class="phone-input-wrapper">
-                                <input type="tel"
-                                       name="phone_number"
-                                       id="{{ form.phone_number.id_for_label }}"
-                                       class="form-control form-control-lg"
-                                       value="{{ profile.phone_number|default:'' }}"
-                                       {% if profile.phone_verified %}readonly{% endif %}
-                                       required>
-                            </div>
-                            <button type="button"
-                                    class="btn btn-outline-primary btn-lg {% if profile.phone_verified %}d-none{% endif %}"
-                                    id="verify-phone-btn"
-                                    {% if not profile.phone_number %}disabled{% endif %}>
-                                <i class="bi bi-shield-check"></i> Verify
-                            </button>
-                            <button type="button"
-                                    class="btn btn-outline-secondary btn-lg {% if not profile.phone_verified %}d-none{% endif %}"
-                                    id="change-phone-btn">
-                                <i class="bi bi-pencil"></i> Change
-                            </button>
+                        {% if profile.phone_verified %}
+                        <!-- Phone is verified - show readonly -->
+                        <div class="phone-input-wrapper">
+                            <input type="tel"
+                                   name="phone_number"
+                                   id="{{ form.phone_number.id_for_label }}"
+                                   class="form-control form-control-lg bg-light"
+                                   value="{{ profile.phone_number }}"
+                                   readonly>
                         </div>
-
-                        <small class="form-text">
-                            <i class="bi bi-info-circle text-muted"></i>
-                            You must verify your phone number before continuing.
-                            We'll send you a 6-digit code via SMS.
+                        <small class="form-text text-success">
+                            {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %}
+                            Your phone number is verified and locked.
                         </small>
+                        {% else %}
+                        <!-- Phone not verified - show link to verification page -->
+                        <div class="alert alert-warning">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="flex-grow-1">
+                                    <strong>{% include "crush_lu/icons/shield-check.html" with class="w-5 h-5" %} Phone Verification Required</strong>
+                                    <p class="mb-0 mt-1">You must verify your phone number before continuing. This helps us keep our community safe.</p>
+                                </div>
+                                <a href="{% url 'crush_lu:verify_phone' %}?next={% url 'crush_lu:create_profile' %}"
+                                   class="btn btn-warning btn-lg flex-shrink-0">
+                                    {% include "crush_lu/icons/phone.html" with class="w-5 h-5" %} Verify Now
+                                </a>
+                            </div>
+                        </div>
+                        {% endif %}
 
                         {% if form.phone_number.errors %}
                             <div class="invalid-feedback d-block">{{ form.phone_number.errors.0 }}</div>
                         {% endif %}
-
-                        <!-- Phone verification error messages -->
-                        <div class="alert alert-danger mt-2 d-none" id="phone-verify-error"></div>
 
                         <!-- Hidden input to track verification status -->
                         <input type="hidden"
@@ -137,13 +135,10 @@
                                value="{% if profile.phone_verified %}true{% else %}false{% endif %}">
                     </div>
 
-                    <!-- reCAPTCHA container (invisible) -->
-                    <div id="recaptcha-container"></div>
-
                     <!-- Date of Birth -->
                     <div class="form-group-modern mb-4">
                         <label for="{{ form.date_of_birth.id_for_label }}">
-                            <i class="bi bi-calendar"></i> Date of Birth *
+                            {% include "crush_lu/icons/calendar.html" with class="w-5 h-5" %} Date of Birth *
                         </label>
                         {{ form.date_of_birth }}
                         <small class="form-text">Must be 18+ to join</small>
@@ -155,7 +150,7 @@
                     <!-- Gender Selection (Card-based) -->
                     <div class="form-group-modern mb-4">
                         <label class="mb-3">
-                            <i class="bi bi-person"></i> Gender *
+                            {% include "crush_lu/icons/user.html" with class="w-5 h-5" %} Gender *
                         </label>
                         <div class="gender-card-selection">
                             <input type="radio" name="gender" value="M" id="gender_m" class="d-none gender-radio" {% if profile.gender == 'M' %}checked{% endif %} required>
@@ -190,7 +185,7 @@
                     <!-- Location -->
                     <div class="form-group-modern mb-4">
                         <label for="{{ form.location.id_for_label }}">
-                            <i class="bi bi-geo-alt"></i> Location in Luxembourg *
+                            {% include "crush_lu/icons/map-pin.html" with class="w-5 h-5" %} Location in Luxembourg *
                         </label>
                         {{ form.location }}
                         {% if form.location.errors %}
@@ -202,12 +197,12 @@
                             class="btn btn-crush-primary btn-lg w-100 mt-4 next-step"
                             id="step1-continue-btn"
                             {% if not profile.phone_verified %}disabled{% endif %}>
-                        Continue <i class="bi bi-arrow-right"></i>
+                        Continue {% include "crush_lu/icons/arrow-right.html" with class="w-5 h-5" %}
                     </button>
 
                     <!-- Warning when button is disabled -->
                     <div class="alert alert-warning mt-3 {% if profile.phone_verified %}d-none{% endif %}" id="phone-verify-warning">
-                        <i class="bi bi-exclamation-triangle"></i>
+                        {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}
                         Please verify your phone number to continue.
                     </div>
                 </div>
@@ -223,7 +218,7 @@
                     <!-- Bio (Optional) -->
                     <div class="form-group-modern mb-4">
                         <label for="{{ form.bio.id_for_label }}">
-                            <i class="bi bi-chat-heart"></i> Bio
+                            {% include "crush_lu/icons/chat-bubble-left.html" with class="w-5 h-5" %} Bio
                             <span class="badge bg-secondary ms-2">Optional</span>
                         </label>
                         <textarea name="bio"
@@ -243,7 +238,7 @@
                     <!-- Interest Categories (Card-based) -->
                     <div class="form-group-modern mb-4">
                         <label class="mb-3">
-                            <i class="bi bi-star"></i> Interest Categories
+                            {% include "crush_lu/icons/star.html" with class="w-5 h-5" %} Interest Categories
                             <span class="badge bg-secondary ms-2">Optional</span>
                         </label>
                         <div class="interest-categories">
@@ -283,7 +278,7 @@
                     <!-- Custom Interests Text (Optional) -->
                     <div class="form-group-modern mb-4">
                         <label for="{{ form.interests.id_for_label }}">
-                            <i class="bi bi-pencil"></i> Or write your own interests
+                            {% include "crush_lu/icons/pencil.html" with class="w-5 h-5" %} Or write your own interests
                         </label>
                         <textarea name="interests"
                                   id="{{ form.interests.id_for_label }}"
@@ -302,7 +297,7 @@
                     <!-- Looking For (Card-based) -->
                     <div class="form-group-modern mb-4">
                         <label class="mb-3">
-                            <i class="bi bi-heart"></i> What are you looking for? *
+                            {% include "crush_lu/icons/heart.html" with class="w-5 h-5" %} What are you looking for? *
                         </label>
                         <div class="looking-for-cards">
                             <input type="radio" name="looking_for" value="friends" id="looking_friends" class="d-none looking-radio" {% if profile.looking_for == 'friends' %}checked{% endif %} required>
@@ -336,10 +331,10 @@
 
                     <div class="button-group mt-4">
                         <button type="button" class="btn btn-outline-secondary btn-lg prev-step">
-                            <i class="bi bi-arrow-left"></i> Back
+                            {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back
                         </button>
                         <button type="button" class="btn btn-crush-primary btn-lg next-step">
-                            Continue <i class="bi bi-arrow-right"></i>
+                            Continue {% include "crush_lu/icons/arrow-right.html" with class="w-5 h-5" %}
                         </button>
                     </div>
                 </div>
@@ -356,7 +351,7 @@
                     {% if social_photos %}
                     <div class="social-import-section mb-4">
                         <div class="d-flex align-items-center justify-content-between mb-3">
-                            <h6 class="mb-0"><i class="bi bi-cloud-download me-2"></i>Import from Social Accounts</h6>
+                            <h6 class="mb-0">{% include "crush_lu/icons/cloud-arrow-down.html" with class="w-5 h-5" %}Import from Social Accounts</h6>
                             <span class="badge bg-success">Quick Import</span>
                         </div>
                         <p class="text-muted small mb-3">Use your existing profile photos from connected accounts</p>
@@ -384,7 +379,7 @@
                                             data-account-id="{{ photo.account_id }}"
                                             data-slot="1"
                                             title="Set as main photo">
-                                        <i class="bi bi-star-fill"></i> Main
+                                        {% include "crush_lu/icons/star.html" with class="w-5 h-5" %} Main
                                     </button>
                                     <button type="button" class="btn btn-sm btn-outline-primary import-social-photo-btn"
                                             data-account-id="{{ photo.account_id }}"
@@ -401,7 +396,7 @@
                                 </div>
                                 {% else %}
                                 <div class="no-photo-available">
-                                    <i class="bi bi-image"></i>
+                                    {% include "crush_lu/icons/photo.html" with class="w-5 h-5" %}
                                     <span>{{ photo.reason|default:"No photo available" }}</span>
                                 </div>
                                 {% endif %}
@@ -426,13 +421,13 @@
                                     {% if profile.photo_1 %}
                                         <img src="{{ profile.photo_1.url }}" alt="Photo 1">
                                     {% else %}
-                                        <i class="bi bi-camera photo-icon"></i>
+                                        {% include "crush_lu/icons/camera.html" with class="w-5 h-5" %}
                                         <span class="photo-text">Add Photo 1</span>
                                     {% endif %}
                                 </div>
                             </label>
                             <button type="button" class="btn btn-sm btn-danger remove-photo {% if not profile.photo_1 %}d-none{% endif %}" data-target="photo1">
-                                <i class="bi bi-trash"></i>
+                                {% include "crush_lu/icons/trash.html" with class="w-5 h-5" %}
                             </button>
                         </div>
 
@@ -444,13 +439,13 @@
                                     {% if profile.photo_2 %}
                                         <img src="{{ profile.photo_2.url }}" alt="Photo 2">
                                     {% else %}
-                                        <i class="bi bi-camera photo-icon"></i>
+                                        {% include "crush_lu/icons/camera.html" with class="w-5 h-5" %}
                                         <span class="photo-text">Add Photo 2</span>
                                     {% endif %}
                                 </div>
                             </label>
                             <button type="button" class="btn btn-sm btn-danger remove-photo {% if not profile.photo_2 %}d-none{% endif %}" data-target="photo2">
-                                <i class="bi bi-trash"></i>
+                                {% include "crush_lu/icons/trash.html" with class="w-5 h-5" %}
                             </button>
                         </div>
 
@@ -462,32 +457,32 @@
                                     {% if profile.photo_3 %}
                                         <img src="{{ profile.photo_3.url }}" alt="Photo 3">
                                     {% else %}
-                                        <i class="bi bi-camera photo-icon"></i>
+                                        {% include "crush_lu/icons/camera.html" with class="w-5 h-5" %}
                                         <span class="photo-text">Add Photo 3</span>
                                     {% endif %}
                                 </div>
                             </label>
                             <button type="button" class="btn btn-sm btn-danger remove-photo {% if not profile.photo_3 %}d-none{% endif %}" data-target="photo3">
-                                <i class="bi bi-trash"></i>
+                                {% include "crush_lu/icons/trash.html" with class="w-5 h-5" %}
                             </button>
                         </div>
                     </div>
 
                     {% if profile.photo_1 %}
                     <div class="alert alert-success mt-3">
-                        <i class="bi bi-check-circle"></i>
+                        {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %}
                         <strong>Great!</strong> We imported your photo from Facebook. You can keep it or upload a different one.
                     </div>
                     {% else %}
                     <div class="alert alert-info mt-3">
-                        <i class="bi bi-info-circle"></i>
+                        {% include "crush_lu/icons/information-circle.html" with class="w-5 h-5" %}
                         <strong>Tip:</strong> Use clear photos where your face is visible. Avoid group photos!
                     </div>
                     {% endif %}
 
                     <!-- Privacy Settings -->
                     <div class="privacy-section mt-4">
-                        <h5 class="mb-3"><i class="bi bi-shield-lock"></i> Privacy Settings</h5>
+                        <h5 class="mb-3">{% include "crush_lu/icons/shield-check.html" with class="w-5 h-5" %} Privacy Settings</h5>
 
                         <div class="privacy-toggle mb-3">
                             <input type="checkbox" name="show_full_name" id="{{ form.show_full_name.id_for_label }}" class="form-check-input">
@@ -513,10 +508,10 @@
 
                     <div class="button-group mt-4">
                         <button type="button" class="btn btn-outline-secondary btn-lg prev-step">
-                            <i class="bi bi-arrow-left"></i> Back
+                            {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back
                         </button>
                         <button type="button" class="btn btn-crush-primary btn-lg next-step">
-                            Continue <i class="bi bi-arrow-right"></i>
+                            Continue {% include "crush_lu/icons/arrow-right.html" with class="w-5 h-5" %}
                         </button>
                     </div>
                 </div>
@@ -531,28 +526,28 @@
 
                     <div class="review-summary">
                         <div class="summary-item">
-                            <i class="bi bi-phone text-primary"></i>
+                            {% include "crush_lu/icons/phone.html" with class="w-5 h-5 text-primary" %}
                             <div>
                                 <strong>Phone Number:</strong>
                                 <span id="review-phone">Not provided</span>
                             </div>
                         </div>
                         <div class="summary-item">
-                            <i class="bi bi-calendar text-primary"></i>
+                            {% include "crush_lu/icons/calendar.html" with class="w-5 h-5 text-primary" %}
                             <div>
                                 <strong>Date of Birth:</strong>
                                 <span id="review-dob">Not provided</span>
                             </div>
                         </div>
                         <div class="summary-item">
-                            <i class="bi bi-person text-primary"></i>
+                            {% include "crush_lu/icons/user.html" with class="w-5 h-5 text-primary" %}
                             <div>
                                 <strong>Gender:</strong>
                                 <span id="review-gender">Not selected</span>
                             </div>
                         </div>
                         <div class="summary-item">
-                            <i class="bi bi-geo-alt text-primary"></i>
+                            {% include "crush_lu/icons/map-pin.html" with class="w-5 h-5 text-primary" %}
                             <div>
                                 <strong>Location:</strong>
                                 <span id="review-location">Not selected</span>
@@ -562,7 +557,7 @@
 
                     <!-- What Happens Next -->
                     <div class="next-steps-info mt-4">
-                        <h5 class="mb-3"><i class="bi bi-hourglass-split"></i> What Happens Next?</h5>
+                        <h5 class="mb-3">{% include "crush_lu/icons/hourglass.html" with class="w-5 h-5" %} What Happens Next?</h5>
 
                         <div class="timeline-item">
                             <div class="timeline-marker">1</div>
@@ -598,16 +593,16 @@
                     </div>
 
                     <div class="alert alert-success mt-4">
-                        <i class="bi bi-shield-check"></i>
+                        {% include "crush_lu/icons/shield-check.html" with class="w-5 h-5" %}
                         <strong>Privacy First:</strong> Your phone number will only be used by your coach for screening. It won't be shared with other members without your consent.
                     </div>
 
                     <div class="button-group mt-4">
                         <button type="button" class="btn btn-outline-secondary btn-lg prev-step">
-                            <i class="bi bi-arrow-left"></i> Back
+                            {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back
                         </button>
                         <button type="submit" class="btn btn-crush-primary btn-lg">
-                            <i class="bi bi-check-circle"></i> Submit Profile
+                            {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Submit Profile
                         </button>
                     </div>
                 </div>
@@ -618,102 +613,9 @@
 
 <!-- Styles are in static/crush_lu/css/components/profile-creation.css and social-photos.css -->
 
-<!-- Phone Verification Modal -->
-<div class="modal fade" id="phoneVerifyModal" tabindex="-1" aria-labelledby="phoneVerifyModalLabel" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="phoneVerifyModalLabel">
-                    <i class="bi bi-phone"></i> Verify Your Phone
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <!-- Step 1: Sending code -->
-                <div id="verify-step-sending" class="text-center d-none">
-                    <div class="spinner-border text-primary mb-3" role="status">
-                        <span class="visually-hidden">Sending...</span>
-                    </div>
-                    <p>Sending verification code to your phone...</p>
-                </div>
-
-                <!-- Step 2: Enter code -->
-                <div id="verify-step-code" class="d-none">
-                    <p class="text-center mb-3">
-                        We sent a 6-digit code to<br>
-                        <strong id="verify-phone-display"></strong>
-                    </p>
-
-                    <div class="d-flex justify-content-center gap-2 mb-4">
-                        <input type="text" class="form-control form-control-lg text-center otp-input"
-                               maxlength="1" inputmode="numeric" pattern="[0-9]" style="width: 50px;">
-                        <input type="text" class="form-control form-control-lg text-center otp-input"
-                               maxlength="1" inputmode="numeric" pattern="[0-9]" style="width: 50px;">
-                        <input type="text" class="form-control form-control-lg text-center otp-input"
-                               maxlength="1" inputmode="numeric" pattern="[0-9]" style="width: 50px;">
-                        <input type="text" class="form-control form-control-lg text-center otp-input"
-                               maxlength="1" inputmode="numeric" pattern="[0-9]" style="width: 50px;">
-                        <input type="text" class="form-control form-control-lg text-center otp-input"
-                               maxlength="1" inputmode="numeric" pattern="[0-9]" style="width: 50px;">
-                        <input type="text" class="form-control form-control-lg text-center otp-input"
-                               maxlength="1" inputmode="numeric" pattern="[0-9]" style="width: 50px;">
-                    </div>
-
-                    <div class="alert alert-danger d-none" id="otp-error"></div>
-
-                    <button type="button" class="btn btn-crush-primary w-100" id="verify-code-btn">
-                        Verify Code
-                    </button>
-
-                    <div class="text-center mt-3">
-                        <span class="text-muted" id="resend-timer">Resend available in <span id="resend-countdown">60</span>s</span>
-                        <button type="button" class="btn btn-link d-none" id="resend-code-btn">
-                            <i class="bi bi-arrow-repeat"></i> Resend Code
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Step 3: Verifying -->
-                <div id="verify-step-verifying" class="text-center d-none">
-                    <div class="spinner-border text-primary mb-3" role="status">
-                        <span class="visually-hidden">Verifying...</span>
-                    </div>
-                    <p>Verifying your code...</p>
-                </div>
-
-                <!-- Step 4: Success -->
-                <div id="verify-step-success" class="text-center d-none">
-                    <div class="text-success mb-3" style="font-size: 4rem;">
-                        <i class="bi bi-check-circle-fill"></i>
-                    </div>
-                    <h5>Phone Verified!</h5>
-                    <p class="text-muted">Your phone number has been verified successfully.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
 {% endblock %}
 
 {% block extra_js %}
-<!-- Firebase SDK for phone authentication -->
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-
-<!-- intl-tel-input JS (utils loaded via utilsScript option) -->
-<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/intlTelInput.min.js"></script>
-
-<!-- Firebase Configuration from Django settings (via environment variables) -->
-<script>
-    window.FIREBASE_API_KEY = "{{ firebase_api_key }}";
-    window.FIREBASE_AUTH_DOMAIN = "{{ firebase_auth_domain }}";
-    window.FIREBASE_PROJECT_ID = "{{ firebase_project_id }}";
-</script>
-
-<!-- Phone verification module -->
-<script src="{% static 'crush_lu/js/phone-verification.js' %}"></script>
-
 <script>
 // Multi-step form management
 {% if current_step %}
@@ -788,10 +690,7 @@ document.querySelectorAll('.remove-photo').forEach(btn => {
         const preview = document.getElementById(previewId);
 
         input.value = '';
-        preview.innerHTML = `
-            <i class="bi bi-camera photo-icon"></i>
-            <span class="photo-text">Add Photo ${targetId.slice(-1)}</span>
-        `;
+        preview.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" /></svg><span class="photo-text">Add Photo ' + targetId.slice(-1) + '</span>';
         preview.classList.remove('has-image');
         this.classList.add('d-none');
     });
@@ -1090,7 +989,7 @@ profileForm.addEventListener('submit', function(e) {
     if (submitButton) {
         submitButton.disabled = true;
         const originalHTML = submitButton.innerHTML;
-        submitButton.innerHTML = '<i class="bi bi-hourglass-split spinner-border spinner-border-sm me-2"></i> Submitting...';
+        submitButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block animate-spin"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg> Submitting...';
 
         // Re-enable after 5 seconds in case of server error
         setTimeout(() => {
@@ -1114,7 +1013,7 @@ document.querySelectorAll('.import-social-photo-btn').forEach(function(btn) {
 
         // Disable button and show loading
         button.disabled = true;
-        button.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+        button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block animate-spin"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>';
 
         // Get CSRF token
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -1139,7 +1038,7 @@ document.querySelectorAll('.import-social-photo-btn').forEach(function(btn) {
             if (data.success) {
                 notification.className = 'mt-2 alert alert-success';
                 const slotName = slot === 1 ? 'Main Photo' : 'Photo ' + slot;
-                notification.innerHTML = '<i class="bi bi-check-circle me-1"></i>Imported to ' + slotName + '!';
+                notification.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg> Imported to ' + slotName + '!';
 
                 // Update the photo preview
                 const previewId = 'preview' + slot;
@@ -1156,7 +1055,7 @@ document.querySelectorAll('.import-social-photo-btn').forEach(function(btn) {
                 }
             } else {
                 notification.className = 'mt-2 alert alert-danger';
-                notification.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>' + (data.error || 'Error importing photo');
+                notification.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg> ' + (data.error || 'Error importing photo');
             }
 
             // Hide notification after 4 seconds
@@ -1168,7 +1067,7 @@ document.querySelectorAll('.import-social-photo-btn').forEach(function(btn) {
             const notification = document.getElementById('social-photo-notification');
             notification.style.display = 'block';
             notification.className = 'mt-2 alert alert-danger';
-            notification.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>Network error. Please try again.';
+            notification.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg> Network error. Please try again.';
         })
         .finally(function() {
             button.disabled = false;
@@ -1176,415 +1075,5 @@ document.querySelectorAll('.import-social-photo-btn').forEach(function(btn) {
         });
     });
 });
-
-// ============================================================================
-// PHONE VERIFICATION SYSTEM
-// ============================================================================
-
-// State
-let phoneVerification = null;
-let isPhoneVerified = {{ profile.phone_verified|yesno:"true,false"|default:"false" }};
-let resendTimer = null;
-let resendCountdown = 60;
-let iti = null; // intl-tel-input instance
-
-// Initialize phone verification
-document.addEventListener('DOMContentLoaded', function() {
-    const phoneInput = document.getElementById('{{ form.phone_number.id_for_label }}');
-    const verifyBtn = document.getElementById('verify-phone-btn');
-    const changeBtn = document.getElementById('change-phone-btn');
-    const continueBtn = document.getElementById('step1-continue-btn');
-
-    // Store the pre-filled value before initializing intl-tel-input
-    // The library needs to set the number AFTER initialization for proper formatting
-    const prefilledValue = phoneInput ? phoneInput.value : '';
-
-    // Initialize intl-tel-input if not already verified (with utilsScript for placeholder support)
-    if (window.intlTelInput && phoneInput && !isPhoneVerified) {
-        // Clear the input before initializing - we'll set it properly after
-        phoneInput.value = '';
-
-        iti = window.intlTelInput(phoneInput, {
-            // AUTO-DETECT country via IP lookup
-            // Falls back to Luxembourg if IP lookup fails
-            initialCountry: "auto",
-            geoIpLookup: function(callback) {
-                fetch('https://ipapi.co/json/')
-                    .then(response => response.json())
-                    .then(data => {
-                        const countryCode = (data && data.country_code) ? data.country_code.toLowerCase() : 'lu';
-                        console.log('Geo IP detected country:', countryCode);
-                        callback(countryCode);
-                    })
-                    .catch(() => {
-                        console.log('Geo IP lookup failed, defaulting to Luxembourg');
-                        callback('lu');
-                    });
-            },
-            preferredCountries: ["lu", "de", "fr", "be"],
-            // Allowed countries - add more as needed based on your user base
-            onlyCountries: ["lu", "de", "fr", "be", "nl", "ch", "at", "it", "es", "pt", "gb", "ie", "us", "ca", "se", "dz"],
-            separateDialCode: true,
-            nationalMode: false,
-            formatOnDisplay: true,
-            autoPlaceholder: "aggressive",
-            // Load utils script for placeholder and validation support (v18 syntax)
-            utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/utils.js"
-        });
-
-        // Store iti instance globally
-        window.itiInstance = iti;
-
-        // When utils load, set the pre-filled number properly using the library's API
-        iti.promise.then(function() {
-            console.log('intl-tel-input utils loaded');
-
-            // If there was a pre-filled value, set it using the library's setNumber method
-            if (prefilledValue) {
-                // Normalize the number - ensure it has country code for proper parsing
-                let numberToSet = prefilledValue.trim().replace(/\s/g, '');
-
-                // Handle different storage formats:
-                // 1. E.164 format (+352621163882) - already correct, from verified phones
-                // 2. National format (621163882) - legacy data, assume Luxembourg
-                // 3. With leading zeros (00352621163882) - normalize to E.164
-                if (numberToSet.startsWith('+')) {
-                    // Already E.164 format - use as-is
-                    console.log('Phone already in E.164 format');
-                } else if (numberToSet.startsWith('00')) {
-                    // International format with 00 prefix (e.g., 00352...)
-                    numberToSet = '+' + numberToSet.slice(2);
-                } else {
-                    // National format without country code - assume Luxembourg
-                    // Remove any leading zeros first
-                    numberToSet = numberToSet.replace(/^0+/, '');
-                    numberToSet = '+352' + numberToSet;
-                    console.log('Assumed Luxembourg for national format');
-                }
-
-                console.log('Setting number (E.164 format):', numberToSet);
-
-                // setNumber expects E.164 format and will properly display just the national part
-                // when separateDialCode is true (it separates +352 into the dial code display)
-                iti.setNumber(numberToSet);
-
-                console.log('Number set. Display value:', phoneInput.value);
-                console.log('Full number via getNumber():', iti.getNumber());
-            }
-
-            // Log placeholder status
-            console.log('Placeholder:', phoneInput.placeholder);
-        });
-
-        // Listen for country change to ensure placeholder is updated
-        phoneInput.addEventListener('countrychange', function() {
-            console.log('Country changed, placeholder should update');
-        });
-    }
-
-    // Enable/disable verify button based on phone input
-    if (phoneInput) {
-        phoneInput.addEventListener('input', function() {
-            // Use intl-tel-input if available
-            if (iti) {
-                const isValid = iti.isValidNumber();
-                if (verifyBtn) {
-                    verifyBtn.disabled = !isValid && iti.getNumber().length < 8;
-                }
-            } else {
-                const phone = this.value.trim();
-                if (verifyBtn) {
-                    verifyBtn.disabled = phone.length < 6;
-                }
-            }
-        });
-    }
-
-    // Initialize PhoneVerification class
-    phoneVerification = new PhoneVerification({
-        phoneInputId: '{{ form.phone_number.id_for_label }}',
-        verifyButtonId: 'verify-phone-btn',
-        recaptchaContainerId: 'recaptcha-container',
-        csrfToken: '{{ csrf_token }}',
-        onVerified: handlePhoneVerified,
-        onError: handlePhoneError,
-        onCodeSent: handleCodeSent,
-        onStateChange: handleStateChange
-    });
-
-    // Verify button click
-    if (verifyBtn) {
-        verifyBtn.addEventListener('click', async function() {
-            await startPhoneVerification();
-        });
-    }
-
-    // Change phone button click
-    if (changeBtn) {
-        changeBtn.addEventListener('click', function() {
-            resetPhoneVerification();
-        });
-    }
-
-    // Verify code button click
-    const verifyCodeBtn = document.getElementById('verify-code-btn');
-    if (verifyCodeBtn) {
-        verifyCodeBtn.addEventListener('click', async function() {
-            await verifyOTPCode();
-        });
-    }
-
-    // Resend code button click
-    const resendCodeBtn = document.getElementById('resend-code-btn');
-    if (resendCodeBtn) {
-        resendCodeBtn.addEventListener('click', async function() {
-            await resendVerificationCode();
-        });
-    }
-
-    // OTP input handling (auto-focus next input)
-    const otpInputs = document.querySelectorAll('.otp-input');
-    otpInputs.forEach((input, index) => {
-        input.addEventListener('input', function(e) {
-            const value = e.target.value;
-            if (value.length === 1 && index < otpInputs.length - 1) {
-                otpInputs[index + 1].focus();
-            }
-            // Auto-verify when all digits entered
-            if (index === otpInputs.length - 1 && value.length === 1) {
-                const code = Array.from(otpInputs).map(i => i.value).join('');
-                if (code.length === 6) {
-                    verifyOTPCode();
-                }
-            }
-        });
-
-        input.addEventListener('keydown', function(e) {
-            if (e.key === 'Backspace' && !e.target.value && index > 0) {
-                otpInputs[index - 1].focus();
-            }
-        });
-
-        // Allow paste
-        input.addEventListener('paste', function(e) {
-            e.preventDefault();
-            const paste = (e.clipboardData || window.clipboardData).getData('text');
-            const digits = paste.replace(/\D/g, '').slice(0, 6);
-            digits.split('').forEach((digit, i) => {
-                if (otpInputs[i]) {
-                    otpInputs[i].value = digit;
-                }
-            });
-            if (digits.length === 6) {
-                verifyOTPCode();
-            }
-        });
-    });
-
-    // Check verification status on load
-    checkPhoneStatus();
-});
-
-async function startPhoneVerification() {
-    const modal = new bootstrap.Modal(document.getElementById('phoneVerifyModal'));
-    showModalStep('sending');
-    modal.show();
-
-    // Validate phone using intl-tel-input if available
-    if (iti && !iti.isValidNumber()) {
-        const errorCode = iti.getValidationError();
-        const errorMessages = {
-            0: 'Invalid phone number',
-            1: 'Invalid country code',
-            2: 'Phone number is too short',
-            3: 'Phone number is too long',
-            4: 'Invalid phone number'
-        };
-        showModalStep('code');
-        showOTPError(errorMessages[errorCode] || 'Please enter a valid phone number');
-        return;
-    }
-
-    // Get full international number from intl-tel-input
-    const phoneNumber = iti ? iti.getNumber() : null;
-    const result = await phoneVerification.sendVerificationCode(phoneNumber);
-
-    if (!result.success) {
-        showModalStep('code');
-        showOTPError(result.error);
-    }
-}
-
-function handleCodeSent(phone) {
-    showModalStep('code');
-    document.getElementById('verify-phone-display').textContent = maskPhoneNumber(phone);
-    startResendTimer();
-    // Focus first OTP input
-    document.querySelector('.otp-input')?.focus();
-}
-
-function handleStateChange(state) {
-    console.log('Phone verification state:', state);
-}
-
-async function verifyOTPCode() {
-    const otpInputs = document.querySelectorAll('.otp-input');
-    const code = Array.from(otpInputs).map(i => i.value).join('');
-
-    if (code.length !== 6) {
-        showOTPError('Please enter the 6-digit code');
-        return;
-    }
-
-    showModalStep('verifying');
-    const result = await phoneVerification.verifyCode(code);
-
-    if (!result.success) {
-        showModalStep('code');
-        showOTPError(result.error);
-        // Clear OTP inputs for retry
-        otpInputs.forEach(i => i.value = '');
-        otpInputs[0]?.focus();
-    }
-}
-
-function handlePhoneVerified(phoneNumber) {
-    showModalStep('success');
-    isPhoneVerified = true;
-
-    // Update UI
-    updatePhoneVerificationUI(phoneNumber);
-
-    // Close modal after delay
-    setTimeout(() => {
-        const modal = bootstrap.Modal.getInstance(document.getElementById('phoneVerifyModal'));
-        modal?.hide();
-    }, 2000);
-}
-
-function handlePhoneError(error) {
-    showOTPError(error);
-}
-
-function showModalStep(step) {
-    const steps = ['sending', 'code', 'verifying', 'success'];
-    steps.forEach(s => {
-        const el = document.getElementById(`verify-step-${s}`);
-        if (el) {
-            el.classList.toggle('d-none', s !== step);
-        }
-    });
-}
-
-function showOTPError(message) {
-    const errorEl = document.getElementById('otp-error');
-    if (errorEl) {
-        errorEl.textContent = message;
-        errorEl.classList.remove('d-none');
-    }
-}
-
-function updatePhoneVerificationUI(phoneNumber) {
-    const phoneInput = document.getElementById('{{ form.phone_number.id_for_label }}');
-    const verifyBtn = document.getElementById('verify-phone-btn');
-    const changeBtn = document.getElementById('change-phone-btn');
-    const continueBtn = document.getElementById('step1-continue-btn');
-    const requiredBadge = document.getElementById('phone-required-badge');
-    const verifiedBadge = document.getElementById('phone-verified-badge');
-    const warningEl = document.getElementById('phone-verify-warning');
-    const hiddenInput = document.getElementById('phone_verified_input');
-
-    if (phoneInput) {
-        phoneInput.value = phoneNumber;
-        phoneInput.readOnly = true;
-    }
-    if (verifyBtn) verifyBtn.classList.add('d-none');
-    if (changeBtn) changeBtn.classList.remove('d-none');
-    if (continueBtn) continueBtn.disabled = false;
-    if (requiredBadge) requiredBadge.classList.add('d-none');
-    if (verifiedBadge) verifiedBadge.classList.remove('d-none');
-    if (warningEl) warningEl.classList.add('d-none');
-    if (hiddenInput) hiddenInput.value = 'true';
-
-    showNotification('Phone verified successfully!', 'success');
-}
-
-function resetPhoneVerification() {
-    const phoneInput = document.getElementById('{{ form.phone_number.id_for_label }}');
-    const verifyBtn = document.getElementById('verify-phone-btn');
-    const changeBtn = document.getElementById('change-phone-btn');
-    const continueBtn = document.getElementById('step1-continue-btn');
-    const requiredBadge = document.getElementById('phone-required-badge');
-    const verifiedBadge = document.getElementById('phone-verified-badge');
-    const warningEl = document.getElementById('phone-verify-warning');
-    const hiddenInput = document.getElementById('phone_verified_input');
-
-    isPhoneVerified = false;
-
-    if (phoneInput) {
-        phoneInput.readOnly = false;
-        phoneInput.value = '';
-        phoneInput.focus();
-    }
-    if (verifyBtn) {
-        verifyBtn.classList.remove('d-none');
-        verifyBtn.disabled = true;
-    }
-    if (changeBtn) changeBtn.classList.add('d-none');
-    if (continueBtn) continueBtn.disabled = true;
-    if (requiredBadge) requiredBadge.classList.remove('d-none');
-    if (verifiedBadge) verifiedBadge.classList.add('d-none');
-    if (warningEl) warningEl.classList.remove('d-none');
-    if (hiddenInput) hiddenInput.value = 'false';
-
-    // Reset phone verification instance
-    phoneVerification?.reset();
-}
-
-async function resendVerificationCode() {
-    document.getElementById('resend-code-btn').classList.add('d-none');
-    document.getElementById('resend-timer').classList.remove('d-none');
-    startResendTimer();
-
-    showModalStep('sending');
-    await phoneVerification.sendVerificationCode();
-}
-
-function startResendTimer() {
-    resendCountdown = 60;
-    document.getElementById('resend-countdown').textContent = resendCountdown;
-    document.getElementById('resend-timer').classList.remove('d-none');
-    document.getElementById('resend-code-btn').classList.add('d-none');
-
-    if (resendTimer) clearInterval(resendTimer);
-
-    resendTimer = setInterval(() => {
-        resendCountdown--;
-        document.getElementById('resend-countdown').textContent = resendCountdown;
-
-        if (resendCountdown <= 0) {
-            clearInterval(resendTimer);
-            document.getElementById('resend-timer').classList.add('d-none');
-            document.getElementById('resend-code-btn').classList.remove('d-none');
-        }
-    }, 1000);
-}
-
-function maskPhoneNumber(phone) {
-    if (phone.length < 8) return phone;
-    return phone.slice(0, 7) + '***' + phone.slice(-2);
-}
-
-async function checkPhoneStatus() {
-    try {
-        const status = await phoneVerification.checkStatus();
-        if (status.phone_verified && status.phone_number) {
-            isPhoneVerified = true;
-            updatePhoneVerificationUI(status.phone_number);
-        }
-    } catch (error) {
-        console.error('Failed to check phone status:', error);
-    }
-}
 </script>
 {% endblock %}

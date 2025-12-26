@@ -227,13 +227,13 @@
     <!-- Back Button -->
     <div class="mb-4">
         <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
-            <i class="bi bi-arrow-left"></i> Back to Chapter
+            {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back to Chapter
         </a>
     </div>
 
     <div class="challenge-card">
         <div class="challenge-type-badge">
-            <i class="bi bi-question-circle"></i> Would You Rather
+            {% include "crush_lu/icons/question-mark-circle.html" with class="w-5 h-5" %} Would You Rather
         </div>
 
         <div class="points-display">
@@ -248,7 +248,7 @@
         {% if existing_attempt %}
         <!-- Already Completed -->
         <div class="message-box success active">
-            <h3><i class="bi bi-check-circle-fill"></i> Already Answered!</h3>
+            <h3>{% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Already Answered!</h3>
             <p>You've already shared your choice and earned <strong>{{ existing_attempt.points_earned }} points</strong>.</p>
 
             <div class="personal-message">
@@ -257,7 +257,7 @@
 
             <div class="mt-3">
                 <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
-                    Continue to Next Challenge <i class="bi bi-arrow-right"></i>
+                    Continue to Next Challenge {% include "crush_lu/icons/arrow-right.html" with class="w-5 h-5" %}
                 </a>
             </div>
         </div>
@@ -314,7 +314,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Enable submit button
             submitBtn.removeAttribute('disabled');
-            submitBtn.innerHTML = 'Submit Choice <i class="bi bi-arrow-right-circle-fill"></i>';
+            submitBtn.innerHTML = 'Submit Choice {% include "crush_lu/icons/arrow-right-circle.html" with class="w-5 h-5" %}';
         });
     });
 
@@ -325,7 +325,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         submitBtn.setAttribute('disabled', 'disabled');
-        submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Submitting...';
+        submitBtn.innerHTML = '{% include "crush_lu/icons/hourglass.html" with class="w-5 h-5" %} Submitting...';
 
         fetch('{% url "crush_lu:api_submit_challenge" %}', {
             method: 'POST',
@@ -344,8 +344,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Answer submitted successfully
                 const isChapter4 = {{ chapter.chapter_number }} === 4;
                 const title = isChapter4
-                    ? '<i class="bi bi-heart-fill"></i> Thank you for sharing!'
-                    : '<i class="bi bi-check-circle-fill"></i> Correct!';
+                    ? '{% include "crush_lu/icons/heart.html" with class="w-5 h-5" %} Thank you for sharing!'
+                    : '{% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Correct!';
 
                 messageBox.innerHTML = `
                     <h3>${title}</h3>
@@ -355,7 +355,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div class="mt-4">
                         <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
-                            Continue <i class="bi bi-arrow-right"></i>
+                            Continue {% include "crush_lu/icons/arrow-right.html" with class="w-5 h-5" %}
                         </a>
                     </div>
                 `;
@@ -369,13 +369,13 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 // Shouldn't happen with proper setup
                 submitBtn.removeAttribute('disabled');
-                submitBtn.innerHTML = 'Submit Choice <i class="bi bi-arrow-right-circle-fill"></i>';
+                submitBtn.innerHTML = 'Submit Choice {% include "crush_lu/icons/arrow-right-circle.html" with class="w-5 h-5" %}';
             }
         })
         .catch(error => {
             console.error('Error:', error);
             submitBtn.removeAttribute('disabled');
-            submitBtn.innerHTML = 'Submit Choice <i class="bi bi-arrow-right-circle-fill"></i>';
+            submitBtn.innerHTML = 'Submit Choice {% include "crush_lu/icons/arrow-right-circle.html" with class="w-5 h-5" %}';
         });
     });
 });

@@ -8,12 +8,12 @@
 {% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card">
-            <div class="card-body p-5">
-                <h2 class="text-center mb-4">Edit Coach Profile</h2>
-                <p class="text-center text-muted mb-4">
+<div class="flex justify-center">
+    <div class="w-full max-w-2xl">
+        <div class="bg-white rounded-xl shadow-sm">
+            <div class="p-8">
+                <h2 class="text-2xl font-bold text-center mb-4">Edit Coach Profile</h2>
+                <p class="text-center text-gray-500 mb-6">
                     Update your coaching bio and specializations that users see when assigned to you.
                 </p>
 
@@ -21,17 +21,17 @@
                     {% csrf_token %}
 
                     {% if form.non_field_errors %}
-                        <div class="alert alert-danger">
+                        <div class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 mb-4">
                             {{ form.non_field_errors }}
                         </div>
                     {% endif %}
 
                     <!-- Coach Photo Section -->
-                    <div class="mb-4">
-                        <label class="form-label">
-                            <strong>Coach Photo</strong>
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">
+                            Coach Photo
                         </label>
-                        <p class="text-muted small mb-3">
+                        <p class="text-gray-500 text-sm mb-3">
                             This photo is shown to users when they're assigned to you as their coach.
                         </p>
 
@@ -42,87 +42,87 @@
                                     <span class="photo-badge">Current</span>
                                 {% else %}
                                     <div class="photo-placeholder" id="photo-preview">
-                                        <i class="bi bi-person-circle"></i>
-                                        <span>No photo</span>
+                                        <svg class="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                        </svg>
+                                        <span class="text-gray-500 text-sm">No photo</span>
                                     </div>
                                 {% endif %}
                             </div>
                             <div class="photo-upload-input mt-3">
                                 {{ form.photo }}
                                 {% if form.photo.help_text %}
-                                    <small class="text-muted d-block mt-1">{{ form.photo.help_text }}</small>
+                                    <small class="text-gray-500 block mt-1">{{ form.photo.help_text }}</small>
                                 {% endif %}
                                 {% if form.photo.errors %}
-                                    <div class="text-danger small mt-1">{{ form.photo.errors }}</div>
+                                    <div class="text-red-500 text-sm mt-1">{{ form.photo.errors }}</div>
                                 {% endif %}
                             </div>
                         </div>
                     </div>
 
-                    <hr class="my-4">
+                    <hr class="my-6 border-gray-200">
 
-                    <div class="mb-4">
-                        <label for="{{ form.bio.id_for_label }}" class="form-label">
-                            <strong>Coach Bio</strong>
+                    <div class="mb-6">
+                        <label for="{{ form.bio.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-1">
+                            Coach Bio
                         </label>
                         {{ form.bio }}
                         {% if form.bio.help_text %}
-                            <small class="text-muted">{{ form.bio.help_text }}</small>
+                            <small class="text-gray-500">{{ form.bio.help_text }}</small>
                         {% endif %}
                         {% if form.bio.errors %}
-                            <div class="text-danger small mt-1">{{ form.bio.errors }}</div>
+                            <div class="text-red-500 text-sm mt-1">{{ form.bio.errors }}</div>
                         {% endif %}
                     </div>
 
-                    <div class="mb-4">
-                        <label for="{{ form.specializations.id_for_label }}" class="form-label">
-                            <strong>Specializations</strong>
+                    <div class="mb-6">
+                        <label for="{{ form.specializations.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-1">
+                            Specializations
                         </label>
                         {{ form.specializations }}
                         {% if form.specializations.help_text %}
-                            <small class="text-muted">{{ form.specializations.help_text }}</small>
+                            <small class="text-gray-500">{{ form.specializations.help_text }}</small>
                         {% endif %}
                         {% if form.specializations.errors %}
-                            <div class="text-danger small mt-1">{{ form.specializations.errors }}</div>
+                            <div class="text-red-500 text-sm mt-1">{{ form.specializations.errors }}</div>
                         {% endif %}
                     </div>
 
-                    <hr class="my-4">
+                    <hr class="my-6 border-gray-200">
 
                     <!-- Coach Stats (read-only) -->
-                    <div class="card mb-4" style="background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(255, 107, 157, 0.1));">
-                        <div class="card-body">
-                            <h6 class="mb-3">Your Coach Stats</h6>
-                            <div class="row text-center">
-                                <div class="col-6">
-                                    <strong>{{ coach.max_active_reviews }}</strong>
-                                    <br><small class="text-muted">Max Active Reviews</small>
-                                </div>
-                                <div class="col-6">
-                                    <strong>{% if coach.is_active %}Active{% else %}Inactive{% endif %}</strong>
-                                    <br><small class="text-muted">Status</small>
-                                </div>
+                    <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 mb-6">
+                        <h6 class="font-semibold mb-4">Your Coach Stats</h6>
+                        <div class="grid grid-cols-2 gap-4 text-center">
+                            <div>
+                                <strong class="text-xl">{{ coach.max_active_reviews }}</strong>
+                                <br><small class="text-gray-500">Max Active Reviews</small>
+                            </div>
+                            <div>
+                                <strong class="text-xl">{% if coach.is_active %}Active{% else %}Inactive{% endif %}</strong>
+                                <br><small class="text-gray-500">Status</small>
                             </div>
                         </div>
                     </div>
 
                     {% if has_dating_profile %}
-                        <div class="alert alert-info mb-4">
-                            <i class="bi bi-info-circle"></i>
-                            You also have a dating profile. <a href="{% url 'crush_lu:edit_profile' %}">Edit your dating profile</a>
+                        <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-6 flex items-start gap-2">
+                            {% include "crush_lu/icons/info.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
+                            <span>You also have a dating profile. <a href="{% url 'crush_lu:edit_profile' %}" class="font-medium underline hover:no-underline">Edit your dating profile</a></span>
                         </div>
                     {% else %}
-                        <div class="alert alert-secondary mb-4">
-                            <i class="bi bi-person-plus"></i>
-                            Want to use Crush.lu for dating too? <a href="{% url 'crush_lu:create_profile' %}">Create a dating profile</a>
+                        <div class="bg-gray-50 border border-gray-200 text-gray-700 rounded-lg p-4 mb-6 flex items-start gap-2">
+                            {% include "crush_lu/icons/user-plus.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
+                            <span>Want to use Crush.lu for dating too? <a href="{% url 'crush_lu:create_profile' %}" class="font-medium underline hover:no-underline">Create a dating profile</a></span>
                         </div>
                     {% endif %}
 
-                    <div class="d-flex gap-3">
-                        <button type="submit" class="btn btn-crush-primary flex-fill">
+                    <div class="flex gap-3">
+                        <button type="submit" class="btn-crush-primary flex-1 py-3">
                             Save Changes
                         </button>
-                        <a href="{% url 'crush_lu:coach_dashboard' %}" class="btn btn-outline-secondary">
+                        <a href="{% url 'crush_lu:coach_dashboard' %}" class="inline-flex items-center justify-center px-6 py-3 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
                             Cancel
                         </a>
                     </div>

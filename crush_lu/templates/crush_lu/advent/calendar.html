@@ -83,7 +83,7 @@
 
 <!-- QR Scanner Button -->
 <a href="{% url 'crush_lu:advent_qr_scanner' %}" class="qr-scanner-btn" title="Scan QR Code">
-    <i class="bi bi-qr-code-scan"></i>
+    {% include "crush_lu/icons/qr-code.html" with class="w-5 h-5" %}
 </a>
 
 <style>

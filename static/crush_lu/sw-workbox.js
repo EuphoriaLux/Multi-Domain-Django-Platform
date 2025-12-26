@@ -1,6 +1,6 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v17 - Fix CSRF 403 on login POST (exclude auth from bgSync)
+// Version: v19 - Login button styling fix
 
 // ============================================================================
 // CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
@@ -50,7 +50,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v17-csrf-fix';
+  const CACHE_VERSION = 'crush-v19-login-btn-fix';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -310,23 +310,24 @@ if (workbox) {
 
   console.log('[Workbox] Page caching strategy registered (auth excluded)');
 
-  // Strategy 5: Cache First for static assets (CSS, JS)
+  // Strategy 5: StaleWhileRevalidate for static assets (CSS, JS)
+  // Changed from CacheFirst to allow CSS/JS updates to propagate quickly
   workbox.routing.registerRoute(
     ({ request }) =>
       request.destination === 'style' ||
       request.destination === 'script',
-    new workbox.strategies.CacheFirst({
+    new workbox.strategies.StaleWhileRevalidate({
       cacheName: 'crush-static',
       plugins: [
         new workbox.expiration.ExpirationPlugin({
           maxEntries: 60,
-          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+          maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days (reduced from 30)
         }),
       ],
     })
   );
 
-  console.log('[Workbox] Static assets caching registered');
+  console.log('[Workbox] Static assets caching registered (StaleWhileRevalidate)');
 
   // Strategy 6a: Icons - StaleWhileRevalidate (update quickly, don't pin for 30 days)
   // MUST be registered BEFORE the general image CacheFirst route

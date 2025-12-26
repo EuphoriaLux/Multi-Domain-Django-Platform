@@ -383,12 +383,12 @@ def challenge_view(request, chapter_number, challenge_id):
 def reward_view(request, reward_id):
     """
     Display a reward after completing challenges.
+
+    Security: Verifies the reward belongs to a journey the user has access to
+    before displaying any content (prevents IDOR attacks).
     """
     try:
-        # Get the reward
-        reward = get_object_or_404(JourneyReward, id=reward_id)
-
-        # Verify user has completed the chapter
+        # Get the user's journey progress first
         journey_progress = JourneyProgress.objects.filter(
             user=request.user
         ).first()
@@ -396,6 +396,14 @@ def reward_view(request, reward_id):
         if not journey_progress:
             messages.warning(request, 'No active journey found.')
             return redirect('crush_lu:dashboard')
+
+        # SECURITY: Fetch reward AND verify it belongs to user's journey in ONE query
+        # This prevents IDOR attacks where users guess reward IDs from other journeys
+        reward = get_object_or_404(
+            JourneyReward,
+            id=reward_id,
+            chapter__journey=journey_progress.journey  # Must be from user's journey
+        )
 
         # Check if chapter is completed
         try:

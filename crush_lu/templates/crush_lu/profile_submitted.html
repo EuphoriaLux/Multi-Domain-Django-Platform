@@ -3,104 +3,104 @@
 {% block title %}Profile Submitted - Crush.lu{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card text-center">
-            <div class="card-body p-5">
+<div class="flex justify-center">
+    <div class="w-full max-w-3xl">
+        <div class="bg-white rounded-xl shadow-lg text-center">
+            <div class="p-10">
                 {% if submission.status == 'pending' or submission.status == 'under_review' %}
-                    <div style="font-size: 5rem;">⏳</div>
-                    <h2 class="mt-4 mb-3">Profile Under Review</h2>
-                    <p class="lead mb-4">
+                    <div class="text-8xl">⏳</div>
+                    <h2 class="mt-6 mb-4 text-3xl font-bold text-gray-900">Profile Under Review</h2>
+                    <p class="text-xl text-gray-600 mb-6">
                         Your profile is currently being reviewed by our Crush Coaches.
                     </p>
 
-                    <div class="alert alert-warning text-start">
-                        <h5><i class="bi bi-clock"></i> Current Status: {{ submission.get_status_display }}</h5>
+                    <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 text-left mb-4">
+                        <h5 class="text-lg font-semibold mb-2">{% include "crush_lu/icons/clock.html" with class="w-5 h-5" %} Current Status: {{ submission.get_status_display }}</h5>
                         <p class="mb-2"><strong>Submitted:</strong> {{ submission.submitted_at|timesince }} ago</p>
                         {% if submission.coach %}
                             <p class="mb-0"><strong>Assigned Coach:</strong> {{ submission.coach.user.get_full_name }}</p>
                         {% endif %}
                     </div>
 
-                    <div class="alert alert-info text-start">
-                        <h5>What happens next?</h5>
-                        <ol class="mb-0">
+                    <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 text-left mb-4">
+                        <h5 class="text-lg font-semibold mb-2">What happens next?</h5>
+                        <ol class="mb-0 list-decimal ml-5">
                             <li>Your assigned Crush Coach will review your profile</li>
                             <li>You'll receive feedback within 24-48 hours</li>
                             <li>Once approved, you can register for events!</li>
                         </ol>
                     </div>
 
-                    <div class="alert alert-secondary text-start">
+                    <div class="bg-gray-50 border border-gray-200 text-gray-700 rounded-lg p-4 text-left mb-4">
                         <p class="mb-0">
-                            <i class="bi bi-info-circle"></i> <strong>Note:</strong> You cannot edit your profile while it's under review.
+                            {% include "crush_lu/icons/information-circle.html" with class="w-5 h-5" %} <strong>Note:</strong> You cannot edit your profile while it's under review.
                             If you need to make changes, please wait for the review to complete.
                         </p>
                     </div>
 
                 {% elif submission.status == 'approved' %}
-                    <div style="font-size: 5rem;">✅</div>
-                    <h2 class="mt-4 mb-3">Profile Approved!</h2>
-                    <p class="lead mb-4 text-success">
+                    <div class="text-8xl">✅</div>
+                    <h2 class="mt-6 mb-4 text-3xl font-bold text-gray-900">Profile Approved!</h2>
+                    <p class="text-xl text-green-600 mb-6">
                         Congratulations! Your profile has been approved by our coaches.
                     </p>
 
-                    <div class="alert alert-success text-start">
+                    <div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4 text-left mb-4">
                         <p class="mb-0">
-                            <i class="bi bi-check-circle"></i> You can now register for events and start making connections!
+                            {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} You can now register for events and start making connections!
                         </p>
                     </div>
 
                 {% elif submission.status == 'rejected' %}
-                    <div style="font-size: 5rem;">❌</div>
-                    <h2 class="mt-4 mb-3">Profile Needs Updates</h2>
-                    <p class="lead mb-4 text-danger">
+                    <div class="text-8xl">❌</div>
+                    <h2 class="mt-6 mb-4 text-3xl font-bold text-gray-900">Profile Needs Updates</h2>
+                    <p class="text-xl text-red-600 mb-6">
                         Your profile needs some updates before it can be approved.
                     </p>
 
                     {% if submission.feedback_to_user %}
-                    <div class="alert alert-warning text-start">
-                        <h5><i class="bi bi-chat-left-text"></i> Coach Feedback:</h5>
+                    <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 text-left mb-4">
+                        <h5 class="text-lg font-semibold mb-2">{% include "crush_lu/icons/chat-bubble-left.html" with class="w-5 h-5" %} Coach Feedback:</h5>
                         <p class="mb-0">{{ submission.feedback_to_user|linebreaks }}</p>
                     </div>
                     {% endif %}
 
-                    <div class="d-grid gap-2 mb-4">
-                        <a href="{% url 'crush_lu:edit_profile' %}" class="btn btn-primary btn-lg">
-                            <i class="bi bi-pencil"></i> Update Your Profile
+                    <div class="flex flex-col gap-2 mb-4">
+                        <a href="{% url 'crush_lu:edit_profile' %}" class="btn-crush-primary text-lg px-6 py-3 rounded-lg inline-flex items-center justify-center">
+                            {% include "crush_lu/icons/pencil.html" with class="w-5 h-5" %} Update Your Profile
                         </a>
                     </div>
 
                 {% else %}
-                    <div style="font-size: 5rem;">✅</div>
-                    <h2 class="mt-4 mb-3">Profile Submitted Successfully!</h2>
-                    <p class="lead mb-4">
+                    <div class="text-8xl">✅</div>
+                    <h2 class="mt-6 mb-4 text-3xl font-bold text-gray-900">Profile Submitted Successfully!</h2>
+                    <p class="text-xl text-gray-600 mb-6">
                         Your profile has been submitted for review by our Crush Coaches.
                     </p>
                 {% endif %}
 
                 {% if submission.coach and submission.status != 'rejected' %}
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h6>Your Crush Coach</h6>
+                <div class="bg-white border border-gray-200 rounded-lg shadow-sm mb-4">
+                    <div class="p-4">
+                        <h6 class="text-sm font-semibold text-gray-700 mb-1">Your Crush Coach</h6>
                         <p class="mb-0">
-                            <strong>{{ submission.coach.user.get_full_name }}</strong><br>
-                            <small class="text-muted">{{ submission.coach.specializations }}</small>
+                            <strong class="text-gray-900">{{ submission.coach.user.get_full_name }}</strong><br>
+                            <small class="text-gray-500">{{ submission.coach.specializations }}</small>
                         </p>
                     </div>
                 </div>
                 {% endif %}
 
-                <div class="d-grid gap-2">
-                    <a href="{% url 'crush_lu:dashboard' %}" class="btn btn-crush-primary btn-lg">
+                <div class="flex flex-col gap-2">
+                    <a href="{% url 'crush_lu:dashboard' %}" class="btn-crush-primary text-lg px-6 py-3 rounded-lg inline-flex items-center justify-center">
                         Go to Dashboard
                     </a>
                     {% if submission.status == 'approved' %}
-                        <a href="{% url 'crush_lu:event_list' %}" class="btn btn-outline-secondary">
+                        <a href="{% url 'crush_lu:event_list' %}" class="border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg px-6 py-3 inline-flex items-center justify-center transition-colors">
                             Browse Events
                         </a>
                     {% else %}
-                        <a href="{% url 'crush_lu:event_list' %}" class="btn btn-outline-secondary">
+                        <a href="{% url 'crush_lu:event_list' %}" class="border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg px-6 py-3 inline-flex items-center justify-center transition-colors">
                             Browse Events (while you wait)
                         </a>
                     {% endif %}

@@ -90,14 +90,14 @@
 <!-- Hidden data for JavaScript -->
 <div id="event-id-data" data-event-id="{{ event.id }}" style="display: none;"></div>
 
-<div class="row justify-content-center">
-    <div class="col-lg-10">
-        <a href="{% url 'crush_lu:event_voting_lobby' event.id %}" class="btn btn-outline-secondary mb-3">
-            ← Back to Lobby
+<div class="flex justify-center">
+    <div class="w-full max-w-4xl px-4">
+        <a href="{% url 'crush_lu:event_voting_lobby' event.id %}" class="inline-flex items-center gap-2 px-4 py-2 mb-4 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
+            {% include "crush_lu/icons/arrow-left.html" with class="w-4 h-4" %} Back to Lobby
         </a>
 
-        <div class="card">
-            <div class="card-body p-5">
+        <div class="bg-white rounded-xl shadow-sm">
+            <div class="p-8">
                 <div class="text-center mb-4">
                     <h1 class="display-5">Vote for Event Activities</h1>
                     <p class="lead text-muted">{{ event.title }}</p>
@@ -111,14 +111,14 @@
                 </div>
 
                 {% if has_voted_both %}
-                <div class="alert alert-info">
+                <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-4">
                     <strong>✓ Current Votes:</strong><br>
                     Presentation Style: <strong>{{ presentation_vote.selected_option.display_name }}</strong><br>
                     Speed Dating Twist: <strong>{{ twist_vote.selected_option.display_name }}</strong><br>
-                    <small class="text-muted">You can change your votes anytime before voting closes.</small>
+                    <small class="text-gray-500">You can change your votes anytime before voting closes.</small>
                 </div>
                 {% elif presentation_vote or twist_vote %}
-                <div class="alert alert-warning">
+                <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-4 mb-4">
                     <strong>⚠️ Incomplete!</strong> You must vote on BOTH categories to submit.
                     {% if presentation_vote %}<br>✓ You've voted on Presentation Style.{% endif %}
                     {% if twist_vote %}<br>✓ You've voted on Speed Dating Twist.{% endif %}
@@ -130,7 +130,7 @@
                     <input type="hidden" id="presentation-option-id" name="presentation_option_id" value="{{ presentation_vote.selected_option.id|default:'' }}">
                     <input type="hidden" id="twist-option-id" name="twist_option_id" value="{{ twist_vote.selected_option.id|default:'' }}">
 
-                    <div class="alert alert-primary mb-4">
+                    <div class="bg-purple-50 border border-purple-200 text-purple-800 rounded-lg p-4 mb-4">
                         <strong>📋 Vote on TWO Categories:</strong> You must vote on both your presentation style AND speed dating twist!
                     </div>
 
@@ -184,15 +184,15 @@
                         </div>
                     </div>
 
-                    <div class="text-center mt-4">
-                        <button type="submit" id="submit-vote-btn" class="btn btn-crush-primary btn-lg px-5"
+                    <div class="text-center mt-6">
+                        <button type="submit" id="submit-vote-btn" class="btn-crush-primary px-8 py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                                 {% if not has_voted_both and not presentation_vote and not twist_vote %}disabled{% endif %}>
                             {% if has_voted_both %}Update My Votes{% else %}Submit My Votes{% endif %}
                         </button>
                     </div>
                 </form>
 
-                <div class="alert alert-warning mt-4">
+                <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-4 mt-4">
                     <strong>Remember:</strong> You can change your votes at any time before the voting period ends!
                 </div>
             </div>

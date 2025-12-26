@@ -5,24 +5,23 @@
 {% block title %}Sign Up - Crush.lu{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-body p-5">
-                <h2 class="text-center mb-4">Join Crush.lu</h2>
-                <p class="text-center text-muted mb-4">
+<div class="flex justify-center">
+    <div class="w-full max-w-lg">
+        <div class="bg-white rounded-xl shadow-lg">
+            <div class="p-8 md:p-10">
+                <h2 class="text-center text-2xl font-bold text-gray-900 mb-4">Join Crush.lu</h2>
+                <p class="text-center text-gray-500 mb-6">
                     Create your account to start meeting new people
                 </p>
 
                 {% get_providers as socialaccount_providers %}
                 {% if socialaccount_providers %}
-                <div class="d-grid gap-3 mb-4">
+                <div class="flex flex-col gap-3 mb-6">
                     {% for provider in socialaccount_providers %}
                         {% if provider.id == "google" %}
                     <a href="{% provider_login_url 'google' %}" class="social-login-btn google-btn"
                        data-oauth-url="{% provider_login_url 'google' %}" data-provider="Google">
                         <span class="social-icon">
-                            <!-- Official Google "G" Logo SVG -->
                             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -37,7 +36,6 @@
                     <a href="{% provider_login_url 'facebook' %}" class="social-login-btn facebook-btn"
                        data-oauth-url="{% provider_login_url 'facebook' %}" data-provider="Facebook">
                         <span class="social-icon">
-                            <!-- Official Facebook "f" Logo SVG -->
                             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" fill="#ffffff"/>
                             </svg>
@@ -49,7 +47,6 @@
                     <a href="{% provider_login_url 'microsoft' %}" class="social-login-btn microsoft-btn"
                        data-oauth-url="{% provider_login_url 'microsoft' %}" data-provider="Microsoft">
                         <span class="social-icon">
-                            <!-- Official Microsoft Logo SVG (4 squares) -->
                             <svg viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
                                 <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
                                 <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
@@ -63,77 +60,77 @@
                     {% endfor %}
                 </div>
 
-                <div class="social-login-divider">Or sign up with email</div>
+                <div class="social-login-divider text-center text-gray-500 text-sm my-6 relative">Or sign up with email</div>
                 {% endif %}
 
                 <form method="post" novalidate>
                     {% csrf_token %}
 
                     {% if form.non_field_errors %}
-                        <div class="alert alert-danger">
+                        <div class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 mb-4">
                             {{ form.non_field_errors }}
                         </div>
                     {% endif %}
 
-                    <div class="mb-3">
-                        <label for="{{ form.first_name.id_for_label }}" class="form-label">First Name</label>
-                        <input type="text" class="form-control {% if form.first_name.errors %}is-invalid{% endif %}"
+                    <div class="mb-4">
+                        <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                        <input type="text" class="w-full px-4 py-3 border {% if form.first_name.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                                id="{{ form.first_name.id_for_label }}" name="{{ form.first_name.name }}"
                                value="{{ form.first_name.value|default:'' }}" required>
                         {% if form.first_name.errors %}
-                            <div class="invalid-feedback">{{ form.first_name.errors.0 }}</div>
+                            <p class="mt-1 text-sm text-red-600">{{ form.first_name.errors.0 }}</p>
                         {% endif %}
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="{{ form.last_name.id_for_label }}" class="form-label">Last Name</label>
-                        <input type="text" class="form-control {% if form.last_name.errors %}is-invalid{% endif %}"
-                               id="{{ form.last_name.id_for_label }}" name="{{ form.last_name.name }}"
-                               value="{{ form.last_name.value|default:'' }}" required>
-                        {% if form.last_name.errors %}
-                            <div class="invalid-feedback">{{ form.last_name.errors.0 }}</div>
-                        {% endif %}
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="{{ form.email.id_for_label }}" class="form-label">Email</label>
-                        <input type="email" class="form-control {% if form.email.errors %}is-invalid{% endif %}"
-                               id="{{ form.email.id_for_label }}" name="{{ form.email.name }}"
-                               value="{{ form.email.value|default:'' }}" required>
-                        {% if form.email.errors %}
-                            <div class="invalid-feedback">{{ form.email.errors.0 }}</div>
-                        {% endif %}
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="{{ form.password1.id_for_label }}" class="form-label">Password</label>
-                        <input type="password" class="form-control {% if form.password1.errors %}is-invalid{% endif %}"
-                               id="{{ form.password1.id_for_label }}" name="{{ form.password1.name }}" required>
-                        {% if form.password1.errors %}
-                            <div class="invalid-feedback">{{ form.password1.errors.0 }}</div>
-                        {% endif %}
-                        <small class="form-text text-muted">
-                            Your password must contain at least 8 characters.
-                        </small>
                     </div>
 
                     <div class="mb-4">
-                        <label for="{{ form.password2.id_for_label }}" class="form-label">Confirm Password</label>
-                        <input type="password" class="form-control {% if form.password2.errors %}is-invalid{% endif %}"
-                               id="{{ form.password2.id_for_label }}" name="{{ form.password2.name }}" required>
-                        {% if form.password2.errors %}
-                            <div class="invalid-feedback">{{ form.password2.errors.0 }}</div>
+                        <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                        <input type="text" class="w-full px-4 py-3 border {% if form.last_name.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                               id="{{ form.last_name.id_for_label }}" name="{{ form.last_name.name }}"
+                               value="{{ form.last_name.value|default:'' }}" required>
+                        {% if form.last_name.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.last_name.errors.0 }}</p>
                         {% endif %}
                     </div>
 
-                    <button type="submit" class="btn btn-crush-primary w-100" id="signup-submit-btn">Create Account</button>
+                    <div class="mb-4">
+                        <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" class="w-full px-4 py-3 border {% if form.email.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                               id="{{ form.email.id_for_label }}" name="{{ form.email.name }}"
+                               value="{{ form.email.value|default:'' }}" required>
+                        {% if form.email.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.email.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="{{ form.password1.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input type="password" class="w-full px-4 py-3 border {% if form.password1.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                               id="{{ form.password1.id_for_label }}" name="{{ form.password1.name }}" required>
+                        {% if form.password1.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.password1.errors.0 }}</p>
+                        {% endif %}
+                        <p class="mt-1 text-sm text-gray-500">
+                            Your password must contain at least 8 characters.
+                        </p>
+                    </div>
+
+                    <div class="mb-6">
+                        <label for="{{ form.password2.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                        <input type="password" class="w-full px-4 py-3 border {% if form.password2.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                               id="{{ form.password2.id_for_label }}" name="{{ form.password2.name }}" required>
+                        {% if form.password2.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.password2.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <button type="submit" class="btn-crush-primary w-full py-3 text-lg font-semibold" id="signup-submit-btn">Create Account</button>
                 </form>
 
-                <hr class="my-4">
+                <hr class="my-6 border-gray-200">
 
-                <p class="text-center text-muted mb-0">
+                <p class="text-center text-gray-500 mb-0">
                     Already have an account?
-                    <a href="{% url 'crush_lu:login' %}">Log in</a>
+                    <a href="{% url 'crush_lu:login' %}" class="text-purple-600 hover:text-purple-800 font-medium">Log in</a>
                 </p>
             </div>
         </div>

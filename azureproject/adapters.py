@@ -203,6 +203,23 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
     Routes to appropriate pages based on domain.
     """
 
+    def login(self, request, user):
+        """
+        Override login to add session fixation protection.
+
+        Rotates the session key after successful login to prevent
+        session fixation attacks where an attacker sets a known
+        session ID before authentication.
+        """
+        # Rotate session key BEFORE login to prevent session fixation
+        # This creates a new session ID while preserving session data
+        if hasattr(request, 'session') and request.session.session_key:
+            request.session.cycle_key()
+            logger.debug(f"[SECURITY] Session key rotated after login for user {user.id}")
+
+        # Call parent login
+        return super().login(request, user)
+
     def get_client_ip(self, request) -> str:
         """
         Get the client IP address from the request.

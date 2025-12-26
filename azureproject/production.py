@@ -216,10 +216,25 @@ DATABASES = {
     }
 }
 
+# ============================================================================
+# CACHE CONFIGURATION
+# ============================================================================
+# Using database-backed cache for rate limiting consistency across instances.
+# Azure App Service can run multiple instances behind load balancer - LocMemCache
+# would fail to enforce rate limits across instances. Database cache is slower
+# but works correctly and doesn't require Redis (which adds Azure cost).
+#
+# IMPORTANT: Run `python manage.py createcachetable` in deployment to create
+# the cache table. This is handled in the Azure startup script.
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'django_cache',  # Table name for cache entries
+        'TIMEOUT': 300,  # Default timeout: 5 minutes
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,  # Limit cache size
+            'CULL_FREQUENCY': 3,  # Remove 1/3 of entries when max reached
+        }
     }
 }
 
@@ -293,12 +308,16 @@ LOGGING = {
         'require_debug_false': {
             '()': 'django.utils.log.RequireDebugFalse',
         },
+        'pii_masking': {
+            '()': 'azureproject.logging_utils.PIIMaskingFilter',
+        },
     },
     'handlers': {
         'console': {
             'level': 'WARNING',  # Only log WARNING and above to console
             'class': 'logging.StreamHandler',
-            'formatter': 'simple'
+            'formatter': 'simple',
+            'filters': ['pii_masking'],  # Mask PII in all console output
         },
         'file': {
             'level': 'INFO',
@@ -366,6 +385,12 @@ LOGGING = {
             'level': 'WARNING',  # Log login debug from UnifiedAuthView
             'propagate': True,  # MUST propagate to root for Azure App Insights
         },
+        # CSP violation reports
+        'csp_reports': {
+            'handlers': ['console'],
+            'level': 'WARNING',  # Log CSP violations
+            'propagate': True,  # MUST propagate to root for Azure App Insights
+        },
     },
 }
 
@@ -378,5 +403,13 @@ if 'WEBSITE_HOSTNAME' in os.environ:
     logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
     # Set root logger to WARNING to suppress Trace and Debug logs
     logging.root.setLevel(logging.WARNING)
+
+# =============================================================================
+# CONTENT SECURITY POLICY (CSP) SETTINGS - Production
+# =============================================================================
+# Start with Report-Only mode, switch to enforcement after testing.
+# Monitor CSP reports at /csp-report/ endpoint and in logs (csp_reports logger).
+CSP_REPORT_ONLY = True  # Set to False after testing to enforce CSP
+CSP_REPORT_URI = '/csp-report/'
 
 

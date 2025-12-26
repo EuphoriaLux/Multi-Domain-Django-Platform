@@ -31,11 +31,20 @@ class LoginPostDebugMiddleware:
 
     This helps diagnose if 403 errors come from CSRF middleware or elsewhere.
     MUST be placed BEFORE CsrfViewMiddleware in MIDDLEWARE list.
+
+    SECURITY: Only active in DEBUG mode to prevent information disclosure in production.
     """
     def __init__(self, get_response):
         self.get_response = get_response
+        # Cache DEBUG setting at init time
+        from django.conf import settings
+        self.debug_enabled = settings.DEBUG
 
     def __call__(self, request):
+        # Skip all logging in production (DEBUG=False)
+        if not self.debug_enabled:
+            return self.get_response(request)
+
         # Log ALL POSTs to /login/ before any processing
         if request.method == 'POST' and request.path == '/login/':
             logger.warning(
@@ -101,6 +110,52 @@ class HealthCheckMiddleware:
         # Immediately return OK for health checks, bypassing all other middleware
         if request.path in ['/healthz/', '/healthz']:
             return HttpResponse("OK", status=200, content_type="text/plain")
+        return self.get_response(request)
+
+
+class AuthRateLimitMiddleware:
+    """
+    Rate limiting middleware for sensitive authentication endpoints.
+
+    Applies rate limiting to:
+    - Password reset requests (allauth's /accounts/password/reset/)
+
+    This middleware runs early to block abuse before hitting the view.
+    Uses DRF throttle classes for consistent rate limiting behavior.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Only apply to POST requests on specific paths
+        if request.method == 'POST':
+            if '/accounts/password/reset/' in request.path:
+                return self._check_password_reset_limit(request)
+
+        return self.get_response(request)
+
+    def _check_password_reset_limit(self, request):
+        """Check rate limit for password reset requests."""
+        try:
+            from crush_lu.throttling import PasswordResetRateThrottle
+
+            throttle = PasswordResetRateThrottle()
+            if not throttle.allow_request(request, None):
+                wait = throttle.wait()
+                logger.warning(
+                    f"[RATE-LIMIT] Password reset rate limit exceeded for IP: "
+                    f"{throttle.get_ident(request)}"
+                )
+                return HttpResponse(
+                    f'Too many password reset requests. Please try again in {int(wait / 60)} minutes.',
+                    status=429,
+                    content_type='text/plain',
+                    headers={'Retry-After': str(int(wait))}
+                )
+        except ImportError:
+            # crush_lu not available, skip rate limiting
+            pass
+
         return self.get_response(request)
 
 

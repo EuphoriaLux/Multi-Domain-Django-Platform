@@ -113,8 +113,8 @@
 {% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-8">
+<div class="flex justify-center">
+    <div class="w-full max-w-4xl px-4">
         <!-- VIP Invitation Card -->
         <div class="vip-invitation-card">
             <!-- Header -->
@@ -141,7 +141,7 @@
                 <div class="mb-4">
                     <div class="event-detail-row">
                         <div class="event-detail-icon">
-                            <i class="bi bi-calendar-event"></i>
+                            {% include "crush_lu/icons/calendar.html" with class="w-5 h-5" %}
                         </div>
                         <div class="event-detail-info">
                             <h5>Date & Time</h5>
@@ -151,7 +151,7 @@
 
                     <div class="event-detail-row">
                         <div class="event-detail-icon">
-                            <i class="bi bi-geo-alt-fill"></i>
+                            {% include "crush_lu/icons/map-pin.html" with class="w-5 h-5" %}
                         </div>
                         <div class="event-detail-info">
                             <h5>Location</h5>
@@ -164,7 +164,7 @@
 
                     <div class="event-detail-row">
                         <div class="event-detail-icon">
-                            <i class="bi bi-clock"></i>
+                            {% include "crush_lu/icons/clock.html" with class="w-5 h-5" %}
                         </div>
                         <div class="event-detail-info">
                             <h5>Duration</h5>
@@ -174,7 +174,7 @@
 
                     <div class="event-detail-row">
                         <div class="event-detail-icon">
-                            <i class="bi bi-people"></i>
+                            {% include "crush_lu/icons/users.html" with class="w-5 h-5" %}
                         </div>
                         <div class="event-detail-info">
                             <h5>Event Type</h5>
@@ -185,7 +185,7 @@
                     {% if event.registration_fee > 0 %}
                     <div class="event-detail-row">
                         <div class="event-detail-icon">
-                            <i class="bi bi-tag"></i>
+                            {% include "crush_lu/icons/tag.html" with class="w-5 h-5" %}
                         </div>
                         <div class="event-detail-info">
                             <h5>Fee</h5>
@@ -196,7 +196,7 @@
 
                     <div class="event-detail-row">
                         <div class="event-detail-icon">
-                            <i class="bi bi-person-check"></i>
+                            {% include "crush_lu/icons/user-check.html" with class="w-5 h-5" %}
                         </div>
                         <div class="event-detail-info">
                             <h5>Invited By</h5>
@@ -207,8 +207,8 @@
 
                 <!-- What Happens Next -->
                 <div class="alert alert-warning mb-4" style="border-left: 4px solid #ffc107;">
-                    <h6 class="alert-heading"><i class="bi bi-info-circle"></i> What happens after you accept?</h6>
-                    <ol class="mb-0 ps-3">
+                    <h6 class="alert-heading">{% include "crush_lu/icons/information-circle.html" with class="w-5 h-5" %} What happens after you accept?</h6>
+                    <ol class="mb-0 pl-3">
                         <li>You'll create a guest account instantly</li>
                         <li>Your attendance will be reviewed by our Crush Coach</li>
                         <li>Once approved, you'll receive an email confirmation</li>
@@ -219,11 +219,11 @@
                 <!-- Accept Button -->
                 <div class="text-center mt-5">
                     <a href="{% url 'crush_lu:invitation_accept' code=invitation.invitation_code %}" class="accept-btn">
-                        <i class="bi bi-check-circle me-2"></i> Accept Invitation
+                        {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Accept Invitation
                     </a>
                     <p class="mt-3 text-muted">
                         <small>
-                            <i class="bi bi-shield-check"></i> Your privacy is protected.
+                            {% include "crush_lu/icons/shield-check.html" with class="w-5 h-5" %} Your privacy is protected.
                             This is a private, invitation-only event.
                         </small>
                     </p>

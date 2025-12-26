@@ -167,7 +167,9 @@ def submit_challenge(request):
 def unlock_hint(request):
     """
     Unlock a hint for a challenge.
-    Stores hint usage in session.
+
+    Security: Stores hint usage in database (ChallengeAttempt.hints_used)
+    instead of session to prevent user tampering.
     """
     try:
         data = json.loads(request.body)
@@ -180,9 +182,19 @@ def unlock_hint(request):
                 'message': 'Missing challenge ID or hint number'
             }, status=400)
 
-        # Get the challenge
+        # Get the challenge - must belong to user's journey
+        journey_progress = JourneyProgress.objects.filter(user=request.user).first()
+        if not journey_progress:
+            return JsonResponse({
+                'success': False,
+                'message': 'No active journey found'
+            }, status=404)
+
         try:
-            challenge = JourneyChallenge.objects.get(id=challenge_id)
+            challenge = JourneyChallenge.objects.get(
+                id=challenge_id,
+                chapter__journey=journey_progress.journey  # SECURITY: Must be user's journey
+            )
         except JourneyChallenge.DoesNotExist:
             return JsonResponse({
                 'success': False,
@@ -214,14 +226,29 @@ def unlock_hint(request):
                 'message': 'Hint not available'
             }, status=404)
 
-        # Track hint usage in session
-        session_key = f'hints_used_{challenge_id}'
-        hints_used = request.session.get(session_key, [])
+        # Track hint usage in database (tamper-proof)
+        # Get or create chapter progress
+        chapter_progress, _ = ChapterProgress.objects.get_or_create(
+            journey_progress=journey_progress,
+            chapter=challenge.chapter
+        )
 
+        # Get or create challenge attempt for this user/challenge
+        attempt, created = ChallengeAttempt.objects.get_or_create(
+            chapter_progress=chapter_progress,
+            challenge=challenge,
+            defaults={
+                'user_answer': '',  # Empty until they submit
+                'hints_used': []
+            }
+        )
+
+        # Add hint to the list if not already used
+        hints_used = attempt.hints_used or []
         if hint_number not in hints_used:
             hints_used.append(hint_number)
-            request.session[session_key] = hints_used
-            request.session.modified = True
+            attempt.hints_used = hints_used
+            attempt.save(update_fields=['hints_used'])
 
         return JsonResponse({
             'success': True,

@@ -1,203 +1,665 @@
 {% extends "crush_lu/base.html" %}
 {% load static %}
 
-{% block title %}User Progress - {{ progress.user.username }}{% endblock %}
+{% block title %}Journey Report - {{ progress.user.first_name|default:progress.user.username }}{% endblock %}
 
 {% block extra_css %}
 <style>
-    .progress-header {
-        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    /* Header & Summary */
+    .report-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        padding: 30px;
-        border-radius: 12px;
+        padding: 40px;
+        border-radius: 16px;
         margin-bottom: 30px;
+        position: relative;
+        overflow: hidden;
     }
+    .report-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 100%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        pointer-events: none;
+    }
+    .report-title {
+        font-size: 1.8em;
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+    .report-subtitle {
+        opacity: 0.9;
+        font-size: 1.1em;
+    }
+
+    /* Stats Grid */
     .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         gap: 20px;
-        margin: 20px 0;
+        margin-top: 25px;
     }
     .stat-card {
-        background: rgba(255,255,255,0.2);
+        background: rgba(255,255,255,0.15);
+        backdrop-filter: blur(10px);
         padding: 20px;
-        border-radius: 8px;
+        border-radius: 12px;
         text-align: center;
+        transition: transform 0.2s;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
     }
     .stat-number {
-        font-size: 2.5em;
-        font-weight: bold;
+        font-size: 2.2em;
+        font-weight: 700;
+        line-height: 1.2;
     }
     .stat-label {
-        font-size: 0.9em;
+        font-size: 0.85em;
+        opacity: 0.9;
+        margin-top: 5px;
+    }
+
+    /* Final Response Banner */
+    .final-response-banner {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: white;
+        padding: 25px 30px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+    .final-response-icon {
+        font-size: 3em;
+    }
+    .final-response-text {
+        flex: 1;
+    }
+    .final-response-text h4 {
+        margin: 0 0 5px 0;
+        font-weight: 600;
+    }
+    .final-response-text p {
+        margin: 0;
         opacity: 0.9;
     }
-    .answer-card {
+
+    /* Journey Insights */
+    .insights-section {
+        background: #f8f9ff;
+        border-radius: 16px;
+        padding: 30px;
+        margin-bottom: 30px;
+    }
+    .insights-title {
+        font-size: 1.3em;
+        font-weight: 600;
+        color: #5a67d8;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .insight-card {
         background: white;
         border-radius: 12px;
         padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .answer-header {
-        display: flex;
-        justify-content: between;
-        align-items: center;
         margin-bottom: 15px;
-        padding-bottom: 15px;
-        border-bottom: 2px solid #e0e0e0;
+        border-left: 4px solid #667eea;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
-    .answer-correct {
-        border-left: 5px solid #28a745;
+    .insight-card h5 {
+        color: #4a5568;
+        font-size: 0.9em;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 10px;
     }
-    .answer-incorrect {
-        border-left: 5px solid #dc3545;
+    .insight-card p {
+        color: #2d3748;
+        font-size: 1.05em;
+        line-height: 1.6;
+        margin: 0;
+        white-space: pre-wrap;
     }
-    .answer-questionnaire {
-        border-left: 5px solid #17a2b8;
-    }
-    .answer-text {
-        background: #f8f9fa;
-        padding: 15px;
-        border-radius: 8px;
-        margin: 10px 0;
-        font-size: 1.1em;
-    }
+
+    /* Chapter Sections */
     .chapter-section {
         margin-bottom: 40px;
+    }
+    .chapter-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px 25px;
+        background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+        border-radius: 12px;
+        margin-bottom: 20px;
+    }
+    .chapter-title {
+        font-size: 1.3em;
+        font-weight: 600;
+        color: #2d3748;
+        margin: 0;
+    }
+    .chapter-theme {
+        font-size: 0.9em;
+        color: #718096;
+        margin-top: 5px;
+    }
+    .chapter-stats {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+    }
+    .chapter-badge {
+        padding: 8px 15px;
+        border-radius: 20px;
+        font-size: 0.85em;
+        font-weight: 500;
+    }
+    .badge-points {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+    }
+    .badge-complete {
+        background: #48bb78;
+        color: white;
+    }
+    .badge-progress {
+        background: #ed8936;
+        color: white;
+    }
+
+    /* Challenge Cards */
+    .challenge-card {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        border-left: 5px solid #e2e8f0;
+        transition: all 0.2s;
+    }
+    .challenge-card:hover {
+        box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    }
+    .challenge-card.correct {
+        border-left-color: #48bb78;
+    }
+    .challenge-card.incorrect {
+        border-left-color: #f56565;
+    }
+    .challenge-card.questionnaire {
+        border-left-color: #4299e1;
+    }
+    .challenge-card.pending {
+        border-left-color: #cbd5e0;
+        opacity: 0.7;
+    }
+
+    .challenge-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .challenge-type-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 0.85em;
+        font-weight: 500;
+        background: #edf2f7;
+        color: #4a5568;
+    }
+    .challenge-meta {
+        text-align: right;
+    }
+    .points-badge {
+        display: inline-block;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.9em;
+        font-weight: 600;
+    }
+    .points-earned {
+        background: linear-gradient(135deg, #48bb78, #38a169);
+        color: white;
+    }
+    .points-zero {
+        background: #fed7d7;
+        color: #c53030;
+    }
+    .attempt-count {
+        display: block;
+        font-size: 0.8em;
+        color: #718096;
+        margin-top: 5px;
+    }
+
+    .question-text {
+        font-size: 1.05em;
+        color: #2d3748;
+        margin-bottom: 20px;
+        line-height: 1.6;
+    }
+
+    /* Answer Display */
+    .answer-section {
+        margin-bottom: 15px;
+    }
+    .answer-label {
+        font-size: 0.85em;
+        font-weight: 600;
+        color: #718096;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+    .answer-content {
+        background: #f7fafc;
+        padding: 15px 20px;
+        border-radius: 8px;
+        font-size: 1.05em;
+        color: #2d3748;
+        line-height: 1.6;
+    }
+    .answer-content.long-text {
+        white-space: pre-wrap;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    .answer-content.success {
+        background: #f0fff4;
+        border: 1px solid #9ae6b4;
+    }
+
+    /* Timeline Display */
+    .timeline-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        counter-reset: timeline;
+    }
+    .timeline-list li {
+        counter-increment: timeline;
+        padding: 10px 15px;
+        background: #f7fafc;
+        margin-bottom: 8px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .timeline-list li::before {
+        content: counter(timeline);
+        background: #667eea;
+        color: white;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85em;
+        font-weight: 600;
+        flex-shrink: 0;
+    }
+
+    /* Multiple Choice Options */
+    .options-grid {
+        display: grid;
+        gap: 10px;
+        margin-top: 15px;
+    }
+    .option-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 15px;
+        background: #f7fafc;
+        border-radius: 8px;
+        border: 2px solid transparent;
+    }
+    .option-item.selected {
+        background: #ebf8ff;
+        border-color: #4299e1;
+    }
+    .option-item.correct-option {
+        background: #f0fff4;
+        border-color: #48bb78;
+    }
+    .option-key {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.9em;
+        flex-shrink: 0;
+    }
+    .option-item.selected .option-key {
+        background: #4299e1;
+        color: white;
+    }
+    .option-item.correct-option .option-key {
+        background: #48bb78;
+        color: white;
+    }
+
+    /* Expected Answer */
+    .expected-answer {
+        margin-top: 15px;
+        padding: 12px 15px;
+        background: #fffaf0;
+        border-radius: 8px;
+        border-left: 3px solid #ed8936;
+    }
+    .expected-answer strong {
+        color: #c05621;
+    }
+
+    /* Timestamp */
+    .timestamp {
+        font-size: 0.85em;
+        color: #a0aec0;
+        margin-top: 15px;
+    }
+
+    /* Action Buttons */
+    .action-buttons {
+        margin-top: 40px;
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+
+    /* Print Styles */
+    @media print {
+        .action-buttons { display: none; }
+        .report-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .challenge-card { break-inside: avoid; }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .report-header { padding: 25px; }
+        .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        .chapter-header { flex-direction: column; gap: 15px; }
+        .chapter-stats { width: 100%; justify-content: flex-start; }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="progress-header">
-        <h2 class="mb-3">
-            <i class="bi bi-person-circle"></i> {{ progress.user.username }}'s Journey Progress
-        </h2>
-        <p class="mb-2"><strong>Journey:</strong> {{ progress.journey.journey_name }}</p>
-        <p class="mb-0">
-            <i class="bi bi-calendar"></i> Started: {{ progress.started_at|date:"M d, Y" }} |
-            <i class="bi bi-clock"></i> Last Activity: {{ progress.last_activity|date:"M d, Y H:i" }}
-        </p>
+<div class="max-w-5xl mx-auto px-4 mt-8">
+    <!-- Report Header -->
+    <div class="report-header">
+        <div class="report-title">
+            {% include "crush_lu/icons/book-open.html" with class="w-5 h-5" %} Journey Report: {{ progress.journey.journey_name }}
+        </div>
+        <div class="report-subtitle">
+            <strong>{{ progress.user.first_name|default:progress.user.username }}</strong>
+            {% if progress.user.email %} ({{ progress.user.email }}){% endif %}
+        </div>
+        <div class="report-subtitle" style="margin-top: 10px;">
+            {% include "crush_lu/icons/calendar-days.html" with class="w-5 h-5" %} Started: {{ progress.started_at|date:"M d, Y" }} &bull;
+            {% include "crush_lu/icons/clock.html" with class="w-5 h-5" %} Last Activity: {{ progress.last_activity|date:"M d, Y H:i" }}
+            {% if stats.journey_duration %}
+                &bull; {% include "crush_lu/icons/hourglass.html" with class="w-5 h-5" %} Duration: {{ stats.journey_duration.days }} days
+            {% endif %}
+        </div>
 
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-number">{{ progress.current_chapter }}/{{ progress.journey.total_chapters }}</div>
-                <div class="stat-label">Current Chapter</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number">{{ progress.completion_percentage }}%</div>
-                <div class="stat-label">Completion</div>
+                <div class="stat-label">Chapters Completed</div>
             </div>
             <div class="stat-card">
                 <div class="stat-number">{{ progress.total_points }}</div>
                 <div class="stat-label">Total Points</div>
             </div>
             <div class="stat-card">
+                <div class="stat-number">{{ stats.completed_challenges }}/{{ stats.total_challenges }}</div>
+                <div class="stat-label">Challenges Done</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ stats.total_attempts }}</div>
+                <div class="stat-label">Total Attempts</div>
+            </div>
+            <div class="stat-card">
                 <div class="stat-number">
                     {% if progress.is_completed %}
-                        <i class="bi bi-check-circle"></i>
+                        {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %}
                     {% else %}
-                        <i class="bi bi-hourglass-split"></i>
+                        {% include "crush_lu/icons/hourglass.html" with class="w-5 h-5" %}
                     {% endif %}
                 </div>
-                <div class="stat-label">
-                    {% if progress.is_completed %}Completed{% else %}In Progress{% endif %}
-                </div>
+                <div class="stat-label">{% if progress.is_completed %}Completed{% else %}In Progress{% endif %}</div>
             </div>
         </div>
     </div>
 
-    <h3 class="mb-4"><i class="bi bi-chat-dots"></i> User Answers & Responses</h3>
+    <!-- Final Response Banner -->
+    {% if progress.final_response %}
+    <div class="final-response-banner">
+        <div class="final-response-icon">
+            {% if progress.final_response == 'yes' %}
+                {% include "crush_lu/icons/heart.html" with class="w-5 h-5" %}
+            {% else %}
+                {% include "crush_lu/icons/sparkles.html" with class="w-5 h-5" %}
+            {% endif %}
+        </div>
+        <div class="final-response-text">
+            <h4>Final Response</h4>
+            <p>{{ progress.get_final_response_display }}</p>
+            <small style="opacity: 0.8;">{% include "crush_lu/icons/clock.html" with class="w-5 h-5" %} {{ progress.final_response_at|date:"M d, Y H:i" }}</small>
+        </div>
+    </div>
+    {% endif %}
 
-    {% if all_attempts %}
-        {% regroup all_attempts by chapter_progress.chapter as chapter_groups %}
+    <!-- Key Insights Section -->
+    {% if questionnaire_responses %}
+    <div class="insights-section">
+        <div class="insights-title">
+            {% include "crush_lu/icons/light-bulb.html" with class="w-5 h-5" %} Key Insights & Personal Responses
+        </div>
 
-        {% for chapter_group in chapter_groups %}
-        <div class="chapter-section">
-            <h4 class="text-muted">
-                <i class="bi bi-book"></i> Chapter {{ chapter_group.grouper.chapter_number }}: {{ chapter_group.grouper.title }}
-            </h4>
+        {% for response in questionnaire_responses %}
+        <div class="insight-card">
+            <h5>
+                Chapter {{ response.chapter.chapter_number }}: {{ response.challenge.question|truncatewords:12 }}
+            </h5>
+            <p>{% if response.display_answer|length > 200 %}{{ response.answer }}{% else %}{{ response.display_answer|default:response.answer }}{% endif %}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 
-            {% for attempt in chapter_group.list %}
-            <div class="answer-card {% if attempt.is_correct %}answer-correct{% elif attempt.challenge.correct_answer %}answer-incorrect{% else %}answer-questionnaire{% endif %}">
-                <div class="answer-header">
-                    <div class="flex-grow-1">
-                        <h5>
-                            {% if attempt.is_correct %}
-                                <i class="bi bi-check-circle text-success"></i>
-                            {% elif attempt.challenge.correct_answer %}
-                                <i class="bi bi-x-circle text-danger"></i>
-                            {% else %}
-                                <i class="bi bi-chat-dots text-info"></i>
-                            {% endif %}
-                            {{ attempt.challenge.get_challenge_type_display }}
-                        </h5>
-                        <p class="mb-0 text-muted">Challenge {{ attempt.challenge.challenge_order }}</p>
-                    </div>
-                    <div class="text-end">
-                        <div class="badge bg-primary">{{ attempt.points_earned }} points</div>
-                        {% if attempt.hints_used %}
-                            <div class="badge bg-warning text-dark mt-1">
-                                <i class="bi bi-lightbulb"></i> {{ attempt.hints_used|length }} hints used
-                            </div>
+    <!-- Hardest Challenge Note -->
+    {% if stats.hardest_challenge_obj and stats.hardest_challenge_attempts > 5 %}
+    <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl p-4 mb-6">
+        {% include "crush_lu/icons/trophy.html" with class="w-5 h-5" %} <strong>Persistence Award:</strong>
+        The challenge "{{ stats.hardest_challenge_obj.question|truncatewords:10 }}"
+        took <strong>{{ stats.hardest_challenge_attempts }} attempts</strong> to complete!
+    </div>
+    {% endif %}
+
+    <!-- Chapter-by-Chapter Results -->
+    <h3 class="mb-4" style="color: #2d3748;">
+        {% include "crush_lu/icons/document-text.html" with class="w-5 h-5" %} Detailed Journey Results
+    </h3>
+
+    {% for chapter_info in chapter_data %}
+    <div class="chapter-section">
+        <div class="chapter-header">
+            <div>
+                <h4 class="chapter-title">
+                    Chapter {{ chapter_info.chapter.chapter_number }}: {{ chapter_info.chapter.title }}
+                </h4>
+                <div class="chapter-theme">{{ chapter_info.chapter.theme }}</div>
+            </div>
+            <div class="chapter-stats">
+                <span class="chapter-badge badge-points">
+                    {% include "crush_lu/icons/star.html" with class="w-5 h-5" %} {{ chapter_info.chapter_points }} pts
+                </span>
+                {% if chapter_info.is_completed %}
+                    <span class="chapter-badge badge-complete">
+                        {% include "crush_lu/icons/check.html" with class="w-5 h-5" %} Complete
+                    </span>
+                {% else %}
+                    <span class="chapter-badge badge-progress">
+                        {% include "crush_lu/icons/clock.html" with class="w-5 h-5" %} In Progress
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+
+        {% for challenge_info in chapter_info.challenges %}
+        <div class="challenge-card {% if challenge_info.result %}{% if challenge_info.is_questionnaire %}questionnaire{% elif challenge_info.result.is_correct %}correct{% else %}incorrect{% endif %}{% else %}pending{% endif %}">
+            <div class="challenge-header">
+                <div>
+                    <span class="challenge-type-badge">
+                        {% if challenge_info.challenge.challenge_type == 'riddle' %}
+                            {% include "crush_lu/icons/question-mark-circle.html" with class="w-5 h-5" %}
+                        {% elif challenge_info.challenge.challenge_type == 'multiple_choice' %}
+                            {% include "crush_lu/icons/list-bullet.html" with class="w-5 h-5" %}
+                        {% elif challenge_info.challenge.challenge_type == 'word_scramble' %}
+                            {% include "crush_lu/icons/arrows-right-left.html" with class="w-5 h-5" %}
+                        {% elif challenge_info.challenge.challenge_type == 'timeline_sort' %}
+                            {% include "crush_lu/icons/bars-arrow-down.html" with class="w-5 h-5" %}
+                        {% elif challenge_info.challenge.challenge_type == 'open_text' %}
+                            {% include "crush_lu/icons/chat-bubble-left.html" with class="w-5 h-5" %}
+                        {% elif challenge_info.challenge.challenge_type == 'would_you_rather' %}
+                            {% include "crush_lu/icons/arrows-pointing-out.html" with class="w-5 h-5" %}
+                        {% else %}
+                            {% include "crush_lu/icons/puzzle-piece.html" with class="w-5 h-5" %}
+                        {% endif %}
+                        {{ challenge_info.challenge.get_challenge_type_display }}
+                    </span>
+                    <span style="color: #a0aec0; margin-left: 10px;">Challenge {{ challenge_info.challenge.challenge_order }}</span>
+                </div>
+                <div class="challenge-meta">
+                    {% if challenge_info.result %}
+                        <span class="points-badge {% if challenge_info.result.points_earned > 0 %}points-earned{% else %}points-zero{% endif %}">
+                            {{ challenge_info.result.points_earned }} pts
+                        </span>
+                        {% if challenge_info.attempt_count > 1 %}
+                            <span class="attempt-count">
+                                {% include "crush_lu/icons/arrow-path.html" with class="w-5 h-5" %} {{ challenge_info.attempt_count }} attempts
+                            </span>
+                        {% endif %}
+                    {% else %}
+                        <span class="points-badge points-zero">Not attempted</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="question-text">
+                <strong>Question:</strong> {{ challenge_info.challenge.question }}
+            </div>
+
+            {% if challenge_info.result %}
+                <!-- User's Answer -->
+                <div class="answer-section">
+                    <div class="answer-label">
+                        {% if challenge_info.is_questionnaire %}
+                            {% include "crush_lu/icons/chat-bubble-bottom-center-text.html" with class="w-5 h-5" %} Response
+                        {% else %}
+                            {% include "crush_lu/icons/user.html" with class="w-5 h-5" %} User's Answer
                         {% endif %}
                     </div>
+
+                    {% if challenge_info.challenge.challenge_type == 'timeline_sort' and challenge_info.display_answer|length > 0 %}
+                        <!-- Timeline as ordered list -->
+                        <ol class="timeline-list">
+                            {% for item in challenge_info.display_answer %}
+                                <li>{{ item }}</li>
+                            {% endfor %}
+                        </ol>
+                    {% elif challenge_info.challenge.challenge_type == 'multiple_choice' and challenge_info.options %}
+                        <!-- Show all options with selected highlighted -->
+                        <div class="options-grid">
+                            {% for key, value in challenge_info.options.items %}
+                                <div class="option-item {% if challenge_info.result.user_answer|upper == key %}selected{% endif %} {% if challenge_info.challenge.correct_answer|upper == key %}correct-option{% endif %}">
+                                    <span class="option-key">{{ key }}</span>
+                                    <span>{{ value }}</span>
+                                    {% if challenge_info.result.user_answer|upper == key %}
+                                        {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5 text-primary" %}
+                                    {% endif %}
+                                    {% if challenge_info.challenge.correct_answer|upper == key and challenge_info.challenge.correct_answer %}
+                                        {% include "crush_lu/icons/star.html" with class="w-5 h-5 text-success" %}
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% elif challenge_info.challenge.challenge_type == 'open_text' or challenge_info.result.user_answer|length > 200 %}
+                        <!-- Long text response -->
+                        <div class="answer-content long-text {% if challenge_info.result.is_correct %}success{% endif %}">
+                            {{ challenge_info.result.user_answer }}
+                        </div>
+                    {% else %}
+                        <!-- Standard answer -->
+                        <div class="answer-content {% if challenge_info.result.is_correct %}success{% endif %}">
+                            {{ challenge_info.display_answer|default:challenge_info.result.user_answer }}
+                        </div>
+                    {% endif %}
                 </div>
 
-                <div class="mb-3">
-                    <strong>Question:</strong>
-                    <p class="mt-1">{{ attempt.challenge.question }}</p>
-                </div>
-
-                <div class="mb-3">
-                    <strong>User's Answer:</strong>
-                    <div class="answer-text">
-                        {{ attempt.user_answer }}
-                    </div>
-                </div>
-
-                {% if attempt.challenge.correct_answer %}
-                <div class="mb-2">
-                    <strong>Expected Answer:</strong>
-                    <span class="badge bg-success">{{ attempt.challenge.correct_answer }}</span>
+                <!-- Expected Answer (for quiz challenges) -->
+                {% if challenge_info.challenge.correct_answer and not challenge_info.is_questionnaire and not challenge_info.result.is_correct %}
+                <div class="expected-answer">
+                    <strong>{% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Expected Answer:</strong>
+                    {{ challenge_info.challenge.correct_answer }}
                 </div>
                 {% endif %}
 
-                <div class="text-muted small">
-                    <i class="bi bi-clock"></i> Answered: {{ attempt.attempted_at|date:"M d, Y H:i" }}
+                <!-- Hints Used -->
+                {% if challenge_info.result.hints_used %}
+                <div class="mt-3">
+                    <span class="inline-block px-2 py-1 bg-amber-500 text-gray-900 text-xs rounded">
+                        {% include "crush_lu/icons/light-bulb.html" with class="w-5 h-5" %} {{ challenge_info.result.hints_used|length }} hint(s) used
+                    </span>
                 </div>
-            </div>
-            {% endfor %}
+                {% endif %}
+
+                <div class="timestamp">
+                    {% include "crush_lu/icons/clock.html" with class="w-5 h-5" %} Answered: {{ challenge_info.result.attempted_at|date:"M d, Y H:i" }}
+                </div>
+            {% else %}
+                <div class="answer-content" style="text-align: center; color: #a0aec0;">
+                    {% include "crush_lu/icons/hourglass.html" with class="w-5 h-5" %} Challenge not yet attempted
+                </div>
+            {% endif %}
         </div>
         {% endfor %}
-    {% else %}
-        <div class="alert alert-info">
-            <i class="bi bi-info-circle"></i> No challenge attempts recorded yet.
-        </div>
-    {% endif %}
-
-    {% if progress.final_response %}
-    <div class="answer-card answer-correct">
-        <div class="answer-header">
-            <h5><i class="bi bi-heart"></i> Final Response</h5>
-        </div>
-        <div class="answer-text">
-            <strong>Response:</strong> {{ progress.get_final_response_display }}
-        </div>
-        <div class="text-muted small">
-            <i class="bi bi-clock"></i> Responded: {{ progress.final_response_at|date:"M d, Y H:i" }}
-        </div>
     </div>
-    {% endif %}
+    {% endfor %}
 
-    <div class="mt-4">
-        <a href="{% url 'crush_lu:coach_journey_dashboard' %}" class="btn btn-secondary">
-            <i class="bi bi-arrow-left"></i> Back to Journeys
+    <!-- Action Buttons -->
+    <div class="mt-10 flex flex-wrap gap-4">
+        <a href="{% url 'crush_lu:coach_journey_dashboard' %}" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
+            {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back to Journeys
         </a>
-        <a href="/crush-admin/crush_lu/journeyprogress/{{ progress.id }}/change/" class="btn btn-outline-primary">
-            <i class="bi bi-gear"></i> Advanced View
+        <button onclick="window.print()" class="border border-purple-500 text-purple-600 hover:bg-purple-50 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
+            {% include "crush_lu/icons/printer.html" with class="w-5 h-5" %} Print Report
+        </button>
+        <a href="/crush-admin/crush_lu/journeyprogress/{{ progress.id }}/change/" class="border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
+            {% include "crush_lu/icons/cog-6-tooth.html" with class="w-5 h-5" %} Admin View
         </a>
     </div>
 </div>

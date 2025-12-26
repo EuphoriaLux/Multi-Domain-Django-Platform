@@ -5,7 +5,8 @@ module.exports = {
     './crush_lu/**/*.py',
     './static/crush_lu/js/**/*.js',
   ],
-  prefix: 'tw-',
+  // No prefix - using native Tailwind classes
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -54,9 +55,13 @@ module.exports = {
         'crush-purple': '0 5px 15px rgba(155, 89, 182, 0.4)',
         'crush-pink': '0 5px 15px rgba(255, 107, 157, 0.4)',
       },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+      },
     },
   },
   plugins: [
     require('@tailwindcss/forms'),
+    require('@tailwindcss/typography'),
   ],
 }

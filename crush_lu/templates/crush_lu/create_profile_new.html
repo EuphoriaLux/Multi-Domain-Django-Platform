@@ -1,0 +1,1211 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+
+{% block title %}Create Your Profile - Crush.lu{% endblock %}
+
+{% block extra_css %}
+<!-- intl-tel-input CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/css/intlTelInput.css">
+<!-- Custom intl-tel-input styling for Crush.lu -->
+<link rel="stylesheet" href="{% static 'crush_lu/css/components/intl-tel-input.css' %}">
+{% endblock %}
+
+{% block content %}
+{# Main Alpine.js component for wizard state management #}
+<div x-data="{
+    currentStep: {% if current_step %}{{ current_step|default:1 }}{% else %}1{% endif %},
+    totalSteps: 4,
+    isSubmitting: false,
+    phoneVerified: {{ profile.phone_verified|yesno:'true,false'|default:'false' }},
+    showErrors: false,
+    errors: {},
+    isEditing: {{ is_editing|lower|default:'false' }},
+
+    // Step validation state
+    step1Valid: false,
+    step2Valid: true,  // Optional fields
+
+    // Go to next step (with HTMX validation)
+    async nextStep() {
+        if (this.currentStep < this.totalSteps) {
+            this.currentStep++;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    },
+
+    // Go to previous step
+    prevStep() {
+        if (this.currentStep > 1) {
+            this.currentStep--;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    },
+
+    // Check if step is completed
+    isStepCompleted(step) {
+        return step < this.currentStep;
+    },
+
+    // Update review summary
+    updateReview() {
+        const phone = document.querySelector('[name=phone_number]')?.value || 'Not provided';
+        const dob = document.querySelector('[name=date_of_birth]')?.value || 'Not provided';
+        const genderEl = document.querySelector('[name=gender]:checked');
+        const gender = genderEl?.nextElementSibling?.querySelector('.gender-label')?.textContent || 'Not selected';
+        const location = document.querySelector('[name=location]')?.value || 'Not selected';
+
+        this.$refs.reviewPhone.textContent = phone;
+        this.$refs.reviewDob.textContent = dob;
+        this.$refs.reviewGender.textContent = gender;
+        this.$refs.reviewLocation.textContent = location;
+    }
+}"
+x-init="
+    // Initialize step from server state
+    {% if current_step %}
+    const stepMap = {'not_started': 1, 'step1': 2, 'step2': 3, 'step3': 4, 'completed': 4, 'submitted': 4};
+    currentStep = stepMap['{{ current_step }}'] || 1;
+    {% endif %}
+"
+@htmx:after-request.window="
+    // Handle HTMX response for step validation
+    if ($event.detail.successful && $event.detail.xhr.getResponseHeader('HX-Trigger-After-Swap') === 'step-valid') {
+        nextStep();
+    }
+"
+class="profile-creation-wrapper">
+    <div class="container py-4 max-w-3xl mx-auto px-4">
+        <!-- Progress Header -->
+        <div class="text-center mb-8">
+            <template x-if="isEditing">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold mb-3">Edit Your Profile</h1>
+                    <p class="text-gray-500">Update your profile information</p>
+                </div>
+            </template>
+            <template x-if="!isEditing">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold mb-3">Welcome to Crush!</h1>
+                    <p class="text-gray-500">Let's create your profile in just a few steps</p>
+                </div>
+            </template>
+
+            <!-- Progress Tracker -->
+            <div class="flex items-center justify-center mt-6 gap-0">
+                <!-- Step 1 -->
+                <div class="flex flex-col items-center">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
+                         :class="currentStep >= 1 ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gray-300'">
+                        <span x-show="!isStepCompleted(1)">1</span>
+                        <svg x-show="isStepCompleted(1)" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <span class="text-xs mt-1" :class="currentStep >= 1 ? 'text-purple-600 font-medium' : 'text-gray-400'">Basic Info</span>
+                </div>
+
+                <div class="w-12 h-1 mx-1" :class="isStepCompleted(1) ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gray-200'"></div>
+
+                <!-- Step 2 -->
+                <div class="flex flex-col items-center">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
+                         :class="currentStep >= 2 ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gray-300'">
+                        <span x-show="!isStepCompleted(2)">2</span>
+                        <svg x-show="isStepCompleted(2)" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <span class="text-xs mt-1" :class="currentStep >= 2 ? 'text-purple-600 font-medium' : 'text-gray-400'">About You</span>
+                </div>
+
+                <div class="w-12 h-1 mx-1" :class="isStepCompleted(2) ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gray-200'"></div>
+
+                <!-- Step 3 -->
+                <div class="flex flex-col items-center">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
+                         :class="currentStep >= 3 ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gray-300'">
+                        <span x-show="!isStepCompleted(3)">3</span>
+                        <svg x-show="isStepCompleted(3)" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <span class="text-xs mt-1" :class="currentStep >= 3 ? 'text-purple-600 font-medium' : 'text-gray-400'">Photos</span>
+                </div>
+
+                <div class="w-12 h-1 mx-1" :class="isStepCompleted(3) ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gray-200'"></div>
+
+                <!-- Step 4 -->
+                <div class="flex flex-col items-center">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
+                         :class="currentStep >= 4 ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gray-300'">
+                        4
+                    </div>
+                    <span class="text-xs mt-1" :class="currentStep >= 4 ? 'text-purple-600 font-medium' : 'text-gray-400'">Review</span>
+                </div>
+            </div>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" id="profileForm" novalidate
+              @submit="isSubmitting = true">
+            {% csrf_token %}
+
+            <!-- Global Form Errors (Alpine.js dismissible) -->
+            {% if form.non_field_errors %}
+            <div x-data="{ show: true }" x-show="show" x-transition
+                 class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 relative">
+                {{ form.non_field_errors }}
+                <button type="button" @click="show = false"
+                        class="absolute top-2 right-2 text-red-500 hover:text-red-700">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                </button>
+            </div>
+            {% endif %}
+
+            {% if form.errors %}
+            <div x-data="{ show: true }" x-show="show" x-transition
+                 class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 relative">
+                <strong class="font-semibold">Please fix the following errors:</strong>
+                <ul class="mt-2 list-disc list-inside">
+                    {% for field, errors in form.errors.items %}
+                        {% for error in errors %}
+                            <li>
+                                {% if field == '__all__' %}{{ error }}{% else %}<strong>{{ field|title }}:</strong> {{ error }}{% endif %}
+                            </li>
+                        {% endfor %}
+                    {% endfor %}
+                </ul>
+                <button type="button" @click="show = false"
+                        class="absolute top-2 right-2 text-red-500 hover:text-red-700">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                </button>
+            </div>
+            {% endif %}
+
+            <!-- Step 1: Basic Information -->
+            <div x-show="currentStep === 1" x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 transform translate-x-4"
+                 x-transition:enter-end="opacity-100 transform translate-x-0"
+                 class="bg-white rounded-2xl shadow-lg p-6 md:p-8">
+
+                <div class="text-center mb-6">
+                    <div class="text-4xl mb-2">📋</div>
+                    <h3 class="text-xl font-semibold">Basic Information</h3>
+                    <p class="text-gray-500 text-sm">Let's start with the essentials</p>
+                </div>
+
+                <!-- Phone Number with Verification -->
+                <div class="mb-6" id="phone-verification-container"
+                     x-data="phoneVerificationComponent()">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        {% include "crush_lu/icons/phone.html" with class="w-5 h-5" %} Phone Number *
+                        <span x-show="!verified"
+                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 ml-2">
+                            Verification Required
+                        </span>
+                        <span x-show="verified" x-cloak
+                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 ml-2">
+                            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            Verified
+                        </span>
+                    </label>
+
+                    <div class="flex gap-2">
+                        <div class="flex-1">
+                            <input type="tel"
+                                   name="phone_number"
+                                   id="{{ form.phone_number.id_for_label }}"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                                   value="{{ profile.phone_number|default:'' }}"
+                                   :readonly="verified"
+                                   @input="onPhoneInput($event)"
+                                   required>
+                        </div>
+                        <button type="button"
+                                x-show="!verified"
+                                @click="startVerification()"
+                                :disabled="!canVerify"
+                                class="px-4 py-3 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2">
+                            {% include "crush_lu/icons/shield-check.html" with class="w-5 h-5" %}
+                            <span class="hidden sm:inline">Verify</span>
+                        </button>
+                        <button type="button"
+                                x-show="verified" x-cloak
+                                @click="resetVerification()"
+                                class="px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition flex items-center gap-2">
+                            {% include "crush_lu/icons/pencil.html" with class="w-5 h-5" %}
+                            <span class="hidden sm:inline">Change</span>
+                        </button>
+                    </div>
+
+                    <p class="text-sm text-gray-500 mt-2">
+                        {% include "crush_lu/icons/information-circle.html" with class="w-5 h-5" %}
+                        You must verify your phone number before continuing.
+                    </p>
+
+                    {% if form.phone_number.errors %}
+                        <p class="text-sm text-red-600 mt-1">{{ form.phone_number.errors.0 }}</p>
+                    {% endif %}
+
+                    <!-- Error display -->
+                    <div x-show="errorMessage" x-cloak
+                         class="mt-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm"
+                         x-text="errorMessage"></div>
+
+                    <input type="hidden" name="phone_verified" :value="verified ? 'true' : 'false'">
+                </div>
+
+                <!-- reCAPTCHA container -->
+                <div id="recaptcha-container"></div>
+
+                <!-- Date of Birth -->
+                <div class="mb-6">
+                    <label for="{{ form.date_of_birth.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                        {% include "crush_lu/icons/calendar.html" with class="w-5 h-5" %} Date of Birth *
+                    </label>
+                    {{ form.date_of_birth }}
+                    <p class="text-sm text-gray-500 mt-1">Must be 18+ to join</p>
+                    {% if form.date_of_birth.errors %}
+                        <p class="text-sm text-red-600 mt-1">{{ form.date_of_birth.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Gender Selection -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-3">
+                        {% include "crush_lu/icons/user.html" with class="w-5 h-5" %} Gender *
+                    </label>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {% for value, label, icon in gender_choices %}
+                        <label class="cursor-pointer">
+                            <input type="radio" name="gender" value="{{ value }}" class="peer hidden"
+                                   {% if profile.gender == value %}checked{% endif %} required>
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-2xl mb-1">{{ icon }}</div>
+                                <div class="text-sm font-medium">{{ label }}</div>
+                            </div>
+                        </label>
+                        {% empty %}
+                        <!-- Fallback if gender_choices not provided -->
+                        <label class="cursor-pointer">
+                            <input type="radio" name="gender" value="M" class="peer hidden"
+                                   {% if profile.gender == 'M' %}checked{% endif %} required>
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-2xl mb-1">👨</div>
+                                <div class="text-sm font-medium">Male</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="gender" value="F" class="peer hidden"
+                                   {% if profile.gender == 'F' %}checked{% endif %}>
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-2xl mb-1">👩</div>
+                                <div class="text-sm font-medium">Female</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="gender" value="NB" class="peer hidden"
+                                   {% if profile.gender == 'NB' %}checked{% endif %}>
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-2xl mb-1">🧑</div>
+                                <div class="text-sm font-medium">Non-binary</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="gender" value="O" class="peer hidden"
+                                   {% if profile.gender == 'O' %}checked{% endif %}>
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-2xl mb-1">✨</div>
+                                <div class="text-sm font-medium">Other</div>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% if form.gender.errors %}
+                        <p class="text-sm text-red-600 mt-1">{{ form.gender.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Location -->
+                <div class="mb-6">
+                    <label for="{{ form.location.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                        {% include "crush_lu/icons/map-pin.html" with class="w-5 h-5" %} Location in Luxembourg *
+                    </label>
+                    {{ form.location }}
+                    {% if form.location.errors %}
+                        <p class="text-sm text-red-600 mt-1">{{ form.location.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Continue Button -->
+                <button type="button"
+                        @click="if(phoneVerified) nextStep()"
+                        :disabled="!phoneVerified"
+                        class="w-full py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold
+                               hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed
+                               transition-all duration-300 flex items-center justify-center gap-2"
+                        id="step1-continue-btn">
+                    Continue
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </button>
+
+                <!-- Warning when phone not verified -->
+                <div x-show="!phoneVerified" x-cloak
+                     class="mt-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                    </svg>
+                    Please verify your phone number to continue.
+                </div>
+            </div>
+
+            <!-- Step 2: About You -->
+            <div x-show="currentStep === 2" x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 transform translate-x-4"
+                 x-transition:enter-end="opacity-100 transform translate-x-0" x-cloak
+                 class="bg-white rounded-2xl shadow-lg p-6 md:p-8">
+
+                <div class="text-center mb-6">
+                    <div class="text-4xl mb-2">✍️</div>
+                    <h3 class="text-xl font-semibold">About You</h3>
+                    <p class="text-gray-500 text-sm">Share what makes you unique (optional)</p>
+                </div>
+
+                <!-- Bio -->
+                <div class="mb-6" x-data="{ charCount: {{ profile.bio|length|default:0 }} }">
+                    <label for="{{ form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                        {% include "crush_lu/icons/chat-bubble-left.html" with class="w-5 h-5" %} Bio
+                        <span class="text-xs text-gray-400 font-normal ml-1">Optional</span>
+                    </label>
+                    <textarea name="bio"
+                              id="{{ form.bio.id_for_label }}"
+                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none"
+                              rows="4"
+                              maxlength="500"
+                              @input="charCount = $event.target.value.length"
+                              placeholder="Tell us about yourself... What do you love? What makes you smile?">{{ profile.bio|default:"" }}</textarea>
+                    <div class="text-right text-sm text-gray-400 mt-1">
+                        <span x-text="charCount"></span>/500 characters
+                    </div>
+                    {% if form.bio.errors %}
+                        <p class="text-sm text-red-600 mt-1">{{ form.bio.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Interest Categories -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-3">
+                        {% include "crush_lu/icons/star.html" with class="w-5 h-5" %} Interest Categories
+                        <span class="text-xs text-gray-400 font-normal ml-1">Optional</span>
+                    </label>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        <label class="cursor-pointer">
+                            <input type="checkbox" name="interest_category" value="sports" class="peer hidden">
+                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-xl mb-1">⚽</div>
+                                <div class="text-xs font-medium">Sports & Fitness</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="checkbox" name="interest_category" value="arts" class="peer hidden">
+                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-xl mb-1">🎨</div>
+                                <div class="text-xs font-medium">Arts & Culture</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="checkbox" name="interest_category" value="food" class="peer hidden">
+                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-xl mb-1">🍷</div>
+                                <div class="text-xs font-medium">Food & Wine</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="checkbox" name="interest_category" value="outdoors" class="peer hidden">
+                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-xl mb-1">🏔️</div>
+                                <div class="text-xs font-medium">Outdoors</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="checkbox" name="interest_category" value="business" class="peer hidden">
+                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-xl mb-1">💼</div>
+                                <div class="text-xs font-medium">Business & Tech</div>
+                            </div>
+                        </label>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-2">Select all that apply, or skip to continue</p>
+                </div>
+
+                <!-- Custom Interests -->
+                <div class="mb-6" x-data="{ charCount: {{ profile.interests|length|default:0 }} }">
+                    <label for="{{ form.interests.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                        {% include "crush_lu/icons/pencil.html" with class="w-5 h-5" %} Or write your own interests
+                    </label>
+                    <textarea name="interests"
+                              id="{{ form.interests.id_for_label }}"
+                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none"
+                              rows="2"
+                              maxlength="300"
+                              @input="charCount = $event.target.value.length"
+                              placeholder="e.g., hiking, photography, cooking...">{{ profile.interests|default:"" }}</textarea>
+                    <div class="text-right text-sm text-gray-400 mt-1">
+                        <span x-text="charCount"></span>/300 characters
+                    </div>
+                </div>
+
+                <!-- Looking For -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-3">
+                        {% include "crush_lu/icons/heart.html" with class="w-5 h-5" %} What are you looking for? *
+                    </label>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="looking_for" value="friends" class="peer hidden"
+                                   {% if profile.looking_for == 'friends' %}checked{% endif %} required>
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-2xl mb-1">👋</div>
+                                <div class="text-sm font-medium">New Friends</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="looking_for" value="dating" class="peer hidden"
+                                   {% if profile.looking_for == 'dating' %}checked{% endif %}>
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-2xl mb-1">💕</div>
+                                <div class="text-sm font-medium">Dating</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="looking_for" value="both" class="peer hidden"
+                                   {% if profile.looking_for == 'both' %}checked{% endif %}>
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-2xl mb-1">🌟</div>
+                                <div class="text-sm font-medium">Both</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="looking_for" value="networking" class="peer hidden"
+                                   {% if profile.looking_for == 'networking' %}checked{% endif %}>
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-2xl mb-1">🤝</div>
+                                <div class="text-sm font-medium">Networking</div>
+                            </div>
+                        </label>
+                    </div>
+                    {% if form.looking_for.errors %}
+                        <p class="text-sm text-red-600 mt-1">{{ form.looking_for.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Navigation Buttons -->
+                <div class="flex gap-4 mt-6">
+                    <button type="button" @click="prevStep()"
+                            class="flex-1 py-4 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold
+                                   hover:bg-gray-50 transition-all duration-300 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                        Back
+                    </button>
+                    <button type="button" @click="nextStep()"
+                            class="flex-1 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold
+                                   hover:from-purple-600 hover:to-pink-600 transition-all duration-300 flex items-center justify-center gap-2">
+                        Continue
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3: Photos -->
+            <div x-show="currentStep === 3" x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 transform translate-x-4"
+                 x-transition:enter-end="opacity-100 transform translate-x-0" x-cloak
+                 class="bg-white rounded-2xl shadow-lg p-6 md:p-8">
+
+                <div class="text-center mb-6">
+                    <div class="text-4xl mb-2">📸</div>
+                    <h3 class="text-xl font-semibold">Add Photos</h3>
+                    <p class="text-gray-500 text-sm">Upload at least one photo (optional but recommended)</p>
+                </div>
+
+                <!-- Photo Upload Grid -->
+                <div class="grid grid-cols-3 gap-4 mb-6"
+                     x-data="{
+                        photos: [
+                            { id: 1, hasImage: {{ profile.photo_1|yesno:'true,false' }}, preview: '{% if profile.photo_1 %}{{ profile.photo_1.url }}{% endif %}' },
+                            { id: 2, hasImage: {{ profile.photo_2|yesno:'true,false' }}, preview: '{% if profile.photo_2 %}{{ profile.photo_2.url }}{% endif %}' },
+                            { id: 3, hasImage: {{ profile.photo_3|yesno:'true,false' }}, preview: '{% if profile.photo_3 %}{{ profile.photo_3.url }}{% endif %}' }
+                        ],
+                        handleFileSelect(index, event) {
+                            const file = event.target.files[0];
+                            if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (e) => {
+                                    this.photos[index].preview = e.target.result;
+                                    this.photos[index].hasImage = true;
+                                };
+                                reader.readAsDataURL(file);
+                            }
+                        },
+                        removePhoto(index) {
+                            this.photos[index].preview = '';
+                            this.photos[index].hasImage = false;
+                            document.getElementById('photo' + (index + 1)).value = '';
+                        }
+                     }">
+                    <template x-for="(photo, index) in photos" :key="photo.id">
+                        <div class="relative aspect-square">
+                            <input type="file"
+                                   :name="'photo_' + photo.id"
+                                   :id="'photo' + photo.id"
+                                   accept="image/*"
+                                   class="hidden"
+                                   @change="handleFileSelect(index, $event)">
+                            <label :for="'photo' + photo.id"
+                                   class="block w-full h-full border-2 border-dashed border-gray-300 rounded-xl
+                                          cursor-pointer hover:border-purple-400 transition-all overflow-hidden
+                                          bg-gray-50 hover:bg-purple-50">
+                                <!-- Preview or placeholder -->
+                                <div x-show="photo.hasImage" class="w-full h-full">
+                                    <img :src="photo.preview" class="w-full h-full object-cover" alt="Photo preview">
+                                </div>
+                                <div x-show="!photo.hasImage" class="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                                    <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    </svg>
+                                    <span class="text-sm" x-text="'Photo ' + photo.id"></span>
+                                </div>
+                            </label>
+                            <!-- Remove button -->
+                            <button type="button"
+                                    x-show="photo.hasImage"
+                                    @click="removePhoto(index)"
+                                    class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full
+                                           flex items-center justify-center hover:bg-red-600 transition shadow-lg">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Photo tip -->
+                <div class="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm mb-6 flex items-start gap-2">
+                    <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                    </svg>
+                    <div>
+                        <strong>Tip:</strong> Use clear photos where your face is visible. Avoid group photos!
+                    </div>
+                </div>
+
+                <!-- Privacy Settings -->
+                <div class="border-t pt-6">
+                    <h5 class="font-semibold mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+                        </svg>
+                        Privacy Settings
+                    </h5>
+
+                    <div class="space-y-4">
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" name="show_full_name"
+                                   class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
+                            <div>
+                                <span class="font-medium">Show my full name</span>
+                                <p class="text-sm text-gray-500">Otherwise only your first name will be shown</p>
+                            </div>
+                        </label>
+
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" name="show_exact_age" checked
+                                   class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
+                            <div>
+                                <span class="font-medium">Show my exact age</span>
+                                <p class="text-sm text-gray-500">Otherwise show age range (e.g., 25-29)</p>
+                            </div>
+                        </label>
+
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" name="blur_photos"
+                                   class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
+                            <div>
+                                <span class="font-medium">Blur my photos until mutual interest</span>
+                                <p class="text-sm text-gray-500">Photos will only be visible after you both connect</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Navigation Buttons -->
+                <div class="flex gap-4 mt-6">
+                    <button type="button" @click="prevStep()"
+                            class="flex-1 py-4 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold
+                                   hover:bg-gray-50 transition-all duration-300 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                        Back
+                    </button>
+                    <button type="button" @click="nextStep(); updateReview()"
+                            class="flex-1 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold
+                                   hover:from-purple-600 hover:to-pink-600 transition-all duration-300 flex items-center justify-center gap-2">
+                        Continue
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 4: Review & Submit -->
+            <div x-show="currentStep === 4" x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 transform translate-x-4"
+                 x-transition:enter-end="opacity-100 transform translate-x-0" x-cloak
+                 class="bg-white rounded-2xl shadow-lg p-6 md:p-8">
+
+                <div class="text-center mb-6">
+                    <div class="text-4xl mb-2">✅</div>
+                    <h3 class="text-xl font-semibold">Review & Submit</h3>
+                    <p class="text-gray-500 text-sm">Almost done! Review your information</p>
+                </div>
+
+                <!-- Review Summary -->
+                <div class="bg-gray-50 rounded-xl p-4 mb-6 space-y-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                            {% include "crush_lu/icons/phone.html" with class="w-5 h-5 text-purple-600" %}
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">Phone Number</span>
+                            <p class="font-medium" x-ref="reviewPhone">Not provided</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                            {% include "crush_lu/icons/calendar.html" with class="w-5 h-5 text-purple-600" %}
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">Date of Birth</span>
+                            <p class="font-medium" x-ref="reviewDob">Not provided</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                            {% include "crush_lu/icons/user.html" with class="w-5 h-5 text-purple-600" %}
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">Gender</span>
+                            <p class="font-medium" x-ref="reviewGender">Not selected</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                            {% include "crush_lu/icons/map-pin.html" with class="w-5 h-5 text-purple-600" %}
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">Location</span>
+                            <p class="font-medium" x-ref="reviewLocation">Not selected</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- What Happens Next -->
+                <div class="mb-6">
+                    <h5 class="font-semibold mb-4 flex items-center gap-2">
+                        {% include "crush_lu/icons/hourglass.html" with class="w-5 h-5 text-purple-600" %}
+                        What Happens Next?
+                    </h5>
+
+                    <div class="space-y-4">
+                        <div class="flex gap-4">
+                            <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">1</div>
+                            <div>
+                                <h6 class="font-medium">Profile Submitted</h6>
+                                <p class="text-sm text-gray-500">Your profile is sent to our Crush Coach team</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">2</div>
+                            <div>
+                                <h6 class="font-medium">Coach Review</h6>
+                                <p class="text-sm text-gray-500">A coach will review your profile within 24-48 hours</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">3</div>
+                            <div>
+                                <h6 class="font-medium">Screening Call</h6>
+                                <p class="text-sm text-gray-500">Your coach will call you to discuss your profile and goals</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">4</div>
+                            <div>
+                                <h6 class="font-medium">Profile Approved</h6>
+                                <p class="text-sm text-gray-500">You can start attending events and making connections!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Privacy note -->
+                <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg text-sm mb-6 flex items-start gap-2">
+                    <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                    <div>
+                        <strong>Privacy First:</strong> Your phone number will only be used by your coach for screening. It won't be shared with other members without your consent.
+                    </div>
+                </div>
+
+                <!-- Navigation Buttons -->
+                <div class="flex gap-4">
+                    <button type="button" @click="prevStep()"
+                            class="flex-1 py-4 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold
+                                   hover:bg-gray-50 transition-all duration-300 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                        Back
+                    </button>
+                    <button type="submit"
+                            :disabled="isSubmitting"
+                            class="flex-1 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold
+                                   hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed
+                                   transition-all duration-300 flex items-center justify-center gap-2">
+                        <template x-if="!isSubmitting">
+                            <span class="flex items-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                Submit Profile
+                            </span>
+                        </template>
+                        <template x-if="isSubmitting">
+                            <span class="flex items-center gap-2">
+                                <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Submitting...
+                            </span>
+                        </template>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Phone Verification Modal (Alpine.js) -->
+    <div x-data="phoneVerificationModal()"
+         x-show="isOpen"
+         x-cloak
+         @open-phone-modal.window="open()"
+         @close-phone-modal.window="close()"
+         class="fixed inset-0 z-50 overflow-y-auto"
+         role="dialog"
+         aria-modal="true">
+        <!-- Backdrop -->
+        <div x-show="isOpen"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-black bg-opacity-50"></div>
+
+        <!-- Modal Content -->
+        <div class="flex min-h-screen items-center justify-center p-4">
+            <div x-show="isOpen"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 transform scale-95"
+                 x-transition:enter-end="opacity-100 transform scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 transform scale-100"
+                 x-transition:leave-end="opacity-0 transform scale-95"
+                 @click.away="close()"
+                 class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+
+                <!-- Close button -->
+                <button @click="close()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+
+                <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                    {% include "crush_lu/icons/phone.html" with class="w-5 h-5" %} Verify Your Phone
+                </h3>
+
+                <!-- Step: Sending -->
+                <div x-show="step === 'sending'" class="text-center py-8">
+                    <div class="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p class="text-gray-600">Sending verification code...</p>
+                </div>
+
+                <!-- Step: Enter Code -->
+                <div x-show="step === 'code'" class="text-center">
+                    <p class="mb-4">
+                        We sent a 6-digit code to<br>
+                        <strong x-text="maskedPhone"></strong>
+                    </p>
+
+                    <!-- OTP Inputs -->
+                    <div class="flex justify-center gap-2 mb-4">
+                        <template x-for="(digit, index) in otpDigits" :key="index">
+                            <input type="text"
+                                   maxlength="1"
+                                   inputmode="numeric"
+                                   pattern="[0-9]"
+                                   x-model="otpDigits[index]"
+                                   @input="handleOtpInput(index, $event)"
+                                   @keydown.backspace="handleOtpBackspace(index, $event)"
+                                   @paste="handleOtpPaste($event)"
+                                   :x-ref="'otp' + index"
+                                   class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg
+                                          focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                        </template>
+                    </div>
+
+                    <!-- Error message -->
+                    <div x-show="error" class="bg-red-50 text-red-700 px-4 py-2 rounded-lg text-sm mb-4" x-text="error"></div>
+
+                    <button @click="verifyCode()"
+                            :disabled="otpDigits.join('').length !== 6"
+                            class="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold
+                                   hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 transition">
+                        Verify Code
+                    </button>
+
+                    <!-- Resend -->
+                    <div class="mt-4 text-sm text-gray-500">
+                        <span x-show="resendCountdown > 0">
+                            Resend available in <span x-text="resendCountdown"></span>s
+                        </span>
+                        <button x-show="resendCountdown === 0"
+                                @click="resendCode()"
+                                class="text-purple-600 hover:text-purple-800 font-medium">
+                            Resend Code
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step: Verifying -->
+                <div x-show="step === 'verifying'" class="text-center py-8">
+                    <div class="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p class="text-gray-600">Verifying your code...</p>
+                </div>
+
+                <!-- Step: Success -->
+                <div x-show="step === 'success'" class="text-center py-8">
+                    <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-10 h-10 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <h4 class="text-xl font-semibold text-green-700 mb-2">Phone Verified!</h4>
+                    <p class="text-gray-500">Your phone number has been verified successfully.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Firebase SDK for phone authentication -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+<!-- intl-tel-input JS -->
+<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/intlTelInput.min.js"></script>
+
+<!-- Firebase Configuration -->
+<script>
+    window.FIREBASE_API_KEY = "{{ firebase_api_key }}";
+    window.FIREBASE_AUTH_DOMAIN = "{{ firebase_auth_domain }}";
+    window.FIREBASE_PROJECT_ID = "{{ firebase_project_id }}";
+</script>
+
+<!-- Phone verification module -->
+<script src="{% static 'crush_lu/js/phone-verification.js' %}"></script>
+
+<script>
+// Phone Verification Component (Alpine.js)
+function phoneVerificationComponent() {
+    return {
+        verified: {{ profile.phone_verified|yesno:'true,false'|default:'false' }},
+        canVerify: false,
+        errorMessage: '',
+        iti: null,
+
+        init() {
+            const phoneInput = document.getElementById('{{ form.phone_number.id_for_label }}');
+            if (phoneInput && window.intlTelInput && !this.verified) {
+                const prefilledValue = phoneInput.value;
+                phoneInput.value = '';
+
+                this.iti = window.intlTelInput(phoneInput, {
+                    initialCountry: "auto",
+                    geoIpLookup: (callback) => {
+                        fetch('https://ipapi.co/json/')
+                            .then(r => r.json())
+                            .then(data => callback(data?.country_code?.toLowerCase() || 'lu'))
+                            .catch(() => callback('lu'));
+                    },
+                    preferredCountries: ["lu", "de", "fr", "be"],
+                    onlyCountries: ["lu", "de", "fr", "be", "nl", "ch", "at", "it", "es", "pt", "gb", "ie", "us", "ca", "se", "dz"],
+                    separateDialCode: true,
+                    utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/utils.js"
+                });
+
+                window.itiInstance = this.iti;
+
+                this.iti.promise.then(() => {
+                    if (prefilledValue) {
+                        let num = prefilledValue.trim().replace(/\s/g, '');
+                        if (!num.startsWith('+')) {
+                            if (num.startsWith('00')) num = '+' + num.slice(2);
+                            else num = '+352' + num.replace(/^0+/, '');
+                        }
+                        this.iti.setNumber(num);
+                    }
+                });
+            }
+        },
+
+        onPhoneInput(e) {
+            if (this.iti) {
+                this.canVerify = this.iti.isValidNumber() || this.iti.getNumber().length >= 8;
+            } else {
+                this.canVerify = e.target.value.trim().length >= 6;
+            }
+            this.errorMessage = '';
+        },
+
+        async startVerification() {
+            if (this.iti && !this.iti.isValidNumber()) {
+                this.errorMessage = 'Please enter a valid phone number';
+                return;
+            }
+
+            // Dispatch event to open modal
+            window.dispatchEvent(new CustomEvent('open-phone-modal'));
+
+            // Get phone number
+            const phoneNumber = this.iti ? this.iti.getNumber() : document.getElementById('{{ form.phone_number.id_for_label }}').value;
+
+            // Initialize phone verification
+            if (window.phoneVerification) {
+                const result = await window.phoneVerification.sendVerificationCode(phoneNumber);
+                if (!result.success) {
+                    this.errorMessage = result.error;
+                }
+            }
+        },
+
+        resetVerification() {
+            this.verified = false;
+            this.canVerify = false;
+            const phoneInput = document.getElementById('{{ form.phone_number.id_for_label }}');
+            if (phoneInput) {
+                phoneInput.readOnly = false;
+                phoneInput.value = '';
+                phoneInput.focus();
+            }
+            // Update parent Alpine state
+            this.$dispatch('phone-unverified');
+        }
+    };
+}
+
+// Phone Verification Modal (Alpine.js)
+function phoneVerificationModal() {
+    return {
+        isOpen: false,
+        step: 'sending', // sending, code, verifying, success
+        otpDigits: ['', '', '', '', '', ''],
+        error: '',
+        maskedPhone: '',
+        resendCountdown: 60,
+        resendTimer: null,
+
+        open() {
+            this.isOpen = true;
+            this.step = 'sending';
+            this.error = '';
+            this.otpDigits = ['', '', '', '', '', ''];
+        },
+
+        close() {
+            this.isOpen = false;
+            if (this.resendTimer) clearInterval(this.resendTimer);
+        },
+
+        showCodeStep(phone) {
+            this.step = 'code';
+            this.maskedPhone = phone.slice(0, 7) + '***' + phone.slice(-2);
+            this.startResendTimer();
+            this.$nextTick(() => {
+                this.$refs?.otp0?.focus();
+            });
+        },
+
+        handleOtpInput(index, event) {
+            const value = event.target.value;
+            if (value.length === 1 && index < 5) {
+                this.$refs['otp' + (index + 1)]?.focus();
+            }
+            if (index === 5 && value.length === 1) {
+                this.verifyCode();
+            }
+        },
+
+        handleOtpBackspace(index, event) {
+            if (!event.target.value && index > 0) {
+                this.$refs['otp' + (index - 1)]?.focus();
+            }
+        },
+
+        handleOtpPaste(event) {
+            event.preventDefault();
+            const paste = (event.clipboardData || window.clipboardData).getData('text');
+            const digits = paste.replace(/\D/g, '').slice(0, 6);
+            digits.split('').forEach((d, i) => {
+                this.otpDigits[i] = d;
+            });
+            if (digits.length === 6) this.verifyCode();
+        },
+
+        async verifyCode() {
+            const code = this.otpDigits.join('');
+            if (code.length !== 6) {
+                this.error = 'Please enter the 6-digit code';
+                return;
+            }
+
+            this.step = 'verifying';
+            this.error = '';
+
+            if (window.phoneVerification) {
+                const result = await window.phoneVerification.verifyCode(code);
+                if (result.success) {
+                    this.step = 'success';
+                    // Update phone verification state
+                    window.dispatchEvent(new CustomEvent('phone-verified', { detail: result.phoneNumber }));
+                    setTimeout(() => this.close(), 2000);
+                } else {
+                    this.step = 'code';
+                    this.error = result.error;
+                    this.otpDigits = ['', '', '', '', '', ''];
+                }
+            }
+        },
+
+        async resendCode() {
+            this.step = 'sending';
+            if (window.phoneVerification) {
+                await window.phoneVerification.sendVerificationCode();
+                this.step = 'code';
+                this.startResendTimer();
+            }
+        },
+
+        startResendTimer() {
+            this.resendCountdown = 60;
+            if (this.resendTimer) clearInterval(this.resendTimer);
+            this.resendTimer = setInterval(() => {
+                this.resendCountdown--;
+                if (this.resendCountdown <= 0) {
+                    clearInterval(this.resendTimer);
+                }
+            }, 1000);
+        }
+    };
+}
+
+// Initialize global phone verification instance
+document.addEventListener('DOMContentLoaded', function() {
+    window.phoneVerification = new PhoneVerification({
+        phoneInputId: '{{ form.phone_number.id_for_label }}',
+        verifyButtonId: 'verify-phone-btn',
+        recaptchaContainerId: 'recaptcha-container',
+        csrfToken: '{{ csrf_token }}',
+        onCodeSent: (phone) => {
+            const modal = document.querySelector('[x-data="phoneVerificationModal()"]');
+            if (modal && modal.__x) {
+                modal.__x.$data.showCodeStep(phone);
+            }
+        },
+        onVerified: (phoneNumber) => {
+            window.dispatchEvent(new CustomEvent('phone-verified', { detail: phoneNumber }));
+        },
+        onError: (error) => {
+            console.error('Phone verification error:', error);
+        }
+    });
+});
+
+// Listen for verification events
+window.addEventListener('phone-verified', function(e) {
+    // Update all Alpine components
+    const phoneInput = document.getElementById('{{ form.phone_number.id_for_label }}');
+    if (phoneInput) {
+        phoneInput.value = e.detail;
+        phoneInput.readOnly = true;
+    }
+
+    // Update hidden input
+    const hiddenInput = document.querySelector('[name="phone_verified"]');
+    if (hiddenInput) hiddenInput.value = 'true';
+
+    // Update continue button
+    const continueBtn = document.getElementById('step1-continue-btn');
+    if (continueBtn) continueBtn.disabled = false;
+});
+</script>
+{% endblock %}

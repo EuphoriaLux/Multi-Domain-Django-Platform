@@ -66,13 +66,14 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.microsoft',
     # Third-party apps
     'crispy_forms',
-    'crispy_bootstrap5',
+    'crispy_tailwind',
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
     'django_htmx',  # HTMX server-side integration
     'azureproject',  # For custom analytics templatetags
     'cookie_consent',  # GDPR cookie consent banner
+    'heroicons',  # Tailwind Heroicons template tags
 ]
 
 # SITE_ID must NOT be set - CurrentSiteMiddleware determines site dynamically per request
@@ -81,8 +82,10 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'azureproject.middleware.HealthCheckMiddleware',  # MUST be first - bypasses all other middleware for /healthz/
     'django.middleware.security.SecurityMiddleware',
+    'azureproject.csp_middleware.CSPMiddleware',  # Content Security Policy header
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'azureproject.middleware.AuthRateLimitMiddleware',  # Rate limit password reset before CSRF
     'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',  # MUST be before SafeCurrentSiteMiddleware
     'azureproject.middleware.SafeCurrentSiteMiddleware',  # Safe site detection (auto-creates missing Sites)
@@ -130,9 +133,9 @@ TEMPLATES = [
                 'azureproject.analytics_context.analytics_ids',  # Domain-specific GA4/FB Pixel IDs
                 'azureproject.context_processors.admin_navigation',  # Global admin panel navigation
             ],
-            # 'builtins': [ # Simplify builtins to only include allauth account tags
-            #     'allauth.account.templatetags.account',
-            # ],
+            'builtins': [
+                'heroicons.templatetags.heroicons',  # Heroicons available in all templates
+            ],
         },
     },
 ]
@@ -212,8 +215,8 @@ SESSION_REMEMBER_ME = True
 PWA_MANIFEST_VERSION = "v16"
 
 
-CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
-CRISPY_TEMPLATE_PACK = "bootstrap5"
+CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
+CRISPY_TEMPLATE_PACK = "tailwind"
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
@@ -349,6 +352,21 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    # Custom exception handler for error sanitization in production
+    'EXCEPTION_HANDLER': 'azureproject.api_exception_handler.custom_exception_handler',
+    # Rate limiting / throttling
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '60/minute',        # Anonymous API users
+        'user': '120/minute',       # Authenticated API users
+        'login': '5/minute',        # Login attempts (custom throttle)
+        'signup': '3/minute',       # Signup attempts (custom throttle)
+        'phone_verify': '3/minute', # Phone verification (custom throttle)
+        'password_reset': '3/hour', # Password reset requests (prevent email spam)
+    }
 }
 
 SIMPLE_JWT = {
@@ -475,3 +493,12 @@ CSRF_COOKIE_HTTPONLY = False
 
 # Custom CSRF failure view with detailed logging
 CSRF_FAILURE_VIEW = 'azureproject.middleware.csrf_failure_view'
+
+# =============================================================================
+# CONTENT SECURITY POLICY (CSP) SETTINGS
+# =============================================================================
+# CSP helps prevent XSS attacks by controlling which resources can be loaded.
+# Report-Only mode logs violations without blocking - safe for initial deployment.
+# Set CSP_REPORT_ONLY = False to enforce after testing.
+CSP_REPORT_ONLY = True  # Report violations but don't block (development/initial rollout)
+CSP_REPORT_URI = '/csp-report/'  # Endpoint for violation reports

@@ -3,48 +3,63 @@
 {% block title %}Data Deletion Status - Crush.lu{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-6">
-        <div class="card">
-            <div class="card-body p-5 text-center">
-                <div class="mb-4">
-                    <i class="bi bi-check-circle text-success" style="font-size: 4rem;"></i>
+<div class="flex justify-center py-12 px-4">
+    <div class="w-full max-w-lg">
+        <div class="bg-white rounded-xl shadow-sm">
+            <div class="p-8 text-center">
+                <div class="mb-6">
+                    {% include "crush_lu/icons/check-circle.html" with class="w-16 h-16 text-green-500 mx-auto" %}
                 </div>
 
-                <h1 class="mb-3">Data Deletion Complete</h1>
+                <h1 class="text-2xl font-bold mb-3">Data Deletion Complete</h1>
 
-                <p class="text-muted mb-4">
+                <p class="text-gray-500 mb-6">
                     Your data deletion request has been processed. All personal data associated
                     with your account has been removed from our systems.
                 </p>
 
                 {% if confirmation_code %}
-                <div class="alert alert-light">
-                    <small class="text-muted">Confirmation Code:</small><br>
-                    <code>{{ confirmation_code }}</code>
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+                    <small class="text-gray-500">Confirmation Code:</small><br>
+                    <code class="text-lg">{{ confirmation_code }}</code>
                 </div>
                 {% endif %}
 
-                <div class="mt-4">
-                    <h5>What was deleted:</h5>
-                    <ul class="list-unstyled text-start">
-                        <li><i class="bi bi-check text-success me-2"></i>Profile information</li>
-                        <li><i class="bi bi-check text-success me-2"></i>Profile photos</li>
-                        <li><i class="bi bi-check text-success me-2"></i>Event registrations</li>
-                        <li><i class="bi bi-check text-success me-2"></i>Connections and messages</li>
-                        <li><i class="bi bi-check text-success me-2"></i>Facebook account link</li>
+                <div class="mt-6 text-left">
+                    <h5 class="font-semibold mb-3 text-center">What was deleted:</h5>
+                    <ul class="space-y-2">
+                        <li class="flex items-center gap-2">
+                            {% include "crush_lu/icons/check.html" with class="w-5 h-5 text-green-500" %}
+                            Profile information
+                        </li>
+                        <li class="flex items-center gap-2">
+                            {% include "crush_lu/icons/check.html" with class="w-5 h-5 text-green-500" %}
+                            Profile photos
+                        </li>
+                        <li class="flex items-center gap-2">
+                            {% include "crush_lu/icons/check.html" with class="w-5 h-5 text-green-500" %}
+                            Event registrations
+                        </li>
+                        <li class="flex items-center gap-2">
+                            {% include "crush_lu/icons/check.html" with class="w-5 h-5 text-green-500" %}
+                            Connections and messages
+                        </li>
+                        <li class="flex items-center gap-2">
+                            {% include "crush_lu/icons/check.html" with class="w-5 h-5 text-green-500" %}
+                            Facebook account link
+                        </li>
                     </ul>
                 </div>
 
-                <hr class="my-4">
+                <hr class="my-6 border-gray-200">
 
-                <p class="text-muted small">
+                <p class="text-gray-500 text-sm mb-6">
                     Some anonymized data may be retained for legal compliance as described in our
-                    <a href="{% url 'crush_lu:privacy_policy' %}">Privacy Policy</a>.
+                    <a href="{% url 'crush_lu:privacy_policy' %}" class="text-purple-600 hover:underline">Privacy Policy</a>.
                 </p>
 
-                <div class="mt-4">
-                    <a href="{% url 'crush_lu:home' %}" class="btn btn-outline-secondary">
+                <div>
+                    <a href="{% url 'crush_lu:home' %}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
                         Return to Home
                     </a>
                 </div>

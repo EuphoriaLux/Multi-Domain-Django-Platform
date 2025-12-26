@@ -23,12 +23,10 @@
             </p>
 
             <div class="countdown-preview mb-4">
-                <div class="row justify-content-center">
+                <div class="grid grid-cols-6 md:grid-cols-12 gap-2 justify-items-center">
                     {% for day in "123456789101112131415161718192021222324"|make_list %}
-                        <div class="col-2 col-md-1 mb-2">
-                            <div class="preview-door">
-                                {{ forloop.counter }}
-                            </div>
+                        <div class="preview-door">
+                            {{ forloop.counter }}
                         </div>
                     {% endfor %}
                 </div>
@@ -38,8 +36,8 @@
                 24 doors filled with surprises, just for you.
             </p>
 
-            <a href="{% url 'crush_lu:home' %}" class="btn btn-outline-light mt-4">
-                <i class="bi bi-arrow-left"></i> Back to Home
+            <a href="{% url 'crush_lu:home' %}" class="inline-flex items-center gap-2 px-6 py-3 border border-white text-white hover:bg-white/10 font-medium rounded-lg transition-colors mt-4">
+                {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back to Home
             </a>
         </div>
     </div>

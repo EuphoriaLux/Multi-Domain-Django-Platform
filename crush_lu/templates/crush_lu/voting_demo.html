@@ -4,144 +4,7 @@
 {% block title %}Voting System Demo - Crush.lu{% endblock %}
 
 {% block extra_css %}
-<style>
-    /* Tour overlay */
-    .tour-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.7);
-        z-index: 9998;
-        display: none;
-    }
-
-    .tour-overlay.active {
-        display: block;
-    }
-
-    /* Tour tooltip */
-    .tour-tooltip {
-        position: absolute;
-        background: white;
-        border-radius: 15px;
-        padding: 2rem;
-        max-width: 400px;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-        z-index: 9999;
-        display: none;
-    }
-
-    .tour-tooltip.active {
-        display: block;
-    }
-
-    .tour-tooltip h3 {
-        color: #9B59B6;
-        margin-bottom: 1rem;
-    }
-
-    .tour-tooltip-buttons {
-        display: flex;
-        gap: 1rem;
-        margin-top: 1.5rem;
-    }
-
-    .tour-highlight {
-        position: relative;
-        z-index: 10000;
-        box-shadow: 0 0 0 99999px rgba(0, 0, 0, 0.7);
-    }
-
-    /* Demo sections */
-    .demo-section {
-        border: 2px solid #e9ecef;
-        border-radius: 15px;
-        padding: 2rem;
-        margin-bottom: 2rem;
-        background: white;
-    }
-
-    .demo-section.active {
-        border-color: #9B59B6;
-        box-shadow: 0 8px 24px rgba(155, 89, 182, 0.2);
-    }
-
-    .activity-group-card {
-        border: 2px solid #e9ecef;
-        border-radius: 15px;
-        padding: 2rem;
-        margin-bottom: 2rem;
-    }
-
-    .variant-option-item {
-        border: 2px solid #e9ecef;
-        border-radius: 10px;
-        padding: 1.25rem;
-        margin-bottom: 1rem;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-
-    .variant-option-item:hover {
-        border-color: #9B59B6;
-        background-color: rgba(155, 89, 182, 0.05);
-    }
-
-    .variant-option-item:has(input:checked) {
-        border-color: #9B59B6;
-        background: linear-gradient(135deg, rgba(155, 89, 182, 0.15) 0%, rgba(255, 107, 157, 0.15) 100%);
-        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.2);
-    }
-
-    .variant-radio {
-        width: 1.5rem;
-        height: 1.5rem;
-        cursor: pointer;
-    }
-
-    .countdown-demo {
-        background: linear-gradient(135deg, #FF6B9D 0%, #9B59B6 100%);
-        color: white;
-        padding: 2rem;
-        border-radius: 15px;
-        text-align: center;
-    }
-
-    .timer-display {
-        font-size: 3rem;
-        font-weight: bold;
-        font-family: monospace;
-    }
-
-    .results-preview {
-        border: 2px solid #FFD700;
-        background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 165, 0, 0.1) 100%);
-        border-radius: 15px;
-        padding: 2rem;
-        margin-bottom: 1rem;
-    }
-
-    .progress-bar-demo {
-        height: 30px;
-        border-radius: 15px;
-        background-color: #e9ecef;
-        overflow: hidden;
-        margin-top: 1rem;
-    }
-
-    .progress-fill {
-        height: 100%;
-        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
-        transition: width 0.5s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: bold;
-    }
-</style>
+{# Styles moved to static/crush_lu/css/pages/voting.css #}
 {% endblock %}
 
 {% block content %}
@@ -150,18 +13,18 @@
     <h3 id="tourTitle"></h3>
     <p id="tourText"></p>
     <div class="tour-tooltip-buttons">
-        <button class="btn btn-outline-secondary" id="tourPrev">← Previous</button>
-        <button class="btn btn-crush-primary" id="tourNext">Next →</button>
+        <button class="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors" id="tourPrev">← Previous</button>
+        <button class="btn-crush-primary px-4 py-2" id="tourNext">Next →</button>
     </div>
 </div>
 
 <div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-10">
+    <div class="flex justify-center">
+        <div class="w-full max-w-5xl px-4">
             <div class="text-center mb-5">
                 <h1 class="display-4">🎯 Voting System Demo</h1>
                 <p class="lead text-muted">Learn how event voting works at Crush.lu</p>
-                <button class="btn btn-crush-primary btn-lg" id="startTour">
+                <button class="btn-crush-primary px-6 py-3 text-lg" id="startTour">
                     Start Guided Tour
                 </button>
             </div>
@@ -171,21 +34,21 @@
                 <h2 class="mb-4">⏰ Step 1: Voting Timeline</h2>
                 <div class="countdown-demo">
                     <h3 class="mb-3">Event Day Timeline</h3>
-                    <div class="row text-center">
-                        <div class="col-md-4 mb-3">
-                            <div class="fs-1">🎉</div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                        <div>
+                            <div class="text-4xl">🎉</div>
                             <strong>Event Starts</strong>
-                            <p class="mb-0 small">e.g., 7:00 PM</p>
+                            <p class="mb-0 text-sm">e.g., 7:00 PM</p>
                         </div>
-                        <div class="col-md-4 mb-3">
-                            <div class="fs-1">🗳️</div>
+                        <div>
+                            <div class="text-4xl">🗳️</div>
                             <strong>Voting Opens</strong>
-                            <p class="mb-0 small">15 min later (7:15 PM)</p>
+                            <p class="mb-0 text-sm">15 min later (7:15 PM)</p>
                         </div>
-                        <div class="col-md-4 mb-3">
-                            <div class="fs-1">🏆</div>
+                        <div>
+                            <div class="text-4xl">🏆</div>
                             <strong>Voting Closes</strong>
-                            <p class="mb-0 small">30 min to vote (7:45 PM)</p>
+                            <p class="mb-0 text-sm">30 min to vote (7:45 PM)</p>
                         </div>
                     </div>
                     <div class="alert alert-light mt-3 mb-0">
@@ -268,7 +131,7 @@
                     </div>
 
                     <div class="text-center">
-                        <button type="button" class="btn btn-crush-primary btn-lg px-5" id="demoSubmitBtn" disabled>
+                        <button type="button" class="btn-crush-primary px-8 py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed" id="demoSubmitBtn" disabled>
                             Submit My Vote
                         </button>
                     </div>
@@ -318,19 +181,19 @@
                 <h2 class="mb-4">💕 Step 4: Make Connections</h2>
                 <p class="text-muted mb-4">After the event, you can request connections with people you clicked with!</p>
 
-                <div class="row">
-                    <div class="col-md-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
                         <h5>✓ You Can:</h5>
-                        <ul>
+                        <ul class="list-disc list-inside space-y-1">
                             <li>View all event attendees</li>
                             <li>Send connection requests</li>
                             <li>Get coach-facilitated introductions</li>
                             <li>Exchange contact info with mutual matches</li>
                         </ul>
                     </div>
-                    <div class="col-md-6">
+                    <div>
                         <h5>🔒 Privacy Protected:</h5>
-                        <ul>
+                        <ul class="list-disc list-inside space-y-1">
                             <li>Only attendees can see each other</li>
                             <li>Coach reviews all connections</li>
                             <li>Both people must consent</li>
@@ -340,11 +203,11 @@
                 </div>
             </div>
 
-            <div class="text-center mt-5">
-                <button class="btn btn-outline-primary btn-lg me-3" id="restartTour">
+            <div class="text-center mt-5 flex flex-wrap gap-3 justify-center">
+                <button class="px-6 py-3 text-lg border border-purple-500 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" id="restartTour">
                     🔄 Replay Tour
                 </button>
-                <a href="{% url 'crush_lu:event_list' %}" class="btn btn-crush-primary btn-lg">
+                <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-primary px-6 py-3 text-lg">
                     Browse Events →
                 </a>
             </div>

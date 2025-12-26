@@ -4,106 +4,84 @@
 {% block title %}Request Connection{% endblock %}
 
 {% block content %}
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-6">
-            <!-- Header -->
-            <div class="text-center mb-4">
-                <h1 class="display-6 mb-3">Request Connection 💕</h1>
-                <p class="text-muted">{{ event.title }}</p>
+<div class="py-10">
+    <div class="max-w-lg mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-900 mb-3">Request Connection 💕</h1>
+            <p class="text-gray-500">{{ event.title }}</p>
+        </div>
+
+        <!-- Profile Card -->
+        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
+            <div class="text-center py-8 px-6">
+                {% if recipient.crushprofile.photo_1 %}
+                    <img src="{{ recipient.crushprofile.photo_1.url }}"
+                         alt="{{ recipient.first_name }}"
+                         class="w-28 h-28 rounded-full object-cover mx-auto mb-4">
+                {% else %}
+                    <div class="w-28 h-28 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 inline-flex items-center justify-center mx-auto mb-4">
+                        <span class="text-white text-4xl font-semibold">{{ recipient.first_name|first }}</span>
+                    </div>
+                {% endif %}
+
+                <h3 class="text-xl font-semibold text-gray-900 mb-1">{{ recipient.first_name }}</h3>
+                <p class="text-gray-500 mb-4">{{ recipient.crushprofile.get_age_range }}</p>
+
+                {% if recipient.crushprofile.interests %}
+                    <div class="mb-2">
+                        <span class="text-sm text-gray-500">
+                            {% include "crush_lu/icons/star.html" with class="w-5 h-5" %} {{ recipient.crushprofile.interests }}
+                        </span>
+                    </div>
+                {% endif %}
             </div>
+        </div>
 
-            <!-- Profile Card -->
-            <div class="card mb-4 shadow">
-                <div class="card-body text-center py-4">
-                    {% if recipient.crushprofile.photo_1 %}
-                        <img src="{{ recipient.crushprofile.photo_1.url }}"
-                             alt="{{ recipient.first_name }}"
-                             class="rounded-circle mb-3"
-                             style="width: 120px; height: 120px; object-fit: cover;">
-                    {% else %}
-                        <div class="rounded-circle bg-gradient-primary d-inline-flex align-items-center justify-content-center mb-3"
-                             style="width: 120px; height: 120px;">
-                            <span class="text-white fs-1">{{ recipient.first_name|first }}</span>
-                        </div>
-                    {% endif %}
+        <!-- Connection Request Form -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div class="p-6">
+                <h5 class="text-lg font-semibold text-gray-900 mb-3">Add a note (optional)</h5>
+                <p class="text-sm text-gray-500 mb-6">
+                    Help {{ recipient.first_name }} remember your conversation!
+                    This will be visible to your Crush Coach.
+                </p>
 
-                    <h3 class="mb-1">{{ recipient.first_name }}</h3>
-                    <p class="text-muted mb-3">{{ recipient.crushprofile.get_age_range }}</p>
+                <form method="post">
+                    {% csrf_token %}
 
-                    {% if recipient.crushprofile.interests %}
-                        <div class="mb-3">
-                            <small class="text-muted">
-                                <i class="bi bi-star"></i> {{ recipient.crushprofile.interests }}
-                            </small>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
+                    <div class="mb-6">
+                        <label for="note" class="block text-sm font-medium text-gray-700 mb-1">What did you talk about?</label>
+                        <textarea class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                  id="note"
+                                  name="note"
+                                  rows="4"
+                                  placeholder="We talked about hiking in Mullerthal..."
+                                  maxlength="500"></textarea>
+                        <p class="text-sm text-gray-500 mt-1">Optional - helps jog their memory</p>
+                    </div>
 
-            <!-- Connection Request Form -->
-            <div class="card shadow">
-                <div class="card-body p-4">
-                    <h5 class="card-title mb-3">Add a note (optional)</h5>
-                    <p class="text-muted small mb-4">
-                        Help {{ recipient.first_name }} remember your conversation!
-                        This will be visible to your Crush Coach.
-                    </p>
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                        <h6 class="font-medium text-blue-800 mb-2">{% include "crush_lu/icons/information-circle.html" with class="w-5 h-5" %} What happens next?</h6>
+                        <ul class="text-sm text-blue-700 space-y-1 list-disc list-inside">
+                            <li>{{ recipient.first_name }} will be notified of your request</li>
+                            <li>If they accept (or already requested you!), a Crush Coach will facilitate</li>
+                            <li>You'll both need to consent before contact info is shared</li>
+                        </ul>
+                    </div>
 
-                    <form method="post">
-                        {% csrf_token %}
-
-                        <div class="mb-4">
-                            <label for="note" class="form-label">What did you talk about?</label>
-                            <textarea class="form-control"
-                                      id="note"
-                                      name="note"
-                                      rows="4"
-                                      placeholder="We talked about hiking in Mullerthal..."
-                                      maxlength="500"></textarea>
-                            <div class="form-text">Optional - helps jog their memory</div>
-                        </div>
-
-                        <div class="alert alert-info">
-                            <h6><i class="bi bi-info-circle"></i> What happens next?</h6>
-                            <ul class="mb-0 small">
-                                <li>{{ recipient.first_name }} will be notified of your request</li>
-                                <li>If they accept (or already requested you!), a Crush Coach will facilitate</li>
-                                <li>You'll both need to consent before contact info is shared</li>
-                            </ul>
-                        </div>
-
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-gradient-primary btn-lg">
-                                <i class="bi bi-heart"></i> Send Connection Request
-                            </button>
-                            <a href="{% url 'crush_lu:event_attendees' event.id %}"
-                               class="btn btn-outline-secondary">
-                                Cancel
-                            </a>
-                        </div>
-                    </form>
-                </div>
+                    <div class="flex flex-col gap-3">
+                        <button type="submit" class="btn-crush-primary w-full py-3 text-lg font-semibold">
+                            {% include "crush_lu/icons/heart.html" with class="w-5 h-5" %} Send Connection Request
+                        </button>
+                        <a href="{% url 'crush_lu:event_attendees' event.id %}"
+                           class="w-full py-3 px-6 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-center font-medium transition-colors">
+                            Cancel
+                        </a>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 </div>
-
-<style>
-.bg-gradient-primary {
-    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
-    color: white;
-}
-
-.btn-gradient-primary {
-    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
-    border: none;
-    color: white;
-}
-
-.btn-gradient-primary:hover {
-    background: linear-gradient(135deg, #8E44AD, #E74C3C);
-    color: white;
-}
-</style>
 {% endblock %}

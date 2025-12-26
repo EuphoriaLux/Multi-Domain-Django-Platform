@@ -3,36 +3,36 @@
 {% block title %}Cancel Registration - Crush.lu{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-6">
-        <div class="card">
-            <div class="card-body p-5 text-center">
-                <h2 class="mb-4">Cancel Event Registration</h2>
+<div class="min-h-[60vh] flex items-center justify-center px-4 py-12">
+    <div class="w-full max-w-lg">
+        <div class="bg-white rounded-2xl shadow-lg p-8 text-center">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Cancel Event Registration</h2>
 
-                <div class="alert alert-warning text-start">
-                    <h5>{{ event.title }}</h5>
-                    <p class="mb-0">
-                        📅 {{ event.date_time|date:"D, M j, Y" }} at {{ event.date_time|date:"g:i A" }}<br>
-                        📍 {{ event.location }}
-                    </p>
-                </div>
-
-                <p class="mb-4">
-                    Are you sure you want to cancel your registration for this event?
+            <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 mb-6 text-left">
+                <h5 class="font-semibold mb-2">{{ event.title }}</h5>
+                <p class="text-sm">
+                    {{ event.date_time|date:"D, M j, Y" }} at {{ event.date_time|date:"g:i A" }}<br>
+                    {{ event.location }}
                 </p>
-
-                <form method="post">
-                    {% csrf_token %}
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-danger btn-lg">
-                            Yes, Cancel Registration
-                        </button>
-                        <a href="{% url 'crush_lu:dashboard' %}" class="btn btn-outline-secondary">
-                            No, Keep Registration
-                        </a>
-                    </div>
-                </form>
             </div>
+
+            <p class="text-gray-600 mb-6">
+                Are you sure you want to cancel your registration for this event?
+            </p>
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="space-y-3">
+                    <button type="submit"
+                            class="w-full py-3 px-6 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors">
+                        Yes, Cancel Registration
+                    </button>
+                    <a href="{% url 'crush_lu:dashboard' %}"
+                       class="block w-full py-3 px-6 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg text-center transition-colors">
+                        No, Keep Registration
+                    </a>
+                </div>
+            </form>
         </div>
     </div>
 </div>

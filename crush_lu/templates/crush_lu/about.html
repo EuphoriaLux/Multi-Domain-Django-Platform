@@ -53,57 +53,55 @@
 {% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <h1 class="text-center mb-5">About Crush.lu</h1>
+<div class="max-w-3xl mx-auto">
+    <h1 class="text-center text-3xl font-bold mb-10">About Crush.lu</h1>
 
-        <div class="card mb-4">
-            <div class="card-body p-4">
-                <h3>Our Mission</h3>
-                <p class="lead">
-                    We're bringing back authentic connections in Luxembourg's dating scene.
-                </p>
-                <p>
-                    In a world of endless swiping and superficial matches, Crush.lu takes a different approach.
-                    We believe that real relationships start with real conversations, face-to-face.
-                </p>
-            </div>
+    <div class="bg-white rounded-xl shadow-sm mb-6">
+        <div class="p-6">
+            <h3 class="text-xl font-semibold mb-3">Our Mission</h3>
+            <p class="text-xl text-gray-600 mb-3">
+                We're bringing back authentic connections in Luxembourg's dating scene.
+            </p>
+            <p class="text-gray-600">
+                In a world of endless swiping and superficial matches, Crush.lu takes a different approach.
+                We believe that real relationships start with real conversations, face-to-face.
+            </p>
         </div>
+    </div>
 
-        <div class="card mb-4">
-            <div class="card-body p-4">
-                <h3>Why Luxembourg?</h3>
-                <p>
-                    Luxembourg is a small, tight-knit community where privacy and discretion matter.
-                    Our platform is designed with this in mind, offering a curated experience that
-                    respects your privacy while helping you meet compatible people.
-                </p>
-            </div>
+    <div class="bg-white rounded-xl shadow-sm mb-6">
+        <div class="p-6">
+            <h3 class="text-xl font-semibold mb-3">Why Luxembourg?</h3>
+            <p class="text-gray-600">
+                Luxembourg is a small, tight-knit community where privacy and discretion matter.
+                Our platform is designed with this in mind, offering a curated experience that
+                respects your privacy while helping you meet compatible people.
+            </p>
         </div>
+    </div>
 
-        <div class="card mb-4">
-            <div class="card-body p-4">
-                <h3>The Crush Coach Difference</h3>
-                <p>
-                    Every profile on Crush.lu is reviewed by a dedicated Crush Coach. This ensures:
-                </p>
-                <ul>
-                    <li>Authentic profiles only - no bots, no catfishing</li>
-                    <li>Personalized guidance to help you present your best self</li>
-                    <li>A safer, more respectful community</li>
-                    <li>Support throughout your journey to find connections</li>
-                </ul>
-            </div>
+    <div class="bg-white rounded-xl shadow-sm mb-6">
+        <div class="p-6">
+            <h3 class="text-xl font-semibold mb-3">The Crush Coach Difference</h3>
+            <p class="text-gray-600 mb-3">
+                Every profile on Crush.lu is reviewed by a dedicated Crush Coach. This ensures:
+            </p>
+            <ul class="list-disc list-inside text-gray-600 space-y-2">
+                <li>Authentic profiles only - no bots, no catfishing</li>
+                <li>Personalized guidance to help you present your best self</li>
+                <li>A safer, more respectful community</li>
+                <li>Support throughout your journey to find connections</li>
+            </ul>
         </div>
+    </div>
 
-        <div class="card mb-4" style="background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(255, 107, 157, 0.1));">
-            <div class="card-body p-4 text-center">
-                <h3>Ready to Get Started?</h3>
-                <p class="mb-4">Join our community and start meeting new people today!</p>
-                <a href="{% url 'crush_lu:signup' %}" class="btn btn-crush-primary btn-lg">
-                    Create Your Profile
-                </a>
-            </div>
+    <div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 rounded-xl shadow-sm mb-6">
+        <div class="p-8 text-center">
+            <h3 class="text-xl font-semibold mb-3">Ready to Get Started?</h3>
+            <p class="text-gray-600 mb-6">Join our community and start meeting new people today!</p>
+            <a href="{% url 'crush_lu:signup' %}" class="btn-crush-primary inline-flex items-center justify-center px-8 py-4 text-lg">
+                Create Your Profile
+            </a>
         </div>
     </div>
 </div>

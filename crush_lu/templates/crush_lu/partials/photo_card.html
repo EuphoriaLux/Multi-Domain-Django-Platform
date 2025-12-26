@@ -1,6 +1,6 @@
 <div class="photo-upload-card {% if is_main %}photo-upload-card--main{% endif %}">
     <div class="photo-label">
-        {% if is_main %}<i class="bi bi-star-fill main-indicator"></i> Main Photo{% else %}Photo {{ slot }}{% endif %}
+        {% if is_main %}{% include "crush_lu/icons/star.html" with class="w-5 h-5" %} Main Photo{% else %}Photo {{ slot }}{% endif %}
     </div>
     <div class="photo-preview-container">
         {% if photo %}
@@ -26,7 +26,7 @@
            hx-indicator="#photo-indicator-{{ slot }}">
     <div id="photo-indicator-{{ slot }}" class="htmx-indicator tw-mt-2 tw-text-center">
         <span class="tw-text-crush-purple tw-text-sm">
-            <i class="bi bi-arrow-repeat tw-animate-spin"></i> Uploading...
+            {% include "crush_lu/icons/arrow-path.html" with class="w-5 h-5" %} Uploading...
         </span>
     </div>
     <div class="photo-help">

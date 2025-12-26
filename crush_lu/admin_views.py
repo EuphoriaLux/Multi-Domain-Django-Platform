@@ -4,6 +4,7 @@ Crush.lu Admin Analytics Dashboard Views
 Provides comprehensive analytics and insights for the Crush.lu admin panel.
 """
 from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.db.models import Count, Q, Avg, Sum, F
 from django.utils import timezone
@@ -16,6 +17,7 @@ from .models import (
 )
 
 
+@login_required
 def crush_admin_dashboard(request):
     """
     Main analytics dashboard for Crush.lu Coach Panel.

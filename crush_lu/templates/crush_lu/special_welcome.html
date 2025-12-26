@@ -341,7 +341,7 @@
     <div class="welcome-card text-center">
         {% if special_experience.vip_badge %}
         <div class="vip-badge">
-            <i class="bi bi-star-fill"></i> VIP EXPERIENCE <i class="bi bi-star-fill"></i>
+            {% include "crush_lu/icons/star.html" with class="w-5 h-5" %} VIP EXPERIENCE {% include "crush_lu/icons/star.html" with class="w-5 h-5" %}
         </div>
         {% endif %}
 
@@ -349,8 +349,8 @@
 
         <p class="welcome-message">{{ special_experience.welcome_message }}</p>
 
-        <a href="{% url 'crush_lu:journey_map' %}" class="btn btn-special">
-            Begin Your Journey <i class="bi bi-arrow-right ms-2"></i>
+        <a href="{% url 'crush_lu:journey_map' %}" class="btn-special inline-block">
+            Begin Your Journey {% include "crush_lu/icons/arrow-right.html" with class="w-5 h-5" %}
         </a>
     </div>
 </div>

@@ -6,7 +6,7 @@
 {% block advent_content %}
 <div class="advent-header">
     <a href="{% url 'crush_lu:advent_calendar' %}" class="advent-back-btn">
-        <i class="bi bi-arrow-left"></i> Back to Calendar
+        {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back to Calendar
     </a>
 </div>
 
@@ -14,7 +14,7 @@
     <div class="container">
         <div class="qr-scanner-card">
             <h2 class="text-center mb-4">
-                <i class="bi bi-qr-code-scan"></i> Scan QR Code
+                {% include "crush_lu/icons/qr-code.html" with class="w-5 h-5" %} Scan QR Code
             </h2>
 
             <p class="text-center text-muted mb-4">
@@ -35,20 +35,20 @@
                     <div class="spinner-border spinner-border-sm text-primary" role="status">
                         <span class="visually-hidden">Scanning...</span>
                     </div>
-                    <span class="ms-2">Looking for QR code...</span>
+                    <span class="ml-2">Looking for QR code...</span>
                 </div>
             </div>
 
             <!-- Manual input fallback -->
             <div class="manual-input mt-4">
-                <p class="text-center text-muted small">
+                <p class="text-center text-gray-500 text-sm">
                     Camera not working? Enter the code manually:
                 </p>
-                <form id="manual-code-form" class="d-flex gap-2">
-                    <input type="text" class="form-control" id="manual-code"
+                <form id="manual-code-form" class="flex gap-2">
+                    <input type="text" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="manual-code"
                            placeholder="Enter code from QR" autocomplete="off">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check"></i>
+                    <button type="submit" class="btn-crush-primary px-4 py-2">
+                        {% include "crush_lu/icons/check.html" with class="w-5 h-5" %}
                     </button>
                 </form>
             </div>
@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         statusEl.innerHTML = `
             <div class="text-success">
-                <i class="bi bi-check-circle fs-4"></i>
+                {% include "crush_lu/icons/check-circle.html" with class="w-6 h-6" %}
                 <div class="mt-2">QR Code detected! Redirecting...</div>
             </div>
         `;
@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Camera error:', err);
                 statusEl.innerHTML = `
                     <div class="text-warning">
-                        <i class="bi bi-exclamation-triangle"></i>
+                        {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}
                         Camera access denied. Please use manual input below.
                     </div>
                 `;
@@ -182,7 +182,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             statusEl.innerHTML = `
                 <div class="text-warning">
-                    <i class="bi bi-camera-video-off"></i>
+                    {% include "crush_lu/icons/video-camera-slash.html" with class="w-5 h-5" %}
                     No camera found. Please use manual input below.
                 </div>
             `;
@@ -191,7 +191,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Camera enumeration error:', err);
         statusEl.innerHTML = `
             <div class="text-warning">
-                <i class="bi bi-exclamation-triangle"></i>
+                {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}
                 Could not access camera. Please use manual input.
             </div>
         `;
