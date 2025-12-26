@@ -97,6 +97,8 @@ class CSPMiddleware:
             # Temporary: unsafe-inline for HTMX/Alpine.js event handlers
             # TODO: Migrate to nonce-based approach
             "'unsafe-inline'",
+            # Required for Alpine.js reactive system (uses eval internally)
+            "'unsafe-eval'",
             # CDN sources (with SRI)
             "https://unpkg.com",
             "https://cdn.jsdelivr.net",
