@@ -187,7 +187,8 @@ class CSPMiddleware:
         directives.append("frame-ancestors 'self'")
 
         # upgrade-insecure-requests: Upgrade HTTP to HTTPS
-        if not settings.DEBUG:
+        # Only add in enforcement mode (ignored in report-only mode and causes console warnings)
+        if not settings.DEBUG and not getattr(settings, 'CSP_REPORT_ONLY', True):
             directives.append("upgrade-insecure-requests")
 
         # Report violations to our endpoint
