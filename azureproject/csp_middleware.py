@@ -79,11 +79,14 @@ class CSPMiddleware:
         Build CSP policy string from settings.
 
         Policy is designed to:
-        - Allow CDN scripts (HTMX, Alpine.js, Bootstrap, Sortable.js)
+        - Allow CDN scripts (HTMX, Alpine.js CSP build, Bootstrap, Sortable.js)
         - Allow Firebase for phone verification
         - Allow OAuth providers (Google, Facebook, Microsoft)
         - Allow Azure Blob Storage for media
-        - Support HTMX and Alpine.js inline handlers (requires 'unsafe-inline' for now)
+        - Support HTMX inline handlers (requires 'unsafe-inline' for now)
+
+        Note: Using Alpine.js CSP build (@alpinejs/csp) which doesn't require
+        'unsafe-eval'. See: https://alpinejs.dev/advanced/csp
         """
         directives = []
 
@@ -97,8 +100,8 @@ class CSPMiddleware:
             # Temporary: unsafe-inline for HTMX/Alpine.js event handlers
             # TODO: Migrate to nonce-based approach
             "'unsafe-inline'",
-            # Required for Alpine.js reactive system (uses eval internally)
-            "'unsafe-eval'",
+            # NOTE: 'unsafe-eval' removed - using Alpine.js CSP build (@alpinejs/csp)
+            # which doesn't require eval. See: https://alpinejs.dev/advanced/csp
             # CDN sources (with SRI)
             "https://unpkg.com",
             "https://cdn.jsdelivr.net",
