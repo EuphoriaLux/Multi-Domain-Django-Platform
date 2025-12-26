@@ -152,5 +152,8 @@ _backup_old_apps/
 # Playwright test artifacts
 .playwright-mcp/
 
+# Visual regression test screenshots (regenerated per environment)
+crush_lu/tests/screenshots_baseline/
+
 # VSCode settings (environment-specific)
 .vscode/
