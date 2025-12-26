@@ -292,7 +292,7 @@
                 </h5>
             </div>
             <div class="p-6">
-                <form method="post" action="{% url 'crush_lu:update_email_preferences' %}" x-data="{ unsubscribeAll: {{ email_prefs.unsubscribed_all|yesno:'true,false' }} }">
+                <form method="post" action="{% url 'crush_lu:update_email_preferences' %}" x-data="emailPreferences" data-unsubscribed="{{ email_prefs.unsubscribed_all|yesno:'true,false' }}">
                     {% csrf_token %}
 
                     {% if email_prefs.unsubscribed_all %}

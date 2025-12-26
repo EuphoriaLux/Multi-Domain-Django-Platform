@@ -38,52 +38,52 @@
                 <!-- Step 1 -->
                 <div class="flex flex-col items-center">
                     <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
-                         :class="currentStep >= 1 ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gray-300'">
-                        <span x-show="!step1Completed">1</span>
+                         x-bind:class="step1CircleClass">
+                        <span x-show="step1NotCompleted">1</span>
                         <svg x-show="step1Completed" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                         </svg>
                     </div>
-                    <span class="text-xs mt-1" :class="currentStep >= 1 ? 'text-purple-600 font-medium' : 'text-gray-400'">Basic Info</span>
+                    <span class="text-xs mt-1" x-bind:class="step1TextClass">Basic Info</span>
                 </div>
 
-                <div class="w-12 h-1 mx-1" :class="step1Completed ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gray-200'"></div>
+                <div class="w-12 h-1 mx-1" x-bind:class="step1ConnectorClass"></div>
 
                 <!-- Step 2 -->
                 <div class="flex flex-col items-center">
                     <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
-                         :class="currentStep >= 2 ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gray-300'">
-                        <span x-show="!step2Completed">2</span>
+                         x-bind:class="step2CircleClass">
+                        <span x-show="step2NotCompleted">2</span>
                         <svg x-show="step2Completed" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                         </svg>
                     </div>
-                    <span class="text-xs mt-1" :class="currentStep >= 2 ? 'text-purple-600 font-medium' : 'text-gray-400'">About You</span>
+                    <span class="text-xs mt-1" x-bind:class="step2TextClass">About You</span>
                 </div>
 
-                <div class="w-12 h-1 mx-1" :class="step2Completed ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gray-200'"></div>
+                <div class="w-12 h-1 mx-1" x-bind:class="step2ConnectorClass"></div>
 
                 <!-- Step 3 -->
                 <div class="flex flex-col items-center">
                     <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
-                         :class="currentStep >= 3 ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gray-300'">
-                        <span x-show="!step3Completed">3</span>
+                         x-bind:class="step3CircleClass">
+                        <span x-show="step3NotCompleted">3</span>
                         <svg x-show="step3Completed" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                         </svg>
                     </div>
-                    <span class="text-xs mt-1" :class="currentStep >= 3 ? 'text-purple-600 font-medium' : 'text-gray-400'">Photos</span>
+                    <span class="text-xs mt-1" x-bind:class="step3TextClass">Photos</span>
                 </div>
 
-                <div class="w-12 h-1 mx-1" :class="step3Completed ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gray-200'"></div>
+                <div class="w-12 h-1 mx-1" x-bind:class="step3ConnectorClass"></div>
 
                 <!-- Step 4 -->
                 <div class="flex flex-col items-center">
                     <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
-                         :class="currentStep >= 4 ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gray-300'">
+                         x-bind:class="step4CircleClass">
                         4
                     </div>
-                    <span class="text-xs mt-1" :class="currentStep >= 4 ? 'text-purple-600 font-medium' : 'text-gray-400'">Review</span>
+                    <span class="text-xs mt-1" x-bind:class="step4TextClass">Review</span>
                 </div>
             </div>
         </div>
@@ -145,7 +145,7 @@
                      x-data="phoneVerificationComponent()">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
                         {% include "crush_lu/icons/phone.html" with class="w-5 h-5" %} Phone Number *
-                        <span x-show="!verified"
+                        <span x-show="notVerified"
                               class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 ml-2">
                             Verification Required
                         </span>
@@ -165,14 +165,14 @@
                                    id="{{ form.phone_number.id_for_label }}"
                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                                    value="{{ profile.phone_number|default:'' }}"
-                                   :readonly="verified"
+                                   x-bind:readonly="verified"
                                    @input="onPhoneInput($event)"
                                    required>
                         </div>
                         <button type="button"
-                                x-show="!verified"
+                                x-show="notVerified"
                                 @click="startVerification()"
-                                :disabled="!canVerify"
+                                x-bind:disabled="cannotVerify"
                                 class="px-4 py-3 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2">
                             {% include "crush_lu/icons/shield-check.html" with class="w-5 h-5" %}
                             <span class="hidden sm:inline">Verify</span>
@@ -200,7 +200,7 @@
                          class="mt-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm"
                          x-text="errorMessage"></div>
 
-                    <input type="hidden" name="phone_verified" :value="verified ? 'true' : 'false'">
+                    <input type="hidden" name="phone_verified" x-bind:value="verifiedValue">
                 </div>
 
                 <!-- reCAPTCHA container -->
@@ -297,8 +297,8 @@
 
                 <!-- Continue Button -->
                 <button type="button"
-                        @click="if(phoneVerified) nextStep()"
-                        :disabled="!phoneVerified"
+                        @click="nextStepIfVerified"
+                        x-bind:disabled="notPhoneVerified"
                         class="w-full py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold
                                hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed
                                transition-all duration-300 flex items-center justify-center gap-2"
@@ -310,7 +310,7 @@
                 </button>
 
                 <!-- Warning when phone not verified -->
-                <div x-show="!phoneVerified" x-cloak
+                <div x-show="notPhoneVerified" x-cloak
                      class="mt-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
                     <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
@@ -332,7 +332,7 @@
                 </div>
 
                 <!-- Bio -->
-                <div class="mb-6" x-data="{ charCount: {{ profile.bio|length|default:0 }} }">
+                <div class="mb-6" x-data="charCounter" data-initial-count="{{ profile.bio|length|default:0 }}" data-max-length="500">
                     <label for="{{ form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
                         {% include "crush_lu/icons/chat-bubble-left.html" with class="w-5 h-5" %} Bio
                         <span class="text-xs text-gray-400 font-normal ml-1">Optional</span>
@@ -342,7 +342,7 @@
                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none"
                               rows="4"
                               maxlength="500"
-                              @input="charCount = $event.target.value.length"
+                              @input="updateCount"
                               placeholder="Tell us about yourself... What do you love? What makes you smile?">{{ profile.bio|default:"" }}</textarea>
                     <div class="text-right text-sm text-gray-400 mt-1">
                         <span x-text="charCount"></span>/500 characters
@@ -409,7 +409,7 @@
                 </div>
 
                 <!-- Custom Interests -->
-                <div class="mb-6" x-data="{ charCount: {{ profile.interests|length|default:0 }} }">
+                <div class="mb-6" x-data="charCounter" data-initial-count="{{ profile.interests|length|default:0 }}" data-max-length="300">
                     <label for="{{ form.interests.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
                         {% include "crush_lu/icons/pencil.html" with class="w-5 h-5" %} Or write your own interests
                     </label>
@@ -418,7 +418,7 @@
                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none"
                               rows="2"
                               maxlength="300"
-                              @input="charCount = $event.target.value.length"
+                              @input="updateCount"
                               placeholder="e.g., hiking, photography, cooking...">{{ profile.interests|default:"" }}</textarea>
                     <div class="text-right text-sm text-gray-400 mt-1">
                         <span x-text="charCount"></span>/300 characters
@@ -512,65 +512,94 @@
 
                 <!-- Photo Upload Grid -->
                 <div class="grid grid-cols-3 gap-4 mb-6"
-                     x-data="{
-                        photos: [
-                            { id: 1, hasImage: {{ profile.photo_1|yesno:'true,false' }}, preview: '{% if profile.photo_1 %}{{ profile.photo_1.url }}{% endif %}' },
-                            { id: 2, hasImage: {{ profile.photo_2|yesno:'true,false' }}, preview: '{% if profile.photo_2 %}{{ profile.photo_2.url }}{% endif %}' },
-                            { id: 3, hasImage: {{ profile.photo_3|yesno:'true,false' }}, preview: '{% if profile.photo_3 %}{{ profile.photo_3.url }}{% endif %}' }
-                        ],
-                        handleFileSelect(index, event) {
-                            const file = event.target.files[0];
-                            if (file) {
-                                const reader = new FileReader();
-                                reader.onload = (e) => {
-                                    this.photos[index].preview = e.target.result;
-                                    this.photos[index].hasImage = true;
-                                };
-                                reader.readAsDataURL(file);
-                            }
-                        },
-                        removePhoto(index) {
-                            this.photos[index].preview = '';
-                            this.photos[index].hasImage = false;
-                            document.getElementById('photo' + (index + 1)).value = '';
-                        }
-                     }">
-                    <template x-for="(photo, index) in photos" :key="photo.id">
-                        <div class="relative aspect-square">
-                            <input type="file"
-                                   :name="'photo_' + photo.id"
-                                   :id="'photo' + photo.id"
-                                   accept="image/*"
-                                   class="hidden"
-                                   @change="handleFileSelect(index, $event)">
-                            <label :for="'photo' + photo.id"
-                                   class="block w-full h-full border-2 border-dashed border-gray-300 rounded-xl
-                                          cursor-pointer hover:border-purple-400 transition-all overflow-hidden
-                                          bg-gray-50 hover:bg-purple-50">
-                                <!-- Preview or placeholder -->
-                                <div x-show="photo.hasImage" class="w-full h-full">
-                                    <img :src="photo.preview" class="w-full h-full object-cover" alt="Photo preview">
-                                </div>
-                                <div x-show="!photo.hasImage" class="w-full h-full flex flex-col items-center justify-center text-gray-400">
-                                    <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                    </svg>
-                                    <span class="text-sm" x-text="'Photo ' + photo.id"></span>
-                                </div>
-                            </label>
-                            <!-- Remove button -->
-                            <button type="button"
-                                    x-show="photo.hasImage"
-                                    @click="removePhoto(index)"
-                                    class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full
-                                           flex items-center justify-center hover:bg-red-600 transition shadow-lg">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                     x-data="photoUpload"
+                     data-photo-1-exists="{{ profile.photo_1|yesno:'true,false' }}"
+                     data-photo-1-url="{% if profile.photo_1 %}{{ profile.photo_1.url }}{% endif %}"
+                     data-photo-2-exists="{{ profile.photo_2|yesno:'true,false' }}"
+                     data-photo-2-url="{% if profile.photo_2 %}{{ profile.photo_2.url }}{% endif %}"
+                     data-photo-3-exists="{{ profile.photo_3|yesno:'true,false' }}"
+                     data-photo-3-url="{% if profile.photo_3 %}{{ profile.photo_3.url }}{% endif %}">
+                    <!-- Photo 1 -->
+                    <div class="relative aspect-square">
+                        <input type="file" name="photo_1" id="photo1" accept="image/*" class="hidden"
+                               @change="handleFile1">
+                        <label for="photo1"
+                               class="block w-full h-full border-2 border-dashed border-gray-300 rounded-xl
+                                      cursor-pointer hover:border-purple-400 transition-all overflow-hidden
+                                      bg-gray-50 hover:bg-purple-50">
+                            <div x-show="photos[0].hasImage" class="w-full h-full">
+                                <img x-bind:src="photos[0].preview" class="w-full h-full object-cover" alt="Photo preview">
+                            </div>
+                            <div x-show="photo1NoImage" class="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                                <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
                                 </svg>
-                            </button>
-                        </div>
-                    </template>
+                                <span class="text-sm">Photo 1</span>
+                            </div>
+                        </label>
+                        <button type="button" x-show="photos[0].hasImage" @click="removePhoto1"
+                                class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full
+                                       flex items-center justify-center hover:bg-red-600 transition shadow-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <!-- Photo 2 -->
+                    <div class="relative aspect-square">
+                        <input type="file" name="photo_2" id="photo2" accept="image/*" class="hidden"
+                               @change="handleFile2">
+                        <label for="photo2"
+                               class="block w-full h-full border-2 border-dashed border-gray-300 rounded-xl
+                                      cursor-pointer hover:border-purple-400 transition-all overflow-hidden
+                                      bg-gray-50 hover:bg-purple-50">
+                            <div x-show="photos[1].hasImage" class="w-full h-full">
+                                <img x-bind:src="photos[1].preview" class="w-full h-full object-cover" alt="Photo preview">
+                            </div>
+                            <div x-show="photo2NoImage" class="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                                <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                </svg>
+                                <span class="text-sm">Photo 2</span>
+                            </div>
+                        </label>
+                        <button type="button" x-show="photos[1].hasImage" @click="removePhoto2"
+                                class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full
+                                       flex items-center justify-center hover:bg-red-600 transition shadow-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <!-- Photo 3 -->
+                    <div class="relative aspect-square">
+                        <input type="file" name="photo_3" id="photo3" accept="image/*" class="hidden"
+                               @change="handleFile3">
+                        <label for="photo3"
+                               class="block w-full h-full border-2 border-dashed border-gray-300 rounded-xl
+                                      cursor-pointer hover:border-purple-400 transition-all overflow-hidden
+                                      bg-gray-50 hover:bg-purple-50">
+                            <div x-show="photos[2].hasImage" class="w-full h-full">
+                                <img x-bind:src="photos[2].preview" class="w-full h-full object-cover" alt="Photo preview">
+                            </div>
+                            <div x-show="photo3NoImage" class="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                                <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                </svg>
+                                <span class="text-sm">Photo 3</span>
+                            </div>
+                        </label>
+                        <button type="button" x-show="photos[2].hasImage" @click="removePhoto3"
+                                class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full
+                                       flex items-center justify-center hover:bg-red-600 transition shadow-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Photo tip -->
@@ -825,40 +854,45 @@
                 </h3>
 
                 <!-- Step: Sending -->
-                <div x-show="step === 'sending'" class="text-center py-8">
+                <div x-show="isSendingStep" class="text-center py-8">
                     <div class="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                     <p class="text-gray-600">Sending verification code...</p>
                 </div>
 
                 <!-- Step: Enter Code -->
-                <div x-show="step === 'code'" class="text-center">
+                <div x-show="isCodeStep" class="text-center">
                     <p class="mb-4">
                         We sent a 6-digit code to<br>
                         <strong x-text="maskedPhone"></strong>
                     </p>
 
-                    <!-- OTP Inputs -->
+                    <!-- OTP Inputs - Individual inputs for CSP compatibility -->
                     <div class="flex justify-center gap-2 mb-4">
-                        <template x-for="(digit, index) in otpDigits" :key="index">
-                            <input type="text"
-                                   maxlength="1"
-                                   inputmode="numeric"
-                                   pattern="[0-9]"
-                                   x-model="otpDigits[index]"
-                                   @input="handleOtpInput(index, $event)"
-                                   @keydown.backspace="handleOtpBackspace(index, $event)"
-                                   @paste="handleOtpPaste($event)"
-                                   :x-ref="'otp' + index"
-                                   class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg
-                                          focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
-                        </template>
+                        <input type="text" id="otp-0" x-ref="otp0" maxlength="1" inputmode="numeric" pattern="[0-9]"
+                               x-model="otpDigits[0]" @input="handleOtpInput(0, $event)" @keydown.backspace="handleOtpBackspace(0, $event)" @paste="handleOtpPaste($event)"
+                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                        <input type="text" id="otp-1" x-ref="otp1" maxlength="1" inputmode="numeric" pattern="[0-9]"
+                               x-model="otpDigits[1]" @input="handleOtpInput(1, $event)" @keydown.backspace="handleOtpBackspace(1, $event)" @paste="handleOtpPaste($event)"
+                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                        <input type="text" id="otp-2" x-ref="otp2" maxlength="1" inputmode="numeric" pattern="[0-9]"
+                               x-model="otpDigits[2]" @input="handleOtpInput(2, $event)" @keydown.backspace="handleOtpBackspace(2, $event)" @paste="handleOtpPaste($event)"
+                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                        <input type="text" id="otp-3" x-ref="otp3" maxlength="1" inputmode="numeric" pattern="[0-9]"
+                               x-model="otpDigits[3]" @input="handleOtpInput(3, $event)" @keydown.backspace="handleOtpBackspace(3, $event)" @paste="handleOtpPaste($event)"
+                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                        <input type="text" id="otp-4" x-ref="otp4" maxlength="1" inputmode="numeric" pattern="[0-9]"
+                               x-model="otpDigits[4]" @input="handleOtpInput(4, $event)" @keydown.backspace="handleOtpBackspace(4, $event)" @paste="handleOtpPaste($event)"
+                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                        <input type="text" id="otp-5" x-ref="otp5" maxlength="1" inputmode="numeric" pattern="[0-9]"
+                               x-model="otpDigits[5]" @input="handleOtpInput(5, $event)" @keydown.backspace="handleOtpBackspace(5, $event)" @paste="handleOtpPaste($event)"
+                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
                     </div>
 
                     <!-- Error message -->
-                    <div x-show="error" class="bg-red-50 text-red-700 px-4 py-2 rounded-lg text-sm mb-4" x-text="error"></div>
+                    <div x-show="hasError" class="bg-red-50 text-red-700 px-4 py-2 rounded-lg text-sm mb-4" x-text="error"></div>
 
                     <button @click="verifyCode()"
-                            :disabled="otpDigits.join('').length !== 6"
+                            x-bind:disabled="isCodeIncomplete"
                             class="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold
                                    hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 transition">
                         Verify Code
@@ -866,10 +900,10 @@
 
                     <!-- Resend -->
                     <div class="mt-4 text-sm text-gray-500">
-                        <span x-show="resendCountdown > 0">
+                        <span x-show="cannotResend">
                             Resend available in <span x-text="resendCountdown"></span>s
                         </span>
-                        <button x-show="resendCountdown === 0"
+                        <button x-show="canResend"
                                 @click="resendCode()"
                                 class="text-purple-600 hover:text-purple-800 font-medium">
                             Resend Code
@@ -878,13 +912,13 @@
                 </div>
 
                 <!-- Step: Verifying -->
-                <div x-show="step === 'verifying'" class="text-center py-8">
+                <div x-show="isVerifyingStep" class="text-center py-8">
                     <div class="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                     <p class="text-gray-600">Verifying your code...</p>
                 </div>
 
                 <!-- Step: Success -->
-                <div x-show="step === 'success'" class="text-center py-8">
+                <div x-show="isSuccessStep" class="text-center py-8">
                     <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <svg class="w-10 h-10 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
@@ -925,6 +959,11 @@ function phoneVerificationComponent() {
         canVerify: false,
         errorMessage: '',
         iti: null,
+
+        // Computed getters for CSP compatibility
+        get notVerified() { return !this.verified; },
+        get cannotVerify() { return !this.canVerify; },
+        get verifiedValue() { return this.verified ? 'true' : 'false'; },
 
         init() {
             const phoneInput = document.getElementById('{{ form.phone_number.id_for_label }}');
@@ -1016,6 +1055,17 @@ function phoneVerificationModal() {
         maskedPhone: '',
         resendCountdown: 60,
         resendTimer: null,
+
+        // Computed getters for CSP compatibility
+        get isSendingStep() { return this.step === 'sending'; },
+        get isCodeStep() { return this.step === 'code'; },
+        get isVerifyingStep() { return this.step === 'verifying'; },
+        get isSuccessStep() { return this.step === 'success'; },
+        get canResend() { return this.resendCountdown === 0; },
+        get cannotResend() { return this.resendCountdown > 0; },
+        get hasError() { return Boolean(this.error); },
+        get isCodeComplete() { return this.otpDigits.join('').length === 6; },
+        get isCodeIncomplete() { return this.otpDigits.join('').length !== 6; },
 
         open() {
             this.isOpen = true;
