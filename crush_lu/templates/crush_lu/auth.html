@@ -10,11 +10,7 @@
         <div class="auth-card bg-white rounded-2xl shadow-lg">
             <div class="p-6 md:p-10">
                 <!-- Tab Navigation - Alpine.js Tabs -->
-                <div x-data="{
-                    activeTab: '{% if mode == 'signup' %}signup{% else %}login{% endif %}',
-                    setLogin() { this.activeTab = 'login' },
-                    setSignup() { this.activeTab = 'signup' }
-                }" class="auth-tabs-container mb-6">
+                <div x-data="tabNav" data-initial-tab="{% if mode == 'signup' %}signup{% else %}login{% endif %}" class="auth-tabs-container mb-6">
                     <div class="auth-tabs flex bg-purple-100 rounded-full p-1 border border-purple-200">
                         <button type="button"
                                 @click="setLogin"

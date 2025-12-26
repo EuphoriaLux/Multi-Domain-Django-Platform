@@ -37,7 +37,7 @@
                         </thead>
                         <tbody>
                             {% for profile in pending_calls %}
-                            <tr x-data="{ showCompleteModal: false, openModal() { this.showCompleteModal = true }, closeModal() { this.showCompleteModal = false } }" class="border-b border-gray-100 hover:bg-gray-50">
+                            <tr x-data="screeningRow" class="border-b border-gray-100 hover:bg-gray-50">
                                 <td class="py-4 px-2">
                                     <strong>{{ profile.user.first_name }} {{ profile.user.last_name }}</strong><br>
                                     <span class="text-sm text-gray-500">{{ profile.user.email }}</span>
@@ -170,7 +170,7 @@
                         </thead>
                         <tbody>
                             {% for profile in completed_calls %}
-                            <tr x-data="{ showNotesModal: false, openNotesModal() { this.showNotesModal = true }, closeNotesModal() { this.showNotesModal = false } }" class="border-b border-gray-100">
+                            <tr x-data="completedScreeningRow" class="border-b border-gray-100">
                                 <td class="py-3 px-2">
                                     <strong>{{ profile.user.first_name }} {{ profile.user.last_name }}</strong>
                                 </td>
