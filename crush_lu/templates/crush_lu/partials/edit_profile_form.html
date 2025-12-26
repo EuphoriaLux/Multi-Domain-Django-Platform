@@ -1,19 +1,19 @@
 {% load static %}
 
 {% if has_errors %}
-<div x-data="{ show: true }" x-show="show" x-transition class="alert alert-danger alert-dismissible fade show tw-mb-4" role="alert">
+<div x-data="{ show: true, dismiss() { this.show = false } }" x-show="show" x-transition class="alert alert-danger alert-dismissible fade show tw-mb-4" role="alert">
     {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}
     Please correct the errors below.
-    <button @click="show = false" type="button" class="btn-close" aria-label="Dismiss">
+    <button @click="dismiss" type="button" class="btn-close" aria-label="Dismiss">
         {% include "crush_lu/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
     </button>
 </div>
 {% endif %}
 
 {% if form.non_field_errors %}
-    <div x-data="{ show: true }" x-show="show" x-transition class="alert alert-danger alert-dismissible fade show" role="alert">
+    <div x-data="{ show: true, dismiss() { this.show = false } }" x-show="show" x-transition class="alert alert-danger alert-dismissible fade show" role="alert">
         {{ form.non_field_errors }}
-        <button @click="show = false" type="button" class="btn-close" aria-label="Dismiss">
+        <button @click="dismiss" type="button" class="btn-close" aria-label="Dismiss">
             {% include "crush_lu/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
         </button>
     </div>

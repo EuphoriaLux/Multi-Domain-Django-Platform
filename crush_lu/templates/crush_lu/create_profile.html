@@ -48,16 +48,16 @@
             {% csrf_token %}
 
             {% if form.non_field_errors %}
-                <div x-data="{ show: true }" x-show="show" x-transition class="alert alert-danger alert-dismissible fade show" role="alert">
+                <div x-data="{ show: true, dismiss() { this.show = false } }" x-show="show" x-transition class="alert alert-danger alert-dismissible fade show" role="alert">
                     {{ form.non_field_errors }}
-                    <button @click="show = false" type="button" class="btn-close" aria-label="Dismiss">
+                    <button @click="dismiss" type="button" class="btn-close" aria-label="Dismiss">
                         {% include "crush_lu/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
                     </button>
                 </div>
             {% endif %}
 
             {% if form.errors %}
-                <div x-data="{ show: true }" x-show="show" x-transition class="alert alert-danger alert-dismissible fade show" role="alert">
+                <div x-data="{ show: true, dismiss() { this.show = false } }" x-show="show" x-transition class="alert alert-danger alert-dismissible fade show" role="alert">
                     <strong aria-hidden="true">❌</strong> Please fix the following errors:
                     <ul class="mb-0 mt-2">
                         {% for field, errors in form.errors.items %}
@@ -72,7 +72,7 @@
                             {% endfor %}
                         {% endfor %}
                     </ul>
-                    <button @click="show = false" type="button" class="btn-close" aria-label="Dismiss">
+                    <button @click="dismiss" type="button" class="btn-close" aria-label="Dismiss">
                         {% include "crush_lu/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
                     </button>
                 </div>

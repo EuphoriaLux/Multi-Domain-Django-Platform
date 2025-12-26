@@ -37,7 +37,7 @@
                         </thead>
                         <tbody>
                             {% for profile in pending_calls %}
-                            <tr x-data="{ showCompleteModal: false }" class="border-b border-gray-100 hover:bg-gray-50">
+                            <tr x-data="{ showCompleteModal: false, openModal() { this.showCompleteModal = true }, closeModal() { this.showCompleteModal = false } }" class="border-b border-gray-100 hover:bg-gray-50">
                                 <td class="py-4 px-2">
                                     <strong>{{ profile.user.first_name }} {{ profile.user.last_name }}</strong><br>
                                     <span class="text-sm text-gray-500">{{ profile.user.email }}</span>
@@ -57,7 +57,7 @@
                                     </span>
                                 </td>
                                 <td class="py-4 px-2">
-                                    <button @click="showCompleteModal = true"
+                                    <button @click="openModal"
                                             class="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors">
                                         {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Mark Complete
                                     </button>
@@ -72,9 +72,9 @@
                                          x-transition:leave-start="opacity-100"
                                          x-transition:leave-end="opacity-0"
                                          class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-                                         @keydown.escape.window="showCompleteModal = false">
+                                         @keydown.escape.window="closeModal">
                                         <div class="bg-white rounded-2xl shadow-xl max-w-md w-full"
-                                             @click.outside="showCompleteModal = false"
+                                             @click.outside="closeModal"
                                              x-transition:enter="transition ease-out duration-200"
                                              x-transition:enter-start="opacity-0 scale-95"
                                              x-transition:enter-end="opacity-100 scale-100"
@@ -83,7 +83,7 @@
                                              x-transition:leave-end="opacity-0 scale-95">
                                             <div class="flex items-center justify-between p-5 border-b border-gray-100">
                                                 <h5 class="font-semibold">Complete Screening Call</h5>
-                                                <button @click="showCompleteModal = false" class="text-gray-400 hover:text-gray-600">
+                                                <button @click="closeModal" class="text-gray-400 hover:text-gray-600">
                                                     {% include "crush_lu/icons/x-mark.html" with class="w-5 h-5" %}
                                                 </button>
                                             </div>
@@ -121,7 +121,7 @@
                                                     </div>
                                                 </div>
                                                 <div class="flex justify-end gap-3 p-5 border-t border-gray-100">
-                                                    <button type="button" @click="showCompleteModal = false"
+                                                    <button type="button" @click="closeModal"
                                                             class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                                                         Cancel
                                                     </button>
@@ -170,7 +170,7 @@
                         </thead>
                         <tbody>
                             {% for profile in completed_calls %}
-                            <tr x-data="{ showNotesModal: false }" class="border-b border-gray-100">
+                            <tr x-data="{ showNotesModal: false, openNotesModal() { this.showNotesModal = true }, closeNotesModal() { this.showNotesModal = false } }" class="border-b border-gray-100">
                                 <td class="py-3 px-2">
                                     <strong>{{ profile.user.first_name }} {{ profile.user.last_name }}</strong>
                                 </td>
@@ -179,7 +179,7 @@
                                     <span class="text-gray-500">{{ profile.screening_call_scheduled|timesince }} ago</span>
                                 </td>
                                 <td class="py-3 px-2">
-                                    <button @click="showNotesModal = true"
+                                    <button @click="openNotesModal"
                                             class="inline-flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors">
                                         {% include "crush_lu/icons/eye.html" with class="w-5 h-5" %} View Notes
                                     </button>
@@ -194,8 +194,8 @@
                                          x-transition:leave-start="opacity-100"
                                          x-transition:leave-end="opacity-0"
                                          class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-                                         @click.self="showNotesModal = false"
-                                         @keydown.escape.window="showNotesModal = false">
+                                         @click.self="closeNotesModal"
+                                         @keydown.escape.window="closeNotesModal">
                                         <div class="bg-white rounded-2xl shadow-xl max-w-md w-full"
                                              x-transition:enter="transition ease-out duration-200"
                                              x-transition:enter-start="opacity-0 scale-95"
@@ -205,7 +205,7 @@
                                              x-transition:leave-end="opacity-0 scale-95">
                                             <div class="flex items-center justify-between p-5 border-b border-gray-100">
                                                 <h5 class="font-semibold">Screening Notes</h5>
-                                                <button @click="showNotesModal = false" class="text-gray-400 hover:text-gray-600">
+                                                <button @click="closeNotesModal" class="text-gray-400 hover:text-gray-600">
                                                     {% include "crush_lu/icons/x-mark.html" with class="w-5 h-5" %}
                                                 </button>
                                             </div>
@@ -217,7 +217,7 @@
                                                 <p class="text-gray-600">{{ profile.screening_notes|default:"No notes recorded"|linebreaks }}</p>
                                             </div>
                                             <div class="flex justify-end p-5 border-t border-gray-100">
-                                                <button @click="showNotesModal = false"
+                                                <button @click="closeNotesModal"
                                                         class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                                                     Close
                                                 </button>
