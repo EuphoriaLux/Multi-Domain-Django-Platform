@@ -142,7 +142,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 /**
  * Double-submit prevention for signup form
  * Prevents users from clicking the button multiple times while waiting
@@ -174,7 +174,7 @@
 })();
 </script>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 /**
  * OAuth Handler for Crush.lu Signup - Unified for Google and Facebook
  *

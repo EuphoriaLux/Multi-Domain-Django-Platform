@@ -338,7 +338,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', () => {
     // Add some sparkle effects
     const paper = document.querySelector('.letter-paper');

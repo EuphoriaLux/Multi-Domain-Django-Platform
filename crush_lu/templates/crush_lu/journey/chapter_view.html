@@ -477,7 +477,7 @@
 {% endblock %}
 
 {% block extra_journey_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Custom template filter helper
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Chapter {{ chapter.chapter_number }} loaded');

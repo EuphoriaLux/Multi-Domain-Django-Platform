@@ -288,7 +288,7 @@
 {% endblock %}
 
 {% block extra_journey_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 const challengeId = {{ challenge.id }};
 const answerInput = document.getElementById('answerInput');
 const submitBtn = document.getElementById('submitBtn');

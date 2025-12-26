@@ -137,7 +137,7 @@
 </div>
 
 <!-- Journey State Manager -->
-<script>
+<script nonce="{{ request.csp_nonce }}">
     // CSRF token helper
     function getCsrfToken() {
         let cookieValue = null;

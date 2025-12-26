@@ -217,7 +217,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 class VotingTour {
     constructor() {
         this.currentStep = 0;

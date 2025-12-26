@@ -311,7 +311,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
     // Initialize debug panel
     document.addEventListener('DOMContentLoaded', async function() {
         updateSWStatus();

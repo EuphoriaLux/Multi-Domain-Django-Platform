@@ -94,14 +94,14 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Pass CSRF token to JavaScript
 const csrfToken = '{{ csrf_token }}';
 // Store current presenter info for change detection
 let currentPresenterId = {% if current_presentation %}{{ current_presentation.user.id }}{% else %}null{% endif %};
 let lastCompletedCount = {{ completed_presentations }};
 </script>
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', () => {
     // Poll for updates every 5 seconds (coach panel updates less frequently)
     const pollInterval = setInterval(async () => {

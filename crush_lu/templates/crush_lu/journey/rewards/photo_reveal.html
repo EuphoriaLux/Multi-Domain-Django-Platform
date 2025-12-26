@@ -382,7 +382,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', async () => {
     const puzzleGrid = document.getElementById('puzzleGrid');
     const progressFill = document.getElementById('progressFill');

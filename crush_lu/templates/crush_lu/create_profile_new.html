@@ -965,7 +965,7 @@ class="profile-creation-wrapper">
 <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/intlTelInput.min.js"></script>
 
 <!-- Firebase Configuration -->
-<script>
+<script nonce="{{ request.csp_nonce }}">
     window.FIREBASE_API_KEY = "{{ firebase_api_key }}";
     window.FIREBASE_AUTH_DOMAIN = "{{ firebase_auth_domain }}";
     window.FIREBASE_PROJECT_ID = "{{ firebase_project_id }}";
@@ -974,7 +974,7 @@ class="profile-creation-wrapper">
 <!-- Phone verification module -->
 <script src="{% static 'crush_lu/js/phone-verification.js' %}"></script>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Phone Verification Component (Alpine.js)
 function phoneVerificationComponent() {
     return {

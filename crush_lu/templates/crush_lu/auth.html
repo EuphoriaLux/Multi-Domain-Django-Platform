@@ -217,7 +217,7 @@
 
 {% block extra_js %}
 <script src="{% static 'crush_lu/js/oauth-popup.js' %}"></script>
-<script>
+<script nonce="{{ request.csp_nonce }}">
 /**
  * Unified Auth Page Handler
  */

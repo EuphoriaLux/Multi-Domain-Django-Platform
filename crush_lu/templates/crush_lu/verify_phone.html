@@ -154,7 +154,7 @@
 <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/intlTelInput.min.js"></script>
 
 <!-- Firebase Configuration from Django settings (via environment variables) -->
-<script>
+<script nonce="{{ request.csp_nonce }}">
     window.FIREBASE_API_KEY = "{{ firebase_api_key }}";
     window.FIREBASE_AUTH_DOMAIN = "{{ firebase_auth_domain }}";
     window.FIREBASE_PROJECT_ID = "{{ firebase_project_id }}";
@@ -162,7 +162,7 @@
 
 <!-- Phone Verification Module -->
 <script src="{% static 'crush_lu/js/phone-verification.js' %}"></script>
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     // UI Elements
     const phoneInputSection = document.getElementById('phone-input-section');

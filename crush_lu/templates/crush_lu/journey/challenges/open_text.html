@@ -296,7 +296,7 @@
 {% endblock %}
 
 {% block extra_journey_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     const challengeId = {{ challenge.id }};
     const textInput = document.getElementById('textInput');

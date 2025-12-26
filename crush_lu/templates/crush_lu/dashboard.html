@@ -198,7 +198,7 @@
 
 <!-- Styles are in static/crush_lu/css/pages/dashboard.css -->
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Push Notification UI Handler
 (function() {
     const statusDiv = document.getElementById('push-status');

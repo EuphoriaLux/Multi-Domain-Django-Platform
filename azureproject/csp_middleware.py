@@ -148,8 +148,10 @@ class CSPMiddleware:
         # connect-src: API endpoints, analytics, and WebSocket
         connect_src = [
             "'self'",
-            # CDN for service worker caching (HTMX, Alpine.js, Sortable.js)
+            # CDN for service worker caching (HTMX, Alpine.js, Sortable.js, html5-qrcode)
             "https://cdn.jsdelivr.net",
+            "https://unpkg.com",
+            "https://www.gstatic.com",  # Firebase SDK scripts
             # Analytics
             "https://www.google-analytics.com",
             "https://www.googletagmanager.com",
@@ -163,7 +165,8 @@ class CSPMiddleware:
             "https://ipapi.co",
             # Azure Blob Storage (media files)
             "https://*.blob.core.windows.net",
-            # Azure Application Insights telemetry endpoints
+            # Azure Application Insights SDK configuration and telemetry
+            "https://js.monitor.azure.com",
             "https://dc.services.visualstudio.com",
             "https://*.in.applicationinsights.azure.com",
             # WebSocket for HTMX (if used)

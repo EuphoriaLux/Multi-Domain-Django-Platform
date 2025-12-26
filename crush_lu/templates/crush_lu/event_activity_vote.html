@@ -203,7 +203,7 @@
 
 {% block extra_js %}
 <script src="{% static 'crush_lu/js/event-voting.js' %}"></script>
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Update JavaScript to handle two categories
 document.addEventListener('DOMContentLoaded', () => {
     const presentationRadios = document.querySelectorAll('.presentation-radio');

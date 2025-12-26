@@ -297,7 +297,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function copyInvitationLink(url) {
     navigator.clipboard.writeText(url).then(function() {
         const btn = event.target.closest('button');

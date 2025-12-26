@@ -48,7 +48,7 @@
 <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/intlTelInput.min.js"></script>
 
 <script src="{% static 'crush_lu/js/photo-preview.js' %}"></script>
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Character counters - reinitialize after HTMX swaps
 function initCharacterCounters() {
     const bioField = document.getElementById('id_bio');

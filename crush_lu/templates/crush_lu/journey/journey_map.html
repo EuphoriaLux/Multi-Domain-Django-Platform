@@ -694,7 +694,7 @@
 {% endblock %}
 
 {% block extra_journey_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
     // Create floating hearts background
     function createFloatingHearts() {
         const container = document.getElementById('hearts-container');

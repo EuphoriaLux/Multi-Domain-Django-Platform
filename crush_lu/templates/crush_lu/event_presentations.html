@@ -259,7 +259,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Store current presenter ID to detect changes
 let currentPresenterId = {% if current_presentation %}{{ current_presentation.user.id }}{% else %}null{% endif %};
 

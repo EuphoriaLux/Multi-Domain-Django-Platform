@@ -620,7 +620,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Multi-step form management
 {% if current_step %}
     // Resume from last completed step - move to NEXT step to continue

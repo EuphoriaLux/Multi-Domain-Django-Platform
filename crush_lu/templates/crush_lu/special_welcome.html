@@ -357,7 +357,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
     // Animation JavaScript
     const container = document.getElementById('animationContainer');
     const animationStyle = '{{ special_experience.animation_style }}';

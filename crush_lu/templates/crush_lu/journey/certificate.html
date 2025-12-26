@@ -363,7 +363,7 @@
 </div>
 
 <!-- Confetti Animation -->
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', () => {
     // Create confetti effect
     const colors = ['#FFD700', '#FFA500', '#FF6B9D', '#9B59B6', '#48dbfb'];

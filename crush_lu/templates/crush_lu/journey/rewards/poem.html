@@ -211,7 +211,7 @@
 </div>
 
 <!-- Create more sparkles with JavaScript -->
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', () => {
     const card = document.querySelector('.reward-card');
     const sparkleCount = 20;

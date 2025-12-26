@@ -998,7 +998,7 @@
     </form>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     // Default door configuration for preview
     const defaultDoors = [
         { day: 1, type: 'poem', icon: '&#128220;', qr: false },
