@@ -48,15 +48,17 @@
             {% csrf_token %}
 
             {% if form.non_field_errors %}
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <div x-data="{ show: true }" x-show="show" x-transition class="alert alert-danger alert-dismissible fade show" role="alert">
                     {{ form.non_field_errors }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    <button @click="show = false" type="button" class="btn-close" aria-label="Dismiss">
+                        {% include "crush_lu/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
+                    </button>
                 </div>
             {% endif %}
 
             {% if form.errors %}
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <strong>❌ Please fix the following errors:</strong>
+                <div x-data="{ show: true }" x-show="show" x-transition class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <strong aria-hidden="true">❌</strong> Please fix the following errors:
                     <ul class="mb-0 mt-2">
                         {% for field, errors in form.errors.items %}
                             {% for error in errors %}
@@ -70,7 +72,9 @@
                             {% endfor %}
                         {% endfor %}
                     </ul>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    <button @click="show = false" type="button" class="btn-close" aria-label="Dismiss">
+                        {% include "crush_lu/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
+                    </button>
                 </div>
             {% endif %}
 
@@ -911,7 +915,9 @@ function showNotification(message, type = 'info') {
     notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);';
     notification.innerHTML = `
         ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <button type="button" class="btn-close" aria-label="Dismiss" onclick="this.parentElement.remove()">
+            <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+        </button>
     `;
 
     document.body.appendChild(notification);

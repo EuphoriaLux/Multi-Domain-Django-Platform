@@ -260,6 +260,9 @@ SECURE_HSTS_SECONDS = 31536000  # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
+# Referrer Policy
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+
 # Cookie security (only over HTTPS)
 SESSION_COOKIE_SECURE = True  # HTTPS only in production
 CSRF_COOKIE_SECURE = True
