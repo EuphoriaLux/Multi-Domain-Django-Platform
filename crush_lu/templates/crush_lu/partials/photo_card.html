@@ -4,7 +4,7 @@
     </div>
     <div class="photo-preview-container">
         {% if photo %}
-            <img src="{{ photo.url }}" alt="Photo {{ slot }}" class="photo-preview" id="preview-photo-{{ slot }}">
+            <img src="{{ photo.url }}" alt="Photo {{ slot }}" class="photo-preview" id="preview-photo-{{ slot }}" loading="lazy">
             <span class="photo-badge {% if just_uploaded %}tw-bg-green-500{% endif %}">
                 {% if just_uploaded %}Uploaded{% else %}Current{% endif %}
             </span>

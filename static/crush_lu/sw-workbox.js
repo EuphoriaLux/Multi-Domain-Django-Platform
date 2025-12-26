@@ -50,7 +50,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v20-tailwind-migration';
+  const CACHE_VERSION = 'crush-v21-performance-optimization';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -171,12 +171,28 @@ if (workbox) {
   // ============================================================================
 
   // Precache essential assets (REMOVED '/' to allow dynamic auth redirect)
+  // Expanded for v21 performance optimization
   workbox.precaching.precacheAndRoute([
+    // Critical pages
     { url: '/offline/', revision: CACHE_VERSION },
+
+    // CSS (critical for rendering)
     { url: '/static/crush_lu/css/tailwind.css', revision: CACHE_VERSION },
+    { url: '/static/crush_lu/css/crush-modular.css', revision: CACHE_VERSION },
+
+    // Core JavaScript
     { url: '/static/crush_lu/js/page-loading.js', revision: CACHE_VERSION },
+    { url: '/static/crush_lu/js/utils.js', revision: CACHE_VERSION },
+    { url: '/static/crush_lu/js/pwa-detector.js', revision: CACHE_VERSION },
+    { url: '/static/crush_lu/js/sw-register.js', revision: CACHE_VERSION },
+
+    // PWA icons (most commonly used sizes)
     { url: '/static/crush_lu/icons/icon-192x192.png', revision: CACHE_VERSION },
     { url: '/static/crush_lu/icons/android-launchericon-512-512.png', revision: CACHE_VERSION },
+    { url: '/static/crush_lu/icons/ios/180.png', revision: CACHE_VERSION },
+
+    // Favicon
+    { url: '/static/crush_lu/crush_favicon.ico', revision: CACHE_VERSION },
   ]);
 
   console.log('[Workbox] Precaching configured');

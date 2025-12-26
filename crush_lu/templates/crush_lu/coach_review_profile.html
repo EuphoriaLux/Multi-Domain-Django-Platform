@@ -55,17 +55,17 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {% if profile.photo_1 %}
                         <div>
-                            <img src="{{ profile.photo_1.url }}" class="w-full rounded-lg" alt="Photo 1">
+                            <img src="{{ profile.photo_1.url }}" class="w-full rounded-lg" alt="Photo 1" loading="lazy">
                         </div>
                     {% endif %}
                     {% if profile.photo_2 %}
                         <div>
-                            <img src="{{ profile.photo_2.url }}" class="w-full rounded-lg" alt="Photo 2">
+                            <img src="{{ profile.photo_2.url }}" class="w-full rounded-lg" alt="Photo 2" loading="lazy">
                         </div>
                     {% endif %}
                     {% if profile.photo_3 %}
                         <div>
-                            <img src="{{ profile.photo_3.url }}" class="w-full rounded-lg" alt="Photo 3">
+                            <img src="{{ profile.photo_3.url }}" class="w-full rounded-lg" alt="Photo 3" loading="lazy">
                         </div>
                     {% endif %}
                 </div>

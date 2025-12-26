@@ -39,7 +39,8 @@
                                 {% if attendee.profile and attendee.profile.photo_1 %}
                                     <img src="{{ attendee.profile.photo_1.url }}"
                                          alt="{{ attendee.user.first_name }}"
-                                         class="w-20 h-20 rounded-full object-cover">
+                                         class="w-20 h-20 rounded-full object-cover"
+                                         loading="lazy">
                                 {% else %}
                                     <div class="w-20 h-20 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center">
                                         <span class="text-white text-2xl font-semibold">

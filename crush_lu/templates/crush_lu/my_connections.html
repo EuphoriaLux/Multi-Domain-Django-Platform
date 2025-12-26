@@ -71,7 +71,8 @@
                                         {% if connection.recipient.crushprofile.photo_1 %}
                                             <img src="{{ connection.recipient.crushprofile.photo_1.url }}"
                                                  alt="{{ connection.recipient.first_name }}"
-                                                 class="w-14 h-14 rounded-full object-cover">
+                                                 class="w-14 h-14 rounded-full object-cover"
+                                                 loading="lazy">
                                         {% else %}
                                             <div class="w-14 h-14 rounded-full bg-gray-400 flex items-center justify-center">
                                                 <span class="text-white text-lg font-semibold">{{ connection.recipient.first_name|first }}</span>
