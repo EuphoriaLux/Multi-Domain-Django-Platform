@@ -62,8 +62,12 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True):
             # Get cache key
             cache_key = _get_cache_key(request, key, func.__name__)
 
-            # Get current count from cache
-            current = cache.get(cache_key, 0)
+            # Get current count from cache (gracefully handle cache errors)
+            try:
+                current = cache.get(cache_key, 0)
+            except Exception:
+                # Cache unavailable - allow request to proceed
+                return func(request, *args, **kwargs)
 
             if current >= count:
                 # Rate limit exceeded
@@ -78,17 +82,21 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True):
                         status=429
                     )
             else:
-                # Increment counter
-                if current == 0:
-                    # First request - set with expiry
-                    cache.set(cache_key, 1, period_seconds)
-                else:
-                    # Increment existing counter
-                    try:
-                        cache.incr(cache_key)
-                    except ValueError:
-                        # Key doesn't exist, recreate it
+                # Increment counter (gracefully handle cache errors)
+                try:
+                    if current == 0:
+                        # First request - set with expiry
                         cache.set(cache_key, 1, period_seconds)
+                    else:
+                        # Increment existing counter
+                        try:
+                            cache.incr(cache_key)
+                        except ValueError:
+                            # Key doesn't exist, recreate it
+                            cache.set(cache_key, 1, period_seconds)
+                except Exception:
+                    # Cache unavailable - continue without rate limiting
+                    pass
 
             return func(request, *args, **kwargs)
 
