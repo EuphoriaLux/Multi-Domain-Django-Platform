@@ -176,7 +176,7 @@ if (workbox) {
     { url: '/static/crush_lu/css/tailwind.css', revision: CACHE_VERSION },
     { url: '/static/crush_lu/js/page-loading.js', revision: CACHE_VERSION },
     { url: '/static/crush_lu/icons/icon-192x192.png', revision: CACHE_VERSION },
-    { url: '/static/crush_lu/icons/icon-512x512.png', revision: CACHE_VERSION },
+    { url: '/static/crush_lu/icons/android-launchericon-512-512.png', revision: CACHE_VERSION },
   ]);
 
   console.log('[Workbox] Precaching configured');
