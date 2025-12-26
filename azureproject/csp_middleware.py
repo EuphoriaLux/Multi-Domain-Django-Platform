@@ -143,6 +143,8 @@ class CSPMiddleware:
         # connect-src: API endpoints, analytics, and WebSocket
         connect_src = [
             "'self'",
+            # CDN for service worker caching (HTMX, Alpine.js, Sortable.js)
+            "https://cdn.jsdelivr.net",
             # Analytics
             "https://www.google-analytics.com",
             "https://www.googletagmanager.com",

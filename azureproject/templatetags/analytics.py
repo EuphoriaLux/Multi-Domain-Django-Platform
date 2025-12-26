@@ -65,13 +65,17 @@ def analytics_head(context):
     request = context.get('request')
     has_analytics_consent = get_cookie_consent(request, 'analytics') if request else True
 
+    # Get CSP nonce from request (if available)
+    nonce = getattr(request, 'csp_nonce', '') if request else ''
+    nonce_attr = f' nonce="{nonce}"' if nonce else ''
+
     # GA4 gtag.js with Consent Mode v2
     # Default to denied, update based on cookie consent
     consent_default = 'granted' if has_analytics_consent else 'denied'
 
     script = f'''<!-- Google Analytics 4 with Consent Mode v2 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id={ga4_id}"></script>
-<script>
+<script{nonce_attr}>
   window.dataLayer = window.dataLayer || [];
   function gtag(){{dataLayer.push(arguments);}}
 
@@ -118,10 +122,14 @@ def analytics_body(context):
     request = context.get('request')
     has_marketing_consent = get_cookie_consent(request, 'marketing') if request else True
 
+    # Get CSP nonce from request (if available)
+    nonce = getattr(request, 'csp_nonce', '') if request else ''
+    nonce_attr = f' nonce="{nonce}"' if nonce else ''
+
     if not has_marketing_consent:
         # Return placeholder that can be activated later
         return mark_safe(f'''<!-- Facebook Pixel (waiting for consent) -->
-<script>
+<script{nonce_attr}>
   window.fbPixelId = '{fb_pixel_id}';
   document.addEventListener('cookie_consent_updated', function(e) {{
     if (e.detail && e.detail.marketing && !window.fbq) {{
@@ -141,7 +149,7 @@ def analytics_body(context):
 
     # Full Facebook Pixel implementation
     script = f'''<!-- Facebook Pixel -->
-<script>
+<script{nonce_attr}>
   !function(f,b,e,v,n,t,s)
   {{if(f.fbq)return;n=f.fbq=function(){{n.callMethod?
   n.callMethod.apply(n,arguments):n.queue.push(arguments)}};
@@ -174,12 +182,16 @@ def ga4_event(context, event_name, **params):
     if not ga4_id:
         return ''
 
+    request = context.get('request')
+    nonce = getattr(request, 'csp_nonce', '') if request else ''
+    nonce_attr = f' nonce="{nonce}"' if nonce else ''
+
     # Build params object
     if params:
         params_str = ', '.join(f"'{k}': '{v}'" for k, v in params.items())
-        script = f"<script>gtag('event', '{event_name}', {{{params_str}}});</script>"
+        script = f"<script{nonce_attr}>gtag('event', '{event_name}', {{{params_str}}});</script>"
     else:
-        script = f"<script>gtag('event', '{event_name}');</script>"
+        script = f"<script{nonce_attr}>gtag('event', '{event_name}');</script>"
 
     return mark_safe(script)
 
@@ -198,11 +210,15 @@ def fb_event(context, event_name, **params):
     if not fb_pixel_id:
         return ''
 
+    request = context.get('request')
+    nonce = getattr(request, 'csp_nonce', '') if request else ''
+    nonce_attr = f' nonce="{nonce}"' if nonce else ''
+
     # Build params object
     if params:
         params_str = ', '.join(f"'{k}': '{v}'" for k, v in params.items())
-        script = f"<script>if(window.fbq)fbq('track', '{event_name}', {{{params_str}}});</script>"
+        script = f"<script{nonce_attr}>if(window.fbq)fbq('track', '{event_name}', {{{params_str}}});</script>"
     else:
-        script = f"<script>if(window.fbq)fbq('track', '{event_name}');</script>"
+        script = f"<script{nonce_attr}>if(window.fbq)fbq('track', '{event_name}');</script>"
 
     return mark_safe(script)
