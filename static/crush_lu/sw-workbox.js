@@ -50,7 +50,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v19-login-btn-fix';
+  const CACHE_VERSION = 'crush-v20-tailwind-migration';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -173,7 +173,7 @@ if (workbox) {
   // Precache essential assets (REMOVED '/' to allow dynamic auth redirect)
   workbox.precaching.precacheAndRoute([
     { url: '/offline/', revision: CACHE_VERSION },
-    { url: '/static/crush_lu/css/crush.css', revision: CACHE_VERSION },
+    { url: '/static/crush_lu/css/tailwind.css', revision: CACHE_VERSION },
     { url: '/static/crush_lu/js/page-loading.js', revision: CACHE_VERSION },
     { url: '/static/crush_lu/icons/icon-192x192.png', revision: CACHE_VERSION },
     { url: '/static/crush_lu/icons/icon-512x512.png', revision: CACHE_VERSION },
@@ -529,7 +529,7 @@ if (workbox) {
     }
   });
 
-  console.log('[Workbox] Service worker v17 (CSRF fix) configured successfully!');
+  console.log('[Workbox] Service worker v20 (Tailwind migration) configured successfully!');
 
 } else {
   console.error('[Workbox] Failed to load Workbox from local bundle!');
