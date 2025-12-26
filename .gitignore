@@ -145,6 +145,7 @@ static/crush_lu/css/tailwind.css
 
 .azure
 .aider*
+.claude/
 
 # Backup folders (not needed for deployment)
 _backup_old_apps/
