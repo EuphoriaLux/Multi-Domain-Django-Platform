@@ -2,7 +2,8 @@
 Analytics context processor for multi-domain analytics configuration.
 
 This module provides domain-specific analytics IDs (GA4, Facebook Pixel)
-to templates via Django's context processor system.
+and Azure Application Insights configuration to templates via Django's
+context processor system.
 
 django-analytical reads these context variables to inject the appropriate
 tracking scripts into templates.
@@ -16,13 +17,15 @@ def analytics_ids(request):
     Return domain-specific analytics IDs for django-analytical.
 
     This context processor sets the appropriate GA4 and Facebook Pixel IDs
-    based on the current request's host domain.
+    based on the current request's host domain. Also provides the Azure
+    Application Insights connection string for browser telemetry.
 
     Environment Variables:
         GA4_CRUSH_LU: Google Analytics 4 Measurement ID for crush.lu
         GA4_VINSDELUX: Google Analytics 4 Measurement ID for vinsdelux.com
         GA4_POWERUP: Google Analytics 4 Measurement ID for powerup.lu/entreprinder
         FB_PIXEL_CRUSH_LU: Facebook Pixel ID for crush.lu
+        APPLICATIONINSIGHTS_CONNECTION_STRING: Azure App Insights connection string
 
     Returns:
         dict: Context variables for django-analytical template tags
@@ -33,6 +36,8 @@ def analytics_ids(request):
     context = {
         'GOOGLE_ANALYTICS_GTAG_PROPERTY_ID': None,
         'FACEBOOK_PIXEL_ID': None,
+        # Azure Application Insights connection string for browser SDK
+        'APPLICATIONINSIGHTS_CONNECTION_STRING': os.getenv('APPLICATIONINSIGHTS_CONNECTION_STRING'),
     }
 
     # Domain-specific analytics configuration

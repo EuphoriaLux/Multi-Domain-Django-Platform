@@ -1,8 +1,11 @@
 {% extends 'crush_lu/base.html' %}
+{% load analytics %}
 
 {% block title %}Profile Submitted - Crush.lu{% endblock %}
 
 {% block content %}
+{# Track profile submission status view in Application Insights #}
+{% appinsights_event "profile_submission_viewed" status=submission.status %}
 <div class="flex justify-center">
     <div class="w-full max-w-3xl">
         <div class="bg-white rounded-xl shadow-lg text-center">

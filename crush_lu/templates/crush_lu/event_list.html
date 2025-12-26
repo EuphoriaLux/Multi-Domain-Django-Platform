@@ -71,7 +71,10 @@
 <!-- Styles are in static/crush_lu/css/pages/events.css -->
 {% endblock %}
 
+{% load analytics %}
 {% block content %}
+{# Track event list view with count in Application Insights #}
+{% appinsights_event "events_page_viewed" event_count=events|length %}
 <h2 class="text-2xl font-bold mb-6">Upcoming Events</h2>
 
 {% if unpublished_count > 0 %}

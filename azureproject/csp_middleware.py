@@ -111,6 +111,8 @@ class CSPMiddleware:
             "https://connect.facebook.net",
             # Microsoft
             "https://login.microsoftonline.com",
+            # Azure Application Insights SDK
+            "https://js.monitor.azure.com",
         ]
         directives.append(f"script-src {' '.join(script_src)}")
 
@@ -158,6 +160,9 @@ class CSPMiddleware:
             "https://ipapi.co",
             # Azure Blob Storage (media files)
             "https://*.blob.core.windows.net",
+            # Azure Application Insights telemetry endpoints
+            "https://dc.services.visualstudio.com",
+            "https://*.in.applicationinsights.azure.com",
             # WebSocket for HTMX (if used)
             "wss:",
         ]

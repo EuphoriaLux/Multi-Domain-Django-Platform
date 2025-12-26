@@ -1,10 +1,13 @@
 {% extends 'crush_lu/base.html' %}
 {% load socialaccount %}
 {% load static %}
+{% load analytics %}
 
 {% block title %}Sign Up - Crush.lu{% endblock %}
 
 {% block content %}
+{# Track signup page view in Application Insights #}
+{% appinsights_event "signup_page_viewed" %}
 <div class="flex justify-center">
     <div class="w-full max-w-lg">
         <div class="bg-white rounded-xl shadow-lg">

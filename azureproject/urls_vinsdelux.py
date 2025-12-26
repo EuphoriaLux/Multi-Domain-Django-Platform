@@ -10,10 +10,14 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 from .urls_shared import base_patterns
+from .views_seo import robots_txt_vinsdelux
 from entreprinder.vibe import views as vibe_views
 from vinsdelux.admin import vinsdelux_admin_site
 
 urlpatterns = base_patterns + [
+    # SEO - robots.txt
+    path('robots.txt', robots_txt_vinsdelux, name='robots_txt'),
+
     # Custom VinsDelux Admin Panel
     path('vinsdelux-admin/', vinsdelux_admin_site.urls),
 

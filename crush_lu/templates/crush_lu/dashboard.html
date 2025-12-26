@@ -1,9 +1,12 @@
 {% extends 'crush_lu/base.html' %}
+{% load analytics %}
 
 {% block title %}Dashboard - Crush.lu{% endblock %}
 {% block meta_robots %}noindex, nofollow{% endblock %}
 
 {% block content %}
+{# Track dashboard view with profile status in Application Insights #}
+{% if profile %}{% appinsights_event "dashboard_viewed" profile_approved=profile.is_approved %}{% else %}{% appinsights_event "dashboard_viewed" profile_approved="no_profile" %}{% endif %}
 <div class="flex justify-between items-center mb-6">
     <h2 class="text-2xl font-bold">Welcome back, {{ user.first_name }}! 👋</h2>
     <a href="{% url 'crush_lu:account_settings' %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">

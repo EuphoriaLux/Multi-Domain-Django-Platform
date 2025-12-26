@@ -1,8 +1,11 @@
 {% extends 'crush_lu/base.html' %}
+{% load analytics %}
 
 {% block title %}Register for {{ event.title }} - Crush.lu{% endblock %}
 
 {% block content %}
+{# Track event registration page view in Application Insights #}
+{% appinsights_event "event_registration_started" event_type=event.event_type %}
 <div class="flex justify-center">
     <div class="w-full lg:w-1/2">
         <div class="bg-white rounded-xl shadow-sm">
