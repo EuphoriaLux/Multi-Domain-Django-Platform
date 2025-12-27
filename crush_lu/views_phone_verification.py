@@ -169,8 +169,13 @@ def verify_phone_page(request):
     try:
         profile = request.user.crushprofile
     except CrushProfile.DoesNotExist:
-        # No profile yet, redirect to profile creation
-        return redirect('crush_lu:create_profile')
+        # Create profile if it doesn't exist (needed for new signups
+        # who are redirected here before completing profile creation)
+        profile = CrushProfile.objects.create(
+            user=request.user,
+            completion_status='not_started'
+        )
+        logger.info(f"Created CrushProfile for user {request.user.id} during phone verification")
 
     # Get the redirect URL from query params (for returning to create_profile, etc.)
     next_url = request.GET.get('next', '')

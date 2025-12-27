@@ -130,10 +130,57 @@
 
 .import-btns {
     display: flex;
-    gap: 3px;
+    gap: 4px;
     justify-content: center;
 }
 
+/* Styled import slot buttons */
+.import-slot-btn {
+    font-size: var(--text-xs, 0.75rem);
+    font-weight: var(--font-semibold, 600);
+    padding: var(--space-1, 4px) var(--space-2, 8px);
+    min-width: 36px;
+    border: 1px solid rgba(155, 89, 182, 0.3);
+    border-radius: var(--radius-sm, 6px);
+    background: white;
+    color: var(--crush-gray, #6c757d);
+    cursor: pointer;
+    transition: all var(--transition-fast, 0.15s ease);
+}
+
+.import-slot-btn:hover {
+    background: var(--gradient-subtle, linear-gradient(135deg, rgba(155, 89, 182, 0.08), rgba(255, 107, 157, 0.08)));
+    border-color: var(--crush-purple, #9B59B6);
+    color: var(--crush-purple, #9B59B6);
+    transform: translateY(-1px);
+}
+
+.import-slot-btn:focus-visible {
+    outline: none;
+    border-color: var(--crush-purple, #9B59B6);
+    box-shadow: 0 0 0 2px rgba(155, 89, 182, 0.2);
+}
+
+.import-slot-btn--main {
+    background: var(--gradient-primary, linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%));
+    border-color: transparent;
+    color: white;
+}
+
+.import-slot-btn--main:hover {
+    background: var(--gradient-primary-hover, linear-gradient(135deg, #8E44AD 0%, #E84393 100%));
+    border-color: transparent;
+    color: white;
+    box-shadow: var(--shadow-purple, 0 4px 12px rgba(155, 89, 182, 0.3));
+}
+
+.import-slot-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Legacy support for old btn-xs class */
 .import-btns .btn-xs {
     font-size: 0.65rem;
     padding: 0.2rem 0.4rem;

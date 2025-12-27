@@ -10,23 +10,30 @@
             </span>
         {% else %}
             <div class="photo-placeholder" id="preview-photo-{{ slot }}">
-                <i class="bi bi-{% if is_main %}person-circle{% else %}image{% endif %}"></i>
+                {% include "crush_lu/icons/photo.html" with class="w-10 h-10" %}
                 <span>{% if is_main %}Required{% else %}Optional{% endif %}</span>
             </div>
         {% endif %}
     </div>
-    <input type="file"
-           name="photo_{{ slot }}"
-           id="id_photo_{{ slot }}"
-           accept="image/*"
-           hx-post="{% url 'crush_lu:upload_profile_photo' slot %}"
-           hx-target="#photo-card-{{ slot }}"
-           hx-swap="innerHTML"
-           hx-encoding="multipart/form-data"
-           hx-indicator="#photo-indicator-{{ slot }}">
+    <div class="photo-upload-wrapper">
+        <input type="file"
+               name="photo_{{ slot }}"
+               id="id_photo_{{ slot }}"
+               accept="image/*"
+               hx-post="{% url 'crush_lu:upload_profile_photo' slot %}"
+               hx-target="#photo-card-{{ slot }}"
+               hx-swap="innerHTML"
+               hx-encoding="multipart/form-data"
+               hx-indicator="#photo-indicator-{{ slot }}"
+               aria-label="{% if is_main %}Upload main photo{% else %}Upload photo {{ slot }}{% endif %}">
+        <div class="photo-upload-btn">
+            {% include "crush_lu/icons/camera.html" with class="w-4 h-4" %}
+            <span>{% if photo %}Change Photo{% else %}Upload Photo{% endif %}</span>
+        </div>
+    </div>
     <div id="photo-indicator-{{ slot }}" class="htmx-indicator tw-mt-2 tw-text-center">
         <span class="tw-text-crush-purple tw-text-sm">
-            {% include "crush_lu/icons/arrow-path.html" with class="w-5 h-5" %} Uploading...
+            {% include "crush_lu/icons/arrow-path.html" with class="w-5 h-5 tw-animate-spin" %} Uploading...
         </span>
     </div>
     <div class="photo-help">

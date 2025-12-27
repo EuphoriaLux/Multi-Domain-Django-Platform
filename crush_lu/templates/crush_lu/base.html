@@ -287,10 +287,22 @@
                                         My Dashboard
                                     </a>
                                     {% if user.crushprofile %}
-                                    <a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}">
-                                        {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
-                                        Edit Profile
-                                    </a>
+                                        {% if profile_is_approved %}
+                                        <a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}">
+                                            {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
+                                            Edit Profile
+                                        </a>
+                                        {% elif profile_completion_status in 'step1,step2,step3' %}
+                                        <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
+                                            {% include "crush_lu/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
+                                            Finish Profile
+                                        </a>
+                                        {% else %}
+                                        <a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}">
+                                            {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
+                                            Edit Profile
+                                        </a>
+                                        {% endif %}
                                     {% endif %}
                                     <a class="dropdown-item" href="{% url 'crush_lu:account_settings' %}">
                                         {% include "crush_lu/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
@@ -422,10 +434,22 @@
                                             {% endif %}
                                         </div>
                                         <div class="dropdown-divider"></div>
+                                        {% if profile_is_approved %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}">
                                             {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
                                             Edit Profile
                                         </a>
+                                        {% elif profile_completion_status in 'step1,step2,step3' %}
+                                        <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
+                                            {% include "crush_lu/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
+                                            Finish Profile
+                                        </a>
+                                        {% else %}
+                                        <a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}">
+                                            {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
+                                            Edit Profile
+                                        </a>
+                                        {% endif %}
                                     {% else %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
                                             {% include "crush_lu/icons/user-plus.html" with class="w-4 h-4 inline mr-2" %}
@@ -503,10 +527,24 @@
                                 {% include "crush_lu/icons/map-pin.html" with class="w-4 h-4 inline mr-2" %}
                                 Journey Management
                             </a>
-                            <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}">
-                                {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
-                                Edit Profile
-                            </a>
+                            {% if user.crushprofile %}
+                                {% if profile_is_approved %}
+                                <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}">
+                                    {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
+                                    Edit Profile
+                                </a>
+                                {% elif profile_completion_status in 'step1,step2,step3' %}
+                                <a class="nav-link block" href="{% url 'crush_lu:create_profile' %}">
+                                    {% include "crush_lu/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
+                                    Finish Profile
+                                </a>
+                                {% else %}
+                                <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}">
+                                    {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
+                                    Edit Profile
+                                </a>
+                                {% endif %}
+                            {% endif %}
                             <a class="nav-link block" href="{% url 'crush_lu:account_settings' %}">
                                 {% include "crush_lu/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
                                 Account Settings
@@ -547,10 +585,22 @@
                             </a>
                             <div class="border-t border-white/20 my-2"></div>
                             {% if user.crushprofile %}
-                            <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}">
-                                {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
-                                Edit Profile
-                            </a>
+                                {% if profile_is_approved %}
+                                <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}">
+                                    {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
+                                    Edit Profile
+                                </a>
+                                {% elif profile_completion_status in 'step1,step2,step3' %}
+                                <a class="nav-link block" href="{% url 'crush_lu:create_profile' %}">
+                                    {% include "crush_lu/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
+                                    Finish Profile
+                                </a>
+                                {% else %}
+                                <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}">
+                                    {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
+                                    Edit Profile
+                                </a>
+                                {% endif %}
                             {% else %}
                             <a class="nav-link block" href="{% url 'crush_lu:create_profile' %}">
                                 {% include "crush_lu/icons/user-plus.html" with class="w-4 h-4 inline mr-2" %}

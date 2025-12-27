@@ -21,7 +21,10 @@
 
 <!-- Contact Information Section -->
 <div class="section-card mb-4">
-    <h5 class="section-title">📞 Contact Information</h5>
+    <h5 class="section-title">
+        {% include "crush_lu/icons/phone.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+        Contact Information
+    </h5>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="mb-3">
@@ -91,7 +94,10 @@
 
 <!-- About You Section -->
 <div class="section-card mb-4">
-    <h5 class="section-title">✍️ About You</h5>
+    <h5 class="section-title">
+        {% include "crush_lu/icons/pencil-square.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+        About You
+    </h5>
 
     <div class="mb-3">
         <label for="{{ form.bio.id_for_label }}" class="form-label">
@@ -99,8 +105,11 @@
             <small class="text-muted">(Tell us about yourself)</small>
         </label>
         {{ form.bio }}
-        <div class="char-counter">
-            <span id="bioCounter">{{ profile.bio|length|default:"0" }}</span>/500 characters
+        <div class="char-counter" id="bio-counter-container" data-max="500">
+            <div class="char-counter-bar">
+                <div class="char-counter-bar-fill" id="bio-bar"></div>
+            </div>
+            <span><span class="char-counter-count" id="bioCounter">{{ profile.bio|length|default:"0" }}</span>/500</span>
         </div>
         {% if form.bio.errors %}
             <div class="text-red-600 text-sm mt-1">{{ form.bio.errors.0 }}</div>
@@ -113,8 +122,11 @@
             <small class="text-muted">(What do you enjoy?)</small>
         </label>
         {{ form.interests }}
-        <div class="char-counter">
-            <span id="interestsCounter">{{ profile.interests|length|default:"0" }}</span>/300 characters
+        <div class="char-counter" id="interests-counter-container" data-max="300">
+            <div class="char-counter-bar">
+                <div class="char-counter-bar-fill" id="interests-bar"></div>
+            </div>
+            <span><span class="char-counter-count" id="interestsCounter">{{ profile.interests|length|default:"0" }}</span>/300</span>
         </div>
         {% if form.interests.errors %}
             <div class="text-red-600 text-sm mt-1">{{ form.interests.errors.0 }}</div>
@@ -162,20 +174,26 @@
                 {% if photo.available %}
                 <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }}" class="social-mini-img">
                 <div class="import-btns">
-                    <button type="button" class="btn-crush-primary text-xs px-2 py-1 import-social-photo-btn"
+                    <button type="button"
+                            class="import-slot-btn import-slot-btn--main import-social-photo-btn"
                             data-account-id="{{ photo.account_id }}"
-                            data-slot="1" title="Set as Main Photo">
-                        {% include "crush_lu/icons/star.html" with class="w-5 h-5" %}
+                            data-slot="1"
+                            title="Set as your main profile photo">
+                        Main
                     </button>
-                    <button type="button" class="px-2 py-1 text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 rounded import-social-photo-btn"
+                    <button type="button"
+                            class="import-slot-btn import-social-photo-btn"
                             data-account-id="{{ photo.account_id }}"
-                            data-slot="2" title="Import as Photo 2">
-                        2
+                            data-slot="2"
+                            title="Import as your second photo">
+                        2nd
                     </button>
-                    <button type="button" class="px-2 py-1 text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 rounded import-social-photo-btn"
+                    <button type="button"
+                            class="import-slot-btn import-social-photo-btn"
                             data-account-id="{{ photo.account_id }}"
-                            data-slot="3" title="Import as Photo 3">
-                        3
+                            data-slot="3"
+                            title="Import as your third photo">
+                        3rd
                     </button>
                 </div>
                 {% else %}
@@ -210,40 +228,60 @@
 
 <!-- Privacy Settings Section -->
 <div class="section-card mb-4">
-    <h5 class="section-title">🔒 Privacy Settings</h5>
+    <h5 class="section-title">
+        {% include "crush_lu/icons/shield-check.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+        Privacy Settings
+    </h5>
 
-    <div class="form-check mb-3">
-        {{ form.show_full_name }}
-        <label class="form-check-label" for="{{ form.show_full_name.id_for_label }}">
-            Show my full name
-            <small class="text-muted block">Otherwise only first name is shown</small>
+    <div class="privacy-toggle-wrapper">
+        <input type="checkbox"
+               name="{{ form.show_full_name.html_name }}"
+               id="{{ form.show_full_name.id_for_label }}"
+               class="privacy-checkbox-hidden"
+               {% if form.show_full_name.value %}checked{% endif %}>
+        <label for="{{ form.show_full_name.id_for_label }}" class="privacy-toggle-track" aria-hidden="true"></label>
+        <label for="{{ form.show_full_name.id_for_label }}" class="privacy-toggle-label">
+            <span class="privacy-toggle-label-text">Show my full name</span>
+            <span class="privacy-toggle-label-hint">Otherwise only your first name is shown</span>
         </label>
     </div>
 
-    <div class="form-check mb-3">
-        {{ form.show_exact_age }}
-        <label class="form-check-label" for="{{ form.show_exact_age.id_for_label }}">
-            Show my exact age
-            <small class="text-muted block">Otherwise show age range (e.g., 25-29)</small>
+    <div class="privacy-toggle-wrapper">
+        <input type="checkbox"
+               name="{{ form.show_exact_age.html_name }}"
+               id="{{ form.show_exact_age.id_for_label }}"
+               class="privacy-checkbox-hidden"
+               {% if form.show_exact_age.value %}checked{% endif %}>
+        <label for="{{ form.show_exact_age.id_for_label }}" class="privacy-toggle-track" aria-hidden="true"></label>
+        <label for="{{ form.show_exact_age.id_for_label }}" class="privacy-toggle-label">
+            <span class="privacy-toggle-label-text">Show my exact age</span>
+            <span class="privacy-toggle-label-hint">Otherwise show age range (e.g., 25-29)</span>
         </label>
     </div>
 
-    <div class="form-check mb-3">
-        {{ form.blur_photos }}
-        <label class="form-check-label" for="{{ form.blur_photos.id_for_label }}">
-            Blur my photos until mutual interest
+    <div class="privacy-toggle-wrapper">
+        <input type="checkbox"
+               name="{{ form.blur_photos.html_name }}"
+               id="{{ form.blur_photos.id_for_label }}"
+               class="privacy-checkbox-hidden"
+               {% if form.blur_photos.value %}checked{% endif %}>
+        <label for="{{ form.blur_photos.id_for_label }}" class="privacy-toggle-track" aria-hidden="true"></label>
+        <label for="{{ form.blur_photos.id_for_label }}" class="privacy-toggle-label">
+            <span class="privacy-toggle-label-text">Blur my photos until mutual interest</span>
+            <span class="privacy-toggle-label-hint">Photos will be revealed once you both connect</span>
         </label>
     </div>
 </div>
 
 <!-- Action Buttons -->
-<div class="flex flex-col md:flex-row gap-3 md:justify-between">
-    <a href="{% url 'crush_lu:dashboard' %}" class="inline-flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
-        {% include "crush_lu/icons/arrow-left.html" with class="w-4 h-4" %} Cancel
+<div class="action-buttons-container action-buttons-sticky">
+    <a href="{% url 'crush_lu:dashboard' %}" class="btn-cancel">
+        {% include "crush_lu/icons/x-mark.html" with class="w-5 h-5" %}
+        Cancel
     </a>
-    <button type="submit" class="btn-crush-primary relative px-6 py-3 text-lg inline-flex items-center justify-center gap-2">
-        <span id="submit-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-crush-purple rounded-lg">
-            {% include "crush_lu/icons/loading.html" with class="w-5 h-5 animate-spin" %} Saving...
+    <button type="submit" class="btn-crush-primary relative px-8 py-3 text-lg inline-flex items-center justify-center gap-2">
+        <span id="submit-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-crush-purple tw-rounded-full">
+            {% include "crush_lu/icons/loading.html" with class="w-5 h-5 tw-animate-spin" %} Saving...
         </span>
         <span class="button-text">
             {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Save Changes

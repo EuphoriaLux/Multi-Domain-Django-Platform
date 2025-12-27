@@ -34,14 +34,17 @@ def crush_user_context(request):
         # Profile submission status for visual indicators
         profile_submission = None
         if hasattr(request.user, 'crushprofile'):
+            profile = request.user.crushprofile
+            context['profile_completion_status'] = profile.completion_status
+
             profile_submission = ProfileSubmission.objects.filter(
-                profile=request.user.crushprofile
+                profile=profile
             ).order_by('-submitted_at').first()
 
             if profile_submission:
                 context['profile_submission'] = profile_submission
                 context['profile_status'] = profile_submission.status
-                context['profile_is_approved'] = request.user.crushprofile.is_approved
+                context['profile_is_approved'] = profile.is_approved
                 context['profile_needs_action'] = profile_submission.status == 'revision'
 
         # Upcoming events for user

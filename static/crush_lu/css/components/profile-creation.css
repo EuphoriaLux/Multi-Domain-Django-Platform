@@ -691,3 +691,240 @@
         flex-direction: column;
     }
 }
+
+/* ===================
+   Custom Privacy Toggle Switches
+   =================== */
+.privacy-toggle-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: white;
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-3);
+    transition: all var(--transition-fast);
+}
+
+.privacy-toggle-wrapper:hover {
+    background: rgba(155, 89, 182, 0.03);
+}
+
+.privacy-toggle-wrapper:last-child {
+    margin-bottom: 0;
+}
+
+/* Hide default checkbox */
+.privacy-checkbox-hidden {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+/* Custom toggle track */
+.privacy-toggle-track {
+    position: relative;
+    width: 48px;
+    height: 26px;
+    background: #e2e8f0;
+    border-radius: 13px;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.privacy-toggle-track::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    transition: transform var(--transition-fast);
+}
+
+/* Checked state */
+.privacy-checkbox-hidden:checked + .privacy-toggle-track {
+    background: var(--gradient-primary);
+}
+
+.privacy-checkbox-hidden:checked + .privacy-toggle-track::after {
+    transform: translateX(22px);
+}
+
+/* Focus state */
+.privacy-checkbox-hidden:focus-visible + .privacy-toggle-track {
+    box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.3);
+}
+
+/* Hover state */
+.privacy-toggle-track:hover {
+    background: #cbd5e1;
+}
+
+.privacy-checkbox-hidden:checked + .privacy-toggle-track:hover {
+    background: var(--gradient-primary-hover);
+}
+
+/* Label styling */
+.privacy-toggle-label {
+    flex: 1;
+    cursor: pointer;
+}
+
+.privacy-toggle-label-text {
+    font-weight: var(--font-medium);
+    color: var(--crush-dark);
+    display: block;
+    margin-bottom: var(--space-1);
+}
+
+.privacy-toggle-label-hint {
+    font-size: var(--text-sm);
+    color: var(--crush-gray);
+}
+
+/* ===================
+   Action Buttons Container
+   =================== */
+.action-buttons-container {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: var(--space-3);
+    padding-top: var(--space-4);
+    border-top: 1px solid #e9ecef;
+}
+
+@media (min-width: 768px) {
+    .action-buttons-container {
+        flex-direction: row;
+        justify-content: space-between;
+    }
+}
+
+/* Mobile sticky positioning */
+@media (max-width: 767px) {
+    .action-buttons-sticky {
+        position: sticky;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        padding: var(--space-4);
+        margin: 0 calc(-1 * var(--space-4));
+        margin-bottom: calc(-1 * var(--space-4));
+        box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+        z-index: var(--z-sticky, 20);
+        border-radius: 0;
+    }
+}
+
+/* Cancel button styling */
+.btn-cancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-6);
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: var(--radius-pill);
+    color: var(--crush-gray);
+    font-weight: var(--font-medium);
+    font-size: var(--text-base);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-decoration: none;
+}
+
+.btn-cancel:hover {
+    background: #f8f9fa;
+    border-color: #cbd5e1;
+    color: var(--crush-dark);
+    text-decoration: none;
+}
+
+.btn-cancel:focus-visible {
+    outline: none;
+    border-color: var(--crush-purple);
+    box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.15);
+}
+
+.btn-cancel svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* Full width buttons on mobile */
+@media (max-width: 767px) {
+    .action-buttons-container .btn-cancel,
+    .action-buttons-container .btn-crush-primary {
+        width: 100%;
+    }
+}
+
+/* ===================
+   Character Counter with States
+   =================== */
+.char-counter {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--crush-gray);
+    margin-top: var(--space-2);
+    transition: color var(--transition-fast);
+}
+
+.char-counter-count {
+    font-weight: var(--font-medium);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Warning state: 80-95% of limit */
+.char-counter--warning {
+    color: var(--crush-warning);
+}
+
+.char-counter--warning .char-counter-count {
+    font-weight: var(--font-semibold);
+}
+
+/* Danger state: 95%+ of limit */
+.char-counter--danger {
+    color: var(--crush-danger);
+}
+
+.char-counter--danger .char-counter-count {
+    font-weight: var(--font-bold);
+}
+
+/* Progress bar variant */
+.char-counter-bar {
+    flex: 1;
+    max-width: 100px;
+    height: 4px;
+    background: #e2e8f0;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.char-counter-bar-fill {
+    height: 100%;
+    background: var(--crush-purple);
+    border-radius: 2px;
+    transition: width var(--transition-fast), background var(--transition-fast);
+}
+
+.char-counter--warning .char-counter-bar-fill {
+    background: var(--crush-warning);
+}
+
+.char-counter--danger .char-counter-bar-fill {
+    background: var(--crush-danger);
+}

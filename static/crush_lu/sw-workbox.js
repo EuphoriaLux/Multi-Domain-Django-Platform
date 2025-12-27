@@ -1,6 +1,6 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v19 - Login button styling fix
+// Version: v22 - CSP connect-src fix for external images
 
 // ============================================================================
 // CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
@@ -50,7 +50,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v21-performance-optimization';
+  const CACHE_VERSION = 'crush-v22-csp-fix';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -365,9 +365,12 @@ if (workbox) {
 
   console.log('[Workbox] Icon caching strategy registered (StaleWhileRevalidate)');
 
-  // Strategy 6b: Cache First for other images (long cache)
+  // Strategy 6b: Cache First for same-origin images only (long cache)
+  // External images (Facebook profile pics, etc.) are not cached to avoid CSP connect-src issues
   workbox.routing.registerRoute(
-    ({ request }) => request.destination === 'image',
+    ({ request, url }) =>
+      request.destination === 'image' &&
+      url.origin === self.location.origin,
     new workbox.strategies.CacheFirst({
       cacheName: 'crush-images',
       plugins: [

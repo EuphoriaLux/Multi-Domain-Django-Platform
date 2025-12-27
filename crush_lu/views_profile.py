@@ -23,18 +23,22 @@ def save_profile_step1(request):
     try:
         data = json.loads(request.body)
 
-        # Check if user is an active coach
-        try:
-            coach = CrushCoach.objects.get(user=request.user, is_active=True)
-            return JsonResponse({
-                'success': False,
-                'error': 'Coaches cannot create dating profiles.'
-            }, status=403)
-        except CrushCoach.DoesNotExist:
-            pass
-
         # Get or create profile
         profile, created = CrushProfile.objects.get_or_create(user=request.user)
+
+        # Check if user is an active coach trying to CREATE a new profile
+        # Coaches with existing profiles can still edit them
+        if created:
+            try:
+                coach = CrushCoach.objects.get(user=request.user, is_active=True)
+                # Delete the just-created profile and block
+                profile.delete()
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Coaches cannot create dating profiles.'
+                }, status=403)
+            except CrushCoach.DoesNotExist:
+                pass
 
         # Validate date of birth
         date_of_birth = data.get('date_of_birth')

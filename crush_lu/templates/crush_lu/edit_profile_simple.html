@@ -49,24 +49,45 @@
 
 <script src="{% static 'crush_lu/js/photo-preview.js' %}"></script>
 <script nonce="{{ request.csp_nonce }}">
-// Character counters - reinitialize after HTMX swaps
+// Character counters with visual feedback - reinitialize after HTMX swaps
 function initCharacterCounters() {
-    const bioField = document.getElementById('id_bio');
-    const interestsField = document.getElementById('id_interests');
+    initCounter('id_bio', 'bioCounter', 'bio-bar', 'bio-counter-container', 500);
+    initCounter('id_interests', 'interestsCounter', 'interests-bar', 'interests-counter-container', 300);
+}
 
-    if (bioField) {
-        bioField.addEventListener('input', function() {
-            const counter = document.getElementById('bioCounter');
-            if (counter) counter.textContent = this.value.length;
-        });
+function initCounter(inputId, counterId, barId, containerId, maxLength) {
+    const field = document.getElementById(inputId);
+    const counter = document.getElementById(counterId);
+    const bar = document.getElementById(barId);
+    const container = document.getElementById(containerId);
+
+    if (!field || !counter) return;
+
+    function updateCounter() {
+        const length = field.value.length;
+        const percentage = (length / maxLength) * 100;
+
+        counter.textContent = length;
+
+        if (bar) {
+            bar.style.width = Math.min(percentage, 100) + '%';
+        }
+
+        // Remove existing state classes
+        if (container) {
+            container.classList.remove('char-counter--warning', 'char-counter--danger');
+
+            // Add appropriate state class
+            if (percentage >= 95) {
+                container.classList.add('char-counter--danger');
+            } else if (percentage >= 80) {
+                container.classList.add('char-counter--warning');
+            }
+        }
     }
 
-    if (interestsField) {
-        interestsField.addEventListener('input', function() {
-            const counter = document.getElementById('interestsCounter');
-            if (counter) counter.textContent = this.value.length;
-        });
-    }
+    field.addEventListener('input', updateCounter);
+    updateCounter(); // Initial state
 }
 
 // Initialize on page load

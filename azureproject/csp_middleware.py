@@ -169,6 +169,9 @@ class CSPMiddleware:
             "https://js.monitor.azure.com",
             "https://dc.services.visualstudio.com",
             "https://*.in.applicationinsights.azure.com",
+            # Facebook profile pictures (for social login import and SW caching)
+            "https://platform-lookaside.fbsbx.com",
+            "https://*.fbcdn.net",
             # WebSocket for HTMX (if used)
             "wss:",
         ]

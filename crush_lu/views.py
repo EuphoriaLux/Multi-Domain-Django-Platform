@@ -786,9 +786,18 @@ def create_profile(request):
                 'profile': profile,  # Required for phone verification status display
                 'social_photos': get_all_social_photos(request.user),
             })
+        elif profile.completion_status in ['step1', 'step2', 'step3']:
+            # Profile is in progress through the wizard - show the wizard at current step
+            from .social_photos import get_all_social_photos
+            form = CrushProfileForm(instance=profile)
+            return render(request, 'crush_lu/create_profile.html', {
+                'form': form,
+                'profile': profile,
+                'current_step': profile.completion_status,
+                'social_photos': get_all_social_photos(request.user),
+            })
         else:
-            # Incomplete profile (in_progress, etc.) - redirect to edit
-            messages.info(request, 'Continue completing your profile.')
+            # Unknown status or 'completed' - redirect to edit
             return redirect('crush_lu:edit_profile')
     except CrushProfile.DoesNotExist:
         # No profile yet - show creation form
@@ -881,14 +890,20 @@ def edit_profile(request):
             if submission.status in ['pending', 'under_review']:
                 messages.info(request, 'Your profile is currently under review. You\'ll be notified once it\'s approved.')
                 return redirect('crush_lu:profile_submitted')
-            # If rejected or needs revision, allow multi-step editing with feedback
+            # If rejected or needs revision, redirect to create_profile with feedback context
             elif submission.status in ['rejected', 'revision']:
                 messages.warning(request, 'Your profile needs updates. Please review the coach feedback below.')
-                # Fall through to multi-step edit with feedback context
+                return redirect('crush_lu:create_profile')
         except ProfileSubmission.DoesNotExist:
             pass
 
-    # 3. Default: Use multi-step form for incomplete or rejected profiles
+    # 3. Profile is incomplete (not submitted yet) → redirect to create_profile
+    # This ensures the URL matches the wizard content being displayed
+    if profile.completion_status in ['not_started', 'step1', 'step2', 'step3']:
+        messages.info(request, 'Please complete your profile to continue.')
+        return redirect('crush_lu:create_profile')
+
+    # 4. Default: Use multi-step form for any other edge cases
     if request.method == 'POST':
         form = CrushProfileForm(request.POST, request.FILES, instance=profile)
         if form.is_valid():
