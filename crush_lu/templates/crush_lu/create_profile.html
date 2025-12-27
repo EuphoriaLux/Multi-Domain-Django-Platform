@@ -681,9 +681,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<!-- Canton Map Component -->
-<script src="{% static 'crush_lu/js/canton-map.js' %}" nonce="{{ request.csp_nonce }}"></script>
-
 <script nonce="{{ request.csp_nonce }}">
 // Multi-step form management
 {% if current_step %}
