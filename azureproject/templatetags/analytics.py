@@ -272,81 +272,35 @@ def appinsights_head(context):
 
     # Application Insights JavaScript SDK v3 (via CDN)
     # PERFORMANCE: Load asynchronously to avoid render-blocking
-    # Uses simplified loader pattern - loads SDK and initializes with config
+    # Uses the modern SDK Loader script pattern (recommended approach)
     # See: https://learn.microsoft.com/en-us/azure/azure-monitor/app/javascript-sdk
     user_context_js = f'''
-    // Set authenticated user context for correlation
-    if (window.appInsights && window.appInsights.setAuthenticatedUserContext) {{
-        window.appInsights.setAuthenticatedUserContext("{user_id}");
-    }}''' if user_id else ''
+        // Set authenticated user context for correlation
+        if (window.appInsights && window.appInsights.context && window.appInsights.context.user) {{
+            window.appInsights.context.user.authenticatedId = "{user_id}";
+        }}''' if user_id else ''
 
     script = f'''<!-- Azure Application Insights Browser SDK v3 -->
 <link rel="preconnect" href="https://js.monitor.azure.com" crossorigin>
-<script{nonce_attr}>
-(function() {{
-    "use strict";
-    var sdkUrl = "https://js.monitor.azure.com/scripts/b/ai.3.gbl.min.js";
-    var connectionString = "{connection_string}";
-
-    // Create stub for queueing calls before SDK loads
-    var appInsights = window.appInsights || {{
-        queue: [],
-        trackEvent: function(e) {{ this.queue.push(["trackEvent", e]); }},
-        trackPageView: function(e) {{ this.queue.push(["trackPageView", e]); }},
-        trackException: function(e) {{ this.queue.push(["trackException", e]); }},
-        trackTrace: function(e) {{ this.queue.push(["trackTrace", e]); }},
-        trackMetric: function(e) {{ this.queue.push(["trackMetric", e]); }},
-        setAuthenticatedUserContext: function(id) {{ this.queue.push(["setAuthenticatedUserContext", id]); }},
-        clearAuthenticatedUserContext: function() {{ this.queue.push(["clearAuthenticatedUserContext"]); }},
-        flush: function() {{ this.queue.push(["flush"]); }}
-    }};
-    window.appInsights = appInsights;
-
-    // Load SDK script
-    var script = document.createElement("script");
-    script.src = sdkUrl;
-    script.crossOrigin = "anonymous";
-    script.onload = function() {{
-        // Initialize SDK after load
-        var sdk = new Microsoft.ApplicationInsights.ApplicationInsights({{
-            config: {{
-                connectionString: connectionString,
-                enableAutoRouteTracking: true,
-                enableCorsCorrelation: true,
-                enableRequestHeaderTracking: true,
-                enableResponseHeaderTracking: true,
-                enableAjaxPerfTracking: true,
-                maxBatchInterval: 15000,
-                disableFetchTracking: false,
-                disableExceptionTracking: false,
-                autoTrackPageVisitTime: false
-            }}
-        }});
-        sdk.loadAppInsights();
-        sdk.trackPageView();
-
-        // Replace stub with real SDK
-        window.appInsights = sdk;
-
-        // Process queued calls
-        if (appInsights.queue && appInsights.queue.length) {{
-            appInsights.queue.forEach(function(call) {{
-                var method = call[0];
-                var args = call.slice(1);
-                if (sdk[method]) {{
-                    sdk[method].apply(sdk, args);
-                }}
-            }});
-        }}{user_context_js}
-    }};
-    script.onerror = function() {{
-        console.warn("Application Insights SDK failed to load");
-    }};
-
-    // Insert script
-    var firstScript = document.getElementsByTagName("script")[0];
-    firstScript.parentNode.insertBefore(script, firstScript);
-}})();
+<script type="text/javascript"{nonce_attr}>
+!function(v,y,T){{var S=v.location,k="script",D="connectionString",C="ingestionendpoint",I="disableExceptionTracking",E="ai.device.",b="toLowerCase",w="crossOrigin",N="POST",e="appInsightsSDK",t=T.name||"appInsights";(T.name||v[e])&&(v[e]=t);var n=v[t]||function(l){{var u=!1,d=!1,g={{initialize:!0,queue:[],sv:"8",version:2,config:l}};function m(e,t){{var n={{}},a="Browser";return n[E+"id"]=a[b](),n[E+"type"]=a,n["ai.operation.name"]=S&&S.pathname||"_unknown_",n["ai.internal.sdkVersion"]="javascript:snippet_"+(g.sv||g.version),n}}function e(n){{var a=y.createElement(k);a.src=n;var e=T[w];return!e&&""!==e||"undefined"==n[w]||(a[w]=e),a.onload=function(){{if(u)try{{d=!0;var e=v[t];c(n),e.queue&&0<e.queue.length&&e.emptyQueue()}}catch(e){{}}else r("SDK Load Timeout",null,n)}},a.onerror=function(){{r("SDK Load Failed",null,n)}},a}}function a(e,t){{d||setTimeout(function(){{!d&&u&&r("SDK Load Timeout",null,e)}},t)}}function r(e,t,n){{u=!1,d=!0;var a=y.createElement("div");a.innerHTML="<img src='https://dc.services.visualstudio.com/v2/track?name=SDK+Load+Failure&properties={{%22sdkVersion%22:%22"+(g.sv||g.version)+"%22,%22message%22:%22"+encodeURIComponent(e)+"%22,%22url%22:%22"+encodeURIComponent(n)+"%22}}'/>"}}"{{0}}".replace("{{0}}",l[D])===l[D]&&(l[D]="");function c(e){{for(var t,n,a,i,o,s=0;s<T.featureOptIn.length;s++)T.featureOptIn[s]===e&&(i=T.featureOptIn,o=s,i.splice(o,1))}}try{{u=!0;var i=T.url||"https://js.monitor.azure.com/scripts/b/ai.3.gbl.min.js";if(-1<(l[D]||"").indexOf(C)&&-1<i.indexOf("/scripts/b/")){{"string"==typeof T.ld&&(l[D]=function(e){{var t,n=e.split(C);return 2<=n.length&&(t=n[1].split("/"),n[0]+C+t[0]),n[0]}}(l[D]));var o="https://js.monitor.azure.com/scripts/b/ext/ai.clck.3.min.js";T.cr=!0,T.featureOptIn=T.featureOptIn||[],T.featureOptIn.push(o)}}T.ld=T.ld||-1;var s=y.getElementsByTagName(k)[0],f=y.createElement(k);if(!0===T.ld)s.parentNode.insertBefore(e(i),s),a(i,T.ld);else{{var h=function(){{s.parentNode.insertBefore(e(i),s),a(i,T.ld)}};-1!==T.ld?setTimeout(h,T.ld):h()}}if(T.featureOptIn&&T.featureOptIn.length)for(var p=0;p<T.featureOptIn.length;p++)s.parentNode.insertBefore(e(T.featureOptIn[p]),s)}}catch(e){{u=!1,r("SDK Load Failure",e,i)}}return g}}({{
+    connectionString: "{connection_string}",
+    enableAutoRouteTracking: true,
+    enableCorsCorrelation: true,
+    enableRequestHeaderTracking: true,
+    enableResponseHeaderTracking: true,
+    enableAjaxPerfTracking: true,
+    maxBatchInterval: 15000,
+    disableFetchTracking: false,
+    disableExceptionTracking: false,
+    autoTrackPageVisitTime: true
+}}),w=v[t];w.queue&&0===w.queue.length&&w.trackPageView({{}}),function(){{if(v[t])try{{{user_context_js}
+    }}catch(e){{}}}}()}}(window,document,{{
+    src: "https://js.monitor.azure.com/scripts/b/ai.3.gbl.min.js",
+    crossOrigin: "anonymous",
+    ld: -1,
+    name: "appInsights"
+}});
 </script>'''
 
     return mark_safe(script)
