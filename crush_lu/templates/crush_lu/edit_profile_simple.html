@@ -8,6 +8,8 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/css/intlTelInput.css">
 <!-- Custom intl-tel-input styling for Crush.lu -->
 <link rel="stylesheet" href="{% static 'crush_lu/css/components/intl-tel-input.css' %}">
+<!-- Canton Map CSS -->
+<link rel="stylesheet" href="{% static 'crush_lu/css/components/canton-map.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -46,6 +48,8 @@
 {% block extra_js %}
 <!-- intl-tel-input JS -->
 <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/intlTelInput.min.js"></script>
+<!-- Canton Map Component -->
+<script src="{% static 'crush_lu/js/canton-map.js' %}" nonce="{{ request.csp_nonce }}"></script>
 
 <script src="{% static 'crush_lu/js/photo-preview.js' %}"></script>
 <script nonce="{{ request.csp_nonce }}">

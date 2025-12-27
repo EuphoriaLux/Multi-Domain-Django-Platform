@@ -131,31 +131,34 @@ class CrushProfileForm(forms.ModelForm):
         help_text='Required'
     )
 
-    # Override location to make it required with proper choices
+    # Override location with canton-based choices (for interactive map selection)
+    # Used with the canton map component - canton_map_svg.html
     LOCATION_CHOICES = [
-        ('', 'Select your city...'),
-        ('Luxembourg City', 'Luxembourg City'),
-        ('Esch-sur-Alzette', 'Esch-sur-Alzette'),
-        ('Differdange', 'Differdange'),
-        ('Dudelange', 'Dudelange'),
-        ('Ettelbruck', 'Ettelbruck'),
-        ('Diekirch', 'Diekirch'),
-        ('Wiltz', 'Wiltz'),
-        ('Echternach', 'Echternach'),
-        ('Grevenmacher', 'Grevenmacher'),
-        ('Remich', 'Remich'),
-        ('Vianden', 'Vianden'),
-        ('Clervaux', 'Clervaux'),
-        ('Mersch', 'Mersch'),
-        ('Mondorf-les-Bains', 'Mondorf-les-Bains'),
-        ('Other', 'Other'),
+        ('', 'Select your region...'),
+        # Luxembourg Cantons (12)
+        ('canton-capellen', 'Capellen'),
+        ('canton-clervaux', 'Clervaux'),
+        ('canton-diekirch', 'Diekirch'),
+        ('canton-echternach', 'Echternach'),
+        ('canton-esch', 'Esch-sur-Alzette'),
+        ('canton-grevenmacher', 'Grevenmacher'),
+        ('canton-luxembourg', 'Luxembourg'),
+        ('canton-mersch', 'Mersch'),
+        ('canton-redange', 'Redange'),
+        ('canton-remich', 'Remich'),
+        ('canton-vianden', 'Vianden'),
+        ('canton-wiltz', 'Wiltz'),
+        # Border Regions (for cross-border workers)
+        ('border-belgium', 'Belgium (Arlon area)'),
+        ('border-germany', 'Germany (Trier/Saarland area)'),
+        ('border-france', 'France (Thionville/Metz area)'),
     ]
 
     location = forms.ChoiceField(
         required=True,
         choices=LOCATION_CHOICES,
-        widget=forms.Select(attrs={'class': 'form-control form-select-lg'}),
-        help_text='Your city in Luxembourg'
+        widget=forms.HiddenInput(attrs={'id': 'id_location'}),
+        help_text='Your region in or near Luxembourg'
     )
 
     # Override looking_for to make it required

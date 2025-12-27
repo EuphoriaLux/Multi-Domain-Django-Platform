@@ -122,10 +122,10 @@ class CrushProfileTests(TestCase):
             user=self.user,
             date_of_birth=date(1995, 5, 15),
             gender='M',
-            location='Luxembourg City'
+            location='canton-luxembourg'  # Canton-based location
         )
 
-        self.assertEqual(profile.city, 'Luxembourg City')
+        self.assertEqual(profile.city, 'canton-luxembourg')
 
 
 class MeetupEventTests(TestCase):

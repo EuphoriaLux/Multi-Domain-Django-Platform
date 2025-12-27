@@ -60,13 +60,73 @@
             {% endif %}
         </div>
 
-        <div class="mb-3">
-            <label for="{{ form.location.id_for_label }}" class="form-label">
-                Location in Luxembourg *
+        <div class="mb-3 col-span-2">
+            <label class="form-label">
+                Your Region *
             </label>
-            {{ form.location }}
+            <p class="text-muted text-sm mb-2">Click the map or use the dropdown to select your location</p>
+
+            <div x-data="cantonMap"
+                 data-initial-value="{{ profile.location|default:'' }}"
+                 data-initial-name="{% if profile.location %}{{ profile.get_location_display }}{% endif %}"
+                 data-placeholder="Click the map to select your region"
+                 class="canton-map-container {% if form.location.errors %}has-error{% endif %}">
+
+                <!-- Selection Display -->
+                <div class="canton-map-selection-display"
+                     x-bind:class="selectedClass">
+                    <span class="canton-map-selection-label" x-text="selectionLabel"></span>
+                    <span class="canton-map-hover-label" x-show="isHovering" x-text="hoverLabel"></span>
+                </div>
+
+                <!-- SVG Map -->
+                <div class="canton-map-wrapper">
+                    {% include "crush_lu/partials/canton_map_svg.html" %}
+                </div>
+
+                <!-- Hidden form field (synced by Alpine component) -->
+                {{ form.location }}
+
+                <!-- Fallback Dropdown (Accessibility) -->
+                <div class="canton-map-fallback">
+                    <button type="button"
+                            @click="toggleFallbackDropdown"
+                            class="canton-map-fallback-toggle">
+                        {% include "crush_lu/icons/list-bullet.html" with class="w-4 h-4" %}
+                        Can't use the map? Select from list
+                    </button>
+                    <div x-show="fallbackDropdownVisible" x-transition class="canton-map-fallback-dropdown">
+                        <select @change="handleFallbackSelect" class="form-control">
+                            <option value="">Select your region...</option>
+                            <optgroup label="Luxembourg Cantons">
+                                <option value="canton-capellen">Capellen</option>
+                                <option value="canton-clervaux">Clervaux</option>
+                                <option value="canton-diekirch">Diekirch</option>
+                                <option value="canton-echternach">Echternach</option>
+                                <option value="canton-esch">Esch-sur-Alzette</option>
+                                <option value="canton-grevenmacher">Grevenmacher</option>
+                                <option value="canton-luxembourg">Luxembourg</option>
+                                <option value="canton-mersch">Mersch</option>
+                                <option value="canton-redange">Redange</option>
+                                <option value="canton-remich">Remich</option>
+                                <option value="canton-vianden">Vianden</option>
+                                <option value="canton-wiltz">Wiltz</option>
+                            </optgroup>
+                            <optgroup label="Border Regions">
+                                <option value="border-belgium">Belgium (Arlon/Virton area)</option>
+                                <option value="border-germany">Germany (Trier/Saarland area)</option>
+                                <option value="border-france">France (Thionville/Metz area)</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
             {% if form.location.errors %}
-                <div class="text-red-600 text-sm mt-1">{{ form.location.errors.0 }}</div>
+                <div class="canton-map-error">
+                    {% include "crush_lu/icons/exclamation-circle.html" with class="w-4 h-4" %}
+                    {{ form.location.errors.0 }}
+                </div>
             {% endif %}
         </div>
 

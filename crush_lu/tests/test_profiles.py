@@ -60,7 +60,7 @@ class CrushProfileTests(TestCase):
             first_name="Test",
             last_name="User",
         )
-        self.profile = CrushProfile.objects.create(user=self.user, location="Luxembourg City")
+        self.profile = CrushProfile.objects.create(user=self.user, location="canton-luxembourg")
 
     def test_age_and_age_range_calculation(self):
         today = timezone.now().date()
@@ -82,7 +82,7 @@ class CrushProfileTests(TestCase):
         self.assertEqual(self.profile.display_name, "Test User")
 
     def test_city_alias_returns_location(self):
-        self.assertEqual(self.profile.city, "Luxembourg City")
+        self.assertEqual(self.profile.city, "canton-luxembourg")
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
@@ -108,7 +108,7 @@ class RegistrationFlowTests(TestCase):
             "phone_number": "+35212345678",
             "date_of_birth": (timezone.now().date() - timedelta(days=30 * 365)).isoformat(),
             "gender": "F",
-            "location": "Luxembourg City",
+            "location": "canton-luxembourg",  # Canton-based location (from interactive map)
             "looking_for": "dating",
             "bio": "Testing bio",
             "interests": "Reading, Hiking",
@@ -118,7 +118,7 @@ class RegistrationFlowTests(TestCase):
 
         self.assertEqual(profile_response.status_code, 200)
         profile = CrushProfile.objects.get(user=user)
-        self.assertEqual(profile.location, "Luxembourg City")
+        self.assertEqual(profile.location, "canton-luxembourg")
         self.assertEqual(profile.gender, "F")
         self.assertEqual(profile.completion_status, "submitted")
         self.assertTrue(ProfileSubmission.objects.filter(profile=profile).exists())
