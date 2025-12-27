@@ -907,7 +907,7 @@ async function saveStep2() {
     }
 }
 
-// Notification system
+// Notification system (CSP-compliant - no inline event handlers)
 function showNotification(message, type = 'info') {
     // Create notification element
     const notification = document.createElement('div');
@@ -915,12 +915,20 @@ function showNotification(message, type = 'info') {
     notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);';
     notification.innerHTML = `
         ${message}
-        <button type="button" class="btn-close" aria-label="Dismiss" onclick="this.parentElement.remove()">
+        <button type="button" class="btn-close" data-dismiss-notification aria-label="Dismiss">
             <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
         </button>
     `;
 
     document.body.appendChild(notification);
+
+    // Add click handler for dismiss button (CSP-safe event listener)
+    const dismissBtn = notification.querySelector('[data-dismiss-notification]');
+    if (dismissBtn) {
+        dismissBtn.addEventListener('click', function() {
+            notification.remove();
+        });
+    }
 
     // Auto-remove after 5 seconds
     setTimeout(() => {
@@ -1081,5 +1089,95 @@ document.querySelectorAll('.import-social-photo-btn').forEach(function(btn) {
         });
     });
 });
+
+// Phone verification status polling
+// Polls the server to detect when phone verification is completed
+// (e.g., when user verifies in the popup/new tab and returns)
+(function() {
+    const phoneVerified = {% if profile and profile.phone_verified %}true{% else %}false{% endif %};
+
+    if (!phoneVerified) {
+        console.log('Phone not verified - starting status polling');
+
+        // Poll every 3 seconds to check if phone was verified
+        const pollInterval = setInterval(async function() {
+            try {
+                const response = await fetch('/api/phone/status/');
+                const data = await response.json();
+
+                if (data.phone_verified) {
+                    console.log('Phone verification detected via polling');
+                    clearInterval(pollInterval);
+                    updatePhoneVerificationUI(data.phone_number);
+                }
+            } catch (error) {
+                console.error('Failed to check phone status:', error);
+            }
+        }, 3000);
+
+        // Stop polling after 5 minutes to prevent indefinite polling
+        setTimeout(() => {
+            clearInterval(pollInterval);
+            console.log('Phone verification polling stopped after 5 minutes');
+        }, 5 * 60 * 1000);
+    }
+
+    function updatePhoneVerificationUI(phoneNumber) {
+        // Update badge from "Verification Required" to "Verified"
+        const container = document.getElementById('phone-verification-container');
+        if (!container) return;
+
+        const labelEl = container.querySelector('label');
+        if (labelEl) {
+            const badge = labelEl.querySelector('.badge');
+            if (badge) {
+                badge.className = 'badge bg-success ms-2';
+                badge.innerHTML = '{% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Verified';
+            }
+        }
+
+        // Replace the warning alert with readonly input showing verified phone
+        const alertBox = container.querySelector('.alert-warning');
+        if (alertBox) {
+            alertBox.outerHTML = `
+                <div class="phone-input-wrapper">
+                    <input type="tel"
+                           name="phone_number"
+                           id="id_phone_number"
+                           class="form-control form-control-lg bg-light"
+                           value="${phoneNumber}"
+                           readonly>
+                </div>
+                <small class="form-text text-success">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                    Your phone number is verified and locked.
+                </small>
+            `;
+        }
+
+        // Enable the continue button
+        const continueBtn = document.getElementById('step1-continue-btn');
+        if (continueBtn) {
+            continueBtn.disabled = false;
+        }
+
+        // Hide the warning message
+        const warning = document.getElementById('phone-verify-warning');
+        if (warning) {
+            warning.classList.add('d-none');
+        }
+
+        // Update the hidden input for form submission
+        const hiddenInput = document.getElementById('phone_verified_input');
+        if (hiddenInput) {
+            hiddenInput.value = 'true';
+        }
+
+        // Show success notification
+        showNotification('Phone verified successfully!', 'success');
+    }
+})();
 </script>
 {% endblock %}

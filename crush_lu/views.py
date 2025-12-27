@@ -783,6 +783,7 @@ def create_profile(request):
             form = CrushProfileForm(instance=profile)
             return render(request, 'crush_lu/create_profile.html', {
                 'form': form,
+                'profile': profile,  # Required for phone verification status display
                 'social_photos': get_all_social_photos(request.user),
             })
         else:
@@ -795,6 +796,7 @@ def create_profile(request):
         form = CrushProfileForm()
         return render(request, 'crush_lu/create_profile.html', {
             'form': form,
+            'profile': None,  # No profile yet, phone verification UI will show as not verified
             'social_photos': get_all_social_photos(request.user),
         })
 
