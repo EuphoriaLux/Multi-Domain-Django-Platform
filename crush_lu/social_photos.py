@@ -9,14 +9,19 @@ Key features:
 - Fetch Microsoft photos via Graph API (requires ProfilePhoto.Read.All permission)
 - Download and save social photos to any profile photo slot
 - Unified interface for all OAuth providers
+- Caching to avoid slow API calls on every page load
 """
 
 import logging
 import re
 import requests
+from django.core.cache import cache
 from django.core.files.base import ContentFile
 
 logger = logging.getLogger(__name__)
+
+# Cache timeout for social photo URLs (5 minutes)
+SOCIAL_PHOTO_CACHE_TIMEOUT = 300
 
 # Provider display names
 PROVIDER_DISPLAY_NAMES = {
@@ -31,6 +36,7 @@ def get_facebook_photo_url(social_account):
     Get Facebook profile photo URL from social account.
 
     Tries high-resolution first (720x720), falls back to standard picture.
+    Results are cached for 5 minutes to avoid slow API calls.
 
     Args:
         social_account: SocialAccount instance for Facebook
@@ -38,8 +44,15 @@ def get_facebook_photo_url(social_account):
     Returns:
         str: Photo URL or None if unavailable
     """
+    # Check cache first
+    cache_key = f"social_photo_facebook_{social_account.id}"
+    cached_url = cache.get(cache_key)
+    if cached_url is not None:
+        return cached_url if cached_url != '' else None
+
     extra_data = social_account.extra_data
     facebook_id = extra_data.get('id')
+    result_url = None
 
     # Try high-resolution photo first via Graph API
     if facebook_id:
@@ -56,23 +69,25 @@ def get_facebook_photo_url(social_account):
             pass
 
         try:
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, timeout=5)  # Reduced timeout
             response.raise_for_status()
             data = response.json()
 
             if data.get('data', {}).get('url'):
-                return data['data']['url']
+                result_url = data['data']['url']
         except Exception as e:
             logger.warning(f"Could not get high-res Facebook photo: {str(e)}")
 
     # Fallback to standard picture from extra_data
-    if 'picture' in extra_data:
+    if not result_url and 'picture' in extra_data:
         if isinstance(extra_data['picture'], dict):
-            return extra_data['picture'].get('data', {}).get('url')
+            result_url = extra_data['picture'].get('data', {}).get('url')
         else:
-            return extra_data['picture']
+            result_url = extra_data['picture']
 
-    return None
+    # Cache the result (use '' for None to distinguish from cache miss)
+    cache.set(cache_key, result_url if result_url else '', SOCIAL_PHOTO_CACHE_TIMEOUT)
+    return result_url
 
 
 def get_google_photo_url(social_account):
@@ -112,6 +127,7 @@ def get_microsoft_photo_url(social_account):
 
     Microsoft doesn't include photo URL in OAuth extra_data.
     We need to fetch it using the stored access token.
+    Results are cached for 5 minutes to avoid slow API calls.
 
     Requires: ProfilePhoto.Read.All permission on Azure app registration.
 
@@ -121,19 +137,27 @@ def get_microsoft_photo_url(social_account):
     Returns:
         str: Base64 data URL or None if unavailable
     """
+    # Check cache first
+    cache_key = f"social_photo_microsoft_{social_account.id}"
+    cached_url = cache.get(cache_key)
+    if cached_url is not None:
+        return cached_url if cached_url != '' else None
+
+    result_url = None
     try:
         from allauth.socialaccount.models import SocialToken
 
         token = SocialToken.objects.filter(account=social_account).first()
         if not token:
             logger.warning(f"No access token found for Microsoft account {social_account.id}")
+            cache.set(cache_key, '', SOCIAL_PHOTO_CACHE_TIMEOUT)
             return None
 
-        # Fetch photo from Microsoft Graph API
+        # Fetch photo from Microsoft Graph API with reduced timeout
         response = requests.get(
             'https://graph.microsoft.com/v1.0/me/photo/$value',
             headers={'Authorization': f'Bearer {token.token}'},
-            timeout=10
+            timeout=5  # Reduced timeout
         )
 
         if response.status_code == 200:
@@ -142,18 +166,19 @@ def get_microsoft_photo_url(social_account):
             import base64
             content_type = response.headers.get('Content-Type', 'image/jpeg')
             base64_data = base64.b64encode(response.content).decode('utf-8')
-            return f"data:{content_type};base64,{base64_data}"
+            result_url = f"data:{content_type};base64,{base64_data}"
         elif response.status_code == 404:
             # User has no profile photo set
             logger.info(f"Microsoft user has no profile photo set")
-            return None
         else:
             logger.warning(f"Microsoft Graph API returned status {response.status_code}")
-            return None
 
     except Exception as e:
         logger.error(f"Error fetching Microsoft photo: {str(e)}")
-        return None
+
+    # Cache the result (use '' for None to distinguish from cache miss)
+    cache.set(cache_key, result_url if result_url else '', SOCIAL_PHOTO_CACHE_TIMEOUT)
+    return result_url
 
 
 def get_social_photo_url(social_account):

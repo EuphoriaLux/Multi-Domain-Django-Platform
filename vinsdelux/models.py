@@ -110,7 +110,15 @@ class BaseProduct(models.Model):
     @property
     def main_image(self):
         """Returns the main featured image from the related images, or the first image as a fallback."""
-        return self.images.first().image if self.images.exists() else None
+        if not self.images.exists():
+            return None
+        first_image = self.images.first()
+        try:
+            if first_image and first_image.image and first_image.image.name:
+                return first_image.image
+        except (ValueError, AttributeError):
+            pass
+        return None
 
 class VdlCoffret(BaseProduct):
     """A one-time purchase wine box (coffret). This is the base for one or more adoption plans."""
@@ -183,16 +191,37 @@ class VdlAdoptionPlan(BaseProduct):
                 })
             return default_images
         
-        # Return actual images
-        return [
-            {
-                'url': img.image.url,
-                'order': img.order,
-                'is_primary': img.is_primary,
-                'caption': img.caption,
-                'is_default': False
-            } for img in images
-        ]
+        # Return actual images (filter out images with missing files)
+        result = []
+        for img in images:
+            try:
+                if img.image and img.image.name:
+                    result.append({
+                        'url': img.image.url,
+                        'order': img.order,
+                        'is_primary': img.is_primary,
+                        'caption': img.caption,
+                        'is_default': False
+                    })
+            except (ValueError, AttributeError):
+                # Skip images with missing/invalid files
+                continue
+
+        # If all images were invalid, return default images
+        if not result:
+            default_images = []
+            image_set = self._get_default_image_set()
+            for i in range(1, 6):
+                default_images.append({
+                    'url': f'/static/images/vineyard-defaults/{image_set}_{i:02d}.jpg',
+                    'order': i - 1,
+                    'is_primary': i == 1,
+                    'caption': f'Vineyard View {i}',
+                    'is_default': True
+                })
+            return default_images
+
+        return result
     
     def _get_default_image_set(self):
         """Determine which set of default images to use based on wine type or region"""
