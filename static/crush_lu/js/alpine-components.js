@@ -798,169 +798,282 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // Phone verification component for the phone input field
+    // Used in profile creation - wraps the phone input with verification logic
+    // Reads initial state from data attributes: data-verified, data-phone-input-id
+    Alpine.data('phoneVerificationComponent', function() {
+        return {
+            verified: false,
+            canVerify: false,
+            errorMessage: '',
+            iti: null,
+            phoneInputId: '',
+
+            // Computed getters for CSP compatibility
+            get notVerified() { return !this.verified; },
+            get cannotVerify() { return !this.canVerify; },
+            get verifiedValue() { return this.verified ? 'true' : 'false'; },
+
+            init: function() {
+                var self = this;
+
+                // Read initial state from data attributes
+                var verifiedAttr = this.$el.getAttribute('data-verified');
+                this.verified = verifiedAttr === 'true';
+
+                this.phoneInputId = this.$el.getAttribute('data-phone-input-id') || 'id_phone_number';
+
+                var phoneInput = document.getElementById(this.phoneInputId);
+                if (phoneInput && typeof window.intlTelInput === 'function' && !this.verified) {
+                    var prefilledValue = phoneInput.value;
+                    phoneInput.value = '';
+
+                    try {
+                        this.iti = window.intlTelInput(phoneInput, {
+                            initialCountry: "lu",
+                            preferredCountries: ["lu", "de", "fr", "be"],
+                            onlyCountries: ["lu", "de", "fr", "be", "nl", "ch", "at", "it", "es", "pt", "gb", "ie", "us", "ca", "se", "dz"],
+                            separateDialCode: true,
+                            nationalMode: false,
+                            formatOnDisplay: true,
+                            autoPlaceholder: "aggressive",
+                            utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/utils.js"
+                        });
+
+                        window.itiInstance = this.iti;
+
+                        this.iti.promise.then(function() {
+                            if (prefilledValue) {
+                                var num = prefilledValue.trim().replace(/\s/g, '');
+                                if (!num.startsWith('+')) {
+                                    if (num.startsWith('00')) num = '+' + num.slice(2);
+                                    else num = '+352' + num.replace(/^0+/, '');
+                                }
+                                self.iti.setNumber(num);
+                            }
+                        }).catch(function(err) {
+                            console.warn('intl-tel-input: Utils loading error', err);
+                        });
+                    } catch (err) {
+                        console.error('intl-tel-input: Initialization error', err);
+                    }
+                }
+
+                // Listen for verification success event
+                window.addEventListener('phone-verified', function(e) {
+                    self.verified = true;
+                    var phoneInput = document.getElementById(self.phoneInputId);
+                    if (phoneInput && e.detail) {
+                        phoneInput.value = e.detail;
+                        phoneInput.readOnly = true;
+                    }
+                });
+            },
+
+            // Cleanup intl-tel-input when component is destroyed (prevents memory leaks)
+            destroy: function() {
+                if (this.iti) {
+                    try {
+                        this.iti.destroy();
+                        console.log('intl-tel-input: Instance destroyed on component cleanup');
+                    } catch (e) {
+                        console.warn('intl-tel-input: Could not destroy instance', e);
+                    }
+                    this.iti = null;
+                    window.itiInstance = null;
+                }
+            },
+
+            onPhoneInput: function(e) {
+                if (this.iti) {
+                    this.canVerify = this.iti.isValidNumber() || this.iti.getNumber().length >= 8;
+                } else {
+                    this.canVerify = e.target.value.trim().length >= 6;
+                }
+                this.errorMessage = '';
+            },
+
+            startVerification: function() {
+                var self = this;
+                if (this.iti && !this.iti.isValidNumber()) {
+                    this.errorMessage = 'Please enter a valid phone number';
+                    return;
+                }
+
+                // Dispatch event to open modal
+                window.dispatchEvent(new CustomEvent('open-phone-modal'));
+
+                // Get phone number
+                var phoneNumber = this.iti ? this.iti.getNumber() : document.getElementById(this.phoneInputId).value;
+
+                // Initialize phone verification
+                if (window.phoneVerification) {
+                    window.phoneVerification.sendVerificationCode(phoneNumber).then(function(result) {
+                        if (!result.success) {
+                            self.errorMessage = result.error;
+                        }
+                    });
+                }
+            },
+
+            resetVerification: function() {
+                this.verified = false;
+                this.canVerify = false;
+                var phoneInput = document.getElementById(this.phoneInputId);
+                if (phoneInput) {
+                    phoneInput.readOnly = false;
+                    phoneInput.value = '';
+                    phoneInput.focus();
+                }
+                // Update parent Alpine state
+                this.$dispatch('phone-unverified');
+            }
+        };
+    });
+
     // Phone verification modal component
-    // Used in profile creation for SMS verification
+    // Used in profile creation for SMS verification with Firebase
+    // Reads phone input ID from data attribute: data-phone-input-id
     Alpine.data('phoneVerificationModal', function() {
         return {
-            showModal: false,
-            step: 'code', // 'sending', 'code', 'verifying', 'success', 'error'
-            code: ['', '', '', '', '', ''],
-            resendCountdown: 0,
-            errorMessage: '',
-            countdownInterval: null,
+            isOpen: false,
+            step: 'sending', // sending, code, verifying, success
+            otpDigits: ['', '', '', '', '', ''],
+            error: '',
+            maskedPhone: '',
+            resendCountdown: 60,
+            resendTimer: null,
 
             // Computed getters for CSP compatibility
             get isSendingStep() { return this.step === 'sending'; },
             get isCodeStep() { return this.step === 'code'; },
             get isVerifyingStep() { return this.step === 'verifying'; },
             get isSuccessStep() { return this.step === 'success'; },
-            get isErrorStep() { return this.step === 'error'; },
             get canResend() { return this.resendCountdown === 0; },
             get cannotResend() { return this.resendCountdown > 0; },
+            get hasError() { return Boolean(this.error); },
+            get isCodeComplete() { return this.otpDigits.join('').length === 6; },
+            get isCodeIncomplete() { return this.otpDigits.join('').length !== 6; },
 
             init: function() {
                 // Listen for modal open event
                 var self = this;
                 window.addEventListener('open-phone-modal', function() {
-                    self.openModal();
+                    self.open();
                 });
             },
 
-            openModal: function() {
-                this.showModal = true;
+            open: function() {
+                // Clear any existing timer before opening (prevents memory leak from reopening)
+                if (this.resendTimer) {
+                    clearInterval(this.resendTimer);
+                    this.resendTimer = null;
+                }
+                this.isOpen = true;
+                this.step = 'sending';
+                this.error = '';
+                this.otpDigits = ['', '', '', '', '', ''];
+                this.resendCountdown = 0;
+            },
+
+            close: function() {
+                this.isOpen = false;
+                // Clear timer on close
+                if (this.resendTimer) {
+                    clearInterval(this.resendTimer);
+                    this.resendTimer = null;
+                }
+            },
+
+            showCodeStep: function(phone) {
                 this.step = 'code';
-                this.code = ['', '', '', '', '', ''];
-                this.errorMessage = '';
-                this.startCountdown();
-            },
-
-            closeModal: function() {
-                this.showModal = false;
-                this.clearCountdown();
-            },
-
-            startCountdown: function() {
+                this.maskedPhone = phone.slice(0, 7) + '***' + phone.slice(-2);
+                this.startResendTimer();
                 var self = this;
-                this.resendCountdown = 60;
-                this.clearCountdown();
-                this.countdownInterval = setInterval(function() {
-                    if (self.resendCountdown > 0) {
-                        self.resendCountdown--;
-                    } else {
-                        self.clearCountdown();
+                this.$nextTick(function() {
+                    if (self.$refs && self.$refs.otp0) {
+                        self.$refs.otp0.focus();
                     }
-                }, 1000);
+                });
             },
 
-            clearCountdown: function() {
-                if (this.countdownInterval) {
-                    clearInterval(this.countdownInterval);
-                    this.countdownInterval = null;
-                }
-            },
-
-            handleCodeInput: function(event, index) {
+            handleOtpInput: function(index, event) {
                 var value = event.target.value;
-                if (value.length === 1) {
-                    this.code[index] = value;
-                    // Focus next input
-                    var nextInput = document.getElementById('code-' + (index + 1));
-                    if (nextInput) {
-                        nextInput.focus();
-                    }
-                } else if (value.length === 0) {
-                    this.code[index] = '';
+                if (value.length === 1 && index < 5) {
+                    var nextRef = this.$refs['otp' + (index + 1)];
+                    if (nextRef) nextRef.focus();
+                }
+                if (index === 5 && value.length === 1) {
+                    this.verifyCode();
                 }
             },
 
-            handleCodeKeydown: function(event, index) {
-                if (event.key === 'Backspace' && this.code[index] === '' && index > 0) {
-                    var prevInput = document.getElementById('code-' + (index - 1));
-                    if (prevInput) {
-                        prevInput.focus();
-                    }
+            handleOtpBackspace: function(index, event) {
+                if (!event.target.value && index > 0) {
+                    var prevRef = this.$refs['otp' + (index - 1)];
+                    if (prevRef) prevRef.focus();
                 }
             },
 
-            handleCodePaste: function(event) {
+            handleOtpPaste: function(event) {
                 event.preventDefault();
-                var pastedData = (event.clipboardData || window.clipboardData).getData('text');
-                var digits = pastedData.replace(/\D/g, '').substring(0, 6);
-                for (var i = 0; i < digits.length; i++) {
-                    this.code[i] = digits[i];
-                }
-                // Focus last filled input or first empty
-                var focusIndex = Math.min(digits.length, 5);
-                var focusInput = document.getElementById('code-' + focusIndex);
-                if (focusInput) {
-                    focusInput.focus();
-                }
+                var paste = (event.clipboardData || window.clipboardData).getData('text');
+                var digits = paste.replace(/\D/g, '').slice(0, 6);
+                var self = this;
+                digits.split('').forEach(function(d, i) {
+                    self.otpDigits[i] = d;
+                });
+                if (digits.length === 6) this.verifyCode();
             },
 
             verifyCode: function() {
-                var fullCode = this.code.join('');
-                if (fullCode.length !== 6) {
-                    this.errorMessage = 'Please enter all 6 digits';
+                var self = this;
+                var code = this.otpDigits.join('');
+                if (code.length !== 6) {
+                    this.error = 'Please enter the 6-digit code';
                     return;
                 }
+
                 this.step = 'verifying';
-                var self = this;
+                this.error = '';
 
-                // Get CSRF token
-                var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-
-                fetch('/verify-phone/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken ? csrfToken.value : ''
-                    },
-                    body: JSON.stringify({ code: fullCode })
-                })
-                .then(function(response) { return response.json(); })
-                .then(function(data) {
-                    if (data.success) {
-                        self.step = 'success';
-                        // Dispatch event to parent
-                        window.dispatchEvent(new CustomEvent('phone-verified'));
-                        setTimeout(function() {
-                            self.closeModal();
-                        }, 1500);
-                    } else {
-                        self.step = 'code';
-                        self.errorMessage = data.error || 'Invalid code. Please try again.';
-                    }
-                })
-                .catch(function(err) {
-                    self.step = 'code';
-                    self.errorMessage = 'An error occurred. Please try again.';
-                });
+                if (window.phoneVerification) {
+                    window.phoneVerification.verifyCode(code).then(function(result) {
+                        if (result.success) {
+                            self.step = 'success';
+                            // Update phone verification state
+                            window.dispatchEvent(new CustomEvent('phone-verified', { detail: result.phoneNumber }));
+                            setTimeout(function() { self.close(); }, 2000);
+                        } else {
+                            self.step = 'code';
+                            self.error = result.error;
+                            self.otpDigits = ['', '', '', '', '', ''];
+                        }
+                    });
+                }
             },
 
             resendCode: function() {
-                if (this.resendCountdown > 0) return;
-                this.step = 'sending';
                 var self = this;
+                this.step = 'sending';
+                if (window.phoneVerification) {
+                    window.phoneVerification.sendVerificationCode().then(function() {
+                        self.step = 'code';
+                        self.startResendTimer();
+                    });
+                }
+            },
 
-                var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-
-                fetch('/resend-verification/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken ? csrfToken.value : ''
+            startResendTimer: function() {
+                var self = this;
+                this.resendCountdown = 60;
+                if (this.resendTimer) clearInterval(this.resendTimer);
+                this.resendTimer = setInterval(function() {
+                    self.resendCountdown--;
+                    if (self.resendCountdown <= 0) {
+                        clearInterval(self.resendTimer);
                     }
-                })
-                .then(function(response) { return response.json(); })
-                .then(function(data) {
-                    self.step = 'code';
-                    self.code = ['', '', '', '', '', ''];
-                    self.startCountdown();
-                })
-                .catch(function(err) {
-                    self.step = 'code';
-                    self.errorMessage = 'Failed to resend code. Please try again.';
-                });
+                }, 1000);
             }
         };
     });

@@ -1,4 +1,4 @@
-<div id="connection-{{ connection.id }}" class="bg-white rounded-xl shadow-sm p-4">
+<div id="connection-{{ connection.id }}" class="bg-white rounded-xl shadow-sm p-4" role="status" aria-live="polite">
     <div class="flex items-center">
         <!-- Profile Photo -->
         <div class="mr-4">
@@ -47,6 +47,7 @@
                 <button hx-post="{% url 'crush_lu:respond_connection' connection.id 'decline' %}"
                         hx-target="#connection-{{ connection.id }}"
                         hx-swap="outerHTML"
+                        hx-confirm="Are you sure you want to decline this connection request?"
                         class="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
                     <span class="htmx-indicator">
                         {% include "crush_lu/icons/loading.html" with class="w-4 h-4 animate-spin" %}

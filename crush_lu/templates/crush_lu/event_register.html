@@ -34,7 +34,9 @@
                       hx-target="#registration-form-container"
                       hx-swap="outerHTML"
                       novalidate
-                      id="registration-form-container">
+                      id="registration-form-container"
+                      aria-live="polite"
+                      aria-atomic="true">
                     {% csrf_token %}
 
                     <div class="mb-4">

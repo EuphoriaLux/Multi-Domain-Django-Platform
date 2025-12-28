@@ -1,4 +1,4 @@
-<div id="connection-actions-{{ recipient.id }}" class="space-y-2">
+<div id="connection-actions-{{ recipient.id }}" class="space-y-2" role="status" aria-live="polite">
     <form hx-post="{% url 'crush_lu:request_connection_inline' event.id recipient.id %}"
           hx-target="#connection-actions-{{ recipient.id }}"
           hx-swap="outerHTML"

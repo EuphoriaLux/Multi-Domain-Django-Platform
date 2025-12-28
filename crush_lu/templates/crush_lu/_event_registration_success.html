@@ -1,4 +1,4 @@
-<div id="registration-form-container" class="text-center py-8">
+<div id="registration-form-container" class="text-center py-8" role="status" aria-live="polite">
     {% if registration.status == 'waitlist' %}
         <div class="mb-4">
             {% include "crush_lu/icons/clock.html" with class="w-16 h-16 text-yellow-500 mx-auto" %}
