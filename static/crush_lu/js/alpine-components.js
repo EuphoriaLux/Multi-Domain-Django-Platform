@@ -161,14 +161,31 @@ document.addEventListener('alpine:init', function() {
     });
 
     // Push notification preferences component (account settings)
+    // Handles both enabling push and managing preferences
     // Uses event delegation for CSP compliance - no inline event handlers
     Alpine.data('pushPreferences', function() {
         return {
             subscriptions: [],
+            isSupported: false,
+            isSubscribed: false,
+            isEnabling: false,
+            isDisabling: false,
+            errorMessage: '',
+            permissionDenied: false,
+
+            // Computed getters for CSP compatibility
+            get hasSubscriptions() { return this.subscriptions.length > 0; },
+            get noSubscriptions() { return this.subscriptions.length === 0; },
+            get canEnable() { return this.isSupported && !this.isSubscribed && !this.isEnabling && !this.permissionDenied; },
+            get showEnableButton() { return this.isSupported && !this.isSubscribed && !this.permissionDenied; },
+            get showPermissionDenied() { return this.permissionDenied; },
+            get showNotSupported() { return !this.isSupported; },
+            get showPreferences() { return this.isSubscribed && this.hasSubscriptions; },
 
             init: function() {
                 var self = this;
-                // Parse subscriptions from data attribute
+
+                // Parse initial subscriptions from data attribute
                 var data = this.$el.getAttribute('data-subscriptions');
                 if (data) {
                     try {
@@ -178,6 +195,21 @@ document.addEventListener('alpine:init', function() {
                     }
                 }
 
+                // Check if push is supported
+                this.isSupported = window.CrushPush && window.CrushPush.isSupported;
+
+                // Check current subscription status
+                if (this.isSupported && window.CrushPush.isSubscribed) {
+                    window.CrushPush.isSubscribed().then(function(subscribed) {
+                        self.isSubscribed = subscribed;
+                    });
+                }
+
+                // Check if permission was denied
+                if ('Notification' in window && Notification.permission === 'denied') {
+                    this.permissionDenied = true;
+                }
+
                 // Event delegation for toggle changes
                 this.$el.addEventListener('change', function(event) {
                     if (event.target.classList.contains('push-pref-toggle')) {
@@ -185,6 +217,65 @@ document.addEventListener('alpine:init', function() {
                         var prefKey = event.target.dataset.prefKey;
                         self.updatePreference(subId, prefKey, event.target.checked, event.target);
                     }
+                });
+
+                // Event delegation for button clicks
+                this.$el.addEventListener('click', function(event) {
+                    if (event.target.closest('.enable-push-btn')) {
+                        self.enablePush();
+                    } else if (event.target.closest('.disable-push-btn')) {
+                        self.disablePush();
+                    }
+                });
+            },
+
+            enablePush: function() {
+                var self = this;
+                if (!this.isSupported || this.isEnabling) return;
+
+                this.isEnabling = true;
+                this.errorMessage = '';
+
+                window.CrushPush.subscribe().then(function(result) {
+                    self.isEnabling = false;
+                    if (result.success) {
+                        self.isSubscribed = true;
+                        // Reload page to get fresh subscription data
+                        window.location.reload();
+                    } else {
+                        if (result.error === 'Permission denied') {
+                            self.permissionDenied = true;
+                        } else {
+                            self.errorMessage = result.error || 'Failed to enable notifications';
+                        }
+                    }
+                }).catch(function(err) {
+                    self.isEnabling = false;
+                    self.errorMessage = 'An error occurred. Please try again.';
+                    console.error('[Push] Enable error:', err);
+                });
+            },
+
+            disablePush: function() {
+                var self = this;
+                if (!this.isSupported || this.isDisabling) return;
+
+                this.isDisabling = true;
+
+                window.CrushPush.unsubscribe().then(function(result) {
+                    self.isDisabling = false;
+                    if (result.success) {
+                        self.isSubscribed = false;
+                        self.subscriptions = [];
+                        // Reload to update UI
+                        window.location.reload();
+                    } else {
+                        self.errorMessage = result.error || 'Failed to disable notifications';
+                    }
+                }).catch(function(err) {
+                    self.isDisabling = false;
+                    self.errorMessage = 'An error occurred. Please try again.';
+                    console.error('[Push] Disable error:', err);
                 });
             },
 

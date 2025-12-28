@@ -152,9 +152,11 @@ class CSPMiddleware:
             "https://cdn.jsdelivr.net",
             "https://unpkg.com",
             "https://www.gstatic.com",  # Firebase SDK scripts
-            # Analytics
+            # Analytics (GA4 uses multiple domains for data collection)
             "https://www.google-analytics.com",
             "https://www.googletagmanager.com",
+            "https://*.analytics.google.com",  # Regional endpoints (region1, etc.)
+            "https://stats.g.doubleclick.net",  # GA4 advertising/measurement
             # Firebase
             "https://identitytoolkit.googleapis.com",
             "https://securetoken.googleapis.com",
