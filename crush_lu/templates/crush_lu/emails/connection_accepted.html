@@ -1,0 +1,40 @@
+{% extends "crush_lu/emails/base_email.html" %}
+
+{% block title %}Connection Accepted - Crush.lu{% endblock %}
+
+{% block header_title %}You're connected! 🎉{% endblock %}
+
+{% block content %}
+<h2>Great news, {{ first_name }}!</h2>
+
+<p><strong>{{ accepter_name }}</strong> has accepted your connection request!</p>
+
+<div class="info-box">
+    <strong>You can now:</strong>
+    <ul style="margin: 10px 0;">
+        <li>Send messages directly to {{ accepter_name }}</li>
+        <li>Continue the conversation from {{ event_title }}</li>
+        <li>Get to know each other better</li>
+    </ul>
+</div>
+
+<p style="text-align: center;">
+    <a href="{{ connection_url }}" class="button">Start Chatting</a>
+</p>
+
+<p><strong>Tips for great conversations:</strong></p>
+<ul>
+    <li>Reference something you talked about at the event</li>
+    <li>Ask open-ended questions</li>
+    <li>Be genuine and respectful</li>
+</ul>
+
+<p>
+    Good luck!<br>
+    <strong>The Crush.lu Team</strong>
+</p>
+{% endblock %}
+
+{% block footer_message %}
+You're receiving this because your connection request was accepted.<br>
+{% endblock %}

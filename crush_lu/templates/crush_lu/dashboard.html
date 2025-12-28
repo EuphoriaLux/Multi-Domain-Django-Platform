@@ -62,9 +62,11 @@
         </div>
     </div>
 
-    <!-- Push Notifications Card -->
+    <!-- Push Notifications / PWA Install Card -->
     <div class="bg-white rounded-xl shadow-sm h-full">
         <div class="p-6">
+            {% if profile.is_pwa_user %}
+            <!-- User has installed PWA - show push notifications -->
             <h5 class="font-semibold text-lg mb-2">🔔 Push Notifications</h5>
             <p class="text-gray-500 mb-4">Get notified about events, messages, and connections</p>
 
@@ -99,6 +101,39 @@
                     </p>
                 </div>
             </div>
+            {% else %}
+            <!-- User hasn't installed PWA - show install prompt -->
+            <div id="pwa-install-prompt">
+                <h5 class="font-semibold text-lg mb-2">📲 Install Crush.lu App</h5>
+                <p class="text-gray-500 mb-4">Install our app to get push notifications about events, messages, and connections!</p>
+
+                <div id="pwa-install-container">
+                    <button id="pwa-install-btn" class="btn-crush-primary items-center gap-2 px-4 py-2" style="display: none;">
+                        {% include "crush_lu/icons/arrow-down-tray.html" with class="w-4 h-4" %} Install App
+                    </button>
+
+                    <div id="pwa-installed-msg" class="hidden">
+                        <div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4">
+                            {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5 inline mr-1" %}
+                            <strong>App installed!</strong>
+                            <p class="mb-0 mt-2 text-sm">
+                                Refresh this page to enable push notifications.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div id="pwa-install-instructions" class="hidden">
+                        <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4">
+                            {% include "crush_lu/icons/information-circle.html" with class="w-5 h-5 inline mr-1" %}
+                            <strong>How to install</strong>
+                            <p class="mb-0 mt-2 text-sm" id="install-instructions-text">
+                                <!-- Instructions will be filled by JavaScript based on browser/device -->
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>

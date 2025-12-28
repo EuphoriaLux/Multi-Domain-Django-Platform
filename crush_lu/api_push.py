@@ -260,3 +260,83 @@ def send_test_push(request):
             'error': 'No active subscriptions or notification failed',
             'details': result
         }, status=400)
+
+
+@login_required
+@csrf_exempt
+@require_http_methods(["POST"])
+def mark_pwa_user(request):
+    """
+    Mark the current user as a PWA user.
+
+    Called when the PWA is installed on the user's device.
+    This enables push notification prompts in the UI.
+
+    Response:
+    {
+        "success": true,
+        "message": "PWA status updated",
+        "isPwaUser": true
+    }
+    """
+    from django.utils import timezone
+    from .models import CrushProfile
+
+    try:
+        profile = request.user.crushprofile
+        profile.is_pwa_user = True
+        profile.last_pwa_visit = timezone.now()
+        profile.save(update_fields=['is_pwa_user', 'last_pwa_visit'])
+
+        logger.info(f"Marked {request.user.username} as PWA user")
+
+        return JsonResponse({
+            'success': True,
+            'message': 'PWA status updated',
+            'isPwaUser': True
+        })
+
+    except CrushProfile.DoesNotExist:
+        logger.warning(f"No CrushProfile for user {request.user.username}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Profile not found. Please complete your profile first.'
+        }, status=404)
+
+    except Exception as e:
+        logger.error(f"Error marking PWA user: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Failed to update PWA status'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_pwa_status(request):
+    """
+    Get the current user's PWA status.
+
+    Response:
+    {
+        "success": true,
+        "isPwaUser": true,
+        "lastPwaVisit": "2024-01-15T10:30:00Z"
+    }
+    """
+    from .models import CrushProfile
+
+    try:
+        profile = request.user.crushprofile
+        return JsonResponse({
+            'success': True,
+            'isPwaUser': profile.is_pwa_user,
+            'lastPwaVisit': profile.last_pwa_visit.isoformat() if profile.last_pwa_visit else None
+        })
+
+    except CrushProfile.DoesNotExist:
+        return JsonResponse({
+            'success': True,
+            'isPwaUser': False,
+            'lastPwaVisit': None
+        })

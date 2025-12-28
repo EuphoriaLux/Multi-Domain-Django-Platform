@@ -995,7 +995,7 @@ class MeetupEventAdmin(admin.ModelAdmin):
         'get_voting_status', 'get_presentation_status', 'get_speed_dating_status'
     )
     inlines = [EventRegistrationInline, EventInvitationInline, EventVotingSessionInline, PresentationQueueInline, SpeedDatingPairInline]
-    actions = ['publish_events', 'unpublish_events', 'cancel_events']
+    actions = ['publish_events', 'unpublish_events', 'cancel_events', 'send_event_reminders']
     filter_horizontal = ('invited_users',)  # Nice widget for ManyToMany field
 
     fieldsets = (
@@ -1149,6 +1149,50 @@ class MeetupEventAdmin(admin.ModelAdmin):
     def cancel_events(self, request, queryset):
         updated = queryset.update(is_cancelled=True)
         django_messages.success(request, f"Cancelled {updated} event(s)")
+
+    @admin.action(description='🔔 Send reminders to confirmed attendees')
+    def send_event_reminders(self, request, queryset):
+        """Send push/email reminders to all confirmed registrations for selected events."""
+        from crush_lu.notification_service import notify_event_reminder
+        from django.utils import timezone
+
+        total_sent = 0
+        total_failed = 0
+
+        for event in queryset:
+            # Skip cancelled events
+            if event.is_cancelled:
+                continue
+
+            # Calculate days until event
+            if event.event_date:
+                days_until = (event.event_date - timezone.now().date()).days
+            else:
+                days_until = 1
+
+            # Get confirmed registrations
+            registrations = event.eventregistration_set.filter(status='confirmed')
+
+            for registration in registrations:
+                try:
+                    result = notify_event_reminder(
+                        user=registration.user,
+                        registration=registration,
+                        event=event,
+                        days_until=days_until,
+                        request=request
+                    )
+                    if result.any_delivered:
+                        total_sent += 1
+                except Exception as e:
+                    total_failed += 1
+
+        if total_sent > 0:
+            django_messages.success(request, f"Sent {total_sent} reminder(s) successfully")
+        if total_failed > 0:
+            django_messages.warning(request, f"Failed to send {total_failed} reminder(s)")
+        if total_sent == 0 and total_failed == 0:
+            django_messages.info(request, "No confirmed registrations to notify")
 
 
 class EventRegistrationAdmin(admin.ModelAdmin):

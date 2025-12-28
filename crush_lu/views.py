@@ -45,6 +45,16 @@ from .email_helpers import (
     send_event_waitlist_notification,
     send_event_cancellation_confirmation,
 )
+from .notification_service import (
+    NotificationService,
+    NotificationType,
+    notify_profile_approved,
+    notify_profile_revision,
+    notify_profile_rejected,
+    notify_new_message,
+    notify_new_connection,
+    notify_connection_accepted,
+)
 
 
 # Authentication views - login/logout are now handled by AllAuth
@@ -1401,13 +1411,16 @@ def coach_review_profile(request, submission_id):
                 submission.profile.save()
                 messages.success(request, 'Profile approved!')
 
-                # Send approval notification to user
+                # Send approval notification to user (push first, email fallback)
                 try:
-                    send_profile_approved_notification(
-                        submission.profile,
-                        request,
-                        coach_notes=submission.feedback_to_user
+                    result = notify_profile_approved(
+                        user=submission.profile.user,
+                        profile=submission.profile,
+                        coach_notes=submission.feedback_to_user,
+                        request=request
                     )
+                    if result.any_delivered:
+                        logger.info(f"Profile approval notification sent: push={result.push_success}, email={result.email_sent}")
                 except Exception as e:
                     logger.error(f"Failed to send profile approval notification: {e}")
 
@@ -1416,26 +1429,32 @@ def coach_review_profile(request, submission_id):
                 submission.profile.save()
                 messages.info(request, 'Profile rejected.')
 
-                # Send rejection notification to user
+                # Send rejection notification to user (push first, email fallback)
                 try:
-                    send_profile_rejected_notification(
-                        submission.profile,
-                        request,
-                        reason=submission.feedback_to_user
+                    result = notify_profile_rejected(
+                        user=submission.profile.user,
+                        profile=submission.profile,
+                        feedback=submission.feedback_to_user,
+                        request=request
                     )
+                    if result.any_delivered:
+                        logger.info(f"Profile rejection notification sent: push={result.push_success}, email={result.email_sent}")
                 except Exception as e:
                     logger.error(f"Failed to send profile rejection notification: {e}")
 
             elif submission.status == 'revision':
                 messages.info(request, 'Revision requested.')
 
-                # Send revision request to user
+                # Send revision request to user (push first, email fallback)
                 try:
-                    send_profile_revision_request(
-                        submission.profile,
-                        request,
-                        feedback=submission.feedback_to_user
+                    result = notify_profile_revision(
+                        user=submission.profile.user,
+                        profile=submission.profile,
+                        feedback=submission.feedback_to_user,
+                        request=request
                     )
+                    if result.any_delivered:
+                        logger.info(f"Profile revision notification sent: push={result.push_success}, email={result.email_sent}")
                 except Exception as e:
                     logger.error(f"Failed to send profile revision request: {e}")
 
@@ -1917,8 +1936,36 @@ def request_connection(request, event_id, user_id):
             reverse_connection.assigned_coach = connection.assigned_coach
             reverse_connection.save()
 
+            # Notify both users about mutual connection
+            try:
+                notify_connection_accepted(
+                    recipient=recipient,
+                    connection=connection,
+                    accepter=request.user,
+                    request=request
+                )
+                notify_connection_accepted(
+                    recipient=request.user,
+                    connection=reverse_connection,
+                    accepter=recipient,
+                    request=request
+                )
+            except Exception as e:
+                logger.error(f"Failed to send mutual connection notifications: {e}")
+
             messages.success(request, f'Mutual connection! 🎉 A coach will help facilitate your introduction.')
         else:
+            # Notify recipient about the connection request
+            try:
+                notify_new_connection(
+                    recipient=recipient,
+                    connection=connection,
+                    requester=request.user,
+                    request=request
+                )
+            except Exception as e:
+                logger.error(f"Failed to send connection request notification: {e}")
+
             messages.success(request, 'Connection request sent!')
 
         return redirect('crush_lu:event_attendees', event_id=event_id)
@@ -2111,6 +2158,17 @@ def respond_connection(request, connection_id, action):
         # Assign coach
         connection.assign_coach()
 
+        # Notify requester that their connection was accepted
+        try:
+            notify_connection_accepted(
+                recipient=connection.requester,
+                connection=connection,
+                accepter=request.user,
+                request=request
+            )
+        except Exception as e:
+            logger.error(f"Failed to send connection accepted notification: {e}")
+
         # Return HTMX partial or redirect
         if request.headers.get('HX-Request'):
             if is_attendees_page:
@@ -2217,6 +2275,47 @@ def connection_detail(request, connection_id):
                 messages.success(request, 'Contact information is now shared! 🎉')
             else:
                 messages.success(request, 'Your consent has been recorded.')
+
+            return redirect('crush_lu:connection_detail', connection_id=connection_id)
+
+        # Handle message sending
+        elif 'message' in request.POST:
+            message_text = request.POST.get('message', '').strip()
+            if message_text and len(message_text) <= 2000:
+                # Only allow messaging for accepted/shared connections
+                if connection.status in ['accepted', 'coach_reviewing', 'coach_approved', 'shared']:
+                    # Determine the recipient
+                    recipient = connection.recipient if is_requester else connection.requester
+
+                    # Create the message
+                    new_message = ConnectionMessage.objects.create(
+                        connection=connection,
+                        sender=request.user,
+                        message=message_text
+                    )
+
+                    # Send notification to recipient (push first, email fallback)
+                    try:
+                        notify_new_message(
+                            recipient=recipient,
+                            message=new_message,
+                            request=request
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to send new message notification: {e}")
+
+                    # For HTMX requests, return just the message partial
+                    if request.headers.get('HX-Request'):
+                        return render(request, 'crush_lu/_connection_message.html', {
+                            'msg': new_message,
+                            'is_own_message': True,
+                        })
+
+                    messages.success(request, 'Message sent!')
+                else:
+                    messages.error(request, 'You can only message accepted connections.')
+            else:
+                messages.error(request, 'Please enter a valid message (max 2000 characters).')
 
             return redirect('crush_lu:connection_detail', connection_id=connection_id)
 

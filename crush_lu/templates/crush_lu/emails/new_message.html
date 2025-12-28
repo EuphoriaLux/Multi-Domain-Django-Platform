@@ -1,0 +1,32 @@
+{% extends "crush_lu/emails/base_email.html" %}
+
+{% block title %}New Message - Crush.lu{% endblock %}
+
+{% block header_title %}You have a new message! 💬{% endblock %}
+
+{% block content %}
+<h2>Hi {{ first_name }}!</h2>
+
+<p><strong>{{ sender_name }}</strong> sent you a message:</p>
+
+<div class="info-box">
+    <p style="font-style: italic; margin: 0;">"{{ message_preview }}"</p>
+</div>
+
+<p style="text-align: center;">
+    <a href="{{ connection_url }}" class="button">Reply to Message</a>
+</p>
+
+<p style="font-size: 14px; color: #777;">
+    Don't keep them waiting - head over to Crush.lu to continue the conversation!
+</p>
+
+<p>
+    Cheers,<br>
+    <strong>The Crush.lu Team</strong>
+</p>
+{% endblock %}
+
+{% block footer_message %}
+You're receiving this because you have a new message from a connection.<br>
+{% endblock %}

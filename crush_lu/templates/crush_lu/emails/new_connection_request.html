@@ -1,0 +1,41 @@
+{% extends "crush_lu/emails/base_email.html" %}
+
+{% block title %}New Connection Request - Crush.lu{% endblock %}
+
+{% block header_title %}Someone wants to connect! 💕{% endblock %}
+
+{% block content %}
+<h2>Hi {{ first_name }}!</h2>
+
+<p><strong>{{ requester_name }}</strong> wants to connect with you from the <strong>{{ event_title }}</strong> event!</p>
+
+<div class="info-box">
+    <strong>About {{ requester_name }}:</strong>
+    <p>You met at {{ event_title }} on {{ event_date }}. They'd like to continue the conversation!</p>
+</div>
+
+<p><strong>What happens next?</strong></p>
+<ul>
+    <li>View their profile on your connections page</li>
+    <li>If you accept, you can start messaging each other</li>
+    <li>Take your time - there's no rush to respond</li>
+</ul>
+
+<p style="text-align: center;">
+    <a href="{{ connections_url }}" class="button">View Connection Request</a>
+</p>
+
+<div class="info-box">
+    <strong>Privacy Note:</strong>
+    <p style="margin-bottom: 0;">Your contact details remain private until you both agree to connect. Only mutual connections can message each other.</p>
+</div>
+
+<p>
+    Best,<br>
+    <strong>The Crush.lu Team</strong>
+</p>
+{% endblock %}
+
+{% block footer_message %}
+You're receiving this because someone from an event wants to connect with you.<br>
+{% endblock %}

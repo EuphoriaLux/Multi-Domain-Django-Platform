@@ -1,0 +1,382 @@
+# crush_lu/notification_service.py
+"""
+Unified Notification Service for Crush.lu
+
+Implements "push first, email fallback" strategy:
+1. If user has active push subscriptions, send push notification first
+2. If push succeeds on at least one device, skip email
+3. If no push subscription or all pushes fail, send email as fallback
+
+This reduces notification fatigue while ensuring users always get notified.
+"""
+import logging
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Optional, Any
+
+from django.http import HttpRequest
+
+logger = logging.getLogger(__name__)
+
+
+class NotificationType(Enum):
+    """
+    Notification types mapped to preference keys.
+    The value matches the suffix in both PushSubscription (notify_*)
+    and EmailPreference (email_*) fields.
+    """
+    PROFILE_APPROVED = 'profile_updates'
+    PROFILE_REVISION = 'profile_updates'
+    PROFILE_REJECTED = 'profile_updates'  # Email-only typically
+    NEW_MESSAGE = 'new_messages'
+    NEW_CONNECTION = 'new_connections'
+    CONNECTION_ACCEPTED = 'new_connections'
+    EVENT_REMINDER = 'event_reminders'
+    EVENT_REGISTRATION = 'event_reminders'
+    EVENT_WAITLIST = 'event_reminders'
+
+
+@dataclass
+class NotificationResult:
+    """
+    Result of notification delivery attempt.
+    Tracks what was attempted and what succeeded.
+    """
+    # Push notification results
+    push_attempted: bool = False
+    push_success_count: int = 0
+    push_failed_count: int = 0
+
+    # Email notification results
+    email_attempted: bool = False
+    email_sent: bool = False
+    email_skipped_reason: Optional[str] = None  # 'push_succeeded', 'user_unsubscribed', 'no_email'
+
+    # Errors for debugging
+    errors: list = field(default_factory=list)
+
+    @property
+    def push_success(self) -> bool:
+        """Returns True if at least one push notification succeeded."""
+        return self.push_success_count > 0
+
+    @property
+    def any_delivered(self) -> bool:
+        """Returns True if notification was delivered via any channel."""
+        return self.push_success or self.email_sent
+
+
+class NotificationService:
+    """
+    Unified notification service implementing push-first, email-fallback strategy.
+
+    Usage:
+        result = NotificationService.notify(
+            user=user,
+            notification_type=NotificationType.PROFILE_APPROVED,
+            context={'profile': profile, 'coach_notes': notes},
+            request=request
+        )
+    """
+
+    @staticmethod
+    def notify(
+        user,
+        notification_type: NotificationType,
+        context: dict,
+        request: Optional[HttpRequest] = None
+    ) -> NotificationResult:
+        """
+        Send notification using push-first, email-fallback strategy.
+
+        Args:
+            user: Django User object (recipient)
+            notification_type: Type of notification to send
+            context: Dict with notification-specific data (profile, message, event, etc.)
+            request: Optional Django request for URL generation
+
+        Returns:
+            NotificationResult with delivery status
+        """
+        result = NotificationResult()
+        preference_key = notification_type.value
+
+        # Step 1: Check if user has active push subscriptions for this type
+        try:
+            from .models import PushSubscription
+            push_filter = {f'notify_{preference_key}': True}
+            push_subscriptions = PushSubscription.objects.filter(
+                user=user,
+                enabled=True,
+                **push_filter
+            )
+            has_push = push_subscriptions.exists()
+        except Exception as e:
+            logger.error(f"Error checking push subscriptions: {e}")
+            has_push = False
+            result.errors.append(f"Push check error: {e}")
+
+        # Step 2: Attempt push notification if user has subscriptions
+        if has_push:
+            result.push_attempted = True
+            push_result = NotificationService._send_push(user, notification_type, context)
+            result.push_success_count = push_result.get('success', 0)
+            result.push_failed_count = push_result.get('failed', 0)
+
+            # If at least one push succeeded, skip email
+            if result.push_success:
+                result.email_skipped_reason = 'push_succeeded'
+                logger.info(
+                    f"Push succeeded for {user.username} ({notification_type.name}), "
+                    f"skipping email"
+                )
+                return result
+
+        # Step 3: Fallback to email (no push subscription or all pushes failed)
+        try:
+            from .email_helpers import can_send_email
+            if can_send_email(user, preference_key):
+                result.email_attempted = True
+                email_sent = NotificationService._send_email(
+                    user, notification_type, context, request
+                )
+                result.email_sent = email_sent
+                if email_sent:
+                    logger.info(
+                        f"Email sent to {user.email} ({notification_type.name})"
+                    )
+            else:
+                result.email_skipped_reason = 'user_unsubscribed'
+                logger.info(
+                    f"Email skipped for {user.email} ({notification_type.name}): "
+                    f"user unsubscribed"
+                )
+        except Exception as e:
+            logger.error(f"Error sending email to {user.email}: {e}")
+            result.errors.append(f"Email error: {e}")
+
+        return result
+
+    @staticmethod
+    def _send_push(user, notification_type: NotificationType, context: dict) -> dict:
+        """
+        Route to appropriate push notification function.
+
+        Returns:
+            dict: {'success': int, 'failed': int, 'total': int}
+        """
+        from . import push_notifications
+
+        try:
+            if notification_type == NotificationType.PROFILE_APPROVED:
+                return push_notifications.send_profile_approved_notification(user) or {}
+
+            elif notification_type == NotificationType.PROFILE_REVISION:
+                feedback = context.get('feedback', context.get('coach_notes', ''))
+                return push_notifications.send_profile_revision_notification(user, feedback) or {}
+
+            elif notification_type == NotificationType.NEW_MESSAGE:
+                message = context.get('message')
+                if message:
+                    return push_notifications.send_new_message_notification(user, message) or {}
+
+            elif notification_type in (NotificationType.NEW_CONNECTION, NotificationType.CONNECTION_ACCEPTED):
+                connection = context.get('connection')
+                if connection:
+                    return push_notifications.send_new_connection_notification(user, connection) or {}
+
+            elif notification_type == NotificationType.EVENT_REMINDER:
+                event = context.get('event')
+                if event:
+                    return push_notifications.send_event_reminder(user, event) or {}
+
+            # For types without specific push functions, use generic
+            return {'success': 0, 'failed': 0, 'total': 0}
+
+        except Exception as e:
+            logger.error(f"Push notification error for {notification_type.name}: {e}")
+            return {'success': 0, 'failed': 1, 'total': 1}
+
+    @staticmethod
+    def _send_email(
+        user,
+        notification_type: NotificationType,
+        context: dict,
+        request: Optional[HttpRequest]
+    ) -> bool:
+        """
+        Route to appropriate email function.
+
+        Returns:
+            bool: True if email was sent successfully
+        """
+        from . import email_helpers
+
+        try:
+            if notification_type == NotificationType.PROFILE_APPROVED:
+                profile = context.get('profile')
+                coach_notes = context.get('coach_notes')
+                if profile and request:
+                    result = email_helpers.send_profile_approved_notification(
+                        profile, request, coach_notes=coach_notes
+                    )
+                    return result == 1
+
+            elif notification_type == NotificationType.PROFILE_REVISION:
+                profile = context.get('profile')
+                feedback = context.get('feedback', context.get('coach_notes', ''))
+                if profile and request:
+                    result = email_helpers.send_profile_revision_request(
+                        profile, request, feedback=feedback
+                    )
+                    return result == 1
+
+            elif notification_type == NotificationType.PROFILE_REJECTED:
+                profile = context.get('profile')
+                feedback = context.get('feedback', context.get('coach_notes', ''))
+                if profile and request:
+                    result = email_helpers.send_profile_rejected_notification(
+                        profile, request, reason=feedback
+                    )
+                    return result == 1
+
+            elif notification_type == NotificationType.NEW_MESSAGE:
+                message = context.get('message')
+                if message and request:
+                    result = email_helpers.send_new_message_notification(
+                        user, message, request
+                    )
+                    return result == 1
+
+            elif notification_type == NotificationType.NEW_CONNECTION:
+                connection = context.get('connection')
+                requester = context.get('requester')
+                if connection and request:
+                    result = email_helpers.send_new_connection_request_notification(
+                        user, connection, requester, request
+                    )
+                    return result == 1
+
+            elif notification_type == NotificationType.CONNECTION_ACCEPTED:
+                connection = context.get('connection')
+                accepter = context.get('accepter')
+                if connection and request:
+                    result = email_helpers.send_connection_accepted_notification(
+                        user, connection, accepter, request
+                    )
+                    return result == 1
+
+            elif notification_type == NotificationType.EVENT_REMINDER:
+                registration = context.get('registration')
+                days_until = context.get('days_until', 1)
+                if registration and request:
+                    result = email_helpers.send_event_reminder(
+                        registration, request, days_until_event=days_until
+                    )
+                    return result == 1
+
+            elif notification_type == NotificationType.EVENT_REGISTRATION:
+                registration = context.get('registration')
+                if registration and request:
+                    result = email_helpers.send_event_registration_confirmation(
+                        registration, request
+                    )
+                    return result == 1
+
+            elif notification_type == NotificationType.EVENT_WAITLIST:
+                registration = context.get('registration')
+                if registration and request:
+                    result = email_helpers.send_event_waitlist_notification(
+                        registration, request
+                    )
+                    return result == 1
+
+            logger.warning(
+                f"No email handler for {notification_type.name}, skipping email"
+            )
+            return False
+
+        except AttributeError as e:
+            # Email helper function doesn't exist yet
+            logger.warning(
+                f"Email helper not found for {notification_type.name}: {e}"
+            )
+            return False
+        except Exception as e:
+            logger.error(f"Email error for {notification_type.name}: {e}")
+            return False
+
+
+# Convenience functions for common notification types
+def notify_profile_approved(user, profile, coach_notes: str = None, request=None) -> NotificationResult:
+    """Send profile approved notification."""
+    return NotificationService.notify(
+        user=user,
+        notification_type=NotificationType.PROFILE_APPROVED,
+        context={'profile': profile, 'coach_notes': coach_notes},
+        request=request
+    )
+
+
+def notify_profile_revision(user, profile, feedback: str, request=None) -> NotificationResult:
+    """Send profile revision request notification."""
+    return NotificationService.notify(
+        user=user,
+        notification_type=NotificationType.PROFILE_REVISION,
+        context={'profile': profile, 'feedback': feedback},
+        request=request
+    )
+
+
+def notify_profile_rejected(user, profile, feedback: str, request=None) -> NotificationResult:
+    """Send profile rejected notification."""
+    return NotificationService.notify(
+        user=user,
+        notification_type=NotificationType.PROFILE_REJECTED,
+        context={'profile': profile, 'feedback': feedback},
+        request=request
+    )
+
+
+def notify_new_message(recipient, message, request=None) -> NotificationResult:
+    """Send new message notification."""
+    return NotificationService.notify(
+        user=recipient,
+        notification_type=NotificationType.NEW_MESSAGE,
+        context={'message': message},
+        request=request
+    )
+
+
+def notify_new_connection(recipient, connection, requester, request=None) -> NotificationResult:
+    """Send new connection request notification."""
+    return NotificationService.notify(
+        user=recipient,
+        notification_type=NotificationType.NEW_CONNECTION,
+        context={'connection': connection, 'requester': requester},
+        request=request
+    )
+
+
+def notify_connection_accepted(recipient, connection, accepter, request=None) -> NotificationResult:
+    """Send connection accepted notification."""
+    return NotificationService.notify(
+        user=recipient,
+        notification_type=NotificationType.CONNECTION_ACCEPTED,
+        context={'connection': connection, 'accepter': accepter},
+        request=request
+    )
+
+
+def notify_event_reminder(user, registration, event, days_until: int = 1, request=None) -> NotificationResult:
+    """Send event reminder notification."""
+    return NotificationService.notify(
+        user=user,
+        notification_type=NotificationType.EVENT_REMINDER,
+        context={
+            'registration': registration,
+            'event': event,
+            'days_until': days_until
+        },
+        request=request
+    )

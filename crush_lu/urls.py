@@ -264,6 +264,8 @@ urlpatterns = [
     path('api/push/subscriptions/', api_push.list_subscriptions, name='api_list_subscriptions'),
     path('api/push/preferences/', api_push.update_subscription_preferences, name='api_update_push_preferences'),
     path('api/push/test/', api_push.send_test_push, name='api_send_test_push'),
+    path('api/push/mark-pwa-user/', api_push.mark_pwa_user, name='api_mark_pwa_user'),
+    path('api/push/pwa-status/', api_push.get_pwa_status, name='api_pwa_status'),
 
     # ============================================================================
     # ADVENT CALENDAR SYSTEM

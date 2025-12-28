@@ -452,3 +452,171 @@ def send_profile_submission_notifications(submission, request, add_message_func=
             logger.error(f"❌ Failed to send coach assignment notification: {e}", exc_info=True)
 
     return result
+
+
+def send_new_connection_request_notification(recipient, connection, requester, request):
+    """
+    Notify user that someone wants to connect with them.
+
+    Args:
+        recipient: User object (who receives the connection request)
+        connection: EventConnection object
+        requester: User object (who sent the request)
+        request: Django request object for domain detection
+
+    Returns:
+        int: Number of emails sent
+    """
+    # Check email preferences
+    if not can_send_email(recipient, 'new_connections'):
+        logger.info(f"Skipping connection request email to {recipient.email} - user unsubscribed")
+        return 0
+
+    subject = "Someone wants to connect with you! 💕"
+
+    # Get requester display name
+    if hasattr(requester, 'crushprofile'):
+        requester_name = requester.crushprofile.display_name
+    else:
+        requester_name = requester.first_name
+
+    # Get event info
+    event = connection.event
+    event_title = event.title if event else "a Crush.lu event"
+    event_date = event.event_date.strftime('%B %d, %Y') if event and event.event_date else ""
+
+    # Build connections URL
+    protocol = 'https' if request.is_secure() else 'http'
+    domain = request.get_host()
+    connections_url = f"{protocol}://{domain}/connections/"
+
+    context = get_email_context_with_unsubscribe(recipient, request,
+        first_name=recipient.first_name,
+        requester_name=requester_name,
+        event_title=event_title,
+        event_date=event_date,
+        connections_url=connections_url,
+    )
+
+    html_message = render_to_string('crush_lu/emails/new_connection_request.html', context)
+    plain_message = strip_tags(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[recipient.email],
+        request=request,
+        fail_silently=False,
+    )
+
+
+def send_connection_accepted_notification(recipient, connection, accepter, request):
+    """
+    Notify user that their connection request was accepted.
+
+    Args:
+        recipient: User object (who sent the original request)
+        connection: EventConnection object
+        accepter: User object (who accepted the request)
+        request: Django request object for domain detection
+
+    Returns:
+        int: Number of emails sent
+    """
+    # Check email preferences
+    if not can_send_email(recipient, 'new_connections'):
+        logger.info(f"Skipping connection accepted email to {recipient.email} - user unsubscribed")
+        return 0
+
+    subject = "Your connection request was accepted! 🎉"
+
+    # Get accepter display name
+    if hasattr(accepter, 'crushprofile'):
+        accepter_name = accepter.crushprofile.display_name
+    else:
+        accepter_name = accepter.first_name
+
+    # Get event info
+    event = connection.event
+    event_title = event.title if event else "a Crush.lu event"
+
+    # Build connection detail URL
+    protocol = 'https' if request.is_secure() else 'http'
+    domain = request.get_host()
+    connection_url = f"{protocol}://{domain}/connections/{connection.id}/"
+
+    context = get_email_context_with_unsubscribe(recipient, request,
+        first_name=recipient.first_name,
+        accepter_name=accepter_name,
+        event_title=event_title,
+        connection_url=connection_url,
+    )
+
+    html_message = render_to_string('crush_lu/emails/connection_accepted.html', context)
+    plain_message = strip_tags(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[recipient.email],
+        request=request,
+        fail_silently=False,
+    )
+
+
+def send_new_message_notification(recipient, message, request):
+    """
+    Notify user that they received a new message.
+
+    Args:
+        recipient: User object (who receives the message)
+        message: ConnectionMessage object
+        request: Django request object for domain detection
+
+    Returns:
+        int: Number of emails sent
+    """
+    # Check email preferences
+    if not can_send_email(recipient, 'new_messages'):
+        logger.info(f"Skipping new message email to {recipient.email} - user unsubscribed")
+        return 0
+
+    # Get sender display name
+    sender = message.sender
+    if hasattr(sender, 'crushprofile'):
+        sender_name = sender.crushprofile.display_name
+    else:
+        sender_name = sender.first_name
+
+    subject = f"New message from {sender_name} 💬"
+
+    # Truncate message for preview
+    message_preview = message.message[:100]
+    if len(message.message) > 100:
+        message_preview += "..."
+
+    # Build connection URL
+    protocol = 'https' if request.is_secure() else 'http'
+    domain = request.get_host()
+    connection_url = f"{protocol}://{domain}/connections/{message.connection.id}/"
+
+    context = get_email_context_with_unsubscribe(recipient, request,
+        first_name=recipient.first_name,
+        sender_name=sender_name,
+        message_preview=message_preview,
+        connection_url=connection_url,
+    )
+
+    html_message = render_to_string('crush_lu/emails/new_message.html', context)
+    plain_message = strip_tags(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[recipient.email],
+        request=request,
+        fail_silently=False,
+    )
