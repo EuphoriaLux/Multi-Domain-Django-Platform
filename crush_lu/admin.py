@@ -13,7 +13,7 @@ from .models import (
     JourneyConfiguration, JourneyChapter, JourneyChallenge,
     JourneyReward, JourneyProgress, ChapterProgress, ChallengeAttempt, RewardProgress,
     # Push Notifications & Activity
-    PushSubscription, UserActivity,
+    PushSubscription, CoachPushSubscription, UserActivity,
     # Email Preferences
     EmailPreference,
     # Advent Calendar Models
@@ -2824,7 +2824,112 @@ class PushSubscriptionAdmin(admin.ModelAdmin):
     send_test_notification.short_description = '📤 Send test notification'
 
 # ============================================================================
-# END PUSH NOTIFICATIONS ADMIN
+# COACH PUSH NOTIFICATIONS ADMIN
+# ============================================================================
+
+@admin.register(CoachPushSubscription, site=crush_admin_site)
+class CoachPushSubscriptionAdmin(admin.ModelAdmin):
+    """
+    🔔 COACH PUSH SUBSCRIPTION MANAGEMENT
+
+    View and manage coach push notification subscriptions.
+    Each coach can have multiple subscriptions (different devices).
+    Separate from user push subscriptions.
+    """
+    list_display = (
+        'coach', 'device_name', 'enabled', 'created_at',
+        'last_used_at', 'failure_count', 'get_preferences'
+    )
+    list_filter = (
+        'enabled', 'created_at', 'failure_count',
+        'notify_new_submissions', 'notify_screening_reminders',
+        'notify_user_responses', 'notify_system_alerts'
+    )
+    search_fields = ('coach__user__username', 'coach__user__email', 'device_name', 'endpoint')
+    readonly_fields = (
+        'endpoint', 'p256dh_key', 'auth_key', 'user_agent',
+        'created_at', 'updated_at', 'last_used_at', 'failure_count'
+    )
+    date_hierarchy = 'created_at'
+
+    fieldsets = (
+        ('Coach & Device', {
+            'fields': ('coach', 'device_name', 'user_agent')
+        }),
+        ('Subscription Details', {
+            'fields': ('endpoint', 'p256dh_key', 'auth_key'),
+            'classes': ('collapse',)
+        }),
+        ('Notification Preferences', {
+            'fields': (
+                'enabled',
+                'notify_new_submissions',
+                'notify_screening_reminders',
+                'notify_user_responses',
+                'notify_system_alerts',
+            )
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at', 'last_used_at', 'failure_count')
+        }),
+    )
+
+    def get_preferences(self, obj):
+        """Display active notification types"""
+        prefs = []
+        if obj.notify_new_submissions:
+            prefs.append('Submissions')
+        if obj.notify_screening_reminders:
+            prefs.append('Screening')
+        if obj.notify_user_responses:
+            prefs.append('Responses')
+        if obj.notify_system_alerts:
+            prefs.append('Alerts')
+        return ', '.join(prefs) if prefs else 'None'
+    get_preferences.short_description = 'Active Notifications'
+
+    actions = ['enable_subscriptions', 'disable_subscriptions', 'send_test_notification']
+
+    def enable_subscriptions(self, request, queryset):
+        """Enable selected subscriptions"""
+        updated = queryset.update(enabled=True)
+        self.message_user(
+            request,
+            f'{updated} coach subscription(s) enabled.',
+            level=django_messages.SUCCESS
+        )
+    enable_subscriptions.short_description = '✅ Enable selected subscriptions'
+
+    def disable_subscriptions(self, request, queryset):
+        """Disable selected subscriptions"""
+        updated = queryset.update(enabled=False)
+        self.message_user(
+            request,
+            f'{updated} coach subscription(s) disabled.',
+            level=django_messages.SUCCESS
+        )
+    disable_subscriptions.short_description = '🔕 Disable selected subscriptions'
+
+    def send_test_notification(self, request, queryset):
+        """Send test notification to selected coach subscriptions"""
+        from .coach_notifications import send_coach_test_notification
+
+        total = 0
+        success = 0
+        for subscription in queryset:
+            result = send_coach_test_notification(subscription.coach)
+            total += result.get('total', 0)
+            success += result.get('success', 0)
+
+        self.message_user(
+            request,
+            f'Sent test notifications: {success}/{total} successful.',
+            level=django_messages.SUCCESS if success > 0 else django_messages.WARNING
+        )
+    send_test_notification.short_description = '📤 Send test notification'
+
+# ============================================================================
+# END COACH PUSH NOTIFICATIONS ADMIN
 # ============================================================================
 
 

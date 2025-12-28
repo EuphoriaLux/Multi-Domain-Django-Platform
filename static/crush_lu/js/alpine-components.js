@@ -369,6 +369,13 @@ document.addEventListener('alpine:init', function() {
             get showNotSupported() { return !this.isLoading && !this.isSupported; },
             get showPreferences() { return !this.isLoading && this.isSubscribed && this.hasSubscriptions; },
             get showLoading() { return this.isLoading; },
+            get showEnablingSpinner() { return this.isEnabling; },
+            get showNotEnablingIcon() { return !this.isEnabling; },
+            get showTestSpinner() { return this.isSendingTest; },
+            get enableButtonText() { return this.isEnabling ? 'Enabling...' : 'Enable Notifications'; },
+            get testButtonText() { return this.isSendingTest ? 'Sending...' : 'Send Test'; },
+            get disableButtonText() { return this.isDisabling ? 'Disabling...' : 'Disable Notifications'; },
+            isSendingTest: false,
 
             init: function() {
                 var self = this;
@@ -481,9 +488,18 @@ document.addEventListener('alpine:init', function() {
 
             sendTestNotification: function() {
                 var self = this;
+                if (this.isSendingTest) return;
+                this.isSendingTest = true;
                 fetch('/api/coach/push/test/', { method: 'POST', headers: { 'X-CSRFToken': self.getCsrfToken() } })
                 .then(function(r) { return r.json(); })
-                .then(function(data) { console.log('[CoachPush] Test:', data.success ? 'sent' : data.error); });
+                .then(function(data) {
+                    self.isSendingTest = false;
+                    console.log('[CoachPush] Test:', data.success ? 'sent' : data.error);
+                })
+                .catch(function(err) {
+                    self.isSendingTest = false;
+                    console.error('[CoachPush] Test failed:', err);
+                });
             },
 
             updatePreference: function(subId, prefKey, value, checkbox) {

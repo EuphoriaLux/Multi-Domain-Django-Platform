@@ -71,7 +71,7 @@
         </template>
 
         <!-- Not Supported State -->
-        <template x-if="!isLoading && !isSupported">
+        <template x-if="showNotSupported">
             <div class="flex items-center gap-3 p-4 bg-yellow-50 text-yellow-800 rounded-lg">
                 <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
@@ -81,31 +81,30 @@
         </template>
 
         <!-- Not Subscribed State -->
-        <template x-if="!isLoading && isSupported && !isSubscribed">
+        <template x-if="showEnableButton">
             <div>
                 <p class="text-gray-600 mb-4">Enable push notifications to get alerts about new profile submissions, user revisions, and screening reminders.</p>
                 <button type="button"
-                        class="btn-crush-primary inline-flex items-center gap-2"
-                        x-bind:disabled="isEnabling"
-                        data-action="enable">
-                    <template x-if="isEnabling">
+                        class="btn-crush-primary inline-flex items-center gap-2 enable-coach-push-btn"
+                        x-bind:disabled="isEnabling">
+                    <template x-if="showEnablingSpinner">
                         <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                     </template>
-                    <template x-if="!isEnabling">
+                    <template x-if="showNotEnablingIcon">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
                         </svg>
                     </template>
-                    <span x-text="isEnabling ? 'Enabling...' : 'Enable Notifications'"></span>
+                    <span x-text="enableButtonText"></span>
                 </button>
             </div>
         </template>
 
         <!-- Subscribed State - Show Preferences -->
-        <template x-if="!isLoading && isSupported && isSubscribed">
+        <template x-if="showPreferences">
             <div>
                 <!-- Success Banner -->
                 <div class="flex items-center gap-3 p-3 bg-green-50 text-green-800 rounded-lg mb-4">
@@ -132,10 +131,10 @@
                                     </div>
                                 </div>
                                 <input type="checkbox"
-                                       class="w-5 h-5 rounded text-crush-purple focus:ring-crush-purple"
+                                       class="w-5 h-5 rounded text-crush-purple focus:ring-crush-purple coach-push-pref-toggle"
                                        x-bind:checked="sub.notify_new_submissions"
-                                       x-bind:data-sub-id="sub.id"
-                                       data-pref="notify_new_submissions">
+                                       x-bind:data-subscription-id="sub.id"
+                                       data-pref-key="newSubmissions">
                             </label>
 
                             <label class="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
@@ -149,10 +148,10 @@
                                     </div>
                                 </div>
                                 <input type="checkbox"
-                                       class="w-5 h-5 rounded text-crush-purple focus:ring-crush-purple"
+                                       class="w-5 h-5 rounded text-crush-purple focus:ring-crush-purple coach-push-pref-toggle"
                                        x-bind:checked="sub.notify_user_responses"
-                                       x-bind:data-sub-id="sub.id"
-                                       data-pref="notify_user_responses">
+                                       x-bind:data-subscription-id="sub.id"
+                                       data-pref-key="userResponses">
                             </label>
 
                             <label class="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
@@ -166,10 +165,10 @@
                                     </div>
                                 </div>
                                 <input type="checkbox"
-                                       class="w-5 h-5 rounded text-crush-purple focus:ring-crush-purple"
+                                       class="w-5 h-5 rounded text-crush-purple focus:ring-crush-purple coach-push-pref-toggle"
                                        x-bind:checked="sub.notify_screening_reminders"
-                                       x-bind:data-sub-id="sub.id"
-                                       data-pref="notify_screening_reminders">
+                                       x-bind:data-subscription-id="sub.id"
+                                       data-pref-key="screeningReminders">
                             </label>
 
                             <label class="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
@@ -183,10 +182,10 @@
                                     </div>
                                 </div>
                                 <input type="checkbox"
-                                       class="w-5 h-5 rounded text-crush-purple focus:ring-crush-purple"
+                                       class="w-5 h-5 rounded text-crush-purple focus:ring-crush-purple coach-push-pref-toggle"
                                        x-bind:checked="sub.notify_system_alerts"
-                                       x-bind:data-sub-id="sub.id"
-                                       data-pref="notify_system_alerts">
+                                       x-bind:data-subscription-id="sub.id"
+                                       data-pref-key="systemAlerts">
                             </label>
                         </div>
                     </template>
@@ -195,22 +194,20 @@
                 <!-- Actions -->
                 <div class="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-200">
                     <button type="button"
-                            class="inline-flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
-                            x-bind:disabled="isSendingTest"
-                            data-action="test">
-                        <template x-if="isSendingTest">
+                            class="inline-flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors test-coach-push-btn"
+                            x-bind:disabled="isSendingTest">
+                        <template x-if="showTestSpinner">
                             <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
                         </template>
-                        <span x-text="isSendingTest ? 'Sending...' : 'Send Test'"></span>
+                        <span x-text="testButtonText"></span>
                     </button>
                     <button type="button"
-                            class="inline-flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                            x-bind:disabled="isDisabling"
-                            data-action="disable">
-                        <span x-text="isDisabling ? 'Disabling...' : 'Disable Notifications'"></span>
+                            class="inline-flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disable-coach-push-btn"
+                            x-bind:disabled="isDisabling">
+                        <span x-text="disableButtonText"></span>
                     </button>
                 </div>
             </div>
