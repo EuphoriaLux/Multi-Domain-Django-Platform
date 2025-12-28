@@ -18,6 +18,7 @@
     --crush-dark: #2C3E50;
     --crush-light: #F8F9FA;
     --crush-gray: #6c757d;
+    --crush-gray-dark: #4b5563;  /* Darker gray for better text contrast (WCAG AA compliant) */
 
     /* Status Colors */
     --crush-success: #28a745;

@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 from django.contrib import messages
 from django.utils import timezone
 from django.db.models import Q
+from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
@@ -36,6 +37,7 @@ from .email_helpers import (
     send_welcome_email,
     send_profile_submission_confirmation,
     send_coach_assignment_notification,
+    send_profile_submission_notifications,
     send_profile_approved_notification,
     send_profile_revision_request,
     send_profile_rejected_notification,
@@ -680,6 +682,7 @@ def signup(request):
 
 
 @crush_login_required
+@ratelimit(key='user', rate='10/15m', method='POST', block=True)
 def create_profile(request):
     """Profile creation - coaches can also create dating profiles"""
     # If it's a POST request, process the form submission first
@@ -708,38 +711,56 @@ def create_profile(request):
             else:
                 logger.info(f"Resubmission detected for {request.user.email}")
 
-            profile.save()
-            logger.info(f"Profile submitted for review: {request.user.email}")
+            # Use atomic transaction to ensure data integrity
+            # This prevents partial saves if submission creation fails
+            try:
+                with transaction.atomic():
+                    profile.save()
+                    logger.info(f"Profile submitted for review: {request.user.email}")
 
-            # Create profile submission for coach review (PREVENT DUPLICATES)
-            # Use get_or_create to handle double-submissions gracefully
-            submission, created = ProfileSubmission.objects.get_or_create(
-                profile=profile,
-                defaults={'status': 'pending'}
-            )
+                    # Create profile submission for coach review (PREVENT DUPLICATES)
+                    # Use select_for_update to prevent race conditions with concurrent requests
+                    # Check if a pending submission already exists
+                    existing_submission = ProfileSubmission.objects.select_for_update().filter(
+                        profile=profile,
+                        status='pending'
+                    ).first()
 
-            # Only assign coach and send emails for NEW submissions
+                    if existing_submission:
+                        submission = existing_submission
+                        created = False
+                        logger.warning(f"⚠️ Existing pending submission found for {request.user.email}")
+                    else:
+                        # Create new submission
+                        submission = ProfileSubmission.objects.create(
+                            profile=profile,
+                            status='pending'
+                        )
+                        created = True
+
+            except Exception as e:
+                logger.error(f"❌ Transaction failed for {request.user.email}: {e}", exc_info=True)
+                messages.error(request, 'An error occurred while submitting your profile. Please try again.')
+                # Re-render the form
+                from .social_photos import get_all_social_photos
+                context = {
+                    'form': form,
+                    'current_step': 'step3',
+                    'social_photos': get_all_social_photos(request.user),
+                }
+                return render(request, 'crush_lu/create_profile.html', context)
+
+            # Only assign coach and send emails for NEW submissions (outside transaction for email reliability)
             if created:
                 submission.assign_coach()
                 logger.info(f"NEW profile submission created for {request.user.email}")
 
-                # Send confirmation email to user
-                try:
-                    result = send_profile_submission_confirmation(request.user, request)
-                    logger.info(f"✅ Profile submission email sent to {request.user.email}: {result}")
-                except Exception as e:
-                    # Log error but don't block the flow
-                    logger.error(f"❌ Failed to send profile submission confirmation to {request.user.email}: {e}", exc_info=True)
-                    # Also show warning message to user
-                    messages.warning(request, 'Profile submitted! (Email notification may have failed - check your spam folder)')
-
-                # Send notification to assigned coach if one was assigned
-                if submission.coach:
-                    try:
-                        result = send_coach_assignment_notification(submission.coach, submission, request)
-                        logger.info(f"✅ Coach assignment email sent to {submission.coach.user.email}: {result}")
-                    except Exception as e:
-                        logger.error(f"❌ Failed to send coach assignment notification: {e}", exc_info=True)
+                # Send confirmation and coach notification emails using consolidated helper
+                send_profile_submission_notifications(
+                    submission,
+                    request,
+                    add_message_func=lambda msg: messages.warning(request, msg)
+                )
             else:
                 # Duplicate submission attempt - just log and continue
                 logger.warning(f"⚠️ Duplicate submission attempt prevented for {request.user.email}")
@@ -922,21 +943,12 @@ def edit_profile(request):
             if created:
                 submission.assign_coach()
 
-                # Send confirmation email to user
-                try:
-                    result = send_profile_submission_confirmation(request.user, request)
-                    logger.info(f"✅ Profile submission email sent to {request.user.email}: {result}")
-                except Exception as e:
-                    logger.error(f"❌ Failed to send profile submission confirmation to {request.user.email}: {e}", exc_info=True)
-                    messages.warning(request, 'Profile submitted! (Email notification may have failed)')
-
-                # Send notification to assigned coach if one was assigned
-                if submission.coach:
-                    try:
-                        result = send_coach_assignment_notification(submission.coach, submission, request)
-                        logger.info(f"✅ Coach assignment email sent to {submission.coach.user.email}: {result}")
-                    except Exception as e:
-                        logger.error(f"❌ Failed to send coach assignment notification: {e}", exc_info=True)
+                # Send confirmation and coach notification emails using consolidated helper
+                send_profile_submission_notifications(
+                    submission,
+                    request,
+                    add_message_func=lambda msg: messages.warning(request, msg)
+                )
 
             messages.success(request, 'Profile submitted for review!')
             return redirect('crush_lu:profile_submitted')

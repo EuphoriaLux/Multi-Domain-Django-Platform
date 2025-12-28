@@ -60,9 +60,16 @@ def get_facebook_photo_url(social_account):
         url = f"https://graph.facebook.com/v24.0/{facebook_id}/picture?width=720&height=720&redirect=false"
 
         # Try to get access token for authenticated request
+        # Use prefetched socialtoken_set if available to avoid N+1 query
         try:
-            from allauth.socialaccount.models import SocialToken
-            token = SocialToken.objects.filter(account=social_account).first()
+            if hasattr(social_account, '_prefetched_objects_cache') and 'socialtoken_set' in social_account._prefetched_objects_cache:
+                # Use prefetched tokens
+                tokens = list(social_account.socialtoken_set.all())
+                token = tokens[0] if tokens else None
+            else:
+                # Fall back to query if not prefetched
+                from allauth.socialaccount.models import SocialToken
+                token = SocialToken.objects.filter(account=social_account).first()
             if token:
                 url += f"&access_token={token.token}"
         except Exception:
@@ -145,9 +152,16 @@ def get_microsoft_photo_url(social_account):
 
     result_url = None
     try:
-        from allauth.socialaccount.models import SocialToken
+        # Use prefetched socialtoken_set if available to avoid N+1 query
+        if hasattr(social_account, '_prefetched_objects_cache') and 'socialtoken_set' in social_account._prefetched_objects_cache:
+            # Use prefetched tokens
+            tokens = list(social_account.socialtoken_set.all())
+            token = tokens[0] if tokens else None
+        else:
+            # Fall back to query if not prefetched
+            from allauth.socialaccount.models import SocialToken
+            token = SocialToken.objects.filter(account=social_account).first()
 
-        token = SocialToken.objects.filter(account=social_account).first()
         if not token:
             logger.warning(f"No access token found for Microsoft account {social_account.id}")
             cache.set(cache_key, '', SOCIAL_PHOTO_CACHE_TIMEOUT)
@@ -230,10 +244,12 @@ def get_all_social_photos(user):
     # Only get Crush.lu supported providers
     CRUSH_PROVIDERS = ['facebook', 'google', 'microsoft']
 
+    # Use select_related/prefetch_related to avoid N+1 queries when fetching tokens
+    # SocialToken has a ForeignKey to SocialAccount, so we prefetch from the reverse relation
     social_accounts = SocialAccount.objects.filter(
         user=user,
         provider__in=CRUSH_PROVIDERS
-    )
+    ).prefetch_related('socialtoken_set')
 
     photos = []
     for account in social_accounts:

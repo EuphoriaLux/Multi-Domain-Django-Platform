@@ -70,8 +70,11 @@ function initPhotoPreview(inputId, previewId) {
     }
 }
 
-// Auto-initialize on DOM ready for common patterns
-document.addEventListener('DOMContentLoaded', function() {
+/**
+ * Initialize all photo previews on the page
+ * Called on page load and after HTMX swaps
+ */
+function initAllPhotoPreviews() {
     // Initialize for coach profile photo
     initPhotoPreview('id_photo', 'photo-preview');
 
@@ -79,4 +82,21 @@ document.addEventListener('DOMContentLoaded', function() {
     initPhotoPreview('id_photo_1', 'preview-photo-1');
     initPhotoPreview('id_photo_2', 'preview-photo-2');
     initPhotoPreview('id_photo_3', 'preview-photo-3');
+}
+
+// Auto-initialize on DOM ready for common patterns
+document.addEventListener('DOMContentLoaded', initAllPhotoPreviews);
+
+// Reinitialize after HTMX swaps (for dynamic content updates)
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    // Check if the swap target contains photo inputs
+    const target = event.detail.target;
+    if (target && (
+        target.querySelector('[id^="id_photo"]') ||
+        target.id === 'form-container' ||
+        target.id.startsWith('photo-card-')
+    )) {
+        // Small delay to ensure DOM is fully updated
+        setTimeout(initAllPhotoPreviews, 50);
+    }
 });

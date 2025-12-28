@@ -104,6 +104,13 @@ class RegistrationFlowTests(TestCase):
         self.assertGreater(len(response.redirect_chain), 0)
         self.assertEqual(response.redirect_chain[-1][0], reverse("crush_lu:create_profile"))
 
+        # Get or create the profile and mark phone as verified (required for submission)
+        profile, _ = CrushProfile.objects.get_or_create(user=user)
+        profile.phone_number = "+35212345678"
+        profile.phone_verified = True
+        profile.phone_verified_at = timezone.now()
+        profile.save()
+
         profile_data = {
             "phone_number": "+35212345678",
             "date_of_birth": (timezone.now().date() - timedelta(days=30 * 365)).isoformat(),
@@ -117,7 +124,7 @@ class RegistrationFlowTests(TestCase):
         profile_response = self.client.post(reverse("crush_lu:create_profile"), profile_data, follow=True, HTTP_HOST="crush.lu")
 
         self.assertEqual(profile_response.status_code, 200)
-        profile = CrushProfile.objects.get(user=user)
+        profile.refresh_from_db()
         self.assertEqual(profile.location, "canton-luxembourg")
         self.assertEqual(profile.gender, "F")
         self.assertEqual(profile.completion_status, "submitted")

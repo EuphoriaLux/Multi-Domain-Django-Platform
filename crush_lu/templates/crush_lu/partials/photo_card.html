@@ -1,15 +1,15 @@
-<div class="photo-upload-card {% if is_main %}photo-upload-card--main{% endif %}">
-    <div class="photo-label">
-        {% if is_main %}{% include "crush_lu/icons/star.html" with class="w-5 h-5" %} Main Photo{% else %}Photo {{ slot }}{% endif %}
+<div class="photo-upload-card {% if is_main %}photo-upload-card--main{% endif %}" role="group" aria-labelledby="photo-label-{{ slot }}">
+    <div class="photo-label" id="photo-label-{{ slot }}">
+        {% if is_main %}<span aria-hidden="true">{% include "crush_lu/icons/star.html" with class="w-5 h-5" %}</span> Main Photo{% else %}Photo {{ slot }}{% endif %}
     </div>
     <div class="photo-preview-container">
         {% if photo %}
-            <img src="{{ photo.url }}" alt="Photo {{ slot }}" class="photo-preview" id="preview-photo-{{ slot }}" loading="lazy">
-            <span class="photo-badge {% if just_uploaded %}tw-bg-green-500{% endif %}">
+            <img src="{{ photo.url }}" alt="{% if is_main %}Main profile photo{% else %}Profile photo {{ slot }}{% endif %}" class="photo-preview" id="preview-photo-{{ slot }}" loading="lazy">
+            <span class="photo-badge {% if just_uploaded %}tw-bg-green-500{% endif %}" aria-live="polite">
                 {% if just_uploaded %}Uploaded{% else %}Current{% endif %}
             </span>
         {% else %}
-            <div class="photo-placeholder" id="preview-photo-{{ slot }}">
+            <div class="photo-placeholder" id="preview-photo-{{ slot }}" aria-hidden="true">
                 {% include "crush_lu/icons/photo.html" with class="w-10 h-10" %}
                 <span>{% if is_main %}Required{% else %}Optional{% endif %}</span>
             </div>
@@ -19,14 +19,15 @@
         <input type="file"
                name="photo_{{ slot }}"
                id="id_photo_{{ slot }}"
-               accept="image/*"
+               accept="image/jpeg,image/png,image/webp"
                hx-post="{% url 'crush_lu:upload_profile_photo' slot %}"
                hx-target="#photo-card-{{ slot }}"
                hx-swap="innerHTML"
                hx-encoding="multipart/form-data"
                hx-indicator="#photo-indicator-{{ slot }}"
-               aria-label="{% if is_main %}Upload main photo{% else %}Upload photo {{ slot }}{% endif %}">
-        <div class="photo-upload-btn">
+               aria-label="{% if is_main %}Upload main profile photo{% else %}Upload profile photo {{ slot }}{% endif %}"
+               aria-describedby="photo-help-{{ slot }}">
+        <div class="photo-upload-btn" aria-hidden="true">
             {% include "crush_lu/icons/camera.html" with class="w-4 h-4" %}
             <span>{% if photo %}Change Photo{% else %}Upload Photo{% endif %}</span>
         </div>
@@ -36,7 +37,7 @@
             {% include "crush_lu/icons/arrow-path.html" with class="w-5 h-5 tw-animate-spin" %} Uploading...
         </span>
     </div>
-    <div class="photo-help">
+    <div class="photo-help" id="photo-help-{{ slot }}">
         {% if is_main %}
             {% if photo %}Upload to replace{% else %}Your primary photo{% endif %}
         {% elif slot == 2 %}

@@ -192,12 +192,84 @@ class CrushProfileForm(forms.ModelForm):
         dob = self.cleaned_data.get('date_of_birth')
         if dob:
             from django.utils import timezone
-            age = timezone.now().date().year - dob.year
+            today = timezone.now().date()
+
+            # Prevent future dates
+            if dob > today:
+                raise forms.ValidationError("Date of birth cannot be in the future")
+
+            # Calculate age correctly by checking if birthday has occurred this year
+            age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
             if age < 18:
                 raise forms.ValidationError("You must be at least 18 years old to join Crush.lu")
             if age > 99:
                 raise forms.ValidationError("Please enter a valid date of birth")
         return dob
+
+    def clean_phone_number(self):
+        """Validate phone number format for Luxembourg and neighboring countries"""
+        import re
+
+        phone = self.cleaned_data.get('phone_number')
+        if not phone:
+            return phone
+
+        # Remove all whitespace and dashes for validation
+        phone_clean = re.sub(r'[\s\-\(\)]', '', phone)
+
+        # Must start with + for international format
+        if not phone_clean.startswith('+'):
+            raise forms.ValidationError(
+                "Please enter your phone number in international format (e.g., +352 XX XX XX XX)"
+            )
+
+        # Valid country codes for Luxembourg and neighboring countries
+        # +352 (Luxembourg), +33 (France), +32 (Belgium), +49 (Germany)
+        valid_prefixes = ['+352', '+33', '+32', '+49']
+        has_valid_prefix = any(phone_clean.startswith(prefix) for prefix in valid_prefixes)
+
+        if not has_valid_prefix:
+            raise forms.ValidationError(
+                "Please enter a phone number from Luxembourg (+352), France (+33), "
+                "Belgium (+32), or Germany (+49)"
+            )
+
+        # Check minimum and maximum length (including country code)
+        # Luxembourg: +352 + 6-9 digits = 10-13 chars
+        # France/Belgium/Germany: +33/+32/+49 + 9-10 digits = 12-13 chars
+        if len(phone_clean) < 10:
+            raise forms.ValidationError(
+                "Phone number is too short. Please include the full number."
+            )
+        if len(phone_clean) > 15:
+            raise forms.ValidationError(
+                "Phone number is too long. Please check the format."
+            )
+
+        # Ensure only digits after the +
+        if not re.match(r'^\+[0-9]+$', phone_clean):
+            raise forms.ValidationError(
+                "Phone number can only contain digits after the country code."
+            )
+
+        return phone
+
+    def clean(self):
+        """Additional cross-field validation"""
+        cleaned_data = super().clean()
+
+        # Server-side phone verification enforcement
+        # Check if this is a profile submission (has instance with user)
+        if self.instance and self.instance.pk:
+            # For existing profiles, check phone verification status
+            if not self.instance.phone_verified:
+                raise forms.ValidationError(
+                    "You must verify your phone number before submitting your profile. "
+                    "Click the 'Verify' button next to your phone number."
+                )
+
+        return cleaned_data
 
     def clean_photo_1(self):
         """Validate photo_1: file size, type, and image content"""

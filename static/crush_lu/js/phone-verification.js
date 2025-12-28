@@ -28,14 +28,19 @@ class PhoneVerification {
         this.onError = options.onError || ((err) => console.error(err));
         this.onCodeSent = options.onCodeSent || (() => {});
         this.onStateChange = options.onStateChange || (() => {});
+        this.onFirebaseError = options.onFirebaseError || null; // New: callback for Firebase initialization errors
 
         // Firebase state
         this.confirmationResult = null;
         this.recaptchaVerifier = null;
         this.isInitialized = false;
+        this.initializationError = null; // Track initialization errors
 
         // UI state
         this.state = 'idle'; // idle, sending, code_sent, verifying, verified, error
+
+        // localStorage key for persisting verification state
+        this.storageKey = 'crush_phone_verification';
 
         // Firebase config from options or global window variables (set by Django template)
         // IMPORTANT: No hardcoded defaults - config must be provided via environment variables
@@ -47,11 +52,76 @@ class PhoneVerification {
 
         // Validate config is present
         if (!this.firebaseConfig.apiKey || !this.firebaseConfig.projectId) {
+            const errorMsg = 'Firebase configuration missing. Phone verification is temporarily unavailable.';
             console.error('Firebase configuration missing. Set FIREBASE_API_KEY and FIREBASE_PROJECT_ID environment variables.');
+            this.initializationError = errorMsg;
+            this.setState('error');
+            if (this.onFirebaseError) {
+                this.onFirebaseError(errorMsg);
+            }
             return;
         }
 
+        // Restore state from localStorage
+        this.restoreState();
+
         this.initFirebase();
+    }
+
+    /**
+     * Persist verification state to localStorage
+     */
+    saveState() {
+        try {
+            const stateData = {
+                state: this.state,
+                timestamp: Date.now(),
+                hasConfirmation: !!this.confirmationResult
+            };
+            localStorage.setItem(this.storageKey, JSON.stringify(stateData));
+        } catch (e) {
+            // localStorage not available, silently ignore
+            console.warn('Could not save phone verification state to localStorage');
+        }
+    }
+
+    /**
+     * Restore verification state from localStorage
+     * Only restore if state was saved within last 10 minutes (OTP validity window)
+     */
+    restoreState() {
+        try {
+            const savedData = localStorage.getItem(this.storageKey);
+            if (savedData) {
+                const parsed = JSON.parse(savedData);
+                const ageMinutes = (Date.now() - parsed.timestamp) / 1000 / 60;
+
+                // Only restore if less than 10 minutes old and was in code_sent state
+                if (ageMinutes < 10 && parsed.state === 'code_sent') {
+                    console.log('Restored phone verification state from localStorage');
+                    // Note: We can't restore confirmationResult, user will need to resend
+                    // But we can show them a helpful message
+                    this.state = 'idle';
+                } else {
+                    // Expired or completed, clear storage
+                    this.clearStoredState();
+                }
+            }
+        } catch (e) {
+            // localStorage not available or corrupted data
+            console.warn('Could not restore phone verification state');
+        }
+    }
+
+    /**
+     * Clear stored verification state
+     */
+    clearStoredState() {
+        try {
+            localStorage.removeItem(this.storageKey);
+        } catch (e) {
+            // Ignore
+        }
     }
 
     /**
@@ -59,7 +129,13 @@ class PhoneVerification {
      */
     initFirebase() {
         if (typeof firebase === 'undefined') {
+            const errorMsg = 'Phone verification is temporarily unavailable. Please try again later or contact support.';
             console.error('Firebase SDK not loaded. Include firebase-app-compat.js and firebase-auth-compat.js');
+            this.initializationError = errorMsg;
+            this.setState('error');
+            if (this.onFirebaseError) {
+                this.onFirebaseError(errorMsg);
+            }
             return;
         }
 
@@ -69,10 +145,31 @@ class PhoneVerification {
                 console.log('Firebase initialized');
             }
             this.isInitialized = true;
+            this.initializationError = null;
         } catch (error) {
+            const errorMsg = 'Phone verification service failed to initialize. Please refresh the page or try again later.';
             console.error('Failed to initialize Firebase:', error);
+            this.initializationError = errorMsg;
+            this.setState('error');
+            if (this.onFirebaseError) {
+                this.onFirebaseError(errorMsg);
+            }
             this.onError(error);
         }
+    }
+
+    /**
+     * Check if Firebase is ready for use
+     */
+    isReady() {
+        return this.isInitialized && !this.initializationError;
+    }
+
+    /**
+     * Get initialization error if any
+     */
+    getInitializationError() {
+        return this.initializationError;
     }
 
     /**
@@ -299,10 +396,19 @@ class PhoneVerification {
 
     /**
      * Update internal state and notify listeners
+     * Also persists state to localStorage for recovery after page refresh
      */
     setState(newState) {
         this.state = newState;
         this.onStateChange(newState);
+
+        // Persist state changes to localStorage
+        if (newState === 'code_sent') {
+            this.saveState();
+        } else if (newState === 'verified' || newState === 'idle') {
+            // Clear stored state on completion or reset
+            this.clearStoredState();
+        }
     }
 
     /**

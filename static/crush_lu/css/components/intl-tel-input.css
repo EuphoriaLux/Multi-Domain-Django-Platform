@@ -6,6 +6,11 @@
  * We only customize appearance, not layout/sizing.
  */
 
+/* CSS Variable for phone input padding - single source of truth */
+:root {
+    --intl-tel-input-padding: 110px;
+}
+
 /* ============================================
    LAYOUT WRAPPER FOR PHONE + BUTTON
    ============================================ */
@@ -94,33 +99,33 @@
 
 /* Base selector - any input inside .iti container */
 .iti input[type="tel"] {
-    padding-left: 110px !important;
+    padding-left: var(--intl-tel-input-padding) !important;
 }
 
 /* Target the specific class intl-tel-input adds in v18 */
 input.iti__tel-input {
-    padding-left: 110px !important;
+    padding-left: var(--intl-tel-input-padding) !important;
 }
 
 /* Higher specificity with container */
 .iti input.iti__tel-input {
-    padding-left: 110px !important;
+    padding-left: var(--intl-tel-input-padding) !important;
 }
 
 /* With form-control class (Bootstrap) */
 .iti input.form-control {
-    padding-left: 110px !important;
+    padding-left: var(--intl-tel-input-padding) !important;
 }
 
 /* Maximum specificity - chain all possible classes */
 .iti.iti--allow-dropdown.iti--separate-dial-code.iti--show-selected-dial-code input.iti__tel-input.form-control {
-    padding-left: 110px !important;
+    padding-left: var(--intl-tel-input-padding) !important;
 }
 
 /* Fallback for any combination */
 .phone-input-wrapper .iti input,
 .phone-input-wrapper input[type="tel"] {
-    padding-left: 110px !important;
+    padding-left: var(--intl-tel-input-padding) !important;
 }
 
 /* ============================================

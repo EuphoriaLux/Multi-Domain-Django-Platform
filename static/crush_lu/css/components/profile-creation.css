@@ -785,7 +785,7 @@
 
 .privacy-toggle-label-hint {
     font-size: var(--text-sm);
-    color: var(--crush-gray);
+    color: var(--crush-gray-dark, #4b5563);  /* Darker gray for WCAG AA compliance */
 }
 
 /* ===================
@@ -927,4 +927,37 @@
 
 .char-counter--danger .char-counter-bar-fill {
     background: var(--crush-danger);
+}
+
+/* ===================
+   Reduced Motion Support
+   Respects user's system preferences for reduced motion
+   =================== */
+@media (prefers-reduced-motion: reduce) {
+    /* Disable all animations and transitions */
+    .form-step,
+    .selection-card,
+    .selection-card-icon,
+    .selection-card-label,
+    .photo-upload-card,
+    .privacy-toggle-track,
+    .privacy-toggle-label,
+    .char-counter-bar-fill,
+    .progress-step,
+    .progress-line {
+        animation: none !important;
+        transition: none !important;
+    }
+
+    /* Keep step visibility without animation */
+    .form-step.active {
+        opacity: 1;
+        animation: none;
+    }
+
+    /* Disable keyframe animations */
+    @keyframes fadeIn {
+        from { opacity: 1; }
+        to { opacity: 1; }
+    }
 }

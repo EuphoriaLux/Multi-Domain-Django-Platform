@@ -12,12 +12,13 @@
 <link rel="stylesheet" href="{% static 'crush_lu/css/components/intl-tel-input.css' %}">
 <!-- Inline override to ensure padding is applied (backup for cache issues) -->
 <style>
-    /* Force padding-left to prevent dial code overlap - inline for highest priority */
+    /* Force padding-left to prevent dial code overlap - inline for highest priority
+       Uses CSS variable from intl-tel-input.css for consistency */
     .iti input[type="tel"],
     .iti input.form-control,
     .iti input.iti__tel-input,
     .phone-input-wrapper .iti input {
-        padding-left: 110px !important;
+        padding-left: var(--intl-tel-input-padding, 110px) !important;
     }
 </style>
 {% endblock %}
@@ -192,42 +193,29 @@ document.addEventListener('DOMContentLoaded', function() {
     const phoneValidationFeedback = document.getElementById('phone-validation-feedback');
 
     // Initialize intl-tel-input with utilsScript for placeholder support
-    if (window.intlTelInput && phoneInput) {
+    if (typeof window.intlTelInput === 'function' && phoneInput) {
         // Clear the input COMPLETELY before initializing
         // This prevents the library from seeing any existing value during init
         phoneInput.value = '';
         phoneInput.setAttribute('value', '');
 
-        iti = window.intlTelInput(phoneInput, {
-            // AUTO-DETECT country via IP lookup (cool feature #1!)
-            // Falls back to Luxembourg if IP lookup fails
-            initialCountry: "auto",
-            geoIpLookup: function(callback) {
-                fetch('https://ipapi.co/json/')
-                    .then(response => response.json())
-                    .then(data => {
-                        const countryCode = (data && data.country_code) ? data.country_code.toLowerCase() : 'lu';
-                        console.log('Geo IP detected country:', countryCode);
-                        callback(countryCode);
-                    })
-                    .catch(() => {
-                        console.log('Geo IP lookup failed, defaulting to Luxembourg');
-                        callback('lu');
-                    });
-            },
-            preferredCountries: ["lu", "de", "fr", "be"],
-            // Allowed countries - add more as needed based on your user base
-            onlyCountries: ["lu", "de", "fr", "be", "nl", "ch", "at", "it", "es", "pt", "gb", "ie", "us", "ca", "se", "dz"],
-            separateDialCode: true,
-            nationalMode: false,
-            formatOnDisplay: true,
-            autoPlaceholder: "aggressive",
-            // Load utils script for placeholder and validation support (v18 syntax)
-            utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/utils.js"
-        });
+        try {
+            iti = window.intlTelInput(phoneInput, {
+                // Use static default to avoid geoIpLookup race conditions
+                initialCountry: "lu",
+                preferredCountries: ["lu", "de", "fr", "be"],
+                // Allowed countries - add more as needed based on your user base
+                onlyCountries: ["lu", "de", "fr", "be", "nl", "ch", "at", "it", "es", "pt", "gb", "ie", "us", "ca", "se", "dz"],
+                separateDialCode: true,
+                nationalMode: false,
+                formatOnDisplay: true,
+                autoPlaceholder: "aggressive",
+                // Load utils script for placeholder and validation support (v18 syntax)
+                utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/utils.js"
+            });
 
-        // Store iti instance globally for PhoneVerification to access
-        window.itiInstance = iti;
+            // Store iti instance globally for PhoneVerification to access
+            window.itiInstance = iti;
 
         // When utils load, set the pre-filled number properly using the library's API
         iti.promise.then(function() {
@@ -235,6 +223,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // CRITICAL: Force padding-left via JS to prevent overlap
             // This runs AFTER the library initializes, overriding any inline styles
+            // Matches --intl-tel-input-padding CSS variable in intl-tel-input.css
             phoneInput.style.setProperty('padding-left', '110px', 'important');
 
             // If there was a pre-filled value, set it using the library's setNumber method
@@ -327,6 +316,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 phoneValidationFeedback.style.display = 'block';
                 phoneHelperText.style.display = 'none';
             }
+        }
+        } catch (err) {
+            console.error('intl-tel-input: Initialization error', err);
         }
     }
 

@@ -408,3 +408,47 @@ def send_event_reminder(registration, request, days_until_event):
         request=request,
         fail_silently=False,
     )
+
+
+def send_profile_submission_notifications(submission, request, add_message_func=None):
+    """
+    Send all notifications for a new profile submission.
+
+    This is a convenience function that handles:
+    1. Sending confirmation email to the user
+    2. Sending assignment notification to the coach (if assigned)
+
+    Used by both create_profile and edit_profile views to avoid code duplication.
+
+    Args:
+        submission: ProfileSubmission object
+        request: Django request object
+        add_message_func: Optional function to add messages (e.g., messages.warning)
+                         Called with (message_text) if email fails
+
+    Returns:
+        dict: {'user_email_sent': bool, 'coach_email_sent': bool}
+    """
+    result = {'user_email_sent': False, 'coach_email_sent': False}
+    user = submission.profile.user
+
+    # Send confirmation email to user
+    try:
+        email_result = send_profile_submission_confirmation(user, request)
+        result['user_email_sent'] = email_result > 0
+        logger.info(f"✅ Profile submission email sent to {user.email}: {email_result}")
+    except Exception as e:
+        logger.error(f"❌ Failed to send profile submission confirmation to {user.email}: {e}", exc_info=True)
+        if add_message_func:
+            add_message_func('Profile submitted! (Email notification may have failed - check your spam folder)')
+
+    # Send notification to assigned coach if one was assigned
+    if submission.coach:
+        try:
+            email_result = send_coach_assignment_notification(submission.coach, submission, request)
+            result['coach_email_sent'] = email_result > 0
+            logger.info(f"✅ Coach assignment email sent to {submission.coach.user.email}: {email_result}")
+        except Exception as e:
+            logger.error(f"❌ Failed to send coach assignment notification: {e}", exc_info=True)
+
+    return result

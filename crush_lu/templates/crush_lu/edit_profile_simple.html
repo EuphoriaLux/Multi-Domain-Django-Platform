@@ -4,8 +4,10 @@
 {% block title %}Edit Your Profile - Crush.lu{% endblock %}
 
 {% block extra_css %}
-<!-- intl-tel-input CSS -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/css/intlTelInput.css">
+<!-- intl-tel-input CSS with SRI for security -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/css/intlTelInput.css"
+      integrity="sha384-BmygXwA0e3FeMPv5eKPsAq5JZncm8qElyxhy0qDhzY2cvcZTtTF0O3lG9n+M6JeL"
+      crossorigin="anonymous">
 <!-- Custom intl-tel-input styling for Crush.lu -->
 <link rel="stylesheet" href="{% static 'crush_lu/css/components/intl-tel-input.css' %}">
 <!-- Canton Map CSS -->
@@ -212,79 +214,117 @@ document.addEventListener('click', function(e) {
     });
 });
 
+// Destroy existing intl-tel-input instance to prevent memory leaks
+function destroyIntlTelInput() {
+    if (window.itiInstance) {
+        try {
+            window.itiInstance.destroy();
+            console.log('intl-tel-input: Previous instance destroyed');
+        } catch (e) {
+            console.warn('intl-tel-input: Could not destroy previous instance', e);
+        }
+        window.itiInstance = null;
+    }
+}
+
 // Initialize intl-tel-input for phone number field
 function initIntlTelInput() {
-    // Try to find phone input by ID or by name attribute
-    let phoneInput = document.getElementById('id_phone_number');
+    // Check if library is loaded first
+    if (typeof window.intlTelInput !== 'function') {
+        console.log('intl-tel-input: Library not loaded yet');
+        return;
+    }
+
+    // Find the phone input - must be the actual form field with proper ID
+    const phoneInput = document.getElementById('id_phone_number');
+
+    // Exit early if no editable phone input exists (e.g., phone is verified and locked)
     if (!phoneInput) {
-        phoneInput = document.querySelector('input[name="phone_number"]:not([type="hidden"]):not([readonly]):not([disabled])');
-    }
-    if (!phoneInput || !window.intlTelInput) {
-        console.log('intl-tel-input: Phone input not found or library not loaded');
+        console.log('intl-tel-input: No editable phone input found (phone may be verified)');
         return;
     }
 
-    // Skip if already initialized or phone is verified (readonly)
-    if (phoneInput.readOnly || phoneInput.disabled || phoneInput.dataset.itiInitialized) {
-        console.log('intl-tel-input: Phone input is readonly/disabled or already initialized');
+    // Double-check it's not readonly/disabled
+    if (phoneInput.readOnly || phoneInput.disabled || phoneInput.type === 'hidden') {
+        console.log('intl-tel-input: Phone input is readonly/disabled/hidden');
         return;
     }
 
-    console.log('intl-tel-input: Initializing for phone input:', phoneInput.id || phoneInput.name);
+    // Skip if already initialized on this exact element
+    if (phoneInput.dataset.itiInitialized === 'true' && window.itiInstance) {
+        console.log('intl-tel-input: Already initialized on this element');
+        return;
+    }
+
+    // Destroy any existing instance before creating a new one (prevents memory leak)
+    destroyIntlTelInput();
+
+    // Reset initialization flag (in case DOM was replaced by HTMX)
+    delete phoneInput.dataset.itiInitialized;
+
+    console.log('intl-tel-input: Initializing for phone input:', phoneInput.id);
 
     // Store pre-filled value
     const prefilledValue = phoneInput.value || '';
     phoneInput.value = '';
 
-    const iti = window.intlTelInput(phoneInput, {
-        initialCountry: "auto",
-        geoIpLookup: function(callback) {
-            fetch('https://ipapi.co/json/')
-                .then(response => response.json())
-                .then(data => {
-                    const countryCode = (data && data.country_code) ? data.country_code.toLowerCase() : 'lu';
-                    callback(countryCode);
-                })
-                .catch(() => callback('lu'));
-        },
-        preferredCountries: ["lu", "de", "fr", "be"],
-        onlyCountries: ["lu", "de", "fr", "be", "nl", "ch", "at", "it", "es", "pt", "gb", "ie", "us", "ca", "se", "dz"],
-        separateDialCode: true,
-        nationalMode: false,
-        formatOnDisplay: true,
-        autoPlaceholder: "aggressive",
-        utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/utils.js"
-    });
+    // Track initialization state to prevent race conditions
+    let isDestroyed = false;
 
-    // Mark as initialized
-    phoneInput.dataset.itiInitialized = 'true';
-    window.itiInstance = iti;
-
-    // Set pre-filled value after utils load
-    iti.promise.then(function() {
-        phoneInput.style.setProperty('padding-left', '110px', 'important');
-
-        if (prefilledValue) {
-            let numberToSet = prefilledValue.trim().replace(/\s/g, '');
-            if (!numberToSet.startsWith('+')) {
-                if (numberToSet.startsWith('00')) {
-                    numberToSet = '+' + numberToSet.slice(2);
-                } else {
-                    numberToSet = '+352' + numberToSet.replace(/^0+/, '');
-                }
-            }
-            iti.setNumber(numberToSet);
-        }
-    });
-
-    // Update hidden field with full international number on form submit
-    const form = phoneInput.closest('form');
-    if (form) {
-        form.addEventListener('submit', function() {
-            if (iti && iti.isValidNumber()) {
-                phoneInput.value = iti.getNumber();
-            }
+    try {
+        const iti = window.intlTelInput(phoneInput, {
+            initialCountry: "lu",  // Use static default to avoid geoIpLookup race conditions
+            preferredCountries: ["lu", "de", "fr", "be"],
+            onlyCountries: ["lu", "de", "fr", "be", "nl", "ch", "at", "it", "es", "pt", "gb", "ie", "us", "ca", "se", "dz"],
+            separateDialCode: true,
+            nationalMode: false,
+            formatOnDisplay: true,
+            autoPlaceholder: "aggressive",
+            utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/utils.js"
         });
+
+        // Mark as initialized
+        phoneInput.dataset.itiInitialized = 'true';
+        window.itiInstance = iti;
+
+        // Set pre-filled value after utils load
+        iti.promise.then(function() {
+            // Check if instance was destroyed during async load
+            if (isDestroyed || !window.itiInstance) {
+                console.log('intl-tel-input: Instance was destroyed during init');
+                return;
+            }
+
+            // Matches --intl-tel-input-padding CSS variable in intl-tel-input.css
+            phoneInput.style.setProperty('padding-left', '110px', 'important');
+
+            if (prefilledValue) {
+                let numberToSet = prefilledValue.trim().replace(/\s/g, '');
+                if (!numberToSet.startsWith('+')) {
+                    if (numberToSet.startsWith('00')) {
+                        numberToSet = '+' + numberToSet.slice(2);
+                    } else {
+                        numberToSet = '+352' + numberToSet.replace(/^0+/, '');
+                    }
+                }
+                iti.setNumber(numberToSet);
+            }
+        }).catch(function(err) {
+            console.warn('intl-tel-input: Utils loading error', err);
+        });
+
+        // Update hidden field with full international number on form submit
+        const form = phoneInput.closest('form');
+        if (form && !form.dataset.itiSubmitHandler) {
+            form.dataset.itiSubmitHandler = 'true';
+            form.addEventListener('submit', function() {
+                if (window.itiInstance && window.itiInstance.isValidNumber && window.itiInstance.isValidNumber()) {
+                    phoneInput.value = window.itiInstance.getNumber();
+                }
+            });
+        }
+    } catch (err) {
+        console.error('intl-tel-input: Initialization error', err);
     }
 }
 

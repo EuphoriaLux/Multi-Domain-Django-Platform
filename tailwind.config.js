@@ -10,6 +10,34 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // Override default purple palette with Crush.lu brand colors
+        // This ensures purple-500, purple-600, etc. use our brand color
+        purple: {
+          50: '#F5EBF8',
+          100: '#EAD6F0',
+          200: '#D5ADE1',
+          300: '#C085D2',
+          400: '#AB5CC3',
+          500: '#9B59B6',   // --crush-purple (brand primary)
+          600: '#8E44AD',   // --crush-purple-dark
+          700: '#7D3C9B',
+          800: '#6C3589',
+          900: '#5B2D77',
+        },
+        // Pink palette matching Crush.lu brand
+        pink: {
+          50: '#FFF0F5',
+          100: '#FFE0EB',
+          200: '#FFC1D7',
+          300: '#FFA1C3',
+          400: '#FF82AF',
+          500: '#FF6B9D',   // --crush-pink (brand secondary)
+          600: '#D94D7B',   // --crush-pink-dark
+          700: '#B33D63',
+          800: '#8C304D',
+          900: '#662438',
+        },
+        // Crush-specific color aliases for explicit brand usage
         crush: {
           purple: '#9B59B6',
           'purple-light': '#AF7AC5',
@@ -20,6 +48,7 @@ module.exports = {
           dark: '#2C3E50',
           light: '#F8F9FA',
           gray: '#6c757d',
+          'gray-dark': '#4b5563',
           success: '#28a745',
           warning: '#f39c12',
           danger: '#dc3545',
