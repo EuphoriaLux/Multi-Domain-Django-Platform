@@ -403,6 +403,14 @@
                 </h5>
             </div>
             <div class="p-6">
+                <!-- State: Loading (checking push support) -->
+                <template x-if="showLoading">
+                    <div class="flex items-center justify-center py-4">
+                        <span class="animate-spin inline-block w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full mr-2"></span>
+                        <span class="text-gray-500">Checking notification support...</span>
+                    </div>
+                </template>
+
                 <!-- State: Push not supported -->
                 <template x-if="showNotSupported">
                     <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">

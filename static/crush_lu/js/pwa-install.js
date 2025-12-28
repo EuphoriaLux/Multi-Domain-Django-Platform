@@ -60,21 +60,33 @@ class PWAInstaller {
         banner.id = 'pwa-install-banner';
         banner.className = 'pwa-install-banner';
         banner.innerHTML = `
-            <div class="container">
-                <div class="row align-items-center py-3">
-                    <div class="col-auto">
-                        <i class="bi bi-phone" style="font-size: 2rem; color: var(--crush-pink, #FF6B9D);"></i>
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between py-3 gap-4">
+                    <!-- Icon and Text -->
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                            </svg>
+                        </div>
+                        <div class="min-w-0">
+                            <h6 class="font-semibold text-gray-900 text-sm sm:text-base truncate">Install Crush.lu App</h6>
+                            <p class="text-xs sm:text-sm text-gray-500 truncate">Quick access & offline features</p>
+                        </div>
                     </div>
-                    <div class="col">
-                        <h6 class="mb-0">Install Crush.lu App</h6>
-                        <small class="text-muted">Get quick access and offline features</small>
-                    </div>
-                    <div class="col-auto">
-                        <button id="pwa-install-button" class="btn btn-sm btn-crush-primary me-2">
-                            <i class="bi bi-download"></i> Install
+
+                    <!-- Buttons -->
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <button id="pwa-install-button" class="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-500 rounded-full hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-200 hover:-translate-y-0.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                            <span class="hidden sm:inline">Install</span>
                         </button>
-                        <button id="pwa-dismiss-button" class="btn btn-sm btn-outline-secondary">
-                            <i class="bi bi-x"></i>
+                        <button id="pwa-dismiss-button" class="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors" aria-label="Dismiss">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
                         </button>
                     </div>
                 </div>
@@ -137,20 +149,32 @@ class PWAInstaller {
     }
 
     showInstallSuccess() {
-        // Show a success message
+        // Show a success message using Tailwind
         const successBanner = document.createElement('div');
-        successBanner.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
-        successBanner.style.zIndex = '9999';
+        successBanner.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-50 border border-green-200 rounded-lg shadow-lg px-4 py-3 flex items-center gap-3 animate-fade-in';
         successBanner.innerHTML = `
-            <i class="bi bi-check-circle"></i>
-            <strong>Crush.lu installed!</strong> You can now access it from your home screen.
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="text-green-800 font-medium text-sm">Crush.lu installed! Access it from your home screen.</span>
+            <button type="button" class="pwa-success-close ml-2 text-green-400 hover:text-green-600 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
         `;
         document.body.appendChild(successBanner);
 
-        // Auto-remove after 5 seconds
-        setTimeout(() => {
+        // Add close button handler
+        successBanner.querySelector('.pwa-success-close').addEventListener('click', function() {
             successBanner.remove();
+        });
+
+        // Auto-remove after 5 seconds
+        setTimeout(function() {
+            if (successBanner.parentNode) {
+                successBanner.remove();
+            }
         }, 5000);
     }
 }

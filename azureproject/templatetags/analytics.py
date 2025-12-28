@@ -285,35 +285,77 @@ def appinsights_head(context):
 
     # Application Insights JavaScript SDK v3 (via CDN)
     # PERFORMANCE: Load asynchronously to avoid render-blocking
-    # Uses the modern SDK Loader script pattern (recommended approach)
+    # Uses a simplified, more robust loader that handles blocked scripts gracefully
     # See: https://learn.microsoft.com/en-us/azure/azure-monitor/app/javascript-sdk
     user_context_js = f'''
-        // Set authenticated user context for correlation
-        if (window.appInsights && window.appInsights.context && window.appInsights.context.user) {{
-            window.appInsights.context.user.authenticatedId = "{user_id}";
-        }}''' if user_id else ''
+            // Set authenticated user context for correlation
+            if (ai.context && ai.context.user) {{
+                ai.context.user.authenticatedId = "{user_id}";
+            }}''' if user_id else ''
 
+    # Simplified Application Insights loader that:
+    # 1. Fails silently when blocked (no console errors)
+    # 2. Creates stub methods so code doesn't break
+    # 3. Only loads SDK if not blocked by browser/extensions
     script = f'''<!-- Azure Application Insights Browser SDK v3 -->
 <link rel="preconnect" href="https://js.monitor.azure.com" crossorigin>
 <script type="text/javascript"{nonce_attr}>
-!function(v,y,T){{var S=v.location,k="script",D="connectionString",C="ingestionendpoint",I="disableExceptionTracking",E="ai.device.",b="toLowerCase",w="crossOrigin",N="POST",e="appInsightsSDK",t=T.name||"appInsights";(T.name||v[e])&&(v[e]=t);var n=v[t]||function(l){{var u=!1,d=!1,g={{initialize:!0,queue:[],sv:"8",version:2,config:l}};function m(e,t){{var n={{}},a="Browser";return n[E+"id"]=a[b](),n[E+"type"]=a,n["ai.operation.name"]=S&&S.pathname||"_unknown_",n["ai.internal.sdkVersion"]="javascript:snippet_"+(g.sv||g.version),n}}function e(n){{var a=y.createElement(k);a.src=n;var e=T[w];return!e&&""!==e||"undefined"==n[w]||(a[w]=e),a.onload=function(){{if(u)try{{d=!0;var e=v[t];c(n),e.queue&&0<e.queue.length&&e.emptyQueue()}}catch(e){{}}else r("SDK Load Timeout",null,n)}},a.onerror=function(){{r("SDK Load Failed",null,n)}},a}}function a(e,t){{d||setTimeout(function(){{!d&&u&&r("SDK Load Timeout",null,e)}},t)}}function r(e,t,n){{u=!1,d=!0;var a=y.createElement("div");a.innerHTML="<img src='https://dc.services.visualstudio.com/v2/track?name=SDK+Load+Failure&properties={{%22sdkVersion%22:%22"+(g.sv||g.version)+"%22,%22message%22:%22"+encodeURIComponent(e)+"%22,%22url%22:%22"+encodeURIComponent(n)+"%22}}'/>"}}"{{0}}".replace("{{0}}",l[D])===l[D]&&(l[D]="");function c(e){{for(var t,n,a,i,o,s=0;s<T.featureOptIn.length;s++)T.featureOptIn[s]===e&&(i=T.featureOptIn,o=s,i.splice(o,1))}}try{{u=!0;var i=T.url||"https://js.monitor.azure.com/scripts/b/ai.3.gbl.min.js";if(-1<(l[D]||"").indexOf(C)&&-1<i.indexOf("/scripts/b/")){{"string"==typeof T.ld&&(l[D]=function(e){{var t,n=e.split(C);return 2<=n.length&&(t=n[1].split("/"),n[0]+C+t[0]),n[0]}}(l[D]));var o="https://js.monitor.azure.com/scripts/b/ext/ai.clck.3.min.js";T.cr=!0,T.featureOptIn=T.featureOptIn||[],T.featureOptIn.push(o)}}T.ld=T.ld||-1;var s=y.getElementsByTagName(k)[0],f=y.createElement(k);if(!0===T.ld)s.parentNode.insertBefore(e(i),s),a(i,T.ld);else{{var h=function(){{s.parentNode.insertBefore(e(i),s),a(i,T.ld)}};-1!==T.ld?setTimeout(h,T.ld):h()}}if(T.featureOptIn&&T.featureOptIn.length)for(var p=0;p<T.featureOptIn.length;p++)s.parentNode.insertBefore(e(T.featureOptIn[p]),s)}}catch(e){{u=!1,r("SDK Load Failure",e,i)}}return g}}({{
-    connectionString: "{connection_string}",
-    enableAutoRouteTracking: true,
-    enableCorsCorrelation: true,
-    enableRequestHeaderTracking: true,
-    enableResponseHeaderTracking: true,
-    enableAjaxPerfTracking: true,
-    maxBatchInterval: 15000,
-    disableFetchTracking: false,
-    disableExceptionTracking: false,
-    autoTrackPageVisitTime: true
-}}),w=v[t];w.queue&&0===w.queue.length&&w.trackPageView({{}}),function(){{if(v[t])try{{{user_context_js}
-    }}catch(e){{}}}}()}}(window,document,{{
-    src: "https://js.monitor.azure.com/scripts/b/ai.3.gbl.min.js",
-    crossOrigin: "anonymous",
-    ld: -1,
-    name: "appInsights"
-}});
+(function(w,d){{
+    // Create stub appInsights object with no-op methods
+    // This prevents errors if SDK fails to load or is blocked
+    var stub = {{
+        queue: [],
+        trackPageView: function(){{}},
+        trackEvent: function(){{}},
+        trackException: function(){{}},
+        trackTrace: function(){{}},
+        trackMetric: function(){{}},
+        trackDependencyData: function(){{}},
+        flush: function(){{}},
+        setAuthenticatedUserContext: function(){{}},
+        clearAuthenticatedUserContext: function(){{}},
+        config: {{}}
+    }};
+    w.appInsights = stub;
+
+    // Try to load the real SDK
+    try {{
+        var s = d.createElement('script');
+        s.src = 'https://js.monitor.azure.com/scripts/b/ai.3.gbl.min.js';
+        s.crossOrigin = 'anonymous';
+        s.async = true;
+        s.onload = function() {{
+            try {{
+                var ai = new Microsoft.ApplicationInsights.ApplicationInsights({{
+                    config: {{
+                        connectionString: "{connection_string}",
+                        enableAutoRouteTracking: true,
+                        enableCorsCorrelation: true,
+                        enableRequestHeaderTracking: true,
+                        enableResponseHeaderTracking: true,
+                        enableAjaxPerfTracking: true,
+                        maxBatchInterval: 15000,
+                        disableFetchTracking: false,
+                        disableExceptionTracking: false,
+                        autoTrackPageVisitTime: true
+                    }}
+                }});
+                ai.loadAppInsights();
+                ai.trackPageView();{user_context_js}
+                w.appInsights = ai;
+            }} catch(e) {{
+                // SDK init failed, keep using stub (silent fail)
+            }}
+        }};
+        s.onerror = function() {{
+            // SDK blocked or failed to load, keep using stub (silent fail)
+        }};
+        var head = d.getElementsByTagName('head')[0];
+        if (head) head.appendChild(s);
+    }} catch(e) {{
+        // Script injection failed, keep using stub (silent fail)
+    }}
+}})(window, document);
 </script>'''
 
     return mark_safe(script)

@@ -172,15 +172,17 @@ document.addEventListener('alpine:init', function() {
             isDisabling: false,
             errorMessage: '',
             permissionDenied: false,
+            isLoading: true,
 
             // Computed getters for CSP compatibility
             get hasSubscriptions() { return this.subscriptions.length > 0; },
             get noSubscriptions() { return this.subscriptions.length === 0; },
             get canEnable() { return this.isSupported && !this.isSubscribed && !this.isEnabling && !this.permissionDenied; },
-            get showEnableButton() { return this.isSupported && !this.isSubscribed && !this.permissionDenied; },
-            get showPermissionDenied() { return this.permissionDenied; },
-            get showNotSupported() { return !this.isSupported; },
-            get showPreferences() { return this.isSubscribed && this.hasSubscriptions; },
+            get showEnableButton() { return !this.isLoading && this.isSupported && !this.isSubscribed && !this.permissionDenied; },
+            get showPermissionDenied() { return !this.isLoading && this.permissionDenied; },
+            get showNotSupported() { return !this.isLoading && !this.isSupported; },
+            get showPreferences() { return !this.isLoading && this.isSubscribed && this.hasSubscriptions; },
+            get showLoading() { return this.isLoading; },
 
             init: function() {
                 var self = this;
@@ -195,20 +197,29 @@ document.addEventListener('alpine:init', function() {
                     }
                 }
 
-                // Check if push is supported
-                this.isSupported = window.CrushPush && window.CrushPush.isSupported;
-
-                // Check current subscription status
-                if (this.isSupported && window.CrushPush.isSubscribed) {
-                    window.CrushPush.isSubscribed().then(function(subscribed) {
-                        self.isSubscribed = subscribed;
-                    });
-                }
+                // Check if push is supported directly (don't rely on CrushPush being loaded)
+                // This is the same check as in push-notifications.js
+                this.isSupported = 'serviceWorker' in navigator && 'PushManager' in window;
 
                 // Check if permission was denied
                 if ('Notification' in window && Notification.permission === 'denied') {
                     this.permissionDenied = true;
                 }
+
+                // Wait for CrushPush to be available before checking subscription status
+                this._waitForCrushPush(function() {
+                    // Check current subscription status
+                    if (self.isSupported && window.CrushPush && window.CrushPush.isSubscribed) {
+                        window.CrushPush.isSubscribed().then(function(subscribed) {
+                            self.isSubscribed = subscribed;
+                            self.isLoading = false;
+                        }).catch(function() {
+                            self.isLoading = false;
+                        });
+                    } else {
+                        self.isLoading = false;
+                    }
+                });
 
                 // Event delegation for toggle changes
                 this.$el.addEventListener('change', function(event) {
@@ -314,6 +325,27 @@ document.addEventListener('alpine:init', function() {
                 var cookie = document.cookie.split('; ')
                     .find(function(row) { return row.startsWith('csrftoken='); });
                 return cookie ? cookie.split('=')[1] : '';
+            },
+
+            // Wait for CrushPush to be available (handles script load timing)
+            _waitForCrushPush: function(callback) {
+                var self = this;
+                var maxAttempts = 20; // 2 seconds max
+                var attempts = 0;
+
+                function check() {
+                    attempts++;
+                    if (window.CrushPush) {
+                        callback();
+                    } else if (attempts < maxAttempts) {
+                        setTimeout(check, 100);
+                    } else {
+                        // CrushPush never loaded (push not supported or script error)
+                        self.isLoading = false;
+                    }
+                }
+
+                check();
             }
         };
     });

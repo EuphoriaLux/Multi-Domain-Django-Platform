@@ -152,18 +152,25 @@ class CSPMiddleware:
             "https://cdn.jsdelivr.net",
             "https://unpkg.com",
             "https://www.gstatic.com",  # Firebase SDK scripts
-            # Analytics (GA4 uses multiple domains for data collection)
+            # Google Analytics GA4 (uses multiple domains for data collection)
+            # Note: Wildcards may not work in all browsers, so list explicit domains
             "https://www.google-analytics.com",
             "https://www.googletagmanager.com",
-            "https://*.analytics.google.com",  # Regional endpoints (region1, etc.)
+            "https://analytics.google.com",
+            "https://region1.analytics.google.com",  # Regional endpoint (EU)
+            "https://region2.analytics.google.com",  # Regional endpoint
+            "https://region3.analytics.google.com",  # Regional endpoint
             "https://stats.g.doubleclick.net",  # GA4 advertising/measurement
-            "https://www.google.lu",  # Luxembourg Google domain for GA audiences
+            # Google domains for GA audiences and ads (per-country TLDs)
+            "https://www.google.com",
+            "https://www.google.lu",  # Luxembourg
+            "https://www.google.de",  # Germany
+            "https://www.google.fr",  # France
+            "https://www.google.be",  # Belgium
             # Firebase
             "https://identitytoolkit.googleapis.com",
             "https://securetoken.googleapis.com",
             "https://www.googleapis.com",
-            # reCAPTCHA
-            "https://www.google.com",
             # Geo-IP lookup for phone country detection
             "https://ipapi.co",
             # Azure Blob Storage (media files)
