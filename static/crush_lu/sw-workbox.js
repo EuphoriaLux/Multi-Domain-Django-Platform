@@ -1,6 +1,6 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v22 - CSP connect-src fix for external images
+// Version: v23 - Bypass cross-origin CDN requests to fix opaque response errors
 
 // ============================================================================
 // CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
@@ -16,6 +16,13 @@
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
+
+  // TRUE HARD BYPASS: External CDN resources (cross-origin)
+  // These cause "opaque" response errors when cached by service worker
+  if (url.origin !== self.location.origin) {
+    // Don't intercept cross-origin requests at all - let browser handle them
+    return;
+  }
 
   // TRUE HARD BYPASS: OAuth and auth-related URLs
   // Using event.respondWith(fetch()) ensures NO other handler can intercept
@@ -50,7 +57,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v22-csp-fix';
+  const CACHE_VERSION = 'crush-v23-cdn-bypass';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
