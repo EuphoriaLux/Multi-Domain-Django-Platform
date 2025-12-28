@@ -137,7 +137,7 @@ class AuthenticatedHTMXTests(SiteTestMixin, HTMXTestMixin, TestCase):
         url = reverse('crush_lu:edit_profile')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'crush_lu/edit_profile_simple.html')
+        self.assertTemplateUsed(response, 'crush_lu/edit_profile.html')
 
     def test_edit_profile_htmx_request(self):
         """Edit profile should work with HTMX request."""

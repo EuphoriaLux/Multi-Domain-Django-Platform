@@ -841,9 +841,12 @@ def create_profile(request):
         })
 
 
-@crush_login_required
-def edit_profile_simple(request):
-    """Simple single-page edit for approved profiles - coaches can also edit their dating profiles"""
+def _render_edit_profile_form(request):
+    """Internal: Render single-page edit form for approved profiles.
+
+    This is called by edit_profile() for approved profiles.
+    Not exposed as a separate URL - use edit_profile() instead.
+    """
     # Get existing profile
     try:
         profile = CrushProfile.objects.get(user=request.user)
@@ -853,7 +856,7 @@ def edit_profile_simple(request):
 
     # Only approved profiles use this simple edit page
     if not profile.is_approved:
-        messages.warning(request, 'Your profile must be approved before using quick edit.')
+        messages.warning(request, 'Your profile must be approved before editing.')
         return redirect('crush_lu:edit_profile')
 
     from .social_photos import get_all_social_photos
@@ -894,7 +897,7 @@ def edit_profile_simple(request):
         'profile': profile,
         'social_photos': get_all_social_photos(request.user),
     }
-    return render(request, 'crush_lu/edit_profile_simple.html', context)
+    return render(request, 'crush_lu/edit_profile.html', context)
 
 
 @crush_login_required
@@ -911,7 +914,7 @@ def edit_profile(request):
 
     # 1. If profile is approved → use simple single-page edit
     if profile.is_approved:
-        return edit_profile_simple(request)
+        return _render_edit_profile_form(request)
 
     # 2. If profile is submitted and under review → redirect to status page
     if profile.completion_status == 'submitted':

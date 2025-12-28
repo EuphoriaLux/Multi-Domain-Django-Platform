@@ -155,7 +155,6 @@ urlpatterns = [
     # User dashboard
     path('dashboard/', views.dashboard, name='dashboard'),
     path('profile/edit/', views.edit_profile, name='edit_profile'),
-    path('profile/edit-simple/', views.edit_profile_simple, name='edit_profile_simple'),
 
     # Account settings
     path('account/settings/', views.account_settings, name='account_settings'),

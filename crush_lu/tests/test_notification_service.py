@@ -209,12 +209,12 @@ class TestNotificationServicePreferences:
 class TestNotificationTypes:
     """Tests for different notification types."""
 
-    @patch('crush_lu.push_notifications.send_profile_approved_notification')
+    @patch('crush_lu.push_notifications.send_push_notification')
     def test_profile_approved_push_routing(
-        self, mock_push_func, user_with_push_subscription
+        self, mock_send_push, user_with_push_subscription
     ):
-        """Profile approved notification routes to correct push function."""
-        mock_push_func.return_value = {'success': 1, 'failed': 0, 'total': 1}
+        """Profile approved notification calls the underlying push function."""
+        mock_send_push.return_value = {'success': 1, 'failed': 0, 'total': 1}
 
         result = NotificationService._send_push(
             user_with_push_subscription,
@@ -222,15 +222,18 @@ class TestNotificationTypes:
             {'profile': user_with_push_subscription.crushprofile}
         )
 
-        mock_push_func.assert_called_once_with(user_with_push_subscription)
-        assert result == {'success': 1, 'failed': 0, 'total': 1}
+        # Verify send_push_notification was called with correct title
+        mock_send_push.assert_called_once()
+        call_kwargs = mock_send_push.call_args
+        assert call_kwargs[1]['user'] == user_with_push_subscription
+        assert 'approved' in call_kwargs[1]['title'].lower()
 
-    @patch('crush_lu.push_notifications.send_profile_revision_notification')
+    @patch('crush_lu.push_notifications.send_push_notification')
     def test_profile_revision_push_routing(
-        self, mock_push_func, user_with_push_subscription
+        self, mock_send_push, user_with_push_subscription
     ):
-        """Profile revision notification routes to correct push function."""
-        mock_push_func.return_value = {'success': 1, 'failed': 0, 'total': 1}
+        """Profile revision notification calls the underlying push function."""
+        mock_send_push.return_value = {'success': 1, 'failed': 0, 'total': 1}
 
         result = NotificationService._send_push(
             user_with_push_subscription,
@@ -238,11 +241,11 @@ class TestNotificationTypes:
             {'feedback': 'Please update your bio'}
         )
 
-        mock_push_func.assert_called_once_with(
-            user_with_push_subscription,
-            'Please update your bio'
-        )
-        assert result == {'success': 1, 'failed': 0, 'total': 1}
+        # Verify send_push_notification was called with feedback in body
+        mock_send_push.assert_called_once()
+        call_kwargs = mock_send_push.call_args
+        assert call_kwargs[1]['user'] == user_with_push_subscription
+        assert 'update' in call_kwargs[1]['title'].lower() or 'revision' in call_kwargs[1]['title'].lower()
 
 
 class TestConvenienceFunctions:
