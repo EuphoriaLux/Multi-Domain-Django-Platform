@@ -50,10 +50,18 @@ def get_cookie_consent(request, cookie_group):
 @register.simple_tag(takes_context=True)
 def analytics_head(context):
     """
-    Render GA4 gtag.js script in the <head> section.
+    Render GA4 gtag.js script in the <head> section with Google Consent Mode v2.
 
-    Uses Google's exact recommended implementation for reliable data collection.
-    Consent Mode can be added back once basic tracking is verified working.
+    Implements Google's advanced consent mode requirements:
+    1. Sets default consent state BEFORE gtag.js loads
+    2. Configures all 4 required consent types:
+       - ad_storage, ad_user_data, ad_personalization, analytics_storage
+    3. Respects existing cookie consent preferences
+
+    The cookie_banner.html handles gtag('consent', 'update', ...) when user
+    changes their preferences.
+
+    See: https://developers.google.com/tag-platform/security/guides/consent
 
     This tag should be placed near the top of <head> for best performance.
     """
@@ -68,13 +76,44 @@ def analytics_head(context):
     nonce = getattr(request, 'csp_nonce', '') if request else ''
     nonce_attr = f' nonce="{nonce}"' if nonce else ''
 
-    # GA4 gtag.js - Google's exact recommended implementation
-    # Simplified to ensure reliable data collection
-    script = f'''<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id={ga4_id}"></script>
+    # Check existing consent from cookies
+    # Returns True if consented, False if declined, True if not yet decided
+    # (we default to denied for new visitors per GDPR best practice)
+    has_analytics = get_cookie_consent(request, 'analytics') if request else False
+    has_marketing = get_cookie_consent(request, 'marketing') if request else False
+
+    # For first-time visitors (no consent cookie), default to denied
+    # get_cookie_consent returns True for None (not decided), but we want denied
+    try:
+        from cookie_consent.util import get_cookie_value_from_request
+        analytics_value = get_cookie_value_from_request(request, 'analytics')
+        marketing_value = get_cookie_value_from_request(request, 'marketing')
+        # Only grant if explicitly accepted (True), deny for None or False
+        analytics_granted = 'granted' if analytics_value is True else 'denied'
+        marketing_granted = 'granted' if marketing_value is True else 'denied'
+    except Exception:
+        # Fallback: denied by default for GDPR compliance
+        analytics_granted = 'denied'
+        marketing_granted = 'denied'
+
+    # Google Consent Mode v2 + GA4 gtag.js
+    # CRITICAL: Default consent MUST be set BEFORE gtag.js loads
+    script = f'''<!-- Google Consent Mode v2 + gtag.js -->
 <script{nonce_attr}>
   window.dataLayer = window.dataLayer || [];
   function gtag(){{dataLayer.push(arguments);}}
+
+  // Set default consent state BEFORE gtag.js loads (Google Consent Mode v2)
+  gtag('consent', 'default', {{
+    'ad_storage': '{marketing_granted}',
+    'ad_user_data': '{marketing_granted}',
+    'ad_personalization': '{marketing_granted}',
+    'analytics_storage': '{analytics_granted}',
+    'wait_for_update': 500
+  }});
+</script>
+<script async src="https://www.googletagmanager.com/gtag/js?id={ga4_id}"></script>
+<script{nonce_attr}>
   gtag('js', new Date());
   gtag('config', '{ga4_id}');
 </script>'''

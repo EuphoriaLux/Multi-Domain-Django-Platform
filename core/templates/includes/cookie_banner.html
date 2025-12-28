@@ -341,6 +341,19 @@
         document.dispatchEvent(event);
     }
 
+    // Update Google Consent Mode v2
+    // See: https://developers.google.com/tag-platform/security/guides/consent
+    function updateGoogleConsent(consent) {
+        if (typeof gtag === 'function') {
+            gtag('consent', 'update', {
+                'ad_storage': consent.marketing ? 'granted' : 'denied',
+                'ad_user_data': consent.marketing ? 'granted' : 'denied',
+                'ad_personalization': consent.marketing ? 'granted' : 'denied',
+                'analytics_storage': consent.analytics ? 'granted' : 'denied'
+            });
+        }
+    }
+
     // Also set django-cookie-consent cookies for server-side checks
     function setDjangoCookieConsent(groupName, accepted) {
         const value = accepted ? 'accept' : 'decline';
@@ -362,6 +375,7 @@
         setDjangoCookieConsent('marketing', true);
         hideBanner();
         dispatchConsentEvent(consent);
+        updateGoogleConsent(consent);
     }
 
     function declineAllCookies() {
@@ -376,6 +390,7 @@
         setDjangoCookieConsent('marketing', false);
         hideBanner();
         dispatchConsentEvent(consent);
+        updateGoogleConsent(consent);
     }
 
     function showCookieSettings() {
@@ -403,6 +418,7 @@
         hideBanner();
         hideCookieSettings();
         dispatchConsentEvent(consent);
+        updateGoogleConsent(consent);
     }
 
     // Close modal on outside click

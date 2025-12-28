@@ -157,6 +157,7 @@ class CSPMiddleware:
             "https://www.googletagmanager.com",
             "https://*.analytics.google.com",  # Regional endpoints (region1, etc.)
             "https://stats.g.doubleclick.net",  # GA4 advertising/measurement
+            "https://www.google.lu",  # Luxembourg Google domain for GA audiences
             # Firebase
             "https://identitytoolkit.googleapis.com",
             "https://securetoken.googleapis.com",
