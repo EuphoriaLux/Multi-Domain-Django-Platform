@@ -41,7 +41,9 @@ fi
 echo "✅ Migrations complete. Starting Gunicorn..."
 
 # Optimized Gunicorn settings for faster startup and better performance
-gunicorn --workers 2 --threads 4 --timeout 120 --access-logfile \
-    '-' --error-logfile '-' --bind=0.0.0.0:8000 \
+# Note: Access logs disabled to reduce noise. Errors still logged via --error-logfile.
+# Application errors are tracked via Django logging and Azure Application Insights.
+gunicorn --workers 2 --threads 4 --timeout 120 \
+    --access-logfile /dev/null --error-logfile '-' --bind=0.0.0.0:8000 \
     --preload \
     --chdir=/home/site/wwwroot azureproject.wsgi

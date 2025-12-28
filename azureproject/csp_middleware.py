@@ -184,6 +184,7 @@ class CSPMiddleware:
             "https://www.facebook.com",
             "https://login.microsoftonline.com",
             "https://www.google.com",  # reCAPTCHA
+            "https://*.firebaseapp.com",  # Firebase Phone Auth reCAPTCHA iframe
         ]
         directives.append(f"frame-src {' '.join(frame_src)}")
 

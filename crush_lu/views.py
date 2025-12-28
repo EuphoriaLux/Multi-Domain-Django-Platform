@@ -930,7 +930,7 @@ def edit_profile(request):
 
     # 3. Profile is incomplete (not submitted yet) → redirect to create_profile
     # This ensures the URL matches the wizard content being displayed
-    if profile.completion_status in ['not_started', 'step1', 'step2', 'step3']:
+    if profile.completion_status in ['not_started', 'step1', 'step2', 'step3', 'completed']:
         messages.info(request, 'Please complete your profile to continue.')
         return redirect('crush_lu:create_profile')
 

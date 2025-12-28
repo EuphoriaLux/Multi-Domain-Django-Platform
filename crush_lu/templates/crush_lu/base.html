@@ -292,7 +292,7 @@
                                             {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
                                             Edit Profile
                                         </a>
-                                        {% elif profile_completion_status in 'step1,step2,step3' %}
+                                        {% elif profile_completion_status in 'not_started,step1,step2,step3,completed' %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
                                             {% include "crush_lu/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
                                             Finish Profile
@@ -439,7 +439,7 @@
                                             {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
                                             Edit Profile
                                         </a>
-                                        {% elif profile_completion_status in 'step1,step2,step3' %}
+                                        {% elif profile_completion_status in 'not_started,step1,step2,step3,completed' %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
                                             {% include "crush_lu/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
                                             Finish Profile
@@ -533,7 +533,7 @@
                                     {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
                                     Edit Profile
                                 </a>
-                                {% elif profile_completion_status in 'step1,step2,step3' %}
+                                {% elif profile_completion_status in 'not_started,step1,step2,step3,completed' %}
                                 <a class="nav-link block" href="{% url 'crush_lu:create_profile' %}">
                                     {% include "crush_lu/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
                                     Finish Profile
@@ -590,7 +590,7 @@
                                     {% include "crush_lu/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
                                     Edit Profile
                                 </a>
-                                {% elif profile_completion_status in 'step1,step2,step3' %}
+                                {% elif profile_completion_status in 'not_started,step1,step2,step3,completed' %}
                                 <a class="nav-link block" href="{% url 'crush_lu:create_profile' %}">
                                     {% include "crush_lu/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
                                     Finish Profile
