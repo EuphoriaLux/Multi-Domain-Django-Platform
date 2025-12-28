@@ -523,6 +523,11 @@
     padding: var(--space-6);
 }
 
+/* Contact Information grid - align items at start for better visual balance */
+.section-card .grid {
+    align-items: start;
+}
+
 .section-title {
     color: var(--crush-dark);
     font-weight: var(--font-semibold);
