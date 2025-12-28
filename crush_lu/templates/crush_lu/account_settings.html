@@ -395,7 +395,7 @@
         {% if is_pwa_user %}
         <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden"
              x-data="pushPreferences"
-             data-subscriptions="{{ push_subscriptions_json|escapejs }}">
+             data-subscriptions='{{ push_subscriptions_json }}'>
             <div class="px-6 py-4 border-b border-gray-100">
                 <h5 class="text-lg font-semibold text-gray-900 flex items-center">
                     {% include "crush_lu/icons/bell.html" with class="w-5 h-5 text-purple-600 mr-2" %}
