@@ -307,18 +307,16 @@ if _APPINSIGHTS_CONNECTION_STRING:
         from azure.monitor.opentelemetry import configure_azure_monitor
         configure_azure_monitor(
             connection_string=_APPINSIGHTS_CONNECTION_STRING,
-            # Only enable logging, disable traces/metrics to avoid duplication
-            # with Azure's autoinstrumentation
-            enable_live_metrics=False,
+            enable_live_metrics=True,
             instrumentation_options={
-                "azure_sdk": {"enabled": False},
-                "django": {"enabled": False},  # Autoinstrumentation handles this
-                "fastapi": {"enabled": False},
-                "flask": {"enabled": False},
-                "psycopg2": {"enabled": False},
-                "requests": {"enabled": False},
-                "urllib": {"enabled": False},
-                "urllib3": {"enabled": False},
+                "azure_sdk": {"enabled": True},
+                "django": {"enabled": True},
+                "fastapi": {"enabled": False},  # Not used
+                "flask": {"enabled": False},    # Not used
+                "psycopg2": {"enabled": True},  # PostgreSQL tracking
+                "requests": {"enabled": True},  # HTTP client tracking
+                "urllib": {"enabled": True},
+                "urllib3": {"enabled": True},
             },
         )
     except ImportError:

@@ -72,8 +72,35 @@ jobs:
           # The actual deployment will use production.py with real credentials
           python manage.py check
 
+  # Run pytest tests (skips Playwright browser tests for speed)
+  test:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        env:
+          SECRET_KEY: ${{ secrets.SECRET_KEY || 'test-secret-key-for-ci' }}
+        run: |
+          echo "🧪 Running pytest (excluding Playwright tests)..."
+          pytest -m "not playwright" --tb=short -q
+          echo "✅ All tests passed"
+
   deploy:
-    needs: validate  # Only deploy if validation passes
+    needs: [validate, test]  # Only deploy if validation AND tests pass
     runs-on: ubuntu-latest
     permissions:
       id-token: write
