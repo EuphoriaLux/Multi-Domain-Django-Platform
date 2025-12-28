@@ -52,10 +52,8 @@ def analytics_head(context):
     """
     Render GA4 gtag.js script in the <head> section.
 
-    Uses GA4 Consent Mode v2 for GDPR compliance:
-    - Scripts always load (for consent mode to work)
-    - Default consent is 'denied' until user accepts
-    - Updates consent when user interacts with cookie banner
+    Uses Google's exact recommended implementation for reliable data collection.
+    Consent Mode can be added back once basic tracking is verified working.
 
     This tag should be placed near the top of <head> for best performance.
     """
@@ -65,44 +63,20 @@ def analytics_head(context):
         return ''
 
     request = context.get('request')
-    has_analytics_consent = get_cookie_consent(request, 'analytics') if request else True
 
     # Get CSP nonce from request (if available)
     nonce = getattr(request, 'csp_nonce', '') if request else ''
     nonce_attr = f' nonce="{nonce}"' if nonce else ''
 
-    # GA4 gtag.js with Consent Mode v2
-    # Default to denied, update based on cookie consent
-    consent_default = 'granted' if has_analytics_consent else 'denied'
-
-    script = f'''<!-- Google Analytics 4 with Consent Mode v2 -->
+    # GA4 gtag.js - Google's exact recommended implementation
+    # Simplified to ensure reliable data collection
+    script = f'''<!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id={ga4_id}"></script>
 <script{nonce_attr}>
   window.dataLayer = window.dataLayer || [];
   function gtag(){{dataLayer.push(arguments);}}
-
-  // Default consent - denied until user accepts
-  gtag('consent', 'default', {{
-    'analytics_storage': '{consent_default}',
-    'ad_storage': 'denied',
-    'ad_user_data': 'denied',
-    'ad_personalization': 'denied',
-    'wait_for_update': 500
-  }});
-
   gtag('js', new Date());
-  gtag('config', '{ga4_id}', {{
-    'anonymize_ip': true
-  }});
-
-  // Listen for cookie consent updates
-  document.addEventListener('cookie_consent_updated', function(e) {{
-    if (e.detail && e.detail.analytics) {{
-      gtag('consent', 'update', {{
-        'analytics_storage': 'granted'
-      }});
-    }}
-  }});
+  gtag('config', '{ga4_id}');
 </script>'''
 
     return mark_safe(script)

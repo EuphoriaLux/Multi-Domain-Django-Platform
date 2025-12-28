@@ -26,7 +26,7 @@ from .models import (
     EventConnection, ConnectionMessage,
     EventActivityOption, EventActivityVote, EventVotingSession,
     PresentationQueue, PresentationRating, SpeedDatingPair,
-    SpecialUserExperience, EventInvitation
+    SpecialUserExperience, EventInvitation, UserActivity
 )
 from .forms import (
     CrushSignupForm, CrushProfileForm, CrushCoachForm, ProfileReviewForm,
@@ -366,11 +366,14 @@ def account_settings(request):
     email_prefs = EmailPreference.get_or_create_for_user(request.user)
 
     # Get push subscriptions for PWA users
+    # PWA status is tracked on UserActivity model, not CrushProfile
     push_subscriptions = []
     is_pwa_user = False
     try:
-        profile = request.user.crushprofile
-        is_pwa_user = profile.is_pwa_user
+        from .models import UserActivity
+        activity = UserActivity.objects.filter(user=request.user).first()
+        if activity:
+            is_pwa_user = activity.is_pwa_user
         if is_pwa_user:
             push_subscriptions = list(
                 PushSubscription.objects.filter(
@@ -1077,11 +1080,21 @@ def dashboard(request):
             status__in=['accepted', 'coach_reviewing', 'coach_approved', 'shared']
         ).count()
 
+        # Check PWA status from UserActivity model (not CrushProfile)
+        is_pwa_user = False
+        try:
+            activity = UserActivity.objects.filter(user=request.user).first()
+            if activity:
+                is_pwa_user = activity.is_pwa_user
+        except Exception:
+            pass
+
         context = {
             'profile': profile,
             'submission': latest_submission,
             'registrations': registrations,
             'connection_count': connection_count,
+            'is_pwa_user': is_pwa_user,
         }
     except CrushProfile.DoesNotExist:
         messages.warning(request, 'Please complete your profile first.')

@@ -280,13 +280,17 @@ def mark_pwa_user(request):
     }
     """
     from django.utils import timezone
-    from .models import CrushProfile
+    from .models import UserActivity
 
     try:
-        profile = request.user.crushprofile
-        profile.is_pwa_user = True
-        profile.last_pwa_visit = timezone.now()
-        profile.save(update_fields=['is_pwa_user', 'last_pwa_visit'])
+        # Get or create UserActivity record for tracking PWA usage
+        activity, created = UserActivity.objects.get_or_create(
+            user=request.user,
+            defaults={'last_seen': timezone.now()}
+        )
+        activity.is_pwa_user = True
+        activity.last_pwa_visit = timezone.now()
+        activity.save(update_fields=['is_pwa_user', 'last_pwa_visit'])
 
         logger.info(f"Marked {request.user.username} as PWA user")
 
@@ -295,13 +299,6 @@ def mark_pwa_user(request):
             'message': 'PWA status updated',
             'isPwaUser': True
         })
-
-    except CrushProfile.DoesNotExist:
-        logger.warning(f"No CrushProfile for user {request.user.username}")
-        return JsonResponse({
-            'success': False,
-            'error': 'Profile not found. Please complete your profile first.'
-        }, status=404)
 
     except Exception as e:
         logger.error(f"Error marking PWA user: {e}")
@@ -324,17 +321,17 @@ def get_pwa_status(request):
         "lastPwaVisit": "2024-01-15T10:30:00Z"
     }
     """
-    from .models import CrushProfile
+    from .models import UserActivity
 
     try:
-        profile = request.user.crushprofile
+        activity = UserActivity.objects.get(user=request.user)
         return JsonResponse({
             'success': True,
-            'isPwaUser': profile.is_pwa_user,
-            'lastPwaVisit': profile.last_pwa_visit.isoformat() if profile.last_pwa_visit else None
+            'isPwaUser': activity.is_pwa_user,
+            'lastPwaVisit': activity.last_pwa_visit.isoformat() if activity.last_pwa_visit else None
         })
 
-    except CrushProfile.DoesNotExist:
+    except UserActivity.DoesNotExist:
         return JsonResponse({
             'success': True,
             'isPwaUser': False,
