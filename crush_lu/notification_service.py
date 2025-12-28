@@ -119,9 +119,14 @@ class NotificationService:
         # Step 2: Attempt push notification if user has subscriptions
         if has_push:
             result.push_attempted = True
-            push_result = NotificationService._send_push(user, notification_type, context)
-            result.push_success_count = push_result.get('success', 0)
-            result.push_failed_count = push_result.get('failed', 0)
+            try:
+                push_result = NotificationService._send_push(user, notification_type, context)
+                result.push_success_count = push_result.get('success', 0)
+                result.push_failed_count = push_result.get('failed', 0)
+            except Exception as e:
+                logger.error(f"Error sending push to {user.username}: {e}")
+                result.errors.append(f"Push error: {e}")
+                result.push_failed_count = 1
 
             # If at least one push succeeded, skip email
             if result.push_success:

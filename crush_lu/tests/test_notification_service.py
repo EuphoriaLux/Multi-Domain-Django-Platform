@@ -209,38 +209,40 @@ class TestNotificationServicePreferences:
 class TestNotificationTypes:
     """Tests for different notification types."""
 
-    @patch('crush_lu.push_notifications.send_profile_approved_notification')
-    def test_profile_approved_push_routing(
-        self, mock_push_func, user_with_push_subscription
-    ):
+    def test_profile_approved_push_routing(self, user_with_push_subscription):
         """Profile approved notification routes to correct push function."""
-        mock_push_func.return_value = {'success': 1, 'failed': 0, 'total': 1}
+        with patch('crush_lu.notification_service.push_notifications') as mock_module:
+            mock_module.send_profile_approved_notification.return_value = {
+                'success': 1, 'failed': 0, 'total': 1
+            }
 
-        NotificationService._send_push(
-            user_with_push_subscription,
-            NotificationType.PROFILE_APPROVED,
-            {'profile': user_with_push_subscription.crushprofile}
-        )
+            NotificationService._send_push(
+                user_with_push_subscription,
+                NotificationType.PROFILE_APPROVED,
+                {'profile': user_with_push_subscription.crushprofile}
+            )
 
-        mock_push_func.assert_called_once_with(user_with_push_subscription)
+            mock_module.send_profile_approved_notification.assert_called_once_with(
+                user_with_push_subscription
+            )
 
-    @patch('crush_lu.push_notifications.send_profile_revision_notification')
-    def test_profile_revision_push_routing(
-        self, mock_push_func, user_with_push_subscription
-    ):
+    def test_profile_revision_push_routing(self, user_with_push_subscription):
         """Profile revision notification routes to correct push function."""
-        mock_push_func.return_value = {'success': 1, 'failed': 0, 'total': 1}
+        with patch('crush_lu.notification_service.push_notifications') as mock_module:
+            mock_module.send_profile_revision_notification.return_value = {
+                'success': 1, 'failed': 0, 'total': 1
+            }
 
-        NotificationService._send_push(
-            user_with_push_subscription,
-            NotificationType.PROFILE_REVISION,
-            {'feedback': 'Please update your bio'}
-        )
+            NotificationService._send_push(
+                user_with_push_subscription,
+                NotificationType.PROFILE_REVISION,
+                {'feedback': 'Please update your bio'}
+            )
 
-        mock_push_func.assert_called_once_with(
-            user_with_push_subscription,
-            'Please update your bio'
-        )
+            mock_module.send_profile_revision_notification.assert_called_once_with(
+                user_with_push_subscription,
+                'Please update your bio'
+            )
 
 
 class TestConvenienceFunctions:
