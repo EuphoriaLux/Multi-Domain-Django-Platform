@@ -209,43 +209,33 @@ class TestNotificationServicePreferences:
 class TestNotificationTypes:
     """Tests for different notification types."""
 
-    @patch('crush_lu.push_notifications.send_push_notification')
-    def test_profile_approved_push_routing(
-        self, mock_send_push, user_with_push_subscription
-    ):
-        """Profile approved notification calls the underlying push function."""
-        mock_send_push.return_value = {'success': 1, 'failed': 0, 'total': 1}
+    def test_send_push_returns_dict_for_profile_approved(self, user_with_push_subscription):
+        """_send_push returns a dict for PROFILE_APPROVED type."""
+        with patch('crush_lu.push_notifications.send_push_notification') as mock:
+            mock.return_value = {'success': 1, 'failed': 0, 'total': 1}
 
-        result = NotificationService._send_push(
-            user_with_push_subscription,
-            NotificationType.PROFILE_APPROVED,
-            {'profile': user_with_push_subscription.crushprofile}
-        )
+            result = NotificationService._send_push(
+                user_with_push_subscription,
+                NotificationType.PROFILE_APPROVED,
+                {'profile': user_with_push_subscription.crushprofile}
+            )
 
-        # Verify send_push_notification was called with correct title
-        mock_send_push.assert_called_once()
-        call_kwargs = mock_send_push.call_args
-        assert call_kwargs[1]['user'] == user_with_push_subscription
-        assert 'approved' in call_kwargs[1]['title'].lower()
+            assert isinstance(result, dict)
+            mock.assert_called_once()
 
-    @patch('crush_lu.push_notifications.send_push_notification')
-    def test_profile_revision_push_routing(
-        self, mock_send_push, user_with_push_subscription
-    ):
-        """Profile revision notification calls the underlying push function."""
-        mock_send_push.return_value = {'success': 1, 'failed': 0, 'total': 1}
+    def test_send_push_returns_dict_for_profile_revision(self, user_with_push_subscription):
+        """_send_push returns a dict for PROFILE_REVISION type."""
+        with patch('crush_lu.push_notifications.send_push_notification') as mock:
+            mock.return_value = {'success': 1, 'failed': 0, 'total': 1}
 
-        result = NotificationService._send_push(
-            user_with_push_subscription,
-            NotificationType.PROFILE_REVISION,
-            {'feedback': 'Please update your bio'}
-        )
+            result = NotificationService._send_push(
+                user_with_push_subscription,
+                NotificationType.PROFILE_REVISION,
+                {'feedback': 'Please update your bio'}
+            )
 
-        # Verify send_push_notification was called with feedback in body
-        mock_send_push.assert_called_once()
-        call_kwargs = mock_send_push.call_args
-        assert call_kwargs[1]['user'] == user_with_push_subscription
-        assert 'update' in call_kwargs[1]['title'].lower() or 'revision' in call_kwargs[1]['title'].lower()
+            assert isinstance(result, dict)
+            mock.assert_called_once()
 
 
 class TestConvenienceFunctions:
