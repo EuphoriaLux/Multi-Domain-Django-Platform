@@ -391,6 +391,108 @@
             </div>
         </div>
 
+        <!-- Push Notifications Card (PWA users with active subscriptions only) -->
+        {% if is_pwa_user and push_subscriptions %}
+        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden"
+             x-data="pushPreferences"
+             data-subscriptions="{{ push_subscriptions_json|escapejs }}">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+                    {% include "crush_lu/icons/device-mobile.html" with class="w-5 h-5 text-purple-600 mr-2" %}
+                    Push Notifications
+                </h5>
+            </div>
+            <div class="p-6">
+                <p class="text-gray-500 text-sm mb-4">
+                    Configure push notification preferences for your devices. Changes are saved automatically.
+                </p>
+
+                {% for subscription in push_subscriptions %}
+                <div class="{% if not forloop.first %}mt-6 pt-6 border-t border-gray-200{% endif %}">
+                    <!-- Device Header -->
+                    <div class="flex items-center mb-4">
+                        {% include "crush_lu/icons/device-mobile.html" with class="w-5 h-5 text-gray-400 mr-2" %}
+                        <span class="font-medium text-gray-900">{{ subscription.device_name|default:"Unknown Device" }}</span>
+                    </div>
+
+                    <div class="space-y-4 pl-7">
+                        <!-- New Messages Toggle -->
+                        <label class="flex items-start cursor-pointer">
+                            <div class="relative mt-0.5">
+                                <input type="checkbox"
+                                       class="sr-only peer push-pref-toggle"
+                                       data-subscription-id="{{ subscription.id }}"
+                                       data-pref-key="newMessages"
+                                       {% if subscription.notify_new_messages %}checked{% endif %}>
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                            </div>
+                            <div class="ml-3 flex-1">
+                                <strong class="text-gray-900">New Messages</strong>
+                                <p class="text-gray-500 text-sm">Get notified when you receive a new message</p>
+                            </div>
+                        </label>
+
+                        <!-- Event Reminders Toggle -->
+                        <label class="flex items-start cursor-pointer">
+                            <div class="relative mt-0.5">
+                                <input type="checkbox"
+                                       class="sr-only peer push-pref-toggle"
+                                       data-subscription-id="{{ subscription.id }}"
+                                       data-pref-key="eventReminders"
+                                       {% if subscription.notify_event_reminders %}checked{% endif %}>
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                            </div>
+                            <div class="ml-3 flex-1">
+                                <strong class="text-gray-900">Event Reminders</strong>
+                                <p class="text-gray-500 text-sm">Reminders about upcoming events</p>
+                            </div>
+                        </label>
+
+                        <!-- New Connections Toggle -->
+                        <label class="flex items-start cursor-pointer">
+                            <div class="relative mt-0.5">
+                                <input type="checkbox"
+                                       class="sr-only peer push-pref-toggle"
+                                       data-subscription-id="{{ subscription.id }}"
+                                       data-pref-key="newConnections"
+                                       {% if subscription.notify_new_connections %}checked{% endif %}>
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                            </div>
+                            <div class="ml-3 flex-1">
+                                <strong class="text-gray-900">New Connections</strong>
+                                <p class="text-gray-500 text-sm">Get notified when someone connects with you</p>
+                            </div>
+                        </label>
+
+                        <!-- Profile Updates Toggle -->
+                        <label class="flex items-start cursor-pointer">
+                            <div class="relative mt-0.5">
+                                <input type="checkbox"
+                                       class="sr-only peer push-pref-toggle"
+                                       data-subscription-id="{{ subscription.id }}"
+                                       data-pref-key="profileUpdates"
+                                       {% if subscription.notify_profile_updates %}checked{% endif %}>
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                            </div>
+                            <div class="ml-3 flex-1">
+                                <strong class="text-gray-900">Profile Updates</strong>
+                                <p class="text-gray-500 text-sm">Notifications about your profile status</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                {% endfor %}
+
+                <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <p class="text-sm text-gray-600 flex items-start">
+                        {% include "crush_lu/icons/information-circle.html" with class="w-5 h-5 text-gray-400 mr-2 flex-shrink-0" %}
+                        Push notifications require the Crush.lu app installed on your device.
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Privacy Card -->
         <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-100">

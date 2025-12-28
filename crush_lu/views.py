@@ -354,15 +354,34 @@ def data_deletion_status(request):
 def account_settings(request):
     """
     Account settings page with delete account option, email preferences,
-    and linked social accounts management.
+    push notification preferences, and linked social accounts management.
     """
+    import json
     from allauth.socialaccount.models import SocialApp
     from django.contrib.sites.models import Site
-    from .models import EmailPreference
+    from .models import EmailPreference, PushSubscription
     from .social_photos import get_all_social_photos
 
     # Get or create email preferences for this user
     email_prefs = EmailPreference.get_or_create_for_user(request.user)
+
+    # Get push subscriptions for PWA users
+    push_subscriptions = []
+    is_pwa_user = False
+    try:
+        profile = request.user.crushprofile
+        is_pwa_user = profile.is_pwa_user
+        if is_pwa_user:
+            push_subscriptions = list(
+                PushSubscription.objects.filter(
+                    user=request.user,
+                    enabled=True
+                ).values('id', 'device_name', 'notify_new_messages',
+                         'notify_event_reminders', 'notify_new_connections',
+                         'notify_profile_updates')
+            )
+    except Exception:
+        pass
 
     # Crush.lu only supports these social providers
     # (LinkedIn is PowerUP-only, not shown in Crush.lu account settings)
@@ -401,6 +420,10 @@ def account_settings(request):
         'microsoft_available': 'microsoft' in available_providers,
         'crush_social_accounts': crush_social_accounts,  # Filtered list for display
         'social_photos': social_photos,  # Social photos for import
+        # Push notification preferences (PWA users only)
+        'is_pwa_user': is_pwa_user,
+        'push_subscriptions': push_subscriptions,
+        'push_subscriptions_json': json.dumps(push_subscriptions, default=str),
     })
 
 

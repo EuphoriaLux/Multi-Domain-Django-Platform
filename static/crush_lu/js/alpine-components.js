@@ -160,6 +160,73 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // Push notification preferences component (account settings)
+    // Uses event delegation for CSP compliance - no inline event handlers
+    Alpine.data('pushPreferences', function() {
+        return {
+            subscriptions: [],
+
+            init: function() {
+                var self = this;
+                // Parse subscriptions from data attribute
+                var data = this.$el.getAttribute('data-subscriptions');
+                if (data) {
+                    try {
+                        this.subscriptions = JSON.parse(data);
+                    } catch (e) {
+                        console.error('[Push] Failed to parse subscriptions:', e);
+                    }
+                }
+
+                // Event delegation for toggle changes
+                this.$el.addEventListener('change', function(event) {
+                    if (event.target.classList.contains('push-pref-toggle')) {
+                        var subId = parseInt(event.target.dataset.subscriptionId);
+                        var prefKey = event.target.dataset.prefKey;
+                        self.updatePreference(subId, prefKey, event.target.checked, event.target);
+                    }
+                });
+            },
+
+            updatePreference: function(subscriptionId, prefKey, value, checkbox) {
+                var self = this;
+                var preferences = {};
+                preferences[prefKey] = value;
+
+                fetch('/api/push/preferences/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': self.getCsrfToken()
+                    },
+                    body: JSON.stringify({
+                        subscriptionId: subscriptionId,
+                        preferences: preferences
+                    })
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (!data.success) {
+                        // Revert checkbox on error
+                        checkbox.checked = !value;
+                        console.error('[Push] Failed to update preference:', data.error);
+                    }
+                })
+                .catch(function(err) {
+                    // Revert checkbox on network error
+                    checkbox.checked = !value;
+                    console.error('[Push] Network error:', err);
+                });
+            },
+
+            getCsrfToken: function() {
+                var cookie = document.cookie.split('; ')
+                    .find(function(row) { return row.startsWith('csrftoken='); });
+                return cookie ? cookie.split('=')[1] : '';
+            }
+        };
+    });
+
     // Decline animation component (connection response)
     // Shows briefly then fades out
     Alpine.data('declineAnimation', function() {
