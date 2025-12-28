@@ -34,8 +34,8 @@ class CrushProfileTests(TestCase):
         """Test that age is calculated correctly from date of birth."""
         from crush_lu.models import CrushProfile
 
-        # Born exactly 25 years ago
-        today = date.today()
+        # Born exactly 25 years ago - use timezone.now() to match model calculation
+        today = timezone.now().date()
         dob = date(today.year - 25, today.month, today.day)
 
         profile = CrushProfile.objects.create(
@@ -51,7 +51,8 @@ class CrushProfileTests(TestCase):
         """Test age calculation before birthday this year."""
         from crush_lu.models import CrushProfile
 
-        today = date.today()
+        # Use timezone.now() to match model calculation
+        today = timezone.now().date()
         # Born 25 years ago, but birthday is tomorrow
         if today.month == 12 and today.day == 31:
             # Edge case: Dec 31, use Jan 1
@@ -73,7 +74,8 @@ class CrushProfileTests(TestCase):
         """Test age_range returns correct range string."""
         from crush_lu.models import CrushProfile
 
-        today = date.today()
+        # Use timezone.now() to match model calculation
+        today = timezone.now().date()
         dob = date(today.year - 27, 1, 1)
 
         profile = CrushProfile.objects.create(
