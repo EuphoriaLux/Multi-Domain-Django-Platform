@@ -350,6 +350,190 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // Coach push notification preferences component (coach dashboard)
+    // Separate from user push preferences - completely independent system
+    Alpine.data('coachPushPreferences', function() {
+        return {
+            subscriptions: [],
+            isSupported: false,
+            isSubscribed: false,
+            isEnabling: false,
+            isDisabling: false,
+            errorMessage: '',
+            permissionDenied: false,
+            isLoading: true,
+
+            get hasSubscriptions() { return this.subscriptions.length > 0; },
+            get showEnableButton() { return !this.isLoading && this.isSupported && !this.isSubscribed && !this.permissionDenied; },
+            get showPermissionDenied() { return !this.isLoading && this.permissionDenied; },
+            get showNotSupported() { return !this.isLoading && !this.isSupported; },
+            get showPreferences() { return !this.isLoading && this.isSubscribed && this.hasSubscriptions; },
+            get showLoading() { return this.isLoading; },
+
+            init: function() {
+                var self = this;
+                var data = this.$el.getAttribute('data-subscriptions');
+                if (data) {
+                    try {
+                        this.subscriptions = JSON.parse(data);
+                    } catch (e) {
+                        console.error('[CoachPush] Failed to parse subscriptions:', e);
+                    }
+                }
+
+                this.isSupported = 'serviceWorker' in navigator && 'PushManager' in window;
+                if ('Notification' in window && Notification.permission === 'denied') {
+                    this.permissionDenied = true;
+                }
+
+                this._waitForServiceWorker(function() {
+                    if (self.isSupported && self.subscriptions.length > 0) {
+                        self.isSubscribed = true;
+                    }
+                    self.isLoading = false;
+                });
+
+                this.$el.addEventListener('change', function(event) {
+                    if (event.target.classList.contains('coach-push-pref-toggle')) {
+                        var subId = parseInt(event.target.dataset.subscriptionId);
+                        var prefKey = event.target.dataset.prefKey;
+                        self.updatePreference(subId, prefKey, event.target.checked, event.target);
+                    }
+                });
+
+                this.$el.addEventListener('click', function(event) {
+                    if (event.target.closest('.enable-coach-push-btn')) {
+                        self.enablePush();
+                    } else if (event.target.closest('.disable-coach-push-btn')) {
+                        self.disablePush();
+                    } else if (event.target.closest('.test-coach-push-btn')) {
+                        self.sendTestNotification();
+                    }
+                });
+            },
+
+            enablePush: function() {
+                var self = this;
+                if (!this.isSupported || this.isEnabling) return;
+                this.isEnabling = true;
+                this.errorMessage = '';
+
+                Notification.requestPermission().then(function(permission) {
+                    if (permission !== 'granted') {
+                        self.isEnabling = false;
+                        self.permissionDenied = true;
+                        return;
+                    }
+                    navigator.serviceWorker.ready.then(function(registration) {
+                        fetch('/api/coach/push/vapid-public-key/')
+                            .then(function(r) { return r.json(); })
+                            .then(function(data) {
+                                if (!data.success) throw new Error(data.error);
+                                return registration.pushManager.subscribe({
+                                    userVisibleOnly: true,
+                                    applicationServerKey: self._urlBase64ToUint8Array(data.publicKey)
+                                });
+                            })
+                            .then(function(subscription) {
+                                return fetch('/api/coach/push/subscribe/', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': self.getCsrfToken() },
+                                    body: JSON.stringify({
+                                        endpoint: subscription.endpoint,
+                                        keys: {
+                                            p256dh: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('p256dh')))),
+                                            auth: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth'))))
+                                        },
+                                        userAgent: navigator.userAgent,
+                                        deviceName: self._getDeviceName()
+                                    })
+                                });
+                            })
+                            .then(function(r) { return r.json(); })
+                            .then(function(data) {
+                                self.isEnabling = false;
+                                if (data.success) { self.isSubscribed = true; window.location.reload(); }
+                                else { self.errorMessage = data.error || 'Failed to enable'; }
+                            })
+                            .catch(function(err) { self.isEnabling = false; self.errorMessage = 'Error occurred'; console.error('[CoachPush]', err); });
+                    });
+                }).catch(function() { self.isEnabling = false; self.errorMessage = 'Permission denied'; });
+            },
+
+            disablePush: function() {
+                var self = this;
+                if (!this.isSupported || this.isDisabling) return;
+                this.isDisabling = true;
+
+                navigator.serviceWorker.ready.then(function(reg) { return reg.pushManager.getSubscription(); })
+                .then(function(sub) {
+                    if (!sub) { self.isDisabling = false; self.isSubscribed = false; window.location.reload(); return; }
+                    sub.unsubscribe().then(function() {
+                        return fetch('/api/coach/push/unsubscribe/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': self.getCsrfToken() },
+                            body: JSON.stringify({ endpoint: sub.endpoint })
+                        });
+                    }).then(function() { self.isDisabling = false; window.location.reload(); })
+                    .catch(function(err) { self.isDisabling = false; self.errorMessage = 'Failed'; console.error('[CoachPush]', err); });
+                });
+            },
+
+            sendTestNotification: function() {
+                var self = this;
+                fetch('/api/coach/push/test/', { method: 'POST', headers: { 'X-CSRFToken': self.getCsrfToken() } })
+                .then(function(r) { return r.json(); })
+                .then(function(data) { console.log('[CoachPush] Test:', data.success ? 'sent' : data.error); });
+            },
+
+            updatePreference: function(subId, prefKey, value, checkbox) {
+                var self = this;
+                var prefs = {}; prefs[prefKey] = value;
+                fetch('/api/coach/push/preferences/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': self.getCsrfToken() },
+                    body: JSON.stringify({ subscriptionId: subId, preferences: prefs })
+                }).then(function(r) { return r.json(); })
+                .then(function(data) { if (!data.success) checkbox.checked = !value; })
+                .catch(function() { checkbox.checked = !value; });
+            },
+
+            getCsrfToken: function() {
+                var c = document.cookie.split('; ').find(function(r) { return r.startsWith('csrftoken='); });
+                return c ? c.split('=')[1] : '';
+            },
+
+            _waitForServiceWorker: function(cb) {
+                var self = this, attempts = 0;
+                function check() {
+                    if (navigator.serviceWorker && navigator.serviceWorker.controller) cb();
+                    else if (++attempts < 20) setTimeout(check, 100);
+                    else { self.isLoading = false; cb(); }
+                }
+                check();
+            },
+
+            _urlBase64ToUint8Array: function(base64) {
+                var padding = '='.repeat((4 - base64.length % 4) % 4);
+                var b64 = (base64 + padding).replace(/\-/g, '+').replace(/_/g, '/');
+                var raw = window.atob(b64);
+                var out = new Uint8Array(raw.length);
+                for (var i = 0; i < raw.length; ++i) out[i] = raw.charCodeAt(i);
+                return out;
+            },
+
+            _getDeviceName: function() {
+                var ua = navigator.userAgent;
+                if (/Android/i.test(ua)) return 'Android Chrome';
+                if (/iPhone|iPad|iPod/i.test(ua)) return 'iPhone Safari';
+                if (/Windows/i.test(ua)) return 'Windows Desktop';
+                if (/Macintosh/i.test(ua)) return 'Mac Desktop';
+                if (/Linux/i.test(ua)) return 'Linux Desktop';
+                return 'Unknown Device';
+            }
+        };
+    });
+
     // Decline animation component (connection response)
     // Shows briefly then fades out
     Alpine.data('declineAnimation', function() {

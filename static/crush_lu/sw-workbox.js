@@ -57,7 +57,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v24-push-fix';
+  const CACHE_VERSION = 'crush-v25-coach-push';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({

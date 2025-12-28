@@ -86,6 +86,7 @@ from . import api_views
 from . import views_journey
 from . import api_journey
 from . import api_push
+from . import api_coach_push
 from . import views_advent
 
 app_name = 'crush_lu'
@@ -265,6 +266,16 @@ urlpatterns = [
     path('api/push/test/', api_push.send_test_push, name='api_send_test_push'),
     path('api/push/mark-pwa-user/', api_push.mark_pwa_user, name='api_mark_pwa_user'),
     path('api/push/pwa-status/', api_push.get_pwa_status, name='api_pwa_status'),
+
+    # ============================================================================
+    # COACH PUSH NOTIFICATIONS API
+    # ============================================================================
+    path('api/coach/push/vapid-public-key/', api_coach_push.get_vapid_public_key, name='api_coach_vapid_public_key'),
+    path('api/coach/push/subscribe/', api_coach_push.subscribe_push, name='api_coach_subscribe_push'),
+    path('api/coach/push/unsubscribe/', api_coach_push.unsubscribe_push, name='api_coach_unsubscribe_push'),
+    path('api/coach/push/subscriptions/', api_coach_push.list_subscriptions, name='api_coach_list_subscriptions'),
+    path('api/coach/push/preferences/', api_coach_push.update_subscription_preferences, name='api_coach_update_push_preferences'),
+    path('api/coach/push/test/', api_coach_push.send_test_push, name='api_coach_send_test_push'),
 
     # ============================================================================
     # ADVENT CALENDAR SYSTEM

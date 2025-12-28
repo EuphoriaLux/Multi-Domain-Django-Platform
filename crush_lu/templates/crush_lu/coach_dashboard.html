@@ -46,6 +46,178 @@
     </div>
 </div>
 
+<!-- Push Notifications -->
+<div class="bg-white rounded-xl shadow-sm mb-6"
+     x-data="coachPushPreferences"
+     data-subscriptions='{{ coach_push_subscriptions_json|default:"[]" }}'>
+    <div class="px-6 py-4 border-b border-gray-100">
+        <h5 class="font-semibold mb-0 flex items-center gap-2">
+            <svg class="w-5 h-5 text-crush-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+            </svg>
+            Coach Notifications
+        </h5>
+    </div>
+    <div class="p-6">
+        <!-- Loading State -->
+        <template x-if="isLoading">
+            <div class="flex items-center justify-center py-4">
+                <svg class="animate-spin h-6 w-6 text-crush-purple" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span class="ml-2 text-gray-500">Loading notification settings...</span>
+            </div>
+        </template>
+
+        <!-- Not Supported State -->
+        <template x-if="!isLoading && !isSupported">
+            <div class="flex items-center gap-3 p-4 bg-yellow-50 text-yellow-800 rounded-lg">
+                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                <span>Push notifications are not supported in this browser.</span>
+            </div>
+        </template>
+
+        <!-- Not Subscribed State -->
+        <template x-if="!isLoading && isSupported && !isSubscribed">
+            <div>
+                <p class="text-gray-600 mb-4">Enable push notifications to get alerts about new profile submissions, user revisions, and screening reminders.</p>
+                <button type="button"
+                        class="btn-crush-primary inline-flex items-center gap-2"
+                        x-bind:disabled="isEnabling"
+                        data-action="enable">
+                    <template x-if="isEnabling">
+                        <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </template>
+                    <template x-if="!isEnabling">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                        </svg>
+                    </template>
+                    <span x-text="isEnabling ? 'Enabling...' : 'Enable Notifications'"></span>
+                </button>
+            </div>
+        </template>
+
+        <!-- Subscribed State - Show Preferences -->
+        <template x-if="!isLoading && isSupported && isSubscribed">
+            <div>
+                <!-- Success Banner -->
+                <div class="flex items-center gap-3 p-3 bg-green-50 text-green-800 rounded-lg mb-4">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>Coach notifications are enabled on this device.</span>
+                </div>
+
+                <!-- Notification Preferences -->
+                <h6 class="font-semibold text-sm text-gray-700 mb-3">Notification Types</h6>
+                <div class="space-y-3">
+                    <!-- New Submissions -->
+                    <template x-for="sub in subscriptions" x-bind:key="sub.id">
+                        <div class="space-y-3">
+                            <label class="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <svg class="w-5 h-5 text-crush-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    <div>
+                                        <span class="font-medium text-gray-900">New Profile Submissions</span>
+                                        <p class="text-xs text-gray-500">Get notified when new profiles need review</p>
+                                    </div>
+                                </div>
+                                <input type="checkbox"
+                                       class="w-5 h-5 rounded text-crush-purple focus:ring-crush-purple"
+                                       x-bind:checked="sub.notify_new_submissions"
+                                       x-bind:data-sub-id="sub.id"
+                                       data-pref="notify_new_submissions">
+                            </label>
+
+                            <label class="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                    </svg>
+                                    <div>
+                                        <span class="font-medium text-gray-900">User Revisions</span>
+                                        <p class="text-xs text-gray-500">Get notified when users submit profile revisions</p>
+                                    </div>
+                                </div>
+                                <input type="checkbox"
+                                       class="w-5 h-5 rounded text-crush-purple focus:ring-crush-purple"
+                                       x-bind:checked="sub.notify_user_responses"
+                                       x-bind:data-sub-id="sub.id"
+                                       data-pref="notify_user_responses">
+                            </label>
+
+                            <label class="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <div>
+                                        <span class="font-medium text-gray-900">Screening Reminders</span>
+                                        <p class="text-xs text-gray-500">Reminders about pending screening calls</p>
+                                    </div>
+                                </div>
+                                <input type="checkbox"
+                                       class="w-5 h-5 rounded text-crush-purple focus:ring-crush-purple"
+                                       x-bind:checked="sub.notify_screening_reminders"
+                                       x-bind:data-sub-id="sub.id"
+                                       data-pref="notify_screening_reminders">
+                            </label>
+
+                            <label class="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <div>
+                                        <span class="font-medium text-gray-900">System Alerts</span>
+                                        <p class="text-xs text-gray-500">Important system and admin messages</p>
+                                    </div>
+                                </div>
+                                <input type="checkbox"
+                                       class="w-5 h-5 rounded text-crush-purple focus:ring-crush-purple"
+                                       x-bind:checked="sub.notify_system_alerts"
+                                       x-bind:data-sub-id="sub.id"
+                                       data-pref="notify_system_alerts">
+                            </label>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-200">
+                    <button type="button"
+                            class="inline-flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                            x-bind:disabled="isSendingTest"
+                            data-action="test">
+                        <template x-if="isSendingTest">
+                            <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </template>
+                        <span x-text="isSendingTest ? 'Sending...' : 'Send Test'"></span>
+                    </button>
+                    <button type="button"
+                            class="inline-flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                            x-bind:disabled="isDisabling"
+                            data-action="disable">
+                        <span x-text="isDisabling ? 'Disabling...' : 'Disable Notifications'"></span>
+                    </button>
+                </div>
+            </div>
+        </template>
+    </div>
+</div>
+
 <!-- Quick Actions -->
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
     <div class="bg-white rounded-xl shadow-sm h-full border-l-4 border-crush-purple">

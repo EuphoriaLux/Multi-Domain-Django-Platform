@@ -26,7 +26,8 @@ from .models import (
     EventConnection, ConnectionMessage,
     EventActivityOption, EventActivityVote, EventVotingSession,
     PresentationQueue, PresentationRating, SpeedDatingPair,
-    SpecialUserExperience, EventInvitation, UserActivity
+    SpecialUserExperience, EventInvitation, UserActivity,
+    CoachPushSubscription
 )
 from .forms import (
     CrushSignupForm, CrushProfileForm, CrushCoachForm, ProfileReviewForm,
@@ -54,6 +55,10 @@ from .notification_service import (
     notify_new_message,
     notify_new_connection,
     notify_connection_accepted,
+)
+from .coach_notifications import (
+    notify_coach_new_submission,
+    notify_coach_user_revision,
 )
 
 
@@ -762,10 +767,26 @@ def create_profile(request):
                         status='pending'
                     ).first()
 
+                    # Also check for revision/rejected submissions that user is resubmitting
+                    revision_submission = ProfileSubmission.objects.select_for_update().filter(
+                        profile=profile,
+                        status__in=['revision', 'rejected']
+                    ).first()
+
+                    is_revision = False
                     if existing_submission:
                         submission = existing_submission
                         created = False
                         logger.warning(f"⚠️ Existing pending submission found for {request.user.email}")
+                    elif revision_submission:
+                        # User is resubmitting after revision request - update existing submission
+                        submission = revision_submission
+                        submission.status = 'pending'
+                        submission.submitted_at = timezone.now()
+                        submission.save()
+                        created = False
+                        is_revision = True
+                        logger.info(f"✅ Revision submission updated to pending for {request.user.email}")
                     else:
                         # Create new submission
                         submission = ProfileSubmission.objects.create(
@@ -791,12 +812,28 @@ def create_profile(request):
                 submission.assign_coach()
                 logger.info(f"NEW profile submission created for {request.user.email}")
 
+                # Send push notification to assigned coach
+                if submission.coach:
+                    try:
+                        notify_coach_new_submission(submission.coach, submission)
+                        logger.info(f"Coach push notification sent for submission {submission.id}")
+                    except Exception as e:
+                        logger.warning(f"Failed to send coach push notification: {e}")
+
                 # Send confirmation and coach notification emails using consolidated helper
                 send_profile_submission_notifications(
                     submission,
                     request,
                     add_message_func=lambda msg: messages.warning(request, msg)
                 )
+            elif is_revision:
+                # User resubmitted after revision request - notify the coach
+                if submission.coach:
+                    try:
+                        notify_coach_user_revision(submission.coach, submission)
+                        logger.info(f"Coach revision notification sent for submission {submission.id}")
+                    except Exception as e:
+                        logger.warning(f"Failed to send coach revision notification: {e}")
             else:
                 # Duplicate submission attempt - just log and continue
                 logger.warning(f"⚠️ Duplicate submission attempt prevented for {request.user.email}")
@@ -981,6 +1018,14 @@ def edit_profile(request):
             )
             if created:
                 submission.assign_coach()
+
+                # Send push notification to assigned coach
+                if submission.coach:
+                    try:
+                        notify_coach_new_submission(submission.coach, submission)
+                        logger.info(f"Coach push notification sent for submission {submission.id}")
+                    except Exception as e:
+                        logger.warning(f"Failed to send coach push notification: {e}")
 
                 # Send confirmation and coach notification emails using consolidated helper
                 send_profile_submission_notifications(
@@ -1367,10 +1412,28 @@ def coach_dashboard(request):
         status__in=['approved', 'rejected', 'revision']
     ).select_related('profile__user').order_by('-reviewed_at')[:10]
 
+    # Get coach push subscriptions for notifications card
+    coach_push_subscriptions = CoachPushSubscription.objects.filter(
+        coach=coach,
+        enabled=True
+    )
+    coach_push_subscriptions_json = json.dumps([
+        {
+            'id': sub.id,
+            'device_name': sub.device_name or 'Unknown Device',
+            'notify_new_submissions': sub.notify_new_submissions,
+            'notify_screening_reminders': sub.notify_screening_reminders,
+            'notify_user_responses': sub.notify_user_responses,
+            'notify_system_alerts': sub.notify_system_alerts,
+        }
+        for sub in coach_push_subscriptions
+    ])
+
     context = {
         'coach': coach,
         'pending_submissions': pending_submissions,
         'recent_reviews': recent_reviews,
+        'coach_push_subscriptions_json': coach_push_subscriptions_json,
     }
     return render(request, 'crush_lu/coach_dashboard.html', context)
 

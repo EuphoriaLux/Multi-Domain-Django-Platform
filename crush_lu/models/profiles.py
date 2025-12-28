@@ -814,3 +814,102 @@ class EmailPreference(models.Model):
         """
         preference, created = cls.objects.get_or_create(user=user)
         return preference
+
+
+class CoachPushSubscription(models.Model):
+    """
+    Stores Web Push API subscription data for Crush Coaches.
+    Completely separate from user PushSubscription to avoid conflicts.
+    Each coach can have multiple subscriptions (different devices/browsers).
+    """
+    coach = models.ForeignKey(
+        CrushCoach,
+        on_delete=models.CASCADE,
+        related_name='push_subscriptions',
+        help_text="Coach who owns this push subscription"
+    )
+
+    # Push subscription data (from browser's PushManager API)
+    endpoint = models.URLField(
+        max_length=500,
+        help_text="Push service endpoint URL"
+    )
+    p256dh_key = models.CharField(
+        max_length=255,
+        help_text="Public key for encryption (p256dh)"
+    )
+    auth_key = models.CharField(
+        max_length=255,
+        help_text="Authentication secret (auth)"
+    )
+
+    # Device/browser information
+    user_agent = models.TextField(
+        blank=True,
+        help_text="Browser user agent string"
+    )
+    device_name = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Friendly device name (e.g., 'Android Chrome', 'iPhone Safari')"
+    )
+
+    # Coach-specific notification preferences
+    enabled = models.BooleanField(
+        default=True,
+        help_text="Coach can disable notifications without unsubscribing"
+    )
+    notify_new_submissions = models.BooleanField(
+        default=True,
+        help_text="Notify when new profile is assigned for review"
+    )
+    notify_screening_reminders = models.BooleanField(
+        default=True,
+        help_text="Notify about pending screening calls"
+    )
+    notify_user_responses = models.BooleanField(
+        default=True,
+        help_text="Notify when user submits revision"
+    )
+    notify_system_alerts = models.BooleanField(
+        default=True,
+        help_text="Notify about system/admin messages"
+    )
+
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_used_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Last time a notification was successfully sent"
+    )
+    failure_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of consecutive failed deliveries (auto-delete after threshold)"
+    )
+
+    class Meta:
+        unique_together = ('coach', 'endpoint')
+        ordering = ['-created_at']
+        verbose_name = "Coach Push Subscription"
+        verbose_name_plural = "🔔 Coach Push Subscriptions"
+
+    def __str__(self):
+        device = self.device_name or "Unknown Device"
+        return f"Coach {self.coach.user.get_full_name()} - {device}"
+
+    def mark_success(self):
+        """Mark successful notification delivery"""
+        self.last_used_at = timezone.now()
+        self.failure_count = 0
+        self.save(update_fields=['last_used_at', 'failure_count'])
+
+    def mark_failure(self):
+        """Mark failed notification delivery (auto-delete after 5 failures)"""
+        self.failure_count += 1
+        if self.failure_count >= 5:
+            # Subscription likely expired/invalid - delete it
+            self.delete()
+        else:
+            self.save(update_fields=['failure_count'])
