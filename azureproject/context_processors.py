@@ -65,12 +65,14 @@ def _get_current_platform_key(request):
     """
     Determine which platform admin the user is currently viewing.
 
-    Returns the platform key based on the current URL path and host.
+    Returns the platform key based on the current URL path.
+    Each platform has its own dedicated admin path, so we only need
+    to check the path - not the host.
     """
     path = request.path
-    host = request.get_host().split(':')[0].lower()
 
     # Check URL path for custom admin panels
+    # Order matters: check specific paths before generic /admin/
     if '/crush-admin/' in path:
         return 'crush'
     if '/powerup-admin/' in path:
@@ -80,16 +82,9 @@ def _get_current_platform_key(request):
     if '/delegation-admin/' in path:
         return 'delegation'
 
-    # For /admin/ path, determine platform by host
+    # Standard Django Admin at /admin/ is always 'default'
+    # regardless of which domain we're on
     if '/admin/' in path:
-        if 'crush.lu' in host and 'delegation' not in host:
-            return 'crush'
-        if 'powerup.lu' in host:
-            return 'powerup'
-        if 'vinsdelux.com' in host:
-            return 'vinsdelux'
-        if 'delegation.crush.lu' in host:
-            return 'delegation'
         return 'default'
 
     return 'default'
