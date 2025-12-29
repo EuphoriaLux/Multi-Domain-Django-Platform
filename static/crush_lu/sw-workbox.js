@@ -1,6 +1,6 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v24 - Force cache refresh for push notification fix in alpine-components.js
+// Version: v27 - Fix CSP errors in coach push preferences (use Django template instead of x-for)
 
 // ============================================================================
 // CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
@@ -57,7 +57,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v26-csp-fix';
+  const CACHE_VERSION = 'crush-v27-csp-fix';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({

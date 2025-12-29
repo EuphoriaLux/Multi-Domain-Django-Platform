@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from django.db.models import Q
 from django.db import transaction
 from django.http import JsonResponse
@@ -456,7 +457,7 @@ def update_email_preferences(request):
 
     email_prefs.save()
 
-    messages.success(request, 'Email preferences updated successfully!')
+    messages.success(request, _('Email preferences updated successfully!'))
     return redirect('crush_lu:account_settings')
 
 
@@ -473,7 +474,7 @@ def email_unsubscribe(request, token):
     try:
         email_prefs = EmailPreference.objects.get(unsubscribe_token=token)
     except EmailPreference.DoesNotExist:
-        messages.error(request, 'Invalid unsubscribe link. Please check your email or contact support.')
+        messages.error(request, _('Invalid unsubscribe link. Please check your email or contact support.'))
         return render(request, 'crush_lu/email_unsubscribe.html', {
             'error': True,
             'token': token,
@@ -486,13 +487,13 @@ def email_unsubscribe(request, token):
             # Unsubscribe from ALL emails
             email_prefs.unsubscribed_all = True
             email_prefs.save()
-            messages.success(request, 'You have been unsubscribed from all Crush.lu emails.')
+            messages.success(request, _('You have been unsubscribed from all Crush.lu emails.'))
 
         elif action == 'unsubscribe_marketing':
             # Only unsubscribe from marketing emails
             email_prefs.email_marketing = False
             email_prefs.save()
-            messages.success(request, 'You have been unsubscribed from marketing emails.')
+            messages.success(request, _('You have been unsubscribed from marketing emails.'))
 
         elif action == 'resubscribe':
             # Re-enable all emails
@@ -502,7 +503,7 @@ def email_unsubscribe(request, token):
             email_prefs.email_new_connections = True
             email_prefs.email_new_messages = True
             email_prefs.save()
-            messages.success(request, 'You have been re-subscribed to Crush.lu emails.')
+            messages.success(request, _('You have been re-subscribed to Crush.lu emails.'))
 
         return render(request, 'crush_lu/email_unsubscribe.html', {
             'success': True,
@@ -625,13 +626,13 @@ def delete_account(request):
 
         # Check confirmation text
         if confirm_text.lower() != 'delete my account':
-            messages.error(request, 'Please type "DELETE MY ACCOUNT" to confirm.')
+            messages.error(request, _('Please type "DELETE MY ACCOUNT" to confirm.'))
             return render(request, 'crush_lu/delete_account_confirm.html')
 
         # If user has a usable password, verify it
         if request.user.has_usable_password():
             if not request.user.check_password(password):
-                messages.error(request, 'Incorrect password. Please try again.')
+                messages.error(request, _('Incorrect password. Please try again.'))
                 return render(request, 'crush_lu/delete_account_confirm.html')
 
         # Generate confirmation code
@@ -647,14 +648,14 @@ def delete_account(request):
             # Log the user out
             logout(request)
 
-            messages.success(request, 'Your account has been successfully deleted.')
+            messages.success(request, _('Your account has been successfully deleted.'))
 
             # Redirect to status page with confirmation
             return redirect(f'/data-deletion/status/?code={confirmation_code}')
 
         except Exception as e:
             logger.exception(f"Error deleting account for user {request.user.id}: {str(e)}")
-            messages.error(request, 'An error occurred while deleting your account. Please contact support.')
+            messages.error(request, _('An error occurred while deleting your account. Please contact support.'))
             return render(request, 'crush_lu/delete_account_confirm.html')
 
     # GET request - show confirmation page
@@ -838,7 +839,7 @@ def create_profile(request):
                 # Duplicate submission attempt - just log and continue
                 logger.warning(f"⚠️ Duplicate submission attempt prevented for {request.user.email}")
 
-            messages.success(request, 'Profile submitted for review!')
+            messages.success(request, _('Profile submitted for review!'))
             return redirect('crush_lu:profile_submitted')
         else:
             # CRITICAL: Log validation errors
@@ -914,12 +915,12 @@ def _render_edit_profile_form(request):
     try:
         profile = CrushProfile.objects.get(user=request.user)
     except CrushProfile.DoesNotExist:
-        messages.info(request, 'You need to create a profile first.')
+        messages.info(request, _('You need to create a profile first.'))
         return redirect('crush_lu:create_profile')
 
     # Only approved profiles use this simple edit page
     if not profile.is_approved:
-        messages.warning(request, 'Your profile must be approved before editing.')
+        messages.warning(request, _('Your profile must be approved before editing.'))
         return redirect('crush_lu:edit_profile')
 
     from .social_photos import get_all_social_photos
@@ -936,7 +937,7 @@ def _render_edit_profile_form(request):
                     'profile': updated_profile,
                 })
 
-            messages.success(request, 'Profile updated successfully!')
+            messages.success(request, _('Profile updated successfully!'))
             return redirect('crush_lu:dashboard')
         else:
             # HTMX: Return form with errors for inline display
@@ -970,7 +971,7 @@ def edit_profile(request):
     try:
         profile = CrushProfile.objects.get(user=request.user)
     except CrushProfile.DoesNotExist:
-        messages.info(request, 'You need to create a profile first.')
+        messages.info(request, _('You need to create a profile first.'))
         return redirect('crush_lu:create_profile')
 
     # ROUTING LOGIC: Determine which edit flow to use
@@ -1034,7 +1035,7 @@ def edit_profile(request):
                     add_message_func=lambda msg: messages.warning(request, msg)
                 )
 
-            messages.success(request, 'Profile submitted for review!')
+            messages.success(request, _('Profile submitted for review!'))
             return redirect('crush_lu:profile_submitted')
     else:
         form = CrushProfileForm(instance=profile)
@@ -1302,12 +1303,12 @@ def event_register(request, event_id):
 
     # Check if already registered
     if EventRegistration.objects.filter(event=event, user=request.user).exists():
-        messages.warning(request, 'You are already registered for this event.')
+        messages.warning(request, _('You are already registered for this event.'))
         return redirect('crush_lu:event_detail', event_id=event_id)
 
     # Check if registration is open
     if not event.is_registration_open:
-        messages.error(request, 'Registration is not available for this event.')
+        messages.error(request, _('Registration is not available for this event.'))
         return redirect('crush_lu:event_detail', event_id=event_id)
 
     if request.method == 'POST':
@@ -1320,10 +1321,10 @@ def event_register(request, event_id):
             # Set status based on availability
             if event.is_full:
                 registration.status = 'waitlist'
-                messages.info(request, 'Event is full. You have been added to the waitlist.')
+                messages.info(request, _('Event is full. You have been added to the waitlist.'))
             else:
                 registration.status = 'confirmed'
-                messages.success(request, 'Successfully registered for the event!')
+                messages.success(request, _('Successfully registered for the event!'))
 
             registration.save()
 
@@ -1373,7 +1374,7 @@ def event_cancel(request, event_id):
     if request.method == 'POST':
         registration.status = 'cancelled'
         registration.save()
-        messages.success(request, 'Your registration has been cancelled.')
+        messages.success(request, _('Your registration has been cancelled.'))
 
         # Send cancellation confirmation email
         try:
@@ -1417,6 +1418,8 @@ def coach_dashboard(request):
         coach=coach,
         enabled=True
     )
+    # Get first subscription for template rendering (avoid x-for CSP issues)
+    first_subscription = coach_push_subscriptions.first()
     coach_push_subscriptions_json = json.dumps([
         {
             'id': sub.id,
@@ -1434,6 +1437,7 @@ def coach_dashboard(request):
         'pending_submissions': pending_submissions,
         'recent_reviews': recent_reviews,
         'coach_push_subscriptions_json': coach_push_subscriptions_json,
+        'coach_push_subscription': first_subscription,
     }
     return render(request, 'crush_lu/coach_dashboard.html', context)
 
