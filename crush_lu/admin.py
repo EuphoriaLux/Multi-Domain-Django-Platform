@@ -100,50 +100,71 @@ class CrushLuAdminSite(admin.AdminSite):
         """
         app_list = super().get_app_list(request, app_label)
 
-        # Custom ordering and grouping
+        # Custom ordering and grouping for admin sidebar
+        # Each group uses sequential ordering (1, 2, 3...) for internal sorting
+        # Icons provide visual identification without cluttering with numbers
         custom_order = {
-            # 1. Special Journey System (VIP Experience)
-            'special_user_experience': {'order': 1, 'icon': '✨', 'group': 'Special Journey System'},
-            'journeyconfiguration': {'order': 2, 'icon': '🗺️', 'group': 'Special Journey System'},
-            'journeychapter': {'order': 3, 'icon': '📖', 'group': 'Special Journey System'},
-            'journeychallenge': {'order': 4, 'icon': '🎯', 'group': 'Special Journey System'},
-            'journeyreward': {'order': 5, 'icon': '🎁', 'group': 'Special Journey System'},
-            'journeyprogress': {'order': 6, 'icon': '📊', 'group': 'Special Journey System'},
-            'chapterprogress': {'order': 7, 'icon': '📈', 'group': 'Special Journey System'},
-            'challengeattempt': {'order': 8, 'icon': '🎮', 'group': 'Special Journey System'},
-            'rewardprogress': {'order': 9, 'icon': '🏆', 'group': 'Special Journey System'},
+            # ═══════════════════════════════════════════════════════════════════
+            # GROUP 1: Users & Profiles (Core user management)
+            # ═══════════════════════════════════════════════════════════════════
+            'crushprofile': {'order': 1, 'icon': '👤', 'group': 'Users & Profiles'},
+            'profilesubmission': {'order': 2, 'icon': '📝', 'group': 'Users & Profiles'},
+            'crushcoach': {'order': 3, 'icon': '🎓', 'group': 'Users & Profiles'},
+            'coachsession': {'order': 4, 'icon': '💬', 'group': 'Users & Profiles'},
 
-            # 2. User Profiles & Onboarding
-            'crushprofile': {'order': 10, 'icon': '👤', 'group': 'Users & Profiles'},
-            'profilesubmission': {'order': 11, 'icon': '📝', 'group': 'Users & Profiles'},
-            'crushcoach': {'order': 12, 'icon': '🎓', 'group': 'Users & Profiles'},
-            'coachsession': {'order': 13, 'icon': '💬', 'group': 'Users & Profiles'},
-            'useractivity': {'order': 14, 'icon': '📊', 'group': 'Users & Profiles'},
-            'pushsubscription': {'order': 15, 'icon': '🔔', 'group': 'Users & Profiles'},
-            'emailpreference': {'order': 16, 'icon': '📧', 'group': 'Users & Profiles'},
+            # ═══════════════════════════════════════════════════════════════════
+            # GROUP 2: Events & Meetups (Event management)
+            # ═══════════════════════════════════════════════════════════════════
+            'meetupevent': {'order': 1, 'icon': '🎉', 'group': 'Events & Meetups'},
+            'eventregistration': {'order': 2, 'icon': '✅', 'group': 'Events & Meetups'},
+            'eventinvitation': {'order': 3, 'icon': '💌', 'group': 'Events & Meetups'},
+            'speeddatingpair': {'order': 4, 'icon': '💑', 'group': 'Events & Meetups'},
+            'presentationqueue': {'order': 5, 'icon': '📋', 'group': 'Events & Meetups'},
+            'presentationrating': {'order': 6, 'icon': '⭐', 'group': 'Events & Meetups'},
 
-            # 3. Events & Meetups
-            'meetupevent': {'order': 20, 'icon': '🎉', 'group': 'Events & Meetups'},
-            'eventregistration': {'order': 21, 'icon': '✅', 'group': 'Events & Meetups'},
-            'globalactivityoption': {'order': 22, 'icon': '🎯', 'group': 'Events & Meetups'},
-            'eventactivityoption': {'order': 23, 'icon': '🎲', 'group': 'Events & Meetups'},
-            'eventactivityvote': {'order': 24, 'icon': '🗳️', 'group': 'Events & Meetups'},
-            'eventvotingsession': {'order': 25, 'icon': '⏱️', 'group': 'Events & Meetups'},
-            'presentationqueue': {'order': 26, 'icon': '📋', 'group': 'Events & Meetups'},
-            'presentationrating': {'order': 27, 'icon': '⭐', 'group': 'Events & Meetups'},
-            'speeddatingpair': {'order': 28, 'icon': '💑', 'group': 'Events & Meetups'},
-            'eventinvitation': {'order': 29, 'icon': '💌', 'group': 'Events & Meetups'},
+            # ═══════════════════════════════════════════════════════════════════
+            # GROUP 3: Activity Voting (Event activity polls)
+            # ═══════════════════════════════════════════════════════════════════
+            'globalactivityoption': {'order': 1, 'icon': '🌐', 'group': 'Activity Voting'},
+            'eventactivityoption': {'order': 2, 'icon': '🎯', 'group': 'Activity Voting'},
+            'eventactivityvote': {'order': 3, 'icon': '🗳️', 'group': 'Activity Voting'},
+            'eventvotingsession': {'order': 4, 'icon': '⏱️', 'group': 'Activity Voting'},
 
-            # 4. Connections & Messages
-            'eventconnection': {'order': 30, 'icon': '🔗', 'group': 'Connections'},
-            'connectionmessage': {'order': 31, 'icon': '💌', 'group': 'Connections'},
+            # ═══════════════════════════════════════════════════════════════════
+            # GROUP 4: Connections & Messages (Post-event interactions)
+            # ═══════════════════════════════════════════════════════════════════
+            'eventconnection': {'order': 1, 'icon': '🔗', 'group': 'Connections'},
+            'connectionmessage': {'order': 2, 'icon': '💬', 'group': 'Connections'},
 
-            # 5. Advent Calendar System
-            'adventcalendar': {'order': 40, 'icon': '🎄', 'group': 'Advent Calendar'},
-            'adventdoor': {'order': 41, 'icon': '🚪', 'group': 'Advent Calendar'},
-            'adventdoorcontent': {'order': 42, 'icon': '📦', 'group': 'Advent Calendar'},
-            'adventprogress': {'order': 43, 'icon': '📊', 'group': 'Advent Calendar'},
-            'qrcodetoken': {'order': 44, 'icon': '📱', 'group': 'Advent Calendar'},
+            # ═══════════════════════════════════════════════════════════════════
+            # GROUP 5: Special Journey System (VIP personalized experiences)
+            # ═══════════════════════════════════════════════════════════════════
+            'special_user_experience': {'order': 1, 'icon': '✨', 'group': 'Special Journey'},
+            'journeyconfiguration': {'order': 2, 'icon': '🗺️', 'group': 'Special Journey'},
+            'journeychapter': {'order': 3, 'icon': '📖', 'group': 'Special Journey'},
+            'journeychallenge': {'order': 4, 'icon': '🎯', 'group': 'Special Journey'},
+            'journeyreward': {'order': 5, 'icon': '🎁', 'group': 'Special Journey'},
+            'journeyprogress': {'order': 6, 'icon': '📊', 'group': 'Special Journey'},
+            'chapterprogress': {'order': 7, 'icon': '📈', 'group': 'Special Journey'},
+            'challengeattempt': {'order': 8, 'icon': '🎮', 'group': 'Special Journey'},
+            'rewardprogress': {'order': 9, 'icon': '🏆', 'group': 'Special Journey'},
+
+            # ═══════════════════════════════════════════════════════════════════
+            # GROUP 6: Advent Calendar (Seasonal feature)
+            # ═══════════════════════════════════════════════════════════════════
+            'adventcalendar': {'order': 1, 'icon': '🎄', 'group': 'Advent Calendar'},
+            'adventdoor': {'order': 2, 'icon': '🚪', 'group': 'Advent Calendar'},
+            'adventdoorcontent': {'order': 3, 'icon': '📦', 'group': 'Advent Calendar'},
+            'adventprogress': {'order': 4, 'icon': '📊', 'group': 'Advent Calendar'},
+            'qrcodetoken': {'order': 5, 'icon': '📱', 'group': 'Advent Calendar'},
+
+            # ═══════════════════════════════════════════════════════════════════
+            # GROUP 7: Notifications & Settings (User preferences)
+            # ═══════════════════════════════════════════════════════════════════
+            'pushsubscription': {'order': 1, 'icon': '🔔', 'group': 'Notifications'},
+            'coachpushsubscription': {'order': 2, 'icon': '📣', 'group': 'Notifications'},
+            'emailpreference': {'order': 3, 'icon': '📧', 'group': 'Notifications'},
+            'useractivity': {'order': 4, 'icon': '📊', 'group': 'Notifications'},
         }
 
         # Create grouped app list - transform single crush_lu app into multiple sections
@@ -176,9 +197,8 @@ class CrushLuAdminSite(admin.AdminSite):
                             if '. ' in clean_name and clean_name.split('. ')[0].isdigit():
                                 clean_name = '. '.join(clean_name.split('. ')[1:])
 
-                            # Add sequential number and icon
-                            model_number = config['order']
-                            model['name'] = f"{icon} {model_number}. {clean_name}"
+                            # Add icon only (no number prefix for cleaner look)
+                            model['name'] = f"{icon} {clean_name}"
 
                         # Add to appropriate group
                         if group_name not in groups:
@@ -186,12 +206,15 @@ class CrushLuAdminSite(admin.AdminSite):
                         groups[group_name].append(model)
 
                 # Create separate "app" entry for each group
+                # Order determines sidebar display order - most used groups first
                 group_order = [
-                    ('✨ Special Journey System', 'Special Journey System'),
-                    ('🎄 Advent Calendar', 'Advent Calendar'),
                     ('👥 Users & Profiles', 'Users & Profiles'),
                     ('🎉 Events & Meetups', 'Events & Meetups'),
+                    ('🗳️ Activity Voting', 'Activity Voting'),
                     ('💕 Connections', 'Connections'),
+                    ('✨ Special Journey', 'Special Journey'),
+                    ('🎄 Advent Calendar', 'Advent Calendar'),
+                    ('🔔 Notifications', 'Notifications'),
                 ]
 
                 for display_name, group_key in group_order:
