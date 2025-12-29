@@ -295,32 +295,18 @@ SECURE_SSL_REDIRECT = False
 
 # Logging configuration - reduce verbosity in production
 # ============================================================================
-# Azure Monitor OpenTelemetry Integration
+# Azure Application Insights Integration
 # ============================================================================
-# This sends Python logs to Application Insights where you can query them
-# using KQL in the 'traces' table. CSP violations will appear there.
-
-# Initialize Azure Monitor OpenTelemetry for logging export
-_APPINSIGHTS_CONNECTION_STRING = os.getenv('APPLICATIONINSIGHTS_CONNECTION_STRING')
-if _APPINSIGHTS_CONNECTION_STRING:
-    try:
-        from azure.monitor.opentelemetry import configure_azure_monitor
-        configure_azure_monitor(
-            connection_string=_APPINSIGHTS_CONNECTION_STRING,
-            enable_live_metrics=True,
-            instrumentation_options={
-                "azure_sdk": {"enabled": True},
-                "django": {"enabled": True},
-                "fastapi": {"enabled": False},  # Not used
-                "flask": {"enabled": False},    # Not used
-                "psycopg2": {"enabled": True},  # PostgreSQL tracking
-                "requests": {"enabled": True},  # HTTP client tracking
-                "urllib": {"enabled": True},
-                "urllib3": {"enabled": True},
-            },
-        )
-    except ImportError:
-        pass  # azure-monitor-opentelemetry not installed
+# Using Azure App Service auto-instrumentation (ApplicationInsightsAgent_EXTENSION_VERSION=~3)
+# instead of manual OpenTelemetry SDK for better compatibility and simpler maintenance.
+#
+# Auto-instrumentation provides:
+# - Automatic request/dependency tracking
+# # - Exception logging
+# - Logs sent to Application Insights 'traces' table
+#
+# To enable: Set ApplicationInsightsAgent_EXTENSION_VERSION=~3 in App Service config
+# Query logs in App Insights: traces | where timestamp > ago(1h)
 
 LOGGING = {
     'version': 1,
