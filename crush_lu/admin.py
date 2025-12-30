@@ -1,6 +1,10 @@
 from django.contrib import admin
 from django.contrib import messages as django_messages
-from django.db import transaction
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.models import User
+from django.db import models, transaction
+from django.db.models import Prefetch, Count, Q, F
+from django.urls import reverse
 from django.utils.html import format_html
 from .models import (
     CrushCoach, CrushProfile, ProfileSubmission,
@@ -19,6 +23,118 @@ from .models import (
     # Advent Calendar Models
     AdventCalendar, AdventDoor, AdventDoorContent, AdventProgress, QRCodeToken
 )
+from django.utils import timezone
+from datetime import timedelta
+
+
+# ============================================================================
+# CUSTOM ADMIN FILTERS - For Coach Workflow
+# ============================================================================
+
+class ReviewTimeFilter(admin.SimpleListFilter):
+    """Filter submissions by how long they've been pending"""
+    title = 'Pending Time'
+    parameter_name = 'pending_time'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('24h', '🚨 Pending > 24 hours'),
+            ('3d', '⚠️ Pending > 3 days'),
+            ('7d', '🔴 Pending > 7 days'),
+        )
+
+    def queryset(self, request, queryset):
+        now = timezone.now()
+        if self.value() == '24h':
+            cutoff = now - timedelta(hours=24)
+            return queryset.filter(status='pending', submitted_at__lt=cutoff)
+        elif self.value() == '3d':
+            cutoff = now - timedelta(days=3)
+            return queryset.filter(status='pending', submitted_at__lt=cutoff)
+        elif self.value() == '7d':
+            cutoff = now - timedelta(days=7)
+            return queryset.filter(status='pending', submitted_at__lt=cutoff)
+        return queryset
+
+
+class CoachAssignmentFilter(admin.SimpleListFilter):
+    """Filter profiles by coach assignment status"""
+    title = 'Coach Assignment'
+    parameter_name = 'coach_assignment'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('has_coach', '👤 Has Coach Assigned'),
+            ('no_coach', '❌ No Coach Assigned'),
+            ('not_submitted', '📝 Not Submitted for Review'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'has_coach':
+            return queryset.filter(
+                profilesubmission__coach__isnull=False
+            ).distinct()
+        elif self.value() == 'no_coach':
+            return queryset.filter(
+                profilesubmission__coach__isnull=True
+            ).distinct()
+        elif self.value() == 'not_submitted':
+            return queryset.filter(
+                profilesubmission__isnull=True
+            )
+        return queryset
+
+
+class SubmissionWorkflowFilter(admin.SimpleListFilter):
+    """Filter submissions by workflow stage with visual indicators"""
+    title = 'Workflow Stage'
+    parameter_name = 'workflow'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('urgent', '🚨 Needs Attention (Pending >24h)'),
+            ('new', '🆕 New (Pending <24h)'),
+            ('awaiting_call', '📞 Awaiting Screening Call'),
+            ('ready_approve', '✅ Ready to Approve (Call Done)'),
+            ('completed', '✔️ Completed'),
+        )
+
+    def queryset(self, request, queryset):
+        now = timezone.now()
+        cutoff_24h = now - timedelta(hours=24)
+
+        if self.value() == 'urgent':
+            # Pending and submitted > 24h ago
+            return queryset.filter(
+                status='pending',
+                submitted_at__lt=cutoff_24h
+            )
+        elif self.value() == 'new':
+            # Pending and submitted < 24h ago
+            return queryset.filter(
+                status='pending',
+                submitted_at__gte=cutoff_24h
+            )
+        elif self.value() == 'awaiting_call':
+            # Has coach, pending status, call not done
+            return queryset.filter(
+                status='pending',
+                coach__isnull=False,
+                review_call_completed=False
+            )
+        elif self.value() == 'ready_approve':
+            # Has coach, pending status, call completed
+            return queryset.filter(
+                status='pending',
+                coach__isnull=False,
+                review_call_completed=True
+            )
+        elif self.value() == 'completed':
+            # Approved or rejected
+            return queryset.filter(
+                status__in=['approved', 'rejected']
+            )
+        return queryset
 
 
 # ============================================================================
@@ -693,11 +809,37 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
 
 
 class CrushCoachAdmin(admin.ModelAdmin):
-    list_display = ('user', 'get_email', 'specializations', 'is_active', 'max_active_reviews', 'created_at', 'has_dating_profile')
+    list_display = ('get_user_link', 'get_email', 'get_photo_preview', 'specializations', 'is_active', 'max_active_reviews', 'created_at', 'has_dating_profile')
     list_filter = ('is_active', 'created_at')
     search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name')
-    readonly_fields = ('created_at',)
+    readonly_fields = ('created_at', 'get_photo_preview')
     actions = ['deactivate_coach_allow_dating', 'deactivate_coaches', 'activate_coaches']
+    fieldsets = (
+        ('Coach Information', {
+            'fields': ('user', 'bio', 'specializations')
+        }),
+        ('Photo', {
+            'fields': ('photo', 'get_photo_preview'),
+            'description': 'Upload a profile photo for this coach'
+        }),
+        ('Settings', {
+            'fields': ('is_active', 'max_active_reviews')
+        }),
+        ('Metadata', {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_user_link(self, obj):
+        """Clickable link to User in coach admin panel"""
+        url = reverse('crush_admin:auth_user_change', args=[obj.user.pk])
+        return format_html(
+            '<a href="{}" style="color: #9B59B6; font-weight: bold;">{}</a>',
+            url, obj.user.username
+        )
+    get_user_link.short_description = 'User'
+    get_user_link.admin_order_field = 'user__username'
 
     def get_email(self, obj):
         """Display coach's email address"""
@@ -710,6 +852,16 @@ class CrushCoachAdmin(admin.ModelAdmin):
         return hasattr(obj.user, 'crushprofile')
     has_dating_profile.boolean = True
     has_dating_profile.short_description = 'Has Dating Profile'
+
+    def get_photo_preview(self, obj):
+        """Display coach photo thumbnail"""
+        if obj.photo:
+            return format_html(
+                '<img src="{}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;" />',
+                obj.photo.url
+            )
+        return format_html('<span style="color: #999;">No photo</span>')
+    get_photo_preview.short_description = 'Photo'
 
     @admin.action(description='Deactivate coach role (allows them to date)')
     def deactivate_coach_allow_dating(self, request, queryset):
@@ -730,16 +882,35 @@ class CrushCoachAdmin(admin.ModelAdmin):
         updated = queryset.update(is_active=True)
         django_messages.success(request, f"Activated {updated} coach(es)")
 
+    def get_queryset(self, request):
+        """Optimize queries with select_related for user FK"""
+        qs = super().get_queryset(request)
+        return qs.select_related('user')
+
+
+# Inline for ProfileSubmission on CrushProfile detail page
+class ProfileSubmissionProfileInline(admin.TabularInline):
+    """Show profile submission/review history"""
+    model = ProfileSubmission
+    extra = 0
+    fields = ('coach', 'status', 'review_call_completed', 'submitted_at', 'reviewed_at')
+    readonly_fields = ('submitted_at', 'reviewed_at')
+    can_delete = False
+    show_change_link = True
+    verbose_name = "Review Submission"
+    verbose_name_plural = "Review History"
+
 
 class CrushProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'get_email', 'age', 'gender', 'location', 'phone_verified_icon', 'completion_status', 'get_assigned_coach', 'is_approved', 'is_active', 'created_at', 'is_coach')
-    list_filter = ('is_approved', 'is_active', 'phone_verified', 'gender', 'completion_status', 'created_at')
+    list_display = ('get_user_link', 'get_email', 'age', 'gender', 'location', 'get_language_display', 'phone_verified_icon', 'completion_status', 'get_assigned_coach', 'is_approved', 'is_active', 'created_at', 'is_coach')
+    list_filter = ('is_approved', 'is_active', 'phone_verified', 'gender', 'completion_status', CoachAssignmentFilter, 'preferred_language', 'looking_for', 'created_at')
     search_fields = ('user__username', 'user__email', 'location', 'bio', 'phone_number')
-    readonly_fields = ('created_at', 'updated_at', 'approved_at', 'get_assigned_coach', 'phone_verified_at', 'phone_verification_uid')
+    readonly_fields = ('created_at', 'updated_at', 'approved_at', 'get_assigned_coach', 'phone_verified_at', 'phone_verification_uid', 'get_event_registrations', 'get_connections_summary')
     actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'reset_phone_verification', 'export_profiles_csv']
+    inlines = [ProfileSubmissionProfileInline]
     fieldsets = (
         ('User Information', {
-            'fields': ('user', 'date_of_birth', 'gender', 'phone_number', 'location')
+            'fields': ('user', 'date_of_birth', 'gender', 'phone_number', 'location', 'preferred_language')
         }),
         ('Phone Verification', {
             'fields': ('phone_verified', 'phone_verified_at', 'phone_verification_uid'),
@@ -769,7 +940,22 @@ class CrushProfileAdmin(admin.ModelAdmin):
         ('Metadata', {
             'fields': ('created_at', 'updated_at')
         }),
+        ('Related Activity', {
+            'fields': ('get_event_registrations', 'get_connections_summary'),
+            'classes': ('collapse',),
+            'description': 'View user activity across events and connections'
+        }),
     )
+
+    def get_user_link(self, obj):
+        """Clickable link to User in coach admin panel"""
+        url = reverse('crush_admin:auth_user_change', args=[obj.user.pk])
+        return format_html(
+            '<a href="{}" style="color: #9B59B6; font-weight: bold;">{}</a>',
+            url, obj.user.username
+        )
+    get_user_link.short_description = 'User'
+    get_user_link.admin_order_field = 'user__username'
 
     def get_email(self, obj):
         """Display user's email address"""
@@ -786,6 +972,15 @@ class CrushProfileAdmin(admin.ModelAdmin):
     phone_verified_icon.short_description = 'Phone'
     phone_verified_icon.admin_order_field = 'phone_verified'
 
+    def get_language_display(self, obj):
+        """Display user's preferred language with flag"""
+        flags = {'en': '🇬🇧', 'de': '🇩🇪', 'fr': '🇫🇷'}
+        flag = flags.get(obj.preferred_language, '')
+        lang_name = obj.get_preferred_language_display() if hasattr(obj, 'get_preferred_language_display') else obj.preferred_language
+        return format_html('{} {}', flag, lang_name)
+    get_language_display.short_description = 'Lang'
+    get_language_display.admin_order_field = 'preferred_language'
+
     def is_coach(self, obj):
         """Check if this user is also a coach"""
         return hasattr(obj.user, 'crushcoach')
@@ -793,16 +988,132 @@ class CrushProfileAdmin(admin.ModelAdmin):
     is_coach.short_description = 'Is Coach'
 
     def get_assigned_coach(self, obj):
-        """Display the assigned coach from ProfileSubmission"""
-        try:
-            submission = ProfileSubmission.objects.get(profile=obj)
-            if submission.coach:
-                return f"{submission.coach.user.get_full_name()} ({submission.get_status_display()})"
-            else:
-                return "No coach assigned"
-        except ProfileSubmission.DoesNotExist:
-            return "Not submitted yet"
+        """Display the assigned coach from ProfileSubmission with clickable link"""
+        # Use prefetched data if available (from get_queryset optimization)
+        submissions = getattr(obj, '_prefetched_submissions', None)
+        if submissions is not None:
+            submission = submissions[0] if submissions else None
+        else:
+            # Fallback to query (for single object views)
+            submission = ProfileSubmission.objects.filter(profile=obj).select_related('coach__user').first()
+
+        if submission is None:
+            return format_html('<em style="color: #999;">Not submitted yet</em>')
+
+        if submission.coach:
+            coach_url = reverse('crush_admin:crush_lu_crushcoach_change', args=[submission.coach.pk])
+            status_colors = {
+                'pending': '#ffc107',
+                'approved': '#28a745',
+                'rejected': '#dc3545',
+                'revision': '#17a2b8',
+            }
+            status_color = status_colors.get(submission.status, '#666')
+            return format_html(
+                '<a href="{}" style="color: #9B59B6; font-weight: bold;">{}</a> '
+                '<span style="color: {};">({}) </span>',
+                coach_url,
+                submission.coach.user.get_full_name() or submission.coach.user.username,
+                status_color,
+                submission.get_status_display()
+            )
+        else:
+            return format_html('<em style="color: #dc3545;">No coach assigned</em>')
     get_assigned_coach.short_description = 'Assigned Coach'
+
+    def get_event_registrations(self, obj):
+        """Display event registrations for this user as HTML table"""
+        registrations = EventRegistration.objects.filter(user=obj.user).select_related('event').order_by('-registered_at')[:10]
+        if not registrations:
+            return format_html('<em style="color: #999;">No event registrations yet</em>')
+
+        html = '<table style="width: 100%; border-collapse: collapse; font-size: 13px;">'
+        html += '<tr style="background: #f5f5f5;"><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Event</th>'
+        html += '<th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Status</th>'
+        html += '<th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Date</th>'
+        html += '<th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Actions</th></tr>'
+
+        for reg in registrations:
+            status_colors = {
+                'confirmed': '#28a745',
+                'pending': '#ffc107',
+                'waitlist': '#17a2b8',
+                'cancelled': '#dc3545',
+                'attended': '#28a745',
+                'no_show': '#dc3545',
+            }
+            status_color = status_colors.get(reg.status, '#666')
+            reg_url = reverse('crush_admin:crush_lu_eventregistration_change', args=[reg.pk])
+            event_url = reverse('crush_admin:crush_lu_meetupevent_change', args=[reg.event.pk])
+
+            html += f'<tr>'
+            html += f'<td style="padding: 8px; border: 1px solid #ddd;"><a href="{event_url}">{reg.event.title}</a></td>'
+            html += f'<td style="padding: 8px; border: 1px solid #ddd;"><span style="color: {status_color}; font-weight: bold;">{reg.get_status_display()}</span></td>'
+            html += f'<td style="padding: 8px; border: 1px solid #ddd;">{reg.registered_at.strftime("%Y-%m-%d")}</td>'
+            html += f'<td style="padding: 8px; border: 1px solid #ddd;"><a href="{reg_url}">View</a></td>'
+            html += '</tr>'
+
+        html += '</table>'
+
+        total = EventRegistration.objects.filter(user=obj.user).count()
+        if total > 10:
+            html += f'<p style="color: #666; font-size: 12px; margin-top: 8px;">Showing 10 of {total} registrations</p>'
+
+        return format_html(html)
+    get_event_registrations.short_description = 'Event Registrations'
+
+    def get_connections_summary(self, obj):
+        """Display connections sent/received as HTML table"""
+        sent = EventConnection.objects.filter(requester=obj.user).select_related('recipient', 'event').order_by('-requested_at')[:5]
+        received = EventConnection.objects.filter(recipient=obj.user).select_related('requester', 'event').order_by('-requested_at')[:5]
+
+        if not sent.exists() and not received.exists():
+            return format_html('<em style="color: #999;">No connections yet</em>')
+
+        html = ''
+
+        # Connections Sent
+        if sent:
+            html += '<strong style="color: #9B59B6;">Connections Sent:</strong>'
+            html += '<table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 15px;">'
+            html += '<tr style="background: #f5f5f5;"><th style="padding: 6px; text-align: left; border: 1px solid #ddd;">To</th>'
+            html += '<th style="padding: 6px; text-align: left; border: 1px solid #ddd;">Event</th>'
+            html += '<th style="padding: 6px; text-align: left; border: 1px solid #ddd;">Status</th></tr>'
+
+            for conn in sent:
+                status_colors = {'pending': '#ffc107', 'accepted': '#28a745', 'declined': '#dc3545', 'shared': '#9B59B6'}
+                status_color = status_colors.get(conn.status, '#666')
+                conn_url = reverse('crush_admin:crush_lu_eventconnection_change', args=[conn.pk])
+
+                html += f'<tr>'
+                html += f'<td style="padding: 6px; border: 1px solid #ddd;">{conn.recipient.get_full_name() or conn.recipient.username}</td>'
+                html += f'<td style="padding: 6px; border: 1px solid #ddd;">{conn.event.title}</td>'
+                html += f'<td style="padding: 6px; border: 1px solid #ddd;"><a href="{conn_url}" style="color: {status_color};">{conn.get_status_display()}</a></td>'
+                html += '</tr>'
+            html += '</table>'
+
+        # Connections Received
+        if received:
+            html += '<strong style="color: #FF6B9D;">Connections Received:</strong>'
+            html += '<table style="width: 100%; border-collapse: collapse; font-size: 13px;">'
+            html += '<tr style="background: #f5f5f5;"><th style="padding: 6px; text-align: left; border: 1px solid #ddd;">From</th>'
+            html += '<th style="padding: 6px; text-align: left; border: 1px solid #ddd;">Event</th>'
+            html += '<th style="padding: 6px; text-align: left; border: 1px solid #ddd;">Status</th></tr>'
+
+            for conn in received:
+                status_colors = {'pending': '#ffc107', 'accepted': '#28a745', 'declined': '#dc3545', 'shared': '#9B59B6'}
+                status_color = status_colors.get(conn.status, '#666')
+                conn_url = reverse('crush_admin:crush_lu_eventconnection_change', args=[conn.pk])
+
+                html += f'<tr>'
+                html += f'<td style="padding: 6px; border: 1px solid #ddd;">{conn.requester.get_full_name() or conn.requester.username}</td>'
+                html += f'<td style="padding: 6px; border: 1px solid #ddd;">{conn.event.title}</td>'
+                html += f'<td style="padding: 6px; border: 1px solid #ddd;"><a href="{conn_url}" style="color: {status_color};">{conn.get_status_display()}</a></td>'
+                html += '</tr>'
+            html += '</table>'
+
+        return format_html(html)
+    get_connections_summary.short_description = 'Connections'
 
     @admin.action(description='Promote selected profiles to Crush Coach role')
     def promote_to_coach(self, request, queryset):
@@ -931,13 +1242,38 @@ class CrushProfileAdmin(admin.ModelAdmin):
 
         return response
 
+    def get_queryset(self, request):
+        """Optimize queries with select_related and prefetch_related"""
+        qs = super().get_queryset(request)
+        return qs.select_related('user').prefetch_related(
+            Prefetch(
+                'profilesubmission_set',
+                queryset=ProfileSubmission.objects.select_related('coach__user'),
+                to_attr='_prefetched_submissions'
+            )
+        )
+
 
 class ProfileSubmissionAdmin(admin.ModelAdmin):
-    list_display = ('profile', 'coach', 'status', 'review_call_completed', 'submitted_at', 'reviewed_at')
-    list_filter = ('status', 'review_call_completed', 'submitted_at', 'reviewed_at')
-    search_fields = ('profile__user__username', 'coach__user__username')
-    readonly_fields = ('submitted_at',)
+    list_display = (
+        'get_profile_link', 'get_user_email', 'get_workflow_status',
+        'coach', 'get_pending_time', 'status', 'review_call_completed', 'submitted_at'
+    )
+    list_filter = ('status', ReviewTimeFilter, SubmissionWorkflowFilter, 'review_call_completed', 'coach', 'submitted_at')
+    search_fields = ('profile__user__username', 'profile__user__email', 'coach__user__username', 'coach_notes', 'feedback_to_user')
+    readonly_fields = ('submitted_at', 'get_profile_details')
+    actions = [
+        'bulk_approve_profiles',
+        'bulk_reject_profiles',
+        'bulk_request_revision',
+        'bulk_assign_coach',
+        'bulk_mark_call_completed',
+    ]
     fieldsets = (
+        ('Profile Summary', {
+            'fields': ('get_profile_details',),
+            'description': 'Quick overview of the profile being reviewed'
+        }),
         ('Submission Details', {
             'fields': ('profile', 'coach', 'status')
         }),
@@ -952,6 +1288,228 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
             'fields': ('submitted_at', 'reviewed_at')
         }),
     )
+
+    def get_queryset(self, request):
+        """Optimize queries with select_related for profile and coach FKs"""
+        qs = super().get_queryset(request)
+        return qs.select_related('profile__user', 'coach__user')
+
+    def get_profile_link(self, obj):
+        """Clickable link to the profile"""
+        url = reverse('crush_admin:crush_lu_crushprofile_change', args=[obj.profile.pk])
+        name = obj.profile.user.get_full_name() or obj.profile.user.username
+        return format_html(
+            '<a href="{}" style="color: #9B59B6; font-weight: bold;">{}</a>',
+            url, name
+        )
+    get_profile_link.short_description = 'Profile'
+    get_profile_link.admin_order_field = 'profile__user__first_name'
+
+    def get_user_email(self, obj):
+        """Display user's email"""
+        return obj.profile.user.email
+    get_user_email.short_description = 'Email'
+    get_user_email.admin_order_field = 'profile__user__email'
+
+    def get_workflow_status(self, obj):
+        """Display visual workflow badge"""
+        now = timezone.now()
+        cutoff_24h = now - timedelta(hours=24)
+
+        if obj.status == 'approved':
+            return format_html(
+                '<span style="background: #28a745; color: white; padding: 3px 8px; '
+                'border-radius: 12px; font-size: 11px;">✅ Approved</span>'
+            )
+        elif obj.status == 'rejected':
+            return format_html(
+                '<span style="background: #dc3545; color: white; padding: 3px 8px; '
+                'border-radius: 12px; font-size: 11px;">❌ Rejected</span>'
+            )
+        elif obj.status == 'revision':
+            return format_html(
+                '<span style="background: #17a2b8; color: white; padding: 3px 8px; '
+                'border-radius: 12px; font-size: 11px;">🔄 Revision</span>'
+            )
+        elif obj.status == 'pending':
+            if not obj.coach:
+                return format_html(
+                    '<span style="background: #dc3545; color: white; padding: 3px 8px; '
+                    'border-radius: 12px; font-size: 11px;">🚨 Needs Coach</span>'
+                )
+            elif obj.review_call_completed:
+                return format_html(
+                    '<span style="background: #28a745; color: white; padding: 3px 8px; '
+                    'border-radius: 12px; font-size: 11px;">✅ Ready to Approve</span>'
+                )
+            elif obj.submitted_at < cutoff_24h:
+                return format_html(
+                    '<span style="background: #ffc107; color: #333; padding: 3px 8px; '
+                    'border-radius: 12px; font-size: 11px;">⚠️ Awaiting Call</span>'
+                )
+            else:
+                return format_html(
+                    '<span style="background: #17a2b8; color: white; padding: 3px 8px; '
+                    'border-radius: 12px; font-size: 11px;">🆕 New</span>'
+                )
+        return obj.get_status_display()
+    get_workflow_status.short_description = 'Workflow'
+
+    def get_pending_time(self, obj):
+        """Display how long submission has been pending with color coding"""
+        if obj.status != 'pending':
+            return format_html('<span style="color: #999;">-</span>')
+
+        now = timezone.now()
+        delta = now - obj.submitted_at
+        days = delta.days
+        hours = delta.seconds // 3600
+
+        if days > 3:
+            color = '#dc3545'  # Red
+            text = f"{days} days"
+        elif days > 0:
+            color = '#ffc107'  # Yellow
+            text = f"{days}d {hours}h"
+        else:
+            color = '#28a745'  # Green
+            text = f"{hours}h"
+
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>',
+            color, text
+        )
+    get_pending_time.short_description = 'Pending'
+    get_pending_time.admin_order_field = 'submitted_at'
+
+    def get_profile_details(self, obj):
+        """Display comprehensive profile details for review"""
+        profile = obj.profile
+        user = profile.user
+
+        # Language display with flag
+        lang_flags = {'en': '🇬🇧', 'de': '🇩🇪', 'fr': '🇫🇷'}
+        lang_flag = lang_flags.get(profile.preferred_language, '')
+        lang_name = profile.get_preferred_language_display() if hasattr(profile, 'get_preferred_language_display') else profile.preferred_language
+
+        # Build HTML for profile summary
+        html = '<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 10px;">'
+
+        # User info
+        html += f'<h4 style="margin: 0 0 10px 0; color: #9B59B6;">{user.get_full_name() or user.username}</h4>'
+        html += f'<p style="margin: 5px 0;"><strong>Email:</strong> {user.email}</p>'
+        html += f'<p style="margin: 5px 0;"><strong>Age:</strong> {profile.age} | <strong>Gender:</strong> {profile.gender} | <strong>Language:</strong> {lang_flag} {lang_name}</p>'
+        html += f'<p style="margin: 5px 0;"><strong>Location:</strong> {profile.location or "Not specified"}</p>'
+
+        # Phone verification
+        phone_status = '✅ Verified' if profile.phone_verified else '❌ Not verified'
+        html += f'<p style="margin: 5px 0;"><strong>Phone:</strong> {profile.phone_number or "N/A"} ({phone_status})</p>'
+
+        # Bio
+        if profile.bio:
+            html += f'<p style="margin: 10px 0 5px 0;"><strong>Bio:</strong></p>'
+            html += f'<p style="margin: 0; padding: 10px; background: white; border-radius: 4px;">{profile.bio[:500]}{"..." if len(profile.bio) > 500 else ""}</p>'
+
+        # Interests
+        if profile.interests:
+            html += f'<p style="margin: 10px 0 5px 0;"><strong>Interests:</strong> {profile.interests}</p>'
+
+        # Looking for
+        if profile.looking_for:
+            html += f'<p style="margin: 5px 0;"><strong>Looking for:</strong> {profile.looking_for}</p>'
+
+        html += '</div>'
+
+        return format_html(html)
+    get_profile_details.short_description = 'Profile Details'
+
+    @admin.action(description='✅ Approve selected profiles (requires completed call)')
+    def bulk_approve_profiles(self, request, queryset):
+        """Bulk approve profiles - only if screening call is completed"""
+        now = timezone.now()
+        approved_count = 0
+        skipped_count = 0
+
+        for submission in queryset.select_related('profile'):
+            if not submission.review_call_completed:
+                skipped_count += 1
+                continue
+
+            with transaction.atomic():
+                submission.status = 'approved'
+                submission.reviewed_at = now
+                submission.save()
+
+                # Update the related CrushProfile
+                submission.profile.is_approved = True
+                submission.profile.approved_at = now
+                submission.profile.save()
+                approved_count += 1
+
+        if approved_count > 0:
+            django_messages.success(request, f"✅ Approved {approved_count} profile(s)")
+        if skipped_count > 0:
+            django_messages.warning(
+                request,
+                f"⚠️ Skipped {skipped_count} profile(s) - screening call not completed"
+            )
+
+    @admin.action(description='❌ Reject selected profiles')
+    def bulk_reject_profiles(self, request, queryset):
+        """Bulk reject profiles"""
+        now = timezone.now()
+        updated = queryset.update(status='rejected', reviewed_at=now)
+        django_messages.success(request, f"❌ Rejected {updated} profile(s)")
+
+    @admin.action(description='🔄 Request revision for selected profiles')
+    def bulk_request_revision(self, request, queryset):
+        """Request revision for profiles"""
+        now = timezone.now()
+        updated = queryset.update(status='revision', reviewed_at=now)
+        django_messages.success(request, f"🔄 Requested revision for {updated} profile(s)")
+
+    @admin.action(description='👤 Auto-assign available coach')
+    def bulk_assign_coach(self, request, queryset):
+        """Auto-assign coach to submissions without one"""
+        assigned_count = 0
+        skipped_count = 0
+
+        # Get available coaches sorted by workload (least active reviews first)
+        available_coaches = CrushCoach.objects.filter(is_active=True).annotate(
+            active_reviews=Count(
+                'profilesubmission',
+                filter=Q(profilesubmission__status='pending')
+            )
+        ).filter(active_reviews__lt=F('max_active_reviews')).order_by('active_reviews')
+
+        if not available_coaches.exists():
+            django_messages.error(request, "❌ No available coaches found")
+            return
+
+        coach_list = list(available_coaches)
+        coach_index = 0
+
+        for submission in queryset.filter(coach__isnull=True):
+            # Round-robin assignment
+            coach = coach_list[coach_index % len(coach_list)]
+            submission.coach = coach
+            submission.save()
+            assigned_count += 1
+            coach_index += 1
+
+        skipped_count = queryset.filter(coach__isnull=False).count()
+
+        if assigned_count > 0:
+            django_messages.success(request, f"👤 Assigned coach to {assigned_count} profile(s)")
+        if skipped_count > 0:
+            django_messages.info(request, f"ℹ️ Skipped {skipped_count} profile(s) - already have coach assigned")
+
+    @admin.action(description='📞 Mark screening call as completed')
+    def bulk_mark_call_completed(self, request, queryset):
+        """Mark screening call as completed for selected submissions"""
+        now = timezone.now()
+        updated = queryset.update(review_call_completed=True, review_call_date=now)
+        django_messages.success(request, f"📞 Marked {updated} screening call(s) as completed")
 
 
 class CoachSessionAdmin(admin.ModelAdmin):
@@ -3197,6 +3755,95 @@ class EmailPreferenceAdmin(admin.ModelAdmin):
 # ============================================================================
 # END EMAIL PREFERENCES ADMIN
 # ============================================================================
+
+
+# ============================================================================
+# USER ADMIN FOR CRUSH COACH PANEL
+# ============================================================================
+
+class CrushProfileUserInline(admin.StackedInline):
+    """Inline showing CrushProfile on User detail page in coach panel"""
+    model = CrushProfile
+    can_delete = False
+    verbose_name_plural = 'Crush.lu Profile'
+    fields = ('phone_number', 'gender', 'location', 'bio', 'is_approved', 'is_active', 'completion_status')
+    readonly_fields = ('is_approved', 'is_active', 'completion_status')
+    extra = 0
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class CrushCoachUserInline(admin.StackedInline):
+    """Inline showing CrushCoach status on User detail page in coach panel"""
+    model = CrushCoach
+    can_delete = False
+    verbose_name_plural = 'Coach Status'
+    fields = ('bio', 'specializations', 'is_active', 'max_active_reviews')
+    readonly_fields = ('is_active',)
+    extra = 0
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class CrushUserAdmin(BaseUserAdmin):
+    """
+    User admin for Crush.lu coach panel.
+    Shows users with their Crush.lu profiles and provides bidirectional navigation.
+    """
+    inlines = (CrushProfileUserInline, CrushCoachUserInline)
+    list_display = (
+        'username', 'email', 'first_name', 'last_name',
+        'get_crush_profile_link', 'is_coach_status', 'is_active', 'date_joined'
+    )
+    list_filter = ('is_active', 'date_joined')
+    search_fields = ('username', 'email', 'first_name', 'last_name')
+    ordering = ('-date_joined',)
+
+    def get_crush_profile_link(self, obj):
+        """Clickable link to CrushProfile if exists"""
+        try:
+            profile = obj.crushprofile
+            url = reverse('crush_admin:crush_lu_crushprofile_change', args=[profile.pk])
+            status = '✅' if profile.is_approved else '⏳'
+            return format_html(
+                '<a href="{}" style="color: #9B59B6; font-weight: bold;">{} View Profile</a>',
+                url, status
+            )
+        except CrushProfile.DoesNotExist:
+            return format_html('<span style="color: #999;">No profile</span>')
+    get_crush_profile_link.short_description = '💕 Profile'
+
+    def is_coach_status(self, obj):
+        """Check if user is an active Crush.lu coach"""
+        try:
+            return obj.crushcoach.is_active
+        except CrushCoach.DoesNotExist:
+            return False
+    is_coach_status.boolean = True
+    is_coach_status.short_description = '🎓 Coach'
+
+    # Restrict fieldsets to essential user info only
+    fieldsets = (
+        (None, {'fields': ('username', 'password')}),
+        ('Personal info', {'fields': ('first_name', 'last_name', 'email')}),
+        ('Important dates', {'fields': ('last_login', 'date_joined')}),
+    )
+    readonly_fields = ('last_login', 'date_joined')
+
+    # Remove permissions fieldset for coaches (they shouldn't manage staff/superuser)
+    def get_fieldsets(self, request, obj=None):
+        """Hide permissions for non-superusers"""
+        fieldsets = super().get_fieldsets(request, obj)
+        if not request.user.is_superuser:
+            # Filter out the 'Permissions' fieldset
+            return [fs for fs in fieldsets if fs[0] != 'Permissions']
+        return fieldsets
+
+
+# Register User with crush_admin_site
+crush_admin_site.register(User, CrushUserAdmin)
 
 
 # ============================================================================

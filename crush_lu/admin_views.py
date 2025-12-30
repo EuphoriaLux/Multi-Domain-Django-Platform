@@ -251,6 +251,47 @@ def crush_admin_dashboard(request):
     }
 
     # ============================================================================
+    # PENDING ACTIONS (Coach Workflow Quick Links)
+    # ============================================================================
+
+    now = timezone.now()
+    cutoff_24h = now - timedelta(hours=24)
+
+    # Urgent reviews (pending > 24 hours)
+    urgent_reviews = ProfileSubmission.objects.filter(
+        status='pending',
+        submitted_at__lt=cutoff_24h
+    ).count()
+
+    # Awaiting screening call (has coach, pending, no call)
+    awaiting_call = ProfileSubmission.objects.filter(
+        status='pending',
+        coach__isnull=False,
+        review_call_completed=False
+    ).count()
+
+    # Ready to approve (call completed, still pending)
+    ready_to_approve = ProfileSubmission.objects.filter(
+        status='pending',
+        coach__isnull=False,
+        review_call_completed=True
+    ).count()
+
+    # Unassigned (pending, no coach)
+    unassigned_submissions = ProfileSubmission.objects.filter(
+        status='pending',
+        coach__isnull=True
+    ).count()
+
+    pending_actions = {
+        'urgent_reviews': urgent_reviews,
+        'awaiting_call': awaiting_call,
+        'ready_to_approve': ready_to_approve,
+        'unassigned': unassigned_submissions,
+        'total_pending': pending_reviews,
+    }
+
+    # ============================================================================
     # RECENT ACTIVITY
     # ============================================================================
 
@@ -347,6 +388,9 @@ def crush_admin_dashboard(request):
         'recent_submissions': recent_submissions,
         'recent_event_registrations': recent_event_registrations,
         'recent_connections': recent_connections,
+
+        # Pending actions (workflow quick links)
+        'pending_actions': pending_actions,
 
         # Page metadata
         'title': 'Crush.lu Analytics Dashboard',

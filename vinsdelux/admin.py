@@ -182,7 +182,7 @@ class DelegationProfileInline(admin.StackedInline):
 class UserAdmin(BaseUserAdmin):
     inlines = (EntrepreneurProfileInline, CrushProfileInline, CrushCoachInline, VdlUserProfileInline, DelegationProfileInline)
     list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff',
-                    'has_entreprinder_profile', 'has_crush_profile', 'has_vinsdelux_profile', 'is_crush_coach',
+                    'has_entreprinder_profile', 'get_crush_profile_link', 'has_vinsdelux_profile', 'is_crush_coach',
                     'has_delegation_profile',
                     'profile_count')
     list_filter = BaseUserAdmin.list_filter + ('is_staff', 'is_active', 'date_joined')
@@ -246,6 +246,20 @@ class UserAdmin(BaseUserAdmin):
             return False
     has_crush_profile.boolean = True
     has_crush_profile.short_description = '💕 Crush.lu'
+
+    def get_crush_profile_link(self, obj):
+        """Clickable link to CrushProfile if exists"""
+        try:
+            profile = obj.crushprofile
+            url = reverse('admin:crush_lu_crushprofile_change', args=[profile.pk])
+            status = '✅' if profile.is_approved else '⏳'
+            return format_html(
+                '<a href="{}" style="color: #9B59B6;">{} View</a>',
+                url, status
+            )
+        except:
+            return format_html('<span style="color: #999;">-</span>')
+    get_crush_profile_link.short_description = '💕 Profile'
 
     def has_vinsdelux_profile(self, obj):
         """Check if user has VinsDelux profile"""

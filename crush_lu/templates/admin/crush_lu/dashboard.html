@@ -308,6 +308,56 @@
         <a href="{% url 'crush_admin:crush_lu_specialuserexperience_changelist' %}" class="quick-action-btn">✨ Special Experiences</a>
     </div>
 
+    <!-- Pending Actions Alert Box -->
+    {% if pending_actions.total_pending > 0 %}
+    <div class="chart-container" style="margin-top: 20px; border-left: 4px solid #dc3545;">
+        <h3 style="margin-top: 0; color: #dc3545;">⚡ Pending Actions</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 15px;">Quick links to submissions that need your attention</p>
+
+        <div class="dashboard-grid" style="gap: 15px;">
+            {% if pending_actions.urgent_reviews > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?pending_time=24h"
+               style="text-decoration: none;" class="metric-card"
+               style="background: #dc354515; border-left: 4px solid #dc3545; cursor: pointer;">
+                <div class="metric-label" style="color: #dc3545;">🚨 Urgent Reviews</div>
+                <div class="metric-value" style="color: #dc3545;">{{ pending_actions.urgent_reviews }}</div>
+                <div class="metric-subtitle">Pending > 24 hours</div>
+            </a>
+            {% endif %}
+
+            {% if pending_actions.unassigned > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?coach__isnull=True&status__exact=pending"
+               style="text-decoration: none;" class="metric-card"
+               style="background: #ffc10715; border-left: 4px solid #ffc107; cursor: pointer;">
+                <div class="metric-label" style="color: #ffc107;">👤 Needs Coach</div>
+                <div class="metric-value" style="color: #ffc107;">{{ pending_actions.unassigned }}</div>
+                <div class="metric-subtitle">No coach assigned</div>
+            </a>
+            {% endif %}
+
+            {% if pending_actions.awaiting_call > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?workflow=awaiting_call"
+               style="text-decoration: none;" class="metric-card"
+               style="background: #17a2b815; border-left: 4px solid #17a2b8; cursor: pointer;">
+                <div class="metric-label" style="color: #17a2b8;">📞 Awaiting Call</div>
+                <div class="metric-value" style="color: #17a2b8;">{{ pending_actions.awaiting_call }}</div>
+                <div class="metric-subtitle">Screening call needed</div>
+            </a>
+            {% endif %}
+
+            {% if pending_actions.ready_to_approve > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?workflow=ready_approve"
+               style="text-decoration: none;" class="metric-card"
+               style="background: #28a74515; border-left: 4px solid #28a745; cursor: pointer;">
+                <div class="metric-label" style="color: #28a745;">✅ Ready to Approve</div>
+                <div class="metric-value" style="color: #28a745;">{{ pending_actions.ready_to_approve }}</div>
+                <div class="metric-subtitle">Call completed, ready!</div>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- User Metrics Section -->
     <h2 class="section-header">👥 User Metrics</h2>
     <div class="dashboard-grid">
