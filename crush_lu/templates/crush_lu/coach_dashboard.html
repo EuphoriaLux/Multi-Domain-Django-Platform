@@ -47,10 +47,8 @@
     </div>
 </div>
 
-<!-- Push Notifications -->
-<div class="bg-white rounded-xl shadow-sm mb-6"
-     x-data="coachPushPreferences"
-     data-subscriptions='{{ coach_push_subscriptions_json|default:"[]" }}'>
+<!-- Coach Notifications - Link to Account Settings -->
+<div class="bg-white rounded-xl shadow-sm mb-6">
     <div class="px-6 py-4 border-b border-gray-100">
         <h5 class="font-semibold mb-0 flex items-center gap-2">
             <svg class="w-5 h-5 text-crush-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -60,160 +58,16 @@
         </h5>
     </div>
     <div class="p-6">
-        <!-- Loading State -->
-        <template x-if="isLoading">
-            <div class="flex items-center justify-center py-4">
-                <svg class="animate-spin h-6 w-6 text-crush-purple" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span class="ml-2 text-gray-500">{% trans "Loading notification settings..." %}</span>
-            </div>
-        </template>
-
-        <!-- Not Supported State -->
-        <template x-if="showNotSupported">
-            <div class="flex items-center gap-3 p-4 bg-yellow-50 text-yellow-800 rounded-lg">
-                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                </svg>
-                <span>{% trans "Push notifications are not supported in this browser." %}</span>
-            </div>
-        </template>
-
-        <!-- Not Subscribed State -->
-        <template x-if="showEnableButton">
-            <div>
-                <p class="text-gray-600 mb-4">{% trans "Enable push notifications to get alerts about new profile submissions, user revisions, and screening reminders." %}</p>
-                <button type="button"
-                        class="btn-crush-primary inline-flex items-center gap-2 enable-coach-push-btn"
-                        x-bind:disabled="isEnabling">
-                    <template x-if="showEnablingSpinner">
-                        <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                    </template>
-                    <template x-if="showNotEnablingIcon">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-                        </svg>
-                    </template>
-                    <span x-text="enableButtonText"></span>
-                </button>
-            </div>
-        </template>
-
-        <!-- Subscribed State - Show Preferences -->
-        <template x-if="showPreferences">
-            <div>
-                <!-- Success Banner -->
-                <div class="flex items-center gap-3 p-3 bg-green-50 text-green-800 rounded-lg mb-4">
-                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <span>{% trans "Coach notifications are enabled on this device." %}</span>
-                </div>
-
-                <!-- Notification Preferences -->
-                <h6 class="font-semibold text-sm text-gray-700 mb-3">{% trans "Notification Types" %}</h6>
-                <div class="space-y-3">
-                    {% if coach_push_subscription %}
-                    <!-- New Submissions -->
-                    <label class="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                        <div class="flex items-center gap-3">
-                            <svg class="w-5 h-5 text-crush-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                            <div>
-                                <span class="font-medium text-gray-900">{% trans "New Profile Submissions" %}</span>
-                                <p class="text-xs text-gray-500">{% trans "Get notified when new profiles need review" %}</p>
-                            </div>
-                        </div>
-                        <input type="checkbox"
-                               class="w-5 h-5 rounded text-crush-purple focus:ring-crush-purple coach-push-pref-toggle"
-                               {% if coach_push_subscription.notify_new_submissions %}checked{% endif %}
-                               data-subscription-id="{{ coach_push_subscription.id }}"
-                               data-pref-key="newSubmissions">
-                    </label>
-
-                    <!-- User Revisions -->
-                    <label class="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                        <div class="flex items-center gap-3">
-                            <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                            </svg>
-                            <div>
-                                <span class="font-medium text-gray-900">{% trans "User Revisions" %}</span>
-                                <p class="text-xs text-gray-500">{% trans "Get notified when users submit profile revisions" %}</p>
-                            </div>
-                        </div>
-                        <input type="checkbox"
-                               class="w-5 h-5 rounded text-crush-purple focus:ring-crush-purple coach-push-pref-toggle"
-                               {% if coach_push_subscription.notify_user_responses %}checked{% endif %}
-                               data-subscription-id="{{ coach_push_subscription.id }}"
-                               data-pref-key="userResponses">
-                    </label>
-
-                    <!-- Screening Reminders -->
-                    <label class="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                        <div class="flex items-center gap-3">
-                            <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <div>
-                                <span class="font-medium text-gray-900">{% trans "Screening Reminders" %}</span>
-                                <p class="text-xs text-gray-500">{% trans "Reminders about pending screening calls" %}</p>
-                            </div>
-                        </div>
-                        <input type="checkbox"
-                               class="w-5 h-5 rounded text-crush-purple focus:ring-crush-purple coach-push-pref-toggle"
-                               {% if coach_push_subscription.notify_screening_reminders %}checked{% endif %}
-                               data-subscription-id="{{ coach_push_subscription.id }}"
-                               data-pref-key="screeningReminders">
-                    </label>
-
-                    <!-- System Alerts -->
-                    <label class="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                        <div class="flex items-center gap-3">
-                            <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <div>
-                                <span class="font-medium text-gray-900">{% trans "System Alerts" %}</span>
-                                <p class="text-xs text-gray-500">{% trans "Important system and admin messages" %}</p>
-                            </div>
-                        </div>
-                        <input type="checkbox"
-                               class="w-5 h-5 rounded text-crush-purple focus:ring-crush-purple coach-push-pref-toggle"
-                               {% if coach_push_subscription.notify_system_alerts %}checked{% endif %}
-                               data-subscription-id="{{ coach_push_subscription.id }}"
-                               data-pref-key="systemAlerts">
-                    </label>
-                    {% endif %}
-                </div>
-
-                <!-- Actions -->
-                <div class="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-200">
-                    <button type="button"
-                            class="inline-flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors test-coach-push-btn"
-                            x-bind:disabled="isSendingTest">
-                        <template x-if="showTestSpinner">
-                            <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        </template>
-                        <span x-text="testButtonText"></span>
-                    </button>
-                    <button type="button"
-                            class="inline-flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disable-coach-push-btn"
-                            x-bind:disabled="isDisabling">
-                        <span x-text="disableButtonText"></span>
-                    </button>
-                </div>
-            </div>
-        </template>
+        <p class="text-gray-600 mb-4">
+            {% trans "Manage your push notification preferences for new profile submissions, screening reminders, and user responses." %}
+        </p>
+        <a href="{% url 'crush_lu:account_settings' %}" class="btn-crush-primary inline-flex items-center gap-2 text-sm px-4 py-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            {% trans "Open Account Settings" %}
+        </a>
     </div>
 </div>
 

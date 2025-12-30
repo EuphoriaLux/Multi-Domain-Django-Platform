@@ -173,6 +173,18 @@ document.addEventListener('alpine:init', function() {
             errorMessage: '',
             permissionDenied: false,
             isLoading: true,
+            currentEndpoint: null,  // For identifying "This device"
+            endpointDetected: false,  // Flag to trigger re-render when endpoint is detected
+            // i18n strings for time formatting (loaded from data attributes)
+            i18n: {
+                neverUsed: 'Never used',
+                justNow: 'Just now',
+                lastActive: 'Last active:',
+                minutesAgo: 'm ago',
+                hoursAgo: 'h ago',
+                daysAgo: 'd ago',
+                monthsAgo: 'mo ago'
+            },
 
             // Computed getters for CSP compatibility
             get hasSubscriptions() { return this.subscriptions.length > 0; },
@@ -186,6 +198,9 @@ document.addEventListener('alpine:init', function() {
 
             init: function() {
                 var self = this;
+
+                // Load i18n strings from data attributes
+                this._loadI18nStrings();
 
                 // Parse initial subscriptions from data attribute
                 var data = this.$el.getAttribute('data-subscriptions');
@@ -205,6 +220,9 @@ document.addEventListener('alpine:init', function() {
                 if ('Notification' in window && Notification.permission === 'denied') {
                     this.permissionDenied = true;
                 }
+
+                // Detect current device endpoint for "This device" badge
+                this._detectCurrentEndpoint();
 
                 // Wait for CrushPush to be available before checking subscription status
                 this._waitForCrushPush(function() {
@@ -238,6 +256,57 @@ document.addEventListener('alpine:init', function() {
                         self.disablePush();
                     }
                 });
+            },
+
+            // Load i18n strings from data attributes
+            _loadI18nStrings: function() {
+                var el = this.$el;
+                this.i18n.neverUsed = el.getAttribute('data-i18n-never-used') || this.i18n.neverUsed;
+                this.i18n.justNow = el.getAttribute('data-i18n-just-now') || this.i18n.justNow;
+                this.i18n.lastActive = el.getAttribute('data-i18n-last-active') || this.i18n.lastActive;
+                this.i18n.minutesAgo = el.getAttribute('data-i18n-minutes-ago') || this.i18n.minutesAgo;
+                this.i18n.hoursAgo = el.getAttribute('data-i18n-hours-ago') || this.i18n.hoursAgo;
+                this.i18n.daysAgo = el.getAttribute('data-i18n-days-ago') || this.i18n.daysAgo;
+                this.i18n.monthsAgo = el.getAttribute('data-i18n-months-ago') || this.i18n.monthsAgo;
+            },
+
+            // Detect current device's push endpoint for "This device" identification
+            _detectCurrentEndpoint: function() {
+                var self = this;
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready.then(function(reg) {
+                        return reg.pushManager.getSubscription();
+                    }).then(function(sub) {
+                        self.currentEndpoint = sub ? sub.endpoint : null;
+                        self.endpointDetected = true;  // Trigger Alpine reactivity
+                    }).catch(function() {
+                        self.endpointDetected = true;  // Mark as done even on failure
+                    });
+                } else {
+                    self.endpointDetected = true;  // No service worker support
+                }
+            },
+
+            // Check if a subscription is from the current device
+            isCurrentDevice: function(subscription) {
+                return this.currentEndpoint && subscription.endpoint === this.currentEndpoint;
+            },
+
+            // Format relative time for "Last active" display
+            formatRelativeTime: function(dateStr) {
+                if (!dateStr) return this.i18n.neverUsed;
+                var date = new Date(dateStr);
+                var now = new Date();
+                var diffMs = now - date;
+                var diffMins = Math.floor(diffMs / 60000);
+                if (diffMins < 1) return this.i18n.justNow;
+                if (diffMins < 60) return diffMins + ' ' + this.i18n.minutesAgo;
+                var diffHours = Math.floor(diffMins / 60);
+                if (diffHours < 24) return diffHours + ' ' + this.i18n.hoursAgo;
+                var diffDays = Math.floor(diffHours / 24);
+                if (diffDays < 30) return diffDays + ' ' + this.i18n.daysAgo;
+                var diffMonths = Math.floor(diffDays / 30);
+                return diffMonths + ' ' + this.i18n.monthsAgo;
             },
 
             enablePush: function() {
@@ -350,7 +419,7 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
-    // Coach push notification preferences component (coach dashboard)
+    // Coach push notification preferences component (account settings and coach dashboard)
     // Separate from user push preferences - completely independent system
     Alpine.data('coachPushPreferences', function() {
         return {
@@ -362,6 +431,18 @@ document.addEventListener('alpine:init', function() {
             errorMessage: '',
             permissionDenied: false,
             isLoading: true,
+            currentEndpoint: null,  // For identifying "This device"
+            endpointDetected: false,  // Flag to trigger re-render when endpoint is detected
+            // i18n strings for time formatting (loaded from data attributes)
+            i18n: {
+                neverUsed: 'Never used',
+                justNow: 'Just now',
+                lastActive: 'Last active:',
+                minutesAgo: 'm ago',
+                hoursAgo: 'h ago',
+                daysAgo: 'd ago',
+                monthsAgo: 'mo ago'
+            },
 
             get hasSubscriptions() { return this.subscriptions.length > 0; },
             get showEnableButton() { return !this.isLoading && this.isSupported && !this.isSubscribed && !this.permissionDenied; },
@@ -379,6 +460,10 @@ document.addEventListener('alpine:init', function() {
 
             init: function() {
                 var self = this;
+
+                // Load i18n strings from data attributes
+                this._loadI18nStrings();
+
                 var data = this.$el.getAttribute('data-subscriptions');
                 if (data) {
                     try {
@@ -392,6 +477,9 @@ document.addEventListener('alpine:init', function() {
                 if ('Notification' in window && Notification.permission === 'denied') {
                     this.permissionDenied = true;
                 }
+
+                // Detect current device endpoint for "This device" badge
+                this._detectCurrentEndpoint();
 
                 this._waitForServiceWorker(function() {
                     if (self.isSupported && self.subscriptions.length > 0) {
@@ -417,6 +505,57 @@ document.addEventListener('alpine:init', function() {
                         self.sendTestNotification();
                     }
                 });
+            },
+
+            // Load i18n strings from data attributes
+            _loadI18nStrings: function() {
+                var el = this.$el;
+                this.i18n.neverUsed = el.getAttribute('data-i18n-never-used') || this.i18n.neverUsed;
+                this.i18n.justNow = el.getAttribute('data-i18n-just-now') || this.i18n.justNow;
+                this.i18n.lastActive = el.getAttribute('data-i18n-last-active') || this.i18n.lastActive;
+                this.i18n.minutesAgo = el.getAttribute('data-i18n-minutes-ago') || this.i18n.minutesAgo;
+                this.i18n.hoursAgo = el.getAttribute('data-i18n-hours-ago') || this.i18n.hoursAgo;
+                this.i18n.daysAgo = el.getAttribute('data-i18n-days-ago') || this.i18n.daysAgo;
+                this.i18n.monthsAgo = el.getAttribute('data-i18n-months-ago') || this.i18n.monthsAgo;
+            },
+
+            // Detect current device's push endpoint for "This device" identification
+            _detectCurrentEndpoint: function() {
+                var self = this;
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready.then(function(reg) {
+                        return reg.pushManager.getSubscription();
+                    }).then(function(sub) {
+                        self.currentEndpoint = sub ? sub.endpoint : null;
+                        self.endpointDetected = true;  // Trigger Alpine reactivity
+                    }).catch(function() {
+                        self.endpointDetected = true;  // Mark as done even on failure
+                    });
+                } else {
+                    self.endpointDetected = true;  // No service worker support
+                }
+            },
+
+            // Check if a subscription is from the current device
+            isCurrentDevice: function(subscription) {
+                return this.currentEndpoint && subscription.endpoint === this.currentEndpoint;
+            },
+
+            // Format relative time for "Last active" display
+            formatRelativeTime: function(dateStr) {
+                if (!dateStr) return this.i18n.neverUsed;
+                var date = new Date(dateStr);
+                var now = new Date();
+                var diffMs = now - date;
+                var diffMins = Math.floor(diffMs / 60000);
+                if (diffMins < 1) return this.i18n.justNow;
+                if (diffMins < 60) return diffMins + ' ' + this.i18n.minutesAgo;
+                var diffHours = Math.floor(diffMins / 60);
+                if (diffHours < 24) return diffHours + ' ' + this.i18n.hoursAgo;
+                var diffDays = Math.floor(diffHours / 24);
+                if (diffDays < 30) return diffDays + ' ' + this.i18n.daysAgo;
+                var diffMonths = Math.floor(diffDays / 30);
+                return diffMonths + ' ' + this.i18n.monthsAgo;
             },
 
             enablePush: function() {

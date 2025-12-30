@@ -8,8 +8,10 @@ import json
 import logging
 from django.conf import settings
 from django.urls import reverse
+from django.utils.translation import gettext as _
 from pywebpush import webpush, WebPushException
 from .models import CoachPushSubscription, CrushCoach
+from .push_notifications import activate_user_language
 
 logger = logging.getLogger(__name__)
 
@@ -129,13 +131,16 @@ def notify_coach_new_submission(coach, submission):
         logger.info(f"Coach {coach.user.username} has new submission notifications disabled")
         return {'success': 0, 'failed': 0, 'total': 0}
 
+    # Activate coach's preferred language
+    activate_user_language(coach.user)
+
     profile = submission.profile
     user_name = profile.user.first_name or profile.user.username
 
     return send_coach_push_notification(
         coach=coach,
-        title="New Profile to Review",
-        body=f"{user_name} submitted a profile for review",
+        title=_("New Profile to Review"),
+        body=_("%(name)s submitted a profile for review") % {'name': user_name},
         url=reverse('crush_lu:coach_review_profile', args=[submission.id]),
         tag=f"new-submission-{submission.id}"
     )
@@ -160,13 +165,16 @@ def notify_coach_user_revision(coach, submission):
         logger.info(f"Coach {coach.user.username} has user response notifications disabled")
         return {'success': 0, 'failed': 0, 'total': 0}
 
+    # Activate coach's preferred language
+    activate_user_language(coach.user)
+
     profile = submission.profile
     user_name = profile.user.first_name or profile.user.username
 
     return send_coach_push_notification(
         coach=coach,
-        title="Profile Revision Submitted",
-        body=f"{user_name} updated their profile based on your feedback",
+        title=_("Profile Revision Submitted"),
+        body=_("%(name)s updated their profile based on your feedback") % {'name': user_name},
         url=reverse('crush_lu:coach_review_profile', args=[submission.id]),
         tag=f"revision-{submission.id}"
     )
@@ -191,13 +199,16 @@ def notify_coach_screening_reminder(coach, submission):
         logger.info(f"Coach {coach.user.username} has screening reminder notifications disabled")
         return {'success': 0, 'failed': 0, 'total': 0}
 
+    # Activate coach's preferred language
+    activate_user_language(coach.user)
+
     profile = submission.profile
     user_name = profile.user.first_name or profile.user.username
 
     return send_coach_push_notification(
         coach=coach,
-        title="Pending Screening Call",
-        body=f"Don't forget to schedule a call with {user_name}",
+        title=_("Pending Screening Call"),
+        body=_("Don't forget to schedule a call with %(name)s") % {'name': user_name},
         url=reverse('crush_lu:coach_review_profile', args=[submission.id]),
         tag=f"screening-reminder-{submission.id}"
     )
@@ -243,10 +254,13 @@ def send_coach_test_notification(coach):
     Returns:
         dict: Push result with success/failed counts
     """
+    # Activate coach's preferred language
+    activate_user_language(coach.user)
+
     return send_coach_push_notification(
         coach=coach,
-        title="Test Notification",
-        body="Your coach notifications are working correctly!",
+        title=_("Test Notification"),
+        body=_("Your coach notifications are working correctly!"),
         url='/coach/dashboard/',
         tag="test-notification"
     )

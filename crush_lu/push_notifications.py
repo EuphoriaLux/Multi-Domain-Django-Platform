@@ -7,11 +7,43 @@ import json
 import logging
 from django.conf import settings
 from django.urls import reverse
-from django.utils.translation import activate
+from django.utils.translation import activate, gettext as _
 from pywebpush import webpush, WebPushException
 from .models import PushSubscription
 
 logger = logging.getLogger(__name__)
+
+
+def get_user_language(user):
+    """
+    Get user's preferred language from their CrushProfile.
+
+    Args:
+        user: Django User object
+
+    Returns:
+        Language code ('en', 'de', 'fr') - defaults to 'en'
+    """
+    if hasattr(user, 'crushprofile') and user.crushprofile:
+        profile_lang = getattr(user.crushprofile, 'preferred_language', None)
+        if profile_lang and profile_lang in ['en', 'de', 'fr']:
+            return profile_lang
+    return 'en'
+
+
+def activate_user_language(user):
+    """
+    Activate translation for user's preferred language.
+
+    Args:
+        user: Django User object
+
+    Returns:
+        Language code that was activated
+    """
+    lang = get_user_language(user)
+    activate(lang)
+    return lang
 
 
 def get_user_language_url(user, url_name, **kwargs):
@@ -23,15 +55,7 @@ def get_user_language_url(user, url_name, **kwargs):
         url_name: The URL name to reverse (e.g., 'crush_lu:dashboard')
         **kwargs: Additional arguments for reverse()
     """
-    # Get user's preferred language
-    lang = 'en'  # Default
-    if hasattr(user, 'crushprofile') and user.crushprofile:
-        profile_lang = getattr(user.crushprofile, 'preferred_language', None)
-        if profile_lang and profile_lang in ['en', 'de', 'fr']:
-            lang = profile_lang
-
-    # Activate language and generate URL
-    activate(lang)
+    activate_user_language(user)
     return reverse(url_name, **kwargs)
 
 
@@ -144,8 +168,14 @@ def send_event_reminder(user, event):
     if not subscriptions.exists():
         return
 
-    title = f"Event Tomorrow: {event.title}"
-    body = f"Don't forget! {event.title} starts at {event.date_time.strftime('%H:%M')}. See you there!"
+    # Activate user's language for translation
+    activate_user_language(user)
+
+    title = _("Event Tomorrow: %(event_title)s") % {'event_title': event.title}
+    body = _("Don't forget! %(event_title)s starts at %(time)s. See you there!") % {
+        'event_title': event.title,
+        'time': event.date_time.strftime('%H:%M')
+    }
     url = get_user_language_url(user, 'crush_lu:event_detail', kwargs={'event_id': event.id})
 
     return send_push_notification(
@@ -170,12 +200,15 @@ def send_new_connection_notification(user, connection):
     if not subscriptions.exists():
         return
 
+    # Activate user's language for translation
+    activate_user_language(user)
+
     # Get the other user's display name
     other_user = connection.user1 if connection.user2 == user else connection.user2
     display_name = other_user.crushprofile.display_name if hasattr(other_user, 'crushprofile') else other_user.first_name
 
-    title = "New Connection Request! 💕"
-    body = f"{display_name} wants to connect with you!"
+    title = _("New Connection Request!")
+    body = _("%(name)s wants to connect with you!") % {'name': display_name}
     url = get_user_language_url(user, 'crush_lu:my_connections')
 
     return send_push_notification(
@@ -200,13 +233,16 @@ def send_new_message_notification(user, message):
     if not subscriptions.exists():
         return
 
+    # Activate user's language for translation
+    activate_user_language(user)
+
     sender = message.sender
     display_name = sender.crushprofile.display_name if hasattr(sender, 'crushprofile') else sender.first_name
 
     # Truncate message for notification
     preview = message.message[:50] + "..." if len(message.message) > 50 else message.message
 
-    title = f"New message from {display_name}"
+    title = _("New message from %(name)s") % {'name': display_name}
     body = preview
     url = get_user_language_url(user, 'crush_lu:connection_detail', kwargs={'connection_id': message.connection.id})
 
@@ -231,8 +267,11 @@ def send_profile_approved_notification(user):
     if not subscriptions.exists():
         return
 
-    title = "Profile Approved! 🎉"
-    body = "Your Crush.lu profile has been approved! You can now register for events."
+    # Activate user's language for translation
+    activate_user_language(user)
+
+    title = _("Profile Approved!")
+    body = _("Your Crush.lu profile has been approved! You can now register for events.")
     url = get_user_language_url(user, 'crush_lu:dashboard')
 
     return send_push_notification(
@@ -257,8 +296,11 @@ def send_profile_revision_notification(user, feedback):
     if not subscriptions.exists():
         return
 
-    title = "Profile Update Needed"
-    body = f"Your Crush Coach has some feedback: {feedback[:80]}..."
+    # Activate user's language for translation
+    activate_user_language(user)
+
+    title = _("Profile Update Needed")
+    body = _("Your Crush Coach has some feedback: %(feedback)s...") % {'feedback': feedback[:80]}
     url = get_user_language_url(user, 'crush_lu:edit_profile')
 
     return send_push_notification(
@@ -277,8 +319,11 @@ def send_test_notification(user):
     Args:
         user: Django User object
     """
-    title = "Test Notification 🔔"
-    body = "Push notifications are working! You'll receive updates about events, messages, and connections."
+    # Activate user's language for translation
+    activate_user_language(user)
+
+    title = _("Test Notification")
+    body = _("Push notifications are working! You'll receive updates about events, messages, and connections.")
     url = get_user_language_url(user, 'crush_lu:dashboard')
 
     return send_push_notification(

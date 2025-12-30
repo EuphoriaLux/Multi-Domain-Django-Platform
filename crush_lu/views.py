@@ -365,30 +365,75 @@ def account_settings(request):
     import json
     from allauth.socialaccount.models import SocialApp
     from django.contrib.sites.models import Site
-    from .models import EmailPreference, PushSubscription
+    from .models import EmailPreference, PushSubscription, CoachPushSubscription
     from .social_photos import get_all_social_photos
+
+    # Helper function to determine device type from device name
+    def get_device_type(device_name):
+        """Return 'mobile' or 'desktop' based on device name."""
+        mobile_devices = ['Android Chrome', 'iPhone Safari']
+        return 'mobile' if device_name in mobile_devices else 'desktop'
 
     # Get or create email preferences for this user
     email_prefs = EmailPreference.get_or_create_for_user(request.user)
 
-    # Get push subscriptions for PWA users
-    # PWA status is tracked on UserActivity model, not CrushProfile
+    # Get push subscriptions - show card to all users (JS detects browser support)
+    # PWA status is tracked on UserActivity model for analytics
     push_subscriptions = []
+    push_subscriptions_json = '[]'
     is_pwa_user = False
     try:
         from .models import UserActivity
         activity = UserActivity.objects.filter(user=request.user).first()
         if activity:
             is_pwa_user = activity.is_pwa_user
-        if is_pwa_user:
-            push_subscriptions = list(
-                PushSubscription.objects.filter(
-                    user=request.user,
-                    enabled=True
-                ).values('id', 'device_name', 'notify_new_messages',
-                         'notify_event_reminders', 'notify_new_connections',
-                         'notify_profile_updates')
+
+        # Always fetch push subscriptions - card visibility is controlled by JS
+        subs = PushSubscription.objects.filter(
+            user=request.user,
+            enabled=True
+        )
+        for sub in subs:
+            push_subscriptions.append({
+                'id': sub.id,
+                'endpoint': sub.endpoint,  # For current device detection
+                'device_name': sub.device_name or 'Unknown Device',
+                'device_type': get_device_type(sub.device_name or ''),
+                'last_used_at': sub.last_used_at.isoformat() if sub.last_used_at else None,
+                'notify_new_messages': sub.notify_new_messages,
+                'notify_event_reminders': sub.notify_event_reminders,
+                'notify_new_connections': sub.notify_new_connections,
+                'notify_profile_updates': sub.notify_profile_updates,
+            })
+        push_subscriptions_json = json.dumps(push_subscriptions, default=str)
+    except Exception:
+        pass
+
+    # Check if user is a coach and get coach push subscriptions
+    is_coach = False
+    coach_push_subscriptions = []
+    coach_push_subscriptions_json = '[]'
+    try:
+        if hasattr(request.user, 'crushcoach') and request.user.crushcoach.is_active:
+            is_coach = True
+            coach = request.user.crushcoach
+            coach_subs = CoachPushSubscription.objects.filter(
+                coach=coach,
+                enabled=True
             )
+            for sub in coach_subs:
+                coach_push_subscriptions.append({
+                    'id': sub.id,
+                    'endpoint': sub.endpoint,  # For current device detection
+                    'device_name': sub.device_name or 'Unknown Device',
+                    'device_type': get_device_type(sub.device_name or ''),
+                    'last_used_at': sub.last_used_at.isoformat() if sub.last_used_at else None,
+                    'notify_new_submissions': sub.notify_new_submissions,
+                    'notify_screening_reminders': sub.notify_screening_reminders,
+                    'notify_user_responses': sub.notify_user_responses,
+                    'notify_system_alerts': sub.notify_system_alerts,
+                })
+            coach_push_subscriptions_json = json.dumps(coach_push_subscriptions, default=str)
     except Exception:
         pass
 
@@ -432,7 +477,11 @@ def account_settings(request):
         # Push notification preferences (PWA users only)
         'is_pwa_user': is_pwa_user,
         'push_subscriptions': push_subscriptions,
-        'push_subscriptions_json': json.dumps(push_subscriptions, default=str),
+        'push_subscriptions_json': push_subscriptions_json,
+        # Coach push notification preferences (coaches only)
+        'is_coach': is_coach,
+        'coach_push_subscriptions': coach_push_subscriptions,
+        'coach_push_subscriptions_json': coach_push_subscriptions_json,
     })
 
 
@@ -1413,31 +1462,13 @@ def coach_dashboard(request):
         status__in=['approved', 'rejected', 'revision']
     ).select_related('profile__user').order_by('-reviewed_at')[:10]
 
-    # Get coach push subscriptions for notifications card
-    coach_push_subscriptions = CoachPushSubscription.objects.filter(
-        coach=coach,
-        enabled=True
-    )
-    # Get first subscription for template rendering (avoid x-for CSP issues)
-    first_subscription = coach_push_subscriptions.first()
-    coach_push_subscriptions_json = json.dumps([
-        {
-            'id': sub.id,
-            'device_name': sub.device_name or 'Unknown Device',
-            'notify_new_submissions': sub.notify_new_submissions,
-            'notify_screening_reminders': sub.notify_screening_reminders,
-            'notify_user_responses': sub.notify_user_responses,
-            'notify_system_alerts': sub.notify_system_alerts,
-        }
-        for sub in coach_push_subscriptions
-    ])
+    # Note: Coach push notifications are now managed in Account Settings
+    # (see account_settings view for coach push subscription handling)
 
     context = {
         'coach': coach,
         'pending_submissions': pending_submissions,
         'recent_reviews': recent_reviews,
-        'coach_push_subscriptions_json': coach_push_subscriptions_json,
-        'coach_push_subscription': first_subscription,
     }
     return render(request, 'crush_lu/coach_dashboard.html', context)
 

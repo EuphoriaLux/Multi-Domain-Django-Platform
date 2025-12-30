@@ -2,13 +2,13 @@
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
+# 
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-30 19:09+0100\n"
+"POT-Creation-Date: 2025-12-30 23:09+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -161,6 +161,41 @@ msgstr "Sind Sie sicher, dass Sie sich abmelden möchten?"
 msgid "Crush Delegation Management"
 msgstr "Crush Delegationsverwaltung"
 
+#: .\crush_lu\coach_notifications.py:142
+msgid "New Profile to Review"
+msgstr "Neues Profil zur Überprüfung"
+
+#: .\crush_lu\coach_notifications.py:143
+#, python-format
+msgid "%(name)s submitted a profile for review"
+msgstr "%(name)s hat ein Profil zur Überprüfung eingereicht"
+
+#: .\crush_lu\coach_notifications.py:176
+msgid "Profile Revision Submitted"
+msgstr "Profilüberarbeitung eingereicht"
+
+#: .\crush_lu\coach_notifications.py:177
+#, python-format
+msgid "%(name)s updated their profile based on your feedback"
+msgstr "%(name)s hat das Profil basierend auf deinem Feedback aktualisiert"
+
+#: .\crush_lu\coach_notifications.py:210
+msgid "Pending Screening Call"
+msgstr "Ausstehender Screening-Anruf"
+
+#: .\crush_lu\coach_notifications.py:211
+#, python-format
+msgid "Don't forget to schedule a call with %(name)s"
+msgstr "Vergiss nicht, einen Anruf mit %(name)s zu planen"
+
+#: .\crush_lu\coach_notifications.py:262 .\crush_lu\push_notifications.py:325
+msgid "Test Notification"
+msgstr "Testbenachrichtigung"
+
+#: .\crush_lu\coach_notifications.py:263
+msgid "Your coach notifications are working correctly!"
+msgstr "Deine Coach-Benachrichtigungen funktionieren einwandfrei!"
+
 #: .\crush_lu\forms.py:21
 msgid "First Name"
 msgstr "Vorname"
@@ -194,7 +229,8 @@ msgstr ""
 
 #: .\crush_lu\forms.py:113
 msgid "Share what makes you unique! (Optional, max 500 characters)"
-msgstr "Teilen Sie mit, was Sie einzigartig macht! (Optional, max. 500 Zeichen)"
+msgstr ""
+"Teilen Sie mit, was Sie einzigartig macht! (Optional, max. 500 Zeichen)"
 
 #: .\crush_lu\forms.py:121
 msgid "Or select categories below..."
@@ -202,7 +238,9 @@ msgstr "Oder wählen Sie Kategorien unten..."
 
 #: .\crush_lu\forms.py:124
 msgid "Select interest categories below or write your own (Optional)"
-msgstr "Wählen Sie Interessenkategorien unten oder schreiben Sie Ihre eigenen (Optional)"
+msgstr ""
+"Wählen Sie Interessenkategorien unten oder schreiben Sie Ihre eigenen "
+"(Optional)"
 
 #: .\crush_lu\forms.py:132 .\crush_lu\forms.py:170
 msgid "Required"
@@ -309,7 +347,8 @@ msgstr ""
 
 #: .\crush_lu\forms.py:244
 msgid "Phone number is too short. Please include the full number."
-msgstr "Telefonnummer ist zu kurz. Bitte geben Sie die vollständige Nummer ein."
+msgstr ""
+"Telefonnummer ist zu kurz. Bitte geben Sie die vollständige Nummer ein."
 
 #: .\crush_lu\forms.py:248
 msgid "Phone number is too long. Please check the format."
@@ -396,6 +435,58 @@ msgstr "Neues Passwort bestätigen"
 msgid "Passwords do not match."
 msgstr "Passwörter stimmen nicht überein."
 
+#: .\crush_lu\push_notifications.py:174
+#, python-format
+msgid "Event Tomorrow: %(event_title)s"
+msgstr "Event morgen: %(event_title)s"
+
+#: .\crush_lu\push_notifications.py:175
+#, python-format
+msgid "Don't forget! %(event_title)s starts at %(time)s. See you there!"
+msgstr "Nicht vergessen! %(event_title)s beginnt um %(time)s. Bis dann!"
+
+#: .\crush_lu\push_notifications.py:210
+msgid "New Connection Request!"
+msgstr "Neue Verbindungsanfrage!"
+
+#: .\crush_lu\push_notifications.py:211
+#, python-format
+msgid "%(name)s wants to connect with you!"
+msgstr "%(name)s möchte sich mit dir verbinden!"
+
+#: .\crush_lu\push_notifications.py:245
+#, python-format
+msgid "New message from %(name)s"
+msgstr "Neue Nachricht von %(name)s"
+
+#: .\crush_lu\push_notifications.py:273
+msgid "Profile Approved!"
+msgstr "Profil genehmigt!"
+
+#: .\crush_lu\push_notifications.py:274
+msgid ""
+"Your Crush.lu profile has been approved! You can now register for events."
+msgstr ""
+"Dein Crush.lu Profil wurde genehmigt! Du kannst dich jetzt für Events "
+"anmelden."
+
+#: .\crush_lu\push_notifications.py:302
+msgid "Profile Update Needed"
+msgstr "Profilaktualisierung erforderlich"
+
+#: .\crush_lu\push_notifications.py:303
+#, python-format
+msgid "Your Crush Coach has some feedback: %(feedback)s..."
+msgstr "Dein Crush Coach hat Feedback: %(feedback)s..."
+
+#: .\crush_lu\push_notifications.py:326
+msgid ""
+"Push notifications are working! You'll receive updates about events, "
+"messages, and connections."
+msgstr ""
+"Push-Benachrichtigungen funktionieren! Du erhältst Updates zu Events, "
+"Nachrichten und Verbindungen."
+
 #: .\crush_lu\templates\admin\base_site.html:4
 #: .\crush_lu\templates\admin\base_site.html:29
 msgid "Crush.lu Coach Panel"
@@ -423,8 +514,8 @@ msgid "Change"
 msgstr "Ändern"
 
 #: .\crush_lu\templates\admin\index.html:103
-msgid "You don't have permission to view or edit anything."
-msgstr "Sie haben keine Berechtigung, etwas anzuzeigen oder zu bearbeiten."
+msgid "You don\\"
+msgstr ""
 
 #: .\crush_lu\templates\admin\index.html:111
 msgid "Recent actions"
@@ -441,6 +532,237 @@ msgstr "Keine verfügbar"
 #: .\crush_lu\templates\admin\index.html:129
 msgid "Unknown content"
 msgstr "Unbekannter Inhalt"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:398
+#: .\crush_lu\templates\crush_lu\account_settings.html:599
+msgid "Never used"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:399
+#: .\crush_lu\templates\crush_lu\account_settings.html:600
+msgid "Just now"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:400
+#: .\crush_lu\templates\crush_lu\account_settings.html:601
+#, fuzzy
+#| msgid "Last Name"
+msgid "Last active:"
+msgstr "Nachname"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:401
+#: .\crush_lu\templates\crush_lu\account_settings.html:602
+msgid "m ago"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:402
+#: .\crush_lu\templates\crush_lu\account_settings.html:603
+msgid "h ago"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:403
+#: .\crush_lu\templates\crush_lu\account_settings.html:604
+#, fuzzy
+#| msgid "2 days ago"
+msgid "d ago"
+msgstr "vor 2 Tagen"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:404
+#: .\crush_lu\templates\crush_lu\account_settings.html:605
+msgid "mo ago"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:502
+#: .\crush_lu\templates\crush_lu\account_settings.html:706
+msgid "This device"
+msgstr ""
+
+# Footer translations (only new strings that don't exist elsewhere)
+#: .\crush_lu\templates\crush_lu\base.html:689
+msgid "Meet new people. Make real connections."
+msgstr "Neue Leute treffen. Echte Verbindungen knüpfen."
+
+#: .\crush_lu\templates\crush_lu\base.html:694
+msgid "Quick Links"
+msgstr "Schnelllinks"
+
+#: .\crush_lu\templates\crush_lu\base.html:696
+#, fuzzy
+#| msgid "About"
+msgid "About Us"
+msgstr "Über uns"
+
+#: .\crush_lu\templates\crush_lu\base.html:697
+#: .\crush_lu\templates\crush_lu\home.html:92
+#: .\crush_lu\templates\crush_lu\home.html:134
+msgid "How It Works"
+msgstr "So funktioniert's"
+
+#: .\crush_lu\templates\crush_lu\base.html:698
+#: .\crush_lu\templates\crush_lu\dashboard.html:150
+msgid "Events"
+msgstr "Veranstaltungen"
+
+#: .\crush_lu\templates\crush_lu\base.html:704
+msgid "Legal"
+msgstr "Rechtliches"
+
+#: .\crush_lu\templates\crush_lu\base.html:706
+#, fuzzy
+#| msgid "Privacy First"
+msgid "Privacy Policy"
+msgstr "Datenschutz an erster Stelle"
+
+#: .\crush_lu\templates\crush_lu\base.html:707
+#, fuzzy
+#| msgid "Premium Service"
+msgid "Terms of Service"
+msgstr "Premium-Service"
+
+#: .\crush_lu\templates\crush_lu\base.html:708
+#, fuzzy
+#| msgid "Plot Selection"
+msgid "Data Deletion"
+msgstr "Parzellenauswahl"
+
+#: .\crush_lu\templates\crush_lu\base.html:714
+#: .\crush_lu\templates\crush_lu\home.html:109
+msgid "Privacy First"
+msgstr "Datenschutz an erster Stelle"
+
+#: .\crush_lu\templates\crush_lu\base.html:715
+msgid "Your privacy matters. All profiles are reviewed by our Crush Coaches."
+msgstr ""
+"Ihre Privatsphäre ist uns wichtig. Alle Profile werden von unseren Crush-"
+"Coaches überprüft."
+
+#: .\crush_lu\templates\crush_lu\base.html:721
+msgid "&copy; 2025 Crush.lu - Made with 💕 in Luxembourg"
+msgstr "&copy; 2025 Crush.lu - Mit 💕 in Luxemburg gemacht"
+
+# Coach Dashboard translations
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:4
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:8
+msgid "Coach Dashboard"
+msgstr "Coach-Dashboard"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:9
+#, python-format
+msgid "Welcome, Coach %(name)s!"
+msgstr "Willkommen, Coach %(name)s!"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:17
+msgid "Pending Reviews"
+msgstr "Ausstehende Überprüfungen"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:23
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:136
+msgid "Recent Reviews"
+msgstr "Letzte Überprüfungen"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:29
+msgid "Max Reviews"
+msgstr "Max. Überprüfungen"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:39
+msgid "Your Specializations"
+msgstr "Ihre Spezialisierungen"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:40
+msgid "Not set"
+msgstr "Nicht festgelegt"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:44
+msgid "Edit"
+msgstr "Bearbeiten"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:57
+msgid "Coach Notifications"
+msgstr "Coach-Benachrichtigungen"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:62
+#, fuzzy
+#| msgid ""
+#| "Enable push notifications to get alerts about new profile submissions, "
+#| "user revisions, and screening reminders."
+msgid ""
+"Manage your push notification preferences for new profile submissions, "
+"screening reminders, and user responses."
+msgstr ""
+"Aktivieren Sie Push-Benachrichtigungen, um Benachrichtigungen über neue "
+"Profilübermittlungen, Benutzerrevisionen und Screening-Erinnerungen zu "
+"erhalten."
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:69
+msgid "Open Account Settings"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:80
+msgid "Journey Management"
+msgstr "Journey-Verwaltung"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:82
+msgid "Manage active Wonderland Journey experiences and view user progress."
+msgstr ""
+"Verwalten Sie aktive Wonderland-Journey-Erlebnisse und sehen Sie den "
+"Benutzerfortschritt."
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:85
+msgid "Manage Journeys"
+msgstr "Journeys verwalten"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:95
+msgid "Pending Profile Reviews"
+msgstr "Ausstehende Profilüberprüfungen"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:106
+#, python-format
+msgid "%(age)s years old"
+msgstr "%(age)s Jahre alt"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:106
+msgid "Age not set"
+msgstr "Alter nicht angegeben"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:106
+msgid "Location not set"
+msgstr "Standort nicht angegeben"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:110
+msgid "Submitted"
+msgstr "Eingereicht"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:114
+msgid "Pending"
+msgstr "Ausstehend"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:119
+msgid "Review Profile"
+msgstr "Profil überprüfen"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:127
+msgid "No pending reviews at the moment. Great work!"
+msgstr "Derzeit keine ausstehenden Überprüfungen. Großartige Arbeit!"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:147
+msgid "Reviewed"
+msgstr "Überprüft"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:152
+msgid "Approved"
+msgstr "Genehmigt"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:154
+msgid "Rejected"
+msgstr "Abgelehnt"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:156
+msgid "Revision Requested"
+msgstr "Überarbeitung angefordert"
+
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html:165
+msgid "No recent reviews yet."
+msgstr "Noch keine aktuellen Überprüfungen."
 
 #: .\crush_lu\templates\crush_lu\dashboard.html:5
 msgid "Dashboard - Crush.lu"
@@ -461,7 +783,9 @@ msgstr "Telefonverifizierung erforderlich!"
 
 #: .\crush_lu\templates\crush_lu\dashboard.html:23
 msgid "Please verify your phone number to access all features."
-msgstr "Bitte verifizieren Sie Ihre Telefonnummer, um alle Funktionen nutzen zu können."
+msgstr ""
+"Bitte verifizieren Sie Ihre Telefonnummer, um alle Funktionen nutzen zu "
+"können."
 
 #: .\crush_lu\templates\crush_lu\dashboard.html:26
 msgid "Verify Now"
@@ -503,7 +827,9 @@ msgstr "🔔 Push-Benachrichtigungen"
 
 #: .\crush_lu\templates\crush_lu\dashboard.html:72
 msgid "Get notified about events, messages, and connections"
-msgstr "Erhalten Sie Benachrichtigungen über Veranstaltungen, Nachrichten und Verbindungen"
+msgstr ""
+"Erhalten Sie Benachrichtigungen über Veranstaltungen, Nachrichten und "
+"Verbindungen"
 
 #: .\crush_lu\templates\crush_lu\dashboard.html:77
 msgid "Checking notification status..."
@@ -527,7 +853,8 @@ msgstr "Push-Benachrichtigungen nicht verfügbar"
 
 #: .\crush_lu\templates\crush_lu\dashboard.html:98
 msgid "To receive push notifications, try opening Crush.lu in:"
-msgstr "Um Push-Benachrichtigungen zu erhalten, versuchen Sie Crush.lu zu öffnen in:"
+msgstr ""
+"Um Push-Benachrichtigungen zu erhalten, versuchen Sie Crush.lu zu öffnen in:"
 
 #: .\crush_lu\templates\crush_lu\dashboard.html:99
 msgid "• Chrome or Edge on Android"
@@ -563,7 +890,8 @@ msgstr "App installiert!"
 
 #: .\crush_lu\templates\crush_lu\dashboard.html:121
 msgid "Refresh this page to enable push notifications."
-msgstr "Aktualisieren Sie diese Seite, um Push-Benachrichtigungen zu aktivieren."
+msgstr ""
+"Aktualisieren Sie diese Seite, um Push-Benachrichtigungen zu aktivieren."
 
 #: .\crush_lu\templates\crush_lu\dashboard.html:129
 msgid "How to install"
@@ -572,10 +900,6 @@ msgstr "So installieren Sie"
 #: .\crush_lu\templates\crush_lu\dashboard.html:146
 msgid "Your Activity"
 msgstr "Ihre Aktivität"
-
-#: .\crush_lu\templates\crush_lu\dashboard.html:150
-msgid "Events"
-msgstr "Veranstaltungen"
 
 #: .\crush_lu\templates\crush_lu\dashboard.html:154
 msgid "Age"
@@ -638,7 +962,8 @@ msgstr "Bereit, neue Leute kennenzulernen?"
 
 #: .\crush_lu\templates\crush_lu\dashboard.html:227
 msgid "Check out our upcoming events and start making connections!"
-msgstr "Entdecken Sie unsere kommenden Veranstaltungen und knüpfen Sie Kontakte!"
+msgstr ""
+"Entdecken Sie unsere kommenden Veranstaltungen und knüpfen Sie Kontakte!"
 
 #: .\crush_lu\templates\crush_lu\dashboard.html:229
 msgid "View Upcoming Events"
@@ -648,8 +973,8 @@ msgstr "Kommende Veranstaltungen ansehen"
 msgid ""
 "Crush.lu - Meet New People in Luxembourg | Dating Events & Singles Meetups"
 msgstr ""
-"Crush.lu - Neue Leute in Luxemburg kennenlernen | Dating-Events & "
-"Singles-Treffen"
+"Crush.lu - Neue Leute in Luxemburg kennenlernen | Dating-Events & Singles-"
+"Treffen"
 
 #: .\crush_lu\templates\crush_lu\home.html:7
 #: .\crush_lu\templates\crush_lu\home.html:10
@@ -694,8 +1019,8 @@ msgid ""
 "dating, privacy dating"
 msgstr ""
 "crush.lu, dating luxemburg, speed dating luxemburg, singles events "
-"luxemburg, meetup luxemburg, dating events, luxemburg singles, coach "
-"dating, datenschutz dating"
+"luxemburg, meetup luxemburg, dating events, luxemburg singles, coach dating, "
+"datenschutz dating"
 
 #: .\crush_lu\templates\crush_lu\home.html:81
 msgid "Meet New People."
@@ -719,18 +1044,9 @@ msgstr ""
 msgid "Get Started Free"
 msgstr "Loslegen"
 
-#: .\crush_lu\templates\crush_lu\home.html:92
-#: .\crush_lu\templates\crush_lu\home.html:134
-msgid "How It Works"
-msgstr "So funktioniert's"
-
 #: .\crush_lu\templates\crush_lu\home.html:105
 msgid "Why Choose Crush.lu"
 msgstr "Warum Crush.lu wählen"
-
-#: .\crush_lu\templates\crush_lu\home.html:109
-msgid "Privacy First"
-msgstr "Datenschutz an erster Stelle"
 
 #: .\crush_lu\templates\crush_lu\home.html:111
 msgid ""
@@ -800,7 +1116,9 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\home.html:163
 msgid "Meet people in real life and build authentic relationships."
-msgstr "Lernen Sie Menschen im echten Leben kennen und bauen Sie authentische Beziehungen auf."
+msgstr ""
+"Lernen Sie Menschen im echten Leben kennen und bauen Sie authentische "
+"Beziehungen auf."
 
 #: .\crush_lu\templates\crush_lu\home.html:170
 msgid "Learn More About Our Process"
@@ -845,7 +1163,8 @@ msgstr "Jetzt Profil erstellen"
 
 #: .\crush_lu\templates\crush_lu\home.html:228
 msgid "No credit card required • Free to join • Cancel anytime"
-msgstr "Keine Kreditkarte erforderlich • Kostenlos beitreten • Jederzeit kündigen"
+msgstr ""
+"Keine Kreditkarte erforderlich • Kostenlos beitreten • Jederzeit kündigen"
 
 #: .\crush_lu\templates\crush_lu\partials\canton_map_svg.html:7
 msgid "Select your region on the map"
@@ -930,75 +1249,79 @@ msgstr "Fehler:"
 msgid "Email"
 msgstr "E-Mail"
 
-#: .\crush_lu\views.py:460
+#: .\crush_lu\views.py:509
 msgid "Email preferences updated successfully!"
 msgstr "E-Mail-Einstellungen erfolgreich aktualisiert!"
 
-#: .\crush_lu\views.py:477
+#: .\crush_lu\views.py:526
 msgid "Invalid unsubscribe link. Please check your email or contact support."
-msgstr "Ungültiger Abmeldelink. Bitte überprüfen Sie Ihre E-Mail oder kontaktieren Sie den Support."
+msgstr ""
+"Ungültiger Abmeldelink. Bitte überprüfen Sie Ihre E-Mail oder kontaktieren "
+"Sie den Support."
 
-#: .\crush_lu\views.py:490
+#: .\crush_lu\views.py:539
 msgid "You have been unsubscribed from all Crush.lu emails."
 msgstr "Sie wurden von allen Crush.lu E-Mails abgemeldet."
 
-#: .\crush_lu\views.py:496
+#: .\crush_lu\views.py:545
 msgid "You have been unsubscribed from marketing emails."
 msgstr "Sie wurden von Marketing-E-Mails abgemeldet."
 
-#: .\crush_lu\views.py:506
+#: .\crush_lu\views.py:555
 msgid "You have been re-subscribed to Crush.lu emails."
 msgstr "Sie wurden erneut für Crush.lu E-Mails angemeldet."
 
-#: .\crush_lu\views.py:629
+#: .\crush_lu\views.py:678
 msgid "Please type \"DELETE MY ACCOUNT\" to confirm."
 msgstr "Bitte geben Sie \"DELETE MY ACCOUNT\" ein, um zu bestätigen."
 
-#: .\crush_lu\views.py:635
+#: .\crush_lu\views.py:684
 msgid "Incorrect password. Please try again."
 msgstr "Falsches Passwort. Bitte versuchen Sie es erneut."
 
-#: .\crush_lu\views.py:651
+#: .\crush_lu\views.py:700
 msgid "Your account has been successfully deleted."
 msgstr "Ihr Konto wurde erfolgreich gelöscht."
 
-#: .\crush_lu\views.py:658
+#: .\crush_lu\views.py:707
 msgid "An error occurred while deleting your account. Please contact support."
-msgstr "Beim Löschen Ihres Kontos ist ein Fehler aufgetreten. Bitte kontaktieren Sie den Support."
+msgstr ""
+"Beim Löschen Ihres Kontos ist ein Fehler aufgetreten. Bitte kontaktieren Sie "
+"den Support."
 
-#: .\crush_lu\views.py:842 .\crush_lu\views.py:1038
+#: .\crush_lu\views.py:891 .\crush_lu\views.py:1087
 msgid "Profile submitted for review!"
 msgstr "Profil zur Überprüfung eingereicht!"
 
-#: .\crush_lu\views.py:918 .\crush_lu\views.py:974
+#: .\crush_lu\views.py:967 .\crush_lu\views.py:1023
 msgid "You need to create a profile first."
 msgstr "Sie müssen zuerst ein Profil erstellen."
 
-#: .\crush_lu\views.py:923
+#: .\crush_lu\views.py:972
 msgid "Your profile must be approved before editing."
 msgstr "Ihr Profil muss genehmigt werden, bevor Sie es bearbeiten können."
 
-#: .\crush_lu\views.py:940
+#: .\crush_lu\views.py:989
 msgid "Profile updated successfully!"
 msgstr "Profil erfolgreich aktualisiert!"
 
-#: .\crush_lu\views.py:1306
+#: .\crush_lu\views.py:1355
 msgid "You are already registered for this event."
 msgstr "Sie sind bereits für diese Veranstaltung angemeldet."
 
-#: .\crush_lu\views.py:1311
+#: .\crush_lu\views.py:1360
 msgid "Registration is not available for this event."
 msgstr "Anmeldung für diese Veranstaltung nicht verfügbar."
 
-#: .\crush_lu\views.py:1324
+#: .\crush_lu\views.py:1373
 msgid "Event is full. You have been added to the waitlist."
 msgstr "Veranstaltung ist voll. Sie wurden auf die Warteliste gesetzt."
 
-#: .\crush_lu\views.py:1327
+#: .\crush_lu\views.py:1376
 msgid "Successfully registered for the event!"
 msgstr "Erfolgreich für die Veranstaltung angemeldet!"
 
-#: .\crush_lu\views.py:1377
+#: .\crush_lu\views.py:1426
 msgid "Your registration has been cancelled."
 msgstr "Ihre Anmeldung wurde storniert."
 
@@ -1136,7 +1459,9 @@ msgstr "Mein Passwort zurücksetzen"
 
 #: .\entreprinder\templates\account\password_reset.html:22
 msgid "Please contact us if you have any trouble resetting your password."
-msgstr "Bitte kontaktieren Sie uns, wenn Sie Probleme beim Zurücksetzen Ihres Passworts haben."
+msgstr ""
+"Bitte kontaktieren Sie uns, wenn Sie Probleme beim Zurücksetzen Ihres "
+"Passworts haben."
 
 #: .\entreprinder\templates\account\signup.html:3
 #: .\entreprinder\templates\account\signup.html:9
@@ -1202,7 +1527,9 @@ msgstr "Ihre E-Mail-Adresse (%(email)s) ist nicht verifiziert."
 
 #: .\entreprinder\templates\base.html:160
 msgid "Please verify your email address to access all features."
-msgstr "Bitte verifizieren Sie Ihre E-Mail-Adresse, um alle Funktionen nutzen zu können."
+msgstr ""
+"Bitte verifizieren Sie Ihre E-Mail-Adresse, um alle Funktionen nutzen zu "
+"können."
 
 #: .\entreprinder\templates\base.html:161
 msgid "Need a new verification email?"
@@ -1255,9 +1582,9 @@ msgstr "Wachsen"
 
 #: .\entreprinder\templates\entreprinder\landing_page.html:41
 msgid "Access resources and support to scale your business"
-msgstr "Zugang zu Ressourcen und Unterstützung für Ihr Unternehmenswachstum"
-"Greifen Sie auf Ressourcen und Unterstützung zu, um Ihr Unternehmen zu "
-"skalieren"
+msgstr ""
+"Zugang zu Ressourcen und Unterstützung für Ihr UnternehmenswachstumGreifen "
+"Sie auf Ressourcen und Unterstützung zu, um Ihr Unternehmen zu skalieren"
 
 #: .\entreprinder\templates\entreprinder\landing_page.html:51
 msgid "Why Choose Entreprinder?"
@@ -1269,19 +1596,23 @@ msgstr "Exklusiver Fokus auf das unternehmerische Ökosystem Luxemburgs"
 
 #: .\entreprinder\templates\entreprinder\landing_page.html:56
 msgid "Easy-to-use platform for finding and connecting with potential partners"
-msgstr "Benutzerfreundliche Plattform zum Finden und Verbinden mit potenziellen Partnern"
+msgstr ""
 "Benutzerfreundliche Plattform zum Finden und Verbinden mit potenziellen "
-"Partnern"
+"PartnernBenutzerfreundliche Plattform zum Finden und Verbinden mit "
+"potenziellen Partnern"
 
 #: .\entreprinder\templates\entreprinder\landing_page.html:57
 msgid "Access to local events, workshops, and networking opportunities"
-msgstr "Zugang zu lokalen Veranstaltungen, Workshops und Networking-Möglichkeiten"
-"Zugang zu lokalen Veranstaltungen, Workshops und Networking-Möglichkeiten"
+msgstr ""
+"Zugang zu lokalen Veranstaltungen, Workshops und Networking-"
+"MöglichkeitenZugang zu lokalen Veranstaltungen, Workshops und Networking-"
+"Möglichkeiten"
 
 #: .\entreprinder\templates\entreprinder\landing_page.html:58
 msgid "Resources tailored to Luxembourg's business environment"
-msgstr "Ressourcen zugeschnitten auf Luxemburgs Geschäftsumfeld"
-"Ressourcen, die auf das Geschäftsumfeld in Luxemburg zugeschnitten sind"
+msgstr ""
+"Ressourcen zugeschnitten auf Luxemburgs GeschäftsumfeldRessourcen, die auf "
+"das Geschäftsumfeld in Luxemburg zugeschnitten sind"
 
 #: .\entreprinder\templates\entreprinder\landing_page.html:67
 msgid "Ready to take your entrepreneurial journey to the next level?"
@@ -1368,7 +1699,8 @@ msgstr "Jetzt spielen"
 
 #: .\entreprinder\templates\vibe_coding\index.html:81
 msgid "We're working on exciting new interactive experiences. Stay tuned!"
-msgstr "Wir arbeiten an aufregenden neuen interaktiven Erlebnissen. Bleiben Sie dran!"
+msgstr ""
+"Wir arbeiten an aufregenden neuen interaktiven Erlebnissen. Bleiben Sie dran!"
 
 #: .\entreprinder\templates\vibe_coding\pixel_war.html:32
 msgid "Collaborate or compete - Every pixel counts!"
@@ -1740,7 +2072,8 @@ msgstr "Ihre Weinadoptions-Reise"
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:18
 msgid "Follow these steps to complete your vineyard plot adoption"
-msgstr "Folgen Sie diesen Schritten, um Ihre Weinberg-Parzellenadoption abzuschließen"
+msgstr ""
+"Folgen Sie diesen Schritten, um Ihre Weinberg-Parzellenadoption abzuschließen"
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:36
 #: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:72
@@ -1755,7 +2088,8 @@ msgstr "Wählen Sie Ihre Parzelle"
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:39
 msgid "Choose your perfect vineyard plot from our premium locations"
-msgstr "Wählen Sie Ihre perfekte Weinbergparzelle aus unseren Premium-Standorten"
+msgstr ""
+"Wählen Sie Ihre perfekte Weinbergparzelle aus unseren Premium-Standorten"
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:45
 msgid "Explore interactive map"
@@ -1974,7 +2308,8 @@ msgstr "Weinberge erkunden"
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:85
 msgid "Navigate to the interactive vineyard map to select your plot"
-msgstr "Navigieren Sie zur interaktiven Weinbergkarte, um Ihre Parzelle auszuwählen"
+msgstr ""
+"Navigieren Sie zur interaktiven Weinbergkarte, um Ihre Parzelle auszuwählen"
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:98
 msgid "Vineyard Plot Selection"
@@ -2111,7 +2446,9 @@ msgstr "Zur Adoption fortfahren"
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:258
 msgid "Continue to the next step to complete your vineyard plot adoption"
-msgstr "Fahren Sie mit dem nächsten Schritt fort, um Ihre Weinberg-Parzellenadoption abzuschließen"
+msgstr ""
+"Fahren Sie mit dem nächsten Schritt fort, um Ihre Weinberg-Parzellenadoption "
+"abzuschließen"
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:261
 msgid "Clear all selected plots"
@@ -2206,7 +2543,9 @@ msgstr "Internetverbindung wiederhergestellt"
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:736
 msgid "Internet connection lost. Some features may not be available"
-msgstr "Internetverbindung verloren. Einige Funktionen sind möglicherweise nicht verfügbar"
+msgstr ""
+"Internetverbindung verloren. Einige Funktionen sind möglicherweise nicht "
+"verfügbar"
 
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:9
 msgid "VinsDelux Interactive Journey"
@@ -2328,7 +2667,9 @@ msgstr "Gestalten Sie Ihren Signaturwein"
 
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:285
 msgid "Work with our master winemakers to create your unique blend"
-msgstr "Arbeiten Sie mit unseren Winzermeistern zusammen, um Ihre einzigartige Mischung zu kreieren"
+msgstr ""
+"Arbeiten Sie mit unseren Winzermeistern zusammen, um Ihre einzigartige "
+"Mischung zu kreieren"
 
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:293
 msgid "Select Grape Varieties"
@@ -2536,7 +2877,8 @@ msgstr "vor 1 Woche"
 
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:612
 msgid "We've completed the green harvest to ensure optimal ripening..."
-msgstr "Wir haben die Grünlese abgeschlossen, um optimale Reifung zu gewährleisten..."
+msgstr ""
+"Wir haben die Grünlese abgeschlossen, um optimale Reifung zu gewährleisten..."
 
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:625
 msgid "Receive Your Masterpiece"
@@ -2842,7 +3184,8 @@ msgstr "Tipps"
 
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:919
 msgid "Complete each step thoroughly to earn maximum points"
-msgstr "Schließen Sie jeden Schritt gründlich ab, um maximale Punkte zu verdienen"
+msgstr ""
+"Schließen Sie jeden Schritt gründlich ab, um maximale Punkte zu verdienen"
 
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:920
 msgid "Your progress is automatically saved"
@@ -3335,7 +3678,9 @@ msgstr "Unsere Weinproduzenten"
 
 #: .\vinsdelux\templates\vinsdelux\products\producer_list.html:11
 msgid "Discover the passionate winemakers behind our exceptional coffrets"
-msgstr "Entdecken Sie die leidenschaftlichen Winzer hinter unseren außergewöhnlichen Coffrets"
+msgstr ""
+"Entdecken Sie die leidenschaftlichen Winzer hinter unseren außergewöhnlichen "
+"Coffrets"
 
 #: .\vinsdelux\templates\vinsdelux\products\producer_list.html:42
 msgid "coffret"
@@ -3579,8 +3924,13 @@ msgid "Activer le bouton"
 msgstr "Schaltfläche aktivieren"
 
 #: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:349
-#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:351
 msgid "Fermer l'aide"
+msgstr "Hilfe schließen"
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:351
+#, fuzzy
+#| msgid "Fermer l'aide"
+msgid "Fermer l\\"
 msgstr "Hilfe schließen"
 
 #: .\vinsdelux\templates\vinsdelux\sections\wine_plots.html:7
@@ -3618,7 +3968,9 @@ msgstr "Derzeit keine Coffrets für diesen Produzenten verfügbar."
 
 #: .\vinsdelux\templates\vinsdelux\sections\wine_plots.html:83
 msgid "No featured producers available at the moment. Please check back soon!"
-msgstr "Derzeit keine ausgewählten Produzenten verfügbar. Schauen Sie bald wieder vorbei!"
+msgstr ""
+"Derzeit keine ausgewählten Produzenten verfügbar. Schauen Sie bald wieder "
+"vorbei!"
 
 #: .\vinsdelux\templates\vinsdelux\testing\test_runner.html:9
 msgid "VinsDeLux Journey Test Suite"
@@ -3678,6 +4030,9 @@ msgstr "Ungültiges Anfrageformat"
 msgid "An error occurred while processing your selection"
 msgstr "Bei der Verarbeitung Ihrer Auswahl ist ein Fehler aufgetreten"
 
+#~ msgid "You don't have permission to view or edit anything."
+#~ msgstr "Sie haben keine Berechtigung, etwas anzuzeigen oder zu bearbeiten."
+
 #, python-format
 #~ msgid ""
 #~ "Please sign in with one\n"
@@ -3706,136 +4061,37 @@ msgstr "Bei der Verarbeitung Ihrer Auswahl ist ein Fehler aufgetreten"
 #~ "Sie haben bereits ein Konto? Dann <a href=\"%(login_url)s\">melden Sie "
 #~ "sich bitte an</a>."
 
-#~ msgid "About"
-#~ msgstr "Über uns"
+#~ msgid "Loading notification settings..."
+#~ msgstr "Benachrichtigungseinstellungen werden geladen..."
 
-# Coach Dashboard translations
-msgid "Coach Dashboard"
-msgstr "Coach-Dashboard"
+#~ msgid "Push notifications are not supported in this browser."
+#~ msgstr "Push-Benachrichtigungen werden in diesem Browser nicht unterstützt."
 
-msgid "Welcome, Coach %(name)s!"
-msgstr "Willkommen, Coach %(name)s!"
+#~ msgid "Coach notifications are enabled on this device."
+#~ msgstr "Coach-Benachrichtigungen sind auf diesem Gerät aktiviert."
 
-msgid "Pending Reviews"
-msgstr "Ausstehende Überprüfungen"
+#~ msgid "Notification Types"
+#~ msgstr "Benachrichtigungstypen"
 
-msgid "Recent Reviews"
-msgstr "Letzte Überprüfungen"
+#~ msgid "New Profile Submissions"
+#~ msgstr "Neue Profilübermittlungen"
 
-msgid "Max Reviews"
-msgstr "Max. Überprüfungen"
+#~ msgid "Get notified when new profiles need review"
+#~ msgstr ""
+#~ "Benachrichtigung erhalten, wenn neue Profile überprüft werden müssen"
 
-msgid "Your Specializations"
-msgstr "Ihre Spezialisierungen"
+#~ msgid "User Revisions"
+#~ msgstr "Benutzerrevisionen"
 
-msgid "Not set"
-msgstr "Nicht festgelegt"
+#~ msgid "Get notified when users submit profile revisions"
+#~ msgstr ""
+#~ "Benachrichtigung erhalten, wenn Benutzer Profilrevisionen einreichen"
 
-msgid "Edit"
-msgstr "Bearbeiten"
+#~ msgid "Screening Reminders"
+#~ msgstr "Screening-Erinnerungen"
 
-msgid "Coach Notifications"
-msgstr "Coach-Benachrichtigungen"
+#~ msgid "System Alerts"
+#~ msgstr "Systemmeldungen"
 
-msgid "Loading notification settings..."
-msgstr "Benachrichtigungseinstellungen werden geladen..."
-
-msgid "Push notifications are not supported in this browser."
-msgstr "Push-Benachrichtigungen werden in diesem Browser nicht unterstützt."
-
-msgid "Enable push notifications to get alerts about new profile submissions, user revisions, and screening reminders."
-msgstr "Aktivieren Sie Push-Benachrichtigungen, um Benachrichtigungen über neue Profilübermittlungen, Benutzerrevisionen und Screening-Erinnerungen zu erhalten."
-
-msgid "Coach notifications are enabled on this device."
-msgstr "Coach-Benachrichtigungen sind auf diesem Gerät aktiviert."
-
-msgid "Notification Types"
-msgstr "Benachrichtigungstypen"
-
-msgid "New Profile Submissions"
-msgstr "Neue Profilübermittlungen"
-
-msgid "Get notified when new profiles need review"
-msgstr "Benachrichtigung erhalten, wenn neue Profile überprüft werden müssen"
-
-msgid "User Revisions"
-msgstr "Benutzerrevisionen"
-
-msgid "Get notified when users submit profile revisions"
-msgstr "Benachrichtigung erhalten, wenn Benutzer Profilrevisionen einreichen"
-
-msgid "Screening Reminders"
-msgstr "Screening-Erinnerungen"
-
-msgid "Reminders about pending screening calls"
-msgstr "Erinnerungen an ausstehende Screening-Anrufe"
-
-msgid "System Alerts"
-msgstr "Systemmeldungen"
-
-msgid "Important system and admin messages"
-msgstr "Wichtige System- und Admin-Nachrichten"
-
-msgid "Journey Management"
-msgstr "Journey-Verwaltung"
-
-msgid "Manage active Wonderland Journey experiences and view user progress."
-msgstr "Verwalten Sie aktive Wonderland-Journey-Erlebnisse und sehen Sie den Benutzerfortschritt."
-
-msgid "Manage Journeys"
-msgstr "Journeys verwalten"
-
-msgid "Pending Profile Reviews"
-msgstr "Ausstehende Profilüberprüfungen"
-
-msgid "%(age)s years old"
-msgstr "%(age)s Jahre alt"
-
-msgid "Age not set"
-msgstr "Alter nicht angegeben"
-
-msgid "Location not set"
-msgstr "Standort nicht angegeben"
-
-msgid "Submitted"
-msgstr "Eingereicht"
-
-msgid "Pending"
-msgstr "Ausstehend"
-
-msgid "Review Profile"
-msgstr "Profil überprüfen"
-
-msgid "No pending reviews at the moment. Great work!"
-msgstr "Derzeit keine ausstehenden Überprüfungen. Großartige Arbeit!"
-
-msgid "Reviewed"
-msgstr "Überprüft"
-
-msgid "Approved"
-msgstr "Genehmigt"
-
-msgid "Rejected"
-msgstr "Abgelehnt"
-
-msgid "Revision Requested"
-msgstr "Überarbeitung angefordert"
-
-msgid "No recent reviews yet."
-msgstr "Noch keine aktuellen Überprüfungen."
-
-# Footer translations (only new strings that don't exist elsewhere)
-msgid "Meet new people. Make real connections."
-msgstr "Neue Leute treffen. Echte Verbindungen knüpfen."
-
-msgid "Quick Links"
-msgstr "Schnelllinks"
-
-msgid "Legal"
-msgstr "Rechtliches"
-
-msgid "Your privacy matters. All profiles are reviewed by our Crush Coaches."
-msgstr "Ihre Privatsphäre ist uns wichtig. Alle Profile werden von unseren Crush-Coaches überprüft."
-
-msgid "&copy; 2025 Crush.lu - Made with 💕 in Luxembourg"
-msgstr "&copy; 2025 Crush.lu - Mit 💕 in Luxemburg gemacht"
+#~ msgid "Important system and admin messages"
+#~ msgstr "Wichtige System- und Admin-Nachrichten"
