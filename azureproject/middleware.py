@@ -225,20 +225,61 @@ class SafeCurrentSiteMiddleware:
 
 class ForceAdminToEnglishMiddleware:
     """
-    Force Django admin interface to use English language.
+    Force all admin interfaces to use English language.
 
     This ensures a consistent admin experience regardless of user's
-    language preference settings.
+    language preference settings. Covers standard Django admin and
+    all custom platform admin panels.
     """
+    ADMIN_PATHS = (
+        '/admin/',
+        '/crush-admin/',
+        '/powerup-admin/',
+        '/vinsdelux-admin/',
+        '/delegation-admin/',
+    )
+
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.path.startswith('/admin/'):
+        if any(request.path.startswith(p) for p in self.ADMIN_PATHS):
             translation.activate('en')
             request.LANGUAGE_CODE = 'en'
-        response = self.get_response(request)
-        return response
+        return self.get_response(request)
+
+
+class AdminLanguagePrefixRedirectMiddleware:
+    """
+    Redirect language-prefixed admin URLs to language-neutral versions.
+
+    E.g., /fr/admin/ -> /admin/, /de/crush-admin/ -> /crush-admin/
+
+    This handles bookmarked URLs and incorrect navigation attempts.
+    Admin panels are defined outside i18n_patterns() and must be accessed
+    without language prefixes.
+    """
+    ADMIN_PATHS = ('admin/', 'crush-admin/', 'powerup-admin/', 'vinsdelux-admin/', 'delegation-admin/')
+    LANG_CODES = ('en', 'de', 'fr')
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        from django.http import HttpResponsePermanentRedirect
+
+        path = request.path
+        # Check for pattern like /fr/admin/ or /de/crush-admin/
+        for lang in self.LANG_CODES:
+            for admin_path in self.ADMIN_PATHS:
+                prefix = f'/{lang}/{admin_path}'
+                if path.startswith(prefix):
+                    # Redirect to language-neutral path
+                    # Strip the language prefix: /fr/admin/... -> /admin/...
+                    new_path = '/' + path[len(f'/{lang}/'):]
+                    logger.debug(f"AdminLanguagePrefixRedirectMiddleware: Redirecting {path} -> {new_path}")
+                    return HttpResponsePermanentRedirect(new_path)
+        return self.get_response(request)
 
 
 class OAuthCallbackProtectionMiddleware:

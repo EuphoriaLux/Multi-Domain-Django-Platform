@@ -94,33 +94,31 @@ def _build_admin_url(platform, request, is_development):
     """
     Build the full URL for a platform's admin panel.
 
+    Admin panels are always language-neutral (no /en/, /de/, /fr/ prefix)
+    to avoid 404 errors and ensure consistent access. The admin URL patterns
+    are defined outside i18n_patterns() in all URL configs.
+
     In development mode, uses localhost with the appropriate path.
     In production, uses absolute URLs with full domain names.
     """
-    from django.utils import translation
-
     domain = platform['domain']
-    path = platform['path']
+    path = platform['path']  # e.g., '/crush-admin/', '/admin/'
 
-    # Get current language prefix for i18n URLs
-    current_language = translation.get_language() or 'en'
+    # Admin URLs are ALWAYS language-neutral
+    # Do NOT add language prefix - admin paths are outside i18n_patterns()
 
-    # Django Admin uses relative path (same domain) but needs language prefix
     if domain is None:
-        return f'/{current_language}{path}'
-
-    # Build language-prefixed path for i18n URLs
-    lang_path = f'/{current_language}{path}'
+        # Django Admin: relative path on current domain
+        return path  # Just '/admin/', not '/en/admin/'
 
     if is_development:
-        # In development, all admins are on localhost
-        # Use the path directly since domain routing is based on path
+        # Development: use current host with admin path (no language prefix)
         host = request.get_host()
         protocol = 'https' if request.is_secure() else 'http'
-        return f"{protocol}://{host}{lang_path}"
+        return f"{protocol}://{host}{path}"
     else:
-        # Production: use absolute URLs with HTTPS and language prefix
-        return f"https://{domain}{lang_path}"
+        # Production: absolute URL with HTTPS (no language prefix)
+        return f"https://{domain}{path}"
 
 
 def admin_navigation(request):

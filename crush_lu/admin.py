@@ -195,9 +195,11 @@ class CrushLuAdminSite(admin.AdminSite):
         """
         Override index to add custom dashboard link and analytics.
         """
+        from django.urls import reverse
+
         extra_context = extra_context or {}
         extra_context['show_dashboard_link'] = True
-        extra_context['dashboard_url'] = '/crush-admin/dashboard/'
+        extra_context['dashboard_url'] = reverse('crush_admin_dashboard')
 
         # Add coach information to context
         try:
@@ -705,22 +707,25 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
         """Display journey status with generation button"""
         try:
             journey = obj.journey
+            from django.urls import reverse
+
             chapter_count = journey.chapters.count()
             challenge_count = sum(chapter.challenges.count() for chapter in journey.chapters.all())
+            journey_url = reverse('crush_admin:crush_lu_journeyconfiguration_change', args=[journey.id])
             return format_html(
                 '<div style="padding: 10px; background: #e8f5e9; border-radius: 5px;">'
                 '<strong>✅ Journey Created:</strong> {}<br>'
                 '<strong>Chapters:</strong> {}<br>'
                 '<strong>Challenges:</strong> {}<br>'
                 '<strong>Status:</strong> {}<br>'
-                '<a href="/crush-admin/crush_lu/journeyconfiguration/{}/change/" '
+                '<a href="{}" '
                 'class="button" style="margin-top: 10px;">View/Edit Journey</a>'
                 '</div>',
                 journey.journey_name,
                 chapter_count,
                 challenge_count,
                 'Active' if journey.is_active else 'Inactive',
-                journey.id
+                journey_url
             )
         except JourneyConfiguration.DoesNotExist:
             return format_html(
