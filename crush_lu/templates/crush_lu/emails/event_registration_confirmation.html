@@ -30,7 +30,7 @@
 </div>
 {% endif %}
 
-<a href="https://crush.lu/events/{{ event.id }}/" class="button">View Event Details</a>
+<a href="{{ event_url }}" class="button">View Event Details</a>
 
 <p><strong>What to bring:</strong></p>
 <ul>
@@ -46,7 +46,7 @@
     <li>Respect everyone's privacy and boundaries</li>
 </ul>
 
-<p>Can't make it? <a href="https://crush.lu/events/{{ event.id }}/cancel/" style="color: #9B59B6;">Cancel your registration</a> so someone on the waitlist can attend.</p>
+<p>Can't make it? <a href="{{ cancel_url }}" style="color: #9B59B6;">Cancel your registration</a> so someone on the waitlist can attend.</p>
 
 <p>
     See you soon!<br>

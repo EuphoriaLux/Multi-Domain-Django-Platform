@@ -16,11 +16,40 @@ Chrome to commit cookies before navigating.
 import json
 import logging
 from django.shortcuts import render, redirect
+from django.urls import reverse
+from django.utils.translation import get_language, activate
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.cache import never_cache
 from django.http import JsonResponse
 
 logger = logging.getLogger(__name__)
+
+
+def get_i18n_redirect_url(request, url_name, user=None):
+    """
+    Get a language-prefixed redirect URL.
+
+    Uses the user's preferred language if available, otherwise falls back to
+    the current session language or 'en' as default.
+    """
+    # Determine the language to use
+    lang = 'en'  # Default fallback
+
+    # Try to get user's preferred language from profile
+    if user and hasattr(user, 'crushprofile') and user.crushprofile:
+        profile_lang = getattr(user.crushprofile, 'preferred_language', None)
+        if profile_lang:
+            lang = profile_lang
+
+    # If no user preference, try session/request language
+    if lang == 'en':
+        request_lang = getattr(request, 'LANGUAGE_CODE', None) or get_language()
+        if request_lang and request_lang in ['en', 'de', 'fr']:
+            lang = request_lang
+
+    # Activate the language and generate the URL
+    activate(lang)
+    return reverse(url_name)
 
 
 @require_http_methods(["GET"])
@@ -52,14 +81,14 @@ def oauth_popup_callback(request):
         'userName': user_name,
     }
 
-    # Determine redirect destination for parent window
+    # Determine redirect destination for parent window (with language prefix)
     if is_authenticated:
         if has_profile:
-            redirect_url = '/dashboard/'
+            redirect_url = get_i18n_redirect_url(request, 'crush_lu:dashboard', request.user)
         else:
-            redirect_url = '/create-profile/'
+            redirect_url = get_i18n_redirect_url(request, 'crush_lu:create_profile')
     else:
-        redirect_url = '/login/'
+        redirect_url = get_i18n_redirect_url(request, 'crush_lu:login')
 
     # Clear popup mode flag from session
     request.session.pop('oauth_popup_mode', None)
@@ -121,16 +150,20 @@ def check_auth_status(request):
     """
     if request.user.is_authenticated:
         has_profile = hasattr(request.user, 'crushprofile')
+        if has_profile:
+            redirect_url = get_i18n_redirect_url(request, 'crush_lu:dashboard', request.user)
+        else:
+            redirect_url = get_i18n_redirect_url(request, 'crush_lu:create_profile')
         response = JsonResponse({
             'authenticated': True,
             'has_profile': has_profile,
             'user_name': request.user.first_name or request.user.username,
-            'redirect_url': '/dashboard/' if has_profile else '/create-profile/',
+            'redirect_url': redirect_url,
         })
     else:
         response = JsonResponse({
             'authenticated': False,
-            'redirect_url': '/login/',
+            'redirect_url': get_i18n_redirect_url(request, 'crush_lu:login'),
         })
 
     # Aggressive no-cache headers - critical for cookie commit polling
@@ -233,16 +266,19 @@ def oauth_landing(request):
     # Clear OAuth provider flag
     request.session.pop('oauth_provider', None)
 
-    # Determine authentication state and destination
+    # Determine authentication state and destination (with language prefix)
     is_authenticated = request.user.is_authenticated
     has_profile = False
     user_name = ''
-    redirect_url = '/login/'
+    redirect_url = get_i18n_redirect_url(request, 'crush_lu:login')
 
     if is_authenticated:
         has_profile = hasattr(request.user, 'crushprofile')
         user_name = request.user.first_name or request.user.username
-        redirect_url = '/dashboard/' if has_profile else '/create-profile/'
+        if has_profile:
+            redirect_url = get_i18n_redirect_url(request, 'crush_lu:dashboard', request.user)
+        else:
+            redirect_url = get_i18n_redirect_url(request, 'crush_lu:create_profile')
 
     logger.info(
         f"OAuth landing: authenticated={is_authenticated}, "

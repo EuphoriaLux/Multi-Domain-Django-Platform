@@ -1,6 +1,7 @@
 {% load static %}
 {% load i18n %}
 {% load analytics %}
+{% load seo_tags %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE|default:'en' }}">
 <head>
@@ -18,15 +19,12 @@
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <link rel="preload" href="{% static 'crush_lu/css/tailwind.css' %}" as="style">
 
-    <!-- SEO: Canonical URL (prevents duplicate content issues) -->
-    <link rel="canonical" href="{% block canonical_url %}https://crush.lu{{ request.path }}{% endblock %}">
+    <!-- SEO: Canonical URL (self-referencing - each language version is its own canonical) -->
+    <link rel="canonical" href="{% block canonical_url %}{% canonical_url %}{% endblock %}">
 
-    <!-- SEO: Hreflang tags for multi-language support -->
+    <!-- SEO: Hreflang tags for multi-language support (en, de, fr) -->
     {% block hreflang_tags %}
-    <link rel="alternate" hreflang="en" href="https://crush.lu/en{{ request.path|slice:'3:' }}">
-    <link rel="alternate" hreflang="de" href="https://crush.lu/de{{ request.path|slice:'3:' }}">
-    <link rel="alternate" hreflang="fr" href="https://crush.lu/fr{{ request.path|slice:'3:' }}">
-    <link rel="alternate" hreflang="x-default" href="https://crush.lu{{ request.path }}">
+    {% hreflang_tags %}
     {% endblock %}
 
     <!-- Open Graph / Facebook -->
@@ -89,7 +87,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Crush.lu">
     <meta name="mobile-web-app-capable" content="yes">
-    <link rel="manifest" href="{% url 'crush_lu:manifest' %}">
+    <link rel="manifest" href="{% url 'pwa_manifest' %}">
 
     <!-- Apple Touch Icons -->
     <link rel="apple-touch-icon" sizes="180x180" href="{% static 'crush_lu/icons/ios/180.png' %}">
@@ -477,6 +475,9 @@
                             Login / Join
                         </a>
                     {% endif %}
+
+                    {# Language Switcher (always visible) #}
+                    {% include "crush_lu/partials/language_switcher.html" %}
                 </nav>
             </div>
 
@@ -627,6 +628,10 @@
                             Login / Join
                         </a>
                     {% endif %}
+
+                    {# Mobile Language Switcher (always visible) #}
+                    <div class="border-t border-white/20 my-2"></div>
+                    {% include "crush_lu/partials/language_switcher.html" with mobile=True %}
                 </div>
             </div>
         </div>

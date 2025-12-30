@@ -6,10 +6,33 @@ Handles Web Push API notifications for PWA users
 import json
 import logging
 from django.conf import settings
+from django.urls import reverse
+from django.utils.translation import activate
 from pywebpush import webpush, WebPushException
 from .models import PushSubscription
 
 logger = logging.getLogger(__name__)
+
+
+def get_user_language_url(user, url_name, **kwargs):
+    """
+    Get a language-prefixed URL based on user's preferred language.
+
+    Args:
+        user: Django User object
+        url_name: The URL name to reverse (e.g., 'crush_lu:dashboard')
+        **kwargs: Additional arguments for reverse()
+    """
+    # Get user's preferred language
+    lang = 'en'  # Default
+    if hasattr(user, 'crushprofile') and user.crushprofile:
+        profile_lang = getattr(user.crushprofile, 'preferred_language', None)
+        if profile_lang and profile_lang in ['en', 'de', 'fr']:
+            lang = profile_lang
+
+    # Activate language and generate URL
+    activate(lang)
+    return reverse(url_name, **kwargs)
 
 
 def send_push_notification(user, title, body, url='/', tag='crush-notification', icon=None, badge=None):
@@ -122,8 +145,8 @@ def send_event_reminder(user, event):
         return
 
     title = f"Event Tomorrow: {event.title}"
-    body = f"Don't forget! {event.title} starts at {event.event_date.strftime('%H:%M')}. See you there! 💕"
-    url = f"/events/{event.id}/"
+    body = f"Don't forget! {event.title} starts at {event.date_time.strftime('%H:%M')}. See you there!"
+    url = get_user_language_url(user, 'crush_lu:event_detail', kwargs={'event_id': event.id})
 
     return send_push_notification(
         user=user,
@@ -153,7 +176,7 @@ def send_new_connection_notification(user, connection):
 
     title = "New Connection Request! 💕"
     body = f"{display_name} wants to connect with you!"
-    url = "/connections/"
+    url = get_user_language_url(user, 'crush_lu:my_connections')
 
     return send_push_notification(
         user=user,
@@ -185,7 +208,7 @@ def send_new_message_notification(user, message):
 
     title = f"New message from {display_name}"
     body = preview
-    url = f"/connections/{message.connection.id}/"
+    url = get_user_language_url(user, 'crush_lu:connection_detail', kwargs={'connection_id': message.connection.id})
 
     return send_push_notification(
         user=user,
@@ -210,7 +233,7 @@ def send_profile_approved_notification(user):
 
     title = "Profile Approved! 🎉"
     body = "Your Crush.lu profile has been approved! You can now register for events."
-    url = "/dashboard/"
+    url = get_user_language_url(user, 'crush_lu:dashboard')
 
     return send_push_notification(
         user=user,
@@ -236,7 +259,7 @@ def send_profile_revision_notification(user, feedback):
 
     title = "Profile Update Needed"
     body = f"Your Crush Coach has some feedback: {feedback[:80]}..."
-    url = "/profile/edit/"
+    url = get_user_language_url(user, 'crush_lu:edit_profile')
 
     return send_push_notification(
         user=user,
@@ -256,7 +279,7 @@ def send_test_notification(user):
     """
     title = "Test Notification 🔔"
     body = "Push notifications are working! You'll receive updates about events, messages, and connections."
-    url = "/dashboard/"
+    url = get_user_language_url(user, 'crush_lu:dashboard')
 
     return send_push_notification(
         user=user,

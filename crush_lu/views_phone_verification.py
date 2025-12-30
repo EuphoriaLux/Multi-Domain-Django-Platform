@@ -200,6 +200,8 @@ def verify_phone_page(request):
         'firebase_api_key': settings.FIREBASE_API_KEY,
         'firebase_auth_domain': settings.FIREBASE_AUTH_DOMAIN,
         'firebase_project_id': settings.FIREBASE_PROJECT_ID,
+        # User's preferred language for Firebase SMS localization
+        'firebase_language': profile.preferred_language or 'en',
     }
 
     return render(request, 'crush_lu/verify_phone.html', context)

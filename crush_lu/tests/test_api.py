@@ -300,8 +300,10 @@ class VotingAPITests(SiteTestMixin, TestCase):
         """Test getting voting status."""
         self.client.login(username='voter@example.com', password='testpass123')
 
+        # Note: voting_status_api is defined in urls_crush.py at root level (language-neutral),
+        # not in crush_lu/urls.py namespace
         response = self.client.get(
-            reverse('crush_lu:voting_status_api', args=[self.event.id])
+            reverse('voting_status_api', args=[self.event.id])
         )
 
         self.assertEqual(response.status_code, 200)
@@ -349,8 +351,9 @@ class VotingAPITests(SiteTestMixin, TestCase):
 
         self.client.login(username='unregistered@example.com', password='testpass123')
 
+        # Note: voting_status_api is defined in urls_crush.py at root level (language-neutral)
         response = self.client.get(
-            reverse('crush_lu:voting_status_api', args=[self.event.id])
+            reverse('voting_status_api', args=[self.event.id])
         )
 
         self.assertEqual(response.status_code, 403)
@@ -386,8 +389,9 @@ class PushNotificationAPITests(SiteTestMixin, TestCase):
         """Test subscribing to push notifications."""
         self.client.login(username='push@example.com', password='testpass123')
 
+        # Note: Push APIs are defined in urls_crush.py at root level (language-neutral)
         response = self.client.post(
-            reverse('crush_lu:api_subscribe_push'),
+            reverse('api_subscribe_push'),
             data=json.dumps({
                 'endpoint': 'https://fcm.googleapis.com/test/123',
                 'keys': {
@@ -410,7 +414,7 @@ class PushNotificationAPITests(SiteTestMixin, TestCase):
         self.client.login(username='push@example.com', password='testpass123')
 
         response = self.client.post(
-            reverse('crush_lu:api_subscribe_push'),
+            reverse('api_subscribe_push'),
             data=json.dumps({
                 'endpoint': 'https://test.com'
                 # Missing keys
@@ -435,7 +439,7 @@ class PushNotificationAPITests(SiteTestMixin, TestCase):
         )
 
         response = self.client.post(
-            reverse('crush_lu:api_unsubscribe_push'),
+            reverse('api_unsubscribe_push'),
             data=json.dumps({
                 'endpoint': 'https://fcm.googleapis.com/test/123'
             }),
@@ -469,7 +473,7 @@ class PushNotificationAPITests(SiteTestMixin, TestCase):
             device_name='Device 2'
         )
 
-        response = self.client.get(reverse('crush_lu:api_list_subscriptions'))
+        response = self.client.get(reverse('api_list_subscriptions'))
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -490,7 +494,7 @@ class PushNotificationAPITests(SiteTestMixin, TestCase):
         )
 
         response = self.client.post(
-            reverse('crush_lu:api_update_push_preferences'),
+            reverse('api_update_push_preferences'),
             data=json.dumps({
                 'subscriptionId': subscription.id,
                 'preferences': {
@@ -529,7 +533,8 @@ class APIAuthenticationTests(SiteTestMixin, TestCase):
 
     def test_push_api_requires_auth(self):
         """Test push API requires authentication."""
-        response = self.client.get(reverse('crush_lu:api_list_subscriptions'))
+        # Note: Push APIs are defined in urls_crush.py at root level (language-neutral)
+        response = self.client.get(reverse('api_list_subscriptions'))
 
         # Should redirect to login
         self.assertEqual(response.status_code, 302)

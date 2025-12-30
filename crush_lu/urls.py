@@ -100,10 +100,9 @@ urlpatterns = [
     path('about/', views.about, name='about'),
     path('how-it-works/', views.how_it_works, name='how_it_works'),
 
-    # PWA Pages
-    path('offline/', views.offline_view, name='offline'),
-    path('sw-workbox.js', views.service_worker_view, name='service_worker'),
-    path('manifest.json', views.manifest_view, name='manifest'),
+    # PWA Debug Page (language-prefixed is fine for debug pages)
+    # Note: sw-workbox.js, manifest.json, and offline/ are now in urls_crush.py
+    # as language-neutral URLs to prevent redirect errors
     path('pwa-debug/', views.pwa_debug_view, name='pwa_debug'),
 
     # Legal pages
@@ -125,7 +124,7 @@ urlpatterns = [
     path('oauth/popup-callback/', views_oauth_popup.oauth_popup_callback, name='oauth_popup_callback'),
     path('oauth/popup-error/', views_oauth_popup.oauth_popup_error, name='oauth_popup_error'),
     path('oauth/landing/', views_oauth_popup.oauth_landing, name='oauth_landing'),
-    path('api/auth/status/', views_oauth_popup.check_auth_status, name='check_auth_status'),
+    # Note: api/auth/status/ moved to urls_crush.py (language-neutral) for hardcoded JS paths
 
     # Onboarding flow
     path('signup/', views.signup, name='signup'),
@@ -146,9 +145,8 @@ urlpatterns = [
     # HTMX photo upload endpoint
     path('api/profile/upload-photo/<int:slot>/', views_profile.upload_profile_photo, name='upload_profile_photo'),
 
-    # Phone verification API (Firebase/Google Identity Platform)
-    path('api/phone/mark-verified/', views_phone_verification.mark_phone_verified, name='api_phone_mark_verified'),
-    path('api/phone/status/', views_phone_verification.phone_verification_status, name='api_phone_status'),
+    # Phone verification API endpoints are in urls_crush.py (language-neutral)
+    # to avoid i18n prefix issues with hardcoded JavaScript API paths
 
     # Phone verification page (for existing users)
     path('verify-phone/', views_phone_verification.verify_phone_page, name='verify_phone'),
@@ -198,10 +196,10 @@ urlpatterns = [
     # Voting Demo/Guided Tour
     path('voting-demo/', views.voting_demo, name='voting_demo'),
 
-    # Event Activity Voting API
-    path('api/events/<int:event_id>/voting/status/', api_views.voting_status_api, name='voting_status_api'),
-    path('api/events/<int:event_id>/voting/submit/', api_views.submit_vote_api, name='submit_vote_api'),
-    path('api/events/<int:event_id>/voting/results/', api_views.voting_results_api, name='voting_results_api'),
+    # Note: Event Voting APIs moved to urls_crush.py (language-neutral) for hardcoded JS paths
+    # - api/events/<int:event_id>/voting/status/
+    # - api/events/<int:event_id>/voting/submit/
+    # - api/events/<int:event_id>/voting/results/
 
     # Coach dashboard
     path('coach/dashboard/', views.coach_dashboard, name='coach_dashboard'),
@@ -246,36 +244,26 @@ urlpatterns = [
     path('journey/reward/<int:reward_id>/', views_journey.reward_view, name='reward_view'),
     path('journey/certificate/', views_journey.certificate_view, name='certificate_view'),
 
-    # Journey API Endpoints
+    # Journey API Endpoints (these use {% url %} template tags so can stay in i18n_patterns)
     path('api/journey/submit-challenge/', api_journey.submit_challenge, name='api_submit_challenge'),
     path('api/journey/unlock-hint/', api_journey.unlock_hint, name='api_unlock_hint'),
     path('api/journey/progress/', api_journey.get_progress, name='api_get_progress'),
     path('api/journey/save-state/', api_journey.save_state, name='api_save_state'),
     path('api/journey/final-response/', api_journey.record_final_response, name='api_record_final_response'),
-    path('api/journey/unlock-puzzle-piece/', api_journey.unlock_puzzle_piece, name='api_unlock_puzzle_piece'),
-    path('api/journey/reward-progress/<int:reward_id>/', api_journey.get_reward_progress, name='api_get_reward_progress'),
+    # Note: unlock-puzzle-piece and reward-progress moved to urls_crush.py (language-neutral)
+    # for hardcoded JS paths in photo_reveal.html
 
     # ============================================================================
-    # PUSH NOTIFICATIONS API
+    # PUSH NOTIFICATIONS API - MOVED TO urls_crush.py (language-neutral)
+    # All push notification APIs have been moved to azureproject/urls_crush.py
+    # because they are called from external JS files with hardcoded paths.
     # ============================================================================
-    path('api/push/vapid-public-key/', api_push.get_vapid_public_key, name='api_vapid_public_key'),
-    path('api/push/subscribe/', api_push.subscribe_push, name='api_subscribe_push'),
-    path('api/push/unsubscribe/', api_push.unsubscribe_push, name='api_unsubscribe_push'),
-    path('api/push/subscriptions/', api_push.list_subscriptions, name='api_list_subscriptions'),
-    path('api/push/preferences/', api_push.update_subscription_preferences, name='api_update_push_preferences'),
-    path('api/push/test/', api_push.send_test_push, name='api_send_test_push'),
-    path('api/push/mark-pwa-user/', api_push.mark_pwa_user, name='api_mark_pwa_user'),
-    path('api/push/pwa-status/', api_push.get_pwa_status, name='api_pwa_status'),
 
     # ============================================================================
-    # COACH PUSH NOTIFICATIONS API
+    # COACH PUSH NOTIFICATIONS API - MOVED TO urls_crush.py (language-neutral)
+    # All coach push notification APIs have been moved to azureproject/urls_crush.py
+    # because they are called from external JS files with hardcoded paths.
     # ============================================================================
-    path('api/coach/push/vapid-public-key/', api_coach_push.get_vapid_public_key, name='api_coach_vapid_public_key'),
-    path('api/coach/push/subscribe/', api_coach_push.subscribe_push, name='api_coach_subscribe_push'),
-    path('api/coach/push/unsubscribe/', api_coach_push.unsubscribe_push, name='api_coach_unsubscribe_push'),
-    path('api/coach/push/subscriptions/', api_coach_push.list_subscriptions, name='api_coach_list_subscriptions'),
-    path('api/coach/push/preferences/', api_coach_push.update_subscription_preferences, name='api_coach_update_push_preferences'),
-    path('api/coach/push/test/', api_coach_push.send_test_push, name='api_coach_send_test_push'),
 
     # ============================================================================
     # ADVENT CALENDAR SYSTEM

@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
+from django.utils.translation import gettext_lazy as _
 from allauth.account.forms import SignupForm
 from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, EventRegistration
 from PIL import Image
@@ -17,7 +18,7 @@ class CrushSignupForm(SignupForm):
         max_length=30,
         required=True,
         widget=forms.TextInput(attrs={
-            'placeholder': 'First Name',
+            'placeholder': _('First Name'),
             'class': 'form-control'
         })
     )
@@ -25,7 +26,7 @@ class CrushSignupForm(SignupForm):
         max_length=30,
         required=True,
         widget=forms.TextInput(attrs={
-            'placeholder': 'Last Name',
+            'placeholder': _('Last Name'),
             'class': 'form-control'
         })
     )
@@ -44,8 +45,8 @@ class CrushSignupForm(SignupForm):
         # Check if a user with this email already exists
         if User.objects.filter(email__iexact=email).exists():
             raise ValidationError(
-                'An account with this email already exists. '
-                'Please login or use a different email address.'
+                _('An account with this email already exists. '
+                  'Please login or use a different email address.')
             )
 
         return email
@@ -83,7 +84,7 @@ class CrushProfileForm(forms.ModelForm):
             'placeholder': '+352 XX XX XX XX',
             'class': 'form-control form-control-lg'
         }),
-        help_text='Required for coach screening and event coordination'
+        help_text=_('Required for coach screening and event coordination')
     )
 
     # Override date_of_birth to ensure correct HTML5 date format
@@ -97,7 +98,7 @@ class CrushProfileForm(forms.ModelForm):
             format='%Y-%m-%d'
         ),
         input_formats=['%Y-%m-%d'],
-        help_text='Must be 18+ to join'
+        help_text=_('Must be 18+ to join')
     )
 
     # Override bio and interests to make them optional
@@ -106,10 +107,10 @@ class CrushProfileForm(forms.ModelForm):
         max_length=500,
         widget=forms.Textarea(attrs={
             'rows': 4,
-            'placeholder': 'Tell us about yourself... What do you love? What makes you smile? (Optional)',
+            'placeholder': _('Tell us about yourself... What do you love? What makes you smile? (Optional)'),
             'class': 'form-control'
         }),
-        help_text='Share what makes you unique! (Optional, max 500 characters)'
+        help_text=_('Share what makes you unique! (Optional, max 500 characters)')
     )
 
     interests = forms.CharField(
@@ -117,10 +118,10 @@ class CrushProfileForm(forms.ModelForm):
         max_length=300,
         widget=forms.Textarea(attrs={
             'rows': 3,
-            'placeholder': 'Or select categories below...',
+            'placeholder': _('Or select categories below...'),
             'class': 'form-control'
         }),
-        help_text='Select interest categories below or write your own (Optional)'
+        help_text=_('Select interest categories below or write your own (Optional)')
     )
 
     # Override gender to make it required
@@ -128,37 +129,37 @@ class CrushProfileForm(forms.ModelForm):
         required=True,
         choices=CrushProfile.GENDER_CHOICES,
         widget=forms.Select(attrs={'class': 'form-control'}),
-        help_text='Required'
+        help_text=_('Required')
     )
 
     # Override location with canton-based choices (for interactive map selection)
     # Used with the canton map component - canton_map_svg.html
     LOCATION_CHOICES = [
-        ('', 'Select your region...'),
+        ('', _('Select your region...')),
         # Luxembourg Cantons (12)
-        ('canton-capellen', 'Capellen'),
-        ('canton-clervaux', 'Clervaux'),
-        ('canton-diekirch', 'Diekirch'),
-        ('canton-echternach', 'Echternach'),
-        ('canton-esch', 'Esch-sur-Alzette'),
-        ('canton-grevenmacher', 'Grevenmacher'),
-        ('canton-luxembourg', 'Luxembourg'),
-        ('canton-mersch', 'Mersch'),
-        ('canton-redange', 'Redange'),
-        ('canton-remich', 'Remich'),
-        ('canton-vianden', 'Vianden'),
-        ('canton-wiltz', 'Wiltz'),
+        ('canton-capellen', _('Capellen')),
+        ('canton-clervaux', _('Clervaux')),
+        ('canton-diekirch', _('Diekirch')),
+        ('canton-echternach', _('Echternach')),
+        ('canton-esch', _('Esch-sur-Alzette')),
+        ('canton-grevenmacher', _('Grevenmacher')),
+        ('canton-luxembourg', _('Luxembourg')),
+        ('canton-mersch', _('Mersch')),
+        ('canton-redange', _('Redange')),
+        ('canton-remich', _('Remich')),
+        ('canton-vianden', _('Vianden')),
+        ('canton-wiltz', _('Wiltz')),
         # Border Regions (for cross-border workers)
-        ('border-belgium', 'Belgium (Arlon area)'),
-        ('border-germany', 'Germany (Trier/Saarland area)'),
-        ('border-france', 'France (Thionville/Metz area)'),
+        ('border-belgium', _('Belgium (Arlon area)')),
+        ('border-germany', _('Germany (Trier/Saarland area)')),
+        ('border-france', _('France (Thionville/Metz area)')),
     ]
 
     location = forms.ChoiceField(
         required=True,
         choices=LOCATION_CHOICES,
         widget=forms.HiddenInput(attrs={'id': 'id_location'}),
-        help_text='Your region in or near Luxembourg'
+        help_text=_('Your region in or near Luxembourg')
     )
 
     # Override looking_for to make it required
@@ -166,7 +167,7 @@ class CrushProfileForm(forms.ModelForm):
         required=True,
         choices=CrushProfile.LOOKING_FOR_CHOICES,
         widget=forms.Select(attrs={'class': 'form-control'}),
-        help_text='Required'
+        help_text=_('Required')
     )
 
     class Meta:
@@ -196,15 +197,15 @@ class CrushProfileForm(forms.ModelForm):
 
             # Prevent future dates
             if dob > today:
-                raise forms.ValidationError("Date of birth cannot be in the future")
+                raise forms.ValidationError(_("Date of birth cannot be in the future"))
 
             # Calculate age correctly by checking if birthday has occurred this year
             age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
 
             if age < 18:
-                raise forms.ValidationError("You must be at least 18 years old to join Crush.lu")
+                raise forms.ValidationError(_("You must be at least 18 years old to join Crush.lu"))
             if age > 99:
-                raise forms.ValidationError("Please enter a valid date of birth")
+                raise forms.ValidationError(_("Please enter a valid date of birth"))
         return dob
 
     def clean_phone_number(self):
@@ -221,7 +222,7 @@ class CrushProfileForm(forms.ModelForm):
         # Must start with + for international format
         if not phone_clean.startswith('+'):
             raise forms.ValidationError(
-                "Please enter your phone number in international format (e.g., +352 XX XX XX XX)"
+                _("Please enter your phone number in international format (e.g., +352 XX XX XX XX)")
             )
 
         # Valid country codes for Luxembourg and neighboring countries
@@ -231,8 +232,8 @@ class CrushProfileForm(forms.ModelForm):
 
         if not has_valid_prefix:
             raise forms.ValidationError(
-                "Please enter a phone number from Luxembourg (+352), France (+33), "
-                "Belgium (+32), or Germany (+49)"
+                _("Please enter a phone number from Luxembourg (+352), France (+33), "
+                  "Belgium (+32), or Germany (+49)")
             )
 
         # Check minimum and maximum length (including country code)
@@ -240,17 +241,17 @@ class CrushProfileForm(forms.ModelForm):
         # France/Belgium/Germany: +33/+32/+49 + 9-10 digits = 12-13 chars
         if len(phone_clean) < 10:
             raise forms.ValidationError(
-                "Phone number is too short. Please include the full number."
+                _("Phone number is too short. Please include the full number.")
             )
         if len(phone_clean) > 15:
             raise forms.ValidationError(
-                "Phone number is too long. Please check the format."
+                _("Phone number is too long. Please check the format.")
             )
 
         # Ensure only digits after the +
         if not re.match(r'^\+[0-9]+$', phone_clean):
             raise forms.ValidationError(
-                "Phone number can only contain digits after the country code."
+                _("Phone number can only contain digits after the country code.")
             )
 
         return phone
@@ -265,8 +266,8 @@ class CrushProfileForm(forms.ModelForm):
             # For existing profiles, check phone verification status
             if not self.instance.phone_verified:
                 raise forms.ValidationError(
-                    "You must verify your phone number before submitting your profile. "
-                    "Click the 'Verify' button next to your phone number."
+                    _("You must verify your phone number before submitting your profile. "
+                      "Click the 'Verify' button next to your phone number.")
                 )
 
         return cleaned_data
@@ -385,8 +386,8 @@ class ProfileReviewForm(forms.ModelForm):
         model = ProfileSubmission
         fields = ['status', 'coach_notes', 'feedback_to_user']
         widgets = {
-            'coach_notes': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Internal notes...'}),
-            'feedback_to_user': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Feedback for the user...'}),
+            'coach_notes': forms.Textarea(attrs={'rows': 4, 'placeholder': _('Internal notes...')}),
+            'feedback_to_user': forms.Textarea(attrs={'rows': 4, 'placeholder': _('Feedback for the user...')}),
         }
 
 
@@ -398,7 +399,7 @@ class CoachSessionForm(forms.ModelForm):
         fields = ['session_type', 'scheduled_at', 'notes']
         widgets = {
             'scheduled_at': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
-            'notes': forms.Textarea(attrs={'rows': 5, 'placeholder': 'Session notes...'}),
+            'notes': forms.Textarea(attrs={'rows': 5, 'placeholder': _('Session notes...')}),
         }
 
 
@@ -409,8 +410,8 @@ class EventRegistrationForm(forms.ModelForm):
         model = EventRegistration
         fields = ['dietary_restrictions', 'special_requests']
         widgets = {
-            'dietary_restrictions': forms.TextInput(attrs={'placeholder': 'e.g., vegetarian, gluten-free'}),
-            'special_requests': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Any special requests or questions?'}),
+            'dietary_restrictions': forms.TextInput(attrs={'placeholder': _('e.g., vegetarian, gluten-free')}),
+            'special_requests': forms.Textarea(attrs={'rows': 3, 'placeholder': _('Any special requests or questions?')}),
         }
 
 
@@ -422,20 +423,20 @@ class CrushCoachForm(forms.ModelForm):
         max_length=500,
         widget=forms.Textarea(attrs={
             'rows': 4,
-            'placeholder': 'Share your coaching philosophy and approach...',
+            'placeholder': _('Share your coaching philosophy and approach...'),
             'class': 'form-control'
         }),
-        help_text='Tell users about your coaching style and experience (max 500 characters)'
+        help_text=_('Tell users about your coaching style and experience (max 500 characters)')
     )
 
     specializations = forms.CharField(
         required=False,
         max_length=200,
         widget=forms.TextInput(attrs={
-            'placeholder': 'e.g., Young professionals, Students, 35+, LGBTQ+',
+            'placeholder': _('e.g., Young professionals, Students, 35+, LGBTQ+'),
             'class': 'form-control'
         }),
-        help_text='What groups or demographics do you specialize in coaching?'
+        help_text=_('What groups or demographics do you specialize in coaching?')
     )
 
     photo = forms.ImageField(
@@ -444,7 +445,7 @@ class CrushCoachForm(forms.ModelForm):
             'class': 'form-control',
             'accept': 'image/*'
         }),
-        help_text='Upload a professional photo that users will see'
+        help_text=_('Upload a professional photo that users will see')
     )
 
     class Meta:
@@ -460,19 +461,19 @@ class CrushSetPasswordForm(forms.Form):
     their email and password, providing a backup login method.
     """
     password1 = forms.CharField(
-        label='New Password',
+        label=_('New Password'),
         widget=forms.PasswordInput(attrs={
             'class': 'form-control form-control-lg',
-            'placeholder': 'Enter new password',
+            'placeholder': _('Enter new password'),
             'autocomplete': 'new-password',
         }),
-        help_text='Your password must be at least 8 characters.'
+        help_text=_('Your password must be at least 8 characters.')
     )
     password2 = forms.CharField(
-        label='Confirm Password',
+        label=_('Confirm Password'),
         widget=forms.PasswordInput(attrs={
             'class': 'form-control form-control-lg',
-            'placeholder': 'Confirm new password',
+            'placeholder': _('Confirm new password'),
             'autocomplete': 'new-password',
         })
     )
@@ -497,7 +498,7 @@ class CrushSetPasswordForm(forms.Form):
         password2 = cleaned_data.get('password2')
 
         if password1 and password2 and password1 != password2:
-            raise forms.ValidationError('Passwords do not match.')
+            raise forms.ValidationError(_('Passwords do not match.'))
 
         return cleaned_data
 

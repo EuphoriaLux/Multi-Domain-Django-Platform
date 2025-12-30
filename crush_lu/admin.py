@@ -736,7 +736,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
     list_filter = ('is_approved', 'is_active', 'phone_verified', 'gender', 'completion_status', 'created_at')
     search_fields = ('user__username', 'user__email', 'location', 'bio', 'phone_number')
     readonly_fields = ('created_at', 'updated_at', 'approved_at', 'get_assigned_coach', 'phone_verified_at', 'phone_verification_uid')
-    actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'export_profiles_csv']
+    actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'reset_phone_verification', 'export_profiles_csv']
     fieldsets = (
         ('User Information', {
             'fields': ('user', 'date_of_birth', 'gender', 'phone_number', 'location')
@@ -856,6 +856,27 @@ class CrushProfileAdmin(admin.ModelAdmin):
     def deactivate_profiles(self, request, queryset):
         updated = queryset.update(is_active=False)
         django_messages.success(request, f"Deactivated {updated} profile(s)")
+
+    @admin.action(description='🔄 Reset phone verification (allows re-verification)')
+    def reset_phone_verification(self, request, queryset):
+        """
+        Reset phone verification for selected profiles.
+        Uses the model's reset_phone_verification() method to bypass save() protection.
+        """
+        reset_count = 0
+        for profile in queryset:
+            if profile.phone_verified:
+                profile.reset_phone_verification()
+                reset_count += 1
+
+        if reset_count > 0:
+            django_messages.success(
+                request,
+                f"Reset phone verification for {reset_count} profile(s). "
+                f"Users can now verify a new phone number."
+            )
+        else:
+            django_messages.warning(request, "No profiles had phone verification to reset.")
 
     @admin.action(description='📊 Export selected profiles to CSV')
     def export_profiles_csv(self, request, queryset):

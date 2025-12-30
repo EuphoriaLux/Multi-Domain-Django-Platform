@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-07-29 19:58+0000\n"
+"POT-Creation-Date: 2025-12-30 19:09+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,37 +18,1024 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: azureproject/settings.py:194
+#: .\azureproject\settings.py:402
 msgid "English"
 msgstr "Englisch"
 
-#: azureproject/settings.py:195
+#: .\azureproject\settings.py:403
 msgid "German"
 msgstr "Deutsch"
 
-#: azureproject/settings.py:196
+#: .\azureproject\settings.py:404
 msgid "French"
 msgstr "Französisch"
 
-#: templates/account/email_confirm.html:5
-#: templates/account/email_confirm.html:10
+#: .\core\templates\admin\base_site.html:4
+msgid "Django site admin"
+msgstr ""
+
+#: .\core\templates\admin\base_site.html:7
+#: .\crush_lu\templates\admin\index.html:52
+msgid "Django administration"
+msgstr ""
+
+#: .\core\templates\includes\cookie_banner.html:9
+msgid "Cookie Settings"
+msgstr ""
+
+#: .\core\templates\includes\cookie_banner.html:11
+msgid ""
+"We use cookies to enhance your experience. Analytics cookies help us "
+"understand how you use our site. You can accept all cookies or customize "
+"your preferences."
+msgstr ""
+
+#: .\core\templates\includes\cookie_banner.html:16
+msgid "Customize"
+msgstr ""
+
+#: .\core\templates\includes\cookie_banner.html:19
+msgid "Decline All"
+msgstr ""
+
+#: .\core\templates\includes\cookie_banner.html:22
+msgid "Accept All"
+msgstr ""
+
+#: .\core\templates\includes\cookie_banner.html:32
+msgid "Cookie Preferences"
+msgstr ""
+
+#: .\core\templates\includes\cookie_banner.html:33
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:219
+msgid "Close"
+msgstr ""
+
+#: .\core\templates\includes\cookie_banner.html:43
+msgid "Essential Cookies"
+msgstr ""
+
+#: .\core\templates\includes\cookie_banner.html:44
+msgid "Always Active"
+msgstr ""
+
+#: .\core\templates\includes\cookie_banner.html:48
+msgid ""
+"These cookies are necessary for the website to function and cannot be "
+"switched off. They are usually only set in response to actions made by you "
+"such as logging in or filling in forms."
+msgstr ""
+
+#: .\core\templates\includes\cookie_banner.html:59
+msgid "Analytics Cookies"
+msgstr ""
+
+#: .\core\templates\includes\cookie_banner.html:63
+msgid ""
+"These cookies allow us to count visits and traffic sources so we can measure "
+"and improve the performance of our site. They help us know which pages are "
+"the most and least popular."
+msgstr ""
+
+#: .\core\templates\includes\cookie_banner.html:74
+msgid "Marketing Cookies"
+msgstr ""
+
+#: .\core\templates\includes\cookie_banner.html:78
+msgid ""
+"These cookies may be set through our site by our advertising partners. They "
+"may be used to build a profile of your interests and show you relevant "
+"adverts on other sites."
+msgstr ""
+
+#: .\core\templates\includes\cookie_banner.html:83
+#: .\crush_delegation\templates\account\logout_delegation.html:24
+#: .\crush_lu\templates\account\logout_crush.html:23
+#: .\entreprinder\templates\account\logout.html:20
+#: .\entreprinder\templates\account\logout_powerup.html:24
+msgid "Cancel"
+msgstr ""
+
+#: .\core\templates\includes\cookie_banner.html:84
+msgid "Save Preferences"
+msgstr ""
+
+#: .\crush_delegation\templates\account\logout_delegation.html:4
+#: .\crush_delegation\templates\account\logout_delegation.html:13
+#: .\crush_delegation\templates\account\logout_delegation.html:23
+#: .\crush_lu\templates\account\logout_crush.html:4
+#: .\crush_lu\templates\account\logout_crush.html:12
+#: .\crush_lu\templates\account\logout_crush.html:22
+#: .\entreprinder\templates\account\logout.html:4
+#: .\entreprinder\templates\account\logout.html:10
+#: .\entreprinder\templates\account\logout.html:19
+#: .\entreprinder\templates\account\logout_powerup.html:4
+#: .\entreprinder\templates\account\logout_powerup.html:13
+#: .\entreprinder\templates\account\logout_powerup.html:23
+#, fuzzy
+#| msgid "Signup"
+msgid "Sign Out"
+msgstr "Registrieren"
+
+#: .\crush_delegation\templates\account\logout_delegation.html:14
+#: .\crush_lu\templates\account\logout_crush.html:13
+#: .\entreprinder\templates\account\logout.html:12
+#: .\entreprinder\templates\account\logout_powerup.html:14
+msgid "Are you sure you want to sign out?"
+msgstr ""
+
+#: .\crush_delegation\templates\admin\base_site.html:4
+#: .\crush_delegation\templates\admin\base_site.html:29
+msgid "Crush Delegation Management"
+msgstr ""
+
+#: .\crush_lu\forms.py:21
+msgid "First Name"
+msgstr ""
+
+#: .\crush_lu\forms.py:29
+msgid "Last Name"
+msgstr ""
+
+#: .\crush_lu\forms.py:48
+msgid ""
+"An account with this email already exists. Please login or use a different "
+"email address."
+msgstr ""
+
+#: .\crush_lu\forms.py:87
+msgid "Required for coach screening and event coordination"
+msgstr ""
+
+#: .\crush_lu\forms.py:101
+msgid "Must be 18+ to join"
+msgstr ""
+
+#: .\crush_lu\forms.py:110
+msgid ""
+"Tell us about yourself... What do you love? What makes you smile? (Optional)"
+msgstr ""
+
+#: .\crush_lu\forms.py:113
+msgid "Share what makes you unique! (Optional, max 500 characters)"
+msgstr ""
+
+#: .\crush_lu\forms.py:121
+msgid "Or select categories below..."
+msgstr ""
+
+#: .\crush_lu\forms.py:124
+msgid "Select interest categories below or write your own (Optional)"
+msgstr ""
+
+#: .\crush_lu\forms.py:132 .\crush_lu\forms.py:170
+msgid "Required"
+msgstr ""
+
+#: .\crush_lu\forms.py:138
+msgid "Select your region..."
+msgstr ""
+
+#: .\crush_lu\forms.py:140
+msgid "Capellen"
+msgstr ""
+
+#: .\crush_lu\forms.py:141
+msgid "Clervaux"
+msgstr ""
+
+#: .\crush_lu\forms.py:142
+msgid "Diekirch"
+msgstr ""
+
+#: .\crush_lu\forms.py:143
+msgid "Echternach"
+msgstr ""
+
+#: .\crush_lu\forms.py:144
+msgid "Esch-sur-Alzette"
+msgstr ""
+
+#: .\crush_lu\forms.py:145
+msgid "Grevenmacher"
+msgstr ""
+
+#: .\crush_lu\forms.py:146
+msgid "Luxembourg"
+msgstr ""
+
+#: .\crush_lu\forms.py:147
+msgid "Mersch"
+msgstr ""
+
+#: .\crush_lu\forms.py:148
+msgid "Redange"
+msgstr ""
+
+#: .\crush_lu\forms.py:149
+msgid "Remich"
+msgstr ""
+
+#: .\crush_lu\forms.py:150
+msgid "Vianden"
+msgstr ""
+
+#: .\crush_lu\forms.py:151
+msgid "Wiltz"
+msgstr ""
+
+#: .\crush_lu\forms.py:153
+#: .\crush_lu\templates\crush_lu\partials\canton_map_svg.html:57
+msgid "Belgium (Arlon area)"
+msgstr ""
+
+#: .\crush_lu\forms.py:154
+#: .\crush_lu\templates\crush_lu\partials\canton_map_svg.html:66
+msgid "Germany (Trier/Saarland area)"
+msgstr ""
+
+#: .\crush_lu\forms.py:155
+#: .\crush_lu\templates\crush_lu\partials\canton_map_svg.html:75
+msgid "France (Thionville/Metz area)"
+msgstr ""
+
+#: .\crush_lu\forms.py:162
+msgid "Your region in or near Luxembourg"
+msgstr ""
+
+#: .\crush_lu\forms.py:200
+msgid "Date of birth cannot be in the future"
+msgstr ""
+
+#: .\crush_lu\forms.py:206
+msgid "You must be at least 18 years old to join Crush.lu"
+msgstr ""
+
+#: .\crush_lu\forms.py:208
+msgid "Please enter a valid date of birth"
+msgstr ""
+
+#: .\crush_lu\forms.py:225
+msgid ""
+"Please enter your phone number in international format (e.g., +352 XX XX XX "
+"XX)"
+msgstr ""
+
+#: .\crush_lu\forms.py:235
+msgid ""
+"Please enter a phone number from Luxembourg (+352), France (+33), Belgium "
+"(+32), or Germany (+49)"
+msgstr ""
+
+#: .\crush_lu\forms.py:244
+msgid "Phone number is too short. Please include the full number."
+msgstr ""
+
+#: .\crush_lu\forms.py:248
+msgid "Phone number is too long. Please check the format."
+msgstr ""
+
+#: .\crush_lu\forms.py:254
+msgid "Phone number can only contain digits after the country code."
+msgstr ""
+
+#: .\crush_lu\forms.py:269
+msgid ""
+"You must verify your phone number before submitting your profile. Click the "
+"'Verify' button next to your phone number."
+msgstr ""
+
+#: .\crush_lu\forms.py:389
+msgid "Internal notes..."
+msgstr ""
+
+#: .\crush_lu\forms.py:390
+msgid "Feedback for the user..."
+msgstr ""
+
+#: .\crush_lu\forms.py:402
+msgid "Session notes..."
+msgstr ""
+
+#: .\crush_lu\forms.py:413
+msgid "e.g., vegetarian, gluten-free"
+msgstr ""
+
+#: .\crush_lu\forms.py:414
+msgid "Any special requests or questions?"
+msgstr ""
+
+#: .\crush_lu\forms.py:426
+msgid "Share your coaching philosophy and approach..."
+msgstr ""
+
+#: .\crush_lu\forms.py:429
+msgid ""
+"Tell users about your coaching style and experience (max 500 characters)"
+msgstr ""
+
+#: .\crush_lu\forms.py:436
+msgid "e.g., Young professionals, Students, 35+, LGBTQ+"
+msgstr ""
+
+#: .\crush_lu\forms.py:439
+msgid "What groups or demographics do you specialize in coaching?"
+msgstr ""
+
+#: .\crush_lu\forms.py:448
+msgid "Upload a professional photo that users will see"
+msgstr ""
+
+#: .\crush_lu\forms.py:464
+msgid "New Password"
+msgstr ""
+
+#: .\crush_lu\forms.py:467
+msgid "Enter new password"
+msgstr ""
+
+#: .\crush_lu\forms.py:470
+msgid "Your password must be at least 8 characters."
+msgstr ""
+
+#: .\crush_lu\forms.py:473
+#, fuzzy
+#| msgid "Confirm"
+msgid "Confirm Password"
+msgstr "Bestätigen"
+
+#: .\crush_lu\forms.py:476
+msgid "Confirm new password"
+msgstr ""
+
+#: .\crush_lu\forms.py:501
+msgid "Passwords do not match."
+msgstr ""
+
+#: .\crush_lu\templates\admin\base_site.html:4
+#: .\crush_lu\templates\admin\base_site.html:29
+msgid "Crush.lu Coach Panel"
+msgstr ""
+
+#: .\crush_lu\templates\admin\index.html:49
+msgid "Site administration"
+msgstr ""
+
+#: .\crush_lu\templates\admin\index.html:72
+#, python-format
+msgid "Models in the %(name)s application"
+msgstr ""
+
+#: .\crush_lu\templates\admin\index.html:83
+msgid "Add"
+msgstr ""
+
+#: .\crush_lu\templates\admin\index.html:90
+msgid "View"
+msgstr ""
+
+#: .\crush_lu\templates\admin\index.html:92
+msgid "Change"
+msgstr ""
+
+#: .\crush_lu\templates\admin\index.html:103
+msgid "You don\\"
+msgstr ""
+
+#: .\crush_lu\templates\admin\index.html:111
+msgid "Recent actions"
+msgstr ""
+
+#: .\crush_lu\templates\admin\index.html:112
+msgid "My actions"
+msgstr ""
+
+#: .\crush_lu\templates\admin\index.html:115
+msgid "None available"
+msgstr ""
+
+#: .\crush_lu\templates\admin\index.html:129
+msgid "Unknown content"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:5
+msgid "Dashboard - Crush.lu"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:12
+#, python-format
+msgid "Welcome back, %(name)s! 👋"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:14
+msgid "Settings"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:23
+msgid "Phone verification required!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:23
+msgid "Please verify your phone number to access all features."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:26
+msgid "Verify Now"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:35
+msgid "Profile Status"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:38
+msgid "✅ Your profile is approved and active!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:43
+#, python-format
+msgid "⏳ Your profile is currently under review by %(coach)s"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:47
+msgid "📝 Your coach has requested some revisions"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:48
+#: .\crush_lu\templates\crush_lu\dashboard.html:53
+msgid "Feedback:"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:52
+msgid "❌ Your profile was not approved"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:60
+msgid "Edit Profile"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:71
+msgid "🔔 Push Notifications"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:72
+msgid "Get notified about events, messages, and connections"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:77
+msgid "Checking notification status..."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:82
+msgid "Enable Notifications"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:86
+msgid "Disable"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:90
+msgid "Send Test"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:96
+msgid "Push notifications not available"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:98
+msgid "To receive push notifications, try opening Crush.lu in:"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:99
+msgid "• Chrome or Edge on Android"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:100
+msgid "• Chrome, Firefox, or Edge on Desktop"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:101
+msgid "• Safari on iOS 16.4+ or macOS 16.4+"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:108
+msgid "📲 Install Crush.lu App"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:109
+msgid ""
+"Install our app to get push notifications about events, messages, and "
+"connections!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:113
+msgid "Install App"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:119
+msgid "App installed!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:121
+msgid "Refresh this page to enable push notifications."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:129
+msgid "How to install"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:146
+msgid "Your Activity"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:150
+msgid "Events"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:154
+msgid "Age"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:159
+#, fuzzy
+#| msgid "Connect"
+msgid "Connections"
+msgstr "Verbinden"
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:170
+msgid "Your Events"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:186
+#, fuzzy
+#| msgid "Confirm"
+msgid "Confirmed"
+msgstr "Bestätigen"
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:188
+msgid "Waitlist"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:190
+msgid "Cancelled"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:192
+msgid "Attended"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:198
+msgid "View Event"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:202
+#: .\crush_lu\templates\crush_lu\home.html:162
+#, fuzzy
+#| msgid "Connect"
+msgid "Make Connections"
+msgstr "Verbinden"
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:206
+msgid "Cancel Registration"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:214
+msgid "You haven't registered for any events yet."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:216
+msgid "Browse Events"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:226
+msgid "Ready to Meet New People?"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:227
+msgid "Check out our upcoming events and start making connections!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:229
+msgid "View Upcoming Events"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:5
+msgid ""
+"Crush.lu - Meet New People in Luxembourg | Dating Events & Singles Meetups"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:7
+#: .\crush_lu\templates\crush_lu\home.html:10
+msgid "Crush.lu - Meet New People in Luxembourg"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:8
+msgid ""
+"Privacy-first dating platform for Luxembourg. Join coach-curated events, "
+"meet real singles, and build authentic connections. No endless swiping - "
+"just meaningful meetups."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:11
+msgid ""
+"Privacy-first dating platform for Luxembourg. Join coach-curated events, "
+"meet real singles, and build authentic connections."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:13
+msgid ""
+"Crush.lu is Luxembourg's privacy-first dating platform. Meet singles at "
+"curated speed dating events, social mixers, and themed meetups. Coach-"
+"reviewed profiles ensure authentic connections."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:14
+msgid ""
+"crush.lu, dating luxembourg, speed dating luxembourg, singles events "
+"luxembourg, meetup luxembourg, dating events, luxembourg singles, coach "
+"dating, privacy dating"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:81
+msgid "Meet New People."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:82
+msgid "Make Real Connections."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:85
+msgid ""
+"Crush.lu brings Luxembourg's singles together through real events and "
+"meaningful connections. No endless swiping. Just authentic meetups."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:89
+#, fuzzy
+#| msgid "Get Started"
+msgid "Get Started Free"
+msgstr "Loslegen"
+
+#: .\crush_lu\templates\crush_lu\home.html:92
+#: .\crush_lu\templates\crush_lu\home.html:134
+msgid "How It Works"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:105
+msgid "Why Choose Crush.lu"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:109
+msgid "Privacy First"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:111
+msgid ""
+"Your profile is reviewed by our Crush Coaches before going live. Small "
+"community, big respect for privacy."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:116
+msgid "Real Events"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:118
+msgid ""
+"Speed dating nights, social mixers, and themed meetups. Meet people in "
+"person, the way it should be."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:123
+msgid "Guided Support"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:125
+msgid ""
+"Work with your personal Crush Coach to build confidence and make genuine "
+"connections."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:141
+msgid "Create Your Profile"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:142
+msgid ""
+"Sign up and tell us about yourself. Share your interests and what you're "
+"looking for."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:148
+msgid "Get Coach Approval"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:149
+msgid ""
+"A Crush Coach reviews your profile and provides feedback within 24-48 hours."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:155
+msgid "Join Events"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:156
+msgid ""
+"Browse and register for upcoming speed dating nights and social meetups."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:163
+msgid "Meet people in real life and build authentic relationships."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:170
+msgid "Learn More About Our Process"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:179
+msgid "Upcoming Events"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:199
+#, python-format
+msgid "%(spots)s spots left"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:202
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:194
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:185
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:91
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:83
+msgid "View Details"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:211
+msgid "View All Events"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:220
+msgid "Ready to Meet Your Crush?"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:222
+msgid ""
+"Join Luxembourg's most authentic way to meet new people and build real "
+"relationships."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:225
+msgid "Create Your Profile Now"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html:228
+msgid "No credit card required • Free to join • Cancel anytime"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\partials\canton_map_svg.html:7
+msgid "Select your region on the map"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\partials\canton_map_svg.html:10
+msgid "Luxembourg Canton Selection Map"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\partials\canton_map_svg.html:11
+msgid ""
+"Interactive map showing Luxembourg cantons and border regions. Click or use "
+"arrow keys to select your location."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\partials\canton_map_svg.html:53
+msgid "Border regions"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\partials\canton_map_svg.html:83
+msgid "Luxembourg cantons"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\partials\language_switcher.html:26
+msgid "Language"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\partials\language_switcher.html:38
+#, fuzzy
+#| msgid "Grow"
+msgid "Go"
+msgstr "Wachsen"
+
+#: .\crush_lu\templates\socialaccount\authentication_error.html:12
+msgid "Third-Party Login Error"
+msgstr ""
+
+#: .\crush_lu\templates\socialaccount\authentication_error.html:14
+msgid ""
+"An error occurred while attempting to login via your third-party account."
+msgstr ""
+
+#: .\crush_lu\templates\socialaccount\authentication_error.html:19
+msgid "Error details:"
+msgstr ""
+
+#: .\crush_lu\templates\socialaccount\authentication_error.html:26
+msgid "This can happen if:"
+msgstr ""
+
+#: .\crush_lu\templates\socialaccount\authentication_error.html:29
+msgid "You cancelled the login on the provider's site"
+msgstr ""
+
+#: .\crush_lu\templates\socialaccount\authentication_error.html:30
+msgid "Your email is already registered with a different login method"
+msgstr ""
+
+#: .\crush_lu\templates\socialaccount\authentication_error.html:31
+msgid "There was a temporary connection issue"
+msgstr ""
+
+#: .\crush_lu\templates\socialaccount\authentication_error.html:37
+msgid "Back to Login"
+msgstr ""
+
+#: .\crush_lu\templates\socialaccount\authentication_error.html:40
+msgid "Create New Account"
+msgstr ""
+
+#: .\crush_lu\templates\socialaccount\signup_crush.html:20
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:23
+msgid "Errors:"
+msgstr ""
+
+#: .\crush_lu\templates\socialaccount\signup_crush.html:35
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:38
+msgid "Email"
+msgstr ""
+
+#: .\crush_lu\views.py:460
+msgid "Email preferences updated successfully!"
+msgstr ""
+
+#: .\crush_lu\views.py:477
+msgid "Invalid unsubscribe link. Please check your email or contact support."
+msgstr ""
+
+#: .\crush_lu\views.py:490
+msgid "You have been unsubscribed from all Crush.lu emails."
+msgstr ""
+
+#: .\crush_lu\views.py:496
+msgid "You have been unsubscribed from marketing emails."
+msgstr ""
+
+#: .\crush_lu\views.py:506
+msgid "You have been re-subscribed to Crush.lu emails."
+msgstr ""
+
+#: .\crush_lu\views.py:629
+msgid "Please type \"DELETE MY ACCOUNT\" to confirm."
+msgstr ""
+
+#: .\crush_lu\views.py:635
+msgid "Incorrect password. Please try again."
+msgstr ""
+
+#: .\crush_lu\views.py:651
+msgid "Your account has been successfully deleted."
+msgstr ""
+
+#: .\crush_lu\views.py:658
+msgid "An error occurred while deleting your account. Please contact support."
+msgstr ""
+
+#: .\crush_lu\views.py:842 .\crush_lu\views.py:1038
+msgid "Profile submitted for review!"
+msgstr ""
+
+#: .\crush_lu\views.py:918 .\crush_lu\views.py:974
+msgid "You need to create a profile first."
+msgstr ""
+
+#: .\crush_lu\views.py:923
+msgid "Your profile must be approved before editing."
+msgstr ""
+
+#: .\crush_lu\views.py:940
+msgid "Profile updated successfully!"
+msgstr ""
+
+#: .\crush_lu\views.py:1306
+msgid "You are already registered for this event."
+msgstr ""
+
+#: .\crush_lu\views.py:1311
+msgid "Registration is not available for this event."
+msgstr ""
+
+#: .\crush_lu\views.py:1324
+msgid "Event is full. You have been added to the waitlist."
+msgstr ""
+
+#: .\crush_lu\views.py:1327
+msgid "Successfully registered for the event!"
+msgstr ""
+
+#: .\crush_lu\views.py:1377
+msgid "Your registration has been cancelled."
+msgstr ""
+
+#: .\entreprinder\finops\views.py:104
+msgid "FinOps Hub - Cost Dashboard"
+msgstr ""
+
+#: .\entreprinder\finops\views.py:159
+msgid "FinOps Hub - Subscriptions"
+msgstr ""
+
+#: .\entreprinder\finops\views.py:218
+msgid "FinOps Hub - Services"
+msgstr ""
+
+#: .\entreprinder\finops\views.py:289
+msgid "FinOps Hub - Resources"
+msgstr ""
+
+#: .\entreprinder\finops\views.py:315
+msgid "FinOps Hub - Import Data"
+msgstr ""
+
+#: .\entreprinder\finops\views.py:340
+msgid "Update Subscription ID"
+msgstr ""
+
+#: .\entreprinder\finops\views.py:359
+msgid "FinOps Hub - FAQ & Data Flow"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:4
+#: .\entreprinder\templates\account\email.html:22
+#, fuzzy
+#| msgid "Confirm E-mail Address"
+msgid "Manage E-mail Addresses"
+msgstr "E-Mail-Adresse bestätigen"
+
+#: .\entreprinder\templates\account\email.html:26
+msgid "The following e-mail addresses are associated with your account:"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:43
+msgid "Verified"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:45
+msgid "Unverified"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:48
+msgid "Primary"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:57
+msgid "Make Primary"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:58
+msgid "Re-send Verification"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:59
+msgid "Remove"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:76
+#, fuzzy
+#| msgid "Confirm E-mail Address"
+msgid "Add E-mail Address"
+msgstr "E-Mail-Adresse bestätigen"
+
+#: .\entreprinder\templates\account\email.html:83
+msgid "Add E-mail"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:97
+msgid "Do you really want to remove the selected email address?"
+msgstr ""
+
+#: .\entreprinder\templates\account\email_confirm.html:5
+#: .\entreprinder\templates\account\email_confirm.html:10
 msgid "Confirm E-mail Address"
 msgstr "E-Mail-Adresse bestätigen"
 
-#: templates/account/email_confirm.html:16
+#: .\entreprinder\templates\account\email_confirm.html:16
 #, python-format
 msgid ""
 "Please confirm that <a href=\"mailto:%(email)s\">%(email)s</a> is an e-mail "
 "address for user %(user_display)s."
 msgstr ""
-"Bitte bestätigen Sie, dass <a href=\"mailto:%(email)s\">%(email)s</a> eine E-Mail-"
-"Adresse für den Benutzer %(user_display)s ist."
+"Bitte bestätigen Sie, dass <a href=\"mailto:%(email)s\">%(email)s</a> eine E-"
+"Mail-Adresse für den Benutzer %(user_display)s ist."
 
-#: templates/account/email_confirm.html:20
+#: .\entreprinder\templates\account\email_confirm.html:20
 msgid "Confirm"
 msgstr "Bestätigen"
 
-#: templates/account/email_confirm.html:27
+#: .\entreprinder\templates\account\email_confirm.html:27
 #, python-format
 msgid ""
 "This e-mail confirmation link expired or is invalid. Please <a href="
@@ -57,73 +1044,121 @@ msgstr ""
 "Dieser E-Mail-Bestätigungslink ist abgelaufen oder ungültig. Bitte <a href="
 "\"%(email_url)s\">fordern Sie eine neue E-Mail-Bestätigung an</a>."
 
-#: templates/account/login.html:5 templates/account/login.html:10
-#: templates/account/login.html:38
+#: .\entreprinder\templates\account\login.html:6
+#: .\entreprinder\templates\account\login.html:34
+#: .\entreprinder\templates\account\login_powerup.html:6
+#: .\entreprinder\templates\account\login_powerup.html:34
 msgid "Sign In"
 msgstr "Anmelden"
 
-#: templates/account/login.html:15
-#, python-format
-msgid ""
-"Please sign in with one\n"
-"    of your existing third party accounts. Or, <a href=\"%(signup_url)s"
-"\">sign up</a>\n"
-"    for a %(site_name)s account and sign in below:"
+#: .\entreprinder\templates\account\login.html:36
+#: .\entreprinder\templates\account\login_powerup.html:36
+#: .\entreprinder\templates\base.html:127
+msgid "Sign in with LinkedIn"
 msgstr ""
-"Bitte melden Sie sich mit einem\n"
-"    Ihrer bestehenden Drittanbieter-Konten an. Oder <a href=\"%(signup_url)s"
-"\">registrieren</a> Sie sich\n"
-"    für ein %(site_name)s-Konto und melden Sie sich unten an:"
 
-#: templates/account/login.html:28
-#, python-format
-msgid ""
-"If you have not created an account yet, then please\n"
-"    <a href=\"%(signup_url)s\">sign up</a> first."
+#: .\entreprinder\templates\account\password_reset.html:3
+#: .\entreprinder\templates\account\password_reset.html:9
+msgid "Password Reset"
 msgstr ""
-"Wenn Sie noch kein Konto erstellt haben, \n"
-"    <a href=\"%(signup_url)s\">registrieren</a> Sie sich bitte zuerst."
 
-#: templates/account/signup.html:4
-msgid "Signup"
-msgstr "Registrieren"
+#: .\entreprinder\templates\account\password_reset.html:14
+msgid ""
+"Forgotten your password? Enter your e-mail address below, and we'll send you "
+"an e-mail allowing you to reset it."
+msgstr ""
 
-#: templates/account/signup.html:9 templates/account/signup.html:19
+#: .\entreprinder\templates\account\password_reset.html:19
+msgid "Reset My Password"
+msgstr ""
+
+#: .\entreprinder\templates\account\password_reset.html:22
+msgid "Please contact us if you have any trouble resetting your password."
+msgstr ""
+
+#: .\entreprinder\templates\account\signup.html:3
+#: .\entreprinder\templates\account\signup.html:9
+#: .\entreprinder\templates\account\signup.html:45
 msgid "Sign Up"
 msgstr "Registrieren"
 
-#: templates/account/signup.html:11
-#, python-format
-msgid ""
-"Already have an account? Then please <a href=\"%(login_url)s\">sign in</a>."
+#: .\entreprinder\templates\account\signup.html:22
+msgid "E-mail"
 msgstr ""
-"Sie haben bereits ein Konto? Dann <a href=\"%(login_url)s\">melden Sie sich bitte an</a>."
 
-#: templates/entreprinder/base.html:28
+#: .\entreprinder\templates\account\signup.html:27
+msgid "Password"
+msgstr ""
+
+#: .\entreprinder\templates\account\signup.html:32
+msgid "Password (again)"
+msgstr ""
+
+#: .\entreprinder\templates\account\signup.html:37
+msgid "Company"
+msgstr ""
+
+#: .\entreprinder\templates\account\signup.html:48
+msgid ""
+"By signing up, you agree to our <a href=\"#\">Terms of Service</a> and <a "
+"href=\"#\">Privacy Policy</a>."
+msgstr ""
+
+#: .\entreprinder\templates\admin\base_site.html:4
+#: .\entreprinder\templates\admin\base_site.html:29
+msgid "PowerUP Administration"
+msgstr ""
+
+#: .\entreprinder\templates\base.html:61
+#: .\vinsdelux\templates\vinsdelux\base.html:68
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:12
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:12
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:12
 msgid "Home"
 msgstr "Startseite"
 
-#: templates/entreprinder/base.html:31
-msgid "About"
-msgstr "Über uns"
+#: .\entreprinder\templates\base.html:66
+msgid "Vibe Coding"
+msgstr ""
 
-#: templates/entreprinder/base.html:34
+#: .\entreprinder\templates\base.html:71
 msgid "Contact"
 msgstr "Kontakt"
 
-#: templates/entreprinder/base.html:52
+#: .\entreprinder\templates\base.html:77
 msgid "Find Entrepreneurs"
 msgstr "Unternehmer finden"
 
-#: templates/landing_page.html:4
+#: .\entreprinder\templates\base.html:115
+msgid "Logout"
+msgstr ""
+
+#: .\entreprinder\templates\base.html:159
+#, python-format
+msgid "Your email address (%(email)s) is not verified."
+msgstr ""
+
+#: .\entreprinder\templates\base.html:160
+msgid "Please verify your email address to access all features."
+msgstr ""
+
+#: .\entreprinder\templates\base.html:161
+msgid "Need a new verification email?"
+msgstr ""
+
+#: .\entreprinder\templates\base.html:161
+msgid "Resend verification"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\landing_page.html:4
 msgid "Entreprinder - Connect Entrepreneurs in Luxembourg"
 msgstr "Entreprinder - Unternehmer in Luxemburg vernetzen"
 
-#: templates/landing_page.html:9
+#: .\entreprinder\templates\entreprinder\landing_page.html:9
 msgid "Welcome to Entreprinder"
 msgstr "Willkommen bei Entreprinder"
 
-#: templates/landing_page.html:10
+#: .\entreprinder\templates\entreprinder\landing_page.html:10
 msgid ""
 "The premier platform for entrepreneurs in Luxembourg to connect, "
 "collaborate, and grow their businesses together."
@@ -131,58 +1166,2484 @@ msgstr ""
 "Die führende Plattform für Unternehmer in Luxemburg, um sich zu vernetzen, "
 "zusammenzuarbeiten und ihre Unternehmen gemeinsam zu entwickeln."
 
-#: templates/landing_page.html:11
+#: .\entreprinder\templates\entreprinder\landing_page.html:11
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:122
 msgid "Join Now"
 msgstr "Jetzt beitreten"
 
-#: templates/landing_page.html:20
+#: .\entreprinder\templates\entreprinder\landing_page.html:22
 msgid "Connect"
 msgstr "Verbinden"
 
-#: templates/landing_page.html:21
+#: .\entreprinder\templates\entreprinder\landing_page.html:23
 msgid "Network with like-minded entrepreneurs in Luxembourg"
 msgstr "Vernetzen Sie sich mit gleichgesinnten Unternehmern in Luxemburg"
 
-#: templates/landing_page.html:29
+#: .\entreprinder\templates\entreprinder\landing_page.html:31
 msgid "Collaborate"
 msgstr "Zusammenarbeiten"
 
-#: templates/landing_page.html:30
+#: .\entreprinder\templates\entreprinder\landing_page.html:32
 msgid "Find partners for your next big project"
 msgstr "Finden Sie Partner für Ihr nächstes großes Projekt"
 
-#: templates/landing_page.html:38
+#: .\entreprinder\templates\entreprinder\landing_page.html:40
 msgid "Grow"
 msgstr "Wachsen"
 
-#: templates/landing_page.html:39
+#: .\entreprinder\templates\entreprinder\landing_page.html:41
 msgid "Access resources and support to scale your business"
-msgstr "Greifen Sie auf Ressourcen und Unterstützung zu, um Ihr Unternehmen zu skalieren"
+msgstr ""
+"Greifen Sie auf Ressourcen und Unterstützung zu, um Ihr Unternehmen zu "
+"skalieren"
 
-#: templates/landing_page.html:47
+#: .\entreprinder\templates\entreprinder\landing_page.html:51
 msgid "Why Choose Entreprinder?"
 msgstr "Warum Entreprinder wählen?"
 
-#: templates/landing_page.html:49
+#: .\entreprinder\templates\entreprinder\landing_page.html:55
 msgid "Exclusive focus on Luxembourg's entrepreneurial ecosystem"
 msgstr "Exklusiver Fokus auf das unternehmerische Ökosystem Luxemburgs"
 
-#: templates/landing_page.html:50
+#: .\entreprinder\templates\entreprinder\landing_page.html:56
 msgid "Easy-to-use platform for finding and connecting with potential partners"
-msgstr "Benutzerfreundliche Plattform zum Finden und Verbinden mit potenziellen Partnern"
+msgstr ""
+"Benutzerfreundliche Plattform zum Finden und Verbinden mit potenziellen "
+"Partnern"
 
-#: templates/landing_page.html:51
+#: .\entreprinder\templates\entreprinder\landing_page.html:57
 msgid "Access to local events, workshops, and networking opportunities"
-msgstr "Zugang zu lokalen Veranstaltungen, Workshops und Networking-Möglichkeiten"
+msgstr ""
+"Zugang zu lokalen Veranstaltungen, Workshops und Networking-Möglichkeiten"
 
-#: templates/landing_page.html:52
+#: .\entreprinder\templates\entreprinder\landing_page.html:58
 msgid "Resources tailored to Luxembourg's business environment"
-msgstr "Ressourcen, die auf das Geschäftsumfeld in Luxemburg zugeschnitten sind"
+msgstr ""
+"Ressourcen, die auf das Geschäftsumfeld in Luxemburg zugeschnitten sind"
 
-#: templates/landing_page.html:59
+#: .\entreprinder\templates\entreprinder\landing_page.html:67
 msgid "Ready to take your entrepreneurial journey to the next level?"
 msgstr "Bereit, Ihre unternehmerische Reise auf die nächste Stufe zu heben?"
 
-#: templates/landing_page.html:60
+#: .\entreprinder\templates\entreprinder\landing_page.html:68
 msgid "Get Started"
 msgstr "Loslegen"
+
+#: .\entreprinder\templates\matching\no_more_profiles.html:4
+#, fuzzy
+#| msgid "Welcome to Entreprinder"
+msgid "No More Profiles - Entreprinder"
+msgstr "Willkommen bei Entreprinder"
+
+#: .\entreprinder\templates\matching\no_more_profiles.html:10
+msgid "No More Profiles Available"
+msgstr ""
+
+#: .\entreprinder\templates\matching\no_more_profiles.html:11
+msgid ""
+"You've viewed all available profiles for now. Check back later for new "
+"entrepreneurs!"
+msgstr ""
+
+#: .\entreprinder\templates\matching\no_more_profiles.html:13
+msgid "Return Home"
+msgstr ""
+
+#: .\entreprinder\templates\matching\no_more_profiles.html:14
+msgid "View Your Matches"
+msgstr ""
+
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:5
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:13
+msgid "Complete Your Signup"
+msgstr ""
+
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:15
+#, python-format
+msgid ""
+"\n"
+"                        You're signing up using your %(provider)s account.\n"
+"                        Please confirm your information below.\n"
+"                        "
+msgstr ""
+
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:46
+#, python-format
+msgid ""
+"\n"
+"                                This email is from your %(provider)s account "
+"and cannot be changed.\n"
+"                                "
+msgstr ""
+
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:60
+msgid "Complete Signup"
+msgstr ""
+
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:66
+msgid "Already have an account?"
+msgstr ""
+
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:67
+msgid "Login here"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\index.html:70
+msgid ""
+"Welcome to the Vibe Coding projects page. Explore our interactive coding "
+"experiments!"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\index.html:75
+msgid ""
+"Join the collaborative pixel art canvas! Place pixels, create art, and "
+"compete with others in real-time."
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\index.html:76
+msgid "Play Now"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\index.html:81
+msgid "We're working on exciting new interactive experiences. Stay tuned!"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:32
+msgid "Collaborate or compete - Every pixel counts!"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:61
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:156
+msgid "Choose Color"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:82
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:177
+msgid "Custom:"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:91
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:186
+msgid "Canvas Info"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:93
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:188
+msgid "Size:"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:97
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:196
+msgid "Status:"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:99
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:198
+msgid "Active"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:99
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:198
+msgid "Inactive"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:104
+msgid "Pixel Limits"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:107
+msgid "Member"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:109
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:115
+msgid "Cooldown:"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:113
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:144
+msgid "Guest"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:119
+msgid "Want more pixels?"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:129
+msgid "Your Stats"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:132
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:143
+msgid "Player:"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:137
+msgid "Total:"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:146
+msgid "Login to track stats!"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:149
+msgid "Color:"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:153
+msgid "Next in:"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:157
+msgid "Remaining:"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:227
+msgid "Recent Activity"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:229
+msgid "Loading activity..."
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war_optimized.html:5
+msgid "Pixel War - Optimized"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war_optimized.html:63
+msgid "Pixel War - Optimized Version"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war_optimized.html:94
+#: .\entreprinder\templates\vibe_coding\pixel_war_pixi.html:45
+msgid "Color Palette"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war_optimized.html:107
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:204
+msgid "Controls"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war_optimized.html:117
+msgid "Stats"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war_pixi.html:6
+msgid "Pixel War - PixiJS"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war_pixi.html:30
+msgid "Pixel War - PixiJS Version"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:128
+msgid "TypeScript Edition - Enhanced Mobile Navigation!"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:192
+msgid "Version:"
+msgstr ""
+
+#: .\entreprinder\vibe\views.py:20
+msgid "Vibe Coding Projects"
+msgstr ""
+
+#: .\entreprinder\vibe\views.py:48
+msgid "Lux Pixel War"
+msgstr ""
+
+#: .\entreprinder\vibe\views.py:79
+msgid "Lux Pixel War - Optimized"
+msgstr ""
+
+#: .\entreprinder\vibe\views.py:110
+msgid "Lux Pixel War - PixiJS"
+msgstr ""
+
+#: .\entreprinder\vibe\views.py:141
+msgid "Lux Pixel War - TypeScript"
+msgstr ""
+
+#: .\entreprinder\vibe\views.py:172
+msgid "Lux Pixel War - React"
+msgstr ""
+
+#: .\entreprinder\vibe\views.py:203
+msgid "Pixel Wars React Demo"
+msgstr ""
+
+#: .\entreprinder\vibe\views.py:416
+msgid "Road Trip Discovery with Music - 90 Minutes to Connection"
+msgstr ""
+
+#: .\vinsdelux\models.py:394
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:32
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:122
+msgid "Available"
+msgstr ""
+
+#: .\vinsdelux\models.py:395
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:37
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:127
+msgid "Reserved"
+msgstr ""
+
+#: .\vinsdelux\models.py:396
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:132
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1314
+msgid "Unavailable"
+msgstr ""
+
+#: .\vinsdelux\models.py:397
+msgid "Adopted"
+msgstr ""
+
+#: .\vinsdelux\templates\admin\base_site.html:4
+#: .\vinsdelux\templates\admin\base_site.html:29
+msgid "VinsDelux Management"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\base.html:73
+msgid "Products"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\base.html:77
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:5
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:60
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:57
+msgid "Wine Coffrets"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\base.html:80
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:13
+msgid "Producers"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\base.html:86
+msgid "Your Journey"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\base.html:90 .\vinsdelux\views.py:325
+msgid "Plot Selection"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\base.html:93
+msgid "Personalize Your Wine"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\base.html:96
+msgid "Follow Production"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\base.html:99
+msgid "Receive & Taste"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\base.html:102
+msgid "Create Legacy"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\base.html:108
+msgid "Cart"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\base.html:113
+msgid "Account"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:5
+msgid "Vinsdelux - Wine Experience E-commerce"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:37
+msgid "Browse Wine Coffrets"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:38
+msgid "Meet Our Producers"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:44
+msgid "Discover Vinsdelux"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:45
+msgid ""
+"Explore our exquisite selection of wines and unique adoption opportunities."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\loading_states.html:20
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:385
+msgid "Preparing Your Vineyard Experience"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\loading_states.html:23
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:386
+msgid "Please wait while we process your selection..."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\loading_states.html:68
+msgid "Loading Vineyard Map"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\loading_states.html:69
+msgid "Preparing interactive plot selection..."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\loading_states.html:81
+msgid "Processing Your Selection"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\loading_states.html:82
+msgid "We're preparing your adoption plan details..."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:47
+msgid "Premier"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:65
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:206
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:182
+msgid "Size"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:71
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:179
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:210
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:187
+msgid "Elevation"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:77
+msgid "Slope"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:91
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:217
+msgid "Soil Type"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:98
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:192
+msgid "Exposure"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:109
+msgid "Wine Character"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:120
+msgid "Grape Varieties"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:137
+msgid "Special Features"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:154
+msgid "Starting from"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:157
+msgid "/year"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:164
+msgid "Quality Rating"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:186
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:205
+msgid "Select This Plot"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:199
+msgid "Currently Unavailable"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:206
+msgid "Join Waitlist"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:276
+msgid "Waitlist functionality coming soon!"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:15
+msgid "Your Wine Adoption Journey"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:18
+msgid "Follow these steps to complete your vineyard plot adoption"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:36
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:72
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:116
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:151
+msgid "Step"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:37
+msgid "Select Your Plot"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:39
+msgid "Choose your perfect vineyard plot from our premium locations"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:45
+msgid "Explore interactive map"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:49
+msgid "Select preferred plots"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:53
+msgid "Confirm selection"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:73
+msgid "Choose Your Plan"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:75
+msgid "Select from Bronze, Silver, or Gold adoption plans"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:83
+msgid "Bronze"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:89
+msgid "Silver"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:95
+msgid "Gold"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:117
+msgid "Personal Details"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:119
+msgid "Complete your profile and delivery preferences"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:125
+msgid "Personal information"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:129
+msgid "Delivery address"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:133
+msgid "Wine preferences"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:152
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:334
+#, fuzzy
+#| msgid "Confirm"
+msgid "Confirm Adoption"
+msgstr "Bestätigen"
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:154
+msgid "Review and finalize your vineyard adoption"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:164
+msgid "Welcome Package"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:165
+msgid "Arrives within 2 weeks"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:189
+msgid "Your Progress"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:191
+#, python-format
+msgid "Step %(step)s of 4 completed"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:20
+msgid "Confirm Your Vineyard Selection"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:23
+msgid "Review your chosen plots before proceeding"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:41
+msgid "Your Selection Summary"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:43
+msgid "You have selected the following premium vineyard plots for adoption"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:48
+msgid "plots"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:64
+msgid "Total Annual Cost"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:69
+msgid "Includes vineyard management & wine production"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:70
+msgid "Premium Service"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:84
+msgid "What happens next?"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:86
+msgid "Choose your preferred adoption plan (Bronze, Silver, or Gold)"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:87
+msgid "Complete your personal information and preferences"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:88
+msgid "Receive your personalized vineyard welcome package"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:89
+msgid "Begin your exclusive wine journey with regular updates"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:104
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:368
+msgid "Go Back"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:110
+msgid "Confirm Selection & Continue"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:162
+msgid "Terroir Characteristics"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:167
+msgid "Soil Composition"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:173
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:221
+msgid "Sun Exposure"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:185
+msgid "Plot Size"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:196
+msgid "Expected Wine Profile"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:205
+msgid "Adoption Investment"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:209
+msgid ""
+"Annual adoption fee includes full vineyard management, grape cultivation, "
+"wine production, and personalized bottles delivered to your door."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:223
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:243
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:601
+msgid "Add to Selection"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:590
+msgid "per year"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:4
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:5
+#: .\vinsdelux\views.py:353
+msgid "Select Your Vineyard Plot"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:57
+msgid "Vineyard plot selection interface"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:59
+msgid "Skip to vineyard selection"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:59
+msgid "Skip to main content"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:73
+msgid "Choose Your Wine Producer"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:76
+msgid ""
+"Begin your wine adoption journey by selecting a prestigious producer. Click "
+"on any marker on the map below to explore their vineyard plots and discover "
+"the perfect match for your wine preferences."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:83
+msgid "Explore Vineyards"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:85
+msgid "Navigate to the interactive vineyard map to select your plot"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:98
+msgid "Vineyard Plot Selection"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:99
+msgid ""
+"Interactive map and plot selection interface. Use the map to explore "
+"available vineyard plots and select your preferred options."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:110
+msgid "Interactive Plot Selection"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:113
+msgid ""
+"Click on any available plot to view detailed information including soil "
+"composition, sun exposure, and wine characteristics."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:118
+msgid "Plot Status Legend"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:121
+msgid "Gold circle indicating available plots"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:126
+msgid "Red circle indicating reserved plots"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:131
+msgid "Silver circle indicating unavailable plots"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:140
+msgid "Interactive Vineyard Map"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:141
+msgid ""
+"Map showing available vineyard plots. Use mouse or keyboard to navigate and "
+"select plots. Plot details will appear in the sidebar."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:147
+msgid "Interactive vineyard map for plot selection"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:151
+msgid ""
+"Use arrow keys to navigate the map. Press Enter or Space to select a plot. "
+"Press Tab to move between plots."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:163
+msgid "Your Selection"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:167
+msgid "Number of selected plots"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:168
+msgid "plots selected"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:175
+msgid "Selected Plots"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:177
+msgid "List of selected plots"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:181
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:640
+msgid "Click on a plot to begin your selection"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:191
+msgid "Plot Details"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:193
+msgid "Plot coordinates"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:207
+msgid "Plot size"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:211
+msgid "Plot elevation"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:218
+msgid "Soil composition"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:222
+msgid "Sun exposure direction"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:228
+msgid "Wine Profile"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:229
+msgid "Expected wine characteristics"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:234
+msgid "Adoption Price"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:235
+msgid "Plot adoption price"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:245
+msgid "Add this plot to your selection for adoption"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:251
+msgid "Plot Selection Actions"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:256
+msgid "Proceed to Adoption"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:258
+msgid "Continue to the next step to complete your vineyard plot adoption"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:261
+msgid "Clear all selected plots"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:263
+msgid "Clear Selection"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:265
+msgid "Remove all plots from your selection and start over"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:278
+msgid "Choose Your Adoption Plan"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:279
+msgid "Select the perfect wine adoption plan for your journey"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:286
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1261
+msgid "Loading adoption plans..."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:297
+msgid "Adoption Process Progress"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:302
+msgid "Step 1 of 3: Plot Selection"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:306
+msgid "Current step: Plot Selection"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:309
+msgid "Step 1"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:310
+msgid "Select Plot"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:318
+msgid "Upcoming step: Choose Plan"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:321
+msgid "Step 2"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:322
+msgid "Choose Plan"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:330
+msgid "Future step: Confirm Adoption"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:333
+msgid "Step 3"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:350
+msgid "Confirm Your Selection"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:356
+msgid "You have selected the following plots for adoption:"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:363
+msgid ""
+"You'll be redirected to choose your adoption plan and complete the "
+"registration process."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:372
+msgid "Confirm & Continue"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:600
+msgid "Added to Selection"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:732
+msgid "Internet connection restored"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:736
+msgid "Internet connection lost. Some features may not be available"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:9
+msgid "VinsDelux Interactive Journey"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:52
+msgid "Your Wine Journey"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:62
+msgid "Plot"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:66
+msgid "Personalize"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:70
+msgid "Production"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:74
+msgid "Delivery"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:78
+msgid "Legacy"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:86
+msgid "Points"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:91
+msgid "Time"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:96
+msgid "Complete"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:105
+msgid "Save"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:126
+msgid "Select Your Perfect Plot"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:127
+msgid ""
+"Explore our exclusive vineyard plots and find the one that matches your "
+"vision"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:145
+msgid "Terroir Types"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:148
+msgid "Clay-Limestone"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:152
+msgid "Sandy"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:156
+msgid "Granite"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:164
+msgid "Plot Information"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:173
+msgid "360° View"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:197
+msgid "Soil"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:209
+msgid "Compare"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:219
+msgid "Featured Plots"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:224
+msgid "Best Seller"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:228
+msgid "Premium south-facing slopes with exceptional drainage"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:242
+msgid "Limited"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:246
+msgid "Historic vineyard with century-old vines"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:260
+msgid "Exclusive"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:264
+msgid "Unique microclimate with morning mists"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:284
+msgid "Craft Your Signature Wine"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:285
+msgid "Work with our master winemakers to create your unique blend"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:293
+msgid "Select Grape Varieties"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:296
+msgid "Available Varieties"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:331
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:846
+msgid "Your Blend"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:335
+msgid "Drag grapes here to create your blend"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:350
+msgid "Winemaking Techniques"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:356
+msgid "Steel Tank"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:357
+msgid "Clean, fruit-forward profile"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:364
+msgid "Oak Barrel"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:365
+msgid "Complex, vanilla notes"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:372
+msgid "Concrete Egg"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:373
+msgid "Mineral, textured finish"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:379
+msgid "Aging Duration"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:383
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:384
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:385
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:95
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:142
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:110
+msgid "months"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:393
+msgid "Your Wine Preview"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:401
+msgid "Your Signature Wine"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:407
+msgid "Expected Profile"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:412
+msgid "Tasting Notes"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:431
+msgid ""
+"Welcome! I'm here to help you create your perfect wine. What style are you "
+"aiming for?"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:435
+msgid "Bold & Full-bodied"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:436
+msgid "Light & Elegant"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:437
+msgid "Balanced & Classic"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:449
+msgid "Follow Your Wine's Journey"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:450
+msgid "Track every stage from vine to bottle"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:456
+msgid "Production Timeline"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:460
+msgid "Play Journey"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:474
+msgid "Winter Pruning"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:475
+msgid "January - February"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:486
+msgid "Bud Break"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:487
+msgid "March - April"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:498
+msgid "Flowering"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:499
+msgid "May - June"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:510
+msgid "Veraison"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:511
+msgid "July - August"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:522
+msgid "Harvest"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:523
+msgid "September - October"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:534
+msgid "Fermentation"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:535
+msgid "October - November"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:546
+msgid "Aging"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:547
+msgid "12-24 months"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:558
+msgid "Bottling"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:559
+msgid "Final Stage"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:574
+msgid "Vineyard Weather"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:583
+msgid "Humidity"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:587
+msgid "Wind"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:594
+msgid "Latest Photos"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:604
+msgid "Winemaker's Notes"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:607
+msgid "2 days ago"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:608
+msgid "The vines are showing excellent growth this season..."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:611
+msgid "1 week ago"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:612
+msgid "We've completed the green harvest to ensure optimal ripening..."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:625
+msgid "Receive Your Masterpiece"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:626
+msgid "White-glove delivery and exclusive tasting experience"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:633
+msgid "Delivery Details"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:636
+msgid "Delivery Address"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:637
+msgid "Enter your address"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:640
+msgid "Preferred Date"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:644
+msgid "Delivery Options"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:650
+msgid "Standard Delivery"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:651
+msgid "5-7 business days"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:658
+msgid "Express Delivery"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:659
+msgid "2-3 business days"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:666
+msgid "Ceremony Delivery"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:667
+msgid "Personal sommelier presentation"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:676
+msgid "Your Package"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:688
+msgid "Package Includes"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:690
+msgid "6 bottles of your signature wine"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:691
+msgid "Certificate of authenticity"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:692
+msgid "Tasting guide & food pairings"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:693
+msgid "Crystal wine glasses (2)"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:694
+msgid "Cellar membership card"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:703
+msgid "Virtual Tasting Experience"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:715
+msgid "Tasting Steps"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:720
+msgid "Visual"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:721
+msgid "Observe the color and clarity"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:727
+msgid "Aroma"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:728
+msgid "Swirl and identify the bouquet"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:734
+msgid "Taste"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:735
+msgid "Savor the flavors and texture"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:741
+msgid "Finish"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:742
+msgid "Note the aftertaste and length"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:756
+msgid "Build Your Wine Legacy"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:757
+msgid "Create a lasting heritage for generations to come"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:767
+msgid "Family Heritage"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:768
+msgid "Pass down your wine tradition through generations"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:770
+msgid "Family crest on labels"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:771
+msgid "Annual family harvest event"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:772
+msgid "Heritage documentation"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:775
+msgid "Choose Family Heritage"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:783
+msgid "Investment Portfolio"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:784
+msgid "Build value with rare vintages and limited editions"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:786
+msgid "Market valuation tracking"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:787
+msgid "Auction house partnerships"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:788
+msgid "Storage in bonded warehouse"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:791
+msgid "Choose Investment"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:799
+msgid "Collector's Reserve"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:800
+msgid "Create an exclusive collection for special occasions"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:802
+msgid "Custom aging program"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:803
+msgid "Numbered bottles"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:804
+msgid "Private cellar allocation"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:807
+msgid "Choose Collector's"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:814
+msgid "Your Wine Journey Through Time"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:821
+msgid "First Vintage"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:825
+msgid "5 Year Member"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:829
+msgid "Legacy Founder"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:837
+msgid "Your Journey Summary"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:841
+msgid "Plot Selected"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:842
+msgid "Premium vineyard location"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:847
+msgid "Unique composition"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:851
+msgid "Production Time"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:852
+msgid "18 months estimated"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:856
+msgid "Experience Points"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:857
+msgid "earned"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:864
+msgid "Complete Your Journey"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:868
+msgid "Share Your Experience"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:879
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:33
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:33
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:108
+msgid "Previous"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:889
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:37
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:37
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:118
+msgid "Next"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:901
+msgid "Journey Guide"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:908
+msgid "Keyboard Shortcuts"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:910
+msgid "Next step"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:911
+msgid "Previous step"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:912
+msgid "Save progress"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:913
+msgid "Show help"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:914
+msgid "Toggle sound"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:917
+msgid "Tips"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:919
+msgid "Complete each step thoroughly to earn maximum points"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:920
+msgid "Your progress is automatically saved"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:921
+msgid "Explore all options to unlock achievements"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:937
+msgid "Loading your journey..."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1150
+msgid "Select Your Adoption Plan"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1151
+msgid ""
+"Choose from our exclusive collection of vineyard adoption plans. Each plan "
+"offers a unique terroir, producer story, and wine experience tailored to "
+"your preferences."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1185
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:20
+msgid "Search"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1187
+msgid "Search by name, producer, or region..."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1191
+msgid "Region"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1193
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1490
+msgid "All Regions"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1198
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:26
+msgid "Wine Type"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1200
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:28
+msgid "All Types"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1201
+msgid "Red Wine"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1202
+msgid "White Wine"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1203
+msgid "Rosé"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1204
+msgid "Sparkling Wine"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1209
+msgid "Price Range"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1211
+msgid "All Prices"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1225
+msgid "Vineyard Visit"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1231
+msgid "Personalized Medallion"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1237
+msgid "Club Membership"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1245
+msgid "Showing"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1245
+msgid "adoption plans"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1250
+msgid "Grid"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1253
+msgid "Map"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1290
+msgid "Interactive Map Coming Soon"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1291
+msgid ""
+"We're integrating advanced mapping features to help you explore vineyard "
+"locations in detail."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1297
+msgid "Legend"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1302
+msgid "Available Plot"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1308
+msgid "Selected Plot"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1328
+msgid "Adoption Plan Details"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1337
+msgid "Producer Information"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1340
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:64
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:54
+msgid "Producer:"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1344
+msgid "Region:"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1348
+msgid "Vineyard Size:"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1352
+msgid "Elevation:"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1356
+msgid "Soil Type:"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1364
+msgid "Wine Production"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1374
+msgid "Wine Coffret Selection"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1384
+msgid "Adoption Benefits"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1387
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:95
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:142
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:110
+msgid "Duration:"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1391
+msgid "Deliveries/Year:"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1395
+msgid "Price:"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1399
+msgid "Included Features:"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1408
+msgid "Confirm Selection"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1417
+msgid "No adoption plans found"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1418
+msgid "Try adjusting your filters or search criteria"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:5
+msgid "VinsDeLux Journey"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:492
+msgid "Étape"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:527
+msgid "Découvrez cette étape en détail"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:534
+msgid "Avantages Principaux de VinsDeLux"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:558
+msgid "Fonctionnalité"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:567
+msgid "Avantages de cette étape"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:652
+msgid "Première étape"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:655
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:670
+msgid "Personnaliser Votre Vin"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:661
+msgid "Sélection de Parcelle"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:664
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:679
+msgid "Suivi de Production"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:673
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:688
+msgid "Réception et Dégustation"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:682
+msgid "Créer Votre Héritage"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:691
+msgid "Commencer Votre Parcours"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:705
+msgid "Prêt à découvrir cette étape ?"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:706
+msgid ""
+"Explorez notre sélection de coffrets et plans d'adoption pour commencer "
+"votre aventure vinicole."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:708
+msgid "Voir nos coffrets"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:711
+msgid "Nos producteurs"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:56
+msgid "Based on:"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:83
+msgid "for the complete adoption plan"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:89
+msgid "Plan Details"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:99
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:143
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:111
+msgid "Coffrets per year:"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:104
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:145
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:113
+msgid "Vineyard visit included"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:113
+msgid "Personalized medallion included"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:119
+msgid "Club Cuvée Privée membership"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:125
+msgid "Avant-Première gift option available"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:135
+msgid "Choose This Plan"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:138
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:93
+msgid "Add to Wishlist"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:145
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:106
+msgid "SKU:"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:154
+msgid "Plan Overview"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:167
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:116
+msgid "Detailed Description"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:181
+msgid "Welcome Kit"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:194
+msgid "About the Base Coffret"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:207
+msgid "View Coffret Details"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:220
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:199
+msgid "Add to cart functionality coming soon!"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:225
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:204
+msgid "Wishlist functionality coming soon!"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:13
+msgid "Coffrets"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:73
+msgid "per coffret"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:79
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:86
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:78
+msgid "In Stock"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:79
+#: .\vinsdelux\templates\vinsdelux\products\producer_list.html:42
+msgid "available"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:81
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:88
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:80
+msgid "Out of Stock"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:89
+#: .\vinsdelux\templates\vinsdelux\sections\wine_plots.html:55
+msgid "Add to Cart"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:99
+msgid "Description"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:130
+msgid "Adoption Plans Available"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:131
+msgid "Transform your coffret into a wine adoption experience"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:148
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:116
+msgid "Personalized medallion"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:151
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:119
+msgid "Club membership"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:158
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:126
+msgid "Learn More"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:174
+msgid "More from"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:14
+msgid "Filters"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:21
+msgid "Search coffrets..."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:39
+msgid "Producer"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:41
+msgid "All Producers"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:50
+msgid "Apply Filters"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:51
+msgid "Clear Filters"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:61
+msgid "products found"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:101
+msgid "Coffrets pagination"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:105
+msgid "First"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:121
+msgid "Last"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:129
+msgid "No coffrets found"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:130
+msgid "Try adjusting your search criteria"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:48
+msgid "Visit Producer Website"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:96
+msgid "Adoption Plans"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:139
+msgid "No products available"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:140
+msgid "This producer doesn't have any products available at the moment"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:141
+msgid "Browse All Coffrets"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\producer_list.html:5
+msgid "Wine Producers"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\producer_list.html:10
+msgid "Our Wine Producers"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\producer_list.html:11
+msgid "Discover the passionate winemakers behind our exceptional coffrets"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\producer_list.html:42
+msgid "coffret"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\producer_list.html:48
+msgid "View Products"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\producer_list.html:52
+#: .\vinsdelux\templates\vinsdelux\sections\wine_plots.html:76
+msgid "Visit Website"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\producer_list.html:61
+msgid "No producers found"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\products\producer_list.html:62
+msgid "We're working on adding more producers to our platform"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:4
+msgid "Client Journey Experience"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:17
+msgid "Votre Parcours VinsDeLux"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:20
+msgid ""
+"Découvrez les étapes clés de votre aventure œnologique personnalisée avec "
+"VinsDeLux, de la sélection de votre parcelle à la création de votre héritage "
+"vinicole."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:34
+msgid "Journey Steps Navigation"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:35
+msgid "Previous Step"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:45
+msgid "Go to step"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:52
+#, fuzzy
+#| msgid "Get Started"
+msgid "Next Step"
+msgstr "Loslegen"
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:83
+msgid "Actif"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:84
+msgid "Premium"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:85
+msgid "Suivi"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:86
+msgid "Livraison"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:87
+msgid "Héritage"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:136
+msgid "HD"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:192
+msgid "Parcelles"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:193
+msgid "Jours"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:194
+msgid "Mois"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:195
+msgid "Années"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:207
+#, python-format
+msgid "%% Qualité"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:208
+msgid "h Support"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:209
+msgid "Rapports"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:210
+msgid "Ans Exp"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:218
+msgid "★ Note"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:219
+#, python-format
+msgid "%% Bio"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:220
+msgid "° Suivi"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:221
+msgid "Valeur"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:229
+msgid "Learn more about this step"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:231
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:310
+msgid "En savoir plus"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:243
+msgid "Partager"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:248
+msgid "Favoris"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:263
+msgid ""
+"Détails techniques et informations complémentaires sur cette étape de votre "
+"parcours vinicole."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:266
+msgid "Suivi personnalisé"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:267
+msgid "Experts dédiés"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:268
+msgid "Garantie qualité"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:269
+msgid "Support 24/7"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:274
+msgid "Durée"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:276
+msgid "Immédiat"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:277
+msgid "2-3 semaines"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:278
+msgid "6-12 mois"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:279
+msgid "Plusieurs années"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:285
+msgid "Return to main view"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:289
+msgid "Retour"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:301
+msgid "Prêt à commencer votre aventure ?"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:302
+msgid ""
+"Rejoignez des milliers de passionnés qui ont déjà créé leur héritage "
+"vinicole."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:306
+msgid "Commencer maintenant"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:318
+msgid "Clients satisfaits"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:322
+msgid "Satisfaction"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:326
+msgid "Années d'expérience"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:336
+msgid "Préparation de votre parcours..."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:344
+msgid "Navigation au clavier"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:346
+msgid "Étapes précédente/suivante"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:347
+msgid "Retourner la carte"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:348
+msgid "Activer le bouton"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:349
+msgid "Fermer l'aide"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:351
+msgid "Fermer l\\"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\wine_plots.html:7
+msgid "Our selection of plots to adopt"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\wine_plots.html:8
+msgid "See all"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\wine_plots.html:48
+msgid "Coffret"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\wine_plots.html:49
+msgid "One-time purchase"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\wine_plots.html:62
+msgid "Adoption"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\wine_plots.html:63
+#, python-format
+msgid "for %(duration)s months"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\wine_plots.html:69
+msgid "Discover Plan"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\wine_plots.html:74
+msgid "No coffrets available for this producer at the moment."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\sections\wine_plots.html:83
+msgid "No featured producers available at the moment. Please check back soon!"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\testing\test_runner.html:9
+msgid "VinsDeLux Journey Test Suite"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\testing\test_runner.html:127
+msgid "Comprehensive testing for the futuristic journey experience"
+msgstr ""
+
+#: .\vinsdelux\views.py:326
+msgid "Choose your vineyard plot"
+msgstr ""
+
+#: .\vinsdelux\views.py:332
+msgid "Adoption Plan"
+msgstr ""
+
+#: .\vinsdelux\views.py:333
+msgid "Select your plan"
+msgstr ""
+
+#: .\vinsdelux\views.py:339
+#, fuzzy
+#| msgid "Confirm"
+msgid "Confirmation"
+msgstr "Bestätigen"
+
+#: .\vinsdelux\views.py:340
+#, fuzzy
+#| msgid "Confirm"
+msgid "Confirm adoption"
+msgstr "Bestätigen"
+
+#: .\vinsdelux\views.py:354
+msgid ""
+"Choose from our exclusive collection of premium vineyard plots across "
+"renowned wine regions."
+msgstr ""
+
+#: .\vinsdelux\views.py:371
+msgid "No plots selected"
+msgstr ""
+
+#: .\vinsdelux\views.py:383
+msgid "Some selected plots are no longer available"
+msgstr ""
+
+#: .\vinsdelux\views.py:411
+msgid "Plots selected successfully"
+msgstr ""
+
+#: .\vinsdelux\views.py:419
+msgid "Invalid request format"
+msgstr ""
+
+#: .\vinsdelux\views.py:425
+msgid "An error occurred while processing your selection"
+msgstr ""
+
+#, python-format
+#~ msgid ""
+#~ "Please sign in with one\n"
+#~ "    of your existing third party accounts. Or, <a href=\"%(signup_url)s"
+#~ "\">sign up</a>\n"
+#~ "    for a %(site_name)s account and sign in below:"
+#~ msgstr ""
+#~ "Bitte melden Sie sich mit einem\n"
+#~ "    Ihrer bestehenden Drittanbieter-Konten an. Oder <a href="
+#~ "\"%(signup_url)s\">registrieren</a> Sie sich\n"
+#~ "    für ein %(site_name)s-Konto und melden Sie sich unten an:"
+
+#, python-format
+#~ msgid ""
+#~ "If you have not created an account yet, then please\n"
+#~ "    <a href=\"%(signup_url)s\">sign up</a> first."
+#~ msgstr ""
+#~ "Wenn Sie noch kein Konto erstellt haben, \n"
+#~ "    <a href=\"%(signup_url)s\">registrieren</a> Sie sich bitte zuerst."
+
+#, python-format
+#~ msgid ""
+#~ "Already have an account? Then please <a href=\"%(login_url)s\">sign in</"
+#~ "a>."
+#~ msgstr ""
+#~ "Sie haben bereits ein Konto? Dann <a href=\"%(login_url)s\">melden Sie "
+#~ "sich bitte an</a>."
+
+#~ msgid "About"
+#~ msgstr "Über uns"

@@ -1321,6 +1321,40 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // Language switcher dropdown component (desktop navbar)
+    // CSP-compatible component for changing site language
+    Alpine.data('languageSwitcher', function() {
+        return {
+            langOpen: false,
+
+            // Computed getters for CSP compatibility
+            get isOpen() { return this.langOpen; },
+            get isClosed() { return !this.langOpen; },
+            get ariaExpanded() { return this.langOpen ? 'true' : 'false'; },
+            get chevronClass() { return this.langOpen ? 'rotate-180' : ''; },
+
+            toggle: function() {
+                this.langOpen = !this.langOpen;
+            },
+            close: function() {
+                this.langOpen = false;
+            }
+        };
+    });
+
+    // Auto-submit language select on change (mobile version)
+    // Uses event delegation for CSP compliance
+    (function() {
+        document.addEventListener('change', function(event) {
+            if (event.target.classList.contains('lang-select-auto-submit')) {
+                var form = event.target.closest('form');
+                if (form) {
+                    form.submit();
+                }
+            }
+        });
+    })();
+
     // Phone verification modal component
     // Used in profile creation for SMS verification with Firebase
     // Reads phone input ID from data attribute: data-phone-input-id

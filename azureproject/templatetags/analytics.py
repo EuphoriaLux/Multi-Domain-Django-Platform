@@ -96,6 +96,10 @@ def analytics_head(context):
         analytics_granted = 'denied'
         marketing_granted = 'denied'
 
+    # Get current language for multi-language tracking
+    # This allows GA4 to track page views with language context
+    language_code = context.get('LANGUAGE_CODE', 'en')
+
     # Google Consent Mode v2 + GA4 gtag.js
     # CRITICAL: Default consent MUST be set BEFORE gtag.js loads
     script = f'''<!-- Google Consent Mode v2 + gtag.js -->
@@ -115,7 +119,11 @@ def analytics_head(context):
 <script async src="https://www.googletagmanager.com/gtag/js?id={ga4_id}"></script>
 <script{nonce_attr}>
   gtag('js', new Date());
-  gtag('config', '{ga4_id}');
+  gtag('config', '{ga4_id}', {{
+    // Custom dimension for language tracking (prevents traffic split across /en/, /de/, /fr/ URLs)
+    'custom_map': {{'dimension1': 'content_language'}},
+    'content_language': '{language_code}'
+  }});
 </script>'''
 
     return mark_safe(script)

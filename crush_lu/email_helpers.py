@@ -6,9 +6,41 @@ Handles profile submissions, coach notifications, event registrations, etc.
 import logging
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
+from django.urls import reverse
+from django.utils.translation import activate
 from azureproject.email_utils import send_domain_email, get_domain_from_email
 
 logger = logging.getLogger(__name__)
+
+
+def get_user_language_url(user, url_name, request, **kwargs):
+    """
+    Get a language-prefixed URL for a user's preferred language.
+
+    Args:
+        user: Django User object with crushprofile
+        url_name: The URL name to reverse (e.g., 'crush_lu:dashboard')
+        request: Django request object for building absolute URL
+        **kwargs: Additional arguments for reverse()
+
+    Returns:
+        str: Full URL with language prefix (e.g., 'https://crush.lu/de/events/')
+    """
+    # Get user's preferred language
+    lang = 'en'  # Default
+    if user and hasattr(user, 'crushprofile') and user.crushprofile:
+        profile_lang = getattr(user.crushprofile, 'preferred_language', None)
+        if profile_lang and profile_lang in ['en', 'de', 'fr']:
+            lang = profile_lang
+
+    # Activate language and generate URL path
+    activate(lang)
+    url_path = reverse(url_name, **kwargs)
+
+    # Build absolute URL
+    protocol = 'https' if request.is_secure() else 'http'
+    domain = request.get_host()
+    return f"{protocol}://{domain}{url_path}"
 
 
 def get_unsubscribe_url(user, request):
@@ -129,8 +161,14 @@ def send_profile_submission_confirmation(user, request):
 
     subject = "Profile Submitted for Review - Crush.lu"
 
+    # Build language-prefixed URLs
+    events_url = get_user_language_url(user, 'crush_lu:event_list', request)
+    how_it_works_url = get_user_language_url(user, 'crush_lu:how_it_works', request)
+
     context = get_email_context_with_unsubscribe(user, request,
         first_name=user.first_name,
+        events_url=events_url,
+        how_it_works_url=how_it_works_url,
     )
 
     html_message = render_to_string('crush_lu/emails/profile_submission_confirmation.html', context)
@@ -160,10 +198,17 @@ def send_coach_assignment_notification(coach, profile_submission, request):
     """
     subject = f"New Profile Review Assignment - {profile_submission.profile.user.get_full_name()}"
 
+    # Build language-prefixed URLs (coach's preferred language)
+    review_url = get_user_language_url(
+        coach.user, 'crush_lu:coach_review_profile', request,
+        kwargs={'submission_id': profile_submission.id}
+    )
+
     html_message = render_to_string('crush_lu/emails/coach_assignment.html', {
         'coach': coach,
         'submission': profile_submission,
         'profile': profile_submission.profile,
+        'review_url': review_url,
     })
     plain_message = strip_tags(html_message)
 
@@ -196,9 +241,13 @@ def send_profile_approved_notification(profile, request, coach_notes=None):
 
     subject = "Welcome to Crush.lu - Your Profile is Approved! 🎉"
 
+    # Build language-prefixed URLs
+    events_url = get_user_language_url(profile.user, 'crush_lu:event_list', request)
+
     context = get_email_context_with_unsubscribe(profile.user, request,
         first_name=profile.user.first_name,
         coach_notes=coach_notes,
+        events_url=events_url,
     )
 
     html_message = render_to_string('crush_lu/emails/profile_approved.html', context)
@@ -228,10 +277,14 @@ def send_profile_revision_request(profile, request, feedback):
     """
     subject = "Profile Review Feedback - Crush.lu"
 
+    # Build language-prefixed URLs
+    edit_profile_url = get_user_language_url(profile.user, 'crush_lu:edit_profile', request)
+
     html_message = render_to_string('crush_lu/emails/profile_revision_request.html', {
         'user': profile.user,
         'first_name': profile.user.first_name,
         'feedback': feedback,
+        'edit_profile_url': edit_profile_url,
     })
     plain_message = strip_tags(html_message)
 
@@ -294,9 +347,21 @@ def send_event_registration_confirmation(registration, request):
 
     subject = f"Event Registration Confirmed - {registration.event.title}"
 
+    # Build language-prefixed URLs
+    event_url = get_user_language_url(
+        registration.user, 'crush_lu:event_detail', request,
+        kwargs={'event_id': registration.event.id}
+    )
+    cancel_url = get_user_language_url(
+        registration.user, 'crush_lu:event_cancel', request,
+        kwargs={'event_id': registration.event.id}
+    )
+
     context = get_email_context_with_unsubscribe(registration.user, request,
         registration=registration,
         event=registration.event,
+        event_url=event_url,
+        cancel_url=cancel_url,
     )
 
     html_message = render_to_string('crush_lu/emails/event_registration_confirmation.html', context)
@@ -325,10 +390,14 @@ def send_event_waitlist_notification(registration, request):
     """
     subject = f"Added to Waitlist - {registration.event.title}"
 
+    # Build language-prefixed URLs
+    events_url = get_user_language_url(registration.user, 'crush_lu:event_list', request)
+
     html_message = render_to_string('crush_lu/emails/event_waitlist.html', {
         'user': registration.user,
         'registration': registration,
         'event': registration.event,
+        'events_url': events_url,
     })
     plain_message = strip_tags(html_message)
 
@@ -356,9 +425,13 @@ def send_event_cancellation_confirmation(user, event, request):
     """
     subject = f"Event Cancellation Confirmed - {event.title}"
 
+    # Build language-prefixed URLs
+    events_url = get_user_language_url(user, 'crush_lu:event_list', request)
+
     html_message = render_to_string('crush_lu/emails/event_cancellation.html', {
         'user': user,
         'event': event,
+        'events_url': events_url,
     })
     plain_message = strip_tags(html_message)
 
@@ -391,10 +464,22 @@ def send_event_reminder(registration, request, days_until_event):
 
     subject = f"Event Reminder - {registration.event.title} in {days_until_event} days"
 
+    # Build language-prefixed URLs
+    event_url = get_user_language_url(
+        registration.user, 'crush_lu:event_detail', request,
+        kwargs={'event_id': registration.event.id}
+    )
+    cancel_url = get_user_language_url(
+        registration.user, 'crush_lu:event_cancel', request,
+        kwargs={'event_id': registration.event.id}
+    )
+
     context = get_email_context_with_unsubscribe(registration.user, request,
         registration=registration,
         event=registration.event,
         days_until_event=days_until_event,
+        event_url=event_url,
+        cancel_url=cancel_url,
     )
 
     html_message = render_to_string('crush_lu/emails/event_reminder.html', context)
@@ -483,12 +568,10 @@ def send_new_connection_request_notification(recipient, connection, requester, r
     # Get event info
     event = connection.event
     event_title = event.title if event else "a Crush.lu event"
-    event_date = event.event_date.strftime('%B %d, %Y') if event and event.event_date else ""
+    event_date = event.date_time.strftime('%B %d, %Y') if event and event.date_time else ""
 
-    # Build connections URL
-    protocol = 'https' if request.is_secure() else 'http'
-    domain = request.get_host()
-    connections_url = f"{protocol}://{domain}/connections/"
+    # Build connections URL with language prefix
+    connections_url = get_user_language_url(recipient, 'crush_lu:my_connections', request)
 
     context = get_email_context_with_unsubscribe(recipient, request,
         first_name=recipient.first_name,
@@ -541,10 +624,11 @@ def send_connection_accepted_notification(recipient, connection, accepter, reque
     event = connection.event
     event_title = event.title if event else "a Crush.lu event"
 
-    # Build connection detail URL
-    protocol = 'https' if request.is_secure() else 'http'
-    domain = request.get_host()
-    connection_url = f"{protocol}://{domain}/connections/{connection.id}/"
+    # Build connection detail URL with language prefix
+    connection_url = get_user_language_url(
+        recipient, 'crush_lu:connection_detail', request,
+        kwargs={'connection_id': connection.id}
+    )
 
     context = get_email_context_with_unsubscribe(recipient, request,
         first_name=recipient.first_name,
@@ -597,10 +681,11 @@ def send_new_message_notification(recipient, message, request):
     if len(message.message) > 100:
         message_preview += "..."
 
-    # Build connection URL
-    protocol = 'https' if request.is_secure() else 'http'
-    domain = request.get_host()
-    connection_url = f"{protocol}://{domain}/connections/{message.connection.id}/"
+    # Build connection URL with language prefix
+    connection_url = get_user_language_url(
+        recipient, 'crush_lu:connection_detail', request,
+        kwargs={'connection_id': message.connection.id}
+    )
 
     context = get_email_context_with_unsubscribe(recipient, request,
         first_name=recipient.first_name,

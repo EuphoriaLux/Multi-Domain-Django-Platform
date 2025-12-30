@@ -4,8 +4,11 @@
  */
 
 class EventVotingManager {
-    constructor(eventId) {
+    constructor(eventId, resultsUrl = null) {
         this.eventId = eventId;
+        // Use provided resultsUrl or fallback to current path replacement
+        // This allows templates to pass language-prefixed URLs
+        this.resultsUrl = resultsUrl || window.location.pathname.replace('/voting/', '/voting/results/');
         this.statusCheckInterval = null;
         this.countdownInterval = null;
         this.init();
@@ -53,7 +56,7 @@ class EventVotingManager {
         } else if (phase === 'active') {
             this.startCountdown('time-remaining', status.time_remaining, () => {
                 // Voting has ended, redirect to results
-                window.location.href = `/events/${this.eventId}/voting/results/`;
+                window.location.href = this.resultsUrl;
             });
         }
 
@@ -176,7 +179,7 @@ class EventVotingManager {
                 this.showMessage(data.message, 'success');
                 // Redirect to results page after short delay
                 setTimeout(() => {
-                    window.location.href = `/events/${this.eventId}/voting/results/`;
+                    window.location.href = this.resultsUrl;
                 }, 1500);
             } else {
                 this.showMessage(data.error || 'Failed to submit vote', 'error');
@@ -290,6 +293,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const eventIdElement = document.getElementById('event-id-data');
     if (eventIdElement) {
         const eventId = eventIdElement.dataset.eventId;
-        window.votingManager = new EventVotingManager(eventId);
+        // Read results URL from data attribute (set by template with language prefix)
+        const resultsUrl = eventIdElement.dataset.resultsUrl || null;
+        window.votingManager = new EventVotingManager(eventId, resultsUrl);
     }
 });

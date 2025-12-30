@@ -168,7 +168,7 @@ The application uses domain-based routing via `DomainURLRoutingMiddleware` (`azu
 - `*.azurewebsites.net` → PowerUP (Azure hostname)
 - Default → PowerUP (`azureproject/urls_default.py`)
 
-All apps support i18n with language prefixes (`/en/`, `/de/`, `/fr/`).
+All apps support i18n with language prefixes (`/en/`, `/de/`, `/fr/`). See the **Internationalization (i18n) System** section below for detailed implementation.
 
 Key endpoints:
 - `/healthz/` - Health check (no i18n)
@@ -906,3 +906,87 @@ Comprehensive email notification system using Django templates.
 - HTMX for dynamic content loading without full page reloads
 - Alpine.js for interactive UI components
 - Custom CSS in `static/crush_lu/css/` for journey, admin, and event styling
+
+## Internationalization (i18n) System
+
+### Supported Languages
+- English (`en`) - Default
+- German (`de`)
+- French (`fr`)
+
+### URL Structure
+All Crush.lu pages use language-prefixed URLs with `i18n_patterns()`:
+- `https://crush.lu/en/events/` - English
+- `https://crush.lu/de/events/` - German
+- `https://crush.lu/fr/events/` - French
+
+**Language-neutral paths** (no prefix):
+- `/healthz/` - Health check endpoint
+- `/accounts/` - Authentication (Allauth)
+- `/api/` - API endpoints
+- `/robots.txt`, `/sitemap.xml`
+
+### Configuration Files
+- **Settings**: `azureproject/settings.py` - `LANGUAGES`, `LOCALE_PATHS`, `USE_I18N`
+- **URL Routing**: `azureproject/urls_crush.py` - `i18n_patterns()` wrapper
+- **Middleware**: `LocaleMiddleware` in `MIDDLEWARE` stack
+
+### Translation Commands
+```bash
+# Extract strings for translation (run from project root)
+python manage.py makemessages -l de -l fr --ignore=venv --ignore=node_modules
+
+# Compile translations after editing .po files
+python manage.py compilemessages
+```
+
+### Translation File Locations
+- `locale/de/LC_MESSAGES/django.po` - German translations
+- `locale/fr/LC_MESSAGES/django.po` - French translations
+
+### Adding New Translatable Strings
+
+**In Templates:**
+```html
+{% load i18n %}
+<h1>{% trans "Welcome" %}</h1>
+{% blocktrans with name=user.first_name %}Hello, {{ name }}!{% endblocktrans %}
+```
+
+**In Python (views, forms):**
+```python
+from django.utils.translation import gettext_lazy as _
+messages.success(request, _('Profile updated successfully!'))
+```
+
+### Language Switcher
+Located in navigation bar (`crush_lu/templates/crush_lu/partials/language_switcher.html`):
+- Desktop: Alpine.js dropdown with globe icon
+- Mobile: Full-width select dropdown
+- Uses Django's built-in `set_language` view
+
+### User Language Preference
+Stored in `CrushProfile.preferred_language` field for:
+- Email notifications in user's preferred language
+- Potential future auto-detection on login
+
+### SEO for Multi-Language
+- **Canonical URLs**: Self-referencing (each language version is its own canonical)
+- **Hreflang Tags**: Generated via `{% hreflang_tags %}` template tag
+- **Custom Template Tags**: `crush_lu/templatetags/seo_tags.py`
+  - `{% hreflang_tags %}` - Generate all language alternates
+  - `{% canonical_url %}` - Current page canonical URL
+  - `{% localized_url 'de' %}` - URL for specific language
+
+### GA4 Analytics with Language Tracking
+Custom dimension `content_language` prevents traffic fragmentation:
+- Added in `azureproject/templatetags/analytics.py`
+- Allows unified reporting across language versions
+- Filter GA4 reports by language dimension
+
+### Development Best Practices
+1. Always wrap user-facing strings with `_()` or `{% trans %}`
+2. Use `gettext_lazy` (`_()`) for class-level strings (forms, models)
+3. Use `gettext` for runtime strings (views)
+4. Run `makemessages` after adding new translatable strings
+5. Keep translations in sync - update .po files for all languages

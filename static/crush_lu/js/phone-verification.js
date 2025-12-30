@@ -144,6 +144,14 @@ class PhoneVerification {
                 firebase.initializeApp(this.firebaseConfig);
                 console.log('Firebase initialized');
             }
+
+            // Set SMS language BEFORE RecaptchaVerifier is created (per Firebase docs)
+            // This ensures both reCAPTCHA display and SMS messages use user's preferred language
+            if (window.FIREBASE_LANGUAGE) {
+                firebase.auth().languageCode = window.FIREBASE_LANGUAGE;
+                console.log('Firebase SMS language set to:', window.FIREBASE_LANGUAGE);
+            }
+
             this.isInitialized = true;
             this.initializationError = null;
         } catch (error) {
@@ -198,7 +206,7 @@ class PhoneVerification {
             this.recaptchaContainerId,
             {
                 size: 'invisible',
-                callback: (response) => {
+                callback: () => {
                     console.log('reCAPTCHA verified');
                 },
                 'expired-callback': () => {
@@ -268,7 +276,18 @@ class PhoneVerification {
             return { success: true, phone };
 
         } catch (error) {
+            // Log full error object for debugging Firebase issues
             console.error('SMS send error:', error);
+            console.error('Error details:', {
+                code: error.code,
+                message: error.message,
+                name: error.name,
+                stack: error.stack,
+                customData: error.customData,
+                serverResponse: error.serverResponse,
+                fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
+            });
+
             this.setState('error');
             this.onError(this.formatFirebaseError(error));
 
@@ -424,10 +443,16 @@ class PhoneVerification {
             'auth/quota-exceeded': 'SMS quota exceeded. Please try again later.',
             'auth/user-disabled': 'This phone number has been disabled. Please contact support.',
             'auth/operation-not-allowed': 'Phone authentication is not enabled. Please contact support.',
+            'auth/error-code:-39': 'SMS service temporarily unavailable. Please wait a few minutes and try again.',
         };
 
         if (error.code && errorMap[error.code]) {
             return errorMap[error.code];
+        }
+
+        // Check for error code -39 in the message (sometimes formatted differently)
+        if (error.message && error.message.includes('error-code:-39')) {
+            return 'SMS service temporarily unavailable. Please wait a few minutes and try again.';
         }
 
         return error.message || 'An error occurred. Please try again.';

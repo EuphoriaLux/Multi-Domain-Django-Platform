@@ -348,6 +348,18 @@ class CrushProfile(models.Model):
         help_text="Blur photos until mutual interest"
     )
 
+    # Language Preference
+    preferred_language = models.CharField(
+        max_length=5,
+        choices=[
+            ('en', 'English'),
+            ('de', 'Deutsch'),
+            ('fr', 'Français'),
+        ],
+        default='en',
+        help_text="Preferred language for emails and notifications"
+    )
+
     # Status
     is_approved = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)

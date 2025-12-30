@@ -2,8 +2,42 @@
 Allauth adapter for Crush.lu
 Customizes social authentication behavior for the Crush.lu domain
 """
+from django.urls import reverse
+from django.utils.translation import get_language, activate
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.account.adapter import DefaultAccountAdapter
+
+
+def get_i18n_redirect_url(request, url_name, user=None):
+    """
+    Get a language-prefixed redirect URL.
+
+    Uses the user's preferred language if available, otherwise falls back to
+    the current session language or 'en' as default.
+
+    Args:
+        request: The HTTP request
+        url_name: The URL name to reverse (e.g., 'crush_lu:dashboard')
+        user: Optional user object to get preferred language from
+    """
+    # Determine the language to use
+    lang = 'en'  # Default fallback
+
+    # Try to get user's preferred language from profile
+    if user and hasattr(user, 'crushprofile') and user.crushprofile:
+        profile_lang = getattr(user.crushprofile, 'preferred_language', None)
+        if profile_lang:
+            lang = profile_lang
+
+    # If no user preference, try session/request language
+    if lang == 'en':
+        request_lang = getattr(request, 'LANGUAGE_CODE', None) or get_language()
+        if request_lang and request_lang in ['en', 'de', 'fr']:
+            lang = request_lang
+
+    # Activate the language and generate the URL
+    activate(lang)
+    return reverse(url_name)
 
 
 class CrushSocialAccountAdapter(DefaultSocialAccountAdapter):
@@ -19,10 +53,11 @@ class CrushSocialAccountAdapter(DefaultSocialAccountAdapter):
 
     def get_signup_redirect_url(self, request):
         """
-        Redirect to appropriate profile creation based on domain
+        Redirect to appropriate profile creation based on domain.
+        Returns language-prefixed URL for Crush.lu domain.
         """
         if self._is_crush_domain(request):
-            return '/create-profile/'
+            return get_i18n_redirect_url(request, 'crush_lu:create_profile')
         else:
             # Default behavior for other domains
             return '/profile/'
@@ -62,25 +97,27 @@ class CrushAccountAdapter(DefaultAccountAdapter):
 
     def get_login_redirect_url(self, request):
         """
-        Redirect to appropriate dashboard after login based on domain
+        Redirect to appropriate dashboard after login based on domain.
+        Returns language-prefixed URL for Crush.lu domain.
         """
         if self._is_crush_domain(request):
             # Crush.lu: Check if user has a profile
             if hasattr(request.user, 'crushprofile'):
-                return '/dashboard/'
+                return get_i18n_redirect_url(request, 'crush_lu:dashboard', request.user)
             else:
                 # No profile yet - redirect to profile creation
-                return '/create-profile/'
+                return get_i18n_redirect_url(request, 'crush_lu:create_profile')
         else:
             # Default behavior for other domains
             return '/profile/'
 
     def get_signup_redirect_url(self, request):
         """
-        Redirect to appropriate page after signup based on domain
+        Redirect to appropriate page after signup based on domain.
+        Returns language-prefixed URL for Crush.lu domain.
         """
         if self._is_crush_domain(request):
-            return '/create-profile/'
+            return get_i18n_redirect_url(request, 'crush_lu:create_profile')
         else:
             return '/profile/'
 

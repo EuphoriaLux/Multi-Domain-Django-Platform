@@ -1,16 +1,17 @@
 {% extends 'crush_lu/base.html' %}
 {% load analytics %}
+{% load i18n %}
 
-{% block title %}Dashboard - Crush.lu{% endblock %}
+{% block title %}{% trans "Dashboard - Crush.lu" %}{% endblock %}
 {% block meta_robots %}noindex, nofollow{% endblock %}
 
 {% block content %}
 {# Track dashboard view with profile status in Application Insights #}
 {% if profile %}{% appinsights_event "dashboard_viewed" profile_approved=profile.is_approved %}{% else %}{% appinsights_event "dashboard_viewed" profile_approved="no_profile" %}{% endif %}
 <div class="flex justify-between items-center mb-6">
-    <h2 class="text-2xl font-bold">Welcome back, {{ user.first_name }}! 👋</h2>
+    <h2 class="text-2xl font-bold">{% blocktrans with name=user.first_name %}Welcome back, {{ name }}! 👋{% endblocktrans %}</h2>
     <a href="{% url 'crush_lu:account_settings' %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-        {% include "crush_lu/icons/cog.html" with class="w-4 h-4" %} Settings
+        {% include "crush_lu/icons/cog.html" with class="w-4 h-4" %} {% trans "Settings" %}
     </a>
 </div>
 
@@ -19,10 +20,10 @@
 <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-4 mb-6 flex items-center justify-between" role="alert">
     <div class="flex items-center">
         {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5 mr-2" %}
-        <strong>Phone verification required!</strong> Please verify your phone number to access all features.
+        <strong>{% trans "Phone verification required!" %}</strong> {% trans "Please verify your phone number to access all features." %}
     </div>
     <a href="{% url 'crush_lu:verify_phone' %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-yellow-500 text-white hover:bg-yellow-600 rounded-lg transition-colors">
-        {% include "crush_lu/icons/phone.html" with class="w-4 h-4" %} Verify Now
+        {% include "crush_lu/icons/phone.html" with class="w-4 h-4" %} {% trans "Verify Now" %}
     </a>
 </div>
 {% endif %}
@@ -31,32 +32,32 @@
     <!-- Profile Status Card -->
     <div class="bg-white rounded-xl shadow-sm h-full">
         <div class="p-6">
-            <h5 class="font-semibold text-lg mb-4">Profile Status</h5>
+            <h5 class="font-semibold text-lg mb-4">{% trans "Profile Status" %}</h5>
             {% if profile.is_approved %}
                 <div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4">
-                    ✅ Your profile is approved and active!
+                    {% trans "✅ Your profile is approved and active!" %}
                 </div>
             {% elif submission %}
                 {% if submission.status == 'pending' %}
                     <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-4">
-                        ⏳ Your profile is currently under review by {{ submission.coach }}
+                        {% blocktrans with coach=submission.coach %}⏳ Your profile is currently under review by {{ coach }}{% endblocktrans %}
                     </div>
                 {% elif submission.status == 'revision' %}
                     <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4">
-                        📝 Your coach has requested some revisions
-                        <p class="mt-2 mb-0"><strong>Feedback:</strong> {{ submission.feedback_to_user }}</p>
+                        {% trans "📝 Your coach has requested some revisions" %}
+                        <p class="mt-2 mb-0"><strong>{% trans "Feedback:" %}</strong> {{ submission.feedback_to_user }}</p>
                     </div>
                 {% elif submission.status == 'rejected' %}
                     <div class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4">
-                        ❌ Your profile was not approved
-                        <p class="mt-2 mb-0"><strong>Feedback:</strong> {{ submission.feedback_to_user }}</p>
+                        {% trans "❌ Your profile was not approved" %}
+                        <p class="mt-2 mb-0"><strong>{% trans "Feedback:" %}</strong> {{ submission.feedback_to_user }}</p>
                     </div>
                 {% endif %}
             {% endif %}
 
             <div class="mt-4">
                 <a href="{% url 'crush_lu:edit_profile' %}" class="btn-crush-outline inline-flex items-center gap-2 text-sm">
-                    Edit Profile
+                    {% trans "Edit Profile" %}
                 </a>
             </div>
         </div>
@@ -67,57 +68,57 @@
         <div class="p-6">
             {% if is_pwa_user %}
             <!-- User has installed PWA - show push notifications -->
-            <h5 class="font-semibold text-lg mb-2">🔔 Push Notifications</h5>
-            <p class="text-gray-500 mb-4">Get notified about events, messages, and connections</p>
+            <h5 class="font-semibold text-lg mb-2">{% trans "🔔 Push Notifications" %}</h5>
+            <p class="text-gray-500 mb-4">{% trans "Get notified about events, messages, and connections" %}</p>
 
             <div id="push-status" class="mb-4">
                 <p class="text-gray-500">
                     <span class="animate-spin inline-block w-4 h-4 border-2 border-gray-300 border-t-crush-purple rounded-full mr-2"></span>
-                    Checking notification status...
+                    {% trans "Checking notification status..." %}
                 </p>
             </div>
 
             <button id="enable-push-btn" class="btn-crush-primary items-center gap-1 px-4 py-2" style="display: none;">
-                {% include "crush_lu/icons/bell.html" with class="w-4 h-4" %} Enable Notifications
+                {% include "crush_lu/icons/bell.html" with class="w-4 h-4" %} {% trans "Enable Notifications" %}
             </button>
 
             <button id="disable-push-btn" class="items-center gap-1 px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors" style="display: none;">
-                {% include "crush_lu/icons/bell-slash.html" with class="w-4 h-4" %} Disable
+                {% include "crush_lu/icons/bell-slash.html" with class="w-4 h-4" %} {% trans "Disable" %}
             </button>
 
             <button id="test-push-btn" class="mt-2 items-center gap-1 px-4 py-2 border border-purple-500 text-purple-600 hover:bg-purple-50 font-medium rounded-lg transition-colors" style="display: none;">
-                {% include "crush_lu/icons/paper-airplane.html" with class="w-4 h-4" %} Send Test
+                {% include "crush_lu/icons/paper-airplane.html" with class="w-4 h-4" %} {% trans "Send Test" %}
             </button>
 
             <div id="push-not-supported" class="hidden">
                 <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4">
                     {% include "crush_lu/icons/information-circle.html" with class="w-5 h-5 inline mr-1" %}
-                    <strong>Push notifications not available</strong>
+                    <strong>{% trans "Push notifications not available" %}</strong>
                     <p class="mb-0 mt-2 text-sm">
-                        To receive push notifications, try opening Crush.lu in:
-                        <br>• Chrome or Edge on Android
-                        <br>• Chrome, Firefox, or Edge on Desktop
-                        <br>• Safari on iOS 16.4+ or macOS 16.4+
+                        {% trans "To receive push notifications, try opening Crush.lu in:" %}
+                        <br>{% trans "• Chrome or Edge on Android" %}
+                        <br>{% trans "• Chrome, Firefox, or Edge on Desktop" %}
+                        <br>{% trans "• Safari on iOS 16.4+ or macOS 16.4+" %}
                     </p>
                 </div>
             </div>
             {% else %}
             <!-- User hasn't installed PWA - show install prompt -->
             <div id="pwa-install-prompt">
-                <h5 class="font-semibold text-lg mb-2">📲 Install Crush.lu App</h5>
-                <p class="text-gray-500 mb-4">Install our app to get push notifications about events, messages, and connections!</p>
+                <h5 class="font-semibold text-lg mb-2">{% trans "📲 Install Crush.lu App" %}</h5>
+                <p class="text-gray-500 mb-4">{% trans "Install our app to get push notifications about events, messages, and connections!" %}</p>
 
                 <div id="pwa-install-container">
                     <button id="pwa-install-btn" class="btn-crush-primary items-center gap-2 px-4 py-2" style="display: none;">
-                        {% include "crush_lu/icons/arrow-down-tray.html" with class="w-4 h-4" %} Install App
+                        {% include "crush_lu/icons/arrow-down-tray.html" with class="w-4 h-4" %} {% trans "Install App" %}
                     </button>
 
                     <div id="pwa-installed-msg" class="hidden">
                         <div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4">
                             {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5 inline mr-1" %}
-                            <strong>App installed!</strong>
+                            <strong>{% trans "App installed!" %}</strong>
                             <p class="mb-0 mt-2 text-sm">
-                                Refresh this page to enable push notifications.
+                                {% trans "Refresh this page to enable push notifications." %}
                             </p>
                         </div>
                     </div>
@@ -125,7 +126,7 @@
                     <div id="pwa-install-instructions" class="hidden">
                         <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4">
                             {% include "crush_lu/icons/information-circle.html" with class="w-5 h-5 inline mr-1" %}
-                            <strong>How to install</strong>
+                            <strong>{% trans "How to install" %}</strong>
                             <p class="mb-0 mt-2 text-sm" id="install-instructions-text">
                                 <!-- Instructions will be filled by JavaScript based on browser/device -->
                             </p>
@@ -142,20 +143,20 @@
     <!-- Quick Stats Card -->
     <div class="bg-white rounded-xl shadow-sm h-full">
         <div class="p-6">
-            <h5 class="font-semibold text-lg mb-4">Your Activity</h5>
+            <h5 class="font-semibold text-lg mb-4">{% trans "Your Activity" %}</h5>
             <div class="grid grid-cols-3 text-center mt-4">
                 <div>
                     <h3 class="text-3xl font-bold">{{ registrations|length }}</h3>
-                    <p class="text-gray-500 mb-0">Events</p>
+                    <p class="text-gray-500 mb-0">{% trans "Events" %}</p>
                 </div>
                 <div>
                     <h3 class="text-3xl font-bold">{{ profile.age|default:"—" }}</h3>
-                    <p class="text-gray-500 mb-0">Age</p>
+                    <p class="text-gray-500 mb-0">{% trans "Age" %}</p>
                 </div>
                 <div>
                     <a href="{% url 'crush_lu:my_connections' %}" class="no-underline">
                         <h3 class="text-3xl font-bold text-crush-purple">{{ connection_count|default:0 }}</h3>
-                        <p class="text-gray-500 mb-0">Connections</p>
+                        <p class="text-gray-500 mb-0">{% trans "Connections" %}</p>
                     </a>
                 </div>
             </div>
@@ -166,7 +167,7 @@
 <!-- Upcoming Events Section -->
 <div class="bg-white rounded-xl shadow-sm mb-6">
     <div class="p-6">
-        <h5 class="font-semibold text-lg mb-4">Your Events</h5>
+        <h5 class="font-semibold text-lg mb-4">{% trans "Your Events" %}</h5>
 
         {% if registrations %}
             <div class="divide-y divide-gray-100">
@@ -182,27 +183,27 @@
                             </div>
                             <div>
                                 {% if registration.status == 'confirmed' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">Confirmed</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">{% trans "Confirmed" %}</span>
                                 {% elif registration.status == 'waitlist' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full">Waitlist</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full">{% trans "Waitlist" %}</span>
                                 {% elif registration.status == 'cancelled' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-gray-100 text-gray-800 rounded-full">Cancelled</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-gray-100 text-gray-800 rounded-full">{% trans "Cancelled" %}</span>
                                 {% elif registration.status == 'attended' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">Attended</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">{% trans "Attended" %}</span>
                                 {% endif %}
                             </div>
                         </div>
                         <div class="mt-3 flex gap-2 flex-wrap">
                             <a href="{% url 'crush_lu:event_detail' registration.event.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium border border-purple-500 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors">
-                                View Event
+                                {% trans "View Event" %}
                             </a>
                             {% if registration.status == 'attended' %}
                                 <a href="{% url 'crush_lu:event_attendees' registration.event.id %}" class="btn-crush-primary inline-flex items-center gap-1 text-sm px-3 py-1.5">
-                                    {% include "crush_lu/icons/users.html" with class="w-4 h-4" %} Make Connections
+                                    {% include "crush_lu/icons/users.html" with class="w-4 h-4" %} {% trans "Make Connections" %}
                                 </a>
                             {% elif registration.status == 'confirmed' or registration.status == 'waitlist' %}
                                 <a href="{% url 'crush_lu:event_cancel' registration.event.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium border border-red-500 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                                    Cancel Registration
+                                    {% trans "Cancel Registration" %}
                                 </a>
                             {% endif %}
                         </div>
@@ -210,9 +211,9 @@
                 {% endfor %}
             </div>
         {% else %}
-            <p class="text-gray-500 mb-4">You haven't registered for any events yet.</p>
+            <p class="text-gray-500 mb-4">{% trans "You haven't registered for any events yet." %}</p>
             <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-primary inline-flex items-center justify-center gap-2 px-4 py-2">
-                Browse Events
+                {% trans "Browse Events" %}
             </a>
         {% endif %}
     </div>
@@ -222,10 +223,10 @@
 {% if profile.is_approved and not registrations %}
 <div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 rounded-xl shadow-sm">
     <div class="text-center p-10">
-        <h4 class="text-xl font-bold mb-2">Ready to Meet New People?</h4>
-        <p class="text-gray-500 mb-4">Check out our upcoming events and start making connections!</p>
+        <h4 class="text-xl font-bold mb-2">{% trans "Ready to Meet New People?" %}</h4>
+        <p class="text-gray-500 mb-4">{% trans "Check out our upcoming events and start making connections!" %}</p>
         <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-primary inline-flex items-center justify-center gap-2 px-6 py-3">
-            View Upcoming Events
+            {% trans "View Upcoming Events" %}
         </a>
     </div>
 </div>

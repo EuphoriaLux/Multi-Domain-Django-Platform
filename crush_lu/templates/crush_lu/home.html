@@ -1,16 +1,17 @@
 {% extends 'crush_lu/base.html' %}
 {% load static %}
+{% load i18n %}
 
-{% block title %}Crush.lu - Meet New People in Luxembourg | Dating Events & Singles Meetups{% endblock %}
+{% block title %}{% trans "Crush.lu - Meet New People in Luxembourg | Dating Events & Singles Meetups" %}{% endblock %}
 
-{% block og_title %}Crush.lu - Meet New People in Luxembourg{% endblock %}
-{% block og_description %}Privacy-first dating platform for Luxembourg. Join coach-curated events, meet real singles, and build authentic connections. No endless swiping - just meaningful meetups.{% endblock %}
+{% block og_title %}{% trans "Crush.lu - Meet New People in Luxembourg" %}{% endblock %}
+{% block og_description %}{% trans "Privacy-first dating platform for Luxembourg. Join coach-curated events, meet real singles, and build authentic connections. No endless swiping - just meaningful meetups." %}{% endblock %}
 
-{% block twitter_title %}Crush.lu - Meet New People in Luxembourg{% endblock %}
-{% block twitter_description %}Privacy-first dating platform for Luxembourg. Join coach-curated events, meet real singles, and build authentic connections.{% endblock %}
+{% block twitter_title %}{% trans "Crush.lu - Meet New People in Luxembourg" %}{% endblock %}
+{% block twitter_description %}{% trans "Privacy-first dating platform for Luxembourg. Join coach-curated events, meet real singles, and build authentic connections." %}{% endblock %}
 
-{% block meta_description %}Crush.lu is Luxembourg's privacy-first dating platform. Meet singles at curated speed dating events, social mixers, and themed meetups. Coach-reviewed profiles ensure authentic connections.{% endblock %}
-{% block meta_keywords %}crush.lu, dating luxembourg, speed dating luxembourg, singles events luxembourg, meetup luxembourg, dating events, luxembourg singles, coach dating, privacy dating{% endblock %}
+{% block meta_description %}{% trans "Crush.lu is Luxembourg's privacy-first dating platform. Meet singles at curated speed dating events, social mixers, and themed meetups. Coach-reviewed profiles ensure authentic connections." %}{% endblock %}
+{% block meta_keywords %}{% trans "crush.lu, dating luxembourg, speed dating luxembourg, singles events luxembourg, meetup luxembourg, dating events, luxembourg singles, coach dating, privacy dating" %}{% endblock %}
 
 {% block structured_data %}
 {{ block.super }}
@@ -77,19 +78,18 @@
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             <div class="lg:col-span-7 text-center lg:text-left mb-4 lg:mb-0">
                 <h1 id="hero-heading" class="hero-title">
-                    Meet New People.<br>
-                    Make Real Connections. <span aria-hidden="true">💕</span>
+                    {% trans "Meet New People." %}<br>
+                    {% trans "Make Real Connections." %} <span aria-hidden="true">💕</span>
                 </h1>
                 <p class="hero-subtitle">
-                    Crush.lu brings Luxembourg's singles together through real events and meaningful connections.
-                    No endless swiping. Just authentic meetups.
+                    {% trans "Crush.lu brings Luxembourg's singles together through real events and meaningful connections. No endless swiping. Just authentic meetups." %}
                 </p>
                 <div class="hero-cta">
                     <a href="{% url 'crush_lu:signup' %}" class="btn-hero-primary">
-                        Get Started Free
+                        {% trans "Get Started Free" %}
                     </a>
                     <a href="{% url 'crush_lu:how_it_works' %}" class="btn-hero-secondary">
-                        How It Works
+                        {% trans "How It Works" %}
                     </a>
                 </div>
             </div>
@@ -102,30 +102,27 @@
 
 <!-- Features Section -->
 <section class="features-section animate-on-scroll" aria-labelledby="features-heading">
-    <h2 id="features-heading" class="sr-only">Why Choose Crush.lu</h2>
+    <h2 id="features-heading" class="sr-only">{% trans "Why Choose Crush.lu" %}</h2>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div class="feature-card">
             <div class="feature-icon" aria-hidden="true">🔒</div>
-            <h3 class="feature-title">Privacy First</h3>
+            <h3 class="feature-title">{% trans "Privacy First" %}</h3>
             <p class="feature-text">
-                Your profile is reviewed by our Crush Coaches before going live.
-                Small community, big respect for privacy.
+                {% trans "Your profile is reviewed by our Crush Coaches before going live. Small community, big respect for privacy." %}
             </p>
         </div>
         <div class="feature-card">
             <div class="feature-icon" aria-hidden="true">🎉</div>
-            <h3 class="feature-title">Real Events</h3>
+            <h3 class="feature-title">{% trans "Real Events" %}</h3>
             <p class="feature-text">
-                Speed dating nights, social mixers, and themed meetups.
-                Meet people in person, the way it should be.
+                {% trans "Speed dating nights, social mixers, and themed meetups. Meet people in person, the way it should be." %}
             </p>
         </div>
         <div class="feature-card">
             <div class="feature-icon" aria-hidden="true">💬</div>
-            <h3 class="feature-title">Guided Support</h3>
+            <h3 class="feature-title">{% trans "Guided Support" %}</h3>
             <p class="feature-text">
-                Work with your personal Crush Coach to build confidence and
-                make genuine connections.
+                {% trans "Work with your personal Crush Coach to build confidence and make genuine connections." %}
             </p>
         </div>
     </div>
@@ -134,43 +131,43 @@
 <!-- How It Works Section -->
 <section class="how-it-works-section animate-on-scroll" aria-labelledby="how-it-works-heading">
     <h2 id="how-it-works-heading" class="text-center mb-12 text-4xl font-bold">
-        How It Works
+        {% trans "How It Works" %}
     </h2>
     <div class="flex justify-center">
         <div class="lg:w-2/3">
             <div class="step-item">
                 <div class="step-number" aria-hidden="true">1</div>
                 <div class="step-content">
-                    <h3>Create Your Profile</h3>
-                    <p>Sign up and tell us about yourself. Share your interests and what you're looking for.</p>
+                    <h3>{% trans "Create Your Profile" %}</h3>
+                    <p>{% trans "Sign up and tell us about yourself. Share your interests and what you're looking for." %}</p>
                 </div>
             </div>
             <div class="step-item">
                 <div class="step-number" aria-hidden="true">2</div>
                 <div class="step-content">
-                    <h3>Get Coach Approval</h3>
-                    <p>A Crush Coach reviews your profile and provides feedback within 24-48 hours.</p>
+                    <h3>{% trans "Get Coach Approval" %}</h3>
+                    <p>{% trans "A Crush Coach reviews your profile and provides feedback within 24-48 hours." %}</p>
                 </div>
             </div>
             <div class="step-item">
                 <div class="step-number" aria-hidden="true">3</div>
                 <div class="step-content">
-                    <h3>Join Events</h3>
-                    <p>Browse and register for upcoming speed dating nights and social meetups.</p>
+                    <h3>{% trans "Join Events" %}</h3>
+                    <p>{% trans "Browse and register for upcoming speed dating nights and social meetups." %}</p>
                 </div>
             </div>
             <div class="step-item">
                 <div class="step-number" aria-hidden="true">4</div>
                 <div class="step-content">
-                    <h3>Make Connections</h3>
-                    <p>Meet people in real life and build authentic relationships.</p>
+                    <h3>{% trans "Make Connections" %}</h3>
+                    <p>{% trans "Meet people in real life and build authentic relationships." %}</p>
                 </div>
             </div>
         </div>
     </div>
     <div class="text-center mt-8">
         <a href="{% url 'crush_lu:how_it_works' %}" class="btn-crush-primary inline-flex items-center justify-center gap-2 px-6 py-3">
-            Learn More About Our Process
+            {% trans "Learn More About Our Process" %}
         </a>
     </div>
 </section>
@@ -179,7 +176,7 @@
 {% if upcoming_events %}
 <section class="events-section animate-on-scroll" aria-labelledby="events-heading">
     <h2 id="events-heading" class="text-center mb-12 text-4xl font-bold">
-        Upcoming Events
+        {% trans "Upcoming Events" %}
     </h2>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         {% for event in upcoming_events %}
@@ -199,10 +196,10 @@
                 <p class="mb-3">{{ event.description|truncatewords:15 }}</p>
                 <div class="flex justify-between items-center">
                     <small class="text-gray-500">
-                        {{ event.spots_remaining }} spots left
+                        {% blocktrans with spots=event.spots_remaining %}{{ spots }} spots left{% endblocktrans %}
                     </small>
                     <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn-crush-primary text-sm px-3 py-1.5">
-                        View Details
+                        {% trans "View Details" %}
                     </a>
                 </div>
             </div>
@@ -211,7 +208,7 @@
     </div>
     <div class="text-center mt-8">
         <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-outline">
-            View All Events
+            {% trans "View All Events" %}
         </a>
     </div>
 </section>
@@ -220,15 +217,15 @@
 <!-- CTA Section -->
 <section class="cta-section animate-on-scroll" aria-labelledby="cta-heading">
     <div class="cta-content">
-        <h2 id="cta-heading" class="cta-title">Ready to Meet Your Crush?</h2>
+        <h2 id="cta-heading" class="cta-title">{% trans "Ready to Meet Your Crush?" %}</h2>
         <p class="cta-text">
-            Join Luxembourg's most authentic way to meet new people and build real relationships.
+            {% trans "Join Luxembourg's most authentic way to meet new people and build real relationships." %}
         </p>
         <a href="{% url 'crush_lu:signup' %}" class="btn-hero-primary" style="background: white; color: #9B59B6;">
-            Create Your Profile Now
+            {% trans "Create Your Profile Now" %}
         </a>
         <p class="mt-4 mb-0" style="opacity: 0.9;">
-            <small>No credit card required • Free to join • Cancel anytime</small>
+            <small>{% trans "No credit card required • Free to join • Cancel anytime" %}</small>
         </p>
     </div>
 </section>
