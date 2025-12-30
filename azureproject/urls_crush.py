@@ -72,19 +72,25 @@ urlpatterns = base_patterns + api_patterns + [
     # Journey Reward APIs (called from photo_reveal.html with hardcoded paths)
     path('api/journey/unlock-puzzle-piece/', api_journey.unlock_puzzle_piece, name='api_unlock_puzzle_piece'),
     path('api/journey/reward-progress/<int:reward_id>/', api_journey.get_reward_progress, name='api_get_reward_progress'),
-]
 
-# Language-prefixed patterns (all user-facing pages)
-# URLs will be: /en/events/, /de/events/, /fr/events/, etc.
-urlpatterns += i18n_patterns(
-    # Dedicated Crush.lu Admin Panel
+    # ============================================================================
+    # ADMIN PANELS (language-neutral - always accessible without language prefix)
+    # These are moved outside i18n_patterns to avoid 404 errors when admins
+    # manually change the URL language prefix.
+    # ============================================================================
+
+    # Dedicated Crush.lu Admin Panel (Coach Panel)
     # Note: Dashboard must come BEFORE admin site to avoid path matching issues
     path('crush-admin/dashboard/', admin_views.crush_admin_dashboard, name='crush_admin_dashboard'),
     path('crush-admin/', crush_admin_site.urls),
 
     # Standard Django Admin (all platforms)
     path('admin/', admin.site.urls),
+]
 
+# Language-prefixed patterns (all user-facing pages)
+# URLs will be: /en/events/, /de/events/, /fr/events/, etc.
+urlpatterns += i18n_patterns(
     # Crush.lu app URLs
     path('', include('crush_lu.urls', namespace='crush_lu')),
 

@@ -15,6 +15,7 @@ from django.http import HttpResponse
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .views import csp_report
+from crush_lu.views_language import set_language_with_profile
 
 
 def health_check(request):
@@ -32,7 +33,9 @@ def health_check(request):
 base_patterns = [
     path('healthz/', health_check, name='health_check'),
     path('csp-report/', csp_report, name='csp_report'),  # CSP violation reports
-    path('i18n/', include('django.conf.urls.i18n')),
+    # Custom set_language view that also updates CrushProfile.preferred_language
+    # This replaces Django's default i18n/setlang/ with our extended version
+    path('i18n/setlang/', set_language_with_profile, name='set_language'),
     path('accounts/', include('allauth.urls')),
     path('cookies/', include('cookie_consent.urls')),  # GDPR cookie consent
 ]
