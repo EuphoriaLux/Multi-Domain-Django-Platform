@@ -314,7 +314,7 @@
 
                     <hr class="my-6 border-gray-200">
 
-                    <div :class="{ 'opacity-50 pointer-events-none': unsubscribeAll }">
+                    <div x-bind:class="unsubscribeAllClass">
                         <p class="text-gray-500 text-sm mb-4">Choose which emails you'd like to receive:</p>
 
                         <div class="space-y-4">
@@ -457,13 +457,9 @@
                         <button type="button"
                                 class="enable-push-btn btn-crush-primary inline-flex items-center gap-2 px-4 py-2"
                                 x-bind:disabled="isEnabling">
-                            <template x-if="isEnabling">
-                                <span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
-                            </template>
-                            <template x-if="!isEnabling">
-                                <span>{% include "crush_lu/icons/bell.html" with class="w-4 h-4" %}</span>
-                            </template>
-                            <span x-text="isEnabling ? 'Enabling...' : 'Enable Push Notifications'"></span>
+                            <span x-show="showEnablingIcon" class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
+                            <span x-show="showNotEnablingIcon">{% include "crush_lu/icons/bell.html" with class="w-4 h-4" %}</span>
+                            <span x-text="enableButtonText"></span>
                         </button>
 
                         <template x-if="errorMessage">
@@ -479,113 +475,109 @@
                             Configure which notifications you receive on your devices. Changes are saved automatically.
                         </p>
 
-                        <template x-for="(subscription, index) in subscriptions" :key="subscription.id">
-                            <div :class="{ 'mt-6 pt-6 border-t border-gray-200': index > 0 }">
-                                <!-- Device Header -->
-                                <div class="flex items-center justify-between mb-4">
-                                    <div class="flex items-center flex-wrap gap-2">
-                                        <!-- Device Icon -->
-                                        <template x-if="subscription.device_type === 'mobile'">
-                                            <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
-                                            </svg>
-                                        </template>
-                                        <template x-if="subscription.device_type !== 'mobile'">
-                                            <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
-                                            </svg>
-                                        </template>
-                                        <span class="font-medium text-gray-900" x-text="subscription.device_name"></span>
-                                        <!-- "This device" badge -->
-                                        <template x-if="isCurrentDevice(subscription)">
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                                {% trans "This device" %}
-                                            </span>
-                                        </template>
+                        {% for subscription in push_subscriptions %}
+                        <div class="{% if not forloop.first %}mt-6 pt-6 border-t border-gray-200{% endif %}"
+                             data-subscription-id="{{ subscription.id }}"
+                             data-endpoint="{{ subscription.endpoint }}">
+                            <!-- Device Header -->
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center flex-wrap gap-2">
+                                    <!-- Device Icon -->
+                                    {% if subscription.device_type == 'mobile' %}
+                                    <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+                                    </svg>
+                                    {% else %}
+                                    <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
+                                    </svg>
+                                    {% endif %}
+                                    <span class="font-medium text-gray-900">{{ subscription.device_name }}</span>
+                                    <!-- "This device" badge (shown by JS if endpoint matches) -->
+                                    <span class="this-device-badge hidden inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                        {% trans "This device" %}
+                                    </span>
+                                </div>
+                                <button type="button"
+                                        class="disable-push-btn text-sm text-gray-500 hover:text-red-600 transition-colors"
+                                        x-bind:disabled="isDisabling">
+                                    <span x-text="disableButtonText"></span>
+                                </button>
+                            </div>
+                            <!-- Last active timestamp -->
+                            <p class="text-xs text-gray-400 mb-4 pl-7">{% trans "Last active:" %} {{ subscription.last_used_at|timesince }}</p>
+
+                            <div class="space-y-4 pl-7">
+                                <!-- New Messages Toggle -->
+                                <label class="flex items-start cursor-pointer">
+                                    <div class="relative mt-0.5">
+                                        <input type="checkbox"
+                                               class="sr-only peer push-pref-toggle"
+                                               data-subscription-id="{{ subscription.id }}"
+                                               data-pref-key="newMessages"
+                                               {% if subscription.notify_new_messages %}checked{% endif %}>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                                     </div>
-                                    <button type="button"
-                                            class="disable-push-btn text-sm text-gray-500 hover:text-red-600 transition-colors"
-                                            x-bind:disabled="isDisabling">
-                                        <span x-text="isDisabling ? 'Disabling...' : 'Disable'"></span>
-                                    </button>
-                                </div>
-                                <!-- Last active timestamp -->
-                                <p class="text-xs text-gray-400 mb-4 pl-7" x-text="i18n.lastActive + ' ' + formatRelativeTime(subscription.last_used_at)"></p>
+                                    <div class="ml-3 flex-1">
+                                        <strong class="text-gray-900">{% trans "New Messages" %}</strong>
+                                        <p class="text-gray-500 text-sm">{% trans "Get notified when you receive a new message" %}</p>
+                                    </div>
+                                </label>
 
-                                <div class="space-y-4 pl-7">
-                                    <!-- New Messages Toggle -->
-                                    <label class="flex items-start cursor-pointer">
-                                        <div class="relative mt-0.5">
-                                            <input type="checkbox"
-                                                   class="sr-only peer push-pref-toggle"
-                                                   :data-subscription-id="subscription.id"
-                                                   data-pref-key="newMessages"
-                                                   :checked="subscription.notify_new_messages">
-                                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                        </div>
-                                        <div class="ml-3 flex-1">
-                                            <strong class="text-gray-900">New Messages</strong>
-                                            <p class="text-gray-500 text-sm">Get notified when you receive a new message</p>
-                                        </div>
-                                    </label>
+                                <!-- Event Reminders Toggle -->
+                                <label class="flex items-start cursor-pointer">
+                                    <div class="relative mt-0.5">
+                                        <input type="checkbox"
+                                               class="sr-only peer push-pref-toggle"
+                                               data-subscription-id="{{ subscription.id }}"
+                                               data-pref-key="eventReminders"
+                                               {% if subscription.notify_event_reminders %}checked{% endif %}>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                    </div>
+                                    <div class="ml-3 flex-1">
+                                        <strong class="text-gray-900">{% trans "Event Reminders" %}</strong>
+                                        <p class="text-gray-500 text-sm">{% trans "Reminders about upcoming events" %}</p>
+                                    </div>
+                                </label>
 
-                                    <!-- Event Reminders Toggle -->
-                                    <label class="flex items-start cursor-pointer">
-                                        <div class="relative mt-0.5">
-                                            <input type="checkbox"
-                                                   class="sr-only peer push-pref-toggle"
-                                                   :data-subscription-id="subscription.id"
-                                                   data-pref-key="eventReminders"
-                                                   :checked="subscription.notify_event_reminders">
-                                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                        </div>
-                                        <div class="ml-3 flex-1">
-                                            <strong class="text-gray-900">Event Reminders</strong>
-                                            <p class="text-gray-500 text-sm">Reminders about upcoming events</p>
-                                        </div>
-                                    </label>
+                                <!-- New Connections Toggle -->
+                                <label class="flex items-start cursor-pointer">
+                                    <div class="relative mt-0.5">
+                                        <input type="checkbox"
+                                               class="sr-only peer push-pref-toggle"
+                                               data-subscription-id="{{ subscription.id }}"
+                                               data-pref-key="newConnections"
+                                               {% if subscription.notify_new_connections %}checked{% endif %}>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                    </div>
+                                    <div class="ml-3 flex-1">
+                                        <strong class="text-gray-900">{% trans "New Connections" %}</strong>
+                                        <p class="text-gray-500 text-sm">{% trans "Get notified when someone connects with you" %}</p>
+                                    </div>
+                                </label>
 
-                                    <!-- New Connections Toggle -->
-                                    <label class="flex items-start cursor-pointer">
-                                        <div class="relative mt-0.5">
-                                            <input type="checkbox"
-                                                   class="sr-only peer push-pref-toggle"
-                                                   :data-subscription-id="subscription.id"
-                                                   data-pref-key="newConnections"
-                                                   :checked="subscription.notify_new_connections">
-                                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                        </div>
-                                        <div class="ml-3 flex-1">
-                                            <strong class="text-gray-900">New Connections</strong>
-                                            <p class="text-gray-500 text-sm">Get notified when someone connects with you</p>
-                                        </div>
-                                    </label>
-
-                                    <!-- Profile Updates Toggle -->
-                                    <label class="flex items-start cursor-pointer">
-                                        <div class="relative mt-0.5">
-                                            <input type="checkbox"
-                                                   class="sr-only peer push-pref-toggle"
-                                                   :data-subscription-id="subscription.id"
-                                                   data-pref-key="profileUpdates"
-                                                   :checked="subscription.notify_profile_updates">
-                                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                        </div>
-                                        <div class="ml-3 flex-1">
-                                            <strong class="text-gray-900">Profile Updates</strong>
-                                            <p class="text-gray-500 text-sm">Notifications about your profile status</p>
-                                        </div>
-                                    </label>
-                                </div>
+                                <!-- Profile Updates Toggle -->
+                                <label class="flex items-start cursor-pointer">
+                                    <div class="relative mt-0.5">
+                                        <input type="checkbox"
+                                               class="sr-only peer push-pref-toggle"
+                                               data-subscription-id="{{ subscription.id }}"
+                                               data-pref-key="profileUpdates"
+                                               {% if subscription.notify_profile_updates %}checked{% endif %}>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                    </div>
+                                    <div class="ml-3 flex-1">
+                                        <strong class="text-gray-900">{% trans "Profile Updates" %}</strong>
+                                        <p class="text-gray-500 text-sm">{% trans "Notifications about your profile status" %}</p>
+                                    </div>
+                                </label>
                             </div>
-                        </template>
-
-                        <!-- Fallback when no subscriptions (shouldn't happen in showPreferences state) -->
-                        <template x-if="subscriptions.length === 0">
-                            <div class="text-center py-4">
-                                <p class="text-gray-500">Loading your devices...</p>
-                            </div>
-                        </template>
+                        </div>
+                        {% empty %}
+                        <div class="text-center py-4">
+                            <p class="text-gray-500">{% trans "No devices registered for push notifications." %}</p>
+                        </div>
+                        {% endfor %}
                     </div>
                 </template>
             </div>
@@ -661,13 +653,9 @@
                         <button type="button"
                                 class="enable-coach-push-btn btn-crush-primary inline-flex items-center gap-2 px-4 py-2"
                                 x-bind:disabled="isEnabling">
-                            <template x-if="isEnabling">
-                                <span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
-                            </template>
-                            <template x-if="!isEnabling">
-                                <span>{% include "crush_lu/icons/bell.html" with class="w-4 h-4" %}</span>
-                            </template>
-                            <span x-text="isEnabling ? 'Enabling...' : 'Enable Coach Notifications'"></span>
+                            <span x-show="showEnablingSpinner" class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
+                            <span x-show="showNotEnablingIcon">{% include "crush_lu/icons/bell.html" with class="w-4 h-4" %}</span>
+                            <span x-text="enableButtonText"></span>
                         </button>
 
                         <template x-if="errorMessage">
@@ -683,113 +671,109 @@
                             Configure which coach notifications you receive on your devices. Changes are saved automatically.
                         </p>
 
-                        <template x-for="(subscription, index) in subscriptions" :key="subscription.id">
-                            <div :class="{ 'mt-6 pt-6 border-t border-gray-200': index > 0 }">
-                                <!-- Device Header -->
-                                <div class="flex items-center justify-between mb-4">
-                                    <div class="flex items-center flex-wrap gap-2">
-                                        <!-- Device Icon -->
-                                        <template x-if="subscription.device_type === 'mobile'">
-                                            <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
-                                            </svg>
-                                        </template>
-                                        <template x-if="subscription.device_type !== 'mobile'">
-                                            <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
-                                            </svg>
-                                        </template>
-                                        <span class="font-medium text-gray-900" x-text="subscription.device_name"></span>
-                                        <!-- "This device" badge -->
-                                        <template x-if="isCurrentDevice(subscription)">
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                                {% trans "This device" %}
-                                            </span>
-                                        </template>
+                        {% for subscription in coach_push_subscriptions %}
+                        <div class="{% if not forloop.first %}mt-6 pt-6 border-t border-gray-200{% endif %}"
+                             data-subscription-id="{{ subscription.id }}"
+                             data-endpoint="{{ subscription.endpoint }}">
+                            <!-- Device Header -->
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center flex-wrap gap-2">
+                                    <!-- Device Icon -->
+                                    {% if subscription.device_type == 'mobile' %}
+                                    <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+                                    </svg>
+                                    {% else %}
+                                    <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
+                                    </svg>
+                                    {% endif %}
+                                    <span class="font-medium text-gray-900">{{ subscription.device_name }}</span>
+                                    <!-- "This device" badge (shown by JS if endpoint matches) -->
+                                    <span class="this-device-badge hidden inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                        {% trans "This device" %}
+                                    </span>
+                                </div>
+                                <button type="button"
+                                        class="disable-coach-push-btn text-sm text-gray-500 hover:text-red-600 transition-colors"
+                                        x-bind:disabled="isDisabling">
+                                    <span x-text="disableButtonText"></span>
+                                </button>
+                            </div>
+                            <!-- Last active timestamp -->
+                            <p class="text-xs text-gray-400 mb-4 pl-7">{% trans "Last active:" %} {{ subscription.last_used_at|timesince }}</p>
+
+                            <div class="space-y-4 pl-7">
+                                <!-- New Submissions Toggle -->
+                                <label class="flex items-start cursor-pointer">
+                                    <div class="relative mt-0.5">
+                                        <input type="checkbox"
+                                               class="sr-only peer coach-push-pref-toggle"
+                                               data-subscription-id="{{ subscription.id }}"
+                                               data-pref-key="newSubmissions"
+                                               {% if subscription.notify_new_submissions %}checked{% endif %}>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                                     </div>
-                                    <button type="button"
-                                            class="disable-coach-push-btn text-sm text-gray-500 hover:text-red-600 transition-colors"
-                                            x-bind:disabled="isDisabling">
-                                        <span x-text="isDisabling ? 'Disabling...' : 'Disable'"></span>
-                                    </button>
-                                </div>
-                                <!-- Last active timestamp -->
-                                <p class="text-xs text-gray-400 mb-4 pl-7" x-text="i18n.lastActive + ' ' + formatRelativeTime(subscription.last_used_at)"></p>
+                                    <div class="ml-3 flex-1">
+                                        <strong class="text-gray-900">{% trans "New Profile Submissions" %}</strong>
+                                        <p class="text-gray-500 text-sm">{% trans "Get notified when new profiles need review" %}</p>
+                                    </div>
+                                </label>
 
-                                <div class="space-y-4 pl-7">
-                                    <!-- New Submissions Toggle -->
-                                    <label class="flex items-start cursor-pointer">
-                                        <div class="relative mt-0.5">
-                                            <input type="checkbox"
-                                                   class="sr-only peer coach-push-pref-toggle"
-                                                   :data-subscription-id="subscription.id"
-                                                   data-pref-key="newSubmissions"
-                                                   :checked="subscription.notify_new_submissions">
-                                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                        </div>
-                                        <div class="ml-3 flex-1">
-                                            <strong class="text-gray-900">New Profile Submissions</strong>
-                                            <p class="text-gray-500 text-sm">Get notified when new profiles need review</p>
-                                        </div>
-                                    </label>
+                                <!-- Screening Reminders Toggle -->
+                                <label class="flex items-start cursor-pointer">
+                                    <div class="relative mt-0.5">
+                                        <input type="checkbox"
+                                               class="sr-only peer coach-push-pref-toggle"
+                                               data-subscription-id="{{ subscription.id }}"
+                                               data-pref-key="screeningReminders"
+                                               {% if subscription.notify_screening_reminders %}checked{% endif %}>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                    </div>
+                                    <div class="ml-3 flex-1">
+                                        <strong class="text-gray-900">{% trans "Screening Reminders" %}</strong>
+                                        <p class="text-gray-500 text-sm">{% trans "Reminders about pending screening calls" %}</p>
+                                    </div>
+                                </label>
 
-                                    <!-- Screening Reminders Toggle -->
-                                    <label class="flex items-start cursor-pointer">
-                                        <div class="relative mt-0.5">
-                                            <input type="checkbox"
-                                                   class="sr-only peer coach-push-pref-toggle"
-                                                   :data-subscription-id="subscription.id"
-                                                   data-pref-key="screeningReminders"
-                                                   :checked="subscription.notify_screening_reminders">
-                                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                        </div>
-                                        <div class="ml-3 flex-1">
-                                            <strong class="text-gray-900">Screening Reminders</strong>
-                                            <p class="text-gray-500 text-sm">Reminders about pending screening calls</p>
-                                        </div>
-                                    </label>
+                                <!-- User Responses Toggle -->
+                                <label class="flex items-start cursor-pointer">
+                                    <div class="relative mt-0.5">
+                                        <input type="checkbox"
+                                               class="sr-only peer coach-push-pref-toggle"
+                                               data-subscription-id="{{ subscription.id }}"
+                                               data-pref-key="userResponses"
+                                               {% if subscription.notify_user_responses %}checked{% endif %}>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                    </div>
+                                    <div class="ml-3 flex-1">
+                                        <strong class="text-gray-900">{% trans "User Revisions" %}</strong>
+                                        <p class="text-gray-500 text-sm">{% trans "Get notified when users submit profile revisions" %}</p>
+                                    </div>
+                                </label>
 
-                                    <!-- User Responses Toggle -->
-                                    <label class="flex items-start cursor-pointer">
-                                        <div class="relative mt-0.5">
-                                            <input type="checkbox"
-                                                   class="sr-only peer coach-push-pref-toggle"
-                                                   :data-subscription-id="subscription.id"
-                                                   data-pref-key="userResponses"
-                                                   :checked="subscription.notify_user_responses">
-                                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                        </div>
-                                        <div class="ml-3 flex-1">
-                                            <strong class="text-gray-900">User Revisions</strong>
-                                            <p class="text-gray-500 text-sm">Get notified when users submit profile revisions</p>
-                                        </div>
-                                    </label>
-
-                                    <!-- System Alerts Toggle -->
-                                    <label class="flex items-start cursor-pointer">
-                                        <div class="relative mt-0.5">
-                                            <input type="checkbox"
-                                                   class="sr-only peer coach-push-pref-toggle"
-                                                   :data-subscription-id="subscription.id"
-                                                   data-pref-key="systemAlerts"
-                                                   :checked="subscription.notify_system_alerts">
-                                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                        </div>
-                                        <div class="ml-3 flex-1">
-                                            <strong class="text-gray-900">System Alerts</strong>
-                                            <p class="text-gray-500 text-sm">Important system notifications and alerts</p>
-                                        </div>
-                                    </label>
-                                </div>
+                                <!-- System Alerts Toggle -->
+                                <label class="flex items-start cursor-pointer">
+                                    <div class="relative mt-0.5">
+                                        <input type="checkbox"
+                                               class="sr-only peer coach-push-pref-toggle"
+                                               data-subscription-id="{{ subscription.id }}"
+                                               data-pref-key="systemAlerts"
+                                               {% if subscription.notify_system_alerts %}checked{% endif %}>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                    </div>
+                                    <div class="ml-3 flex-1">
+                                        <strong class="text-gray-900">{% trans "System Alerts" %}</strong>
+                                        <p class="text-gray-500 text-sm">{% trans "Important system notifications and alerts" %}</p>
+                                    </div>
+                                </label>
                             </div>
-                        </template>
-
-                        <!-- Fallback when no subscriptions -->
-                        <template x-if="subscriptions.length === 0">
-                            <div class="text-center py-4">
-                                <p class="text-gray-500">Loading your devices...</p>
-                            </div>
-                        </template>
+                        </div>
+                        {% empty %}
+                        <div class="text-center py-4">
+                            <p class="text-gray-500">{% trans "No devices registered for coach notifications." %}</p>
+                        </div>
+                        {% endfor %}
                     </div>
                 </template>
             </div>

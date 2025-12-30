@@ -150,6 +150,12 @@ document.addEventListener('alpine:init', function() {
     Alpine.data('emailPreferences', function() {
         return {
             unsubscribeAll: false,
+
+            // Computed getter for CSP compatibility (replaces inline object expression)
+            get unsubscribeAllClass() {
+                return this.unsubscribeAll ? 'opacity-50 pointer-events-none' : '';
+            },
+
             init: function() {
                 var unsubscribed = this.$el.getAttribute('data-unsubscribed');
                 this.unsubscribeAll = unsubscribed === 'true';
@@ -195,6 +201,11 @@ document.addEventListener('alpine:init', function() {
             get showNotSupported() { return !this.isLoading && !this.isSupported; },
             get showPreferences() { return !this.isLoading && this.isSubscribed && this.hasSubscriptions; },
             get showLoading() { return this.isLoading; },
+            // Button text getters for CSP compatibility (replaces ternary expressions)
+            get enableButtonText() { return this.isEnabling ? 'Enabling...' : 'Enable Push Notifications'; },
+            get disableButtonText() { return this.isDisabling ? 'Disabling...' : 'Disable'; },
+            get showEnablingIcon() { return this.isEnabling; },
+            get showNotEnablingIcon() { return !this.isEnabling; },
 
             init: function() {
                 var self = this;
@@ -271,6 +282,7 @@ document.addEventListener('alpine:init', function() {
             },
 
             // Detect current device's push endpoint for "This device" identification
+            // Also shows server-rendered "This device" badges for matching endpoints
             _detectCurrentEndpoint: function() {
                 var self = this;
                 if ('serviceWorker' in navigator) {
@@ -279,6 +291,16 @@ document.addEventListener('alpine:init', function() {
                     }).then(function(sub) {
                         self.currentEndpoint = sub ? sub.endpoint : null;
                         self.endpointDetected = true;  // Trigger Alpine reactivity
+                        // Show "This device" badges for server-rendered subscriptions
+                        if (sub && sub.endpoint) {
+                            var badges = self.$el.querySelectorAll('.this-device-badge');
+                            for (var i = 0; i < badges.length; i++) {
+                                var container = badges[i].closest('[data-endpoint]');
+                                if (container && container.dataset.endpoint === sub.endpoint) {
+                                    badges[i].classList.remove('hidden');
+                                }
+                            }
+                        }
                     }).catch(function() {
                         self.endpointDetected = true;  // Mark as done even on failure
                     });
@@ -520,6 +542,7 @@ document.addEventListener('alpine:init', function() {
             },
 
             // Detect current device's push endpoint for "This device" identification
+            // Also shows server-rendered "This device" badges for matching endpoints
             _detectCurrentEndpoint: function() {
                 var self = this;
                 if ('serviceWorker' in navigator) {
@@ -528,6 +551,16 @@ document.addEventListener('alpine:init', function() {
                     }).then(function(sub) {
                         self.currentEndpoint = sub ? sub.endpoint : null;
                         self.endpointDetected = true;  // Trigger Alpine reactivity
+                        // Show "This device" badges for server-rendered subscriptions
+                        if (sub && sub.endpoint) {
+                            var badges = self.$el.querySelectorAll('.this-device-badge');
+                            for (var i = 0; i < badges.length; i++) {
+                                var container = badges[i].closest('[data-endpoint]');
+                                if (container && container.dataset.endpoint === sub.endpoint) {
+                                    badges[i].classList.remove('hidden');
+                                }
+                            }
+                        }
                     }).catch(function() {
                         self.endpointDetected = true;  // Mark as done even on failure
                     });

@@ -17,7 +17,7 @@ import json
 import logging
 from django.shortcuts import render, redirect
 from django.urls import reverse
-from django.utils.translation import get_language, activate
+from django.utils.translation import get_language, override
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.cache import never_cache
 from django.http import JsonResponse
@@ -31,6 +31,8 @@ def get_i18n_redirect_url(request, url_name, user=None):
 
     Uses the user's preferred language if available, otherwise falls back to
     the current session language or 'en' as default.
+
+    Uses override() context manager for thread-safety in production.
     """
     # Determine the language to use
     lang = 'en'  # Default fallback
@@ -38,7 +40,7 @@ def get_i18n_redirect_url(request, url_name, user=None):
     # Try to get user's preferred language from profile
     if user and hasattr(user, 'crushprofile') and user.crushprofile:
         profile_lang = getattr(user.crushprofile, 'preferred_language', None)
-        if profile_lang:
+        if profile_lang and profile_lang in ['en', 'de', 'fr']:
             lang = profile_lang
 
     # If no user preference, try session/request language
@@ -47,9 +49,9 @@ def get_i18n_redirect_url(request, url_name, user=None):
         if request_lang and request_lang in ['en', 'de', 'fr']:
             lang = request_lang
 
-    # Activate the language and generate the URL
-    activate(lang)
-    return reverse(url_name)
+    # Use override() context manager for thread-safety
+    with override(lang):
+        return reverse(url_name)
 
 
 @require_http_methods(["GET"])

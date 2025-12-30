@@ -7,7 +7,7 @@ import logging
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.urls import reverse
-from django.utils.translation import activate
+from django.utils.translation import override
 from azureproject.email_utils import send_domain_email, get_domain_from_email
 
 logger = logging.getLogger(__name__)
@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 def get_user_language_url(user, url_name, request, **kwargs):
     """
     Get a language-prefixed URL for a user's preferred language.
+
+    Uses override() context manager to ensure thread-safety in production
+    (Gunicorn workers handle multiple requests per thread).
 
     Args:
         user: Django User object with crushprofile
@@ -32,10 +35,13 @@ def get_user_language_url(user, url_name, request, **kwargs):
         profile_lang = getattr(user.crushprofile, 'preferred_language', None)
         if profile_lang and profile_lang in ['en', 'de', 'fr']:
             lang = profile_lang
+        elif profile_lang:
+            logger.warning(f"User {user.id} has invalid language: {profile_lang}, using 'en'")
 
-    # Activate language and generate URL path
-    activate(lang)
-    url_path = reverse(url_name, **kwargs)
+    # Use override() context manager for thread-safety
+    # This ensures language state is reset after the block
+    with override(lang):
+        url_path = reverse(url_name, **kwargs)
 
     # Build absolute URL
     protocol = 'https' if request.is_secure() else 'http'

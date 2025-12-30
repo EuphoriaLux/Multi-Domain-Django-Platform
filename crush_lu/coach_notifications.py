@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from pywebpush import webpush, WebPushException
 from .models import CoachPushSubscription, CrushCoach
-from .push_notifications import activate_user_language
+from .push_notifications import user_language_context
 
 logger = logging.getLogger(__name__)
 
@@ -131,17 +131,20 @@ def notify_coach_new_submission(coach, submission):
         logger.info(f"Coach {coach.user.username} has new submission notifications disabled")
         return {'success': 0, 'failed': 0, 'total': 0}
 
-    # Activate coach's preferred language
-    activate_user_language(coach.user)
-
     profile = submission.profile
     user_name = profile.user.first_name or profile.user.username
 
+    # Use context manager for thread-safe language activation
+    with user_language_context(coach.user):
+        title = _("New Profile to Review")
+        body = _("%(name)s submitted a profile for review") % {'name': user_name}
+        url = reverse('crush_lu:coach_review_profile', args=[submission.id])
+
     return send_coach_push_notification(
         coach=coach,
-        title=_("New Profile to Review"),
-        body=_("%(name)s submitted a profile for review") % {'name': user_name},
-        url=reverse('crush_lu:coach_review_profile', args=[submission.id]),
+        title=title,
+        body=body,
+        url=url,
         tag=f"new-submission-{submission.id}"
     )
 
@@ -165,17 +168,20 @@ def notify_coach_user_revision(coach, submission):
         logger.info(f"Coach {coach.user.username} has user response notifications disabled")
         return {'success': 0, 'failed': 0, 'total': 0}
 
-    # Activate coach's preferred language
-    activate_user_language(coach.user)
-
     profile = submission.profile
     user_name = profile.user.first_name or profile.user.username
 
+    # Use context manager for thread-safe language activation
+    with user_language_context(coach.user):
+        title = _("Profile Revision Submitted")
+        body = _("%(name)s updated their profile based on your feedback") % {'name': user_name}
+        url = reverse('crush_lu:coach_review_profile', args=[submission.id])
+
     return send_coach_push_notification(
         coach=coach,
-        title=_("Profile Revision Submitted"),
-        body=_("%(name)s updated their profile based on your feedback") % {'name': user_name},
-        url=reverse('crush_lu:coach_review_profile', args=[submission.id]),
+        title=title,
+        body=body,
+        url=url,
         tag=f"revision-{submission.id}"
     )
 
@@ -199,17 +205,20 @@ def notify_coach_screening_reminder(coach, submission):
         logger.info(f"Coach {coach.user.username} has screening reminder notifications disabled")
         return {'success': 0, 'failed': 0, 'total': 0}
 
-    # Activate coach's preferred language
-    activate_user_language(coach.user)
-
     profile = submission.profile
     user_name = profile.user.first_name or profile.user.username
 
+    # Use context manager for thread-safe language activation
+    with user_language_context(coach.user):
+        title = _("Pending Screening Call")
+        body = _("Don't forget to schedule a call with %(name)s") % {'name': user_name}
+        url = reverse('crush_lu:coach_review_profile', args=[submission.id])
+
     return send_coach_push_notification(
         coach=coach,
-        title=_("Pending Screening Call"),
-        body=_("Don't forget to schedule a call with %(name)s") % {'name': user_name},
-        url=reverse('crush_lu:coach_review_profile', args=[submission.id]),
+        title=title,
+        body=body,
+        url=url,
         tag=f"screening-reminder-{submission.id}"
     )
 
@@ -254,13 +263,15 @@ def send_coach_test_notification(coach):
     Returns:
         dict: Push result with success/failed counts
     """
-    # Activate coach's preferred language
-    activate_user_language(coach.user)
+    # Use context manager for thread-safe language activation
+    with user_language_context(coach.user):
+        title = _("Test Notification")
+        body = _("Your coach notifications are working correctly!")
 
     return send_coach_push_notification(
         coach=coach,
-        title=_("Test Notification"),
-        body=_("Your coach notifications are working correctly!"),
+        title=title,
+        body=body,
         url='/coach/dashboard/',
         tag="test-notification"
     )

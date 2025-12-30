@@ -136,6 +136,53 @@ def create_crush_profile_on_login(sender, request, user, **kwargs):
         logger.error(f"Error creating CrushProfile on login for user {user.id}: {str(e)}", exc_info=True)
 
 
+@receiver(user_logged_in)
+def sync_language_preference_on_login(sender, request, user, **kwargs):
+    """
+    Sync session language to CrushProfile.preferred_language on login.
+
+    This handles the edge case where a user signs up on a non-English page
+    (e.g., /fr/signup/) but the CrushProfile is created with default 'en'.
+
+    On first login, if the profile has the default 'en' language but the session
+    has a different language (de/fr), we update the profile to match.
+
+    This ensures push notifications and emails are sent in the language the
+    user was browsing in when they signed up.
+    """
+    if not request:
+        return
+
+    # Only process for crush.lu domain
+    try:
+        host = request.get_host().split(':')[0].lower()
+    except (KeyError, AttributeError):
+        return
+
+    if host not in CRUSH_LU_DOMAINS:
+        return
+
+    try:
+        if hasattr(user, 'crushprofile') and user.crushprofile:
+            profile = user.crushprofile
+            # Get session language (set by Django's LocaleMiddleware)
+            session_lang = request.session.get('django_language', None)
+
+            # If profile has default 'en' but session has different valid language,
+            # update profile to match session (user's browsing language preference)
+            if (profile.preferred_language == 'en' and
+                    session_lang and session_lang in ['de', 'fr']):
+                profile.preferred_language = session_lang
+                profile.save(update_fields=['preferred_language'])
+                logger.info(
+                    f"Synced language preference for user {user.id}: "
+                    f"'en' -> '{session_lang}' (from session)"
+                )
+    except Exception as e:
+        # Don't fail login if language sync fails
+        logger.warning(f"Error syncing language preference for user {user.id}: {e}")
+
+
 @receiver(post_save, sender=MeetupEvent)
 def create_default_activity_options(sender, instance, created, **kwargs):
     """
