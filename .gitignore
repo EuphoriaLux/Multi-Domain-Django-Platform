@@ -52,8 +52,13 @@ coverage.xml
 .pytest_cache/
 
 # Translations
-*.mo
+# Note: We DO commit locale/*.mo files for Django i18n (see !locale/ exception below)
 *.pot
+
+# BUT allow Django translation .mo files in locale directory
+!locale/
+!locale/**/
+!locale/**/*.mo
 
 # Django stuff:
 *.log
