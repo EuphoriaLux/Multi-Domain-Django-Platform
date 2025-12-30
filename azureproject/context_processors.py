@@ -97,22 +97,30 @@ def _build_admin_url(platform, request, is_development):
     In development mode, uses localhost with the appropriate path.
     In production, uses absolute URLs with full domain names.
     """
+    from django.utils import translation
+
     domain = platform['domain']
     path = platform['path']
 
-    # Django Admin uses relative path (same domain)
+    # Get current language prefix for i18n URLs
+    current_language = translation.get_language() or 'en'
+
+    # Django Admin uses relative path (same domain) but needs language prefix
     if domain is None:
-        return path
+        return f'/{current_language}{path}'
+
+    # Build language-prefixed path for i18n URLs
+    lang_path = f'/{current_language}{path}'
 
     if is_development:
         # In development, all admins are on localhost
         # Use the path directly since domain routing is based on path
         host = request.get_host()
         protocol = 'https' if request.is_secure() else 'http'
-        return f"{protocol}://{host}{path}"
+        return f"{protocol}://{host}{lang_path}"
     else:
-        # Production: use absolute URLs with HTTPS
-        return f"https://{domain}{path}"
+        # Production: use absolute URLs with HTTPS and language prefix
+        return f"https://{domain}{lang_path}"
 
 
 def admin_navigation(request):
