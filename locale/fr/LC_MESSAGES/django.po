@@ -3826,36 +3826,15 @@ msgstr "Révision demandée"
 msgid "No recent reviews yet."
 msgstr "Aucun examen récent."
 
-# Footer translations
+# Footer translations (only new strings that don't exist elsewhere)
 msgid "Meet new people. Make real connections."
 msgstr "Rencontrez de nouvelles personnes. Créez de vraies connexions."
 
 msgid "Quick Links"
 msgstr "Liens rapides"
 
-msgid "About Us"
-msgstr "À propos"
-
-msgid "How It Works"
-msgstr "Comment ça marche"
-
-msgid "Events"
-msgstr "Événements"
-
 msgid "Legal"
 msgstr "Mentions légales"
-
-msgid "Privacy Policy"
-msgstr "Politique de confidentialité"
-
-msgid "Terms of Service"
-msgstr "Conditions d'utilisation"
-
-msgid "Data Deletion"
-msgstr "Suppression des données"
-
-msgid "Privacy First"
-msgstr "Confidentialité d'abord"
 
 msgid "Your privacy matters. All profiles are reviewed by our Crush Coaches."
 msgstr "Votre vie privée compte. Tous les profils sont examinés par nos Crush Coaches."

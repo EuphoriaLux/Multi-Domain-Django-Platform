@@ -82,7 +82,7 @@
     {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}
     <div>
         <strong>Coach Notice:</strong> There {{ unpublished_count|pluralize:"is,are" }} {{ unpublished_count }} unpublished event{{ unpublished_count|pluralize }} that won't show here.
-        <a href="/crush-admin/crush_lu/meetupevent/" class="underline font-semibold hover:text-yellow-900">Go to Admin to publish {{ unpublished_count|pluralize:"it,them" }}</a>.
+        <a href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}" class="underline font-semibold hover:text-yellow-900">Go to Admin to publish {{ unpublished_count|pluralize:"it,them" }}</a>.
     </div>
 </div>
 {% endif %}

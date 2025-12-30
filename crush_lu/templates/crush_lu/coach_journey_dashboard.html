@@ -110,7 +110,7 @@
            class="inline-flex items-center gap-2 px-5 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg transition-colors">
             {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back to Coach Dashboard
         </a>
-        <a href="/crush-admin/crush_lu/specialuserexperience/"
+        <a href="{% url 'crush_admin:crush_lu_specialuserexperience_changelist' %}"
            class="inline-flex items-center gap-2 px-5 py-3 border border-purple-500 text-purple-600 hover:bg-purple-50 font-semibold rounded-lg transition-colors">
             {% include "crush_lu/icons/plus-circle.html" with class="w-5 h-5" %} Create New Journey
         </a>

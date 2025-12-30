@@ -713,7 +713,7 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
                 '<strong>Chapters:</strong> {}<br>'
                 '<strong>Challenges:</strong> {}<br>'
                 '<strong>Status:</strong> {}<br>'
-                '<a href="/admin/crush_lu/journeyconfiguration/{}/change/" '
+                '<a href="/crush-admin/crush_lu/journeyconfiguration/{}/change/" '
                 'class="button" style="margin-top: 10px;">View/Edit Journey</a>'
                 '</div>',
                 journey.journey_name,

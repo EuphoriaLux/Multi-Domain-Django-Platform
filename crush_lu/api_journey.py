@@ -422,7 +422,7 @@ def record_final_response(request):
             - Completion Percentage: {journey_progress.completion_percentage}%
 
             View full details in the admin panel:
-            https://crush.lu/en/admin/crush_lu/journeyprogress/{journey_progress.id}/change/
+            https://crush.lu/crush-admin/crush_lu/journeyprogress/{journey_progress.id}/change/
 
             ---
             This is an automated notification from Crush.lu Journey System

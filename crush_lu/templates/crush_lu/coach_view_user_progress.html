@@ -658,7 +658,7 @@
         <button onclick="window.print()" class="border border-purple-500 text-purple-600 hover:bg-purple-50 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
             {% include "crush_lu/icons/printer.html" with class="w-5 h-5" %} Print Report
         </button>
-        <a href="/crush-admin/crush_lu/journeyprogress/{{ progress.id }}/change/" class="border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
+        <a href="{% url 'crush_admin:crush_lu_journeyprogress_change' progress.id %}" class="border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
             {% include "crush_lu/icons/cog-6-tooth.html" with class="w-5 h-5" %} Admin View
         </a>
     </div>
