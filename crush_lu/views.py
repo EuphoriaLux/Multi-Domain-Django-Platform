@@ -399,7 +399,7 @@ def account_settings(request):
                 'endpoint': sub.endpoint,  # For current device detection
                 'device_name': sub.device_name or 'Unknown Device',
                 'device_type': get_device_type(sub.device_name or ''),
-                'last_used_at': sub.last_used_at.isoformat() if sub.last_used_at else None,
+                'last_used_at': sub.last_used_at,  # Keep as datetime for template filters
                 'notify_new_messages': sub.notify_new_messages,
                 'notify_event_reminders': sub.notify_event_reminders,
                 'notify_new_connections': sub.notify_new_connections,
@@ -427,7 +427,7 @@ def account_settings(request):
                     'endpoint': sub.endpoint,  # For current device detection
                     'device_name': sub.device_name or 'Unknown Device',
                     'device_type': get_device_type(sub.device_name or ''),
-                    'last_used_at': sub.last_used_at.isoformat() if sub.last_used_at else None,
+                    'last_used_at': sub.last_used_at,  # Keep as datetime for template filters
                     'notify_new_submissions': sub.notify_new_submissions,
                     'notify_screening_reminders': sub.notify_screening_reminders,
                     'notify_user_responses': sub.notify_user_responses,
