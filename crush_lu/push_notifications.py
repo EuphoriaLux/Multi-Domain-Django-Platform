@@ -213,7 +213,9 @@ def send_event_reminder(user, event):
             'event_title': event.title,
             'time': event.date_time.strftime('%H:%M')
         }
-        url = reverse('crush_lu:event_detail', kwargs={'event_id': event.id})
+
+    # Use helper for language-prefixed URL
+    url = get_user_language_url(user, 'crush_lu:event_detail', kwargs={'event_id': event.id})
 
     return send_push_notification(
         user=user,
@@ -245,7 +247,9 @@ def send_new_connection_notification(user, connection):
     with user_language_context(user):
         title = _("New Connection Request!")
         body = _("%(name)s wants to connect with you!") % {'name': display_name}
-        url = reverse('crush_lu:my_connections')
+
+    # Use helper for language-prefixed URL
+    url = get_user_language_url(user, 'crush_lu:my_connections')
 
     return send_push_notification(
         user=user,
