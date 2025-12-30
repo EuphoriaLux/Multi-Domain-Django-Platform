@@ -1,11 +1,12 @@
 {% extends 'crush_lu/base.html' %}
+{% load i18n %}
 
-{% block title %}Coach Dashboard - Crush.lu{% endblock %}
+{% block title %}{% trans "Coach Dashboard" %} - Crush.lu{% endblock %}
 
 {% block content %}
 <div class="mb-6">
-    <h2 class="text-2xl font-bold">Coach Dashboard 🎯</h2>
-    <p class="text-lg text-gray-500">Welcome, Coach {{ coach.user.get_full_name }}!</p>
+    <h2 class="text-2xl font-bold">{% trans "Coach Dashboard" %} 🎯</h2>
+    <p class="text-lg text-gray-500">{% blocktrans with name=coach.user.get_full_name %}Welcome, Coach {{ name }}!{% endblocktrans %}</p>
 </div>
 
 <!-- Coach Stats -->
@@ -13,19 +14,19 @@
     <div class="bg-white rounded-xl shadow-sm text-center">
         <div class="p-6">
             <h3 class="text-3xl font-bold text-crush-purple">{{ pending_submissions|length }}</h3>
-            <p class="text-gray-500 mb-0">Pending Reviews</p>
+            <p class="text-gray-500 mb-0">{% trans "Pending Reviews" %}</p>
         </div>
     </div>
     <div class="bg-white rounded-xl shadow-sm text-center">
         <div class="p-6">
             <h3 class="text-3xl font-bold text-green-600">{{ recent_reviews|length }}</h3>
-            <p class="text-gray-500 mb-0">Recent Reviews</p>
+            <p class="text-gray-500 mb-0">{% trans "Recent Reviews" %}</p>
         </div>
     </div>
     <div class="bg-white rounded-xl shadow-sm text-center">
         <div class="p-6">
             <h3 class="text-3xl font-bold">{{ coach.max_active_reviews }}</h3>
-            <p class="text-gray-500 mb-0">Max Reviews</p>
+            <p class="text-gray-500 mb-0">{% trans "Max Reviews" %}</p>
         </div>
     </div>
 </div>
@@ -35,12 +36,12 @@
     <div class="p-6">
         <div class="flex justify-between items-start">
             <div>
-                <h5 class="font-semibold mb-2">Your Specializations</h5>
-                <p class="mb-0 text-gray-600">{{ coach.specializations|default:"Not set" }}</p>
+                <h5 class="font-semibold mb-2">{% trans "Your Specializations" %}</h5>
+                <p class="mb-0 text-gray-600">{{ coach.specializations|default:_("Not set") }}</p>
             </div>
             <a href="{% url 'crush_lu:coach_edit_profile' %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
                 {% include "crush_lu/icons/pencil.html" with class="w-4 h-4" %}
-                <span>Edit</span>
+                <span>{% trans "Edit" %}</span>
             </a>
         </div>
     </div>
@@ -55,7 +56,7 @@
             <svg class="w-5 h-5 text-crush-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
             </svg>
-            Coach Notifications
+            {% trans "Coach Notifications" %}
         </h5>
     </div>
     <div class="p-6">
@@ -66,7 +67,7 @@
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span class="ml-2 text-gray-500">Loading notification settings...</span>
+                <span class="ml-2 text-gray-500">{% trans "Loading notification settings..." %}</span>
             </div>
         </template>
 
@@ -76,14 +77,14 @@
                 <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                 </svg>
-                <span>Push notifications are not supported in this browser.</span>
+                <span>{% trans "Push notifications are not supported in this browser." %}</span>
             </div>
         </template>
 
         <!-- Not Subscribed State -->
         <template x-if="showEnableButton">
             <div>
-                <p class="text-gray-600 mb-4">Enable push notifications to get alerts about new profile submissions, user revisions, and screening reminders.</p>
+                <p class="text-gray-600 mb-4">{% trans "Enable push notifications to get alerts about new profile submissions, user revisions, and screening reminders." %}</p>
                 <button type="button"
                         class="btn-crush-primary inline-flex items-center gap-2 enable-coach-push-btn"
                         x-bind:disabled="isEnabling">
@@ -111,11 +112,11 @@
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    <span>Coach notifications are enabled on this device.</span>
+                    <span>{% trans "Coach notifications are enabled on this device." %}</span>
                 </div>
 
                 <!-- Notification Preferences -->
-                <h6 class="font-semibold text-sm text-gray-700 mb-3">Notification Types</h6>
+                <h6 class="font-semibold text-sm text-gray-700 mb-3">{% trans "Notification Types" %}</h6>
                 <div class="space-y-3">
                     {% if coach_push_subscription %}
                     <!-- New Submissions -->
@@ -125,8 +126,8 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                             </svg>
                             <div>
-                                <span class="font-medium text-gray-900">New Profile Submissions</span>
-                                <p class="text-xs text-gray-500">Get notified when new profiles need review</p>
+                                <span class="font-medium text-gray-900">{% trans "New Profile Submissions" %}</span>
+                                <p class="text-xs text-gray-500">{% trans "Get notified when new profiles need review" %}</p>
                             </div>
                         </div>
                         <input type="checkbox"
@@ -143,8 +144,8 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                             </svg>
                             <div>
-                                <span class="font-medium text-gray-900">User Revisions</span>
-                                <p class="text-xs text-gray-500">Get notified when users submit profile revisions</p>
+                                <span class="font-medium text-gray-900">{% trans "User Revisions" %}</span>
+                                <p class="text-xs text-gray-500">{% trans "Get notified when users submit profile revisions" %}</p>
                             </div>
                         </div>
                         <input type="checkbox"
@@ -161,8 +162,8 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
                             <div>
-                                <span class="font-medium text-gray-900">Screening Reminders</span>
-                                <p class="text-xs text-gray-500">Reminders about pending screening calls</p>
+                                <span class="font-medium text-gray-900">{% trans "Screening Reminders" %}</span>
+                                <p class="text-xs text-gray-500">{% trans "Reminders about pending screening calls" %}</p>
                             </div>
                         </div>
                         <input type="checkbox"
@@ -179,8 +180,8 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
                             <div>
-                                <span class="font-medium text-gray-900">System Alerts</span>
-                                <p class="text-xs text-gray-500">Important system and admin messages</p>
+                                <span class="font-medium text-gray-900">{% trans "System Alerts" %}</span>
+                                <p class="text-xs text-gray-500">{% trans "Important system and admin messages" %}</p>
                             </div>
                         </div>
                         <input type="checkbox"
@@ -222,12 +223,12 @@
         <div class="p-6">
             <h5 class="font-semibold mb-2 flex items-center gap-2">
                 {% include "crush_lu/icons/map-pin.html" with class="w-5 h-5" %}
-                Journey Management
+                {% trans "Journey Management" %}
             </h5>
-            <p class="text-gray-500 mb-4">Manage active Wonderland Journey experiences and view user progress.</p>
+            <p class="text-gray-500 mb-4">{% trans "Manage active Wonderland Journey experiences and view user progress." %}</p>
             <a href="{% url 'crush_lu:coach_journey_dashboard' %}" class="btn-crush-primary inline-flex items-center gap-1 text-sm px-3 py-1.5">
                 {% include "crush_lu/icons/arrow-right.html" with class="w-4 h-4" %}
-                <span>Manage Journeys</span>
+                <span>{% trans "Manage Journeys" %}</span>
             </a>
         </div>
     </div>
@@ -237,7 +238,7 @@
 <!-- Pending Submissions -->
 <div class="bg-white rounded-xl shadow-sm mb-6">
     <div class="px-6 py-4 border-b border-gray-100">
-        <h5 class="font-semibold mb-0">Pending Profile Reviews</h5>
+        <h5 class="font-semibold mb-0">{% trans "Pending Profile Reviews" %}</h5>
     </div>
     <div class="p-6">
         {% if pending_submissions %}
@@ -248,20 +249,20 @@
                             <div>
                                 <h6 class="font-semibold mb-1">{{ submission.profile.user.get_full_name }}</h6>
                                 <p class="text-gray-500 text-sm mb-1">
-                                    {% if submission.profile.age %}{{ submission.profile.age }} years old{% else %}Age not set{% endif %} | {{ submission.profile.location|default:"Location not set" }}<br>
+                                    {% if submission.profile.age %}{% blocktrans with age=submission.profile.age %}{{ age }} years old{% endblocktrans %}{% else %}{% trans "Age not set" %}{% endif %} | {{ submission.profile.location|default:_("Location not set") }}<br>
                                     {{ submission.profile.get_looking_for_display }}
                                 </p>
                                 <p class="text-sm mb-0">
-                                    <strong>Submitted:</strong> {{ submission.submitted_at|date:"M j, Y g:i A" }}
+                                    <strong>{% trans "Submitted" %}:</strong> {{ submission.submitted_at|date:"M j, Y g:i A" }}
                                 </p>
                             </div>
                             <div>
-                                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full">Pending</span>
+                                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full">{% trans "Pending" %}</span>
                             </div>
                         </div>
                         <div class="mt-3">
                             <a href="{% url 'crush_lu:coach_review_profile' submission.id %}" class="btn-crush-primary text-sm px-3 py-1.5">
-                                Review Profile
+                                {% trans "Review Profile" %}
                             </a>
                         </div>
                     </div>
@@ -269,7 +270,7 @@
             </div>
         {% else %}
             <p class="text-gray-500 text-center py-8">
-                No pending reviews at the moment. Great work! 🎉
+                {% trans "No pending reviews at the moment. Great work!" %} 🎉
             </p>
         {% endif %}
     </div>
@@ -278,7 +279,7 @@
 <!-- Recent Reviews -->
 <div class="bg-white rounded-xl shadow-sm">
     <div class="px-6 py-4 border-b border-gray-100">
-        <h5 class="font-semibold mb-0">Recent Reviews</h5>
+        <h5 class="font-semibold mb-0">{% trans "Recent Reviews" %}</h5>
     </div>
     <div class="p-6">
         {% if recent_reviews %}
@@ -289,16 +290,16 @@
                             <div>
                                 <h6 class="font-semibold mb-1">{{ submission.profile.user.get_full_name }}</h6>
                                 <p class="text-sm text-gray-500 mb-0">
-                                    Reviewed: {{ submission.reviewed_at|date:"M j, Y g:i A" }}
+                                    {% trans "Reviewed" %}: {{ submission.reviewed_at|date:"M j, Y g:i A" }}
                                 </p>
                             </div>
                             <div>
                                 {% if submission.status == 'approved' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">Approved</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">{% trans "Approved" %}</span>
                                 {% elif submission.status == 'rejected' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded-full">Rejected</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded-full">{% trans "Rejected" %}</span>
                                 {% elif submission.status == 'revision' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">Revision Requested</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">{% trans "Revision Requested" %}</span>
                                 {% endif %}
                             </div>
                         </div>
@@ -307,7 +308,7 @@
             </div>
         {% else %}
             <p class="text-gray-500 text-center py-8">
-                No recent reviews yet.
+                {% trans "No recent reviews yet." %}
             </p>
         {% endif %}
     </div>

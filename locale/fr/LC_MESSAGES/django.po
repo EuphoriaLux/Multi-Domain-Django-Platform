@@ -3710,3 +3710,155 @@ msgstr "Une erreur s'est produite lors du traitement de votre sélection"
 
 #~ msgid "About"
 #~ msgstr "À propos"
+
+# Coach Dashboard translations
+msgid "Coach Dashboard"
+msgstr "Tableau de bord Coach"
+
+msgid "Welcome, Coach %(name)s!"
+msgstr "Bienvenue, Coach %(name)s !"
+
+msgid "Pending Reviews"
+msgstr "Examens en attente"
+
+msgid "Recent Reviews"
+msgstr "Examens récents"
+
+msgid "Max Reviews"
+msgstr "Max. examens"
+
+msgid "Your Specializations"
+msgstr "Vos spécialisations"
+
+msgid "Not set"
+msgstr "Non défini"
+
+msgid "Edit"
+msgstr "Modifier"
+
+msgid "Coach Notifications"
+msgstr "Notifications Coach"
+
+msgid "Loading notification settings..."
+msgstr "Chargement des paramètres de notification..."
+
+msgid "Push notifications are not supported in this browser."
+msgstr "Les notifications push ne sont pas prises en charge dans ce navigateur."
+
+msgid "Enable push notifications to get alerts about new profile submissions, user revisions, and screening reminders."
+msgstr "Activez les notifications push pour recevoir des alertes sur les nouvelles soumissions de profil, les révisions utilisateur et les rappels de screening."
+
+msgid "Coach notifications are enabled on this device."
+msgstr "Les notifications Coach sont activées sur cet appareil."
+
+msgid "Notification Types"
+msgstr "Types de notifications"
+
+msgid "New Profile Submissions"
+msgstr "Nouvelles soumissions de profil"
+
+msgid "Get notified when new profiles need review"
+msgstr "Être notifié lorsque de nouveaux profils nécessitent un examen"
+
+msgid "User Revisions"
+msgstr "Révisions utilisateur"
+
+msgid "Get notified when users submit profile revisions"
+msgstr "Être notifié lorsque les utilisateurs soumettent des révisions de profil"
+
+msgid "Screening Reminders"
+msgstr "Rappels de screening"
+
+msgid "Reminders about pending screening calls"
+msgstr "Rappels concernant les appels de screening en attente"
+
+msgid "System Alerts"
+msgstr "Alertes système"
+
+msgid "Important system and admin messages"
+msgstr "Messages système et administrateur importants"
+
+msgid "Journey Management"
+msgstr "Gestion des parcours"
+
+msgid "Manage active Wonderland Journey experiences and view user progress."
+msgstr "Gérez les expériences Wonderland Journey actives et consultez la progression des utilisateurs."
+
+msgid "Manage Journeys"
+msgstr "Gérer les parcours"
+
+msgid "Pending Profile Reviews"
+msgstr "Examens de profil en attente"
+
+msgid "%(age)s years old"
+msgstr "%(age)s ans"
+
+msgid "Age not set"
+msgstr "Âge non défini"
+
+msgid "Location not set"
+msgstr "Lieu non défini"
+
+msgid "Submitted"
+msgstr "Soumis"
+
+msgid "Pending"
+msgstr "En attente"
+
+msgid "Review Profile"
+msgstr "Examiner le profil"
+
+msgid "No pending reviews at the moment. Great work!"
+msgstr "Aucun examen en attente pour le moment. Excellent travail !"
+
+msgid "Reviewed"
+msgstr "Examiné"
+
+msgid "Approved"
+msgstr "Approuvé"
+
+msgid "Rejected"
+msgstr "Rejeté"
+
+msgid "Revision Requested"
+msgstr "Révision demandée"
+
+msgid "No recent reviews yet."
+msgstr "Aucun examen récent."
+
+# Footer translations
+msgid "Meet new people. Make real connections."
+msgstr "Rencontrez de nouvelles personnes. Créez de vraies connexions."
+
+msgid "Quick Links"
+msgstr "Liens rapides"
+
+msgid "About Us"
+msgstr "À propos"
+
+msgid "How It Works"
+msgstr "Comment ça marche"
+
+msgid "Events"
+msgstr "Événements"
+
+msgid "Legal"
+msgstr "Mentions légales"
+
+msgid "Privacy Policy"
+msgstr "Politique de confidentialité"
+
+msgid "Terms of Service"
+msgstr "Conditions d'utilisation"
+
+msgid "Data Deletion"
+msgstr "Suppression des données"
+
+msgid "Privacy First"
+msgstr "Confidentialité d'abord"
+
+msgid "Your privacy matters. All profiles are reviewed by our Crush Coaches."
+msgstr "Votre vie privée compte. Tous les profils sont examinés par nos Crush Coaches."
+
+msgid "&copy; 2025 Crush.lu - Made with 💕 in Luxembourg"
+msgstr "&copy; 2025 Crush.lu - Fait avec 💕 au Luxembourg"
