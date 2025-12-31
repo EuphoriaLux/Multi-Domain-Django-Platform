@@ -175,6 +175,58 @@ def unsubscribe_push(request):
 
 
 @crush_login_required
+@csrf_exempt
+@require_http_methods(["POST"])
+def delete_push_subscription(request):
+    """
+    Delete a specific coach push subscription by ID.
+    Allows coaches to remove subscriptions from devices they no longer have access to.
+
+    Request body:
+    {
+        "subscription_id": 123
+    }
+    """
+    coach, error = get_coach_or_error(request)
+    if error:
+        return error
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid JSON'
+        }, status=400)
+
+    subscription_id = data.get('subscription_id')
+
+    if not subscription_id:
+        return JsonResponse({
+            'success': False,
+            'error': 'subscription_id required'
+        }, status=400)
+
+    # Delete subscription - must belong to current coach
+    deleted_count, _ = CoachPushSubscription.objects.filter(
+        id=subscription_id,
+        coach=coach
+    ).delete()
+
+    if deleted_count > 0:
+        logger.info(f"Coach push subscription {subscription_id} deleted for {coach.user.username}")
+        return JsonResponse({
+            'success': True,
+            'message': 'Subscription deleted successfully'
+        })
+    else:
+        return JsonResponse({
+            'success': False,
+            'error': 'Subscription not found'
+        }, status=404)
+
+
+@crush_login_required
 @require_http_methods(["GET"])
 def list_subscriptions(request):
     """

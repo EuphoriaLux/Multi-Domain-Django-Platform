@@ -174,6 +174,7 @@ document.addEventListener('alpine:init', function() {
             subscriptions: [],
             isSupported: false,
             isSubscribed: false,
+            isCurrentDeviceSubscribed: false,  // TRUE only if THIS device has push enabled
             isEnabling: false,
             isDisabling: false,
             errorMessage: '',
@@ -195,8 +196,9 @@ document.addEventListener('alpine:init', function() {
             // Computed getters for CSP compatibility
             get hasSubscriptions() { return this.subscriptions.length > 0; },
             get noSubscriptions() { return this.subscriptions.length === 0; },
-            get canEnable() { return this.isSupported && !this.isSubscribed && !this.isEnabling && !this.permissionDenied; },
-            get showEnableButton() { return !this.isLoading && this.isSupported && !this.isSubscribed && !this.permissionDenied; },
+            get canEnable() { return this.isSupported && !this.isCurrentDeviceSubscribed && !this.isEnabling && !this.permissionDenied; },
+            // Show enable button if current device is NOT subscribed (allows multi-device)
+            get showEnableButton() { return !this.isLoading && this.isSupported && !this.isCurrentDeviceSubscribed && !this.permissionDenied; },
             get showPermissionDenied() { return !this.isLoading && this.permissionDenied; },
             get showNotSupported() { return !this.isLoading && !this.isSupported; },
             get showPreferences() { return !this.isLoading && this.isSubscribed && this.hasSubscriptions; },
@@ -264,7 +266,22 @@ document.addEventListener('alpine:init', function() {
                     if (event.target.closest('.enable-push-btn')) {
                         self.enablePush();
                     } else if (event.target.closest('.disable-push-btn')) {
-                        self.disablePush();
+                        // Get subscription info from the button's container
+                        var btn = event.target.closest('.disable-push-btn');
+                        var container = btn.closest('[data-subscription-id]');
+                        if (container) {
+                            var subscriptionId = container.dataset.subscriptionId;
+                            var endpoint = container.dataset.endpoint;
+                            // Check if this is the current device
+                            if (self.currentEndpoint && endpoint === self.currentEndpoint) {
+                                self.disablePush();  // Current device - use existing unsubscribe
+                            } else {
+                                self.disableRemoteSubscription(subscriptionId);  // Other device
+                            }
+                        } else {
+                            // Fallback to current device unsubscribe
+                            self.disablePush();
+                        }
                     }
                 });
             },
@@ -283,6 +300,7 @@ document.addEventListener('alpine:init', function() {
 
             // Detect current device's push endpoint for "This device" identification
             // Also shows server-rendered "This device" badges for matching endpoints
+            // Sets isCurrentDeviceSubscribed based on whether THIS device is in the subscriptions list
             _detectCurrentEndpoint: function() {
                 var self = this;
                 if ('serviceWorker' in navigator) {
@@ -291,8 +309,18 @@ document.addEventListener('alpine:init', function() {
                     }).then(function(sub) {
                         self.currentEndpoint = sub ? sub.endpoint : null;
                         self.endpointDetected = true;  // Trigger Alpine reactivity
-                        // Show "This device" badges for server-rendered subscriptions
+
+                        // Check if current device is in the subscriptions list
                         if (sub && sub.endpoint) {
+                            var subscriptionElements = self.$el.querySelectorAll('[data-endpoint]');
+                            for (var i = 0; i < subscriptionElements.length; i++) {
+                                if (subscriptionElements[i].dataset.endpoint === sub.endpoint) {
+                                    self.isCurrentDeviceSubscribed = true;
+                                    break;
+                                }
+                            }
+
+                            // Show "This device" badges for server-rendered subscriptions
                             var badges = self.$el.querySelectorAll('.this-device-badge');
                             for (var i = 0; i < badges.length; i++) {
                                 var container = badges[i].closest('[data-endpoint]');
@@ -368,6 +396,7 @@ document.addEventListener('alpine:init', function() {
                     self.isDisabling = false;
                     if (result.success) {
                         self.isSubscribed = false;
+                        self.isCurrentDeviceSubscribed = false;
                         self.subscriptions = [];
                         // Reload to update UI
                         window.location.reload();
@@ -378,6 +407,38 @@ document.addEventListener('alpine:init', function() {
                     self.isDisabling = false;
                     self.errorMessage = 'An error occurred. Please try again.';
                     console.error('[Push] Disable error:', err);
+                });
+            },
+
+            // Disable push subscription for a remote device (not the current device)
+            disableRemoteSubscription: function(subscriptionId) {
+                var self = this;
+                if (this.isDisabling) return;
+
+                this.isDisabling = true;
+
+                fetch('/api/push/delete-subscription/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': self.getCsrfToken()
+                    },
+                    body: JSON.stringify({ subscription_id: subscriptionId })
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    self.isDisabling = false;
+                    if (data.success) {
+                        // Reload to update UI
+                        window.location.reload();
+                    } else {
+                        self.errorMessage = data.error || 'Failed to disable notifications';
+                    }
+                })
+                .catch(function(err) {
+                    self.isDisabling = false;
+                    self.errorMessage = 'An error occurred. Please try again.';
+                    console.error('[Push] Remote disable error:', err);
                 });
             },
 
@@ -448,6 +509,7 @@ document.addEventListener('alpine:init', function() {
             subscriptions: [],
             isSupported: false,
             isSubscribed: false,
+            isCurrentDeviceSubscribed: false,  // TRUE only if THIS device has push enabled
             isEnabling: false,
             isDisabling: false,
             errorMessage: '',
@@ -467,7 +529,8 @@ document.addEventListener('alpine:init', function() {
             },
 
             get hasSubscriptions() { return this.subscriptions.length > 0; },
-            get showEnableButton() { return !this.isLoading && this.isSupported && !this.isSubscribed && !this.permissionDenied; },
+            // Show enable button only if THIS device isn't subscribed (allows multi-device)
+            get showEnableButton() { return !this.isLoading && this.isSupported && !this.isCurrentDeviceSubscribed && !this.permissionDenied; },
             get showPermissionDenied() { return !this.isLoading && this.permissionDenied; },
             get showNotSupported() { return !this.isLoading && !this.isSupported; },
             get showPreferences() { return !this.isLoading && this.isSubscribed && this.hasSubscriptions; },
@@ -522,7 +585,21 @@ document.addEventListener('alpine:init', function() {
                     if (event.target.closest('.enable-coach-push-btn')) {
                         self.enablePush();
                     } else if (event.target.closest('.disable-coach-push-btn')) {
-                        self.disablePush();
+                        // Identify which subscription to disable
+                        var btn = event.target.closest('.disable-coach-push-btn');
+                        var container = btn.closest('[data-subscription-id]');
+                        if (container) {
+                            var subscriptionId = parseInt(container.dataset.subscriptionId);
+                            var endpoint = container.dataset.endpoint;
+                            // Check if this is the current device
+                            if (self.currentEndpoint && endpoint === self.currentEndpoint) {
+                                self.disablePush();  // Current device - use existing unsubscribe
+                            } else {
+                                self.disableRemoteSubscription(subscriptionId);  // Other device
+                            }
+                        } else {
+                            self.disablePush();  // Fallback to current device
+                        }
                     } else if (event.target.closest('.test-coach-push-btn')) {
                         self.sendTestNotification();
                     }
@@ -543,6 +620,7 @@ document.addEventListener('alpine:init', function() {
 
             // Detect current device's push endpoint for "This device" identification
             // Also shows server-rendered "This device" badges for matching endpoints
+            // Sets isCurrentDeviceSubscribed to true if this device has an active subscription
             _detectCurrentEndpoint: function() {
                 var self = this;
                 if ('serviceWorker' in navigator) {
@@ -551,8 +629,16 @@ document.addEventListener('alpine:init', function() {
                     }).then(function(sub) {
                         self.currentEndpoint = sub ? sub.endpoint : null;
                         self.endpointDetected = true;  // Trigger Alpine reactivity
-                        // Show "This device" badges for server-rendered subscriptions
+                        // Show "This device" badges and detect if current device is subscribed
                         if (sub && sub.endpoint) {
+                            var subscriptionElements = self.$el.querySelectorAll('[data-endpoint]');
+                            for (var i = 0; i < subscriptionElements.length; i++) {
+                                if (subscriptionElements[i].dataset.endpoint === sub.endpoint) {
+                                    self.isCurrentDeviceSubscribed = true;
+                                    break;
+                                }
+                            }
+                            // Show "This device" badges
                             var badges = self.$el.querySelectorAll('.this-device-badge');
                             for (var i = 0; i < badges.length; i++) {
                                 var container = badges[i].closest('[data-endpoint]');
@@ -646,15 +732,47 @@ document.addEventListener('alpine:init', function() {
 
                 navigator.serviceWorker.ready.then(function(reg) { return reg.pushManager.getSubscription(); })
                 .then(function(sub) {
-                    if (!sub) { self.isDisabling = false; self.isSubscribed = false; window.location.reload(); return; }
+                    if (!sub) { self.isDisabling = false; self.isSubscribed = false; self.isCurrentDeviceSubscribed = false; window.location.reload(); return; }
                     sub.unsubscribe().then(function() {
                         return fetch('/api/coach/push/unsubscribe/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': self.getCsrfToken() },
                             body: JSON.stringify({ endpoint: sub.endpoint })
                         });
-                    }).then(function() { self.isDisabling = false; window.location.reload(); })
+                    }).then(function() { self.isDisabling = false; self.isCurrentDeviceSubscribed = false; window.location.reload(); })
                     .catch(function(err) { self.isDisabling = false; self.errorMessage = 'Failed'; console.error('[CoachPush]', err); });
+                });
+            },
+
+            // Disable push subscription for a remote device (not the current device)
+            disableRemoteSubscription: function(subscriptionId) {
+                var self = this;
+                if (this.isDisabling) return;
+
+                this.isDisabling = true;
+
+                fetch('/api/coach/push/delete-subscription/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': self.getCsrfToken()
+                    },
+                    body: JSON.stringify({ subscription_id: subscriptionId })
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    self.isDisabling = false;
+                    if (data.success) {
+                        // Reload to update UI
+                        window.location.reload();
+                    } else {
+                        self.errorMessage = data.error || 'Failed to disable notifications';
+                    }
+                })
+                .catch(function(err) {
+                    self.isDisabling = false;
+                    self.errorMessage = 'An error occurred. Please try again.';
+                    console.error('[CoachPush] Remote disable error:', err);
                 });
             },
 
