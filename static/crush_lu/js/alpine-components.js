@@ -305,10 +305,9 @@ document.addEventListener('alpine:init', function() {
             _detectCurrentEndpoint: function() {
                 var self = this;
 
-                // Try to get fingerprint immediately if CrushPush is loaded
-                if (window.CrushPush && window.CrushPush.getFingerprint) {
-                    self.currentFingerprint = window.CrushPush.getFingerprint();
-                }
+                // Generate fingerprint immediately using our own implementation
+                // This ensures fingerprint is always available, regardless of CrushPush loading
+                self.currentFingerprint = self._generateFingerprint();
 
                 if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.ready.then(function(reg) {
@@ -330,51 +329,22 @@ document.addEventListener('alpine:init', function() {
                         }
 
                         // Strategy 2: Fallback to fingerprint if endpoint didn't match
-                        // Wait for CrushPush if needed, then try fingerprint matching
-                        if (!self.isCurrentDeviceSubscribed) {
-                            self._tryFingerprintMatch();
+                        if (!self.isCurrentDeviceSubscribed && self.currentFingerprint) {
+                            self._matchByFingerprint();
                         }
                     }).catch(function() {
                         self.endpointDetected = true;  // Mark as done even on failure
                         // Try fingerprint matching as fallback
-                        self._tryFingerprintMatch();
+                        if (self.currentFingerprint) {
+                            self._matchByFingerprint();
+                        }
                     });
                 } else {
                     self.endpointDetected = true;  // No service worker support
                     // Still try fingerprint matching
-                    self._tryFingerprintMatch();
-                }
-            },
-
-            // Try to match by fingerprint, waiting for CrushPush if needed
-            _tryFingerprintMatch: function() {
-                var self = this;
-                if (self.isCurrentDeviceSubscribed) return;  // Already matched
-
-                // If we already have fingerprint, try matching immediately
-                if (self.currentFingerprint) {
-                    self._matchByFingerprint();
-                    return;
-                }
-
-                // Wait for CrushPush to load if not available
-                if (!window.CrushPush || !window.CrushPush.getFingerprint) {
-                    var attempts = 0;
-                    var maxAttempts = 20;  // 2 seconds max
-                    var checkInterval = setInterval(function() {
-                        attempts++;
-                        if (window.CrushPush && window.CrushPush.getFingerprint) {
-                            clearInterval(checkInterval);
-                            self.currentFingerprint = window.CrushPush.getFingerprint();
-                            self._matchByFingerprint();
-                        } else if (attempts >= maxAttempts) {
-                            clearInterval(checkInterval);
-                            // CrushPush didn't load, fingerprint matching not available
-                        }
-                    }, 100);
-                } else {
-                    self.currentFingerprint = window.CrushPush.getFingerprint();
-                    self._matchByFingerprint();
+                    if (self.currentFingerprint) {
+                        self._matchByFingerprint();
+                    }
                 }
             },
 
@@ -397,6 +367,56 @@ document.addEventListener('alpine:init', function() {
                 for (var i = 0; i < badges.length; i++) {
                     badges[i].classList.remove('hidden');
                 }
+            },
+
+            // Generate device fingerprint independently (same algorithm as push-notifications.js)
+            // This ensures fingerprint is always available even if CrushPush fails to load
+            _generateFingerprint: function() {
+                var components = [
+                    screen.width,
+                    screen.height,
+                    window.devicePixelRatio || 1,
+                    new Date().getTimezoneOffset(),
+                    navigator.language || '',
+                    navigator.platform || '',
+                    navigator.hardwareConcurrency || 0,
+                    navigator.deviceMemory || 0,
+                    ('ontouchstart' in window) ? 1 : 0,
+                    screen.colorDepth || 0,
+                    this._getCanvasFingerprint()
+                ];
+                return this._simpleHash(components.join('|'));
+            },
+
+            // Canvas-based fingerprint component (same as push-notifications.js)
+            _getCanvasFingerprint: function() {
+                try {
+                    var canvas = document.createElement('canvas');
+                    canvas.width = 200;
+                    canvas.height = 50;
+                    var ctx = canvas.getContext('2d');
+                    ctx.textBaseline = 'top';
+                    ctx.font = '14px Arial';
+                    ctx.fillStyle = '#f60';
+                    ctx.fillRect(125, 1, 62, 20);
+                    ctx.fillStyle = '#069';
+                    ctx.fillText('Crush.lu PWA', 2, 15);
+                    ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+                    ctx.fillText('Crush.lu PWA', 4, 17);
+                    return canvas.toDataURL().slice(-50);
+                } catch (e) {
+                    return 'no-canvas';
+                }
+            },
+
+            // Simple hash function (djb2 algorithm, same as push-notifications.js)
+            _simpleHash: function(str) {
+                var hash = 5381;
+                for (var i = 0; i < str.length; i++) {
+                    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+                    hash = hash & hash;
+                }
+                return Math.abs(hash).toString(16).padStart(8, '0');
             },
 
             // Check if a subscription is from the current device
