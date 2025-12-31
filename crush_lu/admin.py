@@ -3413,16 +3413,26 @@ class PushSubscriptionAdmin(admin.ModelAdmin):
     disable_subscriptions.short_description = '🔕 Disable selected subscriptions'
 
     def send_test_notification(self, request, queryset):
-        """Send test notification to selected subscriptions"""
-        from .push_notifications import send_test_notification
+        """Send test notification to selected subscriptions (specific devices only)"""
+        from .push_notifications import send_push_to_subscription
+        from django.utils.translation import gettext as _
 
-        total = 0
         success = 0
+        failed = 0
         for subscription in queryset:
-            result = send_test_notification(subscription.user)
-            total += result.get('total', 0)
-            success += result.get('success', 0)
+            result = send_push_to_subscription(
+                subscription=subscription,
+                title=_("Test Notification"),
+                body=_("Push notifications are working! You'll receive updates about events, messages, and connections."),
+                url='/dashboard/',
+                tag='test-notification'
+            )
+            if result.get('success'):
+                success += 1
+            else:
+                failed += 1
 
+        total = success + failed
         self.message_user(
             request,
             f'Sent test notifications: {success}/{total} successful.',
@@ -3518,16 +3528,26 @@ class CoachPushSubscriptionAdmin(admin.ModelAdmin):
     disable_subscriptions.short_description = '🔕 Disable selected subscriptions'
 
     def send_test_notification(self, request, queryset):
-        """Send test notification to selected coach subscriptions"""
-        from .coach_notifications import send_coach_test_notification
+        """Send test notification to selected coach subscriptions (specific devices only)"""
+        from .coach_notifications import send_coach_push_to_subscription
+        from django.utils.translation import gettext as _
 
-        total = 0
         success = 0
+        failed = 0
         for subscription in queryset:
-            result = send_coach_test_notification(subscription.coach)
-            total += result.get('total', 0)
-            success += result.get('success', 0)
+            result = send_coach_push_to_subscription(
+                subscription=subscription,
+                title=_("Test Notification"),
+                body=_("Your coach notifications are working correctly!"),
+                url='/coach/dashboard/',
+                tag='test-notification'
+            )
+            if result.get('success'):
+                success += 1
+            else:
+                failed += 1
 
+        total = success + failed
         self.message_user(
             request,
             f'Sent test notifications: {success}/{total} successful.',

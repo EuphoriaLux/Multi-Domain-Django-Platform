@@ -112,6 +112,85 @@ def send_coach_push_notification(coach, title, body, url='/', tag='coach-notific
     }
 
 
+def send_coach_push_to_subscription(subscription, title, body, url='/', tag='coach-notification', icon=None, badge=None):
+    """
+    Send a push notification to a specific coach subscription (single device).
+
+    Args:
+        subscription: CoachPushSubscription object
+        title: Notification title
+        body: Notification message body
+        url: URL to open when notification is clicked (default: '/')
+        tag: Notification tag for grouping (default: 'coach-notification')
+        icon: Icon URL (default: Crush.lu logo)
+        badge: Badge icon URL (default: Crush.lu badge)
+
+    Returns:
+        dict: {
+            'success': bool,  # Whether send was successful
+            'error': str      # Error message if failed
+        }
+    """
+    # Validate VAPID configuration
+    if not hasattr(settings, 'VAPID_PRIVATE_KEY') or not settings.VAPID_PRIVATE_KEY:
+        logger.error("VAPID_PRIVATE_KEY not configured in settings")
+        return {'success': False, 'error': 'VAPID not configured'}
+
+    if not hasattr(settings, 'VAPID_PUBLIC_KEY') or not settings.VAPID_PUBLIC_KEY:
+        logger.error("VAPID_PUBLIC_KEY not configured in settings")
+        return {'success': False, 'error': 'VAPID not configured'}
+
+    # Check if subscription is enabled
+    if not subscription.enabled:
+        return {'success': False, 'error': 'Subscription is disabled'}
+
+    # Prepare notification payload
+    payload = {
+        'title': title,
+        'body': body,
+        'url': url,
+        'tag': tag,
+        'icon': icon or '/static/crush_lu/icons/icon-192x192.png',
+        'badge': badge or '/static/crush_lu/icons/icon-72x72.png',
+    }
+
+    try:
+        # Prepare subscription info for pywebpush
+        subscription_info = {
+            "endpoint": subscription.endpoint,
+            "keys": {
+                "p256dh": subscription.p256dh_key,
+                "auth": subscription.auth_key
+            }
+        }
+
+        # Send the push notification
+        webpush(
+            subscription_info=subscription_info,
+            data=json.dumps(payload),
+            vapid_private_key=settings.VAPID_PRIVATE_KEY,
+            vapid_claims={
+                "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"
+            }
+        )
+
+        # Mark success
+        subscription.mark_success()
+        logger.info(f"Coach push notification sent to {subscription.coach.user.username} ({subscription.device_name})")
+        return {'success': True, 'error': None}
+
+    except WebPushException as e:
+        # Handle push errors (expired subscription, etc.)
+        logger.warning(f"Coach WebPush failed for {subscription.coach.user.username}: {e}")
+        subscription.mark_failure()
+        return {'success': False, 'error': str(e)}
+
+    except Exception as e:
+        # Catch-all for unexpected errors
+        logger.error(f"Unexpected error sending coach push to {subscription.coach.user.username}: {e}")
+        return {'success': False, 'error': str(e)}
+
+
 def notify_coach_new_submission(coach, submission):
     """
     Notify a coach when a new profile is assigned for review.
