@@ -6,12 +6,13 @@ Completely separate from user push API to avoid conflicts.
 
 import json
 import logging
+from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from .decorators import crush_login_required
-from .models import CrushCoach, CoachPushSubscription
+from .models import CrushCoach, CoachPushSubscription, PushSubscription
 from .coach_notifications import send_coach_test_notification
 
 logger = logging.getLogger(__name__)
@@ -173,7 +174,8 @@ def unsubscribe_push(request):
 
     Request body:
     {
-        "endpoint": "https://..."
+        "endpoint": "https://...",
+        "deviceFingerprint": "..."  # optional but recommended
     }
     """
     coach, error = get_coach_or_error(request)
@@ -202,9 +204,24 @@ def unsubscribe_push(request):
 
     if deleted_count > 0:
         logger.info(f"Coach push subscription removed for {coach.user.username}")
+
+        # Check if user push subscription exists with same endpoint OR fingerprint
+        # If so, tell frontend to keep the browser subscription active
+        fingerprint = data.get('deviceFingerprint', '')
+
+        # Build query: match by endpoint OR by fingerprint (if provided)
+        query = Q(endpoint=data['endpoint'])
+        if fingerprint:
+            query = query | Q(device_fingerprint=fingerprint)
+
+        keep_browser_subscription = PushSubscription.objects.filter(
+            user=request.user
+        ).filter(query).exists()
+
         return JsonResponse({
             'success': True,
-            'message': 'Subscription removed successfully'
+            'message': 'Subscription removed successfully',
+            'keep_browser_subscription': keep_browser_subscription
         })
     else:
         return JsonResponse({

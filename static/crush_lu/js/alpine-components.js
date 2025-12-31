@@ -822,15 +822,30 @@ document.addEventListener('alpine:init', function() {
                 navigator.serviceWorker.ready.then(function(reg) { return reg.pushManager.getSubscription(); })
                 .then(function(sub) {
                     if (!sub) { self.isDisabling = false; self.isSubscribed = false; self.isCurrentDeviceSubscribed = false; window.location.reload(); return; }
-                    sub.unsubscribe().then(function() {
-                        return fetch('/api/coach/push/unsubscribe/', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': self.getCsrfToken() },
-                            body: JSON.stringify({ endpoint: sub.endpoint })
-                        });
-                    }).then(function() { self.isDisabling = false; self.isCurrentDeviceSubscribed = false; window.location.reload(); })
-                    .catch(function(err) { self.isDisabling = false; self.errorMessage = 'Failed'; console.error('[CoachPush]', err); });
-                });
+                    // Call API first to check if browser subscription should be kept
+                    // Include fingerprint so server can check for user subscriptions with different endpoint
+                    var fingerprint = (window.CrushPush && window.CrushPush.getFingerprint) ? window.CrushPush.getFingerprint() : '';
+                    return fetch('/api/coach/push/unsubscribe/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': self.getCsrfToken() },
+                        body: JSON.stringify({ endpoint: sub.endpoint, deviceFingerprint: fingerprint })
+                    })
+                    .then(function(response) { return response.json(); })
+                    .then(function(data) {
+                        if (data.success) {
+                            // Only unsubscribe browser if no other system needs it
+                            if (!data.keep_browser_subscription) {
+                                return sub.unsubscribe().then(function() {
+                                    console.log('[CoachPush] Unsubscribed from browser');
+                                });
+                            } else {
+                                console.log('[CoachPush] Keeping browser subscription for user push');
+                            }
+                        }
+                    })
+                    .then(function() { self.isDisabling = false; self.isCurrentDeviceSubscribed = false; window.location.reload(); });
+                })
+                .catch(function(err) { self.isDisabling = false; self.errorMessage = 'Failed'; console.error('[CoachPush]', err); });
             },
 
             // Disable push subscription for a remote device (not the current device)

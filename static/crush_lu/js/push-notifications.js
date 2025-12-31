@@ -218,6 +218,7 @@
 
     /**
      * Unsubscribe from push notifications
+     * Checks if coach push subscription exists before removing browser subscription
      */
     async function unsubscribeFromPush() {
         try {
@@ -229,30 +230,37 @@
                 return { success: true };
             }
 
-            // Unsubscribe from browser
-            const unsubscribed = await subscription.unsubscribe();
+            // Remove from server first to check if browser subscription should be kept
+            // Include fingerprint so server can check for coach subscriptions with different endpoint
+            const response = await fetch('/api/push/unsubscribe/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    endpoint: subscription.endpoint,
+                    deviceFingerprint: generateDeviceFingerprint()
+                })
+            });
 
-            if (unsubscribed) {
-                // Remove from server
-                const response = await fetch('/api/push/unsubscribe/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCookie('csrftoken')
-                    },
-                    body: JSON.stringify({
-                        endpoint: subscription.endpoint
-                    })
-                });
+            const data = await response.json();
 
-                const data = await response.json();
+            if (data.success) {
+                // Only unsubscribe browser if no other system needs it
+                if (!data.keep_browser_subscription) {
+                    await subscription.unsubscribe();
+                    console.log('[Push] Unsubscribed from browser');
+                } else {
+                    console.log('[Push] Keeping browser subscription for coach push');
+                }
                 console.log('[Push] Unsubscribed:', data);
                 return { success: true };
             }
 
             return {
                 success: false,
-                error: 'Failed to unsubscribe'
+                error: data.error || 'Failed to unsubscribe'
             };
 
         } catch (error) {

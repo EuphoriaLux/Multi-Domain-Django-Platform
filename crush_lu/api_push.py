@@ -5,12 +5,13 @@ Handles subscription management and notification delivery
 
 import json
 import logging
+from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
-from .models import PushSubscription
+from .models import PushSubscription, CoachPushSubscription, CrushCoach
 from .push_notifications import send_test_notification
 
 logger = logging.getLogger(__name__)
@@ -149,7 +150,8 @@ def unsubscribe_push(request):
 
     Request body:
     {
-        "endpoint": "https://..."
+        "endpoint": "https://...",
+        "deviceFingerprint": "..."  # optional but recommended
     }
     """
     try:
@@ -174,9 +176,29 @@ def unsubscribe_push(request):
 
     if deleted_count > 0:
         logger.info(f"Push subscription removed for {request.user.username}")
+
+        # Check if coach push subscription exists with same endpoint OR fingerprint
+        # If so, tell frontend to keep the browser subscription active
+        keep_browser_subscription = False
+        try:
+            coach = CrushCoach.objects.get(user=request.user, is_active=True)
+            fingerprint = data.get('deviceFingerprint', '')
+
+            # Build query: match by endpoint OR by fingerprint (if provided)
+            query = Q(endpoint=data['endpoint'])
+            if fingerprint:
+                query = query | Q(device_fingerprint=fingerprint)
+
+            keep_browser_subscription = CoachPushSubscription.objects.filter(
+                coach=coach
+            ).filter(query).exists()
+        except CrushCoach.DoesNotExist:
+            pass
+
         return JsonResponse({
             'success': True,
-            'message': 'Subscription removed successfully'
+            'message': 'Subscription removed successfully',
+            'keep_browser_subscription': keep_browser_subscription
         })
     else:
         return JsonResponse({
