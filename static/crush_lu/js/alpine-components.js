@@ -245,11 +245,21 @@ document.addEventListener('alpine:init', function() {
                         window.CrushPush.isSubscribed().then(function(subscribed) {
                             self.isSubscribed = subscribed;
                             self.isLoading = false;
+                            // Re-run device detection after DOM is rendered
+                            self.$nextTick(function() {
+                                self._retryDeviceMatch();
+                            });
                         }).catch(function() {
                             self.isLoading = false;
+                            self.$nextTick(function() {
+                                self._retryDeviceMatch();
+                            });
                         });
                     } else {
                         self.isLoading = false;
+                        self.$nextTick(function() {
+                            self._retryDeviceMatch();
+                        });
                     }
                 });
 
@@ -358,6 +368,31 @@ document.addEventListener('alpine:init', function() {
                         self._showThisDeviceBadge(subscriptionElements[i]);
                         break;
                     }
+                }
+            },
+
+            // Retry device matching after DOM is rendered (called after isLoading becomes false)
+            // This handles the race condition where _detectCurrentEndpoint runs before
+            // the subscription elements are rendered by Alpine's x-if
+            _retryDeviceMatch: function() {
+                var self = this;
+                if (self.isCurrentDeviceSubscribed) return;  // Already matched
+
+                // Try endpoint matching first
+                if (self.currentEndpoint) {
+                    var subscriptionElements = self.$el.querySelectorAll('[data-endpoint]');
+                    for (var i = 0; i < subscriptionElements.length; i++) {
+                        if (subscriptionElements[i].dataset.endpoint === self.currentEndpoint) {
+                            self.isCurrentDeviceSubscribed = true;
+                            self._showThisDeviceBadge(subscriptionElements[i]);
+                            return;
+                        }
+                    }
+                }
+
+                // Fall back to fingerprint matching
+                if (self.currentFingerprint) {
+                    self._matchByFingerprint();
                 }
             },
 
@@ -661,6 +696,10 @@ document.addEventListener('alpine:init', function() {
                         self.isSubscribed = true;
                     }
                     self.isLoading = false;
+                    // Re-run device detection after DOM is rendered
+                    self.$nextTick(function() {
+                        self._retryDeviceMatch();
+                    });
                 });
 
                 this.$el.addEventListener('change', function(event) {
@@ -767,6 +806,31 @@ document.addEventListener('alpine:init', function() {
                         self._showThisDeviceBadge(subscriptionElements[i]);
                         break;
                     }
+                }
+            },
+
+            // Retry device matching after DOM is rendered (called after isLoading becomes false)
+            // This handles the race condition where _detectCurrentEndpoint runs before
+            // the subscription elements are rendered by Alpine's x-if
+            _retryDeviceMatch: function() {
+                var self = this;
+                if (self.isCurrentDeviceSubscribed) return;  // Already matched
+
+                // Try endpoint matching first
+                if (self.currentEndpoint) {
+                    var subscriptionElements = self.$el.querySelectorAll('[data-endpoint]');
+                    for (var i = 0; i < subscriptionElements.length; i++) {
+                        if (subscriptionElements[i].dataset.endpoint === self.currentEndpoint) {
+                            self.isCurrentDeviceSubscribed = true;
+                            self._showThisDeviceBadge(subscriptionElements[i]);
+                            return;
+                        }
+                    }
+                }
+
+                // Fall back to fingerprint matching
+                if (self.currentFingerprint) {
+                    self._matchByFingerprint();
                 }
             },
 
