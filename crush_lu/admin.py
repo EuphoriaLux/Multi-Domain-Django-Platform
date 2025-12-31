@@ -3425,7 +3425,7 @@ class PushSubscriptionAdmin(admin.ModelAdmin):
                 title=_("Test Notification"),
                 body=_("Push notifications are working! You'll receive updates about events, messages, and connections."),
                 url='/dashboard/',
-                tag='test-notification'
+                tag='user-test-notification'
             )
             if result.get('success'):
                 success += 1
@@ -3540,7 +3540,7 @@ class CoachPushSubscriptionAdmin(admin.ModelAdmin):
                 title=_("Test Notification"),
                 body=_("Your coach notifications are working correctly!"),
                 url='/coach/dashboard/',
-                tag='test-notification'
+                tag='coach-test-notification'
             )
             if result.get('success'):
                 success += 1

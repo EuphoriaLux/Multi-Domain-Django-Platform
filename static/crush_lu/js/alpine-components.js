@@ -1024,13 +1024,18 @@ document.addEventListener('alpine:init', function() {
             },
 
             _waitForServiceWorker: function(cb) {
-                var self = this, attempts = 0;
-                function check() {
-                    if (navigator.serviceWorker && navigator.serviceWorker.controller) cb();
-                    else if (++attempts < 20) setTimeout(check, 100);
-                    else { self.isLoading = false; cb(); }
+                var self = this;
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready.then(function() {
+                        cb();
+                    }).catch(function() {
+                        self.isLoading = false;
+                        cb();
+                    });
+                } else {
+                    self.isLoading = false;
+                    cb();
                 }
-                check();
             },
 
             _urlBase64ToUint8Array: function(base64) {

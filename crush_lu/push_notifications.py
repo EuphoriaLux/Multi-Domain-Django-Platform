@@ -446,5 +446,5 @@ def send_test_notification(user):
         title=title,
         body=body,
         url=url,
-        tag='test-notification'
+        tag='user-test-notification'
     )

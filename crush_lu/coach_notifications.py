@@ -352,5 +352,5 @@ def send_coach_test_notification(coach):
         title=title,
         body=body,
         url='/coach/dashboard/',
-        tag="test-notification"
+        tag="coach-test-notification"
     )
