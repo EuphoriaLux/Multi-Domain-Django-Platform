@@ -99,7 +99,7 @@ def send_coach_push_notification(coach, title, body, url='/', tag='coach-notific
             logger.warning(f"Coach WebPush failed for {coach.user.username}: {e}")
             # 410 Gone = subscription permanently invalid, delete immediately
             if e.response is not None and e.response.status_code == 410:
-                logger.info(f"Deleting expired coach subscription for {coach.user.username} ({subscription.device_name})")
+                logger.warning(f"Deleting expired coach subscription for {coach.user.username} ({subscription.device_name})")
                 subscription.delete()
             else:
                 subscription.mark_failure()  # Auto-deletes after 5 failures
