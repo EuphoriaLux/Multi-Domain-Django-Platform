@@ -1,17 +1,25 @@
 <div class="photo-upload-card {% if is_main %}photo-upload-card--main{% endif %}" role="group" aria-labelledby="photo-label-{{ slot }}">
     <div class="photo-label" id="photo-label-{{ slot }}">
-        {% if is_main %}<span aria-hidden="true">{% include "crush_lu/icons/star.html" with class="w-5 h-5" %}</span> Main Photo{% else %}Photo {{ slot }}{% endif %}
+        {% if is_main %}<span aria-hidden="true">{% include "crush_lu/icons/star.html" with class="w-5 h-5" %}</span> Main Photo{% else %}Add Photo {{ slot }}{% endif %}
     </div>
     <div class="photo-preview-container">
         {% if photo %}
             <img src="{{ photo.url }}" alt="{% if is_main %}Main profile photo{% else %}Profile photo {{ slot }}{% endif %}" class="photo-preview" id="preview-photo-{{ slot }}" loading="lazy">
+            <button type="button"
+                    class="photo-delete-btn"
+                    hx-delete="{% url 'crush_lu:delete_profile_photo' slot %}"
+                    hx-target="#photo-card-{{ slot }}"
+                    hx-swap="innerHTML"
+                    hx-confirm="Remove this photo?"
+                    aria-label="Remove photo {{ slot }}">
+                {% include "crush_lu/icons/trash.html" with class="w-4 h-4" %}
+            </button>
             <span class="photo-badge {% if just_uploaded %}tw-bg-green-500{% endif %}" aria-live="polite">
                 {% if just_uploaded %}Uploaded{% else %}Current{% endif %}
             </span>
         {% else %}
             <div class="photo-placeholder" id="preview-photo-{{ slot }}" aria-hidden="true">
-                {% include "crush_lu/icons/photo.html" with class="w-10 h-10" %}
-                <span>{% if is_main %}Required{% else %}Optional{% endif %}</span>
+                {% include "crush_lu/icons/camera.html" with class="w-10 h-10" %}
             </div>
         {% endif %}
     </div>

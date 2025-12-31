@@ -142,8 +142,9 @@ urlpatterns = [
     path('api/profile/social-photos/', views_profile.get_social_photos_api, name='get_social_photos_api'),
     path('api/profile/import-social-photo/', views_profile.import_social_photo, name='import_social_photo'),
 
-    # HTMX photo upload endpoint
+    # HTMX photo upload/delete endpoints
     path('api/profile/upload-photo/<int:slot>/', views_profile.upload_profile_photo, name='upload_profile_photo'),
+    path('api/profile/delete-photo/<int:slot>/', views_profile.delete_profile_photo, name='delete_profile_photo'),
 
     # Phone verification API endpoints are in urls_crush.py (language-neutral)
     # to avoid i18n prefix issues with hardcoded JavaScript API paths

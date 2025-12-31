@@ -10,8 +10,10 @@ Security Features:
 - CSP violation reporting endpoint
 - Skip CSP for admin and health check endpoints
 """
-import secrets
+
 import logging
+import secrets
+
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -53,24 +55,24 @@ class CSPMiddleware:
         csp_policy = self._build_csp_policy(nonce)
 
         # Use Report-Only header initially for safe testing
-        if getattr(settings, 'CSP_REPORT_ONLY', True):
-            response['Content-Security-Policy-Report-Only'] = csp_policy
+        if getattr(settings, "CSP_REPORT_ONLY", True):
+            response["Content-Security-Policy-Report-Only"] = csp_policy
         else:
-            response['Content-Security-Policy'] = csp_policy
+            response["Content-Security-Policy"] = csp_policy
 
         # Add Permissions-Policy header (formerly Feature-Policy)
         # Restricts access to browser features for security
-        response['Permissions-Policy'] = self._build_permissions_policy()
+        response["Permissions-Policy"] = self._build_permissions_policy()
 
         return response
 
     def _should_skip_csp(self, request):
         """Check if CSP should be skipped for this request."""
         skip_paths = [
-            '/admin/',      # Django admin has its own scripts
-            '/healthz/',    # Health check endpoint
-            '/healthz',
-            '/csp-report/', # CSP report endpoint itself
+            "/admin/",  # Django admin has its own scripts
+            "/healthz/",  # Health check endpoint
+            "/healthz",
+            "/csp-report/",  # CSP report endpoint itself
         ]
         return any(request.path.startswith(path) for path in skip_paths)
 
@@ -158,6 +160,9 @@ class CSPMiddleware:
             "https://www.google-analytics.com",
             "https://www.googletagmanager.com",
             "https://analytics.google.com",
+            "https://region1.analytics.google.com",  # GA4 Regional endpoint (EU)
+            "https://region2.analytics.google.com",  # GA4 Regional endpoint
+            "https://region3.analytics.google.com",  # GA4 Regional endpoint
             "https://region1.google-analytics.com",  # Regional endpoint (EU)
             "https://region2.google-analytics.com",  # Regional endpoint
             "https://region3.google-analytics.com",  # Regional endpoint
@@ -216,11 +221,11 @@ class CSPMiddleware:
 
         # upgrade-insecure-requests: Upgrade HTTP to HTTPS
         # Only add in enforcement mode (ignored in report-only mode and causes console warnings)
-        if not settings.DEBUG and not getattr(settings, 'CSP_REPORT_ONLY', True):
+        if not settings.DEBUG and not getattr(settings, "CSP_REPORT_ONLY", True):
             directives.append("upgrade-insecure-requests")
 
         # Report violations to our endpoint
-        report_uri = getattr(settings, 'CSP_REPORT_URI', None)
+        report_uri = getattr(settings, "CSP_REPORT_URI", None)
         if report_uri:
             directives.append(f"report-uri {report_uri}")
 
@@ -248,19 +253,19 @@ class CSPMiddleware:
             # Disable dangerous/unused features (standardized only)
             "accelerometer=()",
             "autoplay=()",
-            "camera=()",              # Not used - disable for privacy
+            "camera=()",  # Not used - disable for privacy
             "display-capture=()",
             "encrypted-media=()",
-            "fullscreen=(self)",      # Allow fullscreen on same origin
+            "fullscreen=(self)",  # Allow fullscreen on same origin
             "gamepad=()",
-            "geolocation=()",         # Not used - disable for privacy
+            "geolocation=()",  # Not used - disable for privacy
             "gyroscope=()",
             "hid=()",
             "identity-credentials-get=()",
             "idle-detection=()",
             "local-fonts=()",
             "magnetometer=()",
-            "microphone=()",          # Not used - disable for privacy
+            "microphone=()",  # Not used - disable for privacy
             "midi=()",
             "otp-credentials=()",
             "payment=()",
@@ -270,7 +275,7 @@ class CSPMiddleware:
             "screen-wake-lock=()",
             "serial=()",
             "usb=()",
-            "web-share=(self)",       # Allow Web Share API on same origin
+            "web-share=(self)",  # Allow Web Share API on same origin
             "xr-spatial-tracking=()",
         ]
 

@@ -12,6 +12,8 @@ import logging
 
 from .models import CrushProfile, CrushCoach, ProfileSubmission
 from .decorators import crush_login_required
+from .coach_notifications import notify_coach_new_submission, notify_coach_user_revision
+from .email_helpers import send_profile_submission_notifications
 
 logger = logging.getLogger(__name__)
 
@@ -228,6 +230,22 @@ def complete_profile_submission(request):
 
         if created:
             submission.assign_coach()
+            logger.info(f"NEW profile submission created for {request.user.email}")
+
+            # Send push notification to assigned coach
+            if submission.coach:
+                try:
+                    notify_coach_new_submission(submission.coach, submission)
+                    logger.info(f"Coach push notification sent for submission {submission.id}")
+                except Exception as e:
+                    logger.warning(f"Failed to send coach push notification: {e}")
+
+            # Send confirmation and coach notification emails
+            send_profile_submission_notifications(
+                submission,
+                request,
+                add_message_func=lambda msg: messages.warning(request, msg)
+            )
 
         messages.success(request, 'Profile submitted for review! A coach will contact you soon.')
         return redirect('crush_lu:profile_submitted')
@@ -415,7 +433,6 @@ def upload_profile_photo(request, slot):
     POST /api/profile/upload-photo/<slot>/
     Files: photo_<slot>
     """
-    from django.shortcuts import get_object_or_404
     from .forms import CrushProfileForm
 
     # Validate slot
@@ -428,7 +445,11 @@ def upload_profile_photo(request, slot):
         })
 
     try:
-        profile = get_object_or_404(CrushProfile, user=request.user)
+        # Use get_or_create to support photo uploads during profile creation
+        # (when profile doesn't exist yet)
+        profile, created = CrushProfile.objects.get_or_create(user=request.user)
+        if created:
+            logger.info(f"Created new profile for user {request.user.id} during photo upload")
 
         # Get uploaded file
         photo_file = request.FILES.get(f'photo_{slot}')
@@ -490,4 +511,57 @@ def upload_profile_photo(request, slot):
             'photo': None,
             'is_main': slot == 1,
             'error': 'Upload failed. Please try again.',
+        })
+
+
+@crush_login_required
+@require_http_methods(["DELETE"])
+def delete_profile_photo(request, slot):
+    """
+    HTMX endpoint for deleting a profile photo.
+    Returns the updated photo card partial (empty state) for inline replacement.
+
+    DELETE /api/profile/delete-photo/<slot>/
+    """
+    # Validate slot
+    if slot not in [1, 2, 3]:
+        return render(request, 'crush_lu/partials/photo_card.html', {
+            'slot': slot,
+            'photo': None,
+            'is_main': slot == 1,
+            'error': 'Invalid photo slot',
+        })
+
+    try:
+        profile = CrushProfile.objects.get(user=request.user)
+        photo_field_name = f'photo_{slot}'
+        photo_field = getattr(profile, photo_field_name)
+
+        if photo_field:
+            # Delete the actual file
+            photo_field.delete(save=False)
+            # Clear the field
+            setattr(profile, photo_field_name, None)
+            profile.save(update_fields=[photo_field_name])
+            logger.info(f"Photo {slot} deleted for user {request.user.id}")
+
+        return render(request, 'crush_lu/partials/photo_card.html', {
+            'slot': slot,
+            'photo': None,
+            'is_main': slot == 1,
+        })
+
+    except CrushProfile.DoesNotExist:
+        return render(request, 'crush_lu/partials/photo_card.html', {
+            'slot': slot,
+            'photo': None,
+            'is_main': slot == 1,
+        })
+    except Exception as e:
+        logger.error(f"Error deleting photo {slot}: {str(e)}", exc_info=True)
+        return render(request, 'crush_lu/partials/photo_card.html', {
+            'slot': slot,
+            'photo': None,
+            'is_main': slot == 1,
+            'error': 'Delete failed. Please try again.',
         })

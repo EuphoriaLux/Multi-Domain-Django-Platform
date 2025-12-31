@@ -178,7 +178,12 @@ def send_push_notification(user, title, body, url='/', tag='crush-notification',
         except WebPushException as e:
             # Handle push errors (expired subscription, etc.)
             logger.warning(f"WebPush failed for {user.username}: {e}")
-            subscription.mark_failure()  # Auto-deletes after 5 failures
+            # 410 Gone = subscription permanently invalid, delete immediately
+            if e.response is not None and e.response.status_code == 410:
+                logger.info(f"Deleting expired subscription for {user.username} ({subscription.device_name})")
+                subscription.delete()
+            else:
+                subscription.mark_failure()  # Auto-deletes after 5 failures
             failed_count += 1
 
         except Exception as e:

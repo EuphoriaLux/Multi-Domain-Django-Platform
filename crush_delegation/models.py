@@ -108,9 +108,9 @@ class DelegationProfile(models.Model):
         blank=True,
         help_text="User's Microsoft tenant ID"
     )
-    department = models.CharField(max_length=200, blank=True)
-    job_title = models.CharField(max_length=200, blank=True)
-    office_location = models.CharField(max_length=200, blank=True)
+    department = models.CharField(max_length=200, blank=True, default='')
+    job_title = models.CharField(max_length=200, blank=True, default='')
+    office_location = models.CharField(max_length=200, blank=True, default='')
 
     # Profile photo (downloaded from Microsoft Graph)
     profile_photo = models.ImageField(

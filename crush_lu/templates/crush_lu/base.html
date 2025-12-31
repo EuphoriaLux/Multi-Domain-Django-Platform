@@ -636,6 +636,33 @@
         </div>
     </nav>
 
+    <!-- Global Profile Status Banners -->
+    {% if user.is_authenticated and profile_completion_status and profile_completion_status != 'submitted' %}
+    <!-- Profile Incomplete Banner -->
+    <div class="bg-amber-500 text-white px-4 py-3 text-center" role="alert">
+        <div class="flex items-center justify-center gap-2 flex-wrap">
+            {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+            <span class="font-medium">{% trans "Your profile is incomplete" %}</span>
+            <a href="{% url 'crush_lu:create_profile' %}"
+               class="underline font-semibold hover:no-underline">
+                {% trans "Complete your profile" %} →
+            </a>
+        </div>
+    </div>
+    {% elif user.is_authenticated and profile_status in 'pending,under_review' and not profile_is_approved %}
+    <!-- Pending Review Banner -->
+    <div class="bg-purple-600 text-white px-4 py-3 text-center" role="alert">
+        <div class="flex items-center justify-center gap-2 flex-wrap">
+            {% include "crush_lu/icons/clock.html" with class="w-5 h-5" %}
+            <span class="font-medium">{% trans "Your profile is under review by our Crush Coach" %}</span>
+            <a href="{% url 'crush_lu:profile_submitted' %}"
+               class="underline font-semibold hover:no-underline">
+                {% trans "Check status" %} →
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Messages (Alpine.js dismissible) -->
     {% if messages %}
         <div class="container mt-4" role="status" aria-live="polite">
