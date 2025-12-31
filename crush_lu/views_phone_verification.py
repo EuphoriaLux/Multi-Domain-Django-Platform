@@ -134,7 +134,7 @@ def phone_verification_status(request):
         - phone_number: str (only if verified, partial masked)
     """
     try:
-        profile = request.user.crushprofile
+        profile = CrushProfile.objects.get(user=request.user)
         phone_number = None
         if profile.phone_verified and profile.phone_number:
             # Show partial phone for confirmation

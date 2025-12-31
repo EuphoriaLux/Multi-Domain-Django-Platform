@@ -169,7 +169,11 @@
             <div class="p-6">
                 <p class="text-gray-500 mb-4">
                     Photos from your connected social accounts. To use these photos on your dating profile,
+                    {% if user.crushprofile and user.crushprofile.is_approved %}
                     go to <a href="{% url 'crush_lu:edit_profile' %}" class="text-purple-600 hover:text-purple-800">Edit Profile</a>.
+                    {% else %}
+                    complete your <a href="{% url 'crush_lu:create_profile' %}" class="text-purple-600 hover:text-purple-800">profile setup</a>.
+                    {% endif %}
                 </p>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -203,10 +207,16 @@
                     {% endfor %}
                 </div>
 
-                {% if user.crushprofile %}
+                {% if user.crushprofile and user.crushprofile.is_approved %}
                 <div class="text-center mt-6">
                     <a href="{% url 'crush_lu:edit_profile' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
                         {% include "crush_lu/icons/cloud-arrow-down.html" with class="w-5 h-5" %}Import Photos to Profile
+                    </a>
+                </div>
+                {% elif user.crushprofile %}
+                <div class="text-center mt-6">
+                    <a href="{% url 'crush_lu:create_profile' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                        {% include "crush_lu/icons/arrow-right.html" with class="w-5 h-5" %}Complete Profile to Import
                     </a>
                 </div>
                 {% endif %}
@@ -268,13 +278,21 @@
             <div class="p-6">
                 {% if user.crushprofile %}
                 <p class="mb-4">
-                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium {% if user.crushprofile.is_approved %}bg-green-100 text-green-800{% else %}bg-amber-100 text-amber-800{% endif %}">
-                        {% if user.crushprofile.is_approved %}Approved{% else %}Pending Review{% endif %}
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium {% if user.crushprofile.is_approved %}bg-green-100 text-green-800{% elif user.crushprofile.completion_status == 'submitted' %}bg-amber-100 text-amber-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {% if user.crushprofile.is_approved %}Approved{% elif user.crushprofile.completion_status == 'submitted' %}Pending Review{% else %}Incomplete{% endif %}
                     </span>
                 </p>
+                {% if user.crushprofile.is_approved %}
                 <a href="{% url 'crush_lu:edit_profile' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
                     {% include "crush_lu/icons/pencil.html" with class="w-5 h-5" %}Edit Profile
                 </a>
+                {% elif user.crushprofile.completion_status == 'submitted' %}
+                <span class="text-gray-400 text-sm">Profile under review</span>
+                {% else %}
+                <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary px-4 py-2 rounded-lg inline-flex items-center">
+                    {% include "crush_lu/icons/arrow-right.html" with class="w-5 h-5" %}Complete Profile
+                </a>
+                {% endif %}
                 {% else %}
                 <p class="text-gray-500 mb-4">You haven't created a dating profile yet.</p>
                 <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary px-4 py-2 rounded-lg inline-flex items-center">

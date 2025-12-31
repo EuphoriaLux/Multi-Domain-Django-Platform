@@ -404,6 +404,37 @@
     font-weight: var(--font-medium);
 }
 
+.privacy-toggle label small {
+    display: block;
+    font-weight: normal;
+    margin-top: var(--space-1);
+}
+
+/* Mobile: Stack checkbox and label for better readability */
+@media (max-width: 480px) {
+    .privacy-section {
+        padding: var(--space-4);
+    }
+
+    .privacy-toggle {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-2);
+        padding: var(--space-3);
+        background: white;
+        border-radius: var(--radius-sm);
+    }
+
+    .privacy-toggle .form-check-input {
+        margin-right: 0;
+        margin-bottom: 0;
+    }
+
+    .privacy-toggle label {
+        line-height: 1.4;
+    }
+}
+
 /* ===================
    Button Group
    =================== */
@@ -791,6 +822,30 @@
 .privacy-toggle-label-hint {
     font-size: var(--text-sm);
     color: var(--crush-gray-dark, #4b5563);  /* Darker gray for WCAG AA compliance */
+}
+
+/* Mobile: Stack toggle and label vertically for better readability */
+@media (max-width: 480px) {
+    .privacy-toggle-wrapper {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-2);
+    }
+
+    .privacy-toggle-label {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--space-2);
+    }
+
+    .privacy-toggle-label-text {
+        font-size: var(--text-base);
+    }
+
+    .privacy-toggle-label-hint {
+        display: block;
+        margin-top: var(--space-1);
+    }
 }
 
 /* ===================

@@ -56,9 +56,21 @@
             {% endif %}
 
             <div class="mt-4">
+                {% if profile.is_approved %}
                 <a href="{% url 'crush_lu:edit_profile' %}" class="btn-crush-outline inline-flex items-center gap-2 text-sm">
+                    {% include "crush_lu/icons/pencil.html" with class="w-4 h-4" %}
                     {% trans "Edit Profile" %}
                 </a>
+                {% elif profile.completion_status == 'submitted' and submission and submission.status in 'pending,under_review' %}
+                {# Profile under review - no edit allowed #}
+                <span class="text-gray-400 text-sm">{% trans "Profile under review" %}</span>
+                {% else %}
+                {# Incomplete or needs revision - link to create_profile wizard #}
+                <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary inline-flex items-center gap-2 text-sm">
+                    {% include "crush_lu/icons/arrow-right.html" with class="w-4 h-4" %}
+                    {% trans "Complete Profile" %}
+                </a>
+                {% endif %}
             </div>
         </div>
     </div>

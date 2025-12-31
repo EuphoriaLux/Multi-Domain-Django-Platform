@@ -152,14 +152,15 @@ class CSPMiddleware:
             "https://cdn.jsdelivr.net",
             "https://unpkg.com",
             "https://www.gstatic.com",  # Firebase SDK scripts
+            "https://apis.google.com",  # Firebase/Google API scripts (SW caching)
             # Google Analytics GA4 (uses multiple domains for data collection)
             # Note: Wildcards may not work in all browsers, so list explicit domains
             "https://www.google-analytics.com",
             "https://www.googletagmanager.com",
             "https://analytics.google.com",
-            "https://region1.analytics.google.com",  # Regional endpoint (EU)
-            "https://region2.analytics.google.com",  # Regional endpoint
-            "https://region3.analytics.google.com",  # Regional endpoint
+            "https://region1.google-analytics.com",  # Regional endpoint (EU)
+            "https://region2.google-analytics.com",  # Regional endpoint
+            "https://region3.google-analytics.com",  # Regional endpoint
             "https://stats.g.doubleclick.net",  # GA4 advertising/measurement
             # Google domains for GA audiences and ads (per-country TLDs)
             "https://www.google.com",
