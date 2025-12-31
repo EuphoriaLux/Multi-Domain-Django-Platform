@@ -4,1231 +4,998 @@
 {% block title %}Create Your Profile - Crush.lu{% endblock %}
 
 {% block extra_css %}
-<!-- Profile creation styles are in static/crush_lu/css/components/profile-creation.css -->
-<link rel="stylesheet" href="{% static 'crush_lu/css/components/canton-map.css' %}">
+<!-- intl-tel-input CSS with SRI for security -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/css/intlTelInput.css"
+      integrity="sha384-BmygXwA0e3FeMPv5eKPsAq5JZncm8qElyxhy0qDhzY2cvcZTtTF0O3lG9n+M6JeL"
+      crossorigin="anonymous">
+<!-- Custom intl-tel-input styling for Crush.lu -->
+<link rel="stylesheet" href="{% static 'crush_lu/css/components/intl-tel-input.css' %}">
 {% endblock %}
 
 {% block content %}
-<div class="profile-creation-wrapper">
-    <div class="container py-4">
+{# Main Alpine.js component for wizard state management #}
+<div x-data="profileWizard"
+     data-initial-step="{% if current_step %}{{ current_step }}{% else %}1{% endif %}"
+     data-phone-verified="{{ profile.phone_verified|yesno:'true,false'|default:'false' }}"
+     data-is-editing="{{ is_editing|lower|default:'false' }}"
+     class="profile-creation-wrapper">
+    <div class="container py-4 max-w-3xl mx-auto px-4">
         <!-- Progress Header -->
-        <div class="progress-header text-center mb-5">
-            {% if is_editing %}
-                <h1 class="display-6 mb-3">Edit Your Profile 💕</h1>
-                <p class="lead text-muted">Update your profile information</p>
-            {% else %}
-                <h1 class="display-6 mb-3">Welcome to Crush! 💕</h1>
-                <p class="lead text-muted">Let's create your profile in just a few steps</p>
-            {% endif %}
+        <div class="text-center mb-8">
+            <template x-if="isEditing">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold mb-3">Edit Your Profile</h1>
+                    <p class="text-gray-500">Update your profile information</p>
+                </div>
+            </template>
+            <template x-if="!isEditing">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold mb-3">Welcome to Crush!</h1>
+                    <p class="text-gray-500">Let's create your profile in just a few steps</p>
+                </div>
+            </template>
 
             <!-- Progress Tracker -->
-            <div class="profile-progress-tracker mt-4">
-                <div class="progress-step active" data-step="1">
-                    <div class="step-circle">1</div>
-                    <div class="step-label">Basic Info</div>
+            <div class="flex items-center justify-center mt-6 gap-0">
+                <!-- Step 1 -->
+                <div class="flex flex-col items-center">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
+                         x-bind:class="step1CircleClass">
+                        <span x-show="step1NotCompleted">1</span>
+                        <svg x-show="step1Completed" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <span class="text-xs mt-1" x-bind:class="step1TextClass">Basic Info</span>
                 </div>
-                <div class="progress-line"></div>
-                <div class="progress-step" data-step="2">
-                    <div class="step-circle">2</div>
-                    <div class="step-label">About You</div>
+
+                <div class="w-12 h-1 mx-1" x-bind:class="step1ConnectorClass"></div>
+
+                <!-- Step 2 -->
+                <div class="flex flex-col items-center">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
+                         x-bind:class="step2CircleClass">
+                        <span x-show="step2NotCompleted">2</span>
+                        <svg x-show="step2Completed" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <span class="text-xs mt-1" x-bind:class="step2TextClass">About You</span>
                 </div>
-                <div class="progress-line"></div>
-                <div class="progress-step" data-step="3">
-                    <div class="step-circle">3</div>
-                    <div class="step-label">Photos</div>
+
+                <div class="w-12 h-1 mx-1" x-bind:class="step2ConnectorClass"></div>
+
+                <!-- Step 3 -->
+                <div class="flex flex-col items-center">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
+                         x-bind:class="step3CircleClass">
+                        <span x-show="step3NotCompleted">3</span>
+                        <svg x-show="step3Completed" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <span class="text-xs mt-1" x-bind:class="step3TextClass">Photos</span>
                 </div>
-                <div class="progress-line"></div>
-                <div class="progress-step" data-step="4">
-                    <div class="step-circle">4</div>
-                    <div class="step-label">Review</div>
+
+                <div class="w-12 h-1 mx-1" x-bind:class="step3ConnectorClass"></div>
+
+                <!-- Step 4 -->
+                <div class="flex flex-col items-center">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
+                         x-bind:class="step4CircleClass">
+                        4
+                    </div>
+                    <span class="text-xs mt-1" x-bind:class="step4TextClass">Review</span>
                 </div>
             </div>
         </div>
 
-        <form method="post" enctype="multipart/form-data" id="profileForm" novalidate>
+        <form method="post" enctype="multipart/form-data" id="profileForm" novalidate
+              @submit="setSubmitting">
             {% csrf_token %}
 
+            <!-- Global Form Errors (Alpine.js dismissible) -->
             {% if form.non_field_errors %}
-                <div x-data="dismissible" x-show="show" x-transition class="alert alert-danger alert-dismissible fade show" role="alert">
-                    {{ form.non_field_errors }}
-                    <button @click="dismiss" type="button" class="btn-close" aria-label="Dismiss">
-                        {% include "crush_lu/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
-                    </button>
-                </div>
+            <div x-data="dismissible" x-show="show" x-transition
+                 class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 relative">
+                {{ form.non_field_errors }}
+                <button type="button" @click="dismiss"
+                        class="absolute top-2 right-2 text-red-500 hover:text-red-700">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                </button>
+            </div>
             {% endif %}
 
             {% if form.errors %}
-                <div x-data="dismissible" x-show="show" x-transition class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <strong aria-hidden="true">❌</strong> Please fix the following errors:
-                    <ul class="mb-0 mt-2">
-                        {% for field, errors in form.errors.items %}
-                            {% for error in errors %}
-                                <li>
-                                    {% if field == '__all__' %}
-                                        {{ error }}
-                                    {% else %}
-                                        <strong>{{ field|title }}:</strong> {{ error }}
-                                    {% endif %}
-                                </li>
-                            {% endfor %}
+            <div x-data="dismissible" x-show="show" x-transition
+                 class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 relative">
+                <strong class="font-semibold">Please fix the following errors:</strong>
+                <ul class="mt-2 list-disc list-inside">
+                    {% for field, errors in form.errors.items %}
+                        {% for error in errors %}
+                            <li>
+                                {% if field == '__all__' %}{{ error }}{% else %}<strong>{{ field|title }}:</strong> {{ error }}{% endif %}
+                            </li>
                         {% endfor %}
-                    </ul>
-                    <button @click="dismiss" type="button" class="btn-close" aria-label="Dismiss">
-                        {% include "crush_lu/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
-                    </button>
-                </div>
+                    {% endfor %}
+                </ul>
+                <button type="button" @click="dismiss"
+                        class="absolute top-2 right-2 text-red-500 hover:text-red-700">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                </button>
+            </div>
             {% endif %}
 
             <!-- Step 1: Basic Information -->
-            <div class="form-step active" data-step="1">
-                <div class="step-card">
-                    <div class="card-icon">📋</div>
-                    <h3 class="card-title">Basic Information</h3>
-                    <p class="card-subtitle">Let's start with the essentials</p>
+            <div x-show="isStep1" x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 transform translate-x-4"
+                 x-transition:enter-end="opacity-100 transform translate-x-0"
+                 class="bg-white rounded-2xl shadow-lg p-6 md:p-8">
 
-                    <!-- Phone Number with Verification (REQUIRED) -->
-                    <div class="form-group-modern mb-4 priority-field" id="phone-verification-container">
-                        <label for="{{ form.phone_number.id_for_label }}">
-                            {% include "crush_lu/icons/phone.html" with class="w-5 h-5" %} Phone Number *
-                            {% if profile.phone_verified %}
-                            <span class="badge bg-success ms-2">
-                                {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Verified
-                            </span>
-                            {% else %}
-                            <span class="badge bg-danger ms-2">Verification Required</span>
-                            {% endif %}
-                        </label>
+                <div class="text-center mb-6">
+                    <div class="text-4xl mb-2">📋</div>
+                    <h3 class="text-xl font-semibold">Basic Information</h3>
+                    <p class="text-gray-500 text-sm">Let's start with the essentials</p>
+                </div>
 
-                        {% if profile.phone_verified %}
-                        <!-- Phone is verified - show readonly -->
-                        <div class="phone-input-wrapper">
+                <!-- Phone Number with Verification -->
+                <div class="mb-6" id="phone-verification-container"
+                     x-data="phoneVerificationComponent"
+                     data-verified="{{ profile.phone_verified|yesno:'true,false'|default:'false' }}"
+                     data-phone-input-id="{{ form.phone_number.id_for_label }}">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        {% include "crush_lu/icons/phone.html" with class="w-5 h-5" %} Phone Number *
+                        <span x-show="notVerified"
+                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 ml-2">
+                            Verification Required
+                        </span>
+                        <span x-show="verified" x-cloak
+                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 ml-2">
+                            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            Verified
+                        </span>
+                    </label>
+
+                    <div class="flex gap-2">
+                        <div class="flex-1">
                             <input type="tel"
                                    name="phone_number"
                                    id="{{ form.phone_number.id_for_label }}"
-                                   class="form-control form-control-lg bg-light"
-                                   value="{{ profile.phone_number }}"
-                                   readonly>
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                                   value="{{ profile.phone_number|default:'' }}"
+                                   x-bind:readonly="verified"
+                                   @input="onPhoneInput($event)"
+                                   required>
                         </div>
-                        <small class="form-text text-success">
-                            {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %}
-                            Your phone number is verified and locked.
-                        </small>
-                        {% else %}
-                        <!-- Phone not verified - show link to verification page -->
-                        <div class="alert alert-warning">
-                            <div class="flex flex-col md:flex-row md:items-center gap-4">
-                                <div class="flex-grow text-center md:text-left">
-                                    <strong class="flex items-center justify-center md:justify-start gap-2">
-                                        {% include "crush_lu/icons/shield-check.html" with class="w-5 h-5" %}
-                                        <span>Phone Verification Required</span>
-                                    </strong>
-                                    <p class="mb-0 mt-2 text-sm">You must verify your phone number before continuing. This helps us keep our community safe.</p>
-                                </div>
-                                <a href="{% url 'crush_lu:verify_phone' %}?next={% url 'crush_lu:create_profile' %}"
-                                   class="btn btn-warning btn-lg w-full md:w-auto md:flex-shrink-0">
-                                    {% include "crush_lu/icons/phone.html" with class="w-5 h-5" %} Verify Now
-                                </a>
-                            </div>
-                        </div>
-                        {% endif %}
-
-                        {% if form.phone_number.errors %}
-                            <div class="invalid-feedback d-block">{{ form.phone_number.errors.0 }}</div>
-                        {% endif %}
-
-                        <!-- Hidden input to track verification status -->
-                        <input type="hidden"
-                               name="phone_verified"
-                               id="phone_verified_input"
-                               value="{% if profile.phone_verified %}true{% else %}false{% endif %}">
+                        <button type="button"
+                                x-show="notVerified"
+                                @click="startVerification()"
+                                x-bind:disabled="cannotVerify"
+                                class="px-4 py-3 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2">
+                            {% include "crush_lu/icons/shield-check.html" with class="w-5 h-5" %}
+                            <span class="hidden sm:inline">Verify</span>
+                        </button>
+                        <button type="button"
+                                x-show="verified" x-cloak
+                                @click="resetVerification()"
+                                class="px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition flex items-center gap-2">
+                            {% include "crush_lu/icons/pencil.html" with class="w-5 h-5" %}
+                            <span class="hidden sm:inline">Change</span>
+                        </button>
                     </div>
 
-                    <!-- Date of Birth -->
-                    <div class="form-group-modern mb-4">
-                        <label for="{{ form.date_of_birth.id_for_label }}">
-                            {% include "crush_lu/icons/calendar.html" with class="w-5 h-5" %} Date of Birth *
+                    <p class="text-sm text-gray-500 mt-2">
+                        {% include "crush_lu/icons/information-circle.html" with class="w-5 h-5" %}
+                        You must verify your phone number before continuing.
+                    </p>
+
+                    {% if form.phone_number.errors %}
+                        <p class="text-sm text-red-600 mt-1">{{ form.phone_number.errors.0 }}</p>
+                    {% endif %}
+
+                    <!-- Error display -->
+                    <div x-show="errorMessage" x-cloak
+                         class="mt-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm"
+                         x-text="errorMessage"></div>
+
+                    <input type="hidden" name="phone_verified" x-bind:value="verifiedValue">
+                </div>
+
+                <!-- reCAPTCHA container -->
+                <div id="recaptcha-container"></div>
+
+                <!-- Date of Birth -->
+                <div class="mb-6">
+                    <label for="{{ form.date_of_birth.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                        {% include "crush_lu/icons/calendar.html" with class="w-5 h-5" %} Date of Birth *
+                    </label>
+                    {{ form.date_of_birth }}
+                    <p class="text-sm text-gray-500 mt-1">Must be 18+ to join</p>
+                    {% if form.date_of_birth.errors %}
+                        <p class="text-sm text-red-600 mt-1">{{ form.date_of_birth.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Gender Selection -->
+                <fieldset class="mb-6">
+                    <legend class="block text-sm font-medium text-gray-700 mb-3">
+                        <span aria-hidden="true">{% include "crush_lu/icons/user.html" with class="w-5 h-5" %}</span> Gender <span class="text-red-500" aria-label="required">*</span>
+                    </legend>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3" role="radiogroup" aria-label="Select your gender">
+                        {% for value, label, icon in gender_choices %}
+                        <label class="cursor-pointer">
+                            <input type="radio" name="gender" value="{{ value }}" class="peer hidden"
+                                   {% if profile.gender == value %}checked{% endif %} required>
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-2xl mb-1">{{ icon }}</div>
+                                <div class="text-sm font-medium">{{ label }}</div>
+                            </div>
                         </label>
-                        {{ form.date_of_birth }}
-                        <small class="form-text">Must be 18+ to join</small>
-                        {% if form.date_of_birth.errors %}
-                            <div class="invalid-feedback d-block">{{ form.date_of_birth.errors.0 }}</div>
-                        {% endif %}
-                    </div>
-
-                    <!-- Gender Selection (Card-based) -->
-                    <div class="form-group-modern mb-4">
-                        <label class="mb-3">
-                            {% include "crush_lu/icons/user.html" with class="w-5 h-5" %} Gender *
+                        {% empty %}
+                        <!-- Fallback if gender_choices not provided -->
+                        <label class="cursor-pointer">
+                            <input type="radio" name="gender" value="M" class="peer hidden"
+                                   {% if profile.gender == 'M' %}checked{% endif %} required>
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-2xl mb-1">👨</div>
+                                <div class="text-sm font-medium">Male</div>
+                            </div>
                         </label>
-                        <div class="gender-card-selection">
-                            <input type="radio" name="gender" value="M" id="gender_m" class="d-none gender-radio" {% if profile.gender == 'M' %}checked{% endif %} required>
-                            <label for="gender_m" class="gender-card">
-                                <div class="gender-icon">👨</div>
-                                <div class="gender-label">Male</div>
-                            </label>
-
-                            <input type="radio" name="gender" value="F" id="gender_f" class="d-none gender-radio" {% if profile.gender == 'F' %}checked{% endif %}>
-                            <label for="gender_f" class="gender-card">
-                                <div class="gender-icon">👩</div>
-                                <div class="gender-label">Female</div>
-                            </label>
-
-                            <input type="radio" name="gender" value="NB" id="gender_nb" class="d-none gender-radio" {% if profile.gender == 'NB' %}checked{% endif %}>
-                            <label for="gender_nb" class="gender-card">
-                                <div class="gender-icon">🧑</div>
-                                <div class="gender-label">Non-binary</div>
-                            </label>
-
-                            <input type="radio" name="gender" value="O" id="gender_o" class="d-none gender-radio" {% if profile.gender == 'O' %}checked{% endif %}>
-                            <label for="gender_o" class="gender-card">
-                                <div class="gender-icon">✨</div>
-                                <div class="gender-label">Other</div>
-                            </label>
-                        </div>
-                        {% if form.gender.errors %}
-                            <div class="invalid-feedback d-block">{{ form.gender.errors.0 }}</div>
-                        {% endif %}
-                    </div>
-
-                    <!-- Location (Canton Map) -->
-                    <div class="form-group-modern mb-4">
-                        <label>
-                            {% include "crush_lu/icons/map-pin.html" with class="w-5 h-5" %} Your Region *
+                        <label class="cursor-pointer">
+                            <input type="radio" name="gender" value="F" class="peer hidden"
+                                   {% if profile.gender == 'F' %}checked{% endif %}>
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-2xl mb-1">👩</div>
+                                <div class="text-sm font-medium">Female</div>
+                            </div>
                         </label>
-                        <p class="form-text text-muted mb-3">Click the map or use the dropdown to select your location</p>
-
-                        <div x-data="cantonMap"
-                             data-initial-value="{{ profile.location|default:'' }}"
-                             data-initial-name="{% if profile.location %}{{ profile.get_location_display }}{% endif %}"
-                             data-placeholder="Click the map to select your region"
-                             class="canton-map-container {% if form.location.errors %}has-error{% endif %}">
-
-                            <!-- Selection Display -->
-                            <div class="canton-map-selection-display"
-                                 x-bind:class="selectedClass">
-                                <span class="canton-map-selection-label" x-text="selectionLabel"></span>
-                                <span class="canton-map-hover-label" x-show="isHovering" x-text="hoverLabel"></span>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="gender" value="NB" class="peer hidden"
+                                   {% if profile.gender == 'NB' %}checked{% endif %}>
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-2xl mb-1">🧑</div>
+                                <div class="text-sm font-medium">Non-binary</div>
                             </div>
-
-                            <!-- SVG Map -->
-                            <div class="canton-map-wrapper">
-                                {% include "crush_lu/partials/canton_map_svg.html" %}
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="gender" value="O" class="peer hidden"
+                                   {% if profile.gender == 'O' %}checked{% endif %}>
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-2xl mb-1">✨</div>
+                                <div class="text-sm font-medium">Other</div>
                             </div>
-
-                            <!-- Hidden form field (synced by Alpine component) -->
-                            {{ form.location }}
-
-                            <!-- Fallback Dropdown (Accessibility) -->
-                            <div class="canton-map-fallback">
-                                <button type="button"
-                                        @click="toggleFallbackDropdown"
-                                        class="canton-map-fallback-toggle">
-                                    {% include "crush_lu/icons/list-bullet.html" with class="w-4 h-4" %}
-                                    Can't use the map? Select from list
-                                </button>
-                                <div x-show="fallbackDropdownVisible" x-transition class="canton-map-fallback-dropdown">
-                                    <select @change="handleFallbackSelect" class="form-control">
-                                        <option value="">Select your region...</option>
-                                        <optgroup label="Luxembourg Cantons">
-                                            <option value="canton-capellen">Capellen</option>
-                                            <option value="canton-clervaux">Clervaux</option>
-                                            <option value="canton-diekirch">Diekirch</option>
-                                            <option value="canton-echternach">Echternach</option>
-                                            <option value="canton-esch">Esch-sur-Alzette</option>
-                                            <option value="canton-grevenmacher">Grevenmacher</option>
-                                            <option value="canton-luxembourg">Luxembourg</option>
-                                            <option value="canton-mersch">Mersch</option>
-                                            <option value="canton-redange">Redange</option>
-                                            <option value="canton-remich">Remich</option>
-                                            <option value="canton-vianden">Vianden</option>
-                                            <option value="canton-wiltz">Wiltz</option>
-                                        </optgroup>
-                                        <optgroup label="Border Regions">
-                                            <option value="border-belgium">Belgium (Arlon/Virton area)</option>
-                                            <option value="border-germany">Germany (Trier/Saarland area)</option>
-                                            <option value="border-france">France (Thionville/Metz area)</option>
-                                        </optgroup>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        {% if form.location.errors %}
-                            <div class="canton-map-error">
-                                {% include "crush_lu/icons/exclamation-circle.html" with class="w-4 h-4" %}
-                                {{ form.location.errors.0 }}
-                            </div>
-                        {% endif %}
+                        </label>
+                        {% endfor %}
                     </div>
+                    {% if form.gender.errors %}
+                        <p class="text-sm text-red-600 mt-1" role="alert">{{ form.gender.errors.0 }}</p>
+                    {% endif %}
+                </fieldset>
 
-                    <button type="button"
-                            class="btn btn-crush-primary btn-lg w-100 mt-4 next-step"
-                            id="step1-continue-btn"
-                            {% if not profile.phone_verified %}disabled{% endif %}>
-                        <span class="btn-text">Continue {% include "crush_lu/icons/arrow-right.html" with class="w-5 h-5" %}</span>
-                        <span class="btn-loading d-none">
-                            {% include "crush_lu/icons/arrow-path.html" with class="w-5 h-5 animate-spin" %} Saving...
-                        </span>
-                    </button>
+                <!-- Location -->
+                <div class="mb-6">
+                    <label for="{{ form.location.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                        {% include "crush_lu/icons/map-pin.html" with class="w-5 h-5" %} Location in Luxembourg *
+                    </label>
+                    {{ form.location }}
+                    {% if form.location.errors %}
+                        <p class="text-sm text-red-600 mt-1">{{ form.location.errors.0 }}</p>
+                    {% endif %}
+                </div>
 
-                    <!-- Warning when button is disabled -->
-                    <div class="alert alert-warning mt-3 {% if profile.phone_verified %}d-none{% endif %}" id="phone-verify-warning">
-                        {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}
-                        Please verify your phone number to continue.
-                    </div>
+                <!-- Continue Button -->
+                <button type="button"
+                        @click="nextStepIfVerified"
+                        x-bind:disabled="notPhoneVerified"
+                        class="w-full py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold
+                               hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed
+                               transition-all duration-300 flex items-center justify-center gap-2"
+                        id="step1-continue-btn">
+                    Continue
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </button>
+
+                <!-- Warning when phone not verified -->
+                <div x-show="notPhoneVerified" x-cloak
+                     class="mt-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                    </svg>
+                    Please verify your phone number to continue.
                 </div>
             </div>
 
             <!-- Step 2: About You -->
-            <div class="form-step" data-step="2">
-                <div class="step-card">
-                    <div class="card-icon">✍️</div>
-                    <h3 class="card-title">About You</h3>
-                    <p class="card-subtitle">Share what makes you unique (optional)</p>
+            <div x-show="isStep2" x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 transform translate-x-4"
+                 x-transition:enter-end="opacity-100 transform translate-x-0" x-cloak
+                 class="bg-white rounded-2xl shadow-lg p-6 md:p-8">
 
-                    <!-- Bio (Optional) -->
-                    <div class="form-group-modern mb-4">
-                        <label for="{{ form.bio.id_for_label }}">
-                            {% include "crush_lu/icons/chat-bubble-left.html" with class="w-5 h-5" %} Bio
-                            <span class="badge bg-secondary ms-2">Optional</span>
+                <div class="text-center mb-6">
+                    <div class="text-4xl mb-2">✍️</div>
+                    <h3 class="text-xl font-semibold">About You</h3>
+                    <p class="text-gray-500 text-sm">Share what makes you unique (optional)</p>
+                </div>
+
+                <!-- Bio -->
+                <div class="mb-6" x-data="charCounter" data-initial-count="{{ profile.bio|length|default:0 }}" data-max-length="500">
+                    <label for="{{ form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                        {% include "crush_lu/icons/chat-bubble-left.html" with class="w-5 h-5" %} Bio
+                        <span class="text-xs text-gray-400 font-normal ml-1">Optional</span>
+                    </label>
+                    <textarea name="bio"
+                              id="{{ form.bio.id_for_label }}"
+                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none"
+                              rows="4"
+                              maxlength="500"
+                              @input="updateCount"
+                              placeholder="Tell us about yourself... What do you love? What makes you smile?">{{ profile.bio|default:"" }}</textarea>
+                    <div class="text-right text-sm text-gray-400 mt-1">
+                        <span x-text="charCount"></span>/500 characters
+                    </div>
+                    {% if form.bio.errors %}
+                        <p class="text-sm text-red-600 mt-1">{{ form.bio.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Interest Categories -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-3">
+                        {% include "crush_lu/icons/star.html" with class="w-5 h-5" %} Interest Categories
+                        <span class="text-xs text-gray-400 font-normal ml-1">Optional</span>
+                    </label>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        <label class="cursor-pointer">
+                            <input type="checkbox" name="interest_category" value="sports" class="peer hidden">
+                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-xl mb-1">⚽</div>
+                                <div class="text-xs font-medium">Sports & Fitness</div>
+                            </div>
                         </label>
-                        <textarea name="bio"
-                                  id="{{ form.bio.id_for_label }}"
-                                  class="form-control"
-                                  rows="4"
-                                  maxlength="500"
-                                  placeholder="Tell us about yourself... What do you love? What makes you smile? (Optional)">{{ profile.bio|default:"" }}</textarea>
-                        <div class="char-counter">
-                            <span id="bioCounter">{{ profile.bio|length|default:"0" }}</span>/500 characters
-                        </div>
-                        {% if form.bio.errors %}
-                            <div class="invalid-feedback d-block">{{ form.bio.errors.0 }}</div>
-                        {% endif %}
-                    </div>
-
-                    <!-- Interest Categories (Card-based) -->
-                    <div class="form-group-modern mb-4">
-                        <label class="mb-3">
-                            {% include "crush_lu/icons/star.html" with class="w-5 h-5" %} Interest Categories
-                            <span class="badge bg-secondary ms-2">Optional</span>
+                        <label class="cursor-pointer">
+                            <input type="checkbox" name="interest_category" value="arts" class="peer hidden">
+                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-xl mb-1">🎨</div>
+                                <div class="text-xs font-medium">Arts & Culture</div>
+                            </div>
                         </label>
-                        <div class="interest-categories">
-                            <input type="checkbox" name="interest_category" value="sports" id="interest_sports" class="d-none interest-checkbox">
-                            <label for="interest_sports" class="interest-card">
-                                <div class="interest-icon">⚽</div>
-                                <div class="interest-label">Sports & Fitness</div>
-                            </label>
-
-                            <input type="checkbox" name="interest_category" value="arts" id="interest_arts" class="d-none interest-checkbox">
-                            <label for="interest_arts" class="interest-card">
-                                <div class="interest-icon">🎨</div>
-                                <div class="interest-label">Arts & Culture</div>
-                            </label>
-
-                            <input type="checkbox" name="interest_category" value="food" id="interest_food" class="d-none interest-checkbox">
-                            <label for="interest_food" class="interest-card">
-                                <div class="interest-icon">🍷</div>
-                                <div class="interest-label">Food & Wine</div>
-                            </label>
-
-                            <input type="checkbox" name="interest_category" value="outdoors" id="interest_outdoors" class="d-none interest-checkbox">
-                            <label for="interest_outdoors" class="interest-card">
-                                <div class="interest-icon">🏔️</div>
-                                <div class="interest-label">Outdoors & Travel</div>
-                            </label>
-
-                            <input type="checkbox" name="interest_category" value="business" id="interest_business" class="d-none interest-checkbox">
-                            <label for="interest_business" class="interest-card">
-                                <div class="interest-icon">💼</div>
-                                <div class="interest-label">Business & Tech</div>
-                            </label>
-                        </div>
-                        <small class="form-text d-block mt-2">Select all that apply, or skip to continue</small>
-                    </div>
-
-                    <!-- Custom Interests Text (Optional) -->
-                    <div class="form-group-modern mb-4">
-                        <label for="{{ form.interests.id_for_label }}">
-                            {% include "crush_lu/icons/pencil.html" with class="w-5 h-5" %} Or write your own interests
+                        <label class="cursor-pointer">
+                            <input type="checkbox" name="interest_category" value="food" class="peer hidden">
+                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-xl mb-1">🍷</div>
+                                <div class="text-xs font-medium">Food & Wine</div>
+                            </div>
                         </label>
-                        <textarea name="interests"
-                                  id="{{ form.interests.id_for_label }}"
-                                  class="form-control"
-                                  rows="2"
-                                  maxlength="300"
-                                  placeholder="e.g., hiking, photography, cooking...">{{ profile.interests|default:"" }}</textarea>
-                        <div class="char-counter">
-                            <span id="interestsCounter">{{ profile.interests|length|default:"0" }}</span>/300 characters
-                        </div>
-                        {% if form.interests.errors %}
-                            <div class="invalid-feedback d-block">{{ form.interests.errors.0 }}</div>
-                        {% endif %}
-                    </div>
-
-                    <!-- Looking For (Card-based) -->
-                    <div class="form-group-modern mb-4">
-                        <label class="mb-3">
-                            {% include "crush_lu/icons/heart.html" with class="w-5 h-5" %} What are you looking for? *
+                        <label class="cursor-pointer">
+                            <input type="checkbox" name="interest_category" value="outdoors" class="peer hidden">
+                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-xl mb-1">🏔️</div>
+                                <div class="text-xs font-medium">Outdoors</div>
+                            </div>
                         </label>
-                        <div class="looking-for-cards">
-                            <input type="radio" name="looking_for" value="friends" id="looking_friends" class="d-none looking-radio" {% if profile.looking_for == 'friends' %}checked{% endif %} required>
-                            <label for="looking_friends" class="looking-card">
-                                <div class="looking-icon">👋</div>
-                                <div class="looking-label">New Friends</div>
-                            </label>
-
-                            <input type="radio" name="looking_for" value="dating" id="looking_dating" class="d-none looking-radio" {% if profile.looking_for == 'dating' %}checked{% endif %}>
-                            <label for="looking_dating" class="looking-card">
-                                <div class="looking-icon">💕</div>
-                                <div class="looking-label">Dating</div>
-                            </label>
-
-                            <input type="radio" name="looking_for" value="both" id="looking_both" class="d-none looking-radio" {% if profile.looking_for == 'both' %}checked{% endif %}>
-                            <label for="looking_both" class="looking-card">
-                                <div class="looking-icon">🌟</div>
-                                <div class="looking-label">Both</div>
-                            </label>
-
-                            <input type="radio" name="looking_for" value="networking" id="looking_networking" class="d-none looking-radio" {% if profile.looking_for == 'networking' %}checked{% endif %}>
-                            <label for="looking_networking" class="looking-card">
-                                <div class="looking-icon">🤝</div>
-                                <div class="looking-label">Networking</div>
-                            </label>
-                        </div>
-                        {% if form.looking_for.errors %}
-                            <div class="invalid-feedback d-block">{{ form.looking_for.errors.0 }}</div>
-                        {% endif %}
+                        <label class="cursor-pointer">
+                            <input type="checkbox" name="interest_category" value="business" class="peer hidden">
+                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-xl mb-1">💼</div>
+                                <div class="text-xs font-medium">Business & Tech</div>
+                            </div>
+                        </label>
                     </div>
+                    <p class="text-sm text-gray-500 mt-2">Select all that apply, or skip to continue</p>
+                </div>
 
-                    <div class="button-group mt-4">
-                        <button type="button" class="btn btn-outline-secondary btn-lg prev-step">
-                            {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back
-                        </button>
-                        <button type="button" class="btn btn-crush-primary btn-lg next-step">
-                            <span class="btn-text">Continue {% include "crush_lu/icons/arrow-right.html" with class="w-5 h-5" %}</span>
-                            <span class="btn-loading d-none">
-                                {% include "crush_lu/icons/arrow-path.html" with class="w-5 h-5 animate-spin" %} Saving...
-                            </span>
-                        </button>
+                <!-- Custom Interests -->
+                <div class="mb-6" x-data="charCounter" data-initial-count="{{ profile.interests|length|default:0 }}" data-max-length="300">
+                    <label for="{{ form.interests.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                        {% include "crush_lu/icons/pencil.html" with class="w-5 h-5" %} Or write your own interests
+                    </label>
+                    <textarea name="interests"
+                              id="{{ form.interests.id_for_label }}"
+                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none"
+                              rows="2"
+                              maxlength="300"
+                              @input="updateCount"
+                              placeholder="e.g., hiking, photography, cooking...">{{ profile.interests|default:"" }}</textarea>
+                    <div class="text-right text-sm text-gray-400 mt-1">
+                        <span x-text="charCount"></span>/300 characters
                     </div>
+                </div>
+
+                <!-- Looking For -->
+                <fieldset class="mb-6">
+                    <legend class="block text-sm font-medium text-gray-700 mb-3">
+                        <span aria-hidden="true">{% include "crush_lu/icons/heart.html" with class="w-5 h-5" %}</span> What are you looking for? <span class="text-red-500" aria-label="required">*</span>
+                    </legend>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3" role="radiogroup" aria-label="Select what you are looking for">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="looking_for" value="friends" class="peer hidden"
+                                   {% if profile.looking_for == 'friends' %}checked{% endif %} required>
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-2xl mb-1">👋</div>
+                                <div class="text-sm font-medium">New Friends</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="looking_for" value="dating" class="peer hidden"
+                                   {% if profile.looking_for == 'dating' %}checked{% endif %}>
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-2xl mb-1">💕</div>
+                                <div class="text-sm font-medium">Dating</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="looking_for" value="both" class="peer hidden"
+                                   {% if profile.looking_for == 'both' %}checked{% endif %}>
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-2xl mb-1">🌟</div>
+                                <div class="text-sm font-medium">Both</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="looking_for" value="networking" class="peer hidden"
+                                   {% if profile.looking_for == 'networking' %}checked{% endif %}>
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
+                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
+                                        hover:border-purple-300">
+                                <div class="text-2xl mb-1">🤝</div>
+                                <div class="text-sm font-medium">Networking</div>
+                            </div>
+                        </label>
+                    </div>
+                    {% if form.looking_for.errors %}
+                        <p class="text-sm text-red-600 mt-1" role="alert">{{ form.looking_for.errors.0 }}</p>
+                    {% endif %}
+                </fieldset>
+
+                <!-- Navigation Buttons -->
+                <div class="flex gap-4 mt-6">
+                    <button type="button" @click="prevStep()"
+                            class="flex-1 py-4 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold
+                                   hover:bg-gray-50 transition-all duration-300 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                        Back
+                    </button>
+                    <button type="button" @click="nextStep()"
+                            class="flex-1 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold
+                                   hover:from-purple-600 hover:to-pink-600 transition-all duration-300 flex items-center justify-center gap-2">
+                        Continue
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </button>
                 </div>
             </div>
 
             <!-- Step 3: Photos -->
-            <div class="form-step" data-step="3">
-                <div class="step-card">
-                    <div class="card-icon">📸</div>
-                    <h3 class="card-title">Add Photos</h3>
-                    <p class="card-subtitle">Upload at least one photo (optional but recommended)</p>
+            <div x-show="isStep3" x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 transform translate-x-4"
+                 x-transition:enter-end="opacity-100 transform translate-x-0" x-cloak
+                 class="bg-white rounded-2xl shadow-lg p-6 md:p-8">
 
-                    <!-- Social Photo Import Section -->
-                    {% if social_photos %}
-                    <div class="social-import-section mb-4">
-                        <div class="d-flex align-items-center justify-content-between mb-3">
-                            <h6 class="mb-0">{% include "crush_lu/icons/cloud-arrow-down.html" with class="w-5 h-5" %}Import from Social Accounts</h6>
-                            <span class="badge bg-success">Quick Import</span>
-                        </div>
-                        <p class="text-muted small mb-3">Use your existing profile photos from connected accounts</p>
+                <div class="text-center mb-6">
+                    <div class="text-4xl mb-2">📸</div>
+                    <h3 class="text-xl font-semibold">Add Photos</h3>
+                    <p class="text-gray-500 text-sm">Upload at least one photo (optional but recommended)</p>
+                </div>
 
-                        <div class="social-photos-grid">
-                            {% for photo in social_photos %}
-                            <div class="social-photo-card">
-                                <div class="provider-header">
-                                    {% if photo.provider == 'facebook' %}
-                                    <i class="fab fa-facebook text-primary"></i>
-                                    {% elif photo.provider == 'google' %}
-                                    <i class="fab fa-google text-danger"></i>
-                                    {% elif photo.provider == 'microsoft' %}
-                                    <i class="fab fa-microsoft text-info"></i>
-                                    {% endif %}
-                                    <span>{{ photo.provider_display }}</span>
-                                </div>
-
-                                {% if photo.available %}
-                                <div class="social-photo-preview-wrapper">
-                                    <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }} photo" class="social-photo-img">
-                                </div>
-                                <div class="import-buttons-row">
-                                    <button type="button" class="btn btn-sm btn-crush-primary import-social-photo-btn"
-                                            data-account-id="{{ photo.account_id }}"
-                                            data-slot="1"
-                                            title="Set as main photo">
-                                        {% include "crush_lu/icons/star.html" with class="w-5 h-5" %} Main
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-primary import-social-photo-btn"
-                                            data-account-id="{{ photo.account_id }}"
-                                            data-slot="2"
-                                            title="Import as Photo 2">
-                                        #2
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-primary import-social-photo-btn"
-                                            data-account-id="{{ photo.account_id }}"
-                                            data-slot="3"
-                                            title="Import as Photo 3">
-                                        #3
-                                    </button>
-                                </div>
-                                {% else %}
-                                <div class="no-photo-available">
-                                    {% include "crush_lu/icons/photo.html" with class="w-5 h-5" %}
-                                    <span>{{ photo.reason|default:"No photo available" }}</span>
-                                </div>
-                                {% endif %}
+                <!-- Photo Upload Grid -->
+                <div class="grid grid-cols-3 gap-4 mb-6"
+                     x-data="photoUpload"
+                     data-photo-1-exists="{{ profile.photo_1|yesno:'true,false' }}"
+                     data-photo-1-url="{% if profile.photo_1 %}{{ profile.photo_1.url }}{% endif %}"
+                     data-photo-2-exists="{{ profile.photo_2|yesno:'true,false' }}"
+                     data-photo-2-url="{% if profile.photo_2 %}{{ profile.photo_2.url }}{% endif %}"
+                     data-photo-3-exists="{{ profile.photo_3|yesno:'true,false' }}"
+                     data-photo-3-url="{% if profile.photo_3 %}{{ profile.photo_3.url }}{% endif %}">
+                    <!-- Photo 1 -->
+                    <div class="relative aspect-square">
+                        <input type="file" name="photo_1" id="photo1" accept="image/*" class="hidden"
+                               @change="handleFile1">
+                        <label for="photo1"
+                               class="block w-full h-full border-2 border-dashed border-gray-300 rounded-xl
+                                      cursor-pointer hover:border-purple-400 transition-all overflow-hidden
+                                      bg-gray-50 hover:bg-purple-50">
+                            <div x-show="photos[0].hasImage" class="w-full h-full">
+                                <img x-bind:src="photos[0].preview" class="w-full h-full object-cover" alt="Photo preview">
                             </div>
-                            {% endfor %}
-                        </div>
-
-                        <!-- Import notification -->
-                        <div id="social-photo-notification" class="mt-3" style="display: none;"></div>
+                            <div x-show="photo1NoImage" class="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                                <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                </svg>
+                                <span class="text-sm">Photo 1</span>
+                            </div>
+                        </label>
+                        <button type="button" x-show="photos[0].hasImage" @click="removePhoto1"
+                                class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full
+                                       flex items-center justify-center hover:bg-red-600 transition shadow-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
                     </div>
-                    <div class="divider-with-text mb-4">
-                        <span>or upload your own photos</span>
+                    <!-- Photo 2 -->
+                    <div class="relative aspect-square">
+                        <input type="file" name="photo_2" id="photo2" accept="image/*" class="hidden"
+                               @change="handleFile2">
+                        <label for="photo2"
+                               class="block w-full h-full border-2 border-dashed border-gray-300 rounded-xl
+                                      cursor-pointer hover:border-purple-400 transition-all overflow-hidden
+                                      bg-gray-50 hover:bg-purple-50">
+                            <div x-show="photos[1].hasImage" class="w-full h-full">
+                                <img x-bind:src="photos[1].preview" class="w-full h-full object-cover" alt="Photo preview">
+                            </div>
+                            <div x-show="photo2NoImage" class="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                                <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                </svg>
+                                <span class="text-sm">Photo 2</span>
+                            </div>
+                        </label>
+                        <button type="button" x-show="photos[1].hasImage" @click="removePhoto2"
+                                class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full
+                                       flex items-center justify-center hover:bg-red-600 transition shadow-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
                     </div>
-                    {% endif %}
-
-                    <!-- HTMX-enabled photo upload grid (uploads immediately on selection) -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <!-- Photo 1 (Main) -->
-                        <div id="photo-card-1">
-                            {% include 'crush_lu/partials/photo_card.html' with slot=1 photo=profile.photo_1 is_main=True %}
-                        </div>
-
-                        <!-- Photo 2 -->
-                        <div id="photo-card-2">
-                            {% include 'crush_lu/partials/photo_card.html' with slot=2 photo=profile.photo_2 is_main=False %}
-                        </div>
-
-                        <!-- Photo 3 -->
-                        <div id="photo-card-3">
-                            {% include 'crush_lu/partials/photo_card.html' with slot=3 photo=profile.photo_3 is_main=False %}
-                        </div>
+                    <!-- Photo 3 -->
+                    <div class="relative aspect-square">
+                        <input type="file" name="photo_3" id="photo3" accept="image/*" class="hidden"
+                               @change="handleFile3">
+                        <label for="photo3"
+                               class="block w-full h-full border-2 border-dashed border-gray-300 rounded-xl
+                                      cursor-pointer hover:border-purple-400 transition-all overflow-hidden
+                                      bg-gray-50 hover:bg-purple-50">
+                            <div x-show="photos[2].hasImage" class="w-full h-full">
+                                <img x-bind:src="photos[2].preview" class="w-full h-full object-cover" alt="Photo preview">
+                            </div>
+                            <div x-show="photo3NoImage" class="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                                <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                </svg>
+                                <span class="text-sm">Photo 3</span>
+                            </div>
+                        </label>
+                        <button type="button" x-show="photos[2].hasImage" @click="removePhoto3"
+                                class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full
+                                       flex items-center justify-center hover:bg-red-600 transition shadow-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
                     </div>
+                </div>
 
-                    {% if profile.photo_1 %}
-                    <div class="alert alert-success mt-3">
-                        {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %}
-                        <strong>Great!</strong> We imported your photo from Facebook. You can keep it or upload a different one.
-                    </div>
-                    {% else %}
-                    <div class="alert alert-info mt-3">
-                        {% include "crush_lu/icons/information-circle.html" with class="w-5 h-5" %}
+                <!-- Photo tip -->
+                <div class="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm mb-6 flex items-start gap-2">
+                    <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                    </svg>
+                    <div>
                         <strong>Tip:</strong> Use clear photos where your face is visible. Avoid group photos!
                     </div>
-                    {% endif %}
+                </div>
 
-                    <!-- Privacy Settings -->
-                    <div class="privacy-section mt-4">
-                        <h5 class="mb-3">{% include "crush_lu/icons/shield-check.html" with class="w-5 h-5" %} Privacy Settings</h5>
+                <!-- Privacy Settings -->
+                <div class="border-t pt-6">
+                    <h5 class="font-semibold mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+                        </svg>
+                        Privacy Settings
+                    </h5>
 
-                        <div class="privacy-toggle mb-3">
-                            <input type="checkbox" name="show_full_name" id="{{ form.show_full_name.id_for_label }}" class="form-check-input">
-                            <label for="{{ form.show_full_name.id_for_label }}" class="form-check-label">
-                                Show my full name <small class="text-muted">(otherwise only first name)</small>
-                            </label>
-                        </div>
+                    <div class="space-y-4">
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" name="show_full_name"
+                                   class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
+                            <div>
+                                <span class="font-medium">Show my full name</span>
+                                <p class="text-sm text-gray-500">Otherwise only your first name will be shown</p>
+                            </div>
+                        </label>
 
-                        <div class="privacy-toggle mb-3">
-                            <input type="checkbox" name="show_exact_age" id="{{ form.show_exact_age.id_for_label }}" class="form-check-input" checked>
-                            <label for="{{ form.show_exact_age.id_for_label }}" class="form-check-label">
-                                Show my exact age <small class="text-muted">(otherwise show age range)</small>
-                            </label>
-                        </div>
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" name="show_exact_age" checked
+                                   class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
+                            <div>
+                                <span class="font-medium">Show my exact age</span>
+                                <p class="text-sm text-gray-500">Otherwise show age range (e.g., 25-29)</p>
+                            </div>
+                        </label>
 
-                        <div class="privacy-toggle mb-3">
-                            <input type="checkbox" name="blur_photos" id="{{ form.blur_photos.id_for_label }}" class="form-check-input">
-                            <label for="{{ form.blur_photos.id_for_label }}" class="form-check-label">
-                                Blur my photos until mutual interest
-                            </label>
-                        </div>
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" name="blur_photos"
+                                   class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
+                            <div>
+                                <span class="font-medium">Blur my photos until mutual interest</span>
+                                <p class="text-sm text-gray-500">Photos will only be visible after you both connect</p>
+                            </div>
+                        </label>
                     </div>
+                </div>
 
-                    <div class="button-group mt-4">
-                        <button type="button" class="btn btn-outline-secondary btn-lg prev-step">
-                            {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back
-                        </button>
-                        <button type="button" class="btn btn-crush-primary btn-lg next-step">
-                            <span class="btn-text">Continue {% include "crush_lu/icons/arrow-right.html" with class="w-5 h-5" %}</span>
-                            <span class="btn-loading d-none">
-                                {% include "crush_lu/icons/arrow-path.html" with class="w-5 h-5 animate-spin" %} Saving...
-                            </span>
-                        </button>
-                    </div>
+                <!-- Navigation Buttons -->
+                <div class="flex gap-4 mt-6">
+                    <button type="button" @click="prevStep()"
+                            class="flex-1 py-4 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold
+                                   hover:bg-gray-50 transition-all duration-300 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                        Back
+                    </button>
+                    <button type="button" @click="nextStepAndReview"
+                            class="flex-1 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold
+                                   hover:from-purple-600 hover:to-pink-600 transition-all duration-300 flex items-center justify-center gap-2">
+                        Continue
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </button>
                 </div>
             </div>
 
             <!-- Step 4: Review & Submit -->
-            <div class="form-step" data-step="4">
-                <div class="step-card">
-                    <div class="card-icon">✅</div>
-                    <h3 class="card-title">Review & Submit</h3>
-                    <p class="card-subtitle">Almost done! Review your information</p>
+            <div x-show="isStep4" x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 transform translate-x-4"
+                 x-transition:enter-end="opacity-100 transform translate-x-0" x-cloak
+                 class="bg-white rounded-2xl shadow-lg p-6 md:p-8">
 
-                    <div class="review-summary">
-                        <div class="summary-item">
-                            {% include "crush_lu/icons/phone.html" with class="w-5 h-5 text-primary" %}
+                <div class="text-center mb-6">
+                    <div class="text-4xl mb-2">✅</div>
+                    <h3 class="text-xl font-semibold">Review & Submit</h3>
+                    <p class="text-gray-500 text-sm">Almost done! Review your information</p>
+                </div>
+
+                <!-- Review Summary -->
+                <div class="bg-gray-50 rounded-xl p-4 mb-6 space-y-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                            {% include "crush_lu/icons/phone.html" with class="w-5 h-5 text-purple-600" %}
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">Phone Number</span>
+                            <p class="font-medium" x-ref="reviewPhone">Not provided</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                            {% include "crush_lu/icons/calendar.html" with class="w-5 h-5 text-purple-600" %}
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">Date of Birth</span>
+                            <p class="font-medium" x-ref="reviewDob">Not provided</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                            {% include "crush_lu/icons/user.html" with class="w-5 h-5 text-purple-600" %}
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">Gender</span>
+                            <p class="font-medium" x-ref="reviewGender">Not selected</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                            {% include "crush_lu/icons/map-pin.html" with class="w-5 h-5 text-purple-600" %}
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">Location</span>
+                            <p class="font-medium" x-ref="reviewLocation">Not selected</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- What Happens Next -->
+                <div class="mb-6">
+                    <h5 class="font-semibold mb-4 flex items-center gap-2">
+                        {% include "crush_lu/icons/hourglass.html" with class="w-5 h-5 text-purple-600" %}
+                        What Happens Next?
+                    </h5>
+
+                    <div class="space-y-4">
+                        <div class="flex gap-4">
+                            <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">1</div>
                             <div>
-                                <strong>Phone Number:</strong>
-                                <span id="review-phone">Not provided</span>
+                                <h6 class="font-medium">Profile Submitted</h6>
+                                <p class="text-sm text-gray-500">Your profile is sent to our Crush Coach team</p>
                             </div>
                         </div>
-                        <div class="summary-item">
-                            {% include "crush_lu/icons/calendar.html" with class="w-5 h-5 text-primary" %}
+                        <div class="flex gap-4">
+                            <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">2</div>
                             <div>
-                                <strong>Date of Birth:</strong>
-                                <span id="review-dob">Not provided</span>
+                                <h6 class="font-medium">Coach Review</h6>
+                                <p class="text-sm text-gray-500">A coach will review your profile within 24-48 hours</p>
                             </div>
                         </div>
-                        <div class="summary-item">
-                            {% include "crush_lu/icons/user.html" with class="w-5 h-5 text-primary" %}
+                        <div class="flex gap-4">
+                            <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">3</div>
                             <div>
-                                <strong>Gender:</strong>
-                                <span id="review-gender">Not selected</span>
+                                <h6 class="font-medium">Screening Call</h6>
+                                <p class="text-sm text-gray-500">Your coach will call you to discuss your profile and goals</p>
                             </div>
                         </div>
-                        <div class="summary-item">
-                            {% include "crush_lu/icons/map-pin.html" with class="w-5 h-5 text-primary" %}
+                        <div class="flex gap-4">
+                            <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">4</div>
                             <div>
-                                <strong>Location:</strong>
-                                <span id="review-location">Not selected</span>
+                                <h6 class="font-medium">Profile Approved</h6>
+                                <p class="text-sm text-gray-500">You can start attending events and making connections!</p>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- What Happens Next -->
-                    <div class="next-steps-info mt-4">
-                        <h5 class="mb-3">{% include "crush_lu/icons/hourglass.html" with class="w-5 h-5" %} What Happens Next?</h5>
-
-                        <div class="timeline-item">
-                            <div class="timeline-marker">1</div>
-                            <div class="timeline-content">
-                                <strong>Profile Submitted</strong>
-                                <p>Your profile is sent to our Crush Coach team</p>
-                            </div>
-                        </div>
-
-                        <div class="timeline-item">
-                            <div class="timeline-marker">2</div>
-                            <div class="timeline-content">
-                                <strong>Coach Review</strong>
-                                <p>A coach will review your profile within 24-48 hours</p>
-                            </div>
-                        </div>
-
-                        <div class="timeline-item">
-                            <div class="timeline-marker">3</div>
-                            <div class="timeline-content">
-                                <strong>Screening Call</strong>
-                                <p>Your coach will call you to discuss your profile and goals</p>
-                            </div>
-                        </div>
-
-                        <div class="timeline-item">
-                            <div class="timeline-marker">4</div>
-                            <div class="timeline-content">
-                                <strong>Profile Approved</strong>
-                                <p>You can start attending events and making connections!</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="alert alert-success mt-4">
-                        {% include "crush_lu/icons/shield-check.html" with class="w-5 h-5" %}
+                <!-- Privacy note -->
+                <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg text-sm mb-6 flex items-start gap-2">
+                    <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                    <div>
                         <strong>Privacy First:</strong> Your phone number will only be used by your coach for screening. It won't be shared with other members without your consent.
                     </div>
+                </div>
 
-                    <div class="button-group mt-4">
-                        <button type="button" class="btn btn-outline-secondary btn-lg prev-step">
-                            {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back
-                        </button>
-                        <button type="submit" class="btn btn-crush-primary btn-lg">
-                            {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Submit Profile
-                        </button>
-                    </div>
+                <!-- Navigation Buttons -->
+                <div class="flex gap-4">
+                    <button type="button" @click="prevStep()"
+                            class="flex-1 py-4 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold
+                                   hover:bg-gray-50 transition-all duration-300 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                        Back
+                    </button>
+                    <button type="submit"
+                            :disabled="isSubmitting"
+                            class="flex-1 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold
+                                   hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed
+                                   transition-all duration-300 flex items-center justify-center gap-2">
+                        <template x-if="!isSubmitting">
+                            <span class="flex items-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                Submit Profile
+                            </span>
+                        </template>
+                        <template x-if="isSubmitting">
+                            <span class="flex items-center gap-2">
+                                <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Submitting...
+                            </span>
+                        </template>
+                    </button>
                 </div>
             </div>
         </form>
     </div>
+
+    <!-- Phone Verification Modal (Alpine.js) -->
+    <div x-data="phoneVerificationModal"
+         x-show="isOpen"
+         x-cloak
+         @open-phone-modal.window="open()"
+         @close-phone-modal.window="close()"
+         class="fixed inset-0 z-50 overflow-y-auto"
+         role="dialog"
+         aria-modal="true">
+        <!-- Backdrop -->
+        <div x-show="isOpen"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-black bg-opacity-50"></div>
+
+        <!-- Modal Content -->
+        <div class="flex min-h-screen items-center justify-center p-4">
+            <div x-show="isOpen"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 transform scale-95"
+                 x-transition:enter-end="opacity-100 transform scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 transform scale-100"
+                 x-transition:leave-end="opacity-0 transform scale-95"
+                 @click.away="close()"
+                 class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+
+                <!-- Close button -->
+                <button @click="close()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+
+                <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                    {% include "crush_lu/icons/phone.html" with class="w-5 h-5" %} Verify Your Phone
+                </h3>
+
+                <!-- Step: Sending -->
+                <div x-show="isSendingStep" class="text-center py-8">
+                    <div class="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p class="text-gray-600">Sending verification code...</p>
+                </div>
+
+                <!-- Step: Enter Code -->
+                <div x-show="isCodeStep" class="text-center">
+                    <p class="mb-4">
+                        We sent a 6-digit code to<br>
+                        <strong x-text="maskedPhone"></strong>
+                    </p>
+
+                    <!-- OTP Inputs - Individual inputs for CSP compatibility -->
+                    <div class="flex justify-center gap-2 mb-4">
+                        <input type="text" id="otp-0" x-ref="otp0" maxlength="1" inputmode="numeric" pattern="[0-9]"
+                               x-model="otpDigits[0]" @input="handleOtpInput(0, $event)" @keydown.backspace="handleOtpBackspace(0, $event)" @paste="handleOtpPaste($event)"
+                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                        <input type="text" id="otp-1" x-ref="otp1" maxlength="1" inputmode="numeric" pattern="[0-9]"
+                               x-model="otpDigits[1]" @input="handleOtpInput(1, $event)" @keydown.backspace="handleOtpBackspace(1, $event)" @paste="handleOtpPaste($event)"
+                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                        <input type="text" id="otp-2" x-ref="otp2" maxlength="1" inputmode="numeric" pattern="[0-9]"
+                               x-model="otpDigits[2]" @input="handleOtpInput(2, $event)" @keydown.backspace="handleOtpBackspace(2, $event)" @paste="handleOtpPaste($event)"
+                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                        <input type="text" id="otp-3" x-ref="otp3" maxlength="1" inputmode="numeric" pattern="[0-9]"
+                               x-model="otpDigits[3]" @input="handleOtpInput(3, $event)" @keydown.backspace="handleOtpBackspace(3, $event)" @paste="handleOtpPaste($event)"
+                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                        <input type="text" id="otp-4" x-ref="otp4" maxlength="1" inputmode="numeric" pattern="[0-9]"
+                               x-model="otpDigits[4]" @input="handleOtpInput(4, $event)" @keydown.backspace="handleOtpBackspace(4, $event)" @paste="handleOtpPaste($event)"
+                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                        <input type="text" id="otp-5" x-ref="otp5" maxlength="1" inputmode="numeric" pattern="[0-9]"
+                               x-model="otpDigits[5]" @input="handleOtpInput(5, $event)" @keydown.backspace="handleOtpBackspace(5, $event)" @paste="handleOtpPaste($event)"
+                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                    </div>
+
+                    <!-- Error message -->
+                    <div x-show="hasError" class="bg-red-50 text-red-700 px-4 py-2 rounded-lg text-sm mb-4" x-text="error"></div>
+
+                    <button @click="verifyCode()"
+                            x-bind:disabled="isCodeIncomplete"
+                            class="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold
+                                   hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 transition">
+                        Verify Code
+                    </button>
+
+                    <!-- Resend -->
+                    <div class="mt-4 text-sm text-gray-500">
+                        <span x-show="cannotResend">
+                            Resend available in <span x-text="resendCountdown"></span>s
+                        </span>
+                        <button x-show="canResend"
+                                @click="resendCode()"
+                                class="text-purple-600 hover:text-purple-800 font-medium">
+                            Resend Code
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step: Verifying -->
+                <div x-show="isVerifyingStep" class="text-center py-8">
+                    <div class="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p class="text-gray-600">Verifying your code...</p>
+                </div>
+
+                <!-- Step: Success -->
+                <div x-show="isSuccessStep" class="text-center py-8">
+                    <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-10 h-10 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <h4 class="text-xl font-semibold text-green-700 mb-2">Phone Verified!</h4>
+                    <p class="text-gray-500">Your phone number has been verified successfully.</p>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
-
-<!-- Styles are in static/crush_lu/css/components/profile-creation.css and social-photos.css -->
-
 {% endblock %}
 
 {% block extra_js %}
+<!-- Firebase SDK for phone authentication -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+<!-- intl-tel-input JS -->
+<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/intlTelInput.min.js"></script>
+
+<!-- Firebase Configuration -->
 <script nonce="{{ request.csp_nonce }}">
-// Multi-step form management
-{% if current_step %}
-    // Resume from last completed step - move to NEXT step to continue
-    const stepMap = {'not_started': 1, 'step1': 2, 'step2': 3, 'step3': 4, 'completed': 4, 'submitted': 4};
-    let currentStep = stepMap['{{ current_step }}'] || 1;
+    window.FIREBASE_API_KEY = "{{ firebase_api_key }}";
+    window.FIREBASE_AUTH_DOMAIN = "{{ firebase_auth_domain }}";
+    window.FIREBASE_PROJECT_ID = "{{ firebase_project_id }}";
+</script>
 
-    // Debug logging for troubleshooting
-    console.log('Loading profile - completion_status:', '{{ current_step }}');
-    console.log('Mapped to step:', currentStep);
-{% else %}
-    let currentStep = 1;
-    console.log('Starting new profile at step 1');
-{% endif %}
-const totalSteps = 4;
-const isEditing = {{ is_editing|lower|default:"false" }};
-console.log('Editing mode:', isEditing, 'Has profile:', {% if profile %}true{% else %}false{% endif %});
+<!-- Phone verification module -->
+<script src="{% static 'crush_lu/js/phone-verification.js' %}"></script>
 
-// Character counters
-document.getElementById('{{ form.bio.id_for_label }}')?.addEventListener('input', function() {
-    document.getElementById('bioCounter').textContent = this.value.length;
-});
-
-document.getElementById('{{ form.interests.id_for_label }}')?.addEventListener('input', function() {
-    document.getElementById('interestsCounter').textContent = this.value.length;
-});
-
-// Interest categories - combine checked categories with custom text
-document.querySelectorAll('.interest-checkbox').forEach(checkbox => {
-    checkbox.addEventListener('change', function() {
-        updateInterestsField();
-    });
-});
-
-function updateInterestsField() {
-    const selectedCategories = Array.from(document.querySelectorAll('.interest-checkbox:checked'))
-        .map(cb => cb.nextElementSibling.querySelector('.interest-label').textContent);
-
-    const interestsField = document.getElementById('{{ form.interests.id_for_label }}');
-    const customText = interestsField.value.trim();
-
-    // If user has custom text, don't override it - categories are supplementary
-    // They will be combined during form submission
-}
-
-// Photo uploads now handled by HTMX via photo_card.html partial
-// Each photo upload triggers hx-post to upload immediately
-// No client-side preview needed - server returns updated card
-
-// Step navigation
-function updateStep(newStep) {
-    if (newStep < 1 || newStep > totalSteps) return;
-
-    // Hide current step
-    document.querySelector(`.form-step[data-step="${currentStep}"]`).classList.remove('active');
-    document.querySelector(`.progress-step[data-step="${currentStep}"]`).classList.remove('active');
-
-    // Mark completed steps
-    if (newStep > currentStep) {
-        document.querySelector(`.progress-step[data-step="${currentStep}"]`).classList.add('completed');
-    }
-
-    // Show new step
-    currentStep = newStep;
-    document.querySelector(`.form-step[data-step="${currentStep}"]`).classList.add('active');
-    document.querySelector(`.progress-step[data-step="${currentStep}"]`).classList.add('active');
-
-    // Scroll to top
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-
-    // Update review if on last step
-    if (currentStep === 4) {
-        updateReview();
-    }
-}
-
-// Helper to show/hide loading state on button
-function setButtonLoading(btn, isLoading) {
-    const textEl = btn.querySelector('.btn-text');
-    const loadingEl = btn.querySelector('.btn-loading');
-    if (textEl && loadingEl) {
-        if (isLoading) {
-            textEl.classList.add('d-none');
-            loadingEl.classList.remove('d-none');
-            btn.disabled = true;
-        } else {
-            textEl.classList.remove('d-none');
-            loadingEl.classList.add('d-none');
-            btn.disabled = false;
-        }
-    }
-}
-
-// Next step buttons
-document.querySelectorAll('.next-step').forEach(btn => {
-    btn.addEventListener('click', async function() {
-        if (validateCurrentStep()) {
-            // Save data after each step
-            let canProceed = true;
-
-            // Show loading state for steps that save data
-            if (currentStep === 1 || currentStep === 2) {
-                setButtonLoading(btn, true);
+<script nonce="{{ request.csp_nonce }}">
+// Initialize global phone verification instance
+// Alpine.js components are now defined in alpine-components.js
+document.addEventListener('DOMContentLoaded', function() {
+    window.phoneVerification = new PhoneVerification({
+        phoneInputId: '{{ form.phone_number.id_for_label }}',
+        verifyButtonId: 'verify-phone-btn',
+        recaptchaContainerId: 'recaptcha-container',
+        csrfToken: '{{ csrf_token }}',
+        onCodeSent: function(phone) {
+            // Find the modal element and call showCodeStep via Alpine
+            var modal = document.querySelector('[x-data="phoneVerificationModal"]');
+            if (modal && modal._x_dataStack && modal._x_dataStack[0]) {
+                modal._x_dataStack[0].showCodeStep(phone);
             }
-
-            try {
-                if (currentStep === 1) {
-                    canProceed = await saveStep1();
-                } else if (currentStep === 2) {
-                    canProceed = await saveStep2();
-                }
-
-                // Only advance to next step if save was successful
-                if (canProceed) {
-                    updateStep(currentStep + 1);
-                }
-            } finally {
-                // Always restore button state
-                setButtonLoading(btn, false);
-            }
+        },
+        onVerified: function(phoneNumber) {
+            window.dispatchEvent(new CustomEvent('phone-verified', { detail: phoneNumber }));
+        },
+        onError: function(error) {
+            console.error('Phone verification error:', error);
         }
     });
 });
 
-// Previous step buttons
-document.querySelectorAll('.prev-step').forEach(btn => {
-    btn.addEventListener('click', function() {
-        updateStep(currentStep - 1);
-    });
+// Listen for verification events
+window.addEventListener('phone-verified', function(e) {
+    // Update all Alpine components
+    var phoneInput = document.getElementById('{{ form.phone_number.id_for_label }}');
+    if (phoneInput) {
+        phoneInput.value = e.detail;
+        phoneInput.readOnly = true;
+    }
+
+    // Update hidden input
+    var hiddenInput = document.querySelector('[name="phone_verified"]');
+    if (hiddenInput) hiddenInput.value = 'true';
+
+    // Update continue button
+    var continueBtn = document.getElementById('step1-continue-btn');
+    if (continueBtn) continueBtn.disabled = false;
 });
-
-// Validation
-function validateCurrentStep() {
-    const currentStepEl = document.querySelector(`.form-step[data-step="${currentStep}"]`);
-    const requiredFields = currentStepEl.querySelectorAll('[required]');
-    let isValid = true;
-
-    requiredFields.forEach(field => {
-        if (field.type === 'radio') {
-            const radioGroup = currentStepEl.querySelectorAll(`[name="${field.name}"]`);
-            const isChecked = Array.from(radioGroup).some(radio => radio.checked);
-            if (!isChecked) {
-                isValid = false;
-                alert('Please select an option for ' + field.name.replace(/_/g, ' '));
-            }
-        } else if (!field.value.trim()) {
-            isValid = false;
-            field.focus();
-            alert('Please fill in all required fields');
-            return false;
-        }
-    });
-
-    return isValid;
-}
-
-// Region name mapping for display
-const regionNames = {
-    'canton-capellen': 'Capellen',
-    'canton-clervaux': 'Clervaux',
-    'canton-diekirch': 'Diekirch',
-    'canton-echternach': 'Echternach',
-    'canton-esch': 'Esch-sur-Alzette',
-    'canton-grevenmacher': 'Grevenmacher',
-    'canton-luxembourg': 'Luxembourg',
-    'canton-mersch': 'Mersch',
-    'canton-redange': 'Redange',
-    'canton-remich': 'Remich',
-    'canton-vianden': 'Vianden',
-    'canton-wiltz': 'Wiltz',
-    'border-belgium': 'Belgium (Arlon/Virton area)',
-    'border-germany': 'Germany (Trier/Saarland area)',
-    'border-france': 'France (Thionville/Metz area)'
-};
-
-// Update review summary
-function updateReview() {
-    const phoneNumber = document.querySelector('[name="phone_number"]').value || 'Not provided';
-    const dob = document.querySelector('[name="date_of_birth"]').value || 'Not provided';
-    const gender = document.querySelector('[name="gender"]:checked')?.nextElementSibling.querySelector('.gender-label')?.textContent || 'Not selected';
-    const locationValue = document.querySelector('[name="location"]').value;
-    const location = locationValue ? (regionNames[locationValue] || locationValue) : 'Not selected';
-
-    document.getElementById('review-phone').textContent = phoneNumber;
-    document.getElementById('review-dob').textContent = dob;
-    document.getElementById('review-gender').textContent = gender;
-    document.getElementById('review-location').textContent = location;
-}
-
-// Form submission - combine interests before submitting
-document.getElementById('profileForm').addEventListener('submit', function(e) {
-    // Combine selected interest categories with custom text
-    const selectedCategories = Array.from(document.querySelectorAll('.interest-checkbox:checked'))
-        .map(cb => cb.nextElementSibling.querySelector('.interest-label').textContent);
-
-    const customInterests = document.querySelector('[name="interests"]').value.trim();
-
-    // Combine categories and custom interests
-    let finalInterests = '';
-    if (selectedCategories.length > 0) {
-        finalInterests = selectedCategories.join(', ');
-    }
-    if (customInterests) {
-        finalInterests = finalInterests ? `${finalInterests}, ${customInterests}` : customInterests;
-    }
-
-    // Update the interests field with combined value
-    document.querySelector('[name="interests"]').value = finalInterests;
-
-    // Only validate if we're NOT on the final review step (step 4)
-    // Step 4 has no required fields, it's just a review
-    if (currentStep !== 4 && !validateCurrentStep()) {
-        e.preventDefault();
-    }
-});
-
-// AJAX save functions
-async function saveStep1() {
-    const data = {
-        phone_number: document.querySelector('[name="phone_number"]').value,
-        date_of_birth: document.querySelector('[name="date_of_birth"]').value,
-        gender: document.querySelector('[name="gender"]:checked')?.value,
-        location: document.querySelector('[name="location"]').value
-    };
-
-    try {
-        const response = await fetch('{% url "crush_lu:save_profile_step1" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify(data)
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            // Show success notification
-            showNotification('✅ Basic info saved! A coach will contact you soon.', 'success');
-
-            // Mark step 1 as saved
-            localStorage.setItem('crush_profile_step1_saved', 'true');
-            return true;  // Success - allow advancing to next step
-        } else {
-            showNotification('❌ Error: ' + result.error, 'error');
-            return false;  // Validation failed - stay on current step
-        }
-    } catch (error) {
-        console.error('Error saving Step 1:', error);
-        showNotification('❌ Network error. Please try again.', 'error');
-        return false;  // Error - stay on current step
-    }
-}
-
-async function saveStep2() {
-    // Combine selected interest categories with custom text
-    const selectedCategories = Array.from(document.querySelectorAll('.interest-checkbox:checked'))
-        .map(cb => cb.nextElementSibling.querySelector('.interest-label').textContent);
-
-    const customInterests = document.querySelector('[name="interests"]').value.trim();
-
-    // Combine categories and custom interests
-    let finalInterests = '';
-    if (selectedCategories.length > 0) {
-        finalInterests = selectedCategories.join(', ');
-    }
-    if (customInterests) {
-        finalInterests = finalInterests ? `${finalInterests}, ${customInterests}` : customInterests;
-    }
-
-    const data = {
-        bio: document.querySelector('[name="bio"]').value,
-        interests: finalInterests,
-        looking_for: document.querySelector('[name="looking_for"]:checked')?.value
-    };
-
-    try {
-        const response = await fetch('{% url "crush_lu:save_profile_step2" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify(data)
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            showNotification('✅ About section saved!', 'success');
-            return true;  // Success - allow advancing
-        } else {
-            showNotification('❌ Error: ' + (result.error || 'Failed to save'), 'error');
-            return false;  // Error - stay on current step
-        }
-    } catch (error) {
-        console.error('Error saving Step 2:', error);
-        showNotification('❌ Network error. Please try again.', 'error');
-        return false;  // Error - stay on current step
-    }
-}
-
-// Notification system (CSP-compliant - no inline event handlers)
-function showNotification(message, type = 'info') {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
-    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);';
-    notification.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-dismiss-notification aria-label="Dismiss">
-            <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-        </button>
-    `;
-
-    document.body.appendChild(notification);
-
-    // Add click handler for dismiss button (CSP-safe event listener)
-    const dismissBtn = notification.querySelector('[data-dismiss-notification]');
-    if (dismissBtn) {
-        dismissBtn.addEventListener('click', function() {
-            notification.remove();
-        });
-    }
-
-    // Auto-remove after 5 seconds
-    setTimeout(() => {
-        notification.remove();
-    }, 5000);
-}
-
-// Initialize on page load
-window.addEventListener('load', async function() {
-    // If editing or resuming, mark previous steps as completed and show current step
-    if (currentStep > 1) {
-        // Mark all previous steps as completed
-        for (let i = 1; i < currentStep; i++) {
-            document.querySelector(`.progress-step[data-step="${i}"]`)?.classList.add('completed');
-        }
-
-        // Hide step 1 and show the current step
-        document.querySelector(`.form-step[data-step="1"]`)?.classList.remove('active');
-        document.querySelector(`.progress-step[data-step="1"]`)?.classList.remove('active');
-
-        document.querySelector(`.form-step[data-step="${currentStep}"]`)?.classList.add('active');
-        document.querySelector(`.progress-step[data-step="${currentStep}"]`)?.classList.add('active');
-
-        showNotification(`👋 Welcome back! Continue with Step ${currentStep}.`, 'info');
-    }
-
-    // Check for profile progress (for new profiles)
-    if (!isEditing) {
-        try {
-            const response = await fetch('{% url "crush_lu:get_profile_progress" %}');
-            const progress = await response.json();
-
-            if (progress.exists && progress.completion_status !== 'submitted' && currentStep === 1) {
-                const stepNum = parseInt(progress.completion_status.replace('step', '')) || 1;
-                if (stepNum > 1) {
-                    showNotification(`👋 Welcome back! You can continue from Step ${stepNum}.`, 'info');
-                }
-            }
-        } catch (error) {
-            console.error('Error checking progress:', error);
-        }
-    }
-});
-
-function getStepNumber(status) {
-    const statusMap = {
-        'step1': 2,
-        'step2': 3,
-        'step3': 4,
-        'completed': 4
-    };
-    return statusMap[status] || 1;
-}
-
-// Prevent double-submission of the form
-const profileForm = document.getElementById('profileForm');
-const submitButton = profileForm.querySelector('button[type="submit"]');
-let isSubmitting = false;
-
-profileForm.addEventListener('submit', function(e) {
-    // Prevent double-click or multiple submissions
-    if (isSubmitting) {
-        e.preventDefault();
-        console.log('⚠️ Duplicate submission prevented');
-        return false;
-    }
-
-    // Mark as submitting
-    isSubmitting = true;
-
-    // Disable submit button and show loading state
-    if (submitButton) {
-        submitButton.disabled = true;
-        const originalHTML = submitButton.innerHTML;
-        submitButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block animate-spin"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg> Submitting...';
-
-        // Re-enable after 5 seconds in case of server error
-        setTimeout(() => {
-            isSubmitting = false;
-            submitButton.disabled = false;
-            submitButton.innerHTML = originalHTML;
-            console.log('⏱️ Submit button re-enabled after timeout');
-        }, 5000);
-    }
-});
-
-// Social Photo Import Handler
-document.querySelectorAll('.import-social-photo-btn').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-        e.preventDefault();
-
-        const accountId = this.dataset.accountId;
-        const slot = parseInt(this.dataset.slot);
-        const button = this;
-        const originalHTML = button.innerHTML;
-
-        // Disable button and show loading
-        button.disabled = true;
-        button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block animate-spin"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>';
-
-        // Get CSRF token
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-        // Call import API
-        fetch('{% url "crush_lu:import_social_photo" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
-            },
-            body: JSON.stringify({
-                social_account_id: parseInt(accountId),
-                photo_slot: slot
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            const notification = document.getElementById('social-photo-notification');
-            notification.style.display = 'block';
-
-            if (data.success) {
-                notification.className = 'mt-2 alert alert-success';
-                const slotName = slot === 1 ? 'Main Photo' : 'Photo ' + slot;
-                notification.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg> Imported to ' + slotName + '!';
-
-                // Update the photo preview
-                const previewId = 'preview' + slot;
-                const preview = document.getElementById(previewId);
-                if (preview && data.photo_url) {
-                    preview.classList.add('has-image');
-                    preview.innerHTML = '<img src="' + data.photo_url + '" alt="Photo ' + slot + '">';
-
-                    // Show remove button
-                    const removeBtn = preview.closest('.photo-upload-box').querySelector('.remove-photo');
-                    if (removeBtn) {
-                        removeBtn.classList.remove('d-none');
-                    }
-                }
-            } else {
-                notification.className = 'mt-2 alert alert-danger';
-                notification.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg> ' + (data.error || 'Error importing photo');
-            }
-
-            // Hide notification after 4 seconds
-            setTimeout(function() {
-                notification.style.display = 'none';
-            }, 4000);
-        })
-        .catch(error => {
-            const notification = document.getElementById('social-photo-notification');
-            notification.style.display = 'block';
-            notification.className = 'mt-2 alert alert-danger';
-            notification.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg> Network error. Please try again.';
-        })
-        .finally(function() {
-            button.disabled = false;
-            button.innerHTML = originalHTML;
-        });
-    });
-});
-
-// Phone verification status polling
-// Polls the server to detect when phone verification is completed
-// (e.g., when user verifies in the popup/new tab and returns)
-(function() {
-    const phoneVerified = {% if profile and profile.phone_verified %}true{% else %}false{% endif %};
-
-    if (!phoneVerified) {
-        console.log('Phone not verified - starting status polling');
-
-        // Poll every 3 seconds to check if phone was verified
-        const pollInterval = setInterval(async function() {
-            try {
-                const response = await fetch('/api/phone/status/');
-                const data = await response.json();
-
-                if (data.phone_verified) {
-                    console.log('Phone verification detected via polling');
-                    clearInterval(pollInterval);
-                    updatePhoneVerificationUI(data.phone_number);
-                }
-            } catch (error) {
-                console.error('Failed to check phone status:', error);
-            }
-        }, 3000);
-
-        // Stop polling after 5 minutes to prevent indefinite polling
-        setTimeout(() => {
-            clearInterval(pollInterval);
-            console.log('Phone verification polling stopped after 5 minutes');
-        }, 5 * 60 * 1000);
-    }
-
-    function updatePhoneVerificationUI(phoneNumber) {
-        // Update badge from "Verification Required" to "Verified"
-        const container = document.getElementById('phone-verification-container');
-        if (!container) return;
-
-        const labelEl = container.querySelector('label');
-        if (labelEl) {
-            const badge = labelEl.querySelector('.badge');
-            if (badge) {
-                badge.className = 'badge bg-success ms-2';
-                badge.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5" style="display:inline-block;vertical-align:middle;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg> Verified';
-            }
-        }
-
-        // Replace the warning alert with readonly input showing verified phone
-        const alertBox = container.querySelector('.alert-warning');
-        if (alertBox) {
-            alertBox.outerHTML = `
-                <div class="phone-input-wrapper">
-                    <input type="tel"
-                           name="phone_number"
-                           id="id_phone_number"
-                           class="form-control form-control-lg bg-light"
-                           value="${phoneNumber}"
-                           readonly>
-                </div>
-                <small class="form-text text-success">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                    </svg>
-                    Your phone number is verified and locked.
-                </small>
-            `;
-        }
-
-        // Enable the continue button
-        const continueBtn = document.getElementById('step1-continue-btn');
-        if (continueBtn) {
-            continueBtn.disabled = false;
-        }
-
-        // Hide the warning message
-        const warning = document.getElementById('phone-verify-warning');
-        if (warning) {
-            warning.classList.add('d-none');
-        }
-
-        // Update the hidden input for form submission
-        const hiddenInput = document.getElementById('phone_verified_input');
-        if (hiddenInput) {
-            hiddenInput.value = 'true';
-        }
-
-        // Show success notification
-        showNotification('Phone verified successfully!', 'success');
-    }
-})();
 </script>
 {% endblock %}

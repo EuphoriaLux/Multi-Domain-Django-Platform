@@ -49,12 +49,10 @@ class TailwindMigrationTests(TestCase):
     # Templates that are exempt from checking (still being migrated)
     # Remove from this list as each template is converted
     EXEMPT_TEMPLATES = [
-        'create_profile.html',  # Phase 2.1 - new version created as create_profile_new.html
         # Coach dashboard templates - still have Bootstrap modals and tables
         'coach_edit_journey.html',
         'coach_invitation_dashboard.html',  # Has Bootstrap modals
         'coach_journey_dashboard.html',
-        'coach_screening_dashboard.html',  # Has Bootstrap modals and tables
         # Event templates
         'event_activity_vote.html',
         'event_activity_vote_old.html',
@@ -343,7 +341,6 @@ class GridMigrationTests(TestCase):
     EXEMPT_TEMPLATES = [
         'partials/edit_profile_form.html',  # Pending migration
         'coach_edit_journey.html',
-        'coach_screening_dashboard.html',
         'coach_invitation_dashboard.html',
     ]
 

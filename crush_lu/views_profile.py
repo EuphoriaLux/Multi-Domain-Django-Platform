@@ -278,32 +278,6 @@ def get_profile_progress(request):
         })
 
 
-# NOTE: Step 1 screening call system has been DEPRECATED and consolidated into the review process
-# Screening calls are now handled exclusively during profile review via ProfileSubmission.review_call_completed
-# The views below are commented out but kept for reference during migration
-
-# @crush_login_required
-# def coach_screening_dashboard(request):
-#     """DEPRECATED: Coach dashboard for pending screening calls
-#
-#     This view has been replaced by the coach review process.
-#     Screening calls are now done during profile review, not after Step 1.
-#     """
-#     messages.warning(request, 'The screening dashboard has been moved to the coach review process.')
-#     return redirect('crush_lu:coach_dashboard')
-
-
-# @crush_login_required
-# def coach_mark_screening_complete(request, profile_id):
-#     """DEPRECATED: Mark screening call as completed
-#
-#     This functionality is now part of the profile review process.
-#     Use /coach/review/{submission_id}/ instead.
-#     """
-#     messages.warning(request, 'Please use the profile review page to complete screening calls.')
-#     return redirect('crush_lu:coach_dashboard')
-
-
 # =============================================================================
 # SOCIAL PHOTO IMPORT API
 # =============================================================================
