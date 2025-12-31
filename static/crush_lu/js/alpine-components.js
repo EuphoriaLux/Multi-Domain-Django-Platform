@@ -305,7 +305,7 @@ document.addEventListener('alpine:init', function() {
             _detectCurrentEndpoint: function() {
                 var self = this;
 
-                // Generate fingerprint immediately (doesn't need service worker)
+                // Try to get fingerprint immediately if CrushPush is loaded
                 if (window.CrushPush && window.CrushPush.getFingerprint) {
                     self.currentFingerprint = window.CrushPush.getFingerprint();
                 }
@@ -330,23 +330,51 @@ document.addEventListener('alpine:init', function() {
                         }
 
                         // Strategy 2: Fallback to fingerprint if endpoint didn't match
-                        // Handles case where endpoint changed but fingerprint is same
-                        if (!self.isCurrentDeviceSubscribed && self.currentFingerprint) {
-                            self._matchByFingerprint();
+                        // Wait for CrushPush if needed, then try fingerprint matching
+                        if (!self.isCurrentDeviceSubscribed) {
+                            self._tryFingerprintMatch();
                         }
                     }).catch(function() {
                         self.endpointDetected = true;  // Mark as done even on failure
                         // Try fingerprint matching as fallback
-                        if (self.currentFingerprint) {
-                            self._matchByFingerprint();
-                        }
+                        self._tryFingerprintMatch();
                     });
                 } else {
                     self.endpointDetected = true;  // No service worker support
                     // Still try fingerprint matching
-                    if (self.currentFingerprint) {
-                        self._matchByFingerprint();
-                    }
+                    self._tryFingerprintMatch();
+                }
+            },
+
+            // Try to match by fingerprint, waiting for CrushPush if needed
+            _tryFingerprintMatch: function() {
+                var self = this;
+                if (self.isCurrentDeviceSubscribed) return;  // Already matched
+
+                // If we already have fingerprint, try matching immediately
+                if (self.currentFingerprint) {
+                    self._matchByFingerprint();
+                    return;
+                }
+
+                // Wait for CrushPush to load if not available
+                if (!window.CrushPush || !window.CrushPush.getFingerprint) {
+                    var attempts = 0;
+                    var maxAttempts = 20;  // 2 seconds max
+                    var checkInterval = setInterval(function() {
+                        attempts++;
+                        if (window.CrushPush && window.CrushPush.getFingerprint) {
+                            clearInterval(checkInterval);
+                            self.currentFingerprint = window.CrushPush.getFingerprint();
+                            self._matchByFingerprint();
+                        } else if (attempts >= maxAttempts) {
+                            clearInterval(checkInterval);
+                            // CrushPush didn't load, fingerprint matching not available
+                        }
+                    }, 100);
+                } else {
+                    self.currentFingerprint = window.CrushPush.getFingerprint();
+                    self._matchByFingerprint();
                 }
             },
 
@@ -666,7 +694,7 @@ document.addEventListener('alpine:init', function() {
             _detectCurrentEndpoint: function() {
                 var self = this;
 
-                // Generate fingerprint immediately (doesn't need service worker)
+                // Try to get fingerprint immediately if CrushPush is loaded
                 if (window.CrushPush && window.CrushPush.getFingerprint) {
                     self.currentFingerprint = window.CrushPush.getFingerprint();
                 }
@@ -691,22 +719,51 @@ document.addEventListener('alpine:init', function() {
                         }
 
                         // Strategy 2: Fallback to fingerprint if endpoint didn't match
-                        if (!self.isCurrentDeviceSubscribed && self.currentFingerprint) {
-                            self._matchByFingerprint();
+                        // Wait for CrushPush if needed, then try fingerprint matching
+                        if (!self.isCurrentDeviceSubscribed) {
+                            self._tryFingerprintMatch();
                         }
                     }).catch(function() {
                         self.endpointDetected = true;  // Mark as done even on failure
                         // Try fingerprint matching as fallback
-                        if (self.currentFingerprint) {
-                            self._matchByFingerprint();
-                        }
+                        self._tryFingerprintMatch();
                     });
                 } else {
                     self.endpointDetected = true;  // No service worker support
                     // Still try fingerprint matching
-                    if (self.currentFingerprint) {
-                        self._matchByFingerprint();
-                    }
+                    self._tryFingerprintMatch();
+                }
+            },
+
+            // Try to match by fingerprint, waiting for CrushPush if needed
+            _tryFingerprintMatch: function() {
+                var self = this;
+                if (self.isCurrentDeviceSubscribed) return;  // Already matched
+
+                // If we already have fingerprint, try matching immediately
+                if (self.currentFingerprint) {
+                    self._matchByFingerprint();
+                    return;
+                }
+
+                // Wait for CrushPush to load if not available
+                if (!window.CrushPush || !window.CrushPush.getFingerprint) {
+                    var attempts = 0;
+                    var maxAttempts = 20;  // 2 seconds max
+                    var checkInterval = setInterval(function() {
+                        attempts++;
+                        if (window.CrushPush && window.CrushPush.getFingerprint) {
+                            clearInterval(checkInterval);
+                            self.currentFingerprint = window.CrushPush.getFingerprint();
+                            self._matchByFingerprint();
+                        } else if (attempts >= maxAttempts) {
+                            clearInterval(checkInterval);
+                            // CrushPush didn't load, fingerprint matching not available
+                        }
+                    }, 100);
+                } else {
+                    self.currentFingerprint = window.CrushPush.getFingerprint();
+                    self._matchByFingerprint();
                 }
             },
 
