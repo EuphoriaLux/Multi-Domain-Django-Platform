@@ -95,6 +95,7 @@ MIDDLEWARE = [
     'azureproject.middleware.LoginPostDebugMiddleware',  # DEBUG: Log /login/ POSTs before CSRF check
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'crush_lu.middleware.UserActivityMiddleware',  # Track user activity and PWA usage
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
