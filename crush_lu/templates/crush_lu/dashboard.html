@@ -63,45 +63,20 @@
         </div>
     </div>
 
-    <!-- Push Notifications / PWA Install Card -->
+    <!-- PWA Install Card -->
     <div class="bg-white rounded-xl shadow-sm h-full">
         <div class="p-6">
             {% if is_pwa_user %}
-            <!-- User has installed PWA - show push notifications -->
-            <h5 class="font-semibold text-lg mb-2">{% trans "🔔 Push Notifications" %}</h5>
-            <p class="text-gray-500 mb-4">{% trans "Get notified about events, messages, and connections" %}</p>
-
-            <div id="push-status" class="mb-4">
-                <p class="text-gray-500">
-                    <span class="animate-spin inline-block w-4 h-4 border-2 border-gray-300 border-t-crush-purple rounded-full mr-2"></span>
-                    {% trans "Checking notification status..." %}
-                </p>
+            <!-- User has installed PWA - show success and link to settings -->
+            <h5 class="font-semibold text-lg mb-2">{% trans "📲 Crush.lu App" %}</h5>
+            <div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4 mb-4">
+                {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5 inline mr-1" %}
+                <strong>{% trans "App installed!" %}</strong>
             </div>
-
-            <button id="enable-push-btn" class="btn-crush-primary items-center gap-1 px-4 py-2" style="display: none;">
-                {% include "crush_lu/icons/bell.html" with class="w-4 h-4" %} {% trans "Enable Notifications" %}
-            </button>
-
-            <button id="disable-push-btn" class="items-center gap-1 px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors" style="display: none;">
-                {% include "crush_lu/icons/bell-slash.html" with class="w-4 h-4" %} {% trans "Disable" %}
-            </button>
-
-            <button id="test-push-btn" class="mt-2 items-center gap-1 px-4 py-2 border border-purple-500 text-purple-600 hover:bg-purple-50 font-medium rounded-lg transition-colors" style="display: none;">
-                {% include "crush_lu/icons/paper-airplane.html" with class="w-4 h-4" %} {% trans "Send Test" %}
-            </button>
-
-            <div id="push-not-supported" class="hidden">
-                <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4">
-                    {% include "crush_lu/icons/information-circle.html" with class="w-5 h-5 inline mr-1" %}
-                    <strong>{% trans "Push notifications not available" %}</strong>
-                    <p class="mb-0 mt-2 text-sm">
-                        {% trans "To receive push notifications, try opening Crush.lu in:" %}
-                        <br>{% trans "• Chrome or Edge on Android" %}
-                        <br>{% trans "• Chrome, Firefox, or Edge on Desktop" %}
-                        <br>{% trans "• Safari on iOS 16.4+ or macOS 16.4+" %}
-                    </p>
-                </div>
-            </div>
+            <p class="text-gray-500 mb-4">{% trans "Manage your push notifications in account settings." %}</p>
+            <a href="{% url 'crush_lu:account_settings' %}#push-notifications" class="btn-crush-outline inline-flex items-center gap-2 text-sm">
+                {% include "crush_lu/icons/bell.html" with class="w-4 h-4" %} {% trans "Notification Settings" %}
+            </a>
             {% else %}
             <!-- User hasn't installed PWA - show install prompt -->
             <div id="pwa-install-prompt">
@@ -233,96 +208,4 @@
 {% endif %}
 
 <!-- Styles are in static/crush_lu/css/pages/dashboard.css -->
-
-<script nonce="{{ request.csp_nonce }}">
-// Push Notification UI Handler
-(function() {
-    const statusDiv = document.getElementById('push-status');
-    const enableBtn = document.getElementById('enable-push-btn');
-    const disableBtn = document.getElementById('disable-push-btn');
-    const testBtn = document.getElementById('test-push-btn');
-    const notSupportedDiv = document.getElementById('push-not-supported');
-
-    // Check if push notifications are supported
-    if (!window.CrushPush || !window.CrushPush.isSupported) {
-        statusDiv.classList.add('hidden');
-        notSupportedDiv.classList.remove('hidden');
-        return;
-    }
-
-    // Check current subscription status
-    window.CrushPush.isSubscribed().then(subscribed => {
-        statusDiv.innerHTML = subscribed
-            ? '<div class="alert alert-success">Notifications enabled</div>'
-            : '<div class="alert alert-warning">Notifications disabled</div>';
-
-        if (subscribed) {
-            disableBtn.classList.remove('hidden');
-            testBtn.classList.remove('hidden');
-        } else {
-            enableBtn.classList.remove('hidden');
-        }
-    });
-
-    // Enable push notifications
-    enableBtn.addEventListener('click', async function() {
-        enableBtn.disabled = true;
-        enableBtn.innerHTML = '<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span> Enabling...';
-
-        const result = await window.CrushPush.subscribe();
-
-        if (result.success) {
-            statusDiv.innerHTML = '<div class="alert alert-success">Notifications enabled!</div>';
-            enableBtn.classList.add('hidden');
-            disableBtn.classList.remove('hidden');
-            testBtn.classList.remove('hidden');
-
-            // Send test notification
-            await window.CrushPush.sendTest();
-        } else {
-            alert('Failed to enable notifications: ' + result.error);
-            enableBtn.disabled = false;
-            enableBtn.innerHTML = 'Enable Notifications';
-        }
-    });
-
-    // Disable push notifications
-    disableBtn.addEventListener('click', async function() {
-        if (!confirm('Are you sure you want to disable push notifications?')) {
-            return;
-        }
-
-        disableBtn.disabled = true;
-        const result = await window.CrushPush.unsubscribe();
-
-        if (result.success) {
-            statusDiv.innerHTML = '<div class="alert alert-warning">Notifications disabled</div>';
-            disableBtn.classList.add('hidden');
-            testBtn.classList.add('hidden');
-            enableBtn.classList.remove('hidden');
-        } else {
-            alert('Failed to disable notifications');
-        }
-
-        disableBtn.disabled = false;
-    });
-
-    // Test notification
-    testBtn.addEventListener('click', async function() {
-        testBtn.disabled = true;
-        testBtn.innerHTML = '<span class="animate-spin inline-block w-4 h-4 border-2 border-crush-purple border-t-transparent rounded-full mr-2"></span> Sending...';
-
-        const result = await window.CrushPush.sendTest();
-
-        if (result.success) {
-            alert('Test notification sent! Check your notifications.');
-        } else {
-            alert('Failed to send test: ' + (result.error || 'Unknown error'));
-        }
-
-        testBtn.disabled = false;
-        testBtn.innerHTML = 'Send Test';
-    });
-})();
-</script>
 {% endblock %}

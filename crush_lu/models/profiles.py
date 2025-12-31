@@ -651,6 +651,12 @@ class PushSubscription(models.Model):
         blank=True,
         help_text="Friendly device name (e.g., 'Android Chrome', 'iPhone Safari')"
     )
+    device_fingerprint = models.CharField(
+        max_length=64,
+        blank=True,
+        db_index=True,
+        help_text="Browser fingerprint hash for stable device identification across sessions"
+    )
 
     # Notification preferences
     enabled = models.BooleanField(
@@ -864,6 +870,12 @@ class CoachPushSubscription(models.Model):
         max_length=100,
         blank=True,
         help_text="Friendly device name (e.g., 'Android Chrome', 'iPhone Safari')"
+    )
+    device_fingerprint = models.CharField(
+        max_length=64,
+        blank=True,
+        db_index=True,
+        help_text="Browser fingerprint hash for stable device identification across sessions"
     )
 
     # Coach-specific notification preferences

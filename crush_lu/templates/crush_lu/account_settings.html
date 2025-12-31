@@ -478,7 +478,8 @@
                         {% for subscription in push_subscriptions %}
                         <div class="{% if not forloop.first %}mt-6 pt-6 border-t border-gray-200{% endif %}"
                              data-subscription-id="{{ subscription.id }}"
-                             data-endpoint="{{ subscription.endpoint }}">
+                             data-endpoint="{{ subscription.endpoint }}"
+                             data-fingerprint="{{ subscription.device_fingerprint }}">
                             <!-- Device Header -->
                             <div class="flex items-center justify-between mb-4">
                                 <div class="flex items-center flex-wrap gap-2">
@@ -674,7 +675,8 @@
                         {% for subscription in coach_push_subscriptions %}
                         <div class="{% if not forloop.first %}mt-6 pt-6 border-t border-gray-200{% endif %}"
                              data-subscription-id="{{ subscription.id }}"
-                             data-endpoint="{{ subscription.endpoint }}">
+                             data-endpoint="{{ subscription.endpoint }}"
+                             data-fingerprint="{{ subscription.device_fingerprint }}">
                             <!-- Device Header -->
                             <div class="flex items-center justify-between mb-4">
                                 <div class="flex items-center flex-wrap gap-2">

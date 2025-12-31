@@ -41,7 +41,10 @@ def get_vapid_public_key(request):
 def subscribe_push(request):
     """
     Subscribe user to push notifications.
-    Expects JSON body with subscription data from browser's PushManager.
+    Uses device fingerprint for stable device identification across sessions.
+
+    When a fingerprint matches an existing subscription, UPDATE that subscription
+    with the new endpoint instead of creating a duplicate.
 
     Request body:
     {
@@ -51,7 +54,8 @@ def subscribe_push(request):
             "auth": "..."
         },
         "userAgent": "...",  # optional
-        "deviceName": "..."  # optional
+        "deviceName": "...",  # optional
+        "deviceFingerprint": "..."  # optional but recommended
     }
     """
     try:
@@ -76,27 +80,62 @@ def subscribe_push(request):
             'error': 'Missing p256dh or auth keys'
         }, status=400)
 
-    # Create or update subscription
-    subscription, created = PushSubscription.objects.update_or_create(
-        user=request.user,
-        endpoint=data['endpoint'],
-        defaults={
-            'p256dh_key': keys['p256dh'],
-            'auth_key': keys['auth'],
-            'user_agent': data.get('userAgent', ''),
-            'device_name': data.get('deviceName', ''),
-            'enabled': True,
-            'failure_count': 0,
-        }
-    )
+    fingerprint = data.get('deviceFingerprint', '')
+    subscription = None
+    created = False
+
+    # Strategy 1: Try to find by fingerprint first (stable identifier)
+    # This handles the case where the endpoint changed (e.g., after logout/login)
+    if fingerprint:
+        existing_by_fingerprint = PushSubscription.objects.filter(
+            user=request.user,
+            device_fingerprint=fingerprint
+        ).first()
+
+        if existing_by_fingerprint:
+            # Same physical device, update endpoint and keys
+            existing_by_fingerprint.endpoint = data['endpoint']
+            existing_by_fingerprint.p256dh_key = keys['p256dh']
+            existing_by_fingerprint.auth_key = keys['auth']
+            existing_by_fingerprint.user_agent = data.get('userAgent', '')
+            existing_by_fingerprint.device_name = data.get('deviceName', '')
+            existing_by_fingerprint.enabled = True
+            existing_by_fingerprint.failure_count = 0
+            existing_by_fingerprint.save()
+            subscription = existing_by_fingerprint
+            created = False
+
+            # Clean up any stale subscriptions with the same endpoint from other fingerprints
+            PushSubscription.objects.filter(
+                user=request.user,
+                endpoint=data['endpoint']
+            ).exclude(id=subscription.id).delete()
+
+    # Strategy 2: Fall back to endpoint-based matching (backwards compatibility)
+    if not subscription:
+        subscription, created = PushSubscription.objects.update_or_create(
+            user=request.user,
+            endpoint=data['endpoint'],
+            defaults={
+                'p256dh_key': keys['p256dh'],
+                'auth_key': keys['auth'],
+                'user_agent': data.get('userAgent', ''),
+                'device_name': data.get('deviceName', ''),
+                'device_fingerprint': fingerprint,
+                'enabled': True,
+                'failure_count': 0,
+            }
+        )
 
     action = 'created' if created else 'updated'
-    logger.info(f"Push subscription {action} for {request.user.username}")
+    fingerprint_info = f" (fingerprint: {fingerprint[:8]}...)" if fingerprint else ""
+    logger.info(f"Push subscription {action} for {request.user.username}{fingerprint_info}")
 
     return JsonResponse({
         'success': True,
         'message': f'Subscription {action} successfully',
-        'subscriptionId': subscription.id
+        'subscriptionId': subscription.id,
+        'fingerprint': fingerprint
     })
 
 

@@ -64,6 +64,71 @@
     }
 
     /**
+     * Generate a stable browser fingerprint from hardware/software characteristics.
+     * This fingerprint persists across sessions and is used to identify the same
+     * physical device even when the push endpoint changes (e.g., after logout/login).
+     */
+    function generateDeviceFingerprint() {
+        // Collect stable browser characteristics
+        var components = [
+            screen.width,
+            screen.height,
+            window.devicePixelRatio || 1,
+            new Date().getTimezoneOffset(),
+            navigator.language || '',
+            navigator.platform || '',
+            navigator.hardwareConcurrency || 0,
+            navigator.deviceMemory || 0,
+            ('ontouchstart' in window) ? 1 : 0,
+            screen.colorDepth || 0,
+            // Canvas fingerprint for additional uniqueness
+            getCanvasFingerprint()
+        ];
+
+        // Create hash from components
+        var str = components.join('|');
+        return simpleHash(str);
+    }
+
+    /**
+     * Get a canvas-based fingerprint component.
+     * Different GPUs/drivers render text slightly differently.
+     */
+    function getCanvasFingerprint() {
+        try {
+            var canvas = document.createElement('canvas');
+            canvas.width = 200;
+            canvas.height = 50;
+            var ctx = canvas.getContext('2d');
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#f60';
+            ctx.fillRect(125, 1, 62, 20);
+            ctx.fillStyle = '#069';
+            ctx.fillText('Crush.lu PWA', 2, 15);
+            ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+            ctx.fillText('Crush.lu PWA', 4, 17);
+            return canvas.toDataURL().slice(-50);
+        } catch (e) {
+            return 'no-canvas';
+        }
+    }
+
+    /**
+     * Simple string hash function (djb2 algorithm).
+     * Returns a hex string for the fingerprint.
+     */
+    function simpleHash(str) {
+        var hash = 5381;
+        for (var i = 0; i < str.length; i++) {
+            hash = ((hash << 5) + hash) + str.charCodeAt(i);
+            hash = hash & hash;  // Convert to 32-bit integer
+        }
+        // Convert to hex and ensure positive, pad to 8 chars
+        return Math.abs(hash).toString(16).padStart(8, '0');
+    }
+
+    /**
      * Request notification permission and subscribe to push
      */
     async function subscribeToPush() {
@@ -121,7 +186,8 @@
                         auth: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth'))))
                     },
                     userAgent: navigator.userAgent,
-                    deviceName: getDeviceName()
+                    deviceName: getDeviceName(),
+                    deviceFingerprint: generateDeviceFingerprint()
                 })
             });
 
@@ -242,7 +308,8 @@
         unsubscribe: unsubscribeFromPush,
         isSubscribed: isSubscribed,
         sendTest: sendTestNotification,
-        isSupported: isPushSupported
+        isSupported: isPushSupported,
+        getFingerprint: generateDeviceFingerprint
     };
 
     console.log('[Push] Push notification manager initialized');

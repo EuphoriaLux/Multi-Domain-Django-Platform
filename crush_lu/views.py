@@ -397,6 +397,7 @@ def account_settings(request):
             push_subscriptions.append({
                 'id': sub.id,
                 'endpoint': sub.endpoint,  # For current device detection
+                'device_fingerprint': sub.device_fingerprint or '',  # Stable device identifier
                 'device_name': sub.device_name or 'Unknown Device',
                 'device_type': get_device_type(sub.device_name or ''),
                 'last_used_at': sub.last_used_at,  # Keep as datetime for template filters
@@ -425,6 +426,7 @@ def account_settings(request):
                 coach_push_subscriptions.append({
                     'id': sub.id,
                     'endpoint': sub.endpoint,  # For current device detection
+                    'device_fingerprint': sub.device_fingerprint or '',  # Stable device identifier
                     'device_name': sub.device_name or 'Unknown Device',
                     'device_type': get_device_type(sub.device_name or ''),
                     'last_used_at': sub.last_used_at,  # Keep as datetime for template filters

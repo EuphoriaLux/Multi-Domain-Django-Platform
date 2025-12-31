@@ -180,7 +180,8 @@ document.addEventListener('alpine:init', function() {
             errorMessage: '',
             permissionDenied: false,
             isLoading: true,
-            currentEndpoint: null,  // For identifying "This device"
+            currentEndpoint: null,  // For identifying "This device" by endpoint
+            currentFingerprint: null,  // Stable device fingerprint (fallback for endpoint)
             endpointDetected: false,  // Flag to trigger re-render when endpoint is detected
             // i18n strings for time formatting (loaded from data attributes)
             i18n: {
@@ -298,11 +299,17 @@ document.addEventListener('alpine:init', function() {
                 this.i18n.monthsAgo = el.getAttribute('data-i18n-months-ago') || this.i18n.monthsAgo;
             },
 
-            // Detect current device's push endpoint for "This device" identification
-            // Also shows server-rendered "This device" badges for matching endpoints
+            // Detect current device's push endpoint and fingerprint for "This device" identification
+            // Uses endpoint as primary identifier, fingerprint as fallback
             // Sets isCurrentDeviceSubscribed based on whether THIS device is in the subscriptions list
             _detectCurrentEndpoint: function() {
                 var self = this;
+
+                // Generate fingerprint immediately (doesn't need service worker)
+                if (window.CrushPush && window.CrushPush.getFingerprint) {
+                    self.currentFingerprint = window.CrushPush.getFingerprint();
+                }
+
                 if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.ready.then(function(reg) {
                         return reg.pushManager.getSubscription();
@@ -310,36 +317,70 @@ document.addEventListener('alpine:init', function() {
                         self.currentEndpoint = sub ? sub.endpoint : null;
                         self.endpointDetected = true;  // Trigger Alpine reactivity
 
-                        // Check if current device is in the subscriptions list
+                        // Strategy 1: Match by endpoint (most accurate when available)
                         if (sub && sub.endpoint) {
                             var subscriptionElements = self.$el.querySelectorAll('[data-endpoint]');
                             for (var i = 0; i < subscriptionElements.length; i++) {
                                 if (subscriptionElements[i].dataset.endpoint === sub.endpoint) {
                                     self.isCurrentDeviceSubscribed = true;
+                                    self._showThisDeviceBadge(subscriptionElements[i]);
                                     break;
                                 }
                             }
+                        }
 
-                            // Show "This device" badges for server-rendered subscriptions
-                            var badges = self.$el.querySelectorAll('.this-device-badge');
-                            for (var i = 0; i < badges.length; i++) {
-                                var container = badges[i].closest('[data-endpoint]');
-                                if (container && container.dataset.endpoint === sub.endpoint) {
-                                    badges[i].classList.remove('hidden');
-                                }
-                            }
+                        // Strategy 2: Fallback to fingerprint if endpoint didn't match
+                        // Handles case where endpoint changed but fingerprint is same
+                        if (!self.isCurrentDeviceSubscribed && self.currentFingerprint) {
+                            self._matchByFingerprint();
                         }
                     }).catch(function() {
                         self.endpointDetected = true;  // Mark as done even on failure
+                        // Try fingerprint matching as fallback
+                        if (self.currentFingerprint) {
+                            self._matchByFingerprint();
+                        }
                     });
                 } else {
                     self.endpointDetected = true;  // No service worker support
+                    // Still try fingerprint matching
+                    if (self.currentFingerprint) {
+                        self._matchByFingerprint();
+                    }
+                }
+            },
+
+            // Match device by fingerprint (fallback when endpoint doesn't match)
+            _matchByFingerprint: function() {
+                var self = this;
+                var subscriptionElements = self.$el.querySelectorAll('[data-fingerprint]');
+                for (var i = 0; i < subscriptionElements.length; i++) {
+                    if (subscriptionElements[i].dataset.fingerprint === self.currentFingerprint) {
+                        self.isCurrentDeviceSubscribed = true;
+                        self._showThisDeviceBadge(subscriptionElements[i]);
+                        break;
+                    }
+                }
+            },
+
+            // Show "This device" badge for a subscription container
+            _showThisDeviceBadge: function(container) {
+                var badges = container.querySelectorAll('.this-device-badge');
+                for (var i = 0; i < badges.length; i++) {
+                    badges[i].classList.remove('hidden');
                 }
             },
 
             // Check if a subscription is from the current device
             isCurrentDevice: function(subscription) {
-                return this.currentEndpoint && subscription.endpoint === this.currentEndpoint;
+                // Check by endpoint first, then fingerprint
+                if (this.currentEndpoint && subscription.endpoint === this.currentEndpoint) {
+                    return true;
+                }
+                if (this.currentFingerprint && subscription.device_fingerprint === this.currentFingerprint) {
+                    return true;
+                }
+                return false;
             },
 
             // Format relative time for "Last active" display
@@ -515,7 +556,8 @@ document.addEventListener('alpine:init', function() {
             errorMessage: '',
             permissionDenied: false,
             isLoading: true,
-            currentEndpoint: null,  // For identifying "This device"
+            currentEndpoint: null,  // For identifying "This device" by endpoint
+            currentFingerprint: null,  // Stable device fingerprint (fallback for endpoint)
             endpointDetected: false,  // Flag to trigger re-render when endpoint is detected
             // i18n strings for time formatting (loaded from data attributes)
             i18n: {
@@ -618,46 +660,87 @@ document.addEventListener('alpine:init', function() {
                 this.i18n.monthsAgo = el.getAttribute('data-i18n-months-ago') || this.i18n.monthsAgo;
             },
 
-            // Detect current device's push endpoint for "This device" identification
-            // Also shows server-rendered "This device" badges for matching endpoints
+            // Detect current device's push endpoint and fingerprint for "This device" identification
+            // Uses endpoint as primary identifier, fingerprint as fallback
             // Sets isCurrentDeviceSubscribed to true if this device has an active subscription
             _detectCurrentEndpoint: function() {
                 var self = this;
+
+                // Generate fingerprint immediately (doesn't need service worker)
+                if (window.CrushPush && window.CrushPush.getFingerprint) {
+                    self.currentFingerprint = window.CrushPush.getFingerprint();
+                }
+
                 if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.ready.then(function(reg) {
                         return reg.pushManager.getSubscription();
                     }).then(function(sub) {
                         self.currentEndpoint = sub ? sub.endpoint : null;
                         self.endpointDetected = true;  // Trigger Alpine reactivity
-                        // Show "This device" badges and detect if current device is subscribed
+
+                        // Strategy 1: Match by endpoint (most accurate when available)
                         if (sub && sub.endpoint) {
                             var subscriptionElements = self.$el.querySelectorAll('[data-endpoint]');
                             for (var i = 0; i < subscriptionElements.length; i++) {
                                 if (subscriptionElements[i].dataset.endpoint === sub.endpoint) {
                                     self.isCurrentDeviceSubscribed = true;
+                                    self._showThisDeviceBadge(subscriptionElements[i]);
                                     break;
                                 }
                             }
-                            // Show "This device" badges
-                            var badges = self.$el.querySelectorAll('.this-device-badge');
-                            for (var i = 0; i < badges.length; i++) {
-                                var container = badges[i].closest('[data-endpoint]');
-                                if (container && container.dataset.endpoint === sub.endpoint) {
-                                    badges[i].classList.remove('hidden');
-                                }
-                            }
+                        }
+
+                        // Strategy 2: Fallback to fingerprint if endpoint didn't match
+                        if (!self.isCurrentDeviceSubscribed && self.currentFingerprint) {
+                            self._matchByFingerprint();
                         }
                     }).catch(function() {
                         self.endpointDetected = true;  // Mark as done even on failure
+                        // Try fingerprint matching as fallback
+                        if (self.currentFingerprint) {
+                            self._matchByFingerprint();
+                        }
                     });
                 } else {
                     self.endpointDetected = true;  // No service worker support
+                    // Still try fingerprint matching
+                    if (self.currentFingerprint) {
+                        self._matchByFingerprint();
+                    }
+                }
+            },
+
+            // Match device by fingerprint (fallback when endpoint doesn't match)
+            _matchByFingerprint: function() {
+                var self = this;
+                var subscriptionElements = self.$el.querySelectorAll('[data-fingerprint]');
+                for (var i = 0; i < subscriptionElements.length; i++) {
+                    if (subscriptionElements[i].dataset.fingerprint === self.currentFingerprint) {
+                        self.isCurrentDeviceSubscribed = true;
+                        self._showThisDeviceBadge(subscriptionElements[i]);
+                        break;
+                    }
+                }
+            },
+
+            // Show "This device" badge for a subscription container
+            _showThisDeviceBadge: function(container) {
+                var badges = container.querySelectorAll('.this-device-badge');
+                for (var i = 0; i < badges.length; i++) {
+                    badges[i].classList.remove('hidden');
                 }
             },
 
             // Check if a subscription is from the current device
             isCurrentDevice: function(subscription) {
-                return this.currentEndpoint && subscription.endpoint === this.currentEndpoint;
+                // Check by endpoint first, then fingerprint
+                if (this.currentEndpoint && subscription.endpoint === this.currentEndpoint) {
+                    return true;
+                }
+                if (this.currentFingerprint && subscription.device_fingerprint === this.currentFingerprint) {
+                    return true;
+                }
+                return false;
             },
 
             // Format relative time for "Last active" display
@@ -700,6 +783,11 @@ document.addEventListener('alpine:init', function() {
                                 });
                             })
                             .then(function(subscription) {
+                                // Get fingerprint for stable device identification
+                                var fingerprint = '';
+                                if (window.CrushPush && window.CrushPush.getFingerprint) {
+                                    fingerprint = window.CrushPush.getFingerprint();
+                                }
                                 return fetch('/api/coach/push/subscribe/', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': self.getCsrfToken() },
@@ -710,7 +798,8 @@ document.addEventListener('alpine:init', function() {
                                             auth: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth'))))
                                         },
                                         userAgent: navigator.userAgent,
-                                        deviceName: self._getDeviceName()
+                                        deviceName: self._getDeviceName(),
+                                        deviceFingerprint: fingerprint
                                     })
                                 });
                             })
