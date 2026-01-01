@@ -47,21 +47,39 @@
         background: #28a74533;
     }
 
-    .crush-quick-filters a.pending {
+    .crush-quick-filters a.awaiting-review {
+        background: #17a2b822;
+        color: #17a2b8;
+        border: 1px solid #17a2b8;
+    }
+    .crush-quick-filters a.awaiting-review .count {
+        background: #17a2b833;
+    }
+
+    .crush-quick-filters a.incomplete {
         background: #ffc10722;
         color: #856404;
         border: 1px solid #ffc107;
     }
-    .crush-quick-filters a.pending .count {
+    .crush-quick-filters a.incomplete .count {
         background: #ffc10744;
     }
 
-    .crush-quick-filters a.incomplete {
+    .crush-quick-filters a.incomplete-verified {
+        background: #6f42c122;
+        color: #6f42c1;
+        border: 1px solid #6f42c1;
+    }
+    .crush-quick-filters a.incomplete-verified .count {
+        background: #6f42c133;
+    }
+
+    .crush-quick-filters a.incomplete-unverified {
         background: #dc354522;
         color: #dc3545;
         border: 1px solid #dc3545;
     }
-    .crush-quick-filters a.incomplete .count {
+    .crush-quick-filters a.incomplete-unverified .count {
         background: #dc354533;
     }
 
@@ -78,9 +96,9 @@
 {% endblock %}
 
 {% block search %}
-<!-- Quick Filter Tabs with counts -->
+<!-- Quick Filter Tabs with counts - Mutually Exclusive Categories -->
 <div class="crush-quick-filters">
-    <a href="?" class="all {% if not request.GET.is_approved__exact and not request.GET.completion_status__exact %}active{% endif %}">
+    <a href="?" class="all {% if not request.GET.is_approved__exact and not request.GET.completion_status__in %}active{% endif %}">
         📊 All Profiles
         <span class="count">{{ filter_counts.total }}</span>
     </a>
@@ -88,13 +106,21 @@
         ✅ Approved
         <span class="count">{{ filter_counts.approved }}</span>
     </a>
-    <a href="?is_approved__exact=0" class="pending {% if request.GET.is_approved__exact == '0' %}active{% endif %}">
-        ⏳ Pending
-        <span class="count">{{ filter_counts.pending }}</span>
+    <a href="?is_approved__exact=0&completion_status__in=completed,submitted" class="awaiting-review {% if request.GET.is_approved__exact == '0' and request.GET.completion_status__in == 'completed,submitted' %}active{% endif %}">
+        📝 Awaiting Review
+        <span class="count">{{ filter_counts.awaiting_review }}</span>
     </a>
-    <a href="?completion_status__exact=not_started" class="incomplete {% if request.GET.completion_status__exact == 'not_started' %}active{% endif %}">
-        🔴 Incomplete
+    <a href="?completion_status__in=not_started,step1,step2,step3" class="incomplete {% if request.GET.completion_status__in == 'not_started,step1,step2,step3' and not request.GET.phone_verified__exact %}active{% endif %}">
+        ⏳ Incomplete
         <span class="count">{{ filter_counts.incomplete }}</span>
+    </a>
+    <a href="?completion_status__in=not_started,step1,step2,step3&phone_verified__exact=1" class="incomplete-verified {% if request.GET.completion_status__in == 'not_started,step1,step2,step3' and request.GET.phone_verified__exact == '1' %}active{% endif %}">
+        📱✅ Incomplete + Phone Verified
+        <span class="count">{{ filter_counts.incomplete_verified }}</span>
+    </a>
+    <a href="?completion_status__in=not_started,step1,step2,step3&phone_verified__exact=0" class="incomplete-unverified {% if request.GET.completion_status__in == 'not_started,step1,step2,step3' and request.GET.phone_verified__exact == '0' %}active{% endif %}">
+        📱❌ Incomplete + No Phone
+        <span class="count">{{ filter_counts.incomplete_unverified }}</span>
     </a>
 </div>
 {{ block.super }}

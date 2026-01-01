@@ -201,14 +201,39 @@ class CrushProfileAdmin(admin.ModelAdmin):
     )
 
     def changelist_view(self, request, extra_context=None):
-        """Add filter counts for quick filter tabs"""
+        """Add filter counts for quick filter tabs with mutually exclusive categories"""
         extra_context = extra_context or {}
 
+        # Mutually exclusive categories for clearer understanding
+        total = CrushProfile.objects.count()
+        approved = CrushProfile.objects.filter(is_approved=True).count()
+
+        # Incomplete: Not started OR partially filled (step1, step2, step3)
+        incomplete_statuses = ['not_started', 'step1', 'step2', 'step3']
+        incomplete_qs = CrushProfile.objects.filter(
+            completion_status__in=incomplete_statuses
+        )
+        incomplete = incomplete_qs.count()
+
+        # Incomplete with phone verified (users who verified phone but didn't finish profile)
+        incomplete_verified = incomplete_qs.filter(phone_verified=True).count()
+
+        # Incomplete without phone verified
+        incomplete_unverified = incomplete_qs.filter(phone_verified=False).count()
+
+        # Awaiting Review: Profile completed/submitted but not yet approved
+        awaiting_review = CrushProfile.objects.filter(
+            is_approved=False,
+            completion_status__in=['completed', 'submitted']
+        ).count()
+
         extra_context['filter_counts'] = {
-            'total': CrushProfile.objects.count(),
-            'approved': CrushProfile.objects.filter(is_approved=True).count(),
-            'pending': CrushProfile.objects.filter(is_approved=False).count(),
-            'incomplete': CrushProfile.objects.filter(completion_status='not_started').count(),
+            'total': total,
+            'approved': approved,
+            'awaiting_review': awaiting_review,
+            'incomplete': incomplete,
+            'incomplete_verified': incomplete_verified,
+            'incomplete_unverified': incomplete_unverified,
         }
 
         return super().changelist_view(request, extra_context=extra_context)
