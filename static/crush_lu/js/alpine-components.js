@@ -1327,6 +1327,16 @@ document.addEventListener('alpine:init', function() {
                         }
                     }
                 });
+
+                // Listen for phone verification event from nested component
+                window.addEventListener('phone-verified', function() {
+                    self.phoneVerified = true;
+                });
+
+                // Listen for phone unverification (when user clicks Change)
+                this.$el.addEventListener('phone-unverified', function() {
+                    self.phoneVerified = false;
+                });
             },
 
             nextStep: function() {
