@@ -14,7 +14,7 @@ from django.contrib.sitemaps.views import sitemap
 
 from .urls_shared import base_patterns, api_patterns
 from crush_lu.admin import crush_admin_site
-from crush_lu import admin_views, views, views_phone_verification
+from crush_lu import admin_views, views, views_phone_verification, views_profile
 from crush_lu import api_views, api_push, api_coach_push, views_oauth_popup, api_journey
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt
@@ -74,6 +74,12 @@ urlpatterns = base_patterns + api_patterns + [
     # Journey Reward APIs (called from photo_reveal.html with hardcoded paths)
     path('api/journey/unlock-puzzle-piece/', api_journey.unlock_puzzle_piece, name='api_unlock_puzzle_piece'),
     path('api/journey/reward-progress/<int:reward_id>/', api_journey.get_reward_progress, name='api_get_reward_progress'),
+
+    # Profile Step-by-Step Saving APIs (called from alpine-components.js with hardcoded paths)
+    path('api/profile/save-step1/', views_profile.save_profile_step1, name='api_save_profile_step1'),
+    path('api/profile/save-step2/', views_profile.save_profile_step2, name='api_save_profile_step2'),
+    path('api/profile/save-step3/', views_profile.save_profile_step3, name='api_save_profile_step3'),
+    path('api/profile/progress/', views_profile.get_profile_progress, name='api_get_profile_progress'),
 
     # ============================================================================
     # ADMIN PANELS (language-neutral - always accessible without language prefix)
