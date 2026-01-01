@@ -15,12 +15,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Specialized Claude agents are defined in `.claude/agents/` for common development tasks:
 
+- **alpine-csp-expert** - Alpine.js components with CSP compliance (critical for Crush.lu)
 - **api-expert** - REST API development with Django REST Framework
 - **azure-deployment-expert** - Azure infrastructure and deployment
 - **css-expert** - Styling, Tailwind CSS, responsive design
 - **database-expert** - Database modeling and query optimization
 - **django-expert** - Django backend development
 - **email-template-expert** - HTML email templates
+- **i18n-expert** - Internationalization, translations, locale files, multi-language SEO
 - **javascript-expert** - Frontend JavaScript, HTMX, Alpine.js
 - **migration-expert** - Data migrations and version upgrades
 - **security-expert** - Security reviews and authentication
@@ -55,6 +57,10 @@ Entreprinder is a multi-domain Django application serving four distinct platform
   - Plugins: `@tailwindcss/forms`, `@tailwindcss/typography`
 - **HTMX**: Progressive enhancement for dynamic content loading without full page reloads
 - **Alpine.js**: Lightweight JavaScript framework for interactive UI components
+  - **CRITICAL**: Uses CSP build (`@alpinejs/csp`) - no `eval()` or `new Function()`
+  - All logic must use **computed getters** (e.g., `get isClosed() { return !this.open; }`)
+  - Inline expressions like `x-show="!isOpen"` are **forbidden** - use `x-show="isClosed"`
+  - Components registered in `static/crush_lu/js/alpine-components.js`
 - **Crispy Forms**: Django form rendering with Tailwind CSS template pack
 
 CSS files:
@@ -1012,3 +1018,135 @@ Custom dimension `content_language` prevents traffic fragmentation:
 3. Use `gettext` for runtime strings (views)
 4. Run `makemessages` after adding new translatable strings
 5. Keep translations in sync - update .po files for all languages
+
+## Quick Reference
+
+### Common Error Fixes
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Alpine is unable to interpret: !X` | Inline negation violates CSP | Add `get notX() { return !this.X; }` to component in `alpine-components.js` |
+| `ModuleNotFoundError: No module named 'django'` | venv not activated | Run `.venv\Scripts\Activate.ps1` first |
+| `SynchronousOnlyOperation` in tests | Async DB access in sync context | Set `DJANGO_ALLOW_ASYNC_UNSAFE=true` (already in conftest.py) |
+| `DisallowedHost` | Request from unknown host | Check `ALLOWED_HOSTS` in settings or middleware |
+| `ManifestStaticFilesStorage` error in tests | collectstatic not run | conftest.py patches to StaticFilesStorage |
+| `Site matching query does not exist` | Site object not created | Run `setup_site` fixture or create Site manually |
+
+### Platform Detection
+
+| Host | Platform | URL Config |
+|------|----------|------------|
+| `localhost`, `127.0.0.1` | Crush.lu | `urls_crush.py` |
+| `*.azurewebsites.net` | PowerUP | `urls_powerup.py` |
+| `vinsdelux.com` | VinsDelux | `urls_vinsdelux.py` |
+| `crush.lu` | Crush.lu | `urls_crush.py` |
+| `powerup.lu` | PowerUP | `urls_powerup.py` |
+
+### CSP-Safe Alpine.js Patterns
+
+| FORBIDDEN | CSP-SAFE |
+|-----------|----------|
+| `x-show="!isOpen"` | `x-show="isClosed"` + getter |
+| `x-show="status === 'active'"` | `x-show="isActive"` + getter |
+| `:class="active ? 'a' : 'b'"` | `x-bind:class="activeClass"` + getter |
+| `@click="count++"` | `@click="increment"` + method |
+| `x-text="items.length"` | `x-text="itemCount"` + getter |
+
+## Troubleshooting
+
+### CSP Violations in Production
+
+**Symptom**: `Refused to evaluate a string as JavaScript` or `Alpine is unable to interpret`
+
+**Cause**: Inline Alpine.js expression uses eval() which is blocked by CSP.
+
+**Debug Steps**:
+1. Check browser console for the exact expression
+2. Find it in template files (search for the expression)
+3. Identify the forbidden pattern (negation, ternary, comparison)
+4. Add computed getter to `static/crush_lu/js/alpine-components.js`
+5. Replace inline expression with getter reference
+6. Test locally, then deploy
+
+**Example Fix**:
+```javascript
+// In alpine-components.js
+Alpine.data('myComponent', () => ({
+    isOpen: false,
+    get isClosed() { return !this.isOpen; },  // CSP-safe
+}));
+```
+```html
+<!-- In template: use isClosed, not !isOpen -->
+<div x-show="isClosed">Hidden when open</div>
+```
+
+### Static Files 404 in Playwright Tests
+
+**Symptom**: CSS/JS not loading, tests fail on styling checks
+
+**Cause**: `ManifestStaticFilesStorage` requires `collectstatic` which isn't run in tests.
+
+**Solution**: Already handled in `conftest.py` - patches to `StaticFilesStorage`.
+
+### Azure Health Check Failures
+
+**Symptom**: App Service shows unhealthy, restarts frequently
+
+**Cause**: `/healthz/` endpoint failing due to middleware issues.
+
+**Solution**: `HealthCheckMiddleware` must be FIRST in `MIDDLEWARE` list. It bypasses all other middleware.
+
+### Email Not Sending in Production
+
+**Symptom**: Users don't receive emails (registration, event notifications)
+
+**Check**:
+1. Verify `EMAIL_BACKEND` is set to Graph backend
+2. Check `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID`, `GRAPH_CLIENT_SECRET` are set
+3. Verify Azure AD app registration has `Mail.Send` permission
+4. Check Azure logs for MSAL authentication errors
+
+### Translation Strings Not Appearing
+
+**Symptom**: Text shows English even after setting language to German/French
+
+**Check**:
+1. Ensure string is wrapped with `{% trans %}` or `_()`
+2. Run `python manage.py makemessages -l de -l fr`
+3. Edit `locale/{lang}/LC_MESSAGES/django.po` with translation
+4. Run `python manage.py compilemessages`
+5. Restart development server
+
+## Claude Code Behavioral Rules
+
+These rules help me work more effectively in this codebase.
+
+### Platform Context
+
+Before making changes, always verify which platform is affected:
+- Ask "Is this for Crush.lu, VinsDelux, or Entreprinder?" when ambiguous
+- Check URL routing: `localhost` → Crush.lu in dev
+- Be aware that shared code in `azureproject/` affects all platforms
+
+### Privacy-First for Crush.lu
+
+- ALWAYS use `profile.display_name` instead of `user.first_name + user.last_name`
+- ALWAYS check `profile.show_full_name` before displaying names
+- ALWAYS check `profile.show_exact_age` before showing age
+- ALWAYS check `profile.blur_photos` for photo display logic
+- Luxembourg is small - privacy matters more than in larger markets
+
+### Alpine.js CSP Compliance
+
+- NEVER write inline expressions like `x-show="!isOpen"`
+- ALWAYS create computed getters for any logic
+- ALWAYS register reusable components in `alpine-components.js`
+- Use `@click="methodName"` not `@click="this.value = x"`
+
+### Code Quality
+
+- Run `black .` and `ruff check .` before committing
+- Use file:line references: `[models.py:106](crush_lu/models.py#L106)`
+- Prefer editing existing files over creating new ones
+- Use specialized agents for specialized tasks
