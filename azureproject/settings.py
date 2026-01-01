@@ -341,13 +341,6 @@ FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "")
 FIREBASE_API_KEY = os.environ.get("FIREBASE_API_KEY", "")
 FIREBASE_AUTH_DOMAIN = os.environ.get("FIREBASE_AUTH_DOMAIN", "")
 
-# ============================================================================
-# MSAL / MICROSOFT GRAPH CONFIGURATION
-# ============================================================================
-# Azure region for MSAL to suppress "region mismatch" warning in logs
-# Auto-detected when running in Azure, but can be explicitly set
-MSAL_REGION = os.environ.get('MSAL_REGION', 'westeurope')
-
 CORS_ALLOWED_ORIGINS = [
 ]
 

@@ -39,13 +39,13 @@ class GraphEmailBackend(BaseEmailBackend):
         authority = f"https://login.microsoftonline.com/{self.tenant_id}"
         scope = ["https://graph.microsoft.com/.default"]
 
-        # Get Azure region to suppress MSAL region mismatch warning
-        azure_region = getattr(settings, 'MSAL_REGION', 'westeurope')
+        # Note: Do NOT use azure_region with client credentials flow.
+        # Regional endpoints only work with managed identities, not app-only auth.
+        # Using azure_region causes AADSTS100007 error.
         app = msal.ConfidentialClientApplication(
             self.client_id,
             authority=authority,
             client_credential=self.client_secret,
-            azure_region=azure_region,
         )
 
         # Try to get token from cache first
