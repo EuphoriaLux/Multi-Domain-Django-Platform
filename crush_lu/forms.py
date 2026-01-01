@@ -158,10 +158,7 @@ class CrushProfileForm(forms.ModelForm):
     location = forms.ChoiceField(
         required=True,
         choices=LOCATION_CHOICES,
-        widget=forms.Select(attrs={
-            'id': 'id_location',
-            'class': 'w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors'
-        }),
+        widget=forms.HiddenInput(attrs={'id': 'id_location'}),
         help_text=_('Your region in or near Luxembourg')
     )
 
