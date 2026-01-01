@@ -1153,6 +1153,12 @@ document.addEventListener('alpine:init', function() {
             get photo1NoImage() { return !this.photos[0].hasImage; },
             get photo2NoImage() { return !this.photos[1].hasImage; },
             get photo3NoImage() { return !this.photos[2].hasImage; },
+            get photo1HasImage() { return this.photos[0].hasImage; },
+            get photo1Preview() { return this.photos[0].preview; },
+            get photo2HasImage() { return this.photos[1].hasImage; },
+            get photo2Preview() { return this.photos[1].preview; },
+            get photo3HasImage() { return this.photos[2].hasImage; },
+            get photo3Preview() { return this.photos[2].preview; },
 
             init: function() {
                 var el = this.$el;
@@ -1233,6 +1239,8 @@ document.addEventListener('alpine:init', function() {
             get step2NotCompleted() { return !this.step2Completed; },
             get step3NotCompleted() { return !this.step3Completed; },
             get notPhoneVerified() { return !this.phoneVerified; },
+            get isNotEditing() { return !this.isEditing; },
+            get isNotSubmitting() { return !this.isSubmitting; },
 
             // Step progress bar classes (avoid ternary expressions in templates)
             get step1CircleClass() {
@@ -1956,6 +1964,39 @@ document.addEventListener('alpine:init', function() {
             get otpCode() { return this.otp0 + this.otp1 + this.otp2 + this.otp3 + this.otp4 + this.otp5; },
             get isCodeComplete() { return this.otpCode.length === 6; },
             get isCodeIncomplete() { return this.otpCode.length !== 6; },
+
+            // CSP-compatible: combined update + navigation handlers (no $event in template)
+            // Each method updates its field and handles focus navigation
+            handleOtp0Input: function() {
+                var el = this.$refs.otp0;
+                this.otp0 = el.value;
+                if (el.value.length === 1) { this.$refs.otp1.focus(); }
+            },
+            handleOtp1Input: function() {
+                var el = this.$refs.otp1;
+                this.otp1 = el.value;
+                if (el.value.length === 1) { this.$refs.otp2.focus(); }
+            },
+            handleOtp2Input: function() {
+                var el = this.$refs.otp2;
+                this.otp2 = el.value;
+                if (el.value.length === 1) { this.$refs.otp3.focus(); }
+            },
+            handleOtp3Input: function() {
+                var el = this.$refs.otp3;
+                this.otp3 = el.value;
+                if (el.value.length === 1) { this.$refs.otp4.focus(); }
+            },
+            handleOtp4Input: function() {
+                var el = this.$refs.otp4;
+                this.otp4 = el.value;
+                if (el.value.length === 1) { this.$refs.otp5.focus(); }
+            },
+            handleOtp5Input: function() {
+                var el = this.$refs.otp5;
+                this.otp5 = el.value;
+                if (el.value.length === 1) { this.verifyCode(); }
+            },
 
             init: function() {
                 // Listen for modal open event
