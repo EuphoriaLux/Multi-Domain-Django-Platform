@@ -1,0 +1,101 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_list %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    /* Quick filter tabs */
+    .crush-quick-filters {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+        padding: 10px 0;
+    }
+
+    .crush-quick-filters a {
+        padding: 8px 16px;
+        border-radius: 20px;
+        text-decoration: none;
+        font-size: 13px;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .crush-quick-filters a .count {
+        background: rgba(0, 0, 0, 0.1);
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: bold;
+    }
+
+    .crush-quick-filters a.all {
+        background: #f8f9fa;
+        color: #333;
+        border: 1px solid #ddd;
+    }
+
+    .crush-quick-filters a.approved {
+        background: #28a74522;
+        color: #28a745;
+        border: 1px solid #28a745;
+    }
+    .crush-quick-filters a.approved .count {
+        background: #28a74533;
+    }
+
+    .crush-quick-filters a.pending {
+        background: #ffc10722;
+        color: #856404;
+        border: 1px solid #ffc107;
+    }
+    .crush-quick-filters a.pending .count {
+        background: #ffc10744;
+    }
+
+    .crush-quick-filters a.incomplete {
+        background: #dc354522;
+        color: #dc3545;
+        border: 1px solid #dc3545;
+    }
+    .crush-quick-filters a.incomplete .count {
+        background: #dc354533;
+    }
+
+    .crush-quick-filters a:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .crush-quick-filters a.active {
+        font-weight: bold;
+        box-shadow: 0 0 0 2px rgba(155, 89, 182, 0.3);
+    }
+</style>
+{% endblock %}
+
+{% block search %}
+<!-- Quick Filter Tabs with counts -->
+<div class="crush-quick-filters">
+    <a href="?" class="all {% if not request.GET.is_approved__exact and not request.GET.completion_status__exact %}active{% endif %}">
+        📊 All Profiles
+        <span class="count">{{ filter_counts.total }}</span>
+    </a>
+    <a href="?is_approved__exact=1" class="approved {% if request.GET.is_approved__exact == '1' %}active{% endif %}">
+        ✅ Approved
+        <span class="count">{{ filter_counts.approved }}</span>
+    </a>
+    <a href="?is_approved__exact=0" class="pending {% if request.GET.is_approved__exact == '0' %}active{% endif %}">
+        ⏳ Pending
+        <span class="count">{{ filter_counts.pending }}</span>
+    </a>
+    <a href="?completion_status__exact=not_started" class="incomplete {% if request.GET.completion_status__exact == 'not_started' %}active{% endif %}">
+        🔴 Incomplete
+        <span class="count">{{ filter_counts.incomplete }}</span>
+    </a>
+</div>
+{{ block.super }}
+{% endblock %}
