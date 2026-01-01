@@ -172,7 +172,7 @@
                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                                    value="{{ profile.phone_number|default:'' }}"
                                    x-bind:readonly="verified"
-                                   @input="onPhoneInput($event)"
+                                   @input="onPhoneInput"
                                    required>
                         </div>
                         <button type="button"
@@ -327,7 +327,7 @@
                                 Can't use the map? Select from list
                             </button>
                             <div x-show="fallbackDropdownVisible" x-transition class="canton-map-fallback-dropdown">
-                                <select @change="handleFallbackSelect" class="form-control">
+                                <select @change="handleFallbackSelect" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                                     <option value="">Select your region...</option>
                                     <optgroup label="Luxembourg Cantons">
                                         <option value="canton-capellen">Capellen</option>
@@ -933,24 +933,25 @@
                     </p>
 
                     <!-- OTP Inputs - Individual inputs for CSP compatibility -->
+                    <!-- data-index attribute used by handleOtpInput/handleOtpBackspace -->
                     <div class="flex justify-center gap-2 mb-4">
-                        <input type="text" id="otp-0" x-ref="otp0" maxlength="1" inputmode="numeric" pattern="[0-9]"
-                               x-model="otpDigits[0]" @input="handleOtpInput(0, $event)" @keydown.backspace="handleOtpBackspace(0, $event)" @paste="handleOtpPaste($event)"
+                        <input type="text" id="otp-0" x-ref="otp0" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="0"
+                               x-model="otpDigits[0]" @input="handleOtpInput" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                                class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
-                        <input type="text" id="otp-1" x-ref="otp1" maxlength="1" inputmode="numeric" pattern="[0-9]"
-                               x-model="otpDigits[1]" @input="handleOtpInput(1, $event)" @keydown.backspace="handleOtpBackspace(1, $event)" @paste="handleOtpPaste($event)"
+                        <input type="text" id="otp-1" x-ref="otp1" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="1"
+                               x-model="otpDigits[1]" @input="handleOtpInput" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                                class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
-                        <input type="text" id="otp-2" x-ref="otp2" maxlength="1" inputmode="numeric" pattern="[0-9]"
-                               x-model="otpDigits[2]" @input="handleOtpInput(2, $event)" @keydown.backspace="handleOtpBackspace(2, $event)" @paste="handleOtpPaste($event)"
+                        <input type="text" id="otp-2" x-ref="otp2" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="2"
+                               x-model="otpDigits[2]" @input="handleOtpInput" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                                class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
-                        <input type="text" id="otp-3" x-ref="otp3" maxlength="1" inputmode="numeric" pattern="[0-9]"
-                               x-model="otpDigits[3]" @input="handleOtpInput(3, $event)" @keydown.backspace="handleOtpBackspace(3, $event)" @paste="handleOtpPaste($event)"
+                        <input type="text" id="otp-3" x-ref="otp3" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="3"
+                               x-model="otpDigits[3]" @input="handleOtpInput" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                                class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
-                        <input type="text" id="otp-4" x-ref="otp4" maxlength="1" inputmode="numeric" pattern="[0-9]"
-                               x-model="otpDigits[4]" @input="handleOtpInput(4, $event)" @keydown.backspace="handleOtpBackspace(4, $event)" @paste="handleOtpPaste($event)"
+                        <input type="text" id="otp-4" x-ref="otp4" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="4"
+                               x-model="otpDigits[4]" @input="handleOtpInput" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                                class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
-                        <input type="text" id="otp-5" x-ref="otp5" maxlength="1" inputmode="numeric" pattern="[0-9]"
-                               x-model="otpDigits[5]" @input="handleOtpInput(5, $event)" @keydown.backspace="handleOtpBackspace(5, $event)" @paste="handleOtpPaste($event)"
+                        <input type="text" id="otp-5" x-ref="otp5" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="5"
+                               x-model="otpDigits[5]" @input="handleOtpInput" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                                class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
                     </div>
 

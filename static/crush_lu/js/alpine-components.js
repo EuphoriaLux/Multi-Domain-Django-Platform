@@ -1841,11 +1841,14 @@ document.addEventListener('alpine:init', function() {
                 }
             },
 
-            onPhoneInput: function(e) {
+            // CSP-compatible: no event parameter needed, uses this.$el
+            onPhoneInput: function() {
                 if (this.iti) {
                     this.canVerify = this.iti.isValidNumber() || this.iti.getNumber().length >= 8;
                 } else {
-                    this.canVerify = e.target.value.trim().length >= 6;
+                    // Get value from the phone input element
+                    var phoneInput = document.getElementById(this.phoneInputId);
+                    this.canVerify = phoneInput && phoneInput.value.trim().length >= 6;
                 }
                 this.errorMessage = '';
             },
@@ -1988,8 +1991,11 @@ document.addEventListener('alpine:init', function() {
                 });
             },
 
-            handleOtpInput: function(index, event) {
-                var value = event.target.value;
+            // CSP-compatible: get index from data-index attribute on element
+            handleOtpInput: function(event) {
+                var el = event.target || this.$el;
+                var index = parseInt(el.dataset.index, 10);
+                var value = el.value;
                 if (value.length === 1 && index < 5) {
                     var nextRef = this.$refs['otp' + (index + 1)];
                     if (nextRef) nextRef.focus();
@@ -1999,13 +2005,17 @@ document.addEventListener('alpine:init', function() {
                 }
             },
 
-            handleOtpBackspace: function(index, event) {
-                if (!event.target.value && index > 0) {
+            // CSP-compatible: get index from data-index attribute on element
+            handleOtpBackspace: function(event) {
+                var el = event.target || this.$el;
+                var index = parseInt(el.dataset.index, 10);
+                if (!el.value && index > 0) {
                     var prevRef = this.$refs['otp' + (index - 1)];
                     if (prevRef) prevRef.focus();
                 }
             },
 
+            // CSP-compatible: no parameter needed
             handleOtpPaste: function(event) {
                 event.preventDefault();
                 var paste = (event.clipboardData || window.clipboardData).getData('text');
