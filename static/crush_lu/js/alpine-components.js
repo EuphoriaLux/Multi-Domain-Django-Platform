@@ -1225,6 +1225,10 @@ document.addEventListener('alpine:init', function() {
             step1Valid: false,
             step2Valid: true,
 
+            // Step saving state
+            isSaving: false,
+            saveError: '',
+
             // Computed-like properties for CSP compatibility
             // These avoid function calls in templates
             get step1Completed() { return this.currentStep > 1; },
@@ -1241,6 +1245,11 @@ document.addEventListener('alpine:init', function() {
             get notPhoneVerified() { return !this.phoneVerified; },
             get isNotEditing() { return !this.isEditing; },
             get isNotSubmitting() { return !this.isSubmitting; },
+            get isSavingStep() { return this.isSaving; },
+            get isNotSaving() { return !this.isSaving; },
+            get hasSaveError() { return this.saveError !== ''; },
+            get canContinueStep1() { return this.phoneVerified && !this.isSaving; },
+            get cannotContinueStep1() { return !this.phoneVerified || this.isSaving; },
 
             // Step progress bar classes (avoid ternary expressions in templates)
             get step1CircleClass() {
@@ -1421,6 +1430,217 @@ document.addEventListener('alpine:init', function() {
             nextStepAndReview: function() {
                 this.nextStep();
                 this.updateReview();
+            },
+
+            // CSRF token helper for AJAX requests
+            getCsrfToken: function() {
+                var cookie = document.cookie.split('; ')
+                    .find(function(row) { return row.startsWith('csrftoken='); });
+                return cookie ? cookie.split('=')[1] : '';
+            },
+
+            // Collect Step 1 form data
+            collectStep1Data: function() {
+                var phoneEl = document.querySelector('[name="phone_number"]');
+                var dobEl = document.querySelector('[name="date_of_birth"]');
+                var genderEl = document.querySelector('[name="gender"]:checked');
+                var locationEl = document.getElementById('id_location');
+
+                return {
+                    phone_number: phoneEl ? phoneEl.value : '',
+                    date_of_birth: dobEl ? dobEl.value : '',
+                    gender: genderEl ? genderEl.value : '',
+                    location: locationEl ? locationEl.value : ''
+                };
+            },
+
+            // Collect Step 2 form data
+            collectStep2Data: function() {
+                var bioEl = document.querySelector('[name="bio"]');
+                var interestsEl = document.querySelector('[name="interests"]');
+                var lookingForEl = document.querySelector('[name="looking_for"]:checked');
+
+                return {
+                    bio: bioEl ? bioEl.value : '',
+                    interests: interestsEl ? interestsEl.value : '',
+                    looking_for: lookingForEl ? lookingForEl.value : ''
+                };
+            },
+
+            // Collect Step 3 form data (privacy settings only - photos handled by HTMX)
+            collectStep3Data: function() {
+                var showFullName = document.querySelector('[name="show_full_name"]');
+                var showExactAge = document.querySelector('[name="show_exact_age"]');
+                var blurPhotos = document.querySelector('[name="blur_photos"]');
+
+                return {
+                    show_full_name: showFullName ? showFullName.checked : false,
+                    show_exact_age: showExactAge ? showExactAge.checked : true,
+                    blur_photos: blurPhotos ? blurPhotos.checked : false
+                };
+            },
+
+            // Save Step 1 data to backend
+            saveStep1: function() {
+                var self = this;
+                self.isSaving = true;
+                self.saveError = '';
+
+                var data = self.collectStep1Data();
+
+                return fetch('/api/profile/save-step1/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': self.getCsrfToken()
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(function(response) {
+                    return response.json().then(function(d) {
+                        return { ok: response.ok, data: d };
+                    });
+                })
+                .then(function(result) {
+                    self.isSaving = false;
+                    if (result.ok && result.data.success) {
+                        return { success: true };
+                    } else {
+                        self.saveError = result.data.error || 'Failed to save. Please try again.';
+                        return { success: false, error: self.saveError };
+                    }
+                })
+                .catch(function(err) {
+                    self.isSaving = false;
+                    self.saveError = 'Network error. Please check your connection.';
+                    return { success: false, error: self.saveError };
+                });
+            },
+
+            // Save Step 2 data to backend
+            saveStep2: function() {
+                var self = this;
+                self.isSaving = true;
+                self.saveError = '';
+
+                var data = self.collectStep2Data();
+
+                return fetch('/api/profile/save-step2/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': self.getCsrfToken()
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(function(response) {
+                    return response.json().then(function(d) {
+                        return { ok: response.ok, data: d };
+                    });
+                })
+                .then(function(result) {
+                    self.isSaving = false;
+                    if (result.ok && result.data.success) {
+                        return { success: true };
+                    } else {
+                        self.saveError = result.data.error || 'Failed to save. Please try again.';
+                        return { success: false, error: self.saveError };
+                    }
+                })
+                .catch(function(err) {
+                    self.isSaving = false;
+                    self.saveError = 'Network error. Please check your connection.';
+                    return { success: false, error: self.saveError };
+                });
+            },
+
+            // Save Step 3 data to backend (privacy settings via FormData)
+            saveStep3: function() {
+                var self = this;
+                self.isSaving = true;
+                self.saveError = '';
+
+                var data = self.collectStep3Data();
+
+                // Use FormData to match backend expectation
+                var formData = new FormData();
+                if (data.show_full_name) formData.append('show_full_name', 'on');
+                if (data.show_exact_age) formData.append('show_exact_age', 'on');
+                if (data.blur_photos) formData.append('blur_photos', 'on');
+
+                return fetch('/api/profile/save-step3/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': self.getCsrfToken()
+                    },
+                    body: formData
+                })
+                .then(function(response) {
+                    return response.json().then(function(d) {
+                        return { ok: response.ok, data: d };
+                    });
+                })
+                .then(function(result) {
+                    self.isSaving = false;
+                    if (result.ok && result.data.success) {
+                        return { success: true };
+                    } else {
+                        self.saveError = result.data.error || 'Failed to save. Please try again.';
+                        return { success: false, error: self.saveError };
+                    }
+                })
+                .catch(function(err) {
+                    self.isSaving = false;
+                    self.saveError = 'Network error. Please check your connection.';
+                    return { success: false, error: self.saveError };
+                });
+            },
+
+            // Save Step 1 and advance if successful
+            saveAndNextStep1: function() {
+                var self = this;
+                if (!self.phoneVerified) return;
+
+                self.saveStep1().then(function(result) {
+                    if (result.success) {
+                        self.saveError = '';
+                        self.currentStep = 2;
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                    // Error is already set in saveStep1
+                });
+            },
+
+            // Save Step 2 and advance if successful
+            saveAndNextStep2: function() {
+                var self = this;
+
+                self.saveStep2().then(function(result) {
+                    if (result.success) {
+                        self.saveError = '';
+                        self.currentStep = 3;
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                });
+            },
+
+            // Save Step 3 and advance if successful
+            saveAndNextStep3: function() {
+                var self = this;
+
+                self.saveStep3().then(function(result) {
+                    if (result.success) {
+                        self.saveError = '';
+                        self.currentStep = 4;
+                        self.updateReview();
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                });
+            },
+
+            // Clear save error (for dismissing error messages)
+            clearSaveError: function() {
+                this.saveError = '';
             }
         };
     });
