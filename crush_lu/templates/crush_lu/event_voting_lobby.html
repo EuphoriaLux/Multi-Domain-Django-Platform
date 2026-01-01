@@ -21,8 +21,8 @@
             <div class="p-8">
                 <div class="text-center mb-4">
                     <h1 class="display-4">{{ event.title }}</h1>
-                    <p class="lead text-muted">Activity Voting Lobby</p>
-                    <span id="voting-status-badge" class="badge bg-warning fs-6">Waiting to Start</span>
+                    <p class="text-lg text-gray-500">Activity Voting Lobby</p>
+                    <span id="voting-status-badge" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">Waiting to Start</span>
                 </div>
 
                 {% if user_vote %}
@@ -72,7 +72,7 @@
                 </div>
 
                 <h3 class="mb-3">Activity Options Preview</h3>
-                <p class="text-muted mb-4">
+                <p class="text-gray-500 mb-4">
                     Here's what you'll be voting on. The winning activity will determine how the event flows!
                 </p>
 

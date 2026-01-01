@@ -152,7 +152,7 @@
             <div class="p-8">
                 <div class="text-center mb-4">
                     <h1 class="display-5">🎤 Presentation Round</h1>
-                    <p class="lead text-muted">{{ event.title }}</p>
+                    <p class="text-lg text-gray-500">{{ event.title }}</p>
                 </div>
 
                 <!-- Progress Bar -->
@@ -192,7 +192,7 @@
                         <!-- Star Rating (only for non-presenters) -->
                         <div class="text-center">
                             <h4 class="mb-3">Rate this presentation</h4>
-                            <p class="text-muted">Your rating is completely anonymous</p>
+                            <p class="text-gray-500">Your rating is completely anonymous</p>
 
                             {% if user_has_rated %}
                             <div class="rating-submitted">
@@ -228,7 +228,7 @@
 
                     {% if next_presentation %}
                     <div class="next-presenter-card">
-                        <h5 class="text-muted">👀 Up Next:</h5>
+                        <h5 class="text-gray-500">👀 Up Next:</h5>
                         <p class="mb-0"><strong>{{ next_presentation.user.crushprofile.display_name }}</strong></p>
                     </div>
                     {% endif %}

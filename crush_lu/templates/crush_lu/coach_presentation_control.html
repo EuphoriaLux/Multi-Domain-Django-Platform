@@ -18,7 +18,7 @@
             <div class="p-8">
                 <div class="text-center mb-4">
                     <h1 class="display-5">🎬 Coach Control Panel</h1>
-                    <p class="lead text-muted">{{ event.title }} - Presentation Round</p>
+                    <p class="text-lg text-gray-500">{{ event.title }} - Presentation Round</p>
                 </div>
 
                 <!-- Progress Bar -->
@@ -39,11 +39,11 @@
                 <!-- Current Presenter -->
                 {% if current_presentation %}
                 <div class="current-presenter-card">
-                    <h3 class="text-muted mb-2">Currently Presenting:</h3>
+                    <h3 class="text-gray-500 mb-2">Currently Presenting:</h3>
                     <div class="current-presenter-name">
                         {{ current_presentation.user.crushprofile.display_name }}
                     </div>
-                    <p class="text-muted">Presentation #{{ current_presentation.presentation_order }} of {{ total_presentations }}</p>
+                    <p class="text-gray-500">Presentation #{{ current_presentation.presentation_order }} of {{ total_presentations }}</p>
 
                     <button class="btn advance-btn mt-4" id="advance-btn">
                         Next Presenter →
@@ -52,14 +52,14 @@
                 {% else %}
                 <div class="current-presenter-card">
                     {% if next_presentation %}
-                    <h3 class="text-muted mb-3">Ready to Start Presentations</h3>
+                    <h3 class="text-gray-500 mb-3">Ready to Start Presentations</h3>
                     <p class="mb-4">Click below to begin with the first presenter</p>
                     <button class="btn advance-btn" id="advance-btn">
                         Start Presentations →
                     </button>
                     {% else %}
-                    <h3 class="text-success">🎉 All Presentations Completed!</h3>
-                    <p class="text-muted">Ready to move to Phase 3: Speed Dating</p>
+                    <h3 class="text-green-600">🎉 All Presentations Completed!</h3>
+                    <p class="text-gray-500">Ready to move to Phase 3: Speed Dating</p>
                     {% endif %}
                 </div>
                 {% endif %}

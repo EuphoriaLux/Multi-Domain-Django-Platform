@@ -48,7 +48,7 @@
         cursor: pointer;
     }
 
-    .form-check-label {
+    .vote-option-label {
         cursor: pointer;
         margin-left: 0.5rem;
     }
@@ -100,7 +100,7 @@
             <div class="p-8">
                 <div class="text-center mb-4">
                     <h1 class="display-5">Vote for Event Activities</h1>
-                    <p class="lead text-muted">{{ event.title }}</p>
+                    <p class="text-lg text-gray-500">{{ event.title }}</p>
                 </div>
 
                 <div class="countdown-banner">
@@ -138,12 +138,12 @@
                     <div class="activity-group-card">
                         <div class="category-badge">Category 1 of 2</div>
                         <h3 class="section-header">🎤 Presentation Style (Phase 2 - Mandatory)</h3>
-                        <p class="text-muted mb-3">Everyone will present for 90 seconds. Choose how YOU want to introduce yourself!</p>
+                        <p class="text-gray-500 mb-3">Everyone will present for 90 seconds. Choose how YOU want to introduce yourself!</p>
 
                         <div class="variant-options">
                             {% for option in presentation_style_options %}
-                            <div class="form-check variant-option-item">
-                                <input class="form-check-input variant-radio presentation-radio"
+                            <div class="flex items-start gap-3 variant-option-item">
+                                <input class="h-5 w-5 mt-0.5 rounded-full border-gray-300 text-purple-600 focus:ring-purple-500 variant-radio presentation-radio"
                                        type="radio"
                                        name="presentation_choice"
                                        id="presentation-{{ option.id }}"
@@ -151,7 +151,7 @@
                                        {% if presentation_vote and presentation_vote.selected_option.id == option.id %}checked{% endif %}
                                        data-option-id="{{ option.id }}"
                                        data-category="presentation">
-                                <label class="form-check-label w-100" for="presentation-{{ option.id }}">
+                                <label class="vote-option-label w-full cursor-pointer" for="presentation-{{ option.id }}">
                                     <strong>{{ option.display_name }}</strong>: {{ option.description }}
                                 </label>
                             </div>
@@ -163,12 +163,12 @@
                     <div class="activity-group-card">
                         <div class="category-badge">Category 2 of 2</div>
                         <h3 class="section-header">💕 Speed Dating Twist (Phase 3)</h3>
-                        <p class="text-muted mb-3">After presentations, you'll do speed dating with matched pairs. Choose a fun twist!</p>
+                        <p class="text-gray-500 mb-3">After presentations, you'll do speed dating with matched pairs. Choose a fun twist!</p>
 
                         <div class="variant-options">
                             {% for option in speed_dating_twist_options %}
-                            <div class="form-check variant-option-item">
-                                <input class="form-check-input variant-radio twist-radio"
+                            <div class="flex items-start gap-3 variant-option-item">
+                                <input class="h-5 w-5 mt-0.5 rounded-full border-gray-300 text-purple-600 focus:ring-purple-500 variant-radio twist-radio"
                                        type="radio"
                                        name="twist_choice"
                                        id="twist-{{ option.id }}"
@@ -176,7 +176,7 @@
                                        {% if twist_vote and twist_vote.selected_option.id == option.id %}checked{% endif %}
                                        data-option-id="{{ option.id }}"
                                        data-category="twist">
-                                <label class="form-check-label w-100" for="twist-{{ option.id }}">
+                                <label class="vote-option-label w-full cursor-pointer" for="twist-{{ option.id }}">
                                     <strong>{{ option.display_name }}</strong>: {{ option.description }}
                                 </label>
                             </div>

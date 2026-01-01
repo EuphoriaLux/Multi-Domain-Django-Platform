@@ -3,7 +3,8 @@
     "allow": [
       "Bash(dir)",
       "Bash(grep:*)",
-      "Bash(cmd /c:*)"
+      "Bash(cmd /c:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

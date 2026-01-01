@@ -1932,7 +1932,13 @@ document.addEventListener('alpine:init', function() {
         return {
             isOpen: false,
             step: 'sending', // sending, code, verifying, success
-            otpDigits: ['', '', '', '', '', ''],
+            // CSP-compatible: individual properties instead of array (array index access requires eval)
+            otp0: '',
+            otp1: '',
+            otp2: '',
+            otp3: '',
+            otp4: '',
+            otp5: '',
             error: '',
             maskedPhone: '',
             resendCountdown: 60,
@@ -1946,8 +1952,10 @@ document.addEventListener('alpine:init', function() {
             get canResend() { return this.resendCountdown === 0; },
             get cannotResend() { return this.resendCountdown > 0; },
             get hasError() { return Boolean(this.error); },
-            get isCodeComplete() { return this.otpDigits.join('').length === 6; },
-            get isCodeIncomplete() { return this.otpDigits.join('').length !== 6; },
+            // CSP-compatible: getter combines individual OTP fields
+            get otpCode() { return this.otp0 + this.otp1 + this.otp2 + this.otp3 + this.otp4 + this.otp5; },
+            get isCodeComplete() { return this.otpCode.length === 6; },
+            get isCodeIncomplete() { return this.otpCode.length !== 6; },
 
             init: function() {
                 // Listen for modal open event
@@ -1966,7 +1974,13 @@ document.addEventListener('alpine:init', function() {
                 this.isOpen = true;
                 this.step = 'sending';
                 this.error = '';
-                this.otpDigits = ['', '', '', '', '', ''];
+                // CSP-compatible: reset individual OTP fields
+                this.otp0 = '';
+                this.otp1 = '';
+                this.otp2 = '';
+                this.otp3 = '';
+                this.otp4 = '';
+                this.otp5 = '';
                 this.resendCountdown = 0;
             },
 
@@ -2019,17 +2033,20 @@ document.addEventListener('alpine:init', function() {
             handleOtpPaste: function(event) {
                 event.preventDefault();
                 var paste = (event.clipboardData || window.clipboardData).getData('text');
-                var digits = paste.replace(/\D/g, '').slice(0, 6);
-                var self = this;
-                digits.split('').forEach(function(d, i) {
-                    self.otpDigits[i] = d;
-                });
+                var digits = paste.replace(/\D/g, '').slice(0, 6).split('');
+                // CSP-compatible: set individual OTP fields
+                this.otp0 = digits[0] || '';
+                this.otp1 = digits[1] || '';
+                this.otp2 = digits[2] || '';
+                this.otp3 = digits[3] || '';
+                this.otp4 = digits[4] || '';
+                this.otp5 = digits[5] || '';
                 if (digits.length === 6) this.verifyCode();
             },
 
             verifyCode: function() {
                 var self = this;
-                var code = this.otpDigits.join('');
+                var code = this.otpCode;
                 if (code.length !== 6) {
                     this.error = 'Please enter the 6-digit code';
                     return;
@@ -2048,7 +2065,13 @@ document.addEventListener('alpine:init', function() {
                         } else {
                             self.step = 'code';
                             self.error = result.error;
-                            self.otpDigits = ['', '', '', '', '', ''];
+                            // CSP-compatible: reset individual OTP fields
+                            self.otp0 = '';
+                            self.otp1 = '';
+                            self.otp2 = '';
+                            self.otp3 = '';
+                            self.otp4 = '';
+                            self.otp5 = '';
                         }
                     });
                 }

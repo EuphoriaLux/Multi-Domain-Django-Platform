@@ -63,9 +63,31 @@ CSS files:
 
 ## Development Commands
 
+### Virtual Environment (IMPORTANT)
+
+**ALWAYS use the virtual environment when running Python commands.** This project uses a `.venv` virtual environment.
+
+```powershell
+# PowerShell (recommended) - Activate first, then run commands normally
+.venv\Scripts\Activate.ps1
+python manage.py runserver
+pytest
+
+# Command Prompt (cmd)
+.venv\Scripts\activate.bat
+python manage.py runserver
+pytest
+
+# Alternative: Run directly without activating (useful for one-off commands)
+.venv\Scripts\python.exe manage.py runserver
+.venv\Scripts\python.exe -m pytest
+```
+
+**Why this matters**: Running `python` or `pytest` without activating the virtual environment will fail with `ModuleNotFoundError` because Django, pytest, and other dependencies are only installed in the `.venv` folder.
+
 ### Essential Commands
 ```bash
-# Run development server
+# Run development server (after activating venv or using .venv\Scripts\python.exe)
 python manage.py runserver
 
 # Run all tests with pytest

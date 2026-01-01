@@ -599,10 +599,10 @@
                                     <span class="option-key">{{ key }}</span>
                                     <span>{{ value }}</span>
                                     {% if challenge_info.result.user_answer|upper == key %}
-                                        {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5 text-primary" %}
+                                        {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5 text-purple-600" %}
                                     {% endif %}
                                     {% if challenge_info.challenge.correct_answer|upper == key and challenge_info.challenge.correct_answer %}
-                                        {% include "crush_lu/icons/star.html" with class="w-5 h-5 text-success" %}
+                                        {% include "crush_lu/icons/star.html" with class="w-5 h-5 text-green-600" %}
                                     {% endif %}
                                 </div>
                             {% endfor %}

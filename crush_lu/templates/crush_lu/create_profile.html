@@ -177,7 +177,7 @@
                         </div>
                         <button type="button"
                                 x-show="notVerified"
-                                @click="startVerification()"
+                                @click="startVerification"
                                 x-bind:disabled="cannotVerify"
                                 class="px-4 py-3 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2">
                             {% include "crush_lu/icons/shield-check.html" with class="w-5 h-5" %}
@@ -185,7 +185,7 @@
                         </button>
                         <button type="button"
                                 x-show="verified" x-cloak
-                                @click="resetVerification()"
+                                @click="resetVerification"
                                 class="px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition flex items-center gap-2">
                             {% include "crush_lu/icons/pencil.html" with class="w-5 h-5" %}
                             <span class="hidden sm:inline">Change</span>
@@ -881,8 +881,8 @@
     <div x-data="phoneVerificationModal"
          x-show="isOpen"
          x-cloak
-         @open-phone-modal.window="open()"
-         @close-phone-modal.window="close()"
+         @open-phone-modal.window="open"
+         @close-phone-modal.window="close"
          class="fixed inset-0 z-50 overflow-y-auto"
          role="dialog"
          aria-modal="true">
@@ -905,11 +905,11 @@
                  x-transition:leave="transition ease-in duration-200"
                  x-transition:leave-start="opacity-100 transform scale-100"
                  x-transition:leave-end="opacity-0 transform scale-95"
-                 @click.away="close()"
+                 @click.away="close"
                  class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
 
                 <!-- Close button -->
-                <button @click="close()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <button @click="close" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
@@ -932,33 +932,33 @@
                         <strong x-text="maskedPhone"></strong>
                     </p>
 
-                    <!-- OTP Inputs - Individual inputs for CSP compatibility -->
+                    <!-- OTP Inputs - CSP-compatible with individual property bindings -->
                     <!-- data-index attribute used by handleOtpInput/handleOtpBackspace -->
                     <div class="flex justify-center gap-2 mb-4">
                         <input type="text" id="otp-0" x-ref="otp0" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="0"
-                               x-model="otpDigits[0]" @input="handleOtpInput" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
+                               x-model="otp0" @input="handleOtpInput" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                                class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
                         <input type="text" id="otp-1" x-ref="otp1" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="1"
-                               x-model="otpDigits[1]" @input="handleOtpInput" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
+                               x-model="otp1" @input="handleOtpInput" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                                class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
                         <input type="text" id="otp-2" x-ref="otp2" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="2"
-                               x-model="otpDigits[2]" @input="handleOtpInput" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
+                               x-model="otp2" @input="handleOtpInput" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                                class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
                         <input type="text" id="otp-3" x-ref="otp3" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="3"
-                               x-model="otpDigits[3]" @input="handleOtpInput" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
+                               x-model="otp3" @input="handleOtpInput" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                                class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
                         <input type="text" id="otp-4" x-ref="otp4" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="4"
-                               x-model="otpDigits[4]" @input="handleOtpInput" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
+                               x-model="otp4" @input="handleOtpInput" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                                class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
                         <input type="text" id="otp-5" x-ref="otp5" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="5"
-                               x-model="otpDigits[5]" @input="handleOtpInput" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
+                               x-model="otp5" @input="handleOtpInput" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                                class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
                     </div>
 
                     <!-- Error message -->
                     <div x-show="hasError" class="bg-red-50 text-red-700 px-4 py-2 rounded-lg text-sm mb-4" x-text="error"></div>
 
-                    <button @click="verifyCode()"
+                    <button @click="verifyCode"
                             x-bind:disabled="isCodeIncomplete"
                             class="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold
                                    hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 transition">
@@ -971,7 +971,7 @@
                             Resend available in <span x-text="resendCountdown"></span>s
                         </span>
                         <button x-show="canResend"
-                                @click="resendCode()"
+                                @click="resendCode"
                                 class="text-purple-600 hover:text-purple-800 font-medium">
                             Resend Code
                         </button>

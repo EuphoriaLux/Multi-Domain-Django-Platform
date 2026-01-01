@@ -1,19 +1,21 @@
 {% load static %}
 
 {% if has_errors %}
-<div x-data="dismissible" x-show="show" x-transition class="alert alert-danger alert-dismissible fade show tw-mb-4" role="alert">
-    {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}
-    Please correct the errors below.
-    <button @click="dismiss" type="button" class="btn-close" aria-label="Dismiss">
+<div x-data="dismissible" x-show="show" x-transition class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-center justify-between" role="alert">
+    <div class="flex items-center gap-2">
+        {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+        Please correct the errors below.
+    </div>
+    <button @click="dismiss" type="button" class="text-red-500 hover:text-red-700" aria-label="Dismiss">
         {% include "crush_lu/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
     </button>
 </div>
 {% endif %}
 
 {% if form.non_field_errors %}
-    <div x-data="dismissible" x-show="show" x-transition class="alert alert-danger alert-dismissible fade show" role="alert">
-        {{ form.non_field_errors }}
-        <button @click="dismiss" type="button" class="btn-close" aria-label="Dismiss">
+    <div x-data="dismissible" x-show="show" x-transition class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-center justify-between" role="alert">
+        <div>{{ form.non_field_errors }}</div>
+        <button @click="dismiss" type="button" class="text-red-500 hover:text-red-700" aria-label="Dismiss">
             {% include "crush_lu/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
         </button>
     </div>
@@ -28,31 +30,31 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="mb-3">
-            <label for="{{ form.phone_number.id_for_label }}" class="form-label">
+            <label for="{{ form.phone_number.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
                 Phone Number *
                 {% if profile.phone_verified %}
-                    <span class="badge bg-success ml-2">{% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Verified</span>
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">{% include "crush_lu/icons/check-circle.html" with class="w-4 h-4" %} Verified</span>
                 {% endif %}
             </label>
             {% if profile.phone_verified %}
-                <div class="tw-relative">
-                    <input type="text" class="form-control tw-bg-gray-100" value="{{ profile.phone_number }}" readonly disabled>
+                <div class="relative">
+                    <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100" value="{{ profile.phone_number }}" readonly disabled>
                     <input type="hidden" name="phone_number" value="{{ profile.phone_number }}">
-                    <span class="tw-absolute tw-right-3 tw-top-1/2 tw--translate-y-1/2">
-                        {% include "crush_lu/icons/lock-closed.html" with class="w-5 h-5 tw-text-green-500" %}
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2">
+                        {% include "crush_lu/icons/lock-closed.html" with class="w-5 h-5 text-green-500" %}
                     </span>
                 </div>
-                <small class="text-muted">
-                    {% include "crush_lu/icons/information-circle.html" with class="w-5 h-5" %} Verified phone numbers cannot be changed.
+                <small class="text-gray-500 text-sm">
+                    {% include "crush_lu/icons/information-circle.html" with class="w-4 h-4 inline" %} Verified phone numbers cannot be changed.
                     Contact support if you need to update it.
                 </small>
             {% else %}
                 <div class="phone-input-wrapper">
                     {{ form.phone_number }}
                 </div>
-                <small class="text-warning">
-                    {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}
-                    <a href="{% url 'crush_lu:verify_phone' %}">Verify your phone number</a> to lock it.
+                <small class="text-yellow-600 text-sm">
+                    {% include "crush_lu/icons/exclamation-triangle.html" with class="w-4 h-4 inline" %}
+                    <a href="{% url 'crush_lu:verify_phone' %}" class="underline hover:text-yellow-800">Verify your phone number</a> to lock it.
                 </small>
             {% endif %}
             {% if form.phone_number.errors %}
@@ -61,10 +63,10 @@
         </div>
 
         <div class="mb-3">
-            <label class="form-label">
+            <label class="block text-sm font-medium text-gray-700 mb-1">
                 Your Region *
             </label>
-            <p class="text-muted text-sm mb-2">Click the map or use the dropdown to select your location</p>
+            <p class="text-gray-500 text-sm mb-2">Click the map or use the dropdown to select your location</p>
 
             <div x-data="cantonMap"
                  data-initial-value="{{ profile.location|default:'' }}"
@@ -96,7 +98,7 @@
                         Can't use the map? Select from list
                     </button>
                     <div x-show="fallbackDropdownVisible" x-transition class="canton-map-fallback-dropdown">
-                        <select @change="handleFallbackSelect" class="form-control">
+                        <select @change="handleFallbackSelect" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                             <option value="">Select your region...</option>
                             <optgroup label="Luxembourg Cantons">
                                 <option value="canton-capellen">Capellen</option>
@@ -131,7 +133,7 @@
         </div>
 
         <div class="mb-3">
-            <label for="{{ form.date_of_birth.id_for_label }}" class="form-label">
+            <label for="{{ form.date_of_birth.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
                 Date of Birth *
             </label>
             {{ form.date_of_birth }}
@@ -141,7 +143,7 @@
         </div>
 
         <div class="mb-3">
-            <label for="{{ form.gender.id_for_label }}" class="form-label">
+            <label for="{{ form.gender.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
                 Gender *
             </label>
             {{ form.gender }}
@@ -160,9 +162,9 @@
     </h5>
 
     <div class="mb-3">
-        <label for="{{ form.bio.id_for_label }}" class="form-label">
+        <label for="{{ form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
             Bio
-            <small class="text-muted">(Tell us about yourself)</small>
+            <small class="text-gray-500">(Tell us about yourself)</small>
         </label>
         {{ form.bio }}
         <div class="char-counter" id="bio-counter-container" data-max="500">
@@ -177,9 +179,9 @@
     </div>
 
     <div class="mb-3">
-        <label for="{{ form.interests.id_for_label }}" class="form-label">
+        <label for="{{ form.interests.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
             Interests
-            <small class="text-muted">(What do you enjoy?)</small>
+            <small class="text-gray-500">(What do you enjoy?)</small>
         </label>
         {{ form.interests }}
         <div class="char-counter" id="interests-counter-container" data-max="300">
@@ -194,7 +196,7 @@
     </div>
 
     <div class="mb-3">
-        <label for="{{ form.looking_for.id_for_label }}" class="form-label">
+        <label for="{{ form.looking_for.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
             What are you looking for? *
         </label>
         {{ form.looking_for }}
@@ -210,25 +212,25 @@
         <h5 class="section-title mb-0" style="border-bottom: none; padding-bottom: 0;">{% include "crush_lu/icons/photo.html" with class="w-5 h-5" %} Photos</h5>
         <span class="photo-count">Up to 3</span>
     </div>
-    <p class="text-muted small mb-3">Your main photo will be displayed first to other users.</p>
+    <p class="text-gray-500 text-sm mb-3">Your main photo will be displayed first to other users.</p>
 
     <!-- Social Photo Import -->
     {% if social_photos %}
     <div class="social-import-section mb-4">
         <div class="flex items-center gap-2 mb-2">
-            {% include "crush_lu/icons/cloud-arrow-down.html" with class="w-5 h-5 text-primary" %}
-            <span class="fw-semibold">Import from Social Accounts</span>
+            {% include "crush_lu/icons/cloud-arrow-down.html" with class="w-5 h-5 text-purple-600" %}
+            <span class="font-semibold">Import from Social Accounts</span>
         </div>
         <div class="social-photos-row">
             {% for photo in social_photos %}
             <div class="social-photo-mini-card">
                 <div class="provider-icon">
                     {% if photo.provider == 'facebook' %}
-                    <i class="fab fa-facebook text-primary"></i>
+                    <i class="fab fa-facebook text-blue-600"></i>
                     {% elif photo.provider == 'google' %}
-                    <i class="fab fa-google text-danger"></i>
+                    <i class="fab fa-google text-red-500"></i>
                     {% elif photo.provider == 'microsoft' %}
-                    <i class="fab fa-microsoft text-info"></i>
+                    <i class="fab fa-microsoft text-cyan-500"></i>
                     {% endif %}
                 </div>
                 {% if photo.available %}
