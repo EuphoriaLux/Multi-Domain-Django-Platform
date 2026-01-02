@@ -5,6 +5,8 @@ from django.contrib.contenttypes.models import ContentType
 import logging
 from django.utils.translation import gettext_lazy as _
 
+from crush_lu.storage import vinsdelux_upload_path, shared_upload_path
+
 logger = logging.getLogger(__name__)
 
 # --- User Profile & Address Models ---
@@ -48,7 +50,7 @@ class VdlCategory(models.Model):
     name = models.CharField(max_length=100, choices=WineType.choices)
     slug = models.SlugField(max_length=120, unique=True, help_text="URL-friendly version of the name")
     description = models.TextField(blank=True, null=True)
-    image = models.ImageField(upload_to='categories/', blank=True, null=True)
+    image = models.ImageField(upload_to=vinsdelux_upload_path('categories'), blank=True, null=True)
     parent = models.ForeignKey('self', null=True, blank=True, related_name='children', on_delete=models.CASCADE)
     is_active = models.BooleanField(default=True)
 
@@ -63,8 +65,8 @@ class VdlProducer(models.Model):
     name = models.CharField(max_length=150, unique=True)
     slug = models.SlugField(max_length=170, unique=True)
     description = models.TextField(blank=True)
-    logo = models.ImageField(upload_to='producers/logos/', blank=True, null=True)
-    producer_photo = models.ImageField(upload_to='producers/photos/', blank=True, null=True, help_text="Photo of the producer")
+    logo = models.ImageField(upload_to=vinsdelux_upload_path('producers/logos'), blank=True, null=True)
+    producer_photo = models.ImageField(upload_to=vinsdelux_upload_path('producers/photos'), blank=True, null=True, help_text="Photo of the producer")
     website = models.URLField(blank=True, null=True)
     region = models.CharField(max_length=100, blank=True)
     is_featured_on_homepage = models.BooleanField(default=False, help_text="Feature this producer on the homepage?")
@@ -257,7 +259,7 @@ class VdlProductImage(models.Model):
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, help_text="The type of product this image is for.", limit_choices_to={'model__in': ('vdlcoffret', 'vdladoptionplan')})
     object_id = models.PositiveIntegerField(help_text="The ID of the specific product instance.")
     product = GenericForeignKey('content_type', 'object_id')
-    image = models.ImageField(upload_to='products/gallery/')
+    image = models.ImageField(upload_to=vinsdelux_upload_path('products/gallery'))
     alt_text = models.CharField(max_length=100, blank=True, help_text="Description for SEO and accessibility")
 
     def __str__(self):
@@ -318,7 +320,7 @@ class VdlBlogPost(models.Model):
     category = models.ForeignKey(VdlBlogPostCategory, related_name='posts', on_delete=models.SET_NULL, null=True, blank=True)
     content = models.TextField()
     excerpt = models.TextField(blank=True, help_text="A short summary for list views.")
-    featured_image = models.ImageField(upload_to='blog/', blank=True, null=True)
+    featured_image = models.ImageField(upload_to=vinsdelux_upload_path('blog'), blank=True, null=True)
     status = models.CharField(max_length=10, choices=[('draft', 'Draft'), ('published', 'Published')], default='draft')
     published_date = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -332,7 +334,7 @@ class VdlBlogPost(models.Model):
 class HomepageContent(models.Model):
     hero_title = models.CharField(max_length=200, help_text="Title for the homepage hero section")
     hero_subtitle = models.TextField(help_text="Subtitle for the homepage hero section")
-    hero_background_image = models.ImageField(upload_to='homepage/', help_text="Background image for the homepage hero section")
+    hero_background_image = models.ImageField(upload_to=shared_upload_path('homepage'), help_text="Background image for the homepage hero section")
 
     class Meta:
         verbose_name_plural = "Homepage Content"
@@ -350,8 +352,8 @@ class VdlAdoptionPlanImage(models.Model):
         help_text="The adoption plan this image belongs to"
     )
     image = models.ImageField(
-        upload_to='adoption_plans/%Y/%m/',
-        help_text="Image for the adoption plan (will be stored in adoption_plans/YYYY/MM/ folder)"
+        upload_to=vinsdelux_upload_path('adoption_plans'),
+        help_text="Image for the adoption plan"
     )
     order = models.IntegerField(
         default=0,

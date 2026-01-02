@@ -414,3 +414,128 @@ def list_user_storage_folders():
     except Exception as e:
         logger.error(f"Failed to list user storage folders: {e}")
         return set()
+
+
+# =============================================================================
+# Domain-Prefixed Upload Paths for Public Media
+# =============================================================================
+#
+# Blob Structure in 'media' container (public):
+#     crush-lu/           -> Crush.lu public assets
+#     powerup/            -> PowerUP public assets
+#     vinsdelux/          -> VinsDelux public assets
+#     shared/             -> Cross-domain assets
+#
+# Usage:
+#     from crush_lu.storage import vinsdelux_upload_path
+#
+#     class VdlProducer(models.Model):
+#         logo = models.ImageField(upload_to=vinsdelux_upload_path('producers/logos'))
+# =============================================================================
+
+import uuid
+from functools import partial
+
+
+# Domain prefixes for blob storage organization
+DOMAIN_PREFIXES = {
+    'crush_lu': 'crush-lu',
+    'powerup': 'powerup',
+    'vinsdelux': 'vinsdelux',
+    'shared': 'shared',
+}
+
+
+def _domain_upload_path(domain: str, subfolder: str, instance, filename: str) -> str:
+    """
+    Generate a domain-prefixed upload path with UUID.
+
+    Args:
+        domain: Domain prefix (e.g., 'vinsdelux', 'crush-lu', 'powerup')
+        subfolder: Subfolder within domain (e.g., 'producers/logos')
+        instance: Model instance (not used but required by Django)
+        filename: Original filename
+
+    Returns:
+        Path like: vinsdelux/producers/logos/{uuid}.{ext}
+    """
+    ext = os.path.splitext(filename)[1].lower()
+    unique_filename = f"{uuid.uuid4().hex}{ext}"
+
+    # Normalize subfolder (remove leading/trailing slashes)
+    subfolder = subfolder.strip('/')
+
+    if subfolder:
+        return f"{domain}/{subfolder}/{unique_filename}"
+    return f"{domain}/{unique_filename}"
+
+
+def _make_upload_path(domain: str, subfolder: str = ''):
+    """
+    Factory function to create domain-prefixed upload_to callables.
+
+    Args:
+        domain: Domain key from DOMAIN_PREFIXES
+        subfolder: Optional subfolder within domain
+
+    Returns:
+        Callable suitable for ImageField/FileField upload_to parameter
+    """
+    prefix = DOMAIN_PREFIXES.get(domain, domain)
+    return partial(_domain_upload_path, prefix, subfolder)
+
+
+def vinsdelux_upload_path(subfolder: str = ''):
+    """
+    Create upload path for VinsDelux assets.
+
+    Examples:
+        upload_to=vinsdelux_upload_path('producers/logos')
+        -> vinsdelux/producers/logos/{uuid}.{ext}
+
+        upload_to=vinsdelux_upload_path('products/gallery')
+        -> vinsdelux/products/gallery/{uuid}.{ext}
+    """
+    return _make_upload_path('vinsdelux', subfolder)
+
+
+def crush_upload_path(subfolder: str = ''):
+    """
+    Create upload path for Crush.lu PUBLIC assets.
+
+    Note: For private user photos, use user_photo_path in models/profiles.py
+    which stores in the crush-profiles-private container.
+
+    Examples:
+        upload_to=crush_upload_path('branding')
+        -> crush-lu/branding/{uuid}.{ext}
+
+        upload_to=crush_upload_path('advent/backgrounds')
+        -> crush-lu/advent/backgrounds/{uuid}.{ext}
+    """
+    return _make_upload_path('crush_lu', subfolder)
+
+
+def powerup_upload_path(subfolder: str = ''):
+    """
+    Create upload path for PowerUP assets.
+
+    Examples:
+        upload_to=powerup_upload_path('defaults')
+        -> powerup/defaults/{uuid}.{ext}
+
+        upload_to=powerup_upload_path('companies/logos')
+        -> powerup/companies/logos/{uuid}.{ext}
+    """
+    return _make_upload_path('powerup', subfolder)
+
+
+def shared_upload_path(subfolder: str = ''):
+    """
+    Create upload path for shared cross-domain assets.
+
+    Examples:
+        upload_to=shared_upload_path('homepage')
+        -> shared/homepage/{uuid}.{ext}
+    """
+    return _make_upload_path('shared', subfolder)
