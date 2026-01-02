@@ -9,7 +9,10 @@ Handles sending emails for:
 import logging
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
+from django.urls import reverse
+from django.utils.translation import override
 from azureproject.email_utils import send_domain_email
+from .email_helpers import get_user_language_url, get_email_base_urls
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +30,27 @@ def send_existing_user_invitation_email(event, user, request=None):
         bool: True if email sent successfully, False otherwise
     """
     try:
+        # Build i18n-aware URLs
+        if request:
+            event_url = get_user_language_url(
+                user, 'crush_lu:event_detail', request,
+                kwargs={'event_id': event.id}
+            )
+            dashboard_url = get_user_language_url(user, 'crush_lu:dashboard', request)
+            base_urls = get_email_base_urls(user, request)
+        else:
+            # Fallback for when request is not available (e.g., management commands)
+            event_url = f'https://crush.lu/en/events/{event.id}/'
+            dashboard_url = 'https://crush.lu/en/dashboard/'
+            base_urls = {}
+
         # Prepare context for email template
         context = {
             'user': user,
             'event': event,
-            'event_url': f'https://crush.lu/events/{event.id}/',
-            'dashboard_url': 'https://crush.lu/dashboard/',
+            'event_url': event_url,
+            'dashboard_url': dashboard_url,
+            **base_urls,
         }
 
         # Render HTML email from template
@@ -78,8 +96,20 @@ def send_external_guest_invitation_email(event_invitation, request=None):
     """
     try:
         # Build invitation URL
-        from django.urls import reverse
-        invitation_url = f"https://crush.lu{reverse('crush_lu:invitation_landing', kwargs={'code': event_invitation.invitation_code})}"
+        # Note: For external guests, we use English (default) since they don't have a profile yet
+        # The invitation landing page is inside i18n_patterns
+        if request:
+            protocol = 'https' if request.is_secure() else 'http'
+            domain = request.get_host()
+            # Use English for external guests (they can change language on the page)
+            with override('en'):
+                url_path = reverse('crush_lu:invitation_landing', kwargs={'code': event_invitation.invitation_code})
+            invitation_url = f"{protocol}://{domain}{url_path}"
+        else:
+            # Fallback when request is not available
+            with override('en'):
+                url_path = reverse('crush_lu:invitation_landing', kwargs={'code': event_invitation.invitation_code})
+            invitation_url = f"https://crush.lu{url_path}"
 
         # Prepare context for email template
         context = {
@@ -135,14 +165,32 @@ def send_invitation_approval_email(event_invitation, request=None):
         logger.warning(f"Cannot send approval email - no user account created yet for {event_invitation.guest_email}")
         return False
 
+    user = event_invitation.created_user
+    event = event_invitation.event
+
     try:
+        # Build i18n-aware URLs
+        if request:
+            event_url = get_user_language_url(
+                user, 'crush_lu:event_detail', request,
+                kwargs={'event_id': event.id}
+            )
+            dashboard_url = get_user_language_url(user, 'crush_lu:dashboard', request)
+            base_urls = get_email_base_urls(user, request)
+        else:
+            # Fallback for when request is not available
+            event_url = f'https://crush.lu/en/events/{event.id}/'
+            dashboard_url = 'https://crush.lu/en/dashboard/'
+            base_urls = {}
+
         # Prepare context for email template
         context = {
             'invitation': event_invitation,
-            'user': event_invitation.created_user,
-            'event': event_invitation.event,
-            'event_url': f'https://crush.lu/events/{event_invitation.event.id}/',
-            'dashboard_url': 'https://crush.lu/dashboard/',
+            'user': user,
+            'event': event,
+            'event_url': event_url,
+            'dashboard_url': dashboard_url,
+            **base_urls,
         }
 
         # Render HTML email from template
@@ -155,23 +203,23 @@ def send_invitation_approval_email(event_invitation, request=None):
         plain_message = strip_tags(html_message)
 
         # Send email
-        subject = f'✅ Your Invitation to {event_invitation.event.title} Has Been Approved!'
+        subject = f'✅ Your Invitation to {event.title} Has Been Approved!'
 
         result = send_domain_email(
             subject=subject,
             message=plain_message,
-            recipient_list=[event_invitation.created_user.email],
+            recipient_list=[user.email],
             request=request,
             domain='crush.lu',
             html_message=html_message,
             fail_silently=False,
         )
 
-        logger.info(f"Sent approval email to {event_invitation.created_user.email} for event {event_invitation.event.title}")
+        logger.info(f"Sent approval email to {user.email} for event {event.title}")
         return result > 0
 
     except Exception as e:
-        logger.error(f"Failed to send approval email to {event_invitation.created_user.email}: {str(e)}")
+        logger.error(f"Failed to send approval email to {user.email}: {str(e)}")
         return False
 
 
@@ -190,13 +238,27 @@ def send_invitation_rejection_email(event_invitation, request=None):
         logger.warning(f"Cannot send rejection email - no user account created yet for {event_invitation.guest_email}")
         return False
 
+    user = event_invitation.created_user
+    event = event_invitation.event
+
     try:
+        # Build i18n-aware URLs
+        if request:
+            events_url = get_user_language_url(user, 'crush_lu:event_list', request)
+            base_urls = get_email_base_urls(user, request)
+        else:
+            # Fallback for when request is not available
+            events_url = 'https://crush.lu/en/events/'
+            base_urls = {}
+
         # Prepare context for email template
         context = {
             'invitation': event_invitation,
-            'user': event_invitation.created_user,
-            'event': event_invitation.event,
+            'user': user,
+            'event': event,
             'feedback': event_invitation.approval_notes or "No specific feedback provided.",
+            'events_url': events_url,  # Used by template for "Browse Other Events" button
+            **base_urls,
         }
 
         # Render HTML email from template
@@ -209,21 +271,21 @@ def send_invitation_rejection_email(event_invitation, request=None):
         plain_message = strip_tags(html_message)
 
         # Send email
-        subject = f'Update on Your Invitation to {event_invitation.event.title}'
+        subject = f'Update on Your Invitation to {event.title}'
 
         result = send_domain_email(
             subject=subject,
             message=plain_message,
-            recipient_list=[event_invitation.created_user.email],
+            recipient_list=[user.email],
             request=request,
             domain='crush.lu',
             html_message=html_message,
             fail_silently=False,
         )
 
-        logger.info(f"Sent rejection email to {event_invitation.created_user.email} for event {event_invitation.event.title}")
+        logger.info(f"Sent rejection email to {user.email} for event {event.title}")
         return result > 0
 
     except Exception as e:
-        logger.error(f"Failed to send rejection email to {event_invitation.created_user.email}: {str(e)}")
+        logger.error(f"Failed to send rejection email to {user.email}: {str(e)}")
         return False

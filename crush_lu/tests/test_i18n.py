@@ -880,3 +880,389 @@ class EmailI18nURLTests(TestCase):
         # Should fall back to English
         self.assertIn('/en/events/', url,
             f"URL should fall back to /en/ for user without profile, got: {url}")
+
+
+# =============================================================================
+# PART 9: EMAIL BASE URLS AND UNSUBSCRIBE TESTS (CRITICAL)
+# =============================================================================
+
+@override_settings(ROOT_URLCONF='azureproject.urls_crush')
+class EmailBaseURLsTests(SiteTestMixin, TestCase):
+    """Test email footer URLs are correctly generated with i18n prefixes."""
+
+    def setUp(self):
+        from crush_lu.models import CrushProfile
+        from django.test import RequestFactory
+
+        self.factory = RequestFactory()
+        self.request = self.factory.get('/en/')
+        self.request.META['HTTP_HOST'] = 'crush.lu'
+        self.request.META['wsgi.url_scheme'] = 'https'
+
+        self.user = User.objects.create_user(
+            username='footer@test.com',
+            email='footer@test.com',
+            password='testpass123',
+            first_name='Footer',
+            last_name='Test'
+        )
+
+        self.profile = CrushProfile.objects.create(
+            user=self.user,
+            date_of_birth=date(1995, 1, 1),
+            gender='M',
+            location='Luxembourg',
+            is_approved=True,
+            preferred_language='de'  # German preference
+        )
+
+    def test_get_email_base_urls_returns_all_footer_urls(self):
+        """Test get_email_base_urls returns all required footer URLs."""
+        from crush_lu.email_helpers import get_email_base_urls
+
+        base_urls = get_email_base_urls(self.user, self.request)
+
+        # Should have all required keys
+        required_keys = ['home_url', 'about_url', 'events_url', 'settings_url']
+        for key in required_keys:
+            self.assertIn(key, base_urls, f"Missing key: {key}")
+            self.assertIsNotNone(base_urls[key], f"Key {key} is None")
+
+    def test_get_email_base_urls_uses_user_language(self):
+        """Test get_email_base_urls uses user's preferred language."""
+        from crush_lu.email_helpers import get_email_base_urls
+
+        # German user
+        self.profile.preferred_language = 'de'
+        self.profile.save()
+
+        base_urls = get_email_base_urls(self.user, self.request)
+
+        self.assertIn('/de/', base_urls['home_url'])
+        self.assertIn('/de/about/', base_urls['about_url'])
+        self.assertIn('/de/events/', base_urls['events_url'])
+        self.assertIn('/de/account/settings/', base_urls['settings_url'])
+
+    def test_get_email_base_urls_french_user(self):
+        """Test get_email_base_urls works for French users."""
+        from crush_lu.email_helpers import get_email_base_urls
+
+        self.profile.preferred_language = 'fr'
+        self.profile.save()
+
+        base_urls = get_email_base_urls(self.user, self.request)
+
+        self.assertIn('/fr/', base_urls['home_url'])
+        self.assertIn('/fr/events/', base_urls['events_url'])
+
+    def test_get_email_base_urls_english_user(self):
+        """Test get_email_base_urls works for English users."""
+        from crush_lu.email_helpers import get_email_base_urls
+
+        self.profile.preferred_language = 'en'
+        self.profile.save()
+
+        base_urls = get_email_base_urls(self.user, self.request)
+
+        self.assertIn('/en/', base_urls['home_url'])
+        self.assertIn('/en/events/', base_urls['events_url'])
+
+    def test_get_email_base_urls_includes_domain(self):
+        """Test get_email_base_urls includes full domain in URLs."""
+        from crush_lu.email_helpers import get_email_base_urls
+
+        base_urls = get_email_base_urls(self.user, self.request)
+
+        # All URLs should include the domain
+        for key, url in base_urls.items():
+            self.assertTrue(
+                url.startswith('https://crush.lu') or url.startswith('http://'),
+                f"{key} should be an absolute URL, got: {url}"
+            )
+
+
+@override_settings(ROOT_URLCONF='azureproject.urls_crush')
+class EmailUnsubscribeURLTests(SiteTestMixin, TestCase):
+    """Test unsubscribe URL generation with i18n prefixes."""
+
+    def setUp(self):
+        from crush_lu.models import CrushProfile
+        from django.test import RequestFactory
+
+        self.factory = RequestFactory()
+        self.request = self.factory.get('/en/')
+        self.request.META['HTTP_HOST'] = 'crush.lu'
+        self.request.META['wsgi.url_scheme'] = 'https'
+
+        self.user = User.objects.create_user(
+            username='unsub@test.com',
+            email='unsub@test.com',
+            password='testpass123'
+        )
+
+        self.profile = CrushProfile.objects.create(
+            user=self.user,
+            date_of_birth=date(1995, 1, 1),
+            gender='M',
+            location='Luxembourg',
+            is_approved=True,
+            preferred_language='de'
+        )
+
+    def test_unsubscribe_url_has_language_prefix(self):
+        """
+        CRITICAL: Test unsubscribe URL includes language prefix.
+
+        Before fix: /unsubscribe/{token}/ (causes 404)
+        After fix: /de/unsubscribe/{token}/ (works correctly)
+        """
+        from crush_lu.email_helpers import get_unsubscribe_url
+
+        url = get_unsubscribe_url(self.user, self.request)
+
+        self.assertIsNotNone(url, "Unsubscribe URL should not be None")
+        self.assertIn('/de/unsubscribe/', url,
+            f"Unsubscribe URL should have /de/ prefix for German user, got: {url}")
+
+    def test_unsubscribe_url_french_user(self):
+        """Test unsubscribe URL for French user."""
+        from crush_lu.email_helpers import get_unsubscribe_url
+
+        self.profile.preferred_language = 'fr'
+        self.profile.save()
+
+        url = get_unsubscribe_url(self.user, self.request)
+
+        self.assertIn('/fr/unsubscribe/', url,
+            f"Unsubscribe URL should have /fr/ prefix, got: {url}")
+
+    def test_unsubscribe_url_contains_token(self):
+        """Test unsubscribe URL contains user's token."""
+        from crush_lu.email_helpers import get_unsubscribe_url
+        from crush_lu.models import EmailPreference
+
+        url = get_unsubscribe_url(self.user, self.request)
+
+        # Get the token that was created
+        email_prefs = EmailPreference.objects.get(user=self.user)
+        token = str(email_prefs.unsubscribe_token)
+
+        self.assertIn(token, url,
+            f"Unsubscribe URL should contain token {token}, got: {url}")
+
+
+@override_settings(ROOT_URLCONF='azureproject.urls_crush')
+class EmailContextWithUnsubscribeTests(SiteTestMixin, TestCase):
+    """Test get_email_context_with_unsubscribe includes all required URLs."""
+
+    def setUp(self):
+        from crush_lu.models import CrushProfile
+        from django.test import RequestFactory
+
+        self.factory = RequestFactory()
+        self.request = self.factory.get('/en/')
+        self.request.META['HTTP_HOST'] = 'crush.lu'
+        self.request.META['wsgi.url_scheme'] = 'https'
+
+        self.user = User.objects.create_user(
+            username='context@test.com',
+            email='context@test.com',
+            password='testpass123'
+        )
+
+        self.profile = CrushProfile.objects.create(
+            user=self.user,
+            date_of_birth=date(1995, 1, 1),
+            gender='M',
+            location='Luxembourg',
+            is_approved=True,
+            preferred_language='de'
+        )
+
+    def test_context_includes_unsubscribe_url(self):
+        """Test context includes unsubscribe_url."""
+        from crush_lu.email_helpers import get_email_context_with_unsubscribe
+
+        context = get_email_context_with_unsubscribe(self.user, self.request)
+
+        self.assertIn('unsubscribe_url', context)
+        self.assertIsNotNone(context['unsubscribe_url'])
+
+    def test_context_includes_footer_urls(self):
+        """Test context includes all footer URLs."""
+        from crush_lu.email_helpers import get_email_context_with_unsubscribe
+
+        context = get_email_context_with_unsubscribe(self.user, self.request)
+
+        required_keys = ['home_url', 'about_url', 'events_url', 'settings_url']
+        for key in required_keys:
+            self.assertIn(key, context, f"Context missing {key}")
+
+    def test_context_includes_extra_context(self):
+        """Test extra context is merged correctly."""
+        from crush_lu.email_helpers import get_email_context_with_unsubscribe
+
+        context = get_email_context_with_unsubscribe(
+            self.user, self.request,
+            first_name='Test',
+            custom_var='custom_value'
+        )
+
+        self.assertEqual(context['first_name'], 'Test')
+        self.assertEqual(context['custom_var'], 'custom_value')
+
+    def test_context_urls_use_user_language(self):
+        """Test all URLs in context use user's preferred language."""
+        from crush_lu.email_helpers import get_email_context_with_unsubscribe
+
+        context = get_email_context_with_unsubscribe(self.user, self.request)
+
+        # All URLs should have German prefix
+        self.assertIn('/de/', context['home_url'])
+        self.assertIn('/de/', context['about_url'])
+        self.assertIn('/de/', context['events_url'])
+        self.assertIn('/de/', context['settings_url'])
+        self.assertIn('/de/', context['unsubscribe_url'])
+
+
+@override_settings(ROOT_URLCONF='azureproject.urls_crush')
+class EmailNotificationsI18nTests(SiteTestMixin, TestCase):
+    """Test email_notifications.py functions use i18n-aware URLs."""
+
+    def setUp(self):
+        from crush_lu.models import CrushProfile, MeetupEvent
+        from django.test import RequestFactory
+        from django.utils import timezone
+        from datetime import timedelta
+
+        self.factory = RequestFactory()
+        self.request = self.factory.get('/en/')
+        self.request.META['HTTP_HOST'] = 'crush.lu'
+        self.request.META['wsgi.url_scheme'] = 'https'
+
+        self.user = User.objects.create_user(
+            username='invite@test.com',
+            email='invite@test.com',
+            password='testpass123'
+        )
+
+        self.profile = CrushProfile.objects.create(
+            user=self.user,
+            date_of_birth=date(1995, 1, 1),
+            gender='M',
+            location='Luxembourg',
+            is_approved=True,
+            preferred_language='fr'  # French preference
+        )
+
+        self.event = MeetupEvent.objects.create(
+            title='Private Event',
+            description='Test',
+            event_type='mixer',
+            date_time=timezone.now() + timedelta(days=7),
+            location='Luxembourg',
+            address='123 Test St',
+            max_participants=20,
+            registration_deadline=timezone.now() + timedelta(days=5),
+            is_published=True,
+            is_private_invitation=True
+        )
+
+    def test_existing_user_invitation_urls_have_language_prefix(self):
+        """Test send_existing_user_invitation_email uses i18n URLs."""
+        from crush_lu.email_helpers import get_user_language_url
+
+        # Simulate what the function does
+        event_url = get_user_language_url(
+            self.user, 'crush_lu:event_detail', self.request,
+            kwargs={'event_id': self.event.id}
+        )
+        dashboard_url = get_user_language_url(
+            self.user, 'crush_lu:dashboard', self.request
+        )
+
+        # French user should get French URLs
+        self.assertIn('/fr/events/', event_url)
+        self.assertIn('/fr/dashboard/', dashboard_url)
+
+    def test_invitation_approval_urls_have_language_prefix(self):
+        """Test invitation approval email uses i18n URLs."""
+        from crush_lu.email_helpers import get_user_language_url, get_email_base_urls
+
+        # Simulate what send_invitation_approval_email does
+        event_url = get_user_language_url(
+            self.user, 'crush_lu:event_detail', self.request,
+            kwargs={'event_id': self.event.id}
+        )
+        dashboard_url = get_user_language_url(
+            self.user, 'crush_lu:dashboard', self.request
+        )
+        base_urls = get_email_base_urls(self.user, self.request)
+
+        # All should have French prefix
+        self.assertIn('/fr/', event_url)
+        self.assertIn('/fr/', dashboard_url)
+        self.assertIn('/fr/', base_urls['events_url'])
+
+    def test_invitation_rejection_includes_events_url(self):
+        """Test invitation rejection email includes events_url in context."""
+        from crush_lu.email_helpers import get_user_language_url
+
+        # This was a bug - events_url was missing from context
+        events_url = get_user_language_url(
+            self.user, 'crush_lu:event_list', self.request
+        )
+
+        self.assertIn('/fr/events/', events_url)
+        self.assertIsNotNone(events_url)
+
+
+@override_settings(ROOT_URLCONF='azureproject.urls_crush')
+class WelcomeEmailI18nTests(SiteTestMixin, TestCase):
+    """Test welcome email URLs are correctly generated."""
+
+    def setUp(self):
+        from crush_lu.models import CrushProfile
+        from django.test import RequestFactory
+
+        self.factory = RequestFactory()
+        self.request = self.factory.get('/en/')
+        self.request.META['HTTP_HOST'] = 'crush.lu'
+        self.request.META['wsgi.url_scheme'] = 'https'
+
+        self.user = User.objects.create_user(
+            username='welcome@test.com',
+            email='welcome@test.com',
+            password='testpass123',
+            first_name='Welcome'
+        )
+
+        # New users may not have a profile yet, so test default behavior
+        self.profile = CrushProfile.objects.create(
+            user=self.user,
+            date_of_birth=date(1995, 1, 1),
+            gender='M',
+            location='Luxembourg',
+            is_approved=False,
+            preferred_language='de'
+        )
+
+    def test_welcome_email_profile_url_has_language_prefix(self):
+        """Test welcome email profile URL has language prefix."""
+        from crush_lu.email_helpers import get_user_language_url
+
+        profile_url = get_user_language_url(
+            self.user, 'crush_lu:create_profile', self.request
+        )
+
+        self.assertIn('/de/create-profile/', profile_url)
+
+    def test_welcome_email_how_it_works_url_has_language_prefix(self):
+        """Test welcome email how-it-works URL has language prefix."""
+        from crush_lu.email_helpers import get_user_language_url
+
+        how_it_works_url = get_user_language_url(
+            self.user, 'crush_lu:how_it_works', self.request
+        )
+
+        self.assertIn('/de/how-it-works/', how_it_works_url)

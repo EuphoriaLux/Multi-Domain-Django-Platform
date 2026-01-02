@@ -64,17 +64,45 @@ def get_unsubscribe_url(user, request):
         from .models import EmailPreference
         email_prefs = EmailPreference.get_or_create_for_user(user)
 
-        protocol = 'https' if request.is_secure() else 'http'
-        domain = request.get_host()
-        return f"{protocol}://{domain}/unsubscribe/{email_prefs.unsubscribe_token}/"
+        # Use i18n-aware URL generation (unsubscribe is inside i18n_patterns)
+        return get_user_language_url(
+            user, 'crush_lu:email_unsubscribe', request,
+            kwargs={'token': email_prefs.unsubscribe_token}
+        )
     except Exception as e:
         logger.warning(f"Could not generate unsubscribe URL for user {user.id}: {e}")
         return None
 
 
+def get_email_base_urls(user, request):
+    """
+    Generate common footer URLs for email templates.
+
+    These are the standard links that appear in the footer of all emails:
+    - Home, About, Events, Account Settings
+
+    Args:
+        user: User object with crushprofile
+        request: Django request object for domain detection
+
+    Returns:
+        dict: Dictionary of URL names to full URLs with language prefix
+    """
+    return {
+        'home_url': get_user_language_url(user, 'crush_lu:home', request),
+        'about_url': get_user_language_url(user, 'crush_lu:about', request),
+        'events_url': get_user_language_url(user, 'crush_lu:event_list', request),
+        'settings_url': get_user_language_url(user, 'crush_lu:account_settings', request),
+    }
+
+
 def get_email_context_with_unsubscribe(user, request, **extra_context):
     """
-    Create email context with unsubscribe URL.
+    Create email context with unsubscribe URL and footer links.
+
+    Includes common footer URLs (home, about, events, settings) that appear
+    in the base email template. These are generated with proper language
+    prefixes based on the user's preferred language.
 
     Args:
         user: User object
@@ -82,10 +110,14 @@ def get_email_context_with_unsubscribe(user, request, **extra_context):
         **extra_context: Additional context to include
 
     Returns:
-        dict: Context dictionary with unsubscribe_url and all extra context
+        dict: Context dictionary with unsubscribe_url, footer URLs, and all extra context
     """
+    # Get base footer URLs with proper language prefix
+    base_urls = get_email_base_urls(user, request)
+
     context = {
         'unsubscribe_url': get_unsubscribe_url(user, request),
+        **base_urls,  # home_url, about_url, events_url, settings_url
         **extra_context
     }
     return context
@@ -126,14 +158,18 @@ def send_welcome_email(user, request):
     """
     subject = "Welcome to Crush.lu! 🎉 Complete Your Profile"
 
-    # Build profile URL
-    protocol = 'https' if request.is_secure() else 'http'
-    domain = request.get_host()
-    profile_url = f"{protocol}://{domain}/create-profile/"
+    # Build profile URL with language prefix
+    # Note: create_profile is inside i18n_patterns
+    profile_url = get_user_language_url(user, 'crush_lu:create_profile', request)
+
+    # Build how it works URL with language prefix
+    how_it_works_url = get_user_language_url(user, 'crush_lu:how_it_works', request)
 
     context = get_email_context_with_unsubscribe(user, request,
         first_name=user.first_name,
+        user=user,
         profile_url=profile_url,
+        how_it_works_url=how_it_works_url,
     )
 
     html_message = render_to_string('crush_lu/emails/welcome.html', context)
@@ -210,11 +246,15 @@ def send_coach_assignment_notification(coach, profile_submission, request):
         kwargs={'submission_id': profile_submission.id}
     )
 
+    # Get base footer URLs for coach
+    base_urls = get_email_base_urls(coach.user, request)
+
     html_message = render_to_string('crush_lu/emails/coach_assignment.html', {
         'coach': coach,
         'submission': profile_submission,
         'profile': profile_submission.profile,
         'review_url': review_url,
+        **base_urls,
     })
     plain_message = strip_tags(html_message)
 
@@ -286,11 +326,15 @@ def send_profile_revision_request(profile, request, feedback):
     # Build language-prefixed URLs
     edit_profile_url = get_user_language_url(profile.user, 'crush_lu:edit_profile', request)
 
+    # Get base footer URLs
+    base_urls = get_email_base_urls(profile.user, request)
+
     html_message = render_to_string('crush_lu/emails/profile_revision_request.html', {
         'user': profile.user,
         'first_name': profile.user.first_name,
         'feedback': feedback,
         'edit_profile_url': edit_profile_url,
+        **base_urls,
     })
     plain_message = strip_tags(html_message)
 
@@ -318,10 +362,14 @@ def send_profile_rejected_notification(profile, request, reason):
     """
     subject = "Profile Review Update - Crush.lu"
 
+    # Get base footer URLs
+    base_urls = get_email_base_urls(profile.user, request)
+
     html_message = render_to_string('crush_lu/emails/profile_rejected.html', {
         'user': profile.user,
         'first_name': profile.user.first_name,
         'reason': reason,
+        **base_urls,
     })
     plain_message = strip_tags(html_message)
 
@@ -399,11 +447,15 @@ def send_event_waitlist_notification(registration, request):
     # Build language-prefixed URLs
     events_url = get_user_language_url(registration.user, 'crush_lu:event_list', request)
 
+    # Get base footer URLs
+    base_urls = get_email_base_urls(registration.user, request)
+
     html_message = render_to_string('crush_lu/emails/event_waitlist.html', {
         'user': registration.user,
         'registration': registration,
         'event': registration.event,
         'events_url': events_url,
+        **base_urls,
     })
     plain_message = strip_tags(html_message)
 
@@ -434,10 +486,14 @@ def send_event_cancellation_confirmation(user, event, request):
     # Build language-prefixed URLs
     events_url = get_user_language_url(user, 'crush_lu:event_list', request)
 
+    # Get base footer URLs
+    base_urls = get_email_base_urls(user, request)
+
     html_message = render_to_string('crush_lu/emails/event_cancellation.html', {
         'user': user,
         'event': event,
         'events_url': events_url,
+        **base_urls,
     })
     plain_message = strip_tags(html_message)
 
