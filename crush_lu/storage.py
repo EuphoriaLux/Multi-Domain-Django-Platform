@@ -2,6 +2,11 @@
 Custom Azure Storage backend for Crush.lu with SAS token support
 Provides secure, time-limited access to private blob storage
 
+Supports:
+- Production: Azure Blob Storage with HTTPS and SAS tokens
+- Development: Azurite (local Azure emulator) with HTTP
+- Fallback: Local filesystem
+
 Setup Instructions:
 1. Create a separate Azure Blob container named 'crush-profiles-private'
 2. Set container access level to "Private (no anonymous access)"
@@ -15,7 +20,7 @@ User Storage Structure:
 
 import os
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
@@ -34,32 +39,49 @@ except ImportError:
     logger.debug("Azure storage packages not available - using local filesystem")
 
 
+def is_azurite_mode():
+    """Check if we're running in Azurite (local emulator) mode."""
+    return getattr(settings, 'AZURITE_MODE', False)
+
+
 class PrivateAzureStorage(AzureStorage):
     """
     Custom Azure Storage backend that stores files privately
-    and generates SAS tokens for temporary access
+    and generates SAS tokens for temporary access.
+
+    Supports both production Azure Blob Storage and local Azurite emulator.
     """
-    account_name = getattr(settings, 'AZURE_ACCOUNT_NAME', None)
-    account_key = getattr(settings, 'AZURE_ACCOUNT_KEY', None)
     azure_container = 'crush-profiles-private'  # Separate private container
     expiration_secs = 3600  # SAS token valid for 1 hour
 
     def __init__(self, *args, **kwargs):
+        # Get credentials from settings (handles both Azurite and production)
+        self.account_name = getattr(settings, 'AZURE_ACCOUNT_NAME', None)
+        self.account_key = getattr(settings, 'AZURE_ACCOUNT_KEY', None)
+
+        # Azurite-specific configuration
+        self._is_azurite = is_azurite_mode()
+        if self._is_azurite:
+            self.connection_string = getattr(settings, 'AZURE_CONNECTION_STRING', None)
+            self.azure_ssl = False  # Azurite uses HTTP
+            self._azurite_host = getattr(settings, 'AZURITE_BLOB_HOST', '127.0.0.1:10000')
+        else:
+            self.azure_ssl = True  # Production uses HTTPS
+
         super().__init__(*args, **kwargs)
         # Set container to private (no public access)
         self.overwrite_files = False
-        self.azure_ssl = True
 
     def url(self, name, expire=None):
         """
-        Generate a time-limited SAS URL for accessing the blob
+        Generate a time-limited SAS URL for accessing the blob.
 
         Args:
             name: Blob name (file path)
             expire: Optional expiration time in seconds (default: 1 hour)
 
         Returns:
-            Secure URL with SAS token
+            Secure URL with SAS token (HTTPS for production, HTTP for Azurite)
         """
         if not expire:
             expire = self.expiration_secs
@@ -71,11 +93,22 @@ class PrivateAzureStorage(AzureStorage):
             container_name=self.azure_container,
             blob_name=name,
             permission=BlobSasPermissions(read=True),
-            expiry=datetime.utcnow() + timedelta(seconds=expire)
+            expiry=datetime.now(timezone.utc) + timedelta(seconds=expire)
         )
 
-        # Return full URL with SAS token
-        return f"https://{self.account_name}.blob.core.windows.net/{self.azure_container}/{name}?{sas_token}"
+        # Build URL based on environment
+        if self._is_azurite:
+            # Azurite URL format: http://host:port/account/container/blob?sas
+            return (
+                f"http://{self._azurite_host}/{self.account_name}/"
+                f"{self.azure_container}/{name}?{sas_token}"
+            )
+        else:
+            # Production Azure URL format: https://account.blob.core.windows.net/container/blob?sas
+            return (
+                f"https://{self.account_name}.blob.core.windows.net/"
+                f"{self.azure_container}/{name}?{sas_token}"
+            )
 
 
 class CrushProfilePhotoStorage(PrivateAzureStorage):
@@ -114,8 +147,9 @@ def initialize_user_storage(user_id):
     Create user storage folder structure with a marker file.
 
     This function creates the folder structure for a user in Azure Blob Storage
-    (or local filesystem in development). Azure Blob Storage doesn't have true
-    folders, but creating a file at a path implicitly creates the "folder" structure.
+    (Azurite in development, Azure in production) or local filesystem as fallback.
+    Azure Blob Storage doesn't have true folders, but creating a file at a path
+    implicitly creates the "folder" structure.
 
     Structure created:
         users/{user_id}/.user_created    # Empty marker file
@@ -132,9 +166,9 @@ def initialize_user_storage(user_id):
     marker_path = f"users/{user_id}/.user_created"
 
     try:
-        # Check if we're in production (Azure) or development (local)
-        if os.getenv('AZURE_ACCOUNT_NAME'):
-            # Production: Use CrushProfilePhotoStorage
+        # Check storage mode: Azurite, Production Azure, or Local filesystem
+        if is_azurite_mode() or os.getenv('AZURE_ACCOUNT_NAME'):
+            # Use CrushProfilePhotoStorage for both Azurite and production Azure
             storage = CrushProfilePhotoStorage()
 
             # Check if marker already exists
@@ -144,9 +178,10 @@ def initialize_user_storage(user_id):
 
             # Create empty marker file
             storage.save(marker_path, ContentFile(b''))
-            logger.info(f"Initialized Azure storage for user {user_id}")
+            mode = "Azurite" if is_azurite_mode() else "Azure"
+            logger.info(f"Initialized {mode} storage for user {user_id}")
         else:
-            # Development: Use default storage (local filesystem)
+            # Fallback: Use default storage (local filesystem)
             if default_storage.exists(marker_path):
                 logger.debug(f"User storage already initialized for user {user_id}")
                 return True
@@ -179,7 +214,7 @@ def user_storage_exists(user_id):
     marker_path = f"users/{user_id}/.user_created"
 
     try:
-        if os.getenv('AZURE_ACCOUNT_NAME'):
+        if is_azurite_mode() or os.getenv('AZURE_ACCOUNT_NAME'):
             storage = CrushProfilePhotoStorage()
             return storage.exists(marker_path)
         else:
@@ -187,3 +222,195 @@ def user_storage_exists(user_id):
     except Exception as e:
         logger.error(f"Error checking storage for user {user_id}: {str(e)}")
         return False
+
+
+def delete_user_storage(user_id):
+    """
+    Delete all blobs in a user's storage folder from ALL containers.
+
+    Removes all files under users/{user_id}/ from:
+        - 'media' container (public) - actual photos
+        - 'crush-profiles-private' container - marker files
+
+    Works with both Azurite (local emulator) and production Azure Blob Storage.
+    For local filesystem fallback, deletes the entire user directory.
+
+    Args:
+        user_id: The Django User ID
+
+    Returns:
+        tuple: (success: bool, deleted_count: int)
+    """
+    prefix = f"users/{user_id}/"
+    deleted_count = 0
+
+    try:
+        if is_azurite_mode() or os.getenv('AZURE_ACCOUNT_NAME'):
+            # Azure Blob Storage (Azurite or production)
+            # Need to clean up BOTH containers:
+            # 1. 'media' (public) - where actual photos are stored
+            # 2. 'crush-profiles-private' - where marker files are stored
+
+            # Get the private storage to access its blob service client
+            private_storage = CrushProfilePhotoStorage()
+
+            # Get BlobServiceClient from the container client
+            # We need to access both containers
+            account_url = private_storage.client.url.rsplit('/', 1)[0]
+
+            from azure.storage.blob import BlobServiceClient
+
+            if is_azurite_mode():
+                # Azurite connection
+                connection_string = getattr(settings, 'AZURE_CONNECTION_STRING', None)
+                blob_service = BlobServiceClient.from_connection_string(connection_string)
+            else:
+                # Production Azure
+                blob_service = BlobServiceClient(
+                    account_url=f"https://{private_storage.account_name}.blob.core.windows.net",
+                    credential=private_storage.account_key
+                )
+
+            # Containers to clean up
+            containers = [
+                getattr(settings, 'AZURE_CONTAINER_NAME', 'media'),  # Public media
+                'crush-profiles-private',  # Private profile data
+            ]
+
+            for container_name in containers:
+                try:
+                    container_client = blob_service.get_container_client(container_name)
+
+                    # List all blobs with the user's prefix
+                    blobs = list(container_client.list_blobs(name_starts_with=prefix))
+
+                    for blob in blobs:
+                        try:
+                            container_client.delete_blob(blob.name)
+                            deleted_count += 1
+                            logger.debug(f"Deleted blob: {container_name}/{blob.name}")
+                        except Exception as e:
+                            logger.warning(
+                                f"Failed to delete blob {container_name}/{blob.name}: {e}"
+                            )
+
+                    if blobs:
+                        logger.debug(
+                            f"Deleted {len(blobs)} blob(s) from {container_name} "
+                            f"for user {user_id}"
+                        )
+
+                except Exception as e:
+                    logger.warning(f"Error accessing container {container_name}: {e}")
+
+            if deleted_count > 0:
+                mode = "Azurite" if is_azurite_mode() else "Azure"
+                logger.info(
+                    f"Deleted {deleted_count} blob(s) from {mode} storage "
+                    f"for user {user_id}"
+                )
+            else:
+                logger.debug(f"No blobs found for user {user_id}")
+
+        else:
+            # Local filesystem fallback
+            import shutil
+            user_dir = os.path.join(settings.MEDIA_ROOT, f"users/{user_id}")
+
+            if os.path.exists(user_dir):
+                # Count files before deletion
+                for root, dirs, files in os.walk(user_dir):
+                    deleted_count += len(files)
+
+                shutil.rmtree(user_dir)
+                logger.info(
+                    f"Deleted local storage folder for user {user_id} "
+                    f"({deleted_count} files)"
+                )
+            else:
+                logger.debug(f"No local storage folder found for user {user_id}")
+
+        return (True, deleted_count)
+
+    except Exception as e:
+        logger.error(f"Failed to delete storage for user {user_id}: {e}")
+        return (False, deleted_count)
+
+
+def list_user_storage_folders():
+    """
+    List all user IDs that have storage folders in blob storage.
+
+    Scans the users/ prefix in ALL containers and extracts unique user IDs.
+    Used by the cleanup_orphan_storage management command to find orphaned folders.
+
+    Containers scanned:
+        - 'media' (public) - actual photos
+        - 'crush-profiles-private' - marker files
+
+    Returns:
+        set: Set of user IDs (as integers) that have storage folders
+    """
+    user_ids = set()
+
+    try:
+        if is_azurite_mode() or os.getenv('AZURE_ACCOUNT_NAME'):
+            # Azure Blob Storage (Azurite or production)
+            from azure.storage.blob import BlobServiceClient
+
+            private_storage = CrushProfilePhotoStorage()
+
+            if is_azurite_mode():
+                connection_string = getattr(settings, 'AZURE_CONNECTION_STRING', None)
+                blob_service = BlobServiceClient.from_connection_string(connection_string)
+            else:
+                blob_service = BlobServiceClient(
+                    account_url=f"https://{private_storage.account_name}.blob.core.windows.net",
+                    credential=private_storage.account_key
+                )
+
+            # Scan both containers
+            containers = [
+                getattr(settings, 'AZURE_CONTAINER_NAME', 'media'),
+                'crush-profiles-private',
+            ]
+
+            for container_name in containers:
+                try:
+                    container_client = blob_service.get_container_client(container_name)
+                    blobs = container_client.list_blobs(name_starts_with="users/")
+
+                    for blob in blobs:
+                        parts = blob.name.split('/')
+                        if len(parts) >= 2 and parts[0] == "users":
+                            try:
+                                user_id = int(parts[1])
+                                if user_id > 0:
+                                    user_ids.add(user_id)
+                            except ValueError:
+                                logger.warning(f"Invalid user folder path: {blob.name}")
+
+                except Exception as e:
+                    logger.warning(f"Error scanning container {container_name}: {e}")
+
+        else:
+            # Local filesystem fallback
+            users_dir = os.path.join(settings.MEDIA_ROOT, "users")
+
+            if os.path.exists(users_dir):
+                for folder_name in os.listdir(users_dir):
+                    folder_path = os.path.join(users_dir, folder_name)
+                    if os.path.isdir(folder_path):
+                        try:
+                            user_id = int(folder_name)
+                            if user_id > 0:
+                                user_ids.add(user_id)
+                        except ValueError:
+                            logger.warning(f"Invalid user folder: {folder_name}")
+
+        logger.debug(f"Found {len(user_ids)} user storage folders")
+        return user_ids
+
+    except Exception as e:
+        logger.error(f"Failed to list user storage folders: {e}")
+        return set()

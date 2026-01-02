@@ -170,3 +170,15 @@ CLAUDE.md
 
 # Production database queries/exports (sensitive data)
 Query_from_production/
+
+# Azurite (Azure Blob Storage emulator) - local development
+__azurite_db_*.json
+__blobstorage__/
+__queuestorage__/
+__tablestorage__/
+
+# Windows special device name file (created accidentally)
+nul
+
+# Local development documentation (personal notes)
+LOCAL_DEV_SETUP.md

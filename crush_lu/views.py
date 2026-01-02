@@ -281,17 +281,28 @@ def delete_user_data(user, confirmation_code):
     Delete or anonymize a user's data.
 
     This function:
-    1. Deletes CrushProfile and related data
-    2. Deletes social account connections
-    3. Anonymizes the user account (or deletes entirely)
+    1. Deletes user's blob storage folder (photos, exports, etc.)
+    2. Deletes CrushProfile and related data
+    3. Deletes social account connections
+    4. Anonymizes the user account (or deletes entirely)
 
     Args:
         user: The Django User instance
         confirmation_code: Unique code for tracking this deletion
     """
     from allauth.socialaccount.models import SocialAccount, SocialToken
+    from crush_lu.storage import delete_user_storage
 
     logger.info(f"Starting data deletion for user {user.id}, confirmation: {confirmation_code}")
+
+    # Clean up blob storage folder (users/{user_id}/)
+    # This removes the marker file and any orphaned files
+    # Individual photo files are also deleted below, but this ensures the folder is removed
+    success, deleted_count = delete_user_storage(user.id)
+    if success and deleted_count > 0:
+        logger.info(f"Deleted {deleted_count} blob(s) from storage for user {user.id}")
+    elif not success:
+        logger.warning(f"Failed to clean up storage for user {user.id}, continuing with deletion")
 
     try:
         # Delete CrushProfile if exists

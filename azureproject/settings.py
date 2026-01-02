@@ -446,8 +446,62 @@ POWERUP_DEFAULT_PROFILE_URL = os.getenv(
     '/static/images/default-profile.png'
 )
 
-# Azure Blob Storage Settings (Conditional for Development)
-if os.getenv('AZURE_ACCOUNT_NAME'):
+# =============================================================================
+# STORAGE CONFIGURATION
+# =============================================================================
+# Priority: 1) Azurite (local emulator), 2) Azure Blob Storage, 3) Local filesystem
+
+# Azurite (Azure Storage Emulator) for local development
+AZURITE_MODE = os.environ.get('USE_AZURITE', 'false').lower() == 'true'
+
+if AZURITE_MODE:
+    # Azurite well-known development credentials
+    AZURE_ACCOUNT_NAME = 'devstoreaccount1'
+    AZURE_ACCOUNT_KEY = (
+        'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq'
+        '/K1SZFPTOtr/KBHBeksoGMGw=='
+    )
+    AZURE_CONTAINER_NAME = 'media'
+    AZURITE_BLOB_HOST = '127.0.0.1:10000'
+
+    # Azurite connection string for azure-storage-blob SDK
+    AZURE_CONNECTION_STRING = (
+        f'DefaultEndpointsProtocol=http;'
+        f'AccountName={AZURE_ACCOUNT_NAME};'
+        f'AccountKey={AZURE_ACCOUNT_KEY};'
+        f'BlobEndpoint=http://{AZURITE_BLOB_HOST}/{AZURE_ACCOUNT_NAME};'
+    )
+
+    # Media URL for serving files (Azurite blob endpoint format)
+    MEDIA_URL = f'http://{AZURITE_BLOB_HOST}/{AZURE_ACCOUNT_NAME}/{AZURE_CONTAINER_NAME}/'
+
+    # Django 4.2+ STORAGES configuration for Azurite
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.azure_storage.AzureStorage',
+            'OPTIONS': {
+                'account_name': AZURE_ACCOUNT_NAME,
+                'account_key': AZURE_ACCOUNT_KEY,
+                'azure_container': AZURE_CONTAINER_NAME,
+                'connection_string': AZURE_CONNECTION_STRING,
+                'overwrite_files': True,
+            },
+        },
+        # Private storage for Crush.lu profile photos (matches production)
+        # Uses separate 'crush-profiles-private' container with SAS token access
+        'crush_private': {
+            'BACKEND': 'crush_lu.storage.CrushProfilePhotoStorage',
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
+        },
+    }
+
+    if os.environ.get('RUN_MAIN'):
+        print(f"Using Azurite (Azure Storage Emulator) at {AZURITE_BLOB_HOST}")
+
+# Azure Blob Storage Settings (Production)
+elif os.getenv('AZURE_ACCOUNT_NAME'):
     DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
     AZURE_ACCOUNT_NAME = os.getenv('AZURE_ACCOUNT_NAME')
     AZURE_ACCOUNT_KEY = os.getenv('AZURE_ACCOUNT_KEY')
@@ -469,7 +523,8 @@ if os.getenv('AZURE_ACCOUNT_NAME'):
     if 'POWERUP_DEFAULT_PROFILE_URL' not in os.environ:
         POWERUP_DEFAULT_PROFILE_URL = f'{AZURE_CONTENT_BASE_URL}/powerup/defaults/profile.png'
 
-    print("Using Azure Blob Storage for media files.")
+    if os.environ.get('RUN_MAIN'):
+        print("Using Azure Blob Storage for media files.")
 else:
     MEDIA_URL = '/media/'
     MEDIA_ROOT = BASE_DIR / 'media'
