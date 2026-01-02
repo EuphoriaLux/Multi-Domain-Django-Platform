@@ -4,7 +4,8 @@
       "Bash(dir)",
       "Bash(grep:*)",
       "Bash(cmd /c:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(.venv/Scripts/python.exe -m pytest:*)"
     ],
     "deny": [],
     "ask": []

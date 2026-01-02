@@ -4,13 +4,14 @@ User preferences admin classes for Crush.lu Coach Panel.
 Includes:
 - UserActivityAdmin
 - EmailPreferenceAdmin
+- ProfileReminderAdmin
 """
 
 from django.contrib import admin
 from django.contrib import messages as django_messages
 from django.utils.html import format_html
 
-from crush_lu.models import UserActivity, EmailPreference
+from crush_lu.models import UserActivity, EmailPreference, ProfileReminder
 
 
 class UserActivityAdmin(admin.ModelAdmin):
@@ -215,3 +216,59 @@ class EmailPreferenceAdmin(admin.ModelAdmin):
             level=django_messages.SUCCESS
         )
     disable_marketing.short_description = '🔕 Opt out of marketing'
+
+
+class ProfileReminderAdmin(admin.ModelAdmin):
+    """
+    📬 PROFILE REMINDER TRACKING
+
+    Track profile completion reminder emails sent to users.
+    Used for monitoring engagement campaigns and avoiding duplicate sends.
+    """
+    list_display = (
+        'user', 'get_email', 'reminder_type', 'sent_at', 'get_profile_status'
+    )
+    list_filter = (
+        'reminder_type', 'sent_at'
+    )
+    search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name')
+    readonly_fields = ('user', 'reminder_type', 'sent_at')
+    date_hierarchy = 'sent_at'
+    ordering = ['-sent_at']
+
+    fieldsets = (
+        ('User', {
+            'fields': ('user',)
+        }),
+        ('Reminder Details', {
+            'fields': ('reminder_type', 'sent_at')
+        }),
+    )
+
+    def get_email(self, obj):
+        """Display user's email"""
+        return obj.user.email
+    get_email.short_description = 'Email'
+    get_email.admin_order_field = 'user__email'
+
+    def get_profile_status(self, obj):
+        """Display current profile completion status"""
+        try:
+            profile = obj.user.crushprofile
+            status = profile.completion_status
+            if profile.is_approved:
+                return format_html('<span style="color: green;">✅ Approved</span>')
+            elif status == 'submitted':
+                return format_html('<span style="color: blue;">📝 Submitted</span>')
+            elif status == 'not_started':
+                return format_html('<span style="color: red;">❌ Not Started</span>')
+            else:
+                return format_html('<span style="color: orange;">🔄 {}</span>', status.title())
+        except Exception:
+            return format_html('<span style="color: gray;">— No Profile</span>')
+    get_profile_status.short_description = 'Current Status'
+
+    def get_queryset(self, request):
+        """Add computed fields for filtering"""
+        qs = super().get_queryset(request)
+        return qs.select_related('user', 'user__crushprofile')

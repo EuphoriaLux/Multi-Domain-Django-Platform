@@ -1,0 +1,46 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Last Chance to Complete Your Profile" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% trans "We miss you!" %}{% endblock %}
+
+{% block content %}
+<h2>{% trans "One week later - your profile is still incomplete" %}</h2>
+
+<p>{% trans "Hey" %} {{ user.first_name|default:user.username }},</p>
+
+<p>{% trans "This is our final reminder - your Crush.lu profile is still waiting for you!" %}</p>
+
+{% if completion_status == 'not_started' %}
+<p>{% trans "We know starting something new can feel like a big step. But here's the thing: you already took the first step by signing up. Now let's finish what you started!" %}</p>
+
+{% elif completion_status == 'step1' %}
+<p>{% trans "You've already started your profile - you're more than halfway there! Just a few more details and you'll be ready to meet amazing people." %}</p>
+
+{% elif completion_status == 'step2' %}
+<p>{% trans "You're literally one step away! Just add a photo or two and your profile goes to our review team." %}</p>
+
+{% endif %}
+
+<div class="info-box">
+    <strong>{% trans "What's happening on Crush.lu?" %}</strong>
+    <p style="margin: 0;">{% trans "People are signing up, profiles are being approved, and events are being organized. Don't miss out on the fun!" %}</p>
+</div>
+
+<p style="text-align: center;">
+    <a href="{{ profile_url }}" class="button">{% trans "Complete My Profile" %}</a>
+</p>
+
+<p style="font-size: 14px; color: #777;">
+    {% trans "If dating isn't on your mind right now, no worries - we won't send any more reminders about your profile. But your account will be here whenever you're ready!" %}
+</p>
+
+<p style="font-size: 14px; color: #777;">
+    {% trans "Have questions or need help? Just reply to this email!" %}
+</p>
+{% endblock %}
+
+{% block footer_message %}
+{% trans "This is our final profile completion reminder. We won't send any more." %}<br>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% load i18n %}
+{# Profile Completion Banner - Shows for users with incomplete profiles #}
+{# Include in dashboard.html: {% include "crush_lu/partials/profile_completion_banner.html" %} #}
+
+{% if profile and profile.completion_status != 'submitted' and not profile.is_approved %}
+<div class="bg-gradient-to-r from-crush-purple to-crush-pink p-4 rounded-crush-lg mb-6 text-white">
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+            <h3 class="font-bold text-lg flex items-center gap-2">
+                <span class="text-2xl">✨</span>
+                {% trans "Almost there! Complete your profile to meet amazing people" %}
+            </h3>
+            <p class="text-sm opacity-90 mt-1">
+                {% if profile.completion_status == 'not_started' %}
+                    {% trans "Step 1 of 4 - Let's get started with the basics!" %}
+                {% elif profile.completion_status == 'step1' %}
+                    {% trans "Step 2 of 4 - Tell us about yourself" %}
+                {% elif profile.completion_status == 'step2' %}
+                    {% trans "Step 3 of 4 - Add your photos" %}
+                {% elif profile.completion_status == 'step3' %}
+                    {% trans "Step 4 of 4 - Review and submit" %}
+                {% endif %}
+            </p>
+        </div>
+        <a href="{% url 'crush_lu:create_profile' %}"
+           class="bg-white text-crush-purple px-6 py-2 rounded-crush-pill font-semibold hover:bg-opacity-90 transition whitespace-nowrap shadow-md">
+            {% trans "Continue" %} →
+        </a>
+    </div>
+    {# Progress bar #}
+    <div class="mt-4 bg-white/30 rounded-full h-2.5">
+        <div class="bg-white rounded-full h-2.5 transition-all duration-500 ease-out"
+             style="width: {% if profile.completion_status == 'not_started' %}0{% elif profile.completion_status == 'step1' %}25{% elif profile.completion_status == 'step2' %}50{% elif profile.completion_status == 'step3' %}75{% else %}100{% endif %}%">
+        </div>
+    </div>
+    <p class="text-xs mt-2 opacity-75 text-center">
+        {% if profile.completion_status == 'not_started' %}
+            {% trans "Your journey begins here - just a few minutes to get started" %}
+        {% elif profile.completion_status == 'step1' %}
+            {% trans "Great start! Add a bit more about yourself" %}
+        {% elif profile.completion_status == 'step2' %}
+            {% trans "Looking good! Photos help you stand out" %}
+        {% elif profile.completion_status == 'step3' %}
+            {% trans "Almost done! One final review and you're set" %}
+        {% endif %}
+    </p>
+</div>
+{% endif %}

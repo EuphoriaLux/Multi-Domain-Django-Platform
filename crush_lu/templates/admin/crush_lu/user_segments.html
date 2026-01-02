@@ -1,0 +1,330 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}User Segments - Crush.lu Admin{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    /* Theme-aware CSS variables */
+    :root {
+        --card-bg: #ffffff;
+        --card-shadow: rgba(0,0,0,0.1);
+        --text-primary: #333333;
+        --text-secondary: #666666;
+        --text-muted: #999999;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --card-bg: #1e1e2e;
+            --card-shadow: rgba(0,0,0,0.3);
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --text-muted: #888888;
+        }
+    }
+
+    [data-theme="dark"] {
+        --card-bg: #1e1e2e;
+        --card-shadow: rgba(0,0,0,0.3);
+        --text-primary: #e0e0e0;
+        --text-secondary: #b0b0b0;
+        --text-muted: #888888;
+    }
+
+    .segments-container {
+        padding: 20px;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .segments-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+
+    .segments-header h1 {
+        margin: 0;
+        color: var(--text-primary);
+    }
+
+    .segments-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 32px;
+    }
+
+    .summary-card {
+        background: var(--card-bg);
+        border-radius: 8px;
+        padding: 16px 20px;
+        box-shadow: 0 2px 4px var(--card-shadow);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .summary-icon {
+        font-size: 28px;
+    }
+
+    .summary-content h3 {
+        margin: 0;
+        font-size: 24px;
+        color: var(--text-primary);
+    }
+
+    .summary-content p {
+        margin: 0;
+        font-size: 12px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .segment-category {
+        background: var(--card-bg);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 4px var(--card-shadow);
+    }
+
+    .category-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 16px;
+        border-bottom: 1px solid var(--card-shadow);
+        padding-bottom: 12px;
+    }
+
+    .category-header h2 {
+        margin: 0;
+        font-size: 18px;
+        color: var(--text-primary);
+    }
+
+    .category-icon {
+        font-size: 24px;
+    }
+
+    .segments-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 16px;
+    }
+
+    .segment-card {
+        background: var(--card-bg);
+        border-radius: 8px;
+        padding: 16px;
+        border: 1px solid var(--card-shadow);
+        transition: transform 0.2s, box-shadow 0.2s;
+        position: relative;
+    }
+
+    .segment-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px var(--card-shadow);
+    }
+
+    .segment-card.color-red {
+        border-left: 4px solid #dc3545;
+    }
+
+    .segment-card.color-orange {
+        border-left: 4px solid #fd7e14;
+    }
+
+    .segment-card.color-yellow {
+        border-left: 4px solid #ffc107;
+    }
+
+    .segment-card.color-green {
+        border-left: 4px solid #28a745;
+    }
+
+    .segment-card.color-blue {
+        border-left: 4px solid #007bff;
+    }
+
+    .segment-card.color-gray {
+        border-left: 4px solid #6c757d;
+    }
+
+    .segment-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 8px;
+    }
+
+    .segment-name {
+        font-weight: 600;
+        color: var(--text-primary);
+        font-size: 14px;
+    }
+
+    .segment-count {
+        font-size: 28px;
+        font-weight: bold;
+        color: var(--text-primary);
+    }
+
+    .segment-description {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-bottom: 12px;
+        line-height: 1.4;
+    }
+
+    .segment-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .segment-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        text-decoration: none;
+        transition: background-color 0.2s;
+    }
+
+    .segment-btn-primary {
+        background-color: #9B59B6;
+        color: white;
+    }
+
+    .segment-btn-primary:hover {
+        background-color: #8e44ad;
+        color: white;
+    }
+
+    .segment-btn-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .segment-btn-secondary:hover {
+        background-color: #5a6268;
+        color: white;
+    }
+
+    .urgent-badge {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background: #dc3545;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 14px;
+        margin-bottom: 16px;
+    }
+
+    .back-link:hover {
+        color: var(--text-primary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="segments-container">
+    <a href="{% url 'crush_admin_dashboard' %}" class="back-link">
+        &larr; Back to Dashboard
+    </a>
+
+    <div class="segments-header">
+        <h1>User Segments</h1>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="segments-summary">
+        <div class="summary-card">
+            <span class="summary-icon">👤</span>
+            <div class="summary-content">
+                <h3>{{ total_incomplete }}</h3>
+                <p>Incomplete Profiles</p>
+            </div>
+        </div>
+        <div class="summary-card">
+            <span class="summary-icon">📝</span>
+            <div class="summary-content">
+                <h3>{{ total_pending }}</h3>
+                <p>Pending Reviews</p>
+            </div>
+        </div>
+        <div class="summary-card">
+            <span class="summary-icon">😴</span>
+            <div class="summary-content">
+                <h3>{{ total_inactive }}</h3>
+                <p>Inactive Users</p>
+            </div>
+        </div>
+        <div class="summary-card">
+            <span class="summary-icon">🔔</span>
+            <div class="summary-content">
+                <h3>{{ total_reminder_eligible }}</h3>
+                <p>Reminder Eligible</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Segment Categories -->
+    {% for category_key, category in segments.items %}
+    <div class="segment-category">
+        <div class="category-header">
+            <span class="category-icon">{{ category.icon }}</span>
+            <h2>{{ category.title }}</h2>
+        </div>
+
+        <div class="segments-grid">
+            {% for segment in category.segments %}
+            <div class="segment-card color-{{ segment.color }}">
+                {% if segment.is_urgent %}
+                <span class="urgent-badge">Urgent</span>
+                {% endif %}
+
+                <div class="segment-header">
+                    <span class="segment-name">{{ segment.name }}</span>
+                    <span class="segment-count">{{ segment.count }}</span>
+                </div>
+
+                <p class="segment-description">{{ segment.description }}</p>
+
+                <div class="segment-actions">
+                    <a href="{% url 'segment_detail' segment.key %}" class="segment-btn segment-btn-primary">
+                        View Users
+                    </a>
+                    <a href="{% url 'segment_detail' segment.key %}?export=csv" class="segment-btn segment-btn-secondary">
+                        Export CSV
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -151,6 +151,7 @@ class CrushLuAdminSite(admin.AdminSite):
             'coachpushsubscription': {'order': 2, 'icon': '📣', 'group': 'Notifications'},
             'emailpreference': {'order': 3, 'icon': '📧', 'group': 'Notifications'},
             'useractivity': {'order': 4, 'icon': '📊', 'group': 'Notifications'},
+            'profilereminder': {'order': 5, 'icon': '📬', 'group': 'Notifications'},
         }
 
         # Create grouped app list - transform single crush_lu app into multiple sections

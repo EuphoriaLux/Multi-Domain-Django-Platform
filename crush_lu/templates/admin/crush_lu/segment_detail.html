@@ -1,0 +1,335 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}{{ segment.name }} - User Segments - Crush.lu Admin{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    /* Theme-aware CSS variables */
+    :root {
+        --card-bg: #ffffff;
+        --card-shadow: rgba(0,0,0,0.1);
+        --text-primary: #333333;
+        --text-secondary: #666666;
+        --text-muted: #999999;
+        --table-header-bg: #f8f9fa;
+        --table-border: #dee2e6;
+        --table-hover: #f8f9fa;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --card-bg: #1e1e2e;
+            --card-shadow: rgba(0,0,0,0.3);
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --text-muted: #888888;
+            --table-header-bg: #2a2a3e;
+            --table-border: #3a3a4e;
+            --table-hover: #2a2a3e;
+        }
+    }
+
+    [data-theme="dark"] {
+        --card-bg: #1e1e2e;
+        --card-shadow: rgba(0,0,0,0.3);
+        --text-primary: #e0e0e0;
+        --text-secondary: #b0b0b0;
+        --text-muted: #888888;
+        --table-header-bg: #2a2a3e;
+        --table-border: #3a3a4e;
+        --table-hover: #2a2a3e;
+    }
+
+    .detail-container {
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 14px;
+        margin-bottom: 16px;
+    }
+
+    .back-link:hover {
+        color: var(--text-primary);
+    }
+
+    .detail-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .detail-header h1 {
+        margin: 0;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .detail-header .badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .badge-red { background: #dc3545; color: white; }
+    .badge-orange { background: #fd7e14; color: white; }
+    .badge-yellow { background: #ffc107; color: #333; }
+    .badge-green { background: #28a745; color: white; }
+    .badge-blue { background: #007bff; color: white; }
+    .badge-gray { background: #6c757d; color: white; }
+
+    .detail-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 16px;
+        border-radius: 4px;
+        font-size: 14px;
+        text-decoration: none;
+        transition: background-color 0.2s;
+        border: none;
+        cursor: pointer;
+    }
+
+    .action-btn-primary {
+        background-color: #9B59B6;
+        color: white;
+    }
+
+    .action-btn-primary:hover {
+        background-color: #8e44ad;
+        color: white;
+    }
+
+    .action-btn-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .action-btn-secondary:hover {
+        background-color: #5a6268;
+        color: white;
+    }
+
+    .segment-info {
+        background: var(--card-bg);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 4px var(--card-shadow);
+    }
+
+    .segment-info p {
+        margin: 0;
+        color: var(--text-secondary);
+    }
+
+    .segment-info .category {
+        font-size: 12px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+    }
+
+    .users-table {
+        background: var(--card-bg);
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px var(--card-shadow);
+    }
+
+    .users-table table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .users-table th {
+        background: var(--table-header-bg);
+        padding: 12px 16px;
+        text-align: left;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--table-border);
+    }
+
+    .users-table td {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--table-border);
+        color: var(--text-primary);
+        font-size: 14px;
+    }
+
+    .users-table tr:hover td {
+        background: var(--table-hover);
+    }
+
+    .users-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .user-email {
+        font-weight: 500;
+    }
+
+    .user-name {
+        color: var(--text-secondary);
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .status-pending { background: #fff3cd; color: #856404; }
+    .status-approved { background: #d4edda; color: #155724; }
+    .status-rejected { background: #f8d7da; color: #721c24; }
+
+    .table-footer {
+        padding: 16px;
+        background: var(--table-header-bg);
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 13px;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 48px 20px;
+        color: var(--text-muted);
+    }
+
+    .empty-state h3 {
+        margin: 0 0 8px 0;
+        color: var(--text-secondary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detail-container">
+    <a href="{% url 'user_segments_dashboard' %}" class="back-link">
+        &larr; Back to User Segments
+    </a>
+
+    <div class="detail-header">
+        <h1>
+            {{ segment.name }}
+            <span class="badge badge-{{ segment.color }}">{{ total_count }} users</span>
+        </h1>
+        <div class="detail-actions">
+            <a href="?export=csv" class="action-btn action-btn-secondary">
+                Export CSV
+            </a>
+        </div>
+    </div>
+
+    <div class="segment-info">
+        <p class="category">{{ category_title }}</p>
+        <p>{{ segment.description }}</p>
+    </div>
+
+    {% if users %}
+    <div class="users-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Name</th>
+                    <th>Status / Details</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in users %}
+                <tr>
+                    {% if item.user %}
+                    {# CrushProfile, UserActivity, EmailPreference #}
+                    <td class="user-email">{{ item.user.email }}</td>
+                    <td class="user-name">{{ item.user.first_name }} {{ item.user.last_name }}</td>
+                    <td>
+                        {% if item.completion_status %}
+                            <span class="status-badge status-pending">{{ item.completion_status }}</span>
+                        {% elif item.last_seen %}
+                            Last seen: {{ item.last_seen|date:"M j, Y H:i" }}
+                        {% elif item.unsubscribed_all %}
+                            <span class="status-badge status-rejected">Unsubscribed</span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.created_at %}
+                            {{ item.created_at|date:"M j, Y" }}
+                        {% elif item.last_seen %}
+                            {{ item.last_seen|date:"M j, Y" }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    {% elif item.profile %}
+                    {# ProfileSubmission #}
+                    <td class="user-email">{{ item.profile.user.email }}</td>
+                    <td class="user-name">{{ item.profile.user.first_name }} {{ item.profile.user.last_name }}</td>
+                    <td>
+                        <span class="status-badge status-{{ item.status }}">{{ item.status }}</span>
+                        {% if item.coach %}
+                            - Coach: {{ item.coach }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.submitted_at %}
+                            {{ item.submitted_at|date:"M j, Y H:i" }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    {% else %}
+                    {# Fallback for other models #}
+                    <td colspan="4">{{ item }}</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if total_count > 100 %}
+        <div class="table-footer">
+            Showing 100 of {{ total_count }} users. Export CSV for complete list.
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <h3>No users in this segment</h3>
+        <p>There are currently no users matching this segment criteria.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

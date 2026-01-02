@@ -102,6 +102,7 @@ from .notifications import (
 from .preferences import (
     UserActivityAdmin,
     EmailPreferenceAdmin,
+    ProfileReminderAdmin,
 )
 
 from .users import (
@@ -146,6 +147,7 @@ from crush_lu.models import (
     CoachPushSubscription,
     UserActivity,
     EmailPreference,
+    ProfileReminder,
 )
 
 
@@ -205,6 +207,7 @@ crush_admin_site.register(CoachPushSubscription, CoachPushSubscriptionAdmin)
 # User Activity and Preferences
 crush_admin_site.register(UserActivity, UserActivityAdmin)
 crush_admin_site.register(EmailPreference, EmailPreferenceAdmin)
+crush_admin_site.register(ProfileReminder, ProfileReminderAdmin)
 
 # NOTE: User is NOT registered with crush_admin_site to hide "Authentication and Authorization" section
 # Users can still be viewed/edited via the "👤 User" links in CrushProfile and CrushCoach admin pages
@@ -288,6 +291,7 @@ __all__ = [
     # Preferences
     'UserActivityAdmin',
     'EmailPreferenceAdmin',
+    'ProfileReminderAdmin',
 
     # Users
     'CrushProfileUserInline',

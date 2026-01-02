@@ -767,3 +767,188 @@ def send_new_message_notification(recipient, message, request):
         request=request,
         fail_silently=False,
     )
+
+
+# =============================================================================
+# PROFILE COMPLETION REMINDER EMAILS
+# =============================================================================
+
+def get_users_needing_reminder(reminder_type):
+    """
+    Get users who need a specific profile completion reminder.
+
+    Uses configurable timing from settings.PROFILE_REMINDER_TIMING.
+
+    Logic:
+    - 24h: Created 24-48h ago, completion_status in ['not_started', 'step1', 'step2'], no 24h reminder sent
+    - 72h: Created 72-96h ago, incomplete, has 24h but no 72h reminder
+    - 7d: Created 7-8d ago, incomplete, has 72h but no 7d reminder
+
+    Args:
+        reminder_type: One of '24h', '72h', '7d'
+
+    Returns:
+        QuerySet of User objects
+    """
+    from django.conf import settings
+    from django.utils import timezone
+    from django.contrib.auth.models import User
+    from .models import CrushProfile, ProfileReminder
+
+    # Get timing config
+    timing = getattr(settings, 'PROFILE_REMINDER_TIMING', {})
+    if reminder_type not in timing:
+        logger.error(f"Unknown reminder type: {reminder_type}")
+        return User.objects.none()
+
+    min_hours = timing[reminder_type]['min_hours']
+    max_hours = timing[reminder_type]['max_hours']
+
+    now = timezone.now()
+    min_created = now - timezone.timedelta(hours=max_hours)
+    max_created = now - timezone.timedelta(hours=min_hours)
+
+    # Incomplete statuses that need reminders
+    incomplete_statuses = ['not_started', 'step1', 'step2', 'step3']
+
+    # Get users with incomplete profiles in the time window
+    users = User.objects.filter(
+        crushprofile__completion_status__in=incomplete_statuses,
+        crushprofile__created_at__gte=min_created,
+        crushprofile__created_at__lte=max_created,
+    ).exclude(
+        # Exclude users who already got this reminder type
+        profile_reminders__reminder_type=reminder_type
+    )
+
+    # For 72h and 7d, require previous reminder to have been sent
+    if reminder_type == '72h':
+        # Must have received 24h reminder
+        users = users.filter(profile_reminders__reminder_type='24h')
+    elif reminder_type == '7d':
+        # Must have received 72h reminder
+        users = users.filter(profile_reminders__reminder_type='72h')
+
+    return users.distinct()
+
+
+def send_profile_incomplete_reminder(user, reminder_type, request=None):
+    """
+    Send a profile completion reminder email.
+
+    Args:
+        user: User object
+        reminder_type: One of '24h', '72h', '7d'
+        request: Optional Django request object. If None, creates a mock request.
+
+    Returns:
+        bool: True if email was sent successfully
+    """
+    from django.utils import timezone
+    from .models import CrushProfile, ProfileReminder, UserActivity, EmailPreference
+
+    # Check email preferences
+    if not can_send_email(user, 'profile_updates'):
+        logger.info(f"Skipping profile reminder to {user.email} - user unsubscribed from profile_updates")
+        return False
+
+    # Get user's profile
+    try:
+        profile = user.crushprofile
+    except CrushProfile.DoesNotExist:
+        logger.warning(f"User {user.id} has no CrushProfile, skipping reminder")
+        return False
+
+    # Don't send reminders for completed/submitted profiles
+    if profile.completion_status in ['completed', 'submitted']:
+        logger.info(f"User {user.email} already has completion_status={profile.completion_status}, skipping")
+        return False
+
+    # Select template based on reminder type
+    template_map = {
+        '24h': 'crush_lu/emails/profile_incomplete_24h.html',
+        '72h': 'crush_lu/emails/profile_incomplete_72h.html',
+        '7d': 'crush_lu/emails/profile_incomplete_final.html',
+    }
+    template = template_map.get(reminder_type)
+    if not template:
+        logger.error(f"Unknown reminder type: {reminder_type}")
+        return False
+
+    # Subject lines
+    subject_map = {
+        '24h': "Complete Your Profile - Crush.lu",
+        '72h': "Don't Miss Out - Your Profile is Waiting",
+        '7d': "Last Chance to Complete Your Profile - Crush.lu",
+    }
+    subject = subject_map[reminder_type]
+
+    # Build profile URL - need to handle case where request is None
+    if request:
+        profile_url = get_user_language_url(user, 'crush_lu:create_profile', request)
+        context = get_email_context_with_unsubscribe(user, request,
+            user=user,
+            completion_status=profile.completion_status,
+            profile_url=profile_url,
+        )
+    else:
+        # Create minimal context for batch sending without request
+        # Use user's preferred language for URL
+        lang = getattr(profile, 'preferred_language', 'en') or 'en'
+        profile_url = f"https://crush.lu/{lang}/create-profile/"
+
+        # Get or create email preferences for unsubscribe URL
+        email_prefs = EmailPreference.get_or_create_for_user(user)
+        unsubscribe_url = f"https://crush.lu/{lang}/email/unsubscribe/{email_prefs.unsubscribe_token}/"
+
+        context = {
+            'user': user,
+            'completion_status': profile.completion_status,
+            'profile_url': profile_url,
+            'unsubscribe_url': unsubscribe_url,
+            'home_url': f'https://crush.lu/{lang}/',
+            'about_url': f'https://crush.lu/{lang}/about/',
+            'events_url': f'https://crush.lu/{lang}/events/',
+            'settings_url': f'https://crush.lu/{lang}/account/settings/',
+        }
+
+    # Render email
+    html_message = render_to_string(template, context)
+    plain_message = strip_tags(html_message)
+
+    # Send email
+    try:
+        result = send_domain_email(
+            subject=subject,
+            message=plain_message,
+            html_message=html_message,
+            recipient_list=[user.email],
+            request=request,
+            fail_silently=False,
+        )
+
+        if result > 0:
+            # Record reminder sent
+            ProfileReminder.objects.create(
+                user=user,
+                reminder_type=reminder_type,
+            )
+
+            # Update UserActivity if it exists
+            try:
+                activity = user.activity
+                activity.last_reminder_sent = timezone.now()
+                activity.reminders_sent_count += 1
+                activity.save(update_fields=['last_reminder_sent', 'reminders_sent_count'])
+            except UserActivity.DoesNotExist:
+                pass
+
+            logger.info(f"✅ Sent {reminder_type} profile reminder to {user.email}")
+            return True
+        else:
+            logger.warning(f"Email send returned 0 for {user.email}")
+            return False
+
+    except Exception as e:
+        logger.error(f"❌ Failed to send {reminder_type} reminder to {user.email}: {e}", exc_info=True)
+        return False

@@ -572,6 +572,17 @@ class UserActivity(models.Model):
         help_text="Total number of visits/requests"
     )
 
+    # Re-engagement tracking
+    last_reminder_sent = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Last time a reminder email was sent to this user"
+    )
+    reminders_sent_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Total number of reminder emails sent to this user"
+    )
+
     # Metadata
     first_seen = models.DateTimeField(
         auto_now_add=True,
@@ -613,6 +624,23 @@ class UserActivity(models.Model):
         if not self.is_pwa_user or not self.last_pwa_visit:
             return False
         return (timezone.now() - self.last_pwa_visit).days < 30
+
+    @property
+    def days_inactive(self):
+        """Days since last activity"""
+        if not self.last_seen:
+            return None
+        return (timezone.now() - self.last_seen).days
+
+    @property
+    def needs_reengagement(self):
+        """True if user is inactive and hasn't been contacted recently."""
+        if not self.days_inactive or self.days_inactive < 7:
+            return False
+        if self.last_reminder_sent:
+            days_since_reminder = (timezone.now() - self.last_reminder_sent).days
+            return days_since_reminder >= 7
+        return True
 
 
 class PushSubscription(models.Model):
@@ -937,3 +965,41 @@ class CoachPushSubscription(models.Model):
             self.delete()
         else:
             self.save(update_fields=['failure_count'])
+
+
+class ProfileReminder(models.Model):
+    """
+    Tracks profile completion reminder emails sent to users.
+    Used to ensure we don't spam users with multiple reminders of the same type.
+    """
+
+    REMINDER_TYPE_CHOICES = [
+        ('24h', '24 Hour'),
+        ('72h', '72 Hour'),
+        ('7d', '7 Day Final'),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='profile_reminders',
+        help_text="User who received this reminder"
+    )
+    reminder_type = models.CharField(
+        max_length=10,
+        choices=REMINDER_TYPE_CHOICES,
+        help_text="Type of reminder sent"
+    )
+    sent_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When the reminder was sent"
+    )
+
+    class Meta:
+        unique_together = ['user', 'reminder_type']  # One of each type per user
+        ordering = ['-sent_at']
+        verbose_name = "Profile Reminder"
+        verbose_name_plural = "📬 Profile Reminders"
+
+    def __str__(self):
+        return f"{self.user.email} - {self.get_reminder_type_display()} ({self.sent_at.date()})"

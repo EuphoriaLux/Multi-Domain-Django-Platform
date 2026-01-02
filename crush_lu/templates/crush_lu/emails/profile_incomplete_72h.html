@@ -1,0 +1,60 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Don't Miss Out" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% trans "Still thinking about it?" %}{% endblock %}
+
+{% block content %}
+<h2>{% trans "Your profile is" %} {% if completion_status == 'not_started' %}{% trans "waiting to be created" %}{% else %}{% trans "almost ready" %}{% endif %}</h2>
+
+<p>{% trans "Hey" %} {{ user.first_name|default:user.username }},</p>
+
+<p>{% trans "We noticed you started signing up a few days ago but haven't finished your profile yet. We get it - life gets busy!" %}</p>
+
+{% if completion_status == 'not_started' %}
+<div class="info-box">
+    <strong>{% trans "Why complete your profile now?" %}</strong>
+    <ul>
+        <li>{% trans "Meet like-minded people at our events" %}</li>
+        <li>{% trans "Join exclusive speed dating and mixer events" %}</li>
+        <li>{% trans "Connect with the Luxembourg dating community" %}</li>
+    </ul>
+</div>
+
+<p>{% trans "It only takes 5 minutes to create your profile. Our friendly coaches will review it personally to ensure everyone has a great experience." %}</p>
+
+{% elif completion_status == 'step1' %}
+<p>{% trans "You've already done the hard part - now just add a short bio and your interests. This helps us match you with events and people you'll actually enjoy meeting." %}</p>
+
+<div class="info-box">
+    <strong>{% trans "Pro tip:" %}</strong>
+    <p style="margin: 0;">{% trans "Be authentic! Mention your hobbies, what makes you laugh, or what you're passionate about." %}</p>
+</div>
+
+{% elif completion_status == 'step2' %}
+<p>{% trans "You're SO close! Just add 1-3 photos and you're done. Your privacy is protected - you can blur photos or show only your first name." %}</p>
+
+<div class="info-box">
+    <strong>{% trans "Photo tips:" %}</strong>
+    <ul>
+        <li>{% trans "Use a clear, recent photo of yourself" %}</li>
+        <li>{% trans "Show your personality - hobbies, travel, pets" %}</li>
+        <li>{% trans "Smile! It makes a huge difference" %}</li>
+    </ul>
+</div>
+
+{% endif %}
+
+<p style="text-align: center;">
+    <a href="{{ profile_url }}" class="button">{% trans "Finish My Profile Now" %}</a>
+</p>
+
+<p style="font-size: 14px; color: #777; text-align: center;">
+    {% trans "Questions? Reply to this email and we'll help you out!" %}
+</p>
+{% endblock %}
+
+{% block footer_message %}
+{% trans "You're receiving this because you signed up for Crush.lu but haven't completed your profile." %}<br>
+{% endblock %}

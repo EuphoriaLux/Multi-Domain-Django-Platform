@@ -151,28 +151,25 @@ WSGI_APPLICATION = 'azureproject.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
 
-# To use sqllite as the database engine,
-#   uncomment the following block and comment out the Postgres section below
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Uses PostgreSQL if DBHOST is set in .env, otherwise falls back to SQLite
+if os.environ.get('DBHOST'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DBNAME', 'entreprinder'),
+            'HOST': os.environ.get('DBHOST', 'localhost'),
+            'USER': os.environ.get('DBUSER', 'postgres'),
+            'PASSWORD': os.environ.get('DBPASS', ''),
+            'PORT': os.environ.get('DBPORT', '5432'),
+        }
     }
-}
-
-
-# Configure Postgres database for local development
-#   Set these environment variables in the .env file for this project.
-#DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.postgresql',
-#        'NAME': os.environ.get('DBNAME'),
-#        'HOST': os.environ.get('DBHOST'),
-#        'USER': os.environ.get('DBUSER'),
-#        'PASSWORD': os.environ.get('DBPASS'),
-#    }
-#}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -496,6 +493,28 @@ CSRF_COOKIE_HTTPONLY = False
 
 # Custom CSRF failure view with detailed logging
 CSRF_FAILURE_VIEW = 'azureproject.middleware.csrf_failure_view'
+
+# =============================================================================
+# PROFILE REMINDER TIMING CONFIGURATION
+# =============================================================================
+# Configurable timing windows for profile completion reminder emails.
+# min_hours: Minimum time since profile creation before sending this reminder
+# max_hours: Maximum time window - don't send reminder after this point
+# Users are only eligible if they haven't received this reminder type before.
+PROFILE_REMINDER_TIMING = {
+    '24h': {
+        'min_hours': 24,
+        'max_hours': 48,
+    },
+    '72h': {
+        'min_hours': 72,
+        'max_hours': 96,
+    },
+    '7d': {
+        'min_hours': 168,  # 7 days
+        'max_hours': 192,  # 8 days
+    },
+}
 
 # =============================================================================
 # CONTENT SECURITY POLICY (CSP) SETTINGS
