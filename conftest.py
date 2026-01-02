@@ -3,7 +3,20 @@ Pytest configuration and fixtures for Crush.lu testing.
 Provides fixtures for Playwright browser testing and Django integration.
 """
 import os
+import sys
 import pytest
+from unittest.mock import MagicMock
+
+# Mock pywebpush module before Django imports it
+# This allows tests to run without installing pywebpush (which has complex C dependencies)
+mock_pywebpush = MagicMock()
+mock_pywebpush.WebPushException = type('WebPushException', (Exception,), {
+    '__init__': lambda self, message, response=None: (
+        setattr(self, 'response', response) or Exception.__init__(self, message)
+    )
+})
+mock_pywebpush.webpush = MagicMock()
+sys.modules['pywebpush'] = mock_pywebpush
 
 
 # Force synchronous database operations for Playwright tests
