@@ -11,7 +11,7 @@
                 <p class="text-gray-500 mb-6"><small>Last Updated: January 14, 2025</small></p>
 
                 <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-6 flex items-start gap-3">
-                    {% include "crush_lu/icons/info.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
+                    {% include "shared/icons/info.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
                     <div>
                         <strong>Your Right to Erasure</strong><br>
                         Under GDPR and Luxembourg data protection laws, you have the right to request deletion of your personal data.
@@ -60,7 +60,7 @@
                 <h5 class="font-semibold mt-4 mb-2">Option 1: Delete Through Your Account (Recommended)</h5>
                 {% if user.is_authenticated %}
                 <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 mb-4 flex items-start gap-3">
-                    {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
+                    {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
                     <span><strong>Warning:</strong> Account deletion is permanent and cannot be undone.</span>
                 </div>
                 <ol class="list-decimal list-inside space-y-2 mb-6 text-gray-700">
@@ -198,7 +198,7 @@
                         Our team is here to assist with any privacy concerns or technical issues.
                     </p>
                     <a href="mailto:privacy@crush.lu" class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3">
-                        {% include "crush_lu/icons/envelope.html" with class="w-4 h-4" %}
+                        {% include "shared/icons/envelope.html" with class="w-4 h-4" %}
                         Contact Privacy Team
                     </a>
                 </div>

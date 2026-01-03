@@ -111,7 +111,7 @@
             <!-- Success Alert -->
             <div class="alert alert-success" style="background: rgba(25, 135, 84, 0.1); border: 1px solid rgba(25, 135, 84, 0.3);">
                 <h5 class="alert-heading">
-                    {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} You're In!
+                    {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} You're In!
                 </h5>
                 <p class="mb-0">
                     Your invitation has been accepted and your guest account is ready.
@@ -125,7 +125,7 @@
 
                 <div class="timeline-item">
                     <div class="timeline-icon completed">
-                        {% include "crush_lu/icons/envelope-open.html" with class="w-5 h-5" %}
+                        {% include "shared/icons/envelope-open.html" with class="w-5 h-5" %}
                     </div>
                     <div class="timeline-content">
                         <h6>✅ Invitation Received</h6>
@@ -135,7 +135,7 @@
 
                 <div class="timeline-item">
                     <div class="timeline-icon completed">
-                        {% include "crush_lu/icons/user-plus.html" with class="w-5 h-5" %}
+                        {% include "shared/icons/user-plus.html" with class="w-5 h-5" %}
                     </div>
                     <div class="timeline-content">
                         <h6>✅ Account Created</h6>
@@ -145,7 +145,7 @@
 
                 <div class="timeline-item">
                     <div class="timeline-icon active">
-                        {% include "crush_lu/icons/clock.html" with class="w-5 h-5" %}
+                        {% include "shared/icons/clock.html" with class="w-5 h-5" %}
                     </div>
                     <div class="timeline-content">
                         <h6>⏳ Pending Coach Approval</h6>
@@ -155,7 +155,7 @@
 
                 <div class="timeline-item">
                     <div class="timeline-icon pending">
-                        {% include "crush_lu/icons/envelope.html" with class="w-5 h-5" %}
+                        {% include "shared/icons/envelope.html" with class="w-5 h-5" %}
                     </div>
                     <div class="timeline-content">
                         <h6>Email Confirmation</h6>
@@ -165,7 +165,7 @@
 
                 <div class="timeline-item">
                     <div class="timeline-icon pending">
-                        {% include "crush_lu/icons/calendar.html" with class="w-5 h-5" %}
+                        {% include "shared/icons/calendar.html" with class="w-5 h-5" %}
                     </div>
                     <div class="timeline-content">
                         <h6>Register for Event</h6>
@@ -176,7 +176,7 @@
 
             <!-- What to Expect -->
             <div class="alert alert-info" style="background: rgba(13, 202, 240, 0.1); border: 1px solid rgba(13, 202, 240, 0.3);">
-                <h6 class="alert-heading">{% include "crush_lu/icons/information-circle.html" with class="w-5 h-5" %} What to Expect</h6>
+                <h6 class="alert-heading">{% include "shared/icons/information-circle.html" with class="w-5 h-5" %} What to Expect</h6>
                 <ul class="text-start mb-0">
                     <li>
                         <strong>Check Your Email:</strong>
@@ -200,19 +200,19 @@
             <!-- Event Details Box -->
             <div class="mt-4 p-4" style="background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(255, 107, 157, 0.05)); border-radius: 15px;">
                 <h5 style="color: var(--crush-purple);">
-                    {% include "crush_lu/icons/calendar.html" with class="w-5 h-5" %} Event Details
+                    {% include "shared/icons/calendar.html" with class="w-5 h-5" %} Event Details
                 </h5>
                 <h4 class="mt-3">{{ event.title }}</h4>
                 <p class="mb-1">
-                    {% include "crush_lu/icons/calendar-days.html" with class="w-5 h-5" %}
+                    {% include "shared/icons/calendar-days.html" with class="w-5 h-5" %}
                     <strong>{{ event.date_time|date:"l, F j, Y" }}</strong>
                 </p>
                 <p class="mb-1">
-                    {% include "crush_lu/icons/clock.html" with class="w-5 h-5" %}
+                    {% include "shared/icons/clock.html" with class="w-5 h-5" %}
                     {{ event.date_time|date:"g:i A" }} ({{ event.duration_minutes }} minutes)
                 </p>
                 <p class="mb-0">
-                    {% include "crush_lu/icons/map-pin.html" with class="w-5 h-5" %}
+                    {% include "shared/icons/map-pin.html" with class="w-5 h-5" %}
                     {{ event.location }}
                 </p>
             </div>
@@ -220,7 +220,7 @@
             <!-- Action Buttons -->
             <div class="mt-8">
                 <a href="{% url 'crush_lu:dashboard' %}" class="btn-crush-primary inline-flex items-center gap-2 px-8 py-3 text-lg">
-                    {% include "crush_lu/icons/home.html" with class="w-5 h-5" %} Go to Dashboard
+                    {% include "shared/icons/home.html" with class="w-5 h-5" %} Go to Dashboard
                 </a>
                 <p class="mt-3 text-muted">
                     <small>
@@ -234,7 +234,7 @@
         <div class="text-center mt-4">
             <p class="text-muted">
                 <small>
-                    {% include "crush_lu/icons/question-mark-circle.html" with class="w-5 h-5" %}
+                    {% include "shared/icons/question-mark-circle.html" with class="w-5 h-5" %}
                     Need help? Contact us at
                     <a href="mailto:hello@crush.lu">hello@crush.lu</a>
                 </small>

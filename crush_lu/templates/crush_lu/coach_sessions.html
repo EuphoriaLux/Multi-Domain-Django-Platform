@@ -5,7 +5,7 @@
 {% block content %}
 <div class="max-w-4xl mx-auto">
     <a href="{% url 'crush_lu:coach_dashboard' %}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors mb-4">
-        {% include "crush_lu/icons/arrow-left.html" with class="w-4 h-4" %}
+        {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
         Back to Dashboard
     </a>
 
@@ -30,7 +30,7 @@
                                     {% endif %}
                                     {% if session.completed_at %}
                                         <p class="text-green-600 text-sm flex items-center gap-1">
-                                            {% include "crush_lu/icons/check-circle.html" with class="w-4 h-4" %}
+                                            {% include "shared/icons/check-circle.html" with class="w-4 h-4" %}
                                             Completed: {{ session.completed_at|date:"M j, Y g:i A" }}
                                         </p>
                                     {% endif %}

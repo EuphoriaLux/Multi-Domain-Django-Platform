@@ -8,7 +8,7 @@
         <div class="bg-white rounded-xl shadow-lg border-2 border-red-500 overflow-hidden">
             <div class="bg-red-500 text-white px-6 py-4">
                 <h4 class="text-xl font-semibold flex items-center">
-                    {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}Delete Your Account
+                    {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}Delete Your Account
                 </h4>
             </div>
             <div class="p-6">
@@ -19,7 +19,7 @@
                     <div class="flex justify-between items-start">
                         <span>{{ message }}</span>
                         <button @click="dismiss" class="ml-4 text-current opacity-70 hover:opacity-100">
-                            {% include "crush_lu/icons/x-mark.html" with class="w-5 h-5" %}
+                            {% include "shared/icons/x-mark.html" with class="w-5 h-5" %}
                         </button>
                     </div>
                 </div>
@@ -28,7 +28,7 @@
 
                 <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 mb-4">
                     <h5 class="font-semibold flex items-center mb-1">
-                        {% include "crush_lu/icons/exclamation-circle.html" with class="w-5 h-5" %}Warning: This action is permanent!
+                        {% include "shared/icons/exclamation-circle.html" with class="w-5 h-5" %}Warning: This action is permanent!
                     </h5>
                     <p class="mb-0">Once you delete your account, it cannot be recovered.</p>
                 </div>
@@ -36,27 +36,27 @@
                 <h5 class="mt-6 mb-4 font-semibold text-gray-900">What will be deleted:</h5>
                 <ul class="divide-y divide-gray-100 mb-6">
                     <li class="py-3 flex items-center">
-                        {% include "crush_lu/icons/user-minus.html" with class="w-6 h-6 text-red-500" %}
+                        {% include "shared/icons/user-minus.html" with class="w-6 h-6 text-red-500" %}
                         Your profile and all personal information
                     </li>
                     <li class="py-3 flex items-center">
-                        {% include "crush_lu/icons/photo.html" with class="w-6 h-6 text-red-500" %}
+                        {% include "shared/icons/photo.html" with class="w-6 h-6 text-red-500" %}
                         All your profile photos
                     </li>
                     <li class="py-3 flex items-center">
-                        {% include "crush_lu/icons/calendar.html" with class="w-6 h-6 text-red-500" %}
+                        {% include "shared/icons/calendar.html" with class="w-6 h-6 text-red-500" %}
                         All event registrations
                     </li>
                     <li class="py-3 flex items-center">
-                        {% include "crush_lu/icons/users.html" with class="w-6 h-6 text-red-500" %}
+                        {% include "shared/icons/users.html" with class="w-6 h-6 text-red-500" %}
                         All connections with other users
                     </li>
                     <li class="py-3 flex items-center">
-                        {% include "crush_lu/icons/chat-bubble-left-ellipsis.html" with class="w-6 h-6 text-red-500" %}
+                        {% include "shared/icons/chat-bubble-left-ellipsis.html" with class="w-6 h-6 text-red-500" %}
                         All messages you've sent or received
                     </li>
                     <li class="py-3 flex items-center">
-                        {% include "crush_lu/icons/globe-alt.html" with class="w-6 h-6 text-red-500" %}
+                        {% include "shared/icons/globe-alt.html" with class="w-6 h-6 text-red-500" %}
                         Facebook account connection
                     </li>
                 </ul>
@@ -71,7 +71,7 @@
                     </div>
                     {% else %}
                     <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-4 text-sm">
-                        {% include "crush_lu/icons/information-circle.html" with class="w-5 h-5" %}
+                        {% include "shared/icons/information-circle.html" with class="w-5 h-5" %}
                         Since you signed up with Facebook, no password is required.
                     </div>
                     {% endif %}
@@ -86,7 +86,7 @@
 
                     <div class="flex flex-col gap-2">
                         <button type="submit" class="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center" id="deleteBtn" disabled>
-                            {% include "crush_lu/icons/trash.html" with class="w-5 h-5" %}Permanently Delete My Account
+                            {% include "shared/icons/trash.html" with class="w-5 h-5" %}Permanently Delete My Account
                         </button>
                         <a href="{% url 'crush_lu:account_settings' %}" class="w-full border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-3 px-6 rounded-lg transition-colors text-center">
                             Cancel

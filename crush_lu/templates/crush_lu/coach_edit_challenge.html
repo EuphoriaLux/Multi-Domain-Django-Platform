@@ -56,7 +56,7 @@
     <div class="bg-white rounded-xl shadow-lg p-8">
         <div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-5 rounded-lg mb-8">
             <h3 class="mb-2 flex items-center gap-2">
-                {% include "crush_lu/icons/puzzle-piece.html" with class="w-5 h-5" %} Edit Challenge
+                {% include "shared/icons/puzzle-piece.html" with class="w-5 h-5" %} Edit Challenge
             </h3>
             <p class="mb-1">
                 <strong>Chapter {{ challenge.chapter.chapter_number }}:</strong> {{ challenge.chapter.title }}
@@ -70,7 +70,7 @@
         {# Mode Detection Alert #}
         {% if challenge.chapter.chapter_number in '245'|make_list or challenge.challenge_type == 'open_text' or challenge.challenge_type == 'would_you_rather' or not challenge.correct_answer %}
         <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-6">
-            <h5 class="font-semibold flex items-center gap-2">{% include "crush_lu/icons/chat-bubble-left-ellipsis.html" with class="w-5 h-5" %} Questionnaire Mode</h5>
+            <h5 class="font-semibold flex items-center gap-2">{% include "shared/icons/chat-bubble-left-ellipsis.html" with class="w-5 h-5" %} Questionnaire Mode</h5>
             <p class="mb-0">
                 This challenge accepts <strong>all answers</strong>. Users cannot get it "wrong."
                 All responses are saved and visible below for your review.
@@ -78,7 +78,7 @@
         </div>
         {% else %}
         <div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4 mb-6">
-            <h5 class="font-semibold flex items-center gap-2">{% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Quiz Mode</h5>
+            <h5 class="font-semibold flex items-center gap-2">{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Quiz Mode</h5>
             <p class="mb-0">
                 This challenge validates answers against the correct answer below.
                 Users can get hints and earn points based on correctness.
@@ -91,7 +91,7 @@
 
             <!-- Question Section -->
             <div class="mb-8 pb-8 border-b border-gray-200">
-                <h5 class="font-semibold mb-4 flex items-center gap-2">{% include "crush_lu/icons/question-mark-circle.html" with class="w-5 h-5" %} Challenge Question</h5>
+                <h5 class="font-semibold mb-4 flex items-center gap-2">{% include "shared/icons/question-mark-circle.html" with class="w-5 h-5" %} Challenge Question</h5>
                 <div class="mb-4">
                     <label for="question" class="block text-sm font-medium text-gray-700 mb-1">Question/Prompt *</label>
                     <textarea class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="question" name="question" rows="4" required>{{ challenge.question }}</textarea>
@@ -115,7 +115,7 @@
 
             <!-- Answer Section -->
             <div class="mb-8 pb-8 border-b border-gray-200">
-                <h5 class="font-semibold mb-4 flex items-center gap-2">{% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Correct Answer</h5>
+                <h5 class="font-semibold mb-4 flex items-center gap-2">{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Correct Answer</h5>
                 <div class="mb-4">
                     <label for="correct_answer" class="block text-sm font-medium text-gray-700 mb-1">Correct Answer</label>
                     <input type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="correct_answer" name="correct_answer"
@@ -129,7 +129,7 @@
 
             <!-- Hints Section -->
             <div class="mb-8 pb-8 border-b border-gray-200">
-                <h5 class="font-semibold mb-4 flex items-center gap-2">{% include "crush_lu/icons/light-bulb.html" with class="w-5 h-5" %} Hints System</h5>
+                <h5 class="font-semibold mb-4 flex items-center gap-2">{% include "shared/icons/light-bulb.html" with class="w-5 h-5" %} Hints System</h5>
                 <p class="text-gray-500 mb-4">Users can unlock hints in exchange for points. Leave blank if no hints available.</p>
 
                 <div class="bg-amber-50 p-4 rounded-lg mb-4">
@@ -180,7 +180,7 @@
 
             <!-- Points & Success Message -->
             <div class="mb-8 pb-8 border-b border-gray-200">
-                <h5 class="font-semibold mb-4 flex items-center gap-2">{% include "crush_lu/icons/trophy.html" with class="w-5 h-5" %} Scoring & Feedback</h5>
+                <h5 class="font-semibold mb-4 flex items-center gap-2">{% include "shared/icons/trophy.html" with class="w-5 h-5" %} Scoring & Feedback</h5>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="mb-4">
                         <label for="points_awarded" class="block text-sm font-medium text-gray-700 mb-1">Points Awarded *</label>
@@ -201,7 +201,7 @@
             <!-- User Responses Section -->
             {% if all_attempts %}
             <div class="mb-8 pb-8 border-b border-gray-200">
-                <h5 class="font-semibold mb-4 flex items-center gap-2">{% include "crush_lu/icons/chat-bubble-left-ellipsis.html" with class="w-5 h-5" %} User Responses ({{ total_responses }})</h5>
+                <h5 class="font-semibold mb-4 flex items-center gap-2">{% include "shared/icons/chat-bubble-left-ellipsis.html" with class="w-5 h-5" %} User Responses ({{ total_responses }})</h5>
                 <p class="text-gray-500 mb-4">All user answers to this challenge:</p>
 
                 {% for attempt in all_attempts %}
@@ -233,10 +233,10 @@
             <div class="flex justify-between">
                 <a href="{% url 'crush_lu:coach_edit_journey' challenge.chapter.journey.id %}"
                    class="border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
-                    {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Cancel
+                    {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Cancel
                 </a>
                 <button type="submit" class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 px-8 rounded-full transition-all transform hover:-translate-y-0.5 hover:shadow-lg inline-flex items-center gap-2">
-                    {% include "crush_lu/icons/check.html" with class="w-5 h-5" %} Save Changes
+                    {% include "shared/icons/check.html" with class="w-5 h-5" %} Save Changes
                 </button>
             </div>
         </form>

@@ -1,7 +1,7 @@
 <div id="connection-actions-{{ attendee.user.id }}">
     {% if action == 'accept' %}
         <span class="badge badge-success inline-flex items-center gap-1">
-            {% include "crush_lu/icons/check-circle.html" with class="w-3 h-3" %}
+            {% include "shared/icons/check-circle.html" with class="w-3 h-3" %}
             Accepted!
         </span>
     {% elif action == 'decline' %}

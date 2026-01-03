@@ -9,7 +9,7 @@
         <div class="py-8">
             <!-- Offline Icon -->
             <div class="mb-6">
-                {% include "crush_lu/icons/wifi-off.html" with class="w-20 h-20 text-purple-500 mx-auto" %}
+                {% include "shared/icons/wifi-off.html" with class="w-20 h-20 text-purple-500 mx-auto" %}
             </div>
 
             <!-- Offline Message -->
@@ -22,20 +22,20 @@
             <div class="bg-white rounded-xl shadow-sm mb-4">
                 <div class="p-6 text-left">
                     <h5 class="font-semibold mb-4 flex items-center gap-2">
-                        {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
+                        {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
                         What You Can Do Offline
                     </h5>
                     <ul class="space-y-3">
                         <li class="flex items-center gap-3">
-                            {% include "crush_lu/icons/calendar.html" with class="w-5 h-5 text-purple-500" %}
+                            {% include "shared/icons/calendar.html" with class="w-5 h-5 text-purple-500" %}
                             View previously loaded event pages
                         </li>
                         <li class="flex items-center gap-3">
-                            {% include "crush_lu/icons/user.html" with class="w-5 h-5 text-purple-500" %}
+                            {% include "shared/icons/user.html" with class="w-5 h-5 text-purple-500" %}
                             Access your cached dashboard
                         </li>
                         <li class="flex items-center gap-3">
-                            {% include "crush_lu/icons/info.html" with class="w-5 h-5 text-purple-500" %}
+                            {% include "shared/icons/info.html" with class="w-5 h-5 text-purple-500" %}
                             Read about Crush.lu and how it works
                         </li>
                     </ul>
@@ -46,24 +46,24 @@
             <div class="bg-white rounded-xl shadow-sm mb-8">
                 <div class="p-6 text-left">
                     <h5 class="font-semibold mb-4 flex items-center gap-2">
-                        {% include "crush_lu/icons/x-circle.html" with class="w-5 h-5 text-red-500" %}
+                        {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-red-500" %}
                         What Requires Connection
                     </h5>
                     <ul class="space-y-3 text-gray-500">
                         <li class="flex items-center gap-3">
-                            {% include "crush_lu/icons/calendar-check.html" with class="w-5 h-5" %}
+                            {% include "shared/icons/calendar-check.html" with class="w-5 h-5" %}
                             Register for new events
                         </li>
                         <li class="flex items-center gap-3">
-                            {% include "crush_lu/icons/users.html" with class="w-5 h-5" %}
+                            {% include "shared/icons/users.html" with class="w-5 h-5" %}
                             Send or receive messages
                         </li>
                         <li class="flex items-center gap-3">
-                            {% include "crush_lu/icons/pencil.html" with class="w-5 h-5" %}
+                            {% include "shared/icons/pencil.html" with class="w-5 h-5" %}
                             Update your profile
                         </li>
                         <li class="flex items-center gap-3">
-                            {% include "crush_lu/icons/star.html" with class="w-5 h-5" %}
+                            {% include "shared/icons/star.html" with class="w-5 h-5" %}
                             Access your journey
                         </li>
                     </ul>
@@ -73,11 +73,11 @@
             <!-- Retry Button -->
             <div class="flex flex-col gap-3">
                 <button class="btn-crush-primary py-4 text-lg inline-flex items-center justify-center gap-2" onclick="location.reload()">
-                    {% include "crush_lu/icons/arrow-path.html" with class="w-5 h-5" %}
+                    {% include "shared/icons/arrow-path.html" with class="w-5 h-5" %}
                     Try Again
                 </button>
                 <a href="{% url 'crush_lu:home' %}" class="flex items-center justify-center gap-2 w-full py-3 px-4 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
-                    {% include "crush_lu/icons/home.html" with class="w-4 h-4" %}
+                    {% include "shared/icons/home.html" with class="w-4 h-4" %}
                     Go to Home
                 </a>
             </div>
@@ -85,7 +85,7 @@
             <!-- Fun Message -->
             <div class="mt-8 p-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl text-white">
                 <p class="flex items-center justify-center gap-2">
-                    {% include "crush_lu/icons/heart.html" with class="w-4 h-4" %}
+                    {% include "shared/icons/heart.html" with class="w-4 h-4" %}
                     <strong>Pro Tip:</strong> Once you're back online, your event registrations and messages will sync automatically!
                 </p>
             </div>

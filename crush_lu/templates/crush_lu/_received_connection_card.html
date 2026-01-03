@@ -18,12 +18,12 @@
         <div class="flex-grow">
             <h5 class="font-semibold mb-1">{{ connection.requester.first_name }} wants to connect</h5>
             <p class="text-gray-500 text-sm mb-1 flex items-center gap-1">
-                {% include "crush_lu/icons/calendar.html" with class="w-4 h-4" %}
+                {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
                 From {{ connection.event.title }}
             </p>
             {% if connection.requester_note %}
                 <p class="text-sm flex items-center gap-1">
-                    {% include "crush_lu/icons/chat-bubble-left.html" with class="w-4 h-4" %}
+                    {% include "shared/icons/chat-bubble-left.html" with class="w-4 h-4" %}
                     "{{ connection.requester_note }}"
                 </p>
             {% endif %}
@@ -37,10 +37,10 @@
                         hx-swap="outerHTML"
                         class="inline-flex items-center gap-1 px-4 py-2 text-sm font-semibold bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors">
                     <span class="htmx-indicator">
-                        {% include "crush_lu/icons/loading.html" with class="w-4 h-4 animate-spin" %}
+                        {% include "shared/icons/loading.html" with class="w-4 h-4 animate-spin" %}
                     </span>
                     <span class="htmx-hide-on-request inline-flex items-center gap-1">
-                        {% include "crush_lu/icons/check-circle.html" with class="w-4 h-4" %}
+                        {% include "shared/icons/check-circle.html" with class="w-4 h-4" %}
                         Accept
                     </span>
                 </button>
@@ -50,7 +50,7 @@
                         hx-confirm="Are you sure you want to decline this connection request?"
                         class="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
                     <span class="htmx-indicator">
-                        {% include "crush_lu/icons/loading.html" with class="w-4 h-4 animate-spin" %}
+                        {% include "shared/icons/loading.html" with class="w-4 h-4 animate-spin" %}
                     </span>
                     <span class="htmx-hide-on-request">
                         Decline

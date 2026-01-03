@@ -3,11 +3,11 @@
 {% if has_errors %}
 <div x-data="dismissible" x-show="show" x-transition class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-center justify-between" role="alert">
     <div class="flex items-center gap-2">
-        {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
         Please correct the errors below.
     </div>
     <button @click="dismiss" type="button" class="text-red-500 hover:text-red-700" aria-label="Dismiss">
-        {% include "crush_lu/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
+        {% include "shared/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
     </button>
 </div>
 {% endif %}
@@ -16,7 +16,7 @@
     <div x-data="dismissible" x-show="show" x-transition class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-center justify-between" role="alert">
         <div>{{ form.non_field_errors }}</div>
         <button @click="dismiss" type="button" class="text-red-500 hover:text-red-700" aria-label="Dismiss">
-            {% include "crush_lu/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
+            {% include "shared/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
         </button>
     </div>
 {% endif %}
@@ -24,7 +24,7 @@
 <!-- Contact Information Section -->
 <div class="section-card mb-4">
     <h5 class="section-title">
-        {% include "crush_lu/icons/phone.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+        {% include "shared/icons/phone.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
         Contact Information
     </h5>
 
@@ -33,7 +33,7 @@
             <label for="{{ form.phone_number.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
                 Phone Number *
                 {% if profile.phone_verified %}
-                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">{% include "crush_lu/icons/check-circle.html" with class="w-4 h-4" %} Verified</span>
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">{% include "shared/icons/check-circle.html" with class="w-4 h-4" %} Verified</span>
                 {% endif %}
             </label>
             {% if profile.phone_verified %}
@@ -41,11 +41,11 @@
                     <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100" value="{{ profile.phone_number }}" readonly disabled>
                     <input type="hidden" name="phone_number" value="{{ profile.phone_number }}">
                     <span class="absolute right-3 top-1/2 -translate-y-1/2">
-                        {% include "crush_lu/icons/lock-closed.html" with class="w-5 h-5 text-green-500" %}
+                        {% include "shared/icons/lock-closed.html" with class="w-5 h-5 text-green-500" %}
                     </span>
                 </div>
                 <small class="text-gray-500 text-sm">
-                    {% include "crush_lu/icons/information-circle.html" with class="w-4 h-4 inline" %} Verified phone numbers cannot be changed.
+                    {% include "shared/icons/information-circle.html" with class="w-4 h-4 inline" %} Verified phone numbers cannot be changed.
                     Contact support if you need to update it.
                 </small>
             {% else %}
@@ -53,7 +53,7 @@
                     {{ form.phone_number }}
                 </div>
                 <small class="text-yellow-600 text-sm">
-                    {% include "crush_lu/icons/exclamation-triangle.html" with class="w-4 h-4 inline" %}
+                    {% include "shared/icons/exclamation-triangle.html" with class="w-4 h-4 inline" %}
                     <a href="{% url 'crush_lu:verify_phone' %}" class="underline hover:text-yellow-800">Verify your phone number</a> to lock it.
                 </small>
             {% endif %}
@@ -94,7 +94,7 @@
                     <button type="button"
                             @click="toggleFallbackDropdown"
                             class="canton-map-fallback-toggle">
-                        {% include "crush_lu/icons/list-bullet.html" with class="w-4 h-4" %}
+                        {% include "shared/icons/list-bullet.html" with class="w-4 h-4" %}
                         Can't use the map? Select from list
                     </button>
                     <div x-show="fallbackDropdownVisible" x-transition class="canton-map-fallback-dropdown">
@@ -126,7 +126,7 @@
 
             {% if form.location.errors %}
                 <div class="canton-map-error">
-                    {% include "crush_lu/icons/exclamation-circle.html" with class="w-4 h-4" %}
+                    {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4" %}
                     {{ form.location.errors.0 }}
                 </div>
             {% endif %}
@@ -157,7 +157,7 @@
 <!-- About You Section -->
 <div class="section-card mb-4">
     <h5 class="section-title">
-        {% include "crush_lu/icons/pencil-square.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+        {% include "shared/icons/pencil-square.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
         About You
     </h5>
 
@@ -209,7 +209,7 @@
 <!-- Photos Section -->
 <div class="section-card mb-4">
     <div class="photo-section-header">
-        <h5 class="section-title mb-0" style="border-bottom: none; padding-bottom: 0;">{% include "crush_lu/icons/photo.html" with class="w-5 h-5" %} Photos</h5>
+        <h5 class="section-title mb-0" style="border-bottom: none; padding-bottom: 0;">{% include "shared/icons/photo.html" with class="w-5 h-5" %} Photos</h5>
         <span class="photo-count">Up to 3</span>
     </div>
     <p class="text-gray-500 text-sm mb-3">Your main photo will be displayed first to other users.</p>
@@ -218,7 +218,7 @@
     {% if social_photos %}
     <div class="social-import-section mb-4">
         <div class="flex items-center gap-2 mb-2">
-            {% include "crush_lu/icons/cloud-arrow-down.html" with class="w-5 h-5 text-purple-600" %}
+            {% include "shared/icons/cloud-arrow-down.html" with class="w-5 h-5 text-purple-600" %}
             <span class="font-semibold">Import from Social Accounts</span>
         </div>
         <div class="social-photos-row">
@@ -260,7 +260,7 @@
                 </div>
                 {% else %}
                 <div class="no-photo-mini">
-                    {% include "crush_lu/icons/photo.html" with class="w-5 h-5" %}
+                    {% include "shared/icons/photo.html" with class="w-5 h-5" %}
                 </div>
                 {% endif %}
             </div>
@@ -291,7 +291,7 @@
 <!-- Privacy Settings Section -->
 <div class="section-card mb-4">
     <h5 class="section-title">
-        {% include "crush_lu/icons/shield-check.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+        {% include "shared/icons/shield-check.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
         Privacy Settings
     </h5>
 
@@ -338,15 +338,15 @@
 <!-- Action Buttons -->
 <div class="action-buttons-container action-buttons-sticky">
     <a href="{% url 'crush_lu:dashboard' %}" class="btn-cancel">
-        {% include "crush_lu/icons/x-mark.html" with class="w-5 h-5" %}
+        {% include "shared/icons/x-mark.html" with class="w-5 h-5" %}
         Cancel
     </a>
     <button type="submit" class="btn-crush-primary relative px-8 py-3 text-lg inline-flex items-center justify-center gap-2">
         <span id="submit-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-crush-purple tw-rounded-full">
-            {% include "crush_lu/icons/loading.html" with class="w-5 h-5 tw-animate-spin" %} Saving...
+            {% include "shared/icons/loading.html" with class="w-5 h-5 tw-animate-spin" %} Saving...
         </span>
         <span class="button-text">
-            {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Save Changes
+            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Save Changes
         </span>
     </button>
 </div>

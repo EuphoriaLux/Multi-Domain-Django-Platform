@@ -3,8 +3,8 @@
 {% load crispy_forms_tags %}
 
 {% block extra_css %}
-{# Swipe styles now included in powerup.css, but load legacy for backward compatibility #}
-<link rel="stylesheet" href="{% static 'powerup/css/components/swipe.css' %}">
+{# Swipe styles are in entreprinder.css, but load component CSS for completeness #}
+<link rel="stylesheet" href="{% static 'entreprinder/css/components/swipe.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -56,5 +56,5 @@
 
 {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
-<script src="{% static 'powerup/js/swipe.js' %}"></script>
+<script src="{% static 'entreprinder/js/swipe.js' %}"></script>
 {% endblock %}

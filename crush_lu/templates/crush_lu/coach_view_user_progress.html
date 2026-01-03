@@ -410,17 +410,17 @@
     <!-- Report Header -->
     <div class="report-header">
         <div class="report-title">
-            {% include "crush_lu/icons/book-open.html" with class="w-5 h-5" %} Journey Report: {{ progress.journey.journey_name }}
+            {% include "shared/icons/book-open.html" with class="w-5 h-5" %} Journey Report: {{ progress.journey.journey_name }}
         </div>
         <div class="report-subtitle">
             <strong>{{ progress.user.first_name|default:progress.user.username }}</strong>
             {% if progress.user.email %} ({{ progress.user.email }}){% endif %}
         </div>
         <div class="report-subtitle" style="margin-top: 10px;">
-            {% include "crush_lu/icons/calendar-days.html" with class="w-5 h-5" %} Started: {{ progress.started_at|date:"M d, Y" }} &bull;
-            {% include "crush_lu/icons/clock.html" with class="w-5 h-5" %} Last Activity: {{ progress.last_activity|date:"M d, Y H:i" }}
+            {% include "shared/icons/calendar-days.html" with class="w-5 h-5" %} Started: {{ progress.started_at|date:"M d, Y" }} &bull;
+            {% include "shared/icons/clock.html" with class="w-5 h-5" %} Last Activity: {{ progress.last_activity|date:"M d, Y H:i" }}
             {% if stats.journey_duration %}
-                &bull; {% include "crush_lu/icons/hourglass.html" with class="w-5 h-5" %} Duration: {{ stats.journey_duration.days }} days
+                &bull; {% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Duration: {{ stats.journey_duration.days }} days
             {% endif %}
         </div>
 
@@ -444,9 +444,9 @@
             <div class="stat-card">
                 <div class="stat-number">
                     {% if progress.is_completed %}
-                        {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %}
+                        {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
                     {% else %}
-                        {% include "crush_lu/icons/hourglass.html" with class="w-5 h-5" %}
+                        {% include "shared/icons/hourglass.html" with class="w-5 h-5" %}
                     {% endif %}
                 </div>
                 <div class="stat-label">{% if progress.is_completed %}Completed{% else %}In Progress{% endif %}</div>
@@ -459,15 +459,15 @@
     <div class="final-response-banner">
         <div class="final-response-icon">
             {% if progress.final_response == 'yes' %}
-                {% include "crush_lu/icons/heart.html" with class="w-5 h-5" %}
+                {% include "shared/icons/heart.html" with class="w-5 h-5" %}
             {% else %}
-                {% include "crush_lu/icons/sparkles.html" with class="w-5 h-5" %}
+                {% include "shared/icons/sparkles.html" with class="w-5 h-5" %}
             {% endif %}
         </div>
         <div class="final-response-text">
             <h4>Final Response</h4>
             <p>{{ progress.get_final_response_display }}</p>
-            <small style="opacity: 0.8;">{% include "crush_lu/icons/clock.html" with class="w-5 h-5" %} {{ progress.final_response_at|date:"M d, Y H:i" }}</small>
+            <small style="opacity: 0.8;">{% include "shared/icons/clock.html" with class="w-5 h-5" %} {{ progress.final_response_at|date:"M d, Y H:i" }}</small>
         </div>
     </div>
     {% endif %}
@@ -476,7 +476,7 @@
     {% if questionnaire_responses %}
     <div class="insights-section">
         <div class="insights-title">
-            {% include "crush_lu/icons/light-bulb.html" with class="w-5 h-5" %} Key Insights & Personal Responses
+            {% include "shared/icons/light-bulb.html" with class="w-5 h-5" %} Key Insights & Personal Responses
         </div>
 
         {% for response in questionnaire_responses %}
@@ -493,7 +493,7 @@
     <!-- Hardest Challenge Note -->
     {% if stats.hardest_challenge_obj and stats.hardest_challenge_attempts > 5 %}
     <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl p-4 mb-6">
-        {% include "crush_lu/icons/trophy.html" with class="w-5 h-5" %} <strong>Persistence Award:</strong>
+        {% include "shared/icons/trophy.html" with class="w-5 h-5" %} <strong>Persistence Award:</strong>
         The challenge "{{ stats.hardest_challenge_obj.question|truncatewords:10 }}"
         took <strong>{{ stats.hardest_challenge_attempts }} attempts</strong> to complete!
     </div>
@@ -501,7 +501,7 @@
 
     <!-- Chapter-by-Chapter Results -->
     <h3 class="mb-4" style="color: #2d3748;">
-        {% include "crush_lu/icons/document-text.html" with class="w-5 h-5" %} Detailed Journey Results
+        {% include "shared/icons/document-text.html" with class="w-5 h-5" %} Detailed Journey Results
     </h3>
 
     {% for chapter_info in chapter_data %}
@@ -515,15 +515,15 @@
             </div>
             <div class="chapter-stats">
                 <span class="chapter-badge badge-points">
-                    {% include "crush_lu/icons/star.html" with class="w-5 h-5" %} {{ chapter_info.chapter_points }} pts
+                    {% include "shared/icons/star.html" with class="w-5 h-5" %} {{ chapter_info.chapter_points }} pts
                 </span>
                 {% if chapter_info.is_completed %}
                     <span class="chapter-badge badge-complete">
-                        {% include "crush_lu/icons/check.html" with class="w-5 h-5" %} Complete
+                        {% include "shared/icons/check.html" with class="w-5 h-5" %} Complete
                     </span>
                 {% else %}
                     <span class="chapter-badge badge-progress">
-                        {% include "crush_lu/icons/clock.html" with class="w-5 h-5" %} In Progress
+                        {% include "shared/icons/clock.html" with class="w-5 h-5" %} In Progress
                     </span>
                 {% endif %}
             </div>
@@ -535,19 +535,19 @@
                 <div>
                     <span class="challenge-type-badge">
                         {% if challenge_info.challenge.challenge_type == 'riddle' %}
-                            {% include "crush_lu/icons/question-mark-circle.html" with class="w-5 h-5" %}
+                            {% include "shared/icons/question-mark-circle.html" with class="w-5 h-5" %}
                         {% elif challenge_info.challenge.challenge_type == 'multiple_choice' %}
-                            {% include "crush_lu/icons/list-bullet.html" with class="w-5 h-5" %}
+                            {% include "shared/icons/list-bullet.html" with class="w-5 h-5" %}
                         {% elif challenge_info.challenge.challenge_type == 'word_scramble' %}
-                            {% include "crush_lu/icons/arrows-right-left.html" with class="w-5 h-5" %}
+                            {% include "shared/icons/arrows-right-left.html" with class="w-5 h-5" %}
                         {% elif challenge_info.challenge.challenge_type == 'timeline_sort' %}
-                            {% include "crush_lu/icons/bars-arrow-down.html" with class="w-5 h-5" %}
+                            {% include "shared/icons/bars-arrow-down.html" with class="w-5 h-5" %}
                         {% elif challenge_info.challenge.challenge_type == 'open_text' %}
-                            {% include "crush_lu/icons/chat-bubble-left.html" with class="w-5 h-5" %}
+                            {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5" %}
                         {% elif challenge_info.challenge.challenge_type == 'would_you_rather' %}
-                            {% include "crush_lu/icons/arrows-pointing-out.html" with class="w-5 h-5" %}
+                            {% include "shared/icons/arrows-pointing-out.html" with class="w-5 h-5" %}
                         {% else %}
-                            {% include "crush_lu/icons/puzzle-piece.html" with class="w-5 h-5" %}
+                            {% include "shared/icons/puzzle-piece.html" with class="w-5 h-5" %}
                         {% endif %}
                         {{ challenge_info.challenge.get_challenge_type_display }}
                     </span>
@@ -560,7 +560,7 @@
                         </span>
                         {% if challenge_info.attempt_count > 1 %}
                             <span class="attempt-count">
-                                {% include "crush_lu/icons/arrow-path.html" with class="w-5 h-5" %} {{ challenge_info.attempt_count }} attempts
+                                {% include "shared/icons/arrow-path.html" with class="w-5 h-5" %} {{ challenge_info.attempt_count }} attempts
                             </span>
                         {% endif %}
                     {% else %}
@@ -578,9 +578,9 @@
                 <div class="answer-section">
                     <div class="answer-label">
                         {% if challenge_info.is_questionnaire %}
-                            {% include "crush_lu/icons/chat-bubble-bottom-center-text.html" with class="w-5 h-5" %} Response
+                            {% include "shared/icons/chat-bubble-bottom-center-text.html" with class="w-5 h-5" %} Response
                         {% else %}
-                            {% include "crush_lu/icons/user.html" with class="w-5 h-5" %} User's Answer
+                            {% include "shared/icons/user.html" with class="w-5 h-5" %} User's Answer
                         {% endif %}
                     </div>
 
@@ -599,10 +599,10 @@
                                     <span class="option-key">{{ key }}</span>
                                     <span>{{ value }}</span>
                                     {% if challenge_info.result.user_answer|upper == key %}
-                                        {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5 text-purple-600" %}
+                                        {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-purple-600" %}
                                     {% endif %}
                                     {% if challenge_info.challenge.correct_answer|upper == key and challenge_info.challenge.correct_answer %}
-                                        {% include "crush_lu/icons/star.html" with class="w-5 h-5 text-green-600" %}
+                                        {% include "shared/icons/star.html" with class="w-5 h-5 text-green-600" %}
                                     {% endif %}
                                 </div>
                             {% endfor %}
@@ -623,7 +623,7 @@
                 <!-- Expected Answer (for quiz challenges) -->
                 {% if challenge_info.challenge.correct_answer and not challenge_info.is_questionnaire and not challenge_info.result.is_correct %}
                 <div class="expected-answer">
-                    <strong>{% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Expected Answer:</strong>
+                    <strong>{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Expected Answer:</strong>
                     {{ challenge_info.challenge.correct_answer }}
                 </div>
                 {% endif %}
@@ -632,17 +632,17 @@
                 {% if challenge_info.result.hints_used %}
                 <div class="mt-3">
                     <span class="inline-block px-2 py-1 bg-amber-500 text-gray-900 text-xs rounded">
-                        {% include "crush_lu/icons/light-bulb.html" with class="w-5 h-5" %} {{ challenge_info.result.hints_used|length }} hint(s) used
+                        {% include "shared/icons/light-bulb.html" with class="w-5 h-5" %} {{ challenge_info.result.hints_used|length }} hint(s) used
                     </span>
                 </div>
                 {% endif %}
 
                 <div class="timestamp">
-                    {% include "crush_lu/icons/clock.html" with class="w-5 h-5" %} Answered: {{ challenge_info.result.attempted_at|date:"M d, Y H:i" }}
+                    {% include "shared/icons/clock.html" with class="w-5 h-5" %} Answered: {{ challenge_info.result.attempted_at|date:"M d, Y H:i" }}
                 </div>
             {% else %}
                 <div class="answer-content" style="text-align: center; color: #a0aec0;">
-                    {% include "crush_lu/icons/hourglass.html" with class="w-5 h-5" %} Challenge not yet attempted
+                    {% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Challenge not yet attempted
                 </div>
             {% endif %}
         </div>
@@ -653,13 +653,13 @@
     <!-- Action Buttons -->
     <div class="mt-10 flex flex-wrap gap-4">
         <a href="{% url 'crush_lu:coach_journey_dashboard' %}" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
-            {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back to Journeys
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Back to Journeys
         </a>
         <button onclick="window.print()" class="border border-purple-500 text-purple-600 hover:bg-purple-50 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
-            {% include "crush_lu/icons/printer.html" with class="w-5 h-5" %} Print Report
+            {% include "shared/icons/printer.html" with class="w-5 h-5" %} Print Report
         </button>
         <a href="{% url 'crush_admin:crush_lu_journeyprogress_change' progress.id %}" class="border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
-            {% include "crush_lu/icons/cog-6-tooth.html" with class="w-5 h-5" %} Admin View
+            {% include "shared/icons/cog-6-tooth.html" with class="w-5 h-5" %} Admin View
         </a>
     </div>
 </div>

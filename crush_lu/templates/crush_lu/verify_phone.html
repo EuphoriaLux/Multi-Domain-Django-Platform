@@ -30,7 +30,7 @@
                 <div class="p-6">
                     <div class="text-center mb-6">
                         <div class="mb-4">
-                            {% include "crush_lu/icons/phone.html" with class="w-10 h-10 text-purple-600" %}
+                            {% include "shared/icons/phone.html" with class="w-10 h-10 text-purple-600" %}
                         </div>
                         <h2 class="text-xl font-semibold text-gray-900">Verify Your Phone Number</h2>
                         <p class="text-gray-500 mt-2">
@@ -50,8 +50,8 @@
                                        value="{{ current_phone }}"
                                        required>
                                 <!-- Real-time validation icons -->
-                                <span class="phone-valid-icon">{% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %}</span>
-                                <span class="phone-error-icon">{% include "crush_lu/icons/exclamation-circle.html" with class="w-5 h-5" %}</span>
+                                <span class="phone-valid-icon">{% include "shared/icons/check-circle.html" with class="w-5 h-5" %}</span>
+                                <span class="phone-error-icon">{% include "shared/icons/exclamation-circle.html" with class="w-5 h-5" %}</span>
                             </div>
                             <p class="text-sm text-gray-500 mt-1" id="phone-helper-text">
                                 Select your country and enter your phone number
@@ -61,14 +61,14 @@
                         </div>
 
                         <button type="button" id="send-code-btn" class="btn-crush-primary w-full py-3">
-                            {% include "crush_lu/icons/paper-airplane.html" with class="w-5 h-5" %}Send Verification Code
+                            {% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %}Send Verification Code
                         </button>
                     </div>
 
                     <!-- OTP Input Section (hidden initially) -->
                     <div id="otp-section" style="display: none;">
                         <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-4">
-                            {% include "crush_lu/icons/information-circle.html" with class="w-5 h-5" %}
+                            {% include "shared/icons/information-circle.html" with class="w-5 h-5" %}
                             A 6-digit code has been sent to <strong id="display-phone"></strong>
                         </div>
 
@@ -85,7 +85,7 @@
                         </div>
 
                         <button type="button" id="verify-code-btn" class="btn-crush-primary w-full py-3 mb-4">
-                            {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %}Verify Code
+                            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}Verify Code
                         </button>
 
                         <div class="text-center">
@@ -96,7 +96,7 @@
 
                         <div class="text-center mt-3">
                             <button type="button" id="change-phone-btn" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm">
-                                {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %}Change Phone Number
+                                {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}Change Phone Number
                             </button>
                         </div>
                     </div>
@@ -105,17 +105,17 @@
                     <div id="success-section" style="display: none;">
                         <div class="text-center">
                             <div class="mb-4">
-                                {% include "crush_lu/icons/check-circle.html" with class="w-10 h-10 text-green-500" %}
+                                {% include "shared/icons/check-circle.html" with class="w-10 h-10 text-green-500" %}
                             </div>
                             <h4 class="text-xl font-semibold text-green-600">Phone Verified!</h4>
                             <p class="text-gray-500 mt-2" id="verified-phone-display"></p>
                             {% if next_url %}
                             <a href="{{ next_url }}" class="btn-crush-primary inline-flex items-center px-6 py-3 mt-4" id="continue-btn">
-                                {% include "crush_lu/icons/arrow-right.html" with class="w-5 h-5" %}Continue
+                                {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}Continue
                             </a>
                             {% else %}
                             <a href="{% url 'crush_lu:dashboard' %}" class="btn-crush-primary inline-flex items-center px-6 py-3 mt-4">
-                                {% include "crush_lu/icons/home.html" with class="w-5 h-5" %}Back to Dashboard
+                                {% include "shared/icons/home.html" with class="w-5 h-5" %}Back to Dashboard
                             </a>
                             {% endif %}
                         </div>
@@ -132,11 +132,11 @@
             <div class="text-center mt-6">
                 {% if next_url %}
                 <a href="{{ next_url }}" class="text-gray-500 hover:text-gray-700">
-                    {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %}Back
+                    {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}Back
                 </a>
                 {% else %}
                 <a href="{% url 'crush_lu:dashboard' %}" class="text-gray-500 hover:text-gray-700">
-                    {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %}Back to Dashboard
+                    {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}Back to Dashboard
                 </a>
                 {% endif %}
             </div>

@@ -2,7 +2,7 @@
 <div id="connection-{{ connection.id }}" class="bg-green-50 rounded-xl shadow-sm border-l-4 border-green-500 p-4">
     <div class="flex items-center">
         <div class="mr-4">
-            {% include "crush_lu/icons/check-circle.html" with class="w-10 h-10 text-green-500" %}
+            {% include "shared/icons/check-circle.html" with class="w-10 h-10 text-green-500" %}
         </div>
         <div class="flex-grow">
             <h5 class="font-semibold text-green-800 mb-1">Connection Accepted!</h5>
@@ -13,7 +13,7 @@
         <div class="ml-4">
             <a href="{% url 'crush_lu:connection_detail' connection.id %}"
                class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-semibold bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors">
-                {% include "crush_lu/icons/arrow-right.html" with class="w-4 h-4" %}
+                {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
                 View Details
             </a>
         </div>
