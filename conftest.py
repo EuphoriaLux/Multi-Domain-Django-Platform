@@ -1,6 +1,9 @@
 """
 Pytest configuration and fixtures for Crush.lu testing.
 Provides fixtures for Playwright browser testing and Django integration.
+
+This module configures mocks for external services to ensure tests run
+without requiring real Azure, email, or OAuth credentials.
 """
 import os
 import pytest
@@ -15,9 +18,33 @@ def pytest_configure(config):
     """
     Hook called early in pytest startup to configure Django settings.
     This runs before pytest-django sets up Django.
+
+    Configures:
+    - Django settings module
+    - Static files storage (avoids collectstatic requirement)
+    - Email backend (uses in-memory backend for testing)
+    - Media storage (uses local filesystem, not Azure)
     """
     # Ensure Django settings module is set
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'azureproject.settings')
+
+    # Set test environment variables for services that check them
+    os.environ.setdefault('SECRET_KEY', 'test-secret-key-for-pytest')
+
+    # Mock Azure storage variables (used by code that checks for their presence)
+    os.environ.setdefault('AZURE_ACCOUNT_NAME', 'teststorageaccount')
+    os.environ.setdefault('AZURE_ACCOUNT_KEY', 'dGVzdGtleQ==')  # base64 'testkey'
+    os.environ.setdefault('AZURE_CONTAINER_NAME', 'testcontainer')
+
+    # Mock email settings (Graph API)
+    os.environ.setdefault('GRAPH_TENANT_ID', 'test-tenant-id')
+    os.environ.setdefault('GRAPH_CLIENT_ID', 'test-client-id')
+    os.environ.setdefault('GRAPH_CLIENT_SECRET', 'test-client-secret')
+
+    # Mock push notification settings
+    os.environ.setdefault('VAPID_PUBLIC_KEY', 'test-vapid-public-key')
+    os.environ.setdefault('VAPID_PRIVATE_KEY', 'test-vapid-private-key')
+    os.environ.setdefault('VAPID_ADMIN_EMAIL', 'test@example.com')
 
     # Patch staticfiles storage BEFORE Django fully initializes
     # This is needed because ManifestStaticFilesStorage fails without collectstatic
@@ -26,6 +53,13 @@ def pytest_configure(config):
         settings.STORAGES['staticfiles'] = {
             'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'
         }
+        # Use local filesystem for media during tests (not Azure Blob)
+        settings.STORAGES['default'] = {
+            'BACKEND': 'django.core.files.storage.FileSystemStorage'
+        }
+
+    # Force console email backend for tests (no real emails sent)
+    settings.EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -300,3 +334,76 @@ def unapproved_user(db):
     )
 
     return user, profile
+
+
+# =============================================================================
+# EMAIL TESTING FIXTURES
+# =============================================================================
+
+@pytest.fixture
+def mailbox():
+    """
+    Provide access to sent emails during tests.
+
+    Usage:
+        def test_email_sent(mailbox):
+            # Trigger code that sends email
+            send_welcome_email(user)
+
+            # Check emails
+            assert len(mailbox) == 1
+            assert mailbox[0].subject == 'Welcome to Crush.lu'
+            assert 'test@example.com' in mailbox[0].to
+    """
+    from django.core import mail
+    return mail.outbox
+
+
+@pytest.fixture(autouse=True)
+def clear_mailbox():
+    """Clear the email outbox before each test."""
+    from django.core import mail
+    mail.outbox = []
+    yield
+    mail.outbox = []
+
+
+# =============================================================================
+# FILE UPLOAD TESTING FIXTURES
+# =============================================================================
+
+@pytest.fixture
+def temp_image(tmp_path):
+    """
+    Create a temporary test image for upload tests.
+
+    Usage:
+        def test_photo_upload(temp_image):
+            with open(temp_image, 'rb') as f:
+                response = client.post('/upload/', {'photo': f})
+    """
+    from PIL import Image
+
+    # Create a simple 100x100 red image
+    img = Image.new('RGB', (100, 100), color='red')
+    image_path = tmp_path / 'test_image.jpg'
+    img.save(image_path, 'JPEG')
+    return image_path
+
+
+@pytest.fixture
+def mock_azure_storage(mocker):
+    """
+    Mock Azure Blob Storage for tests that specifically test storage behavior.
+
+    Usage:
+        def test_profile_photo_upload(mock_azure_storage, test_user):
+            # Upload will use mock instead of real Azure
+            profile.photo_1.save('test.jpg', content)
+            mock_azure_storage.save.assert_called_once()
+    """
+    mock_storage = mocker.patch('storages.backends.azure_storage.AzureStorage')
+    mock_instance = mock_storage.return_value
+    mock_instance.save.return_value = 'mocked/path/to/file.jpg'
+    mock_instance.url.return_value = 'https://mock.blob.core.windows.net/test/file.jpg'
+    return mock_instance

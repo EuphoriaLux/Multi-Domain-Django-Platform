@@ -1,0 +1,23 @@
+# CODEOWNERS - Automatically request reviews from code owners
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repo
+* @EuphoriaLux
+
+# Infrastructure and deployment
+/infra/ @EuphoriaLux
+/.github/workflows/ @EuphoriaLux
+/azureproject/ @EuphoriaLux
+
+# Platform-specific owners (adjust as team grows)
+/crush_lu/ @EuphoriaLux
+/vinsdelux/ @EuphoriaLux
+/entreprinder/ @EuphoriaLux
+/matching/ @EuphoriaLux
+
+# Frontend assets
+/static/ @EuphoriaLux
+tailwind.config.js @EuphoriaLux
+
+# Database and migrations
+**/migrations/ @EuphoriaLux
