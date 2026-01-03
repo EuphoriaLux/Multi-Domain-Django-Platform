@@ -328,11 +328,15 @@ def delete_user_data(user, confirmation_code):
         # Delete EventRegistrations
         EventRegistration.objects.filter(user=user).delete()
 
-        # Delete EventConnections (both as user1 and user2)
-        EventConnection.objects.filter(Q(user1=user) | Q(user2=user)).delete()
-
         # Delete ConnectionMessages
-        ConnectionMessage.objects.filter(Q(sender=user) | Q(recipient=user)).delete()
+        ConnectionMessage.objects.filter(
+            Q(sender=user)
+            | Q(connection__requester=user)
+            | Q(connection__recipient=user)
+        ).delete()
+
+        # Delete EventConnections (both as requester and recipient)
+        EventConnection.objects.filter(Q(requester=user) | Q(recipient=user)).delete()
 
         # Delete CoachSessions
         CoachSession.objects.filter(user=user).delete()
@@ -3587,4 +3591,3 @@ def pwa_debug_view(request):
     return render(request, 'crush_lu/pwa_debug.html', {
         'sw_version': 'crush-v16-icon-cache-fix',  # Keep in sync with sw-workbox.js
     })
-
