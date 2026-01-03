@@ -360,6 +360,23 @@ class CrushProfile(models.Model):
         help_text="Preferred language for emails and notifications"
     )
 
+    # Wallet passes
+    apple_pass_serial = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="Apple Wallet pass serial number"
+    )
+    apple_auth_token = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="Apple Wallet authentication token"
+    )
+    google_wallet_object_id = models.CharField(
+        max_length=128,
+        blank=True,
+        help_text="Google Wallet object ID"
+    )
+
     # Status
     is_approved = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
