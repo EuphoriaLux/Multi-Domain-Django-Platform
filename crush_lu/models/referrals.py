@@ -93,6 +93,21 @@ class ReferralAttribution(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     converted_at = models.DateTimeField(null=True, blank=True)
 
+    # Reward tracking
+    reward_applied = models.BooleanField(
+        default=False,
+        help_text="Whether the referral reward has been applied to the referrer"
+    )
+    reward_applied_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the reward was applied"
+    )
+    reward_points = models.PositiveIntegerField(
+        default=0,
+        help_text="Points awarded for this referral"
+    )
+
     class Meta:
         verbose_name = "Referral Attribution"
         verbose_name_plural = "🧲 Referral Attributions"

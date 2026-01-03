@@ -8,8 +8,9 @@ from django.contrib.auth.signals import user_logged_in
 from allauth.socialaccount.signals import pre_social_login, social_account_updated
 from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth.models import User
+from django.conf import settings
 from django.utils import timezone
-from .models import MeetupEvent, EventActivityOption, CrushProfile, SpecialUserExperience, EmailPreference
+from .models import MeetupEvent, EventActivityOption, CrushProfile, SpecialUserExperience, EmailPreference, EventRegistration
 from .storage import initialize_user_storage
 import logging
 from datetime import datetime
@@ -17,6 +18,96 @@ import requests
 from django.core.files.base import ContentFile
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# WALLET PASS UPDATE TRIGGERS
+# =============================================================================
+
+# Fields that should trigger a wallet pass update when changed
+WALLET_UPDATE_PROFILE_FIELDS = {
+    'referral_points',
+    'membership_tier',
+    'show_photo_on_wallet',
+    'photo_1',
+    'display_name',
+    'first_name',
+    'last_name',
+    'show_full_name',
+}
+
+
+def _trigger_apple_pass_refresh(profile):
+    """
+    Trigger Apple Wallet pass refresh via APNS push notification.
+
+    When Apple Wallet receives this silent push, it calls our PassKit web service
+    endpoint to fetch the updated pass.
+
+    Args:
+        profile: CrushProfile instance with apple_pass_serial set
+    """
+    if not profile.apple_pass_serial:
+        return
+
+    pass_type_id = getattr(settings, 'WALLET_APPLE_PASS_TYPE_IDENTIFIER', None)
+    if not pass_type_id:
+        logger.warning("Cannot trigger Apple pass refresh: WALLET_APPLE_PASS_TYPE_IDENTIFIER not configured")
+        return
+
+    try:
+        from .wallet.passkit_apns import send_passkit_push_notifications
+
+        result = send_passkit_push_notifications(
+            pass_type_identifier=pass_type_id,
+            serial_number=profile.apple_pass_serial,
+        )
+
+        if result['total'] > 0:
+            logger.info(
+                f"Apple Wallet pass refresh triggered for user {profile.user_id}: "
+                f"success={result['success']}, failed={result['failed']}, total={result['total']}"
+            )
+        else:
+            logger.debug(f"No Apple Wallet device registrations for user {profile.user_id}")
+
+    except Exception as e:
+        logger.error(f"Error triggering Apple pass refresh for user {profile.user_id}: {e}")
+
+
+def _trigger_google_wallet_object_update(profile):
+    """
+    Trigger Google Wallet object update via REST API.
+
+    For Google Wallet, we need to PATCH the object to update it.
+    This requires the Google Wallet API client (future implementation).
+
+    Args:
+        profile: CrushProfile instance with google_wallet_object_id set
+    """
+    if not profile.google_wallet_object_id:
+        return
+
+    # TODO: Implement Google Wallet REST API client for object updates
+    # This requires:
+    # 1. Service account authentication
+    # 2. PATCH request to update the object
+    # For now, we just log that an update would be triggered
+    logger.debug(
+        f"Google Wallet object update would be triggered for user {profile.user_id}: "
+        f"object_id={profile.google_wallet_object_id}"
+    )
+
+
+def trigger_wallet_pass_updates(profile):
+    """
+    Trigger updates for both Apple and Google Wallet passes.
+
+    Args:
+        profile: CrushProfile instance
+    """
+    _trigger_apple_pass_refresh(profile)
+    _trigger_google_wallet_object_update(profile)
 
 
 @receiver(post_save, sender=User)
@@ -884,3 +975,100 @@ def create_crush_profile_from_microsoft(sender, instance, created, **kwargs):
 
     except Exception as e:
         logger.error(f"Error in Microsoft SocialAccount post_save handler: {str(e)}", exc_info=True)
+
+
+# =============================================================================
+# WALLET PASS UPDATE SIGNAL HANDLERS
+# =============================================================================
+
+@receiver(post_save, sender=CrushProfile)
+def trigger_wallet_pass_update_on_profile_change(sender, instance, created, update_fields, **kwargs):
+    """
+    Trigger wallet pass updates when relevant profile fields change.
+
+    This signal fires on CrushProfile save and checks if any wallet-relevant
+    fields were updated. If so, it triggers push notifications to Apple Wallet
+    devices and updates Google Wallet objects.
+
+    Wallet-relevant fields include:
+    - referral_points, membership_tier (rewards/status)
+    - show_photo_on_wallet, photo_1 (appearance)
+    - display_name, first_name, last_name, show_full_name (identity)
+    """
+    # Skip if this is a new profile (no pass exists yet)
+    if created:
+        return
+
+    # Skip if profile has no wallet passes registered
+    if not instance.apple_pass_serial and not instance.google_wallet_object_id:
+        return
+
+    # Check if any wallet-relevant fields were updated
+    should_update = False
+
+    if update_fields is not None:
+        # Specific fields were updated - check if any are wallet-relevant
+        updated_fields = set(update_fields)
+        if updated_fields & WALLET_UPDATE_PROFILE_FIELDS:
+            should_update = True
+            logger.debug(
+                f"Wallet-relevant fields updated for user {instance.user_id}: "
+                f"{updated_fields & WALLET_UPDATE_PROFILE_FIELDS}"
+            )
+    else:
+        # Full save - trigger update to be safe
+        # This happens when save() is called without update_fields
+        should_update = True
+        logger.debug(f"Full profile save for user {instance.user_id}, triggering wallet update")
+
+    if should_update:
+        try:
+            trigger_wallet_pass_updates(instance)
+        except Exception as e:
+            # Don't fail the save if wallet update fails
+            logger.error(f"Error triggering wallet update for user {instance.user_id}: {e}")
+
+
+@receiver(post_save, sender=EventRegistration)
+def trigger_wallet_pass_update_on_registration_change(sender, instance, created, **kwargs):
+    """
+    Trigger wallet pass updates when event registrations change.
+
+    The wallet pass displays "Next Event" information, so when a user:
+    - Registers for a new event
+    - Changes registration status (confirmed, waitlist, cancelled)
+    - Registration is deleted
+
+    We need to update the pass to reflect the new "next event" info.
+    """
+    # Get the user's profile
+    try:
+        profile = CrushProfile.objects.get(user=instance.user)
+    except CrushProfile.DoesNotExist:
+        return
+
+    # Skip if profile has no wallet passes registered
+    if not profile.apple_pass_serial and not profile.google_wallet_object_id:
+        return
+
+    # Only trigger for status changes that affect "next event" display
+    # - New confirmed/waitlist registration (shows new event)
+    # - Status change to/from confirmed/waitlist (changes next event)
+    relevant_statuses = {'confirmed', 'waitlist'}
+
+    if created and instance.status in relevant_statuses:
+        # New registration for upcoming event
+        logger.debug(f"New event registration for user {instance.user_id}, triggering wallet update")
+        try:
+            trigger_wallet_pass_updates(profile)
+        except Exception as e:
+            logger.error(f"Error triggering wallet update on registration for user {instance.user_id}: {e}")
+    elif not created:
+        # Registration was updated (status change, etc.)
+        # We can't easily check what changed without pre_save tracking,
+        # so trigger update for any modification to relevant statuses
+        logger.debug(f"Event registration updated for user {instance.user_id}, triggering wallet update")
+        try:
+            trigger_wallet_pass_updates(profile)
+        except Exception as e:
+            logger.error(f"Error triggering wallet update on registration change for user {instance.user_id}: {e}")

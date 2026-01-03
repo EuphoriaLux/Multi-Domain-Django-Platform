@@ -227,11 +227,34 @@ WALLET_APPLE_KEY_PASSWORD = os.getenv("WALLET_APPLE_KEY_PASSWORD", "")
 WALLET_APPLE_WWDR_CERT_PATH = os.getenv("WALLET_APPLE_WWDR_CERT_PATH", "")
 
 WALLET_GOOGLE_ISSUER_ID = os.getenv("WALLET_GOOGLE_ISSUER_ID", "")
-WALLET_GOOGLE_CLASS_ID = os.getenv("WALLET_GOOGLE_CLASS_ID", "")
+WALLET_GOOGLE_CLASS_SUFFIX = os.getenv("WALLET_GOOGLE_CLASS_SUFFIX", "crush-member")
+# CLASS_ID is derived from ISSUER_ID.CLASS_SUFFIX, or can be overridden
+WALLET_GOOGLE_CLASS_ID = os.getenv(
+    "WALLET_GOOGLE_CLASS_ID",
+    f"{WALLET_GOOGLE_ISSUER_ID}.{WALLET_GOOGLE_CLASS_SUFFIX}" if WALLET_GOOGLE_ISSUER_ID else ""
+)
 WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL = os.getenv("WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL", "")
 WALLET_GOOGLE_PRIVATE_KEY = os.getenv("WALLET_GOOGLE_PRIVATE_KEY", "")
 WALLET_GOOGLE_PRIVATE_KEY_PATH = os.getenv("WALLET_GOOGLE_PRIVATE_KEY_PATH", "")
 WALLET_GOOGLE_KEY_ID = os.getenv("WALLET_GOOGLE_KEY_ID", "")
+
+# Referral points configuration
+REFERRAL_POINTS_PER_SIGNUP = int(os.getenv("REFERRAL_POINTS_PER_SIGNUP", "100"))
+REFERRAL_POINTS_PER_PROFILE_APPROVED = int(
+    os.getenv("REFERRAL_POINTS_PER_PROFILE_APPROVED", "50")
+)
+
+# Membership tier thresholds (points needed to reach each tier)
+MEMBERSHIP_TIER_THRESHOLDS = {
+    "bronze": 200,
+    "silver": 500,
+    "gold": 1000,
+}
+
+# Points redemption rates
+POINTS_PER_EURO_DISCOUNT = 50  # 50 points = €1 off event fees
+POINTS_FOR_PRIORITY_ACCESS = 200  # Unlock priority event registration
+POINTS_FOR_VISIBILITY_BOOST = 150  # Boost profile visibility temporarily
 
 
 CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"

@@ -376,6 +376,28 @@ class CrushProfile(models.Model):
         blank=True,
         help_text="Google Wallet object ID"
     )
+    show_photo_on_wallet = models.BooleanField(
+        default=True,
+        help_text="Show profile photo on wallet card"
+    )
+
+    # Referral Rewards
+    MEMBERSHIP_TIER_CHOICES = [
+        ('basic', 'Basic'),
+        ('bronze', 'Bronze'),
+        ('silver', 'Silver'),
+        ('gold', 'Gold'),
+    ]
+    referral_points = models.PositiveIntegerField(
+        default=0,
+        help_text="Points earned from referrals"
+    )
+    membership_tier = models.CharField(
+        max_length=20,
+        choices=MEMBERSHIP_TIER_CHOICES,
+        default='basic',
+        help_text="Membership tier based on referral activity"
+    )
 
     # Status
     is_approved = models.BooleanField(default=False)
