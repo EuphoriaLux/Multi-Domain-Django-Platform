@@ -316,7 +316,7 @@
 <!-- Back to Map -->
 <div class="text-center mb-4">
     <a href="{% url 'crush_lu:journey_map' %}" class="nav-btn">
-        {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back to Journey Map
+        {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Back to Journey Map
     </a>
 </div>
 
@@ -347,16 +347,16 @@
     <div class="challenge-card {% if challenge.id in challenge_attempts %}challenge-completed{% endif %}">
         {% if challenge.id in challenge_attempts %}
         <div class="completed-badge">
-            {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Completed
+            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Completed
         </div>
         {% endif %}
 
         <div class="challenge-header">
             <span class="challenge-type">
-                {% include "crush_lu/icons/puzzle-piece.html" with class="w-5 h-5" %} {{ challenge.get_challenge_type_display }}
+                {% include "shared/icons/puzzle-piece.html" with class="w-5 h-5" %} {{ challenge.get_challenge_type_display }}
             </span>
             <span class="challenge-points">
-                {% include "crush_lu/icons/sparkles.html" with class="w-5 h-5" %} {{ challenge.points_awarded }} points
+                {% include "shared/icons/sparkles.html" with class="w-5 h-5" %} {{ challenge.points_awarded }} points
             </span>
         </div>
 
@@ -366,12 +366,12 @@
 
         {% if challenge.id in challenge_attempts %}
             <div style="color: var(--journey-success); margin-top: 10px;">
-                {% include "crush_lu/icons/check.html" with class="w-5 h-5" %} You solved this challenge!
+                {% include "shared/icons/check.html" with class="w-5 h-5" %} You solved this challenge!
             </div>
         {% else %}
             <a href="{% url 'crush_lu:challenge_view' chapter.chapter_number challenge.id %}"
                class="challenge-btn">
-                Start Challenge {% include "crush_lu/icons/arrow-right.html" with class="w-5 h-5" %}
+                Start Challenge {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
             </a>
         {% endif %}
     </div>
@@ -399,10 +399,10 @@
             </p>
             <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
                 <button onclick="submitFinalResponse('yes')" class="final-response-btn final-response-yes" id="btnYes">
-                    {% include "crush_lu/icons/heart.html" with class="w-5 h-5" %} Yes, let's see where this goes 💫
+                    {% include "shared/icons/heart.html" with class="w-5 h-5" %} Yes, let's see where this goes 💫
                 </button>
                 <button onclick="submitFinalResponse('thinking')" class="final-response-btn final-response-thinking" id="btnThinking">
-                    {% include "crush_lu/icons/hourglass.html" with class="w-5 h-5" %} I need to think about this ✨
+                    {% include "shared/icons/hourglass.html" with class="w-5 h-5" %} I need to think about this ✨
                 </button>
             </div>
             <div id="responseStatus" style="margin-top: 20px; font-size: 1.1rem;"></div>
@@ -442,7 +442,7 @@
             </div>
             <div class="reward-title">{{ reward.title }}</div>
             <a href="{% url 'crush_lu:reward_view' reward.id %}" class="challenge-btn mt-3">
-                View Reward {% include "crush_lu/icons/gift.html" with class="w-5 h-5" %}
+                View Reward {% include "shared/icons/gift.html" with class="w-5 h-5" %}
             </a>
         </div>
         {% endfor %}
@@ -455,7 +455,7 @@
 <div class="chapter-navigation">
     {% if chapter.chapter_number > 1 %}
         <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number|add:"-1" %}" class="nav-btn">
-            {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Previous Chapter
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Previous Chapter
         </a>
     {% else %}
         <div></div>
@@ -463,11 +463,11 @@
 
     {% if is_completed and chapter.chapter_number < journey_progress.journey.total_chapters %}
         <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number|add:"1" %}" class="nav-btn">
-            Next Chapter {% include "crush_lu/icons/arrow-right.html" with class="w-5 h-5" %}
+            Next Chapter {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
         </a>
     {% elif is_completed %}
         <a href="{% url 'crush_lu:journey_map' %}" class="nav-btn">
-            {% include "crush_lu/icons/map.html" with class="w-5 h-5" %} Return to Map
+            {% include "shared/icons/map.html" with class="w-5 h-5" %} Return to Map
         </a>
     {% else %}
         <div></div>
@@ -494,7 +494,7 @@ async function submitFinalResponse(response) {
     btnThinking.disabled = true;
 
     // Show loading message
-    statusDiv.innerHTML = '{% include "crush_lu/icons/hourglass.html" with class="w-5 h-5" %} Submitting your response...';
+    statusDiv.innerHTML = '{% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Submitting your response...';
     statusDiv.style.color = 'var(--journey-secondary)';
 
     try {
@@ -528,7 +528,7 @@ async function submitFinalResponse(response) {
 
         if (data.success) {
             // Show success message
-            statusDiv.innerHTML = '{% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Thank you for your response! 💖';
+            statusDiv.innerHTML = '{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Thank you for your response! 💖';
             statusDiv.style.color = 'var(--journey-success)';
 
             // Reload page after 2 seconds to show the confirmed response
@@ -537,7 +537,7 @@ async function submitFinalResponse(response) {
             }, 2000);
         } else {
             // Show error
-            statusDiv.innerHTML = '{% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %} ' + (data.message || 'An error occurred. Please try again.');
+            statusDiv.innerHTML = '{% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %} ' + (data.message || 'An error occurred. Please try again.');
             statusDiv.style.color = 'var(--journey-error)';
 
             // Re-enable buttons
@@ -546,7 +546,7 @@ async function submitFinalResponse(response) {
         }
     } catch (error) {
         console.error('Error submitting final response:', error);
-        statusDiv.innerHTML = '{% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %} Network error. Please check your connection and try again.';
+        statusDiv.innerHTML = '{% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %} Network error. Please check your connection and try again.';
         statusDiv.style.color = 'var(--journey-error)';
 
         // Re-enable buttons

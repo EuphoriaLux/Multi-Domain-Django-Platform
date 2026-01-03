@@ -8,7 +8,7 @@
     <!-- Header -->
     <div class="mb-8">
         <h2 class="text-2xl font-bold flex items-center gap-2">
-            {% include "crush_lu/icons/pencil-square.html" with class="w-5 h-5" %} {{ journey.journey_name }}
+            {% include "shared/icons/pencil-square.html" with class="w-5 h-5" %} {{ journey.journey_name }}
         </h2>
         <p class="text-gray-500 mt-1">
             For: <strong>{{ journey.special_experience.first_name }} {{ journey.special_experience.last_name }}</strong> |
@@ -21,7 +21,7 @@
         <!-- Chapter Header -->
         <div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-5">
             <h3 class="text-lg font-semibold flex items-center gap-2 mb-1">
-                {% include "crush_lu/icons/book-open.html" with class="w-5 h-5" %} Chapter {{ chapter.chapter_number }}: {{ chapter.title }}
+                {% include "shared/icons/book-open.html" with class="w-5 h-5" %} Chapter {{ chapter.chapter_number }}: {{ chapter.title }}
             </h3>
             <p class="text-white/75">{{ chapter.theme }}</p>
         </div>
@@ -37,7 +37,7 @@
             {% if chapter.challenges.all %}
             <div class="mb-6">
                 <h5 class="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    {% include "crush_lu/icons/puzzle-piece.html" with class="w-5 h-5" %} Challenges ({{ chapter.challenges.count }})
+                    {% include "shared/icons/puzzle-piece.html" with class="w-5 h-5" %} Challenges ({{ chapter.challenges.count }})
                 </h5>
 
                 {% for challenge in chapter.challenges.all %}
@@ -56,23 +56,23 @@
 
                             <div class="flex flex-wrap gap-2">
                                 <span class="inline-flex items-center gap-1 px-3 py-1 text-sm font-semibold bg-purple-600 text-white rounded-full">
-                                    {% include "crush_lu/icons/trophy.html" with class="w-5 h-5" %} {{ challenge.points_awarded }} pts
+                                    {% include "shared/icons/trophy.html" with class="w-5 h-5" %} {{ challenge.points_awarded }} pts
                                 </span>
 
                                 {# Mode indicator: Quiz vs Questionnaire #}
                                 {% if chapter.chapter_number in '245'|make_list or challenge.challenge_type == 'open_text' or challenge.challenge_type == 'would_you_rather' or not challenge.correct_answer %}
                                 <span class="inline-flex items-center gap-1 px-3 py-1 text-sm font-semibold bg-blue-500 text-white rounded-full">
-                                    {% include "crush_lu/icons/chat-bubble-left-ellipsis.html" with class="w-5 h-5" %} Questionnaire Mode
+                                    {% include "shared/icons/chat-bubble-left-ellipsis.html" with class="w-5 h-5" %} Questionnaire Mode
                                 </span>
                                 {% else %}
                                 <span class="inline-flex items-center gap-1 px-3 py-1 text-sm font-semibold bg-green-500 text-white rounded-full">
-                                    {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Quiz Mode
+                                    {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Quiz Mode
                                 </span>
                                 {% endif %}
 
                                 {% if challenge.hint_1 or challenge.hint_2 or challenge.hint_3 %}
                                 <span class="inline-flex items-center gap-1 px-3 py-1 text-sm font-semibold bg-amber-400 text-gray-900 rounded-full">
-                                    {% include "crush_lu/icons/light-bulb.html" with class="w-5 h-5" %}
+                                    {% include "shared/icons/light-bulb.html" with class="w-5 h-5" %}
                                     {% if challenge.hint_1 %}1{% endif %}
                                     {% if challenge.hint_2 %} 2{% endif %}
                                     {% if challenge.hint_3 %} 3{% endif %}
@@ -84,7 +84,7 @@
                         <div class="flex-shrink-0">
                             <a href="{% url 'crush_lu:coach_edit_challenge' challenge.id %}"
                                class="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-full transition-all hover:-translate-y-0.5">
-                                {% include "crush_lu/icons/pencil.html" with class="w-5 h-5" %} Edit
+                                {% include "shared/icons/pencil.html" with class="w-5 h-5" %} Edit
                             </a>
                         </div>
                     </div>
@@ -99,7 +99,7 @@
             {% if chapter.rewards.all %}
             <div class="mb-6">
                 <h5 class="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    {% include "crush_lu/icons/gift.html" with class="w-5 h-5" %} Rewards ({{ chapter.rewards.count }})
+                    {% include "shared/icons/gift.html" with class="w-5 h-5" %} Rewards ({{ chapter.rewards.count }})
                 </h5>
                 {% for reward in chapter.rewards.all %}
                 <div class="p-3 border-l-4 border-pink-400 bg-orange-50 rounded-r-lg mb-2 flex items-center gap-3">
@@ -108,13 +108,13 @@
                         {{ reward.get_reward_type_display }}
                     </span>
                     {% if reward.photo %}
-                    {% include "crush_lu/icons/photo.html" with class="w-5 h-5 text-green-500" %}
+                    {% include "shared/icons/photo.html" with class="w-5 h-5 text-green-500" %}
                     {% endif %}
                     {% if reward.audio_file %}
-                    {% include "crush_lu/icons/musical-note.html" with class="w-5 h-5 text-green-500" %}
+                    {% include "shared/icons/musical-note.html" with class="w-5 h-5 text-green-500" %}
                     {% endif %}
                     {% if reward.video_file %}
-                    {% include "crush_lu/icons/video-camera.html" with class="w-5 h-5 text-green-500" %}
+                    {% include "shared/icons/video-camera.html" with class="w-5 h-5 text-green-500" %}
                     {% endif %}
                 </div>
                 {% endfor %}
@@ -134,11 +134,11 @@
     <div class="flex flex-wrap gap-3 mt-8">
         <a href="{% url 'crush_lu:coach_journey_dashboard' %}"
            class="inline-flex items-center gap-2 px-5 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg transition-colors">
-            {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back to Journeys
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Back to Journeys
         </a>
         <a href="{% url 'crush_admin:crush_lu_journeyconfiguration_change' journey.id %}"
            class="inline-flex items-center gap-2 px-5 py-3 border border-purple-500 text-purple-600 hover:bg-purple-50 font-semibold rounded-lg transition-colors">
-            {% include "crush_lu/icons/cog-6-tooth.html" with class="w-5 h-5" %} Advanced Settings
+            {% include "shared/icons/cog-6-tooth.html" with class="w-5 h-5" %} Advanced Settings
         </a>
     </div>
 </div>

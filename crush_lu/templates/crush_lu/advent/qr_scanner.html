@@ -6,7 +6,7 @@
 {% block advent_content %}
 <div class="advent-header">
     <a href="{% url 'crush_lu:advent_calendar' %}" class="advent-back-btn">
-        {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back to Calendar
+        {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Back to Calendar
     </a>
 </div>
 
@@ -14,7 +14,7 @@
     <div class="container">
         <div class="qr-scanner-card">
             <h2 class="text-center mb-4">
-                {% include "crush_lu/icons/qr-code.html" with class="w-5 h-5" %} Scan QR Code
+                {% include "shared/icons/qr-code.html" with class="w-5 h-5" %} Scan QR Code
             </h2>
 
             <p class="text-center text-muted mb-4">
@@ -48,7 +48,7 @@
                     <input type="text" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="manual-code"
                            placeholder="Enter code from QR" autocomplete="off">
                     <button type="submit" class="btn-crush-primary px-4 py-2">
-                        {% include "crush_lu/icons/check.html" with class="w-5 h-5" %}
+                        {% include "shared/icons/check.html" with class="w-5 h-5" %}
                     </button>
                 </form>
             </div>
@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         statusEl.innerHTML = `
             <div class="text-success">
-                {% include "crush_lu/icons/check-circle.html" with class="w-6 h-6" %}
+                {% include "shared/icons/check-circle.html" with class="w-6 h-6" %}
                 <div class="mt-2">QR Code detected! Redirecting...</div>
             </div>
         `;
@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Camera error:', err);
                 statusEl.innerHTML = `
                     <div class="text-warning">
-                        {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+                        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
                         Camera access denied. Please use manual input below.
                     </div>
                 `;
@@ -182,7 +182,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             statusEl.innerHTML = `
                 <div class="text-warning">
-                    {% include "crush_lu/icons/video-camera-slash.html" with class="w-5 h-5" %}
+                    {% include "shared/icons/video-camera-slash.html" with class="w-5 h-5" %}
                     No camera found. Please use manual input below.
                 </div>
             `;
@@ -191,7 +191,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Camera enumeration error:', err);
         statusEl.innerHTML = `
             <div class="text-warning">
-                {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+                {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
                 Could not access camera. Please use manual input.
             </div>
         `;

@@ -9,7 +9,7 @@
     <!-- Invalid token error -->
     <div class="bg-white rounded-xl shadow-sm">
         <div class="text-center py-12 px-6">
-            {% include "crush_lu/icons/exclamation-circle.html" with class="w-16 h-16 text-red-500 mx-auto mb-4" %}
+            {% include "shared/icons/exclamation-circle.html" with class="w-16 h-16 text-red-500 mx-auto mb-4" %}
             <h2 class="text-2xl font-bold mb-3">Invalid Unsubscribe Link</h2>
             <p class="text-gray-500 mb-4">
                 This unsubscribe link is invalid or has expired.
@@ -20,7 +20,7 @@
                 and visit your account settings.
             </p>
             <a href="{% url 'crush_lu:home' %}" class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3">
-                {% include "crush_lu/icons/home.html" with class="w-4 h-4" %}
+                {% include "shared/icons/home.html" with class="w-4 h-4" %}
                 Go to Homepage
             </a>
         </div>
@@ -30,7 +30,7 @@
     <!-- Success message -->
     <div class="bg-white rounded-xl shadow-sm">
         <div class="text-center py-12 px-6">
-            {% include "crush_lu/icons/check-circle.html" with class="w-16 h-16 text-green-500 mx-auto mb-4" %}
+            {% include "shared/icons/check-circle.html" with class="w-16 h-16 text-green-500 mx-auto mb-4" %}
             <h2 class="text-2xl font-bold mb-3">Preferences Updated!</h2>
 
             {% if email_prefs.unsubscribed_all %}
@@ -38,14 +38,14 @@
                 You have been unsubscribed from all Crush.lu emails.
             </p>
             <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-4 inline-flex items-center gap-2">
-                {% include "crush_lu/icons/info.html" with class="w-5 h-5 flex-shrink-0" %}
+                {% include "shared/icons/info.html" with class="w-5 h-5 flex-shrink-0" %}
                 Changed your mind? You can re-subscribe below.
             </div>
             <form method="post" class="mt-4">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="resubscribe">
                 <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 border border-purple-500 text-purple-600 hover:bg-purple-50 rounded-lg font-medium transition-colors">
-                    {% include "crush_lu/icons/bell.html" with class="w-4 h-4" %}
+                    {% include "shared/icons/bell.html" with class="w-4 h-4" %}
                     Re-subscribe to Emails
                 </button>
             </form>
@@ -69,7 +69,7 @@
     <div class="bg-white rounded-xl shadow-sm">
         <div class="border-b border-gray-100 px-6 py-4">
             <h4 class="font-semibold flex items-center gap-2">
-                {% include "crush_lu/icons/envelope.html" with class="w-5 h-5" %}
+                {% include "shared/icons/envelope.html" with class="w-5 h-5" %}
                 Email Preferences
             </h4>
         </div>
@@ -80,7 +80,7 @@
 
             {% if email_prefs.unsubscribed_all %}
             <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 mb-4 flex items-center gap-2">
-                {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5 flex-shrink-0" %}
+                {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 flex-shrink-0" %}
                 You are currently unsubscribed from all emails.
             </div>
 
@@ -88,7 +88,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="action" value="resubscribe">
                 <button type="submit" class="btn-crush-primary w-full py-3 inline-flex items-center justify-center gap-2">
-                    {% include "crush_lu/icons/bell.html" with class="w-4 h-4" %}
+                    {% include "shared/icons/bell.html" with class="w-4 h-4" %}
                     Re-subscribe to Emails
                 </button>
             </form>
@@ -100,41 +100,41 @@
                 <ul class="space-y-2">
                     <li class="flex items-center gap-2">
                         {% if email_prefs.email_profile_updates %}
-                        {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
+                        {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
                         {% else %}
-                        {% include "crush_lu/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
+                        {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
                         {% endif %}
                         Profile Updates
                     </li>
                     <li class="flex items-center gap-2">
                         {% if email_prefs.email_event_reminders %}
-                        {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
+                        {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
                         {% else %}
-                        {% include "crush_lu/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
+                        {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
                         {% endif %}
                         Event Reminders
                     </li>
                     <li class="flex items-center gap-2">
                         {% if email_prefs.email_new_connections %}
-                        {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
+                        {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
                         {% else %}
-                        {% include "crush_lu/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
+                        {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
                         {% endif %}
                         New Connections
                     </li>
                     <li class="flex items-center gap-2">
                         {% if email_prefs.email_new_messages %}
-                        {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
+                        {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
                         {% else %}
-                        {% include "crush_lu/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
+                        {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
                         {% endif %}
                         New Messages
                     </li>
                     <li class="flex items-center gap-2">
                         {% if email_prefs.email_marketing %}
-                        {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
+                        {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
                         {% else %}
-                        {% include "crush_lu/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
+                        {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
                         {% endif %}
                         Marketing & Promotions
                     </li>
@@ -151,7 +151,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="action" value="unsubscribe_marketing">
                 <button type="submit" class="w-full py-3 px-4 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg font-medium transition-colors inline-flex items-center justify-center gap-2">
-                    {% include "crush_lu/icons/megaphone.html" with class="w-4 h-4" %}
+                    {% include "shared/icons/megaphone.html" with class="w-4 h-4" %}
                     Unsubscribe from Marketing Only
                 </button>
                 <small class="text-gray-500 block mt-1">
@@ -164,7 +164,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="action" value="unsubscribe_all">
                 <button type="submit" class="w-full py-3 px-4 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors inline-flex items-center justify-center gap-2">
-                    {% include "crush_lu/icons/envelope-x.html" with class="w-4 h-4" %}
+                    {% include "shared/icons/envelope-x.html" with class="w-4 h-4" %}
                     Unsubscribe from ALL Emails
                 </button>
                 <small class="text-gray-500 block mt-1">
@@ -176,7 +176,7 @@
             <hr class="my-4 border-gray-200">
 
             <p class="text-sm text-gray-500 text-center flex items-center justify-center gap-1">
-                {% include "crush_lu/icons/cog.html" with class="w-4 h-4" %}
+                {% include "shared/icons/cog.html" with class="w-4 h-4" %}
                 For more detailed control,
                 <a href="{% url 'crush_lu:login' %}" class="text-purple-600 hover:underline">log in</a>
                 and visit your

@@ -26,7 +26,7 @@
                         <small class="text-gray-500">{{ connection.requested_at|date:"M d, Y g:i A" }}</small>
                         {% if connection.requester_note %}
                             <p class="text-sm mt-2 mb-0 flex items-center gap-1">
-                                {% include "crush_lu/icons/chat-bubble-left.html" with class="w-4 h-4" %}
+                                {% include "shared/icons/chat-bubble-left.html" with class="w-4 h-4" %}
                                 "{{ connection.requester_note }}"
                             </p>
                         {% endif %}
@@ -99,7 +99,7 @@
             <div class="p-6">
                 <div class="flex items-start gap-4">
                     <div class="text-purple-600">
-                        {% include "crush_lu/icons/chat-bubble-left.html" with class="w-8 h-8" %}
+                        {% include "shared/icons/chat-bubble-left.html" with class="w-8 h-8" %}
                     </div>
                     <div>
                         <h6 class="font-medium mb-2">
@@ -118,7 +118,7 @@
             <div class="bg-white rounded-xl shadow-lg mb-6 border-l-4 border-yellow-500">
                 <div class="p-6">
                     <h5 class="font-semibold mb-3 flex items-center gap-2">
-                        {% include "crush_lu/icons/shield-check.html" with class="w-5 h-5" %}
+                        {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}
                         Consent Required
                     </h5>
                     <p class="text-gray-600 mb-4">
@@ -150,7 +150,7 @@
                         </div>
 
                         <button type="submit" class="btn-crush-primary inline-flex items-center gap-2">
-                            {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %}
+                            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
                             Give Consent
                         </button>
                     </form>
@@ -160,7 +160,7 @@
             <div class="bg-white rounded-xl shadow-lg mb-6 border-l-4 border-yellow-500">
                 <div class="p-6">
                     <h5 class="font-semibold mb-3 flex items-center gap-2">
-                        {% include "crush_lu/icons/shield-check.html" with class="w-5 h-5" %}
+                        {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}
                         Consent Required
                     </h5>
                     <p class="text-gray-600 mb-4">
@@ -192,7 +192,7 @@
                         </div>
 
                         <button type="submit" class="btn-crush-primary inline-flex items-center gap-2">
-                            {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %}
+                            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
                             Give Consent
                         </button>
                     </form>
@@ -200,7 +200,7 @@
             </div>
         {% else %}
             <div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4 mb-6 flex items-center gap-2">
-                {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %}
+                {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
                 You've given consent! Waiting for {{ other_user.first_name }} to consent as well...
             </div>
         {% endif %}
@@ -211,7 +211,7 @@
         <div class="bg-white rounded-xl shadow-lg mb-6 border-l-4 border-green-500">
             <div class="p-6">
                 <h5 class="font-semibold text-green-600 flex items-center gap-2 mb-6">
-                    {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %}
+                    {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
                     Contact Information Shared! 🎉
                 </h5>
 
@@ -237,20 +237,20 @@
 
                                 <div class="text-left space-y-2">
                                     <p class="flex items-center gap-2">
-                                        {% include "crush_lu/icons/envelope.html" with class="w-4 h-4 text-gray-500" %}
+                                        {% include "shared/icons/envelope.html" with class="w-4 h-4 text-gray-500" %}
                                         <a href="mailto:{{ other_user.email }}" class="text-purple-600 hover:underline">{{ other_user.email }}</a>
                                     </p>
 
                                     {% if other_profile.phone_number %}
                                         <p class="flex items-center gap-2">
-                                            {% include "crush_lu/icons/phone.html" with class="w-4 h-4 text-gray-500" %}
+                                            {% include "shared/icons/phone.html" with class="w-4 h-4 text-gray-500" %}
                                             <a href="tel:{{ other_profile.phone_number }}" class="text-purple-600 hover:underline">{{ other_profile.phone_number }}</a>
                                         </p>
                                     {% endif %}
 
                                     {% if other_profile.city %}
                                         <p class="flex items-center gap-2">
-                                            {% include "crush_lu/icons/map-pin.html" with class="w-4 h-4 text-gray-500" %}
+                                            {% include "shared/icons/map-pin.html" with class="w-4 h-4 text-gray-500" %}
                                             {{ other_profile.city }}
                                         </p>
                                     {% endif %}
@@ -262,7 +262,7 @@
 
                                     {% if other_profile.interests %}
                                         <p class="text-sm flex items-center gap-2">
-                                            {% include "crush_lu/icons/star.html" with class="w-4 h-4 text-yellow-500" %}
+                                            {% include "shared/icons/star.html" with class="w-4 h-4 text-yellow-500" %}
                                             <strong>Interests:</strong> {{ other_profile.interests }}
                                         </p>
                                     {% endif %}
@@ -275,7 +275,7 @@
                         <!-- Coach Tips -->
                         <div class="bg-gray-50 rounded-xl p-4 mb-6">
                             <h6 class="font-medium mb-3 flex items-center gap-2">
-                                {% include "crush_lu/icons/light-bulb.html" with class="w-5 h-5 text-yellow-500" %}
+                                {% include "shared/icons/light-bulb.html" with class="w-5 h-5 text-yellow-500" %}
                                 Next Steps
                             </h6>
                             <ul class="list-disc list-inside text-sm text-gray-600 space-y-1">
@@ -288,12 +288,12 @@
 
                         <div class="space-y-3">
                             <a href="mailto:{{ other_user.email }}" class="btn-crush-primary w-full inline-flex items-center justify-center gap-2">
-                                {% include "crush_lu/icons/envelope.html" with class="w-5 h-5" %}
+                                {% include "shared/icons/envelope.html" with class="w-5 h-5" %}
                                 Send Email
                             </a>
                             {% if other_profile.phone_number %}
                                 <a href="tel:{{ other_profile.phone_number }}" class="w-full border border-purple-500 text-purple-600 hover:bg-purple-50 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center justify-center gap-2">
-                                    {% include "crush_lu/icons/phone.html" with class="w-5 h-5" %}
+                                    {% include "shared/icons/phone.html" with class="w-5 h-5" %}
                                     Call
                                 </a>
                             {% endif %}
@@ -316,7 +316,7 @@
                                 <strong class="text-sm">
                                     {% if msg.is_coach_message %}
                                         <span class="inline-flex items-center gap-1">
-                                            {% include "crush_lu/icons/chat-bubble-left.html" with class="w-4 h-4" %}
+                                            {% include "shared/icons/chat-bubble-left.html" with class="w-4 h-4" %}
                                             Coach {{ msg.sender.first_name }}
                                         </span>
                                     {% else %}
@@ -336,7 +336,7 @@
     <!-- Back Button -->
     <div class="text-center mt-8">
         <a href="{% url 'crush_lu:my_connections' %}" class="border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
-            {% include "crush_lu/icons/arrow-left.html" with class="w-4 h-4" %}
+            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
             Back to Connections
         </a>
     </div>

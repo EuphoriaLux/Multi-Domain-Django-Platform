@@ -2,7 +2,7 @@
 
 <div class="tw-bg-green-50 tw-border tw-border-green-200 tw-rounded-crush-lg tw-p-6 tw-text-center tw-animate-fadeIn">
     <div class="tw-text-green-600 tw-text-5xl tw-mb-4">
-        {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %}
+        {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
     </div>
     <h3 class="tw-text-green-800 tw-font-semibold tw-text-xl tw-mb-2">
         Profile Updated Successfully!
@@ -12,12 +12,12 @@
     </p>
     <div class="tw-flex tw-flex-col sm:tw-flex-row tw-gap-3 tw-justify-center">
         <a href="{% url 'crush_lu:dashboard' %}" class="btn-crush-primary inline-flex items-center justify-center gap-2 px-4 py-2">
-            {% include "crush_lu/icons/arrow-left.html" with class="w-4 h-4" %} Back to Dashboard
+            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} Back to Dashboard
         </a>
         <button type="button"
                 class="inline-flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors"
                 onclick="window.location.reload()">
-            {% include "crush_lu/icons/pencil.html" with class="w-4 h-4" %} Continue Editing
+            {% include "shared/icons/pencil.html" with class="w-4 h-4" %} Continue Editing
         </button>
     </div>
 </div>

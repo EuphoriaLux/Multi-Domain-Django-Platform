@@ -121,7 +121,7 @@ TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
-            BASE_DIR / 'core' / 'templates',  # Core templates first (for admin overrides)
+            BASE_DIR / 'core' / 'templates',  # Core templates first (for admin overrides, shared icons)
         ],
         'APP_DIRS': True,
         'OPTIONS': {

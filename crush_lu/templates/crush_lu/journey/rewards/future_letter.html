@@ -267,7 +267,7 @@
     <!-- Back Button -->
     <div class="text-center mb-4">
         <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
-            {% include "crush_lu/icons/arrow-left.html" with class="w-5 h-5" %} Back to Chapter
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Back to Chapter
         </a>
     </div>
 
@@ -322,7 +322,7 @@
         {% if reward.audio_file %}
         <div style="margin-top: 30px; padding-top: 30px; border-top: 1px dashed rgba(255, 255, 255, 0.3); text-align: center;">
             <p style="font-size: 1.1rem; margin-bottom: 15px; font-style: italic; color: #f8f9fa;">
-                {% include "crush_lu/icons/musical-note.html" with class="w-5 h-5" %} A special voice message for you...
+                {% include "shared/icons/musical-note.html" with class="w-5 h-5" %} A special voice message for you...
             </p>
             <audio controls style="width: 100%; max-width: 500px; border-radius: 10px;">
                 <source src="{{ reward.audio_file.url|safe }}" type="audio/mpeg">
@@ -333,7 +333,7 @@
         {% endif %}
 
         <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="continue-btn">
-            Continue Your Journey {% include "crush_lu/icons/arrow-right.html" with class="w-5 h-5" %}
+            Continue Your Journey {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
         </a>
     </div>
 </div>

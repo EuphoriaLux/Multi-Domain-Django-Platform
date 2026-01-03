@@ -108,12 +108,12 @@
 
                     {% if has_dating_profile %}
                         <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-6 flex items-start gap-2">
-                            {% include "crush_lu/icons/info.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
+                            {% include "shared/icons/info.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
                             <span>You also have a dating profile. <a href="{% url 'crush_lu:edit_profile' %}" class="font-medium underline hover:no-underline">Edit your dating profile</a></span>
                         </div>
                     {% else %}
                         <div class="bg-gray-50 border border-gray-200 text-gray-700 rounded-lg p-4 mb-6 flex items-start gap-2">
-                            {% include "crush_lu/icons/user-plus.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
+                            {% include "shared/icons/user-plus.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
                             <span>Want to use Crush.lu for dating too? <a href="{% url 'crush_lu:create_profile' %}" class="font-medium underline hover:no-underline">Create a dating profile</a></span>
                         </div>
                     {% endif %}

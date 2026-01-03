@@ -150,7 +150,7 @@
                      data-verified="{{ profile.phone_verified|yesno:'true,false'|default:'false' }}"
                      data-phone-input-id="{{ form.phone_number.id_for_label }}">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                        {% include "crush_lu/icons/phone.html" with class="w-5 h-5" %} Phone Number *
+                        {% include "shared/icons/phone.html" with class="w-5 h-5" %} Phone Number *
                         <span x-show="notVerified"
                               class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 ml-2">
                             Verification Required
@@ -180,14 +180,14 @@
                                 @click="startVerification"
                                 x-bind:disabled="cannotVerify"
                                 class="px-4 py-3 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2">
-                            {% include "crush_lu/icons/shield-check.html" with class="w-5 h-5" %}
+                            {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}
                             <span class="hidden sm:inline">Verify</span>
                         </button>
                         <!-- Change phone number button removed - users must contact support to change verified phone -->
                     </div>
 
                     <p class="text-sm text-gray-500 mt-2">
-                        {% include "crush_lu/icons/information-circle.html" with class="w-5 h-5" %}
+                        {% include "shared/icons/information-circle.html" with class="w-5 h-5" %}
                         You must verify your phone number before continuing.
                     </p>
 
@@ -209,7 +209,7 @@
                 <!-- Date of Birth -->
                 <div class="mb-6">
                     <label for="{{ form.date_of_birth.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
-                        {% include "crush_lu/icons/calendar.html" with class="w-5 h-5" %} Date of Birth *
+                        {% include "shared/icons/calendar.html" with class="w-5 h-5" %} Date of Birth *
                     </label>
                     {{ form.date_of_birth }}
                     <p class="text-sm text-gray-500 mt-1">Must be 18+ to join</p>
@@ -221,7 +221,7 @@
                 <!-- Gender Selection -->
                 <fieldset class="mb-6">
                     <legend class="block text-sm font-medium text-gray-700 mb-3">
-                        <span aria-hidden="true">{% include "crush_lu/icons/user.html" with class="w-5 h-5" %}</span> Gender <span class="text-red-500" aria-label="required">*</span>
+                        <span aria-hidden="true">{% include "shared/icons/user.html" with class="w-5 h-5" %}</span> Gender <span class="text-red-500" aria-label="required">*</span>
                     </legend>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3" role="radiogroup" aria-label="Select your gender">
                         {% for value, label, icon in gender_choices %}
@@ -287,7 +287,7 @@
                 <!-- Location (Canton Map) -->
                 <div class="mb-6">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                        {% include "crush_lu/icons/map-pin.html" with class="w-5 h-5" %} Location in Luxembourg *
+                        {% include "shared/icons/map-pin.html" with class="w-5 h-5" %} Location in Luxembourg *
                     </label>
                     <p class="text-sm text-gray-500 mb-2">Click the map or use the dropdown to select your region</p>
 
@@ -317,7 +317,7 @@
                             <button type="button"
                                     @click="toggleFallbackDropdown"
                                     class="canton-map-fallback-toggle">
-                                {% include "crush_lu/icons/list-bullet.html" with class="w-4 h-4" %}
+                                {% include "shared/icons/list-bullet.html" with class="w-4 h-4" %}
                                 Can't use the map? Select from list
                             </button>
                             <div x-show="fallbackDropdownVisible" x-transition class="canton-map-fallback-dropdown">
@@ -349,7 +349,7 @@
 
                     {% if form.location.errors %}
                         <div class="canton-map-error mt-2 text-sm text-red-600 flex items-center gap-1">
-                            {% include "crush_lu/icons/exclamation-circle.html" with class="w-4 h-4" %}
+                            {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4" %}
                             {{ form.location.errors.0 }}
                         </div>
                     {% endif %}
@@ -421,7 +421,7 @@
                 <!-- Bio -->
                 <div class="mb-6" x-data="charCounter" data-initial-count="{{ profile.bio|length|default:0 }}" data-max-length="500">
                     <label for="{{ form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
-                        {% include "crush_lu/icons/chat-bubble-left.html" with class="w-5 h-5" %} Bio
+                        {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5" %} Bio
                         <span class="text-xs text-gray-400 font-normal ml-1">Optional</span>
                     </label>
                     <textarea name="bio"
@@ -442,7 +442,7 @@
                 <!-- Interest Categories -->
                 <div class="mb-6">
                     <label class="block text-sm font-medium text-gray-700 mb-3">
-                        {% include "crush_lu/icons/star.html" with class="w-5 h-5" %} Interest Categories
+                        {% include "shared/icons/star.html" with class="w-5 h-5" %} Interest Categories
                         <span class="text-xs text-gray-400 font-normal ml-1">Optional</span>
                     </label>
                     <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -498,7 +498,7 @@
                 <!-- Custom Interests -->
                 <div class="mb-6" x-data="charCounter" data-initial-count="{{ profile.interests|length|default:0 }}" data-max-length="300">
                     <label for="{{ form.interests.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
-                        {% include "crush_lu/icons/pencil.html" with class="w-5 h-5" %} Or write your own interests
+                        {% include "shared/icons/pencil.html" with class="w-5 h-5" %} Or write your own interests
                     </label>
                     <textarea name="interests"
                               id="{{ form.interests.id_for_label }}"
@@ -515,7 +515,7 @@
                 <!-- Looking For -->
                 <fieldset class="mb-6">
                     <legend class="block text-sm font-medium text-gray-700 mb-3">
-                        <span aria-hidden="true">{% include "crush_lu/icons/heart.html" with class="w-5 h-5" %}</span> What are you looking for? <span class="text-red-500" aria-label="required">*</span>
+                        <span aria-hidden="true">{% include "shared/icons/heart.html" with class="w-5 h-5" %}</span> What are you looking for? <span class="text-red-500" aria-label="required">*</span>
                     </legend>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3" role="radiogroup" aria-label="Select what you are looking for">
                         <label class="cursor-pointer">
@@ -833,7 +833,7 @@
                 <div class="bg-gray-50 rounded-xl p-4 mb-6 space-y-3">
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                            {% include "crush_lu/icons/phone.html" with class="w-5 h-5 text-purple-600" %}
+                            {% include "shared/icons/phone.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">Phone Number</span>
@@ -842,7 +842,7 @@
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                            {% include "crush_lu/icons/calendar.html" with class="w-5 h-5 text-purple-600" %}
+                            {% include "shared/icons/calendar.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">Date of Birth</span>
@@ -851,7 +851,7 @@
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                            {% include "crush_lu/icons/user.html" with class="w-5 h-5 text-purple-600" %}
+                            {% include "shared/icons/user.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">Gender</span>
@@ -860,7 +860,7 @@
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                            {% include "crush_lu/icons/map-pin.html" with class="w-5 h-5 text-purple-600" %}
+                            {% include "shared/icons/map-pin.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">Location</span>
@@ -872,7 +872,7 @@
                 <!-- What Happens Next -->
                 <div class="mb-6">
                     <h5 class="font-semibold mb-4 flex items-center gap-2">
-                        {% include "crush_lu/icons/hourglass.html" with class="w-5 h-5 text-purple-600" %}
+                        {% include "shared/icons/hourglass.html" with class="w-5 h-5 text-purple-600" %}
                         What Happens Next?
                     </h5>
 
@@ -995,7 +995,7 @@
                 </button>
 
                 <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
-                    {% include "crush_lu/icons/phone.html" with class="w-5 h-5" %} Verify Your Phone
+                    {% include "shared/icons/phone.html" with class="w-5 h-5" %} Verify Your Phone
                 </h3>
 
                 <!-- Step: Sending -->

@@ -1,105 +1,306 @@
----
-page_type: sample
-languages:
-- azdeveloper
-- python
-- bicep
-- html
-products:
-- azure
-- azure-app-service
-- azure-database-postgresql
-- azure-virtual-network
-urlFragment: msdocs-django-postgresql-sample-app
-name: Deploy a Python (Django) web app with PostgreSQL in Azure
-description: This is a Python web app using the Django framework and the Azure Database for PostgreSQL relational database service. 
----
-<!-- YAML front-matter schema: https://review.learn.microsoft.com/en-us/help/contribute/samples/process/onboarding?branch=main#supported-metadata-fields-for-readmemd -->
+# Entreprinder
 
-# Deploy a Python (Django) web app with PostgreSQL in Azure
+[![Deploy](https://github.com/EuphoriaLux/Entreprinder/actions/workflows/deploy-azure-app-service-optimized.yml/badge.svg)](https://github.com/EuphoriaLux/Entreprinder/actions/workflows/deploy-azure-app-service-optimized.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Django 5.1](https://img.shields.io/badge/django-5.1-green.svg)](https://www.djangoproject.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-This is a Python web app using the Django framework and the Azure Database for PostgreSQL relational database service. The Django app is hosted in a fully managed Azure App Service. This app is designed to be be run locally and then deployed to Azure. You can either deploy this project by following the tutorial [*Deploy a Python (Django or Flask) web app with PostgreSQL in Azure*](https://docs.microsoft.com/azure/app-service/tutorial-python-postgresql-app) or by using the [Azure Developer CLI (azd)](https://learn.microsoft.com/azure/developer/azure-developer-cli/overview) according to the instructions below.
+Multi-domain Django application serving 6 distinct platforms from a single codebase, deployed on Azure App Service.
 
-Additionally, the sample application demonstrates Azure Redis Cache access by caching the restaurant details page for 60 seconds. You can add the Azure Redis Cache integration in the [secure-by-default web app + database creation wizard](https://portal.azure.com/?feature.customportal=false#create/Microsoft.AppServiceWebAppDatabaseV3), and it's also included in the [AZD template](https://github.com/Azure-Samples/python-app-service-postgresql-infra).
+## Platforms
 
-## Requirements
+| Domain | Description | Type |
+|--------|-------------|------|
+| [crush.lu](https://crush.lu) | Privacy-first event-based dating for Luxembourg | Full-featured |
+| [vinsdelux.com](https://vinsdelux.com) | Premium wine e-commerce with vineyard plot adoption | Full-featured |
+| [powerup.lu](https://powerup.lu) | Entrepreneur networking with Tinder-style matching | Full-featured |
+| [power-up.lu](https://power-up.lu) | Corporate/investor information site | Static |
+| [tableau.lu](https://tableau.lu) | AI Art e-commerce platform | Static |
+| delegation.crush.lu | Crush.lu delegation features | Subdomain |
 
-The [requirements.txt](./requirements.txt) has the following packages, all used by a typical data-driven Django application:
+## Tech Stack
 
-| Package | Description |
-| ------- | ----------- |
-| [Django](https://pypi.org/project/Django/) | Web application framework. |
-| [pyscopg2-binary](https://pypi.org/project/psycopg-binary/) | PostgreSQL database adapter for Python. |
-| [python-dotenv](https://pypi.org/project/python-dotenv/) | Read key-value pairs from .env file and set them as environment variables. In this sample app, those variables describe how to connect to the database locally. <br><br> This package is used in the [manage.py](./manage.py) file to load environment variables. |
-| [whitenoise](https://pypi.org/project/whitenoise/) | Static file serving for WSGI applications, used in the deployed app. <br><br> This package is used in the [azureproject/production.py](./azureproject/production.py) file, which configures production settings. |
-| [django-redis](https://pypi.org/project/django-redis/) | Redis cache backend for Django. |
+| Layer | Technology |
+|-------|-----------|
+| Framework | Django 5.1, Python 3.10+ |
+| Database | SQLite (dev), PostgreSQL (prod) |
+| Frontend | Tailwind CSS, HTMX, Alpine.js (CSP build) |
+| Authentication | Django Allauth, LinkedIn OAuth2, JWT |
+| Storage | Local filesystem (dev), Azure Blob Storage (prod) |
+| Email | Console (dev), Microsoft Graph API (prod) |
+| Deployment | Azure App Service, GitHub Actions CI/CD |
 
-## Run the sample
+## Quick Start
 
-This project has a [dev container configuration](.devcontainer/), which makes it easier to develop apps locally, deploy them to Azure, and monitor them. The easiest way to run this sample application is inside a GitHub codespace. Follow these steps:
+```bash
+# Clone and enter directory
+git clone https://github.com/EuphoriaLux/Entreprinder.git
+cd Entreprinder
 
-1. Fork this repository to your account. For instructions, see [Fork a repo](https://docs.github.com/get-started/quickstart/fork-a-repo).
+# Create and activate virtual environment
+python -m venv .venv
+.venv/Scripts/Activate.ps1  # Windows PowerShell
+# or: source .venv/bin/activate  # Linux/macOS
 
-1. From the repository root of your fork, select **Code** > **Codespaces** > **+**.
+# Install dependencies and run
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
+```
 
-1. In the codespace terminal, run the following commands:
+Visit http://localhost:8000 (routes to Crush.lu by default).
 
-    ```shell
-    # Install requirements
-    python3 -m pip install -r requirements.txt
-    # Create .env with environment variables
-    cp .env.sample.devcontainer .env
-    # Run database migrations
-    python3 manage.py migrate
-    # Start the development server
-    python3 manage.py runserver
-    ```
+## Development Setup
 
-1. When you see the message `Your application running on port 8000 is available.`, click **Open in Browser**.
+### Prerequisites
 
-### Quick deploy
+- Python 3.10 or higher
+- Node.js 20+ (for Tailwind CSS)
+- Git
 
-This project is designed to work well with the [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/overview), which makes it easier to develop apps locally, deploy them to Azure, and monitor them. 
+### Virtual Environment (Critical)
 
-🎥 Watch a deployment of the code in [this screencast](https://www
-.youtube.com/watch?v=JDlZ4TgPKYc).
+**Always activate the virtual environment before running Python commands.**
 
-Steps for deployment:
+```powershell
+# PowerShell (Windows)
+.venv/Scripts/Activate.ps1
 
-1. Sign up for a [free Azure account](https://azure.microsoft.com/free/)
-2. Install the [Azure Dev CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd). (If you opened this repository in a Dev Container, it's already installed for you.)
-3. Initialize a new `azd` environment:
+# Command Prompt (Windows)
+.venv/Scripts/activate.bat
 
-    ```shell
-    azd init
-    ```
+# Linux/macOS
+source .venv/bin/activate
+```
 
-    It will prompt you to provide a name (like "django-app"), which will later be used in the name of the deployed resources.
+Running `python` or `pytest` without activating will fail with `ModuleNotFoundError`.
 
-4. Provision and deploy all the resources:
+### Environment Variables
 
-    ```shell
-    azd up
-    ```
+Create a `.env` file in the project root (optional for development):
 
-    It will prompt you to login, pick a subscription, and provide a location (like "eastus"). Then it will provision the resources in your account and deploy the latest code. If you get an error with deployment, changing the location (like to "centralus") can help, as there may be availability constraints for some of the resources.
+```bash
+SECRET_KEY=your-development-secret-key
+# Database defaults to SQLite - no configuration needed for local dev
+```
 
-5. When `azd` has finished deploying, you'll see an endpoint URI in the command output. Visit that URI, and you should see the front page of the restaurant review app! 🎉 If you see an error, open the Azure Portal from the URL in the command output, navigate to the App Service, select Logstream, and check the logs for any errors.
+See `.env.example` for all available options.
 
-    ![Screenshot of Django restaurants website](screenshot_website.png)
+### Build Tailwind CSS
 
-6. If you'd like to access `/admin`, you'll need a Django superuser. Navigate to the Azure Portal for the App Service, select SSH, and run this command:
+```bash
+npm install
+npm run build:css        # Build for Crush.lu
+npm run build:css:all    # Build all variants
+npm run watch:css        # Watch mode for development
+```
 
-    ```shell
-    python3 manage.py createsuperuser
-    ```
+### Testing Different Platforms Locally
 
-7. When you've made any changes to the app code, you can just run:
+Edit `azureproject/domains.py` and change `DEV_DEFAULT`:
 
-    ```shell
-    azd deploy
-    ```
+```python
+DEV_DEFAULT = 'crush.lu'      # Default
+DEV_DEFAULT = 'vinsdelux.com' # Test VinsDelux
+DEV_DEFAULT = 'powerup.lu'    # Test PowerUP
+```
 
-## Getting help
+## Management Commands
 
-If you're working with this project and running into issues, please post in [Issues](/issues).
+Run all commands with the virtual environment activated: `python manage.py <command>`
+
+### Crush.lu Platform
+
+| Command | Description |
+|---------|-------------|
+| `create_crush_coaches` | Creates 3 sample coach profiles (Marie, Thomas, Sophie) with specializations |
+| `create_sample_events` | Creates 6 diverse sample meetup events (speed dating, mixers, activities) |
+| `create_wonderland_journey` | Creates multi-chapter interactive journey experience |
+| `populate_global_activity_options` | Populates 6 standard event activity voting options |
+| `send_event_reminders` | Sends email reminders for upcoming events |
+| `send_profile_reminders` | Sends profile submission/review reminders |
+| `setup_local_dev` | Sets up local development environment with sample data |
+| `create_sample_crush_profiles` | Creates sample user profiles for testing |
+| `cleanup_orphan_storage` | Cleans orphaned files in Azure Blob Storage |
+| `reset_local_dev` | Resets local development environment |
+
+#### Journey Command Arguments
+
+```bash
+python manage.py create_wonderland_journey \
+    --first-name "Alice" \
+    --last-name "Smith" \
+    --date-met "2024-02-14" \
+    --location-met "Luxembourg City"
+```
+
+### VinsDelux Platform
+
+| Command | Description |
+|---------|-------------|
+| `create_sample_plots` | Creates 15+ sample vineyard plots with coordinates, soil types, grape varieties |
+| `update_plot_descriptions` | Updates plot descriptions based on famous producers |
+
+```bash
+python manage.py create_sample_plots --count 20 --clear  # Clear existing and create 20 plots
+```
+
+### Entreprinder Platform
+
+| Command | Description |
+|---------|-------------|
+| `create_test_profiles` | Creates test entrepreneur profiles with bios, skills, industries |
+
+```bash
+python manage.py create_test_profiles 50  # Create 50 test profiles
+```
+
+### System Commands
+
+| Command | Description |
+|---------|-------------|
+| `setup_cookie_groups` | Creates GDPR-compliant cookie consent groups (essential, analytics, marketing) |
+
+## Testing
+
+This project uses pytest with pytest-django and pytest-playwright.
+
+```bash
+# Run all tests
+pytest
+
+# Run tests without slow browser tests (recommended for quick feedback)
+pytest -m "not playwright"
+
+# Run specific app tests
+pytest crush_lu/tests/
+pytest vinsdelux/tests/
+
+# Run single test
+pytest crush_lu/tests/test_models.py::TestCrushProfile::test_age_calculation
+
+# Verbose output
+pytest -v --tb=short
+```
+
+### Key Test Fixtures
+
+- `test_user` - Basic authenticated user
+- `test_user_with_profile` - User with approved CrushProfile
+- `coach_user` - User with CrushCoach privileges
+- `sample_event` - Published MeetupEvent 7 days in future
+- `authenticated_page` - Playwright page with logged-in session
+
+## Deployment
+
+### GitHub Actions CI/CD
+
+The project uses an optimized GitHub Actions workflow:
+
+1. **Validate** (PR only): Python syntax check, Django system checks (~30s)
+2. **Test** (PR only): pytest excluding Playwright tests
+3. **Deploy** (main only): Build CSS, deploy to Azure App Service
+
+Target deployment time: 2-3 minutes.
+
+### Production Domains
+
+All domains are served from a single Azure App Service instance:
+- crush.lu, www.crush.lu
+- vinsdelux.com, www.vinsdelux.com
+- powerup.lu, www.powerup.lu
+- power-up.lu, www.power-up.lu
+- tableau.lu, www.tableau.lu
+
+### Production Environment Variables
+
+Set these in Azure App Service Configuration:
+
+```bash
+# Required
+SECRET_KEY=<secure-random-key>
+AZURE_POSTGRESQL_CONNECTIONSTRING=<connection-string>
+AZURE_ACCOUNT_NAME=<storage-account>
+AZURE_ACCOUNT_KEY=<storage-key>
+
+# Email (Microsoft Graph)
+GRAPH_TENANT_ID=<tenant-id>
+GRAPH_CLIENT_ID=<client-id>
+GRAPH_CLIENT_SECRET=<client-secret>
+```
+
+## Project Structure
+
+```
+entreprinder/
+├── azureproject/          # Django config, middleware, domain routing
+│   ├── domains.py         # Centralized domain configuration
+│   ├── middleware.py      # Domain routing, health checks
+│   ├── urls_crush.py      # Crush.lu URL config
+│   ├── urls_vinsdelux.py  # VinsDelux URL config
+│   └── production.py      # Production settings
+├── crush_lu/              # Dating platform (full-featured)
+│   ├── management/        # Management commands
+│   ├── templates/         # Django templates
+│   └── tests/             # pytest tests
+├── vinsdelux/             # Wine e-commerce platform
+├── entreprinder/          # Entrepreneur networking
+├── power_up/              # Corporate site (static)
+├── tableau/               # AI Art shop (static)
+├── crush_delegation/      # Delegation features
+├── locale/                # i18n translations (en, de, fr)
+├── infra/                 # Azure Bicep templates
+├── static/                # Tailwind CSS, Alpine.js components
+├── .github/workflows/     # GitHub Actions CI/CD
+└── requirements.txt       # Python dependencies
+```
+
+## URL Architecture
+
+Domain-based routing is configured in `azureproject/domains.py`:
+
+| Host | URL Configuration | Default Dev |
+|------|-------------------|-------------|
+| localhost, 127.0.0.1 | Uses `DEV_DEFAULT` | crush.lu |
+| crush.lu | `urls_crush.py` | - |
+| vinsdelux.com | `urls_vinsdelux.py` | - |
+| powerup.lu | `urls_powerup.py` | - |
+| power-up.lu | `urls_power_up.py` | - |
+| tableau.lu | `urls_tableau.py` | - |
+| *.azurewebsites.net | `urls_powerup.py` | - |
+
+## Code Quality
+
+```bash
+# Format with Black
+black .
+
+# Lint with Ruff
+ruff check .
+ruff check . --fix
+```
+
+Configuration in `pyproject.toml` (88 character line length).
+
+## Additional Resources
+
+- **Detailed Architecture**: See [CLAUDE.md](CLAUDE.md) for comprehensive documentation including:
+  - Model relationships and data flow
+  - Alpine.js CSP compliance patterns
+  - Storage architecture (public vs private)
+  - Email backend configuration
+  - Internationalization (i18n) system
+  - Troubleshooting guides
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/my-feature`
+3. Make changes and run tests: `pytest -m "not playwright"`
+4. Format code: `black . && ruff check .`
+5. Commit and push
+6. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

@@ -32,7 +32,7 @@
                 {% if recipient.crushprofile.interests %}
                     <div class="mb-2">
                         <span class="text-sm text-gray-500">
-                            {% include "crush_lu/icons/star.html" with class="w-5 h-5" %} {{ recipient.crushprofile.interests }}
+                            {% include "shared/icons/star.html" with class="w-5 h-5" %} {{ recipient.crushprofile.interests }}
                         </span>
                     </div>
                 {% endif %}
@@ -63,7 +63,7 @@
                     </div>
 
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                        <h6 class="font-medium text-blue-800 mb-2">{% include "crush_lu/icons/information-circle.html" with class="w-5 h-5" %} What happens next?</h6>
+                        <h6 class="font-medium text-blue-800 mb-2">{% include "shared/icons/information-circle.html" with class="w-5 h-5" %} What happens next?</h6>
                         <ul class="text-sm text-blue-700 space-y-1 list-disc list-inside">
                             <li>{{ recipient.first_name }} will be notified of your request</li>
                             <li>If they accept (or already requested you!), a Crush Coach will facilitate</li>
@@ -73,7 +73,7 @@
 
                     <div class="flex flex-col gap-3">
                         <button type="submit" class="btn-crush-primary w-full py-3 text-lg font-semibold">
-                            {% include "crush_lu/icons/heart.html" with class="w-5 h-5" %} Send Connection Request
+                            {% include "shared/icons/heart.html" with class="w-5 h-5" %} Send Connection Request
                         </button>
                         <a href="{% url 'crush_lu:event_attendees' event.id %}"
                            class="w-full py-3 px-6 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-center font-medium transition-colors">

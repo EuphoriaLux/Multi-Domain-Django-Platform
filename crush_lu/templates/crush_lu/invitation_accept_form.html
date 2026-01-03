@@ -63,7 +63,7 @@
 
             <!-- Guest Info Box -->
             <div class="guest-info-box">
-                <h6 class="mb-3">{% include "crush_lu/icons/identification.html" with class="w-5 h-5" %} Your Information</h6>
+                <h6 class="mb-3">{% include "shared/icons/identification.html" with class="w-5 h-5" %} Your Information</h6>
                 <div class="guest-info-item">
                     <span class="guest-info-label">Name:</span>
                     <span class="guest-info-value">{{ invitation.guest_first_name }} {{ invitation.guest_last_name }}</span>
@@ -84,7 +84,7 @@
 
             <!-- What Will Happen -->
             <div class="alert alert-info" style="background: rgba(13, 202, 240, 0.1); border: 1px solid rgba(13, 202, 240, 0.3);">
-                <h6 class="alert-heading">{% include "crush_lu/icons/light-bulb.html" with class="w-5 h-5" %} What happens next:</h6>
+                <h6 class="alert-heading">{% include "shared/icons/light-bulb.html" with class="w-5 h-5" %} What happens next:</h6>
                 <ul class="mb-0">
                     <li>A guest account will be created for you automatically</li>
                     <li>You'll be logged in immediately</li>
@@ -95,7 +95,7 @@
 
             <!-- Privacy Notice -->
             <div class="alert alert-success" style="background: rgba(25, 135, 84, 0.1); border: 1px solid rgba(25, 135, 84, 0.3);">
-                {% include "crush_lu/icons/shield-check.html" with class="w-5 h-5" %}
+                {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}
                 <strong>Privacy Protected:</strong> This is a private event. Your information will only be shared with your assigned Crush Coach.
             </div>
 
@@ -104,11 +104,11 @@
                 {% csrf_token %}
                 <div class="text-center">
                     <button type="submit" class="btn-crush-primary inline-flex items-center gap-2 px-8 py-3 text-lg">
-                        {% include "crush_lu/icons/check-circle.html" with class="w-5 h-5" %} Confirm & Accept Invitation
+                        {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Confirm & Accept Invitation
                     </button>
                     <p class="mt-4">
                         <a href="{% url 'crush_lu:invitation_landing' code=invitation.invitation_code %}" class="text-gray-500 hover:text-gray-700 inline-flex items-center gap-1">
-                            {% include "crush_lu/icons/arrow-left.html" with class="w-4 h-4" %} Go Back
+                            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} Go Back
                         </a>
                     </p>
                 </div>

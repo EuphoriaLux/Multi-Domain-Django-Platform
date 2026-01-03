@@ -39,7 +39,7 @@
             <!-- Alert -->
             <div class="alert alert-warning" style="border-left: 4px solid #ffc107;">
                 <h5 class="alert-heading">
-                    {% include "crush_lu/icons/exclamation-triangle.html" with class="w-5 h-5" %} Invitation No Longer Valid
+                    {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %} Invitation No Longer Valid
                 </h5>
                 <p class="mb-0">
                     This invitation for <strong>{{ invitation.event.title }}</strong> has passed its expiration date
@@ -53,13 +53,13 @@
                 <h5 class="mt-2">{{ invitation.event.title }}</h5>
                 <p class="mb-1">
                     <small class="text-muted">
-                        {% include "crush_lu/icons/calendar-days.html" with class="w-5 h-5" %}
+                        {% include "shared/icons/calendar-days.html" with class="w-5 h-5" %}
                         {{ invitation.event.date_time|date:"F j, Y \a\t g:i A" }}
                     </small>
                 </p>
                 <p class="mb-0">
                     <small class="text-muted">
-                        {% include "crush_lu/icons/map-pin.html" with class="w-5 h-5" %}
+                        {% include "shared/icons/map-pin.html" with class="w-5 h-5" %}
                         {{ invitation.event.location }}
                     </small>
                 </p>
@@ -67,7 +67,7 @@
 
             <!-- What to Do -->
             <div class="alert alert-info mt-4" style="background: rgba(13, 202, 240, 0.1); border: 1px solid rgba(13, 202, 240, 0.3);">
-                <h6 class="alert-heading">{% include "crush_lu/icons/light-bulb.html" with class="w-5 h-5" %} What You Can Do</h6>
+                <h6 class="alert-heading">{% include "shared/icons/light-bulb.html" with class="w-5 h-5" %} What You Can Do</h6>
                 <ul class="text-start mb-0">
                     <li>Contact {{ invitation.invited_by.get_full_name|default:"your Crush Coach" }} to request a new invitation</li>
                     <li>Reach out to our team at <a href="mailto:hello@crush.lu">hello@crush.lu</a></li>
@@ -78,11 +78,11 @@
             <!-- Action Buttons -->
             <div class="mt-8">
                 <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-primary inline-flex items-center gap-2 px-8 py-3 text-lg">
-                    {% include "crush_lu/icons/calendar.html" with class="w-5 h-5" %} Browse Public Events
+                    {% include "shared/icons/calendar.html" with class="w-5 h-5" %} Browse Public Events
                 </a>
                 <p class="mt-4">
                     <a href="{% url 'crush_lu:home' %}" class="text-gray-500 hover:text-gray-700 inline-flex items-center gap-1">
-                        {% include "crush_lu/icons/home.html" with class="w-4 h-4" %} Return to Home
+                        {% include "shared/icons/home.html" with class="w-4 h-4" %} Return to Home
                     </a>
                 </p>
             </div>
@@ -92,7 +92,7 @@
         <div class="text-center mt-4">
             <p class="text-muted">
                 <small>
-                    {% include "crush_lu/icons/envelope.html" with class="w-5 h-5" %}
+                    {% include "shared/icons/envelope.html" with class="w-5 h-5" %}
                     For assistance, contact us at
                     <a href="mailto:hello@crush.lu">hello@crush.lu</a>
                 </small>
