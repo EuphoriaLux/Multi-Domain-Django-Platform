@@ -133,7 +133,7 @@ class ImmersiveFeatures {
                     'Early shoot positioning'
                 ],
                 weather: 'Mild temperatures, increasing daylight',
-                image: '/static/images/vineyard-defaults/spring-vineyard.jpg',
+                image: '/static/vinsdelux/images/vineyard-defaults/spring-vineyard.jpg',
                 color: '#9CCC65'
             },
             {
@@ -155,7 +155,7 @@ class ImmersiveFeatures {
                     'Sugar development begins'
                 ],
                 weather: 'Warm days, mild nights',
-                image: '/static/images/vineyard-defaults/summer-vineyard.jpg',
+                image: '/static/vinsdelux/images/vineyard-defaults/summer-vineyard.jpg',
                 color: '#FF9800'
             },
             {
@@ -177,7 +177,7 @@ class ImmersiveFeatures {
                     'Crushing and fermentation starts'
                 ],
                 weather: 'Crisp mornings, warm afternoons',
-                image: '/static/images/vineyard-defaults/autumn-vineyard.jpg',
+                image: '/static/vinsdelux/images/vineyard-defaults/autumn-vineyard.jpg',
                 color: '#D4AF37'
             },
             {
@@ -199,7 +199,7 @@ class ImmersiveFeatures {
                     'Bottling of previous vintages'
                 ],
                 weather: 'Cold temperatures, frost protection',
-                image: '/static/images/vineyard-defaults/winter-vineyard.jpg',
+                image: '/static/vinsdelux/images/vineyard-defaults/winter-vineyard.jpg',
                 color: '#42A5F5'
             }
         ];
@@ -327,7 +327,7 @@ class ImmersiveFeatures {
                 title: 'Vineyard Overview',
                 description: 'Welcome to our prestigious vineyard in Luxembourg\'s wine region.',
                 position: [49.5441, 6.3750],
-                image: '/static/images/vineyard-defaults/vineyard_01.jpg',
+                image: '/static/vinsdelux/images/vineyard-defaults/vineyard_01.jpg',
                 duration: 5000
             },
             {
@@ -335,7 +335,7 @@ class ImmersiveFeatures {
                 title: 'Premium Plot Selection',
                 description: 'Our finest plots with optimal sun exposure and soil conditions.',
                 position: [49.5461, 6.3770],
-                image: '/static/images/vineyard-defaults/vineyard_02.jpg',
+                image: '/static/vinsdelux/images/vineyard-defaults/vineyard_02.jpg',
                 duration: 4000
             },
             {
@@ -343,7 +343,7 @@ class ImmersiveFeatures {
                 title: 'Wine Cellar',
                 description: 'Where tradition meets modern winemaking techniques.',
                 position: [49.5421, 6.3730],
-                image: '/static/images/vineyard-defaults/vineyard_03.jpg',
+                image: '/static/vinsdelux/images/vineyard-defaults/vineyard_03.jpg',
                 duration: 6000
             },
             {
@@ -351,7 +351,7 @@ class ImmersiveFeatures {
                 title: 'Tasting Experience',
                 description: 'Discover the unique flavors of our terroir.',
                 position: [49.5451, 6.3760],
-                image: '/static/images/vineyard-defaults/vineyard_04.jpg',
+                image: '/static/vinsdelux/images/vineyard-defaults/vineyard_04.jpg',
                 duration: 4000
             }
         ];
@@ -751,27 +751,27 @@ class ImmersiveFeatures {
         // Default vineyard images
         const defaultImages = [
             {
-                src: '/static/images/vineyard-defaults/vineyard_01.jpg',
+                src: '/static/vinsdelux/images/vineyard-defaults/vineyard_01.jpg',
                 title: 'Vineyard Overview',
                 description: 'Panoramic view of our Luxembourg vineyard'
             },
             {
-                src: '/static/images/vineyard-defaults/vineyard_02.jpg',
+                src: '/static/vinsdelux/images/vineyard-defaults/vineyard_02.jpg',
                 title: 'Premium Plots',
                 description: 'Our finest wine-producing plots'
             },
             {
-                src: '/static/images/vineyard-defaults/vineyard_03.jpg',
+                src: '/static/vinsdelux/images/vineyard-defaults/vineyard_03.jpg',
                 title: 'Harvest Season',
                 description: 'Hand-picking grapes at optimal ripeness'
             },
             {
-                src: '/static/images/vineyard-defaults/vineyard_04.jpg',
+                src: '/static/vinsdelux/images/vineyard-defaults/vineyard_04.jpg',
                 title: 'Wine Cellar',
                 description: 'Traditional aging process in oak barrels'
             },
             {
-                src: '/static/images/vineyard-defaults/vineyard_05.jpg',
+                src: '/static/vinsdelux/images/vineyard-defaults/vineyard_05.jpg',
                 title: 'Tasting Room',
                 description: 'Experience our wines in elegant surroundings'
             }
@@ -835,7 +835,7 @@ class ImmersiveFeatures {
         const imageType = wineTypes.includes(type) ? type : 'vineyard';
         const imageNum = (plot.id % 5) + 1;
         
-        return `/static/images/vineyard-defaults/${imageType}_0${imageNum}.jpg`;
+        return `/static/vinsdelux/images/vineyard-defaults/${imageType}_0${imageNum}.jpg`;
     }
     
     setupEventListeners() {

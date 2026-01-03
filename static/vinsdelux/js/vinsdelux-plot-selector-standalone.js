@@ -182,13 +182,13 @@ class StandalonePlotSelector {
         }
         
         // Otherwise use default vineyard image (Azure Blob in production)
-        const vineyardDefaultsUrl = document.body.dataset.vineyardDefaultsUrl || '/static/images/vineyard-defaults/';
+        const vineyardDefaultsUrl = document.body.dataset.vineyardDefaultsUrl || '/static/vinsdelux/images/vineyard-defaults/';
         return `${vineyardDefaultsUrl}vineyard_01.jpg`;
     }
 
     getRotatingImages(plot) {
         const images = [];
-        const vineyardDefaultsUrl = document.body.dataset.vineyardDefaultsUrl || '/static/images/vineyard-defaults/';
+        const vineyardDefaultsUrl = document.body.dataset.vineyardDefaultsUrl || '/static/vinsdelux/images/vineyard-defaults/';
 
         // Check if plot has uploaded images
         if (plot.images && plot.images.length > 0) {
@@ -399,7 +399,7 @@ class StandalonePlotSelector {
                 startingIndex = index % images.length;
                 primaryImage = images[startingIndex];
             }
-            const vineyardFallback = document.body.dataset.vineyardDefaultsUrl || '/static/images/vineyard-defaults/';
+            const vineyardFallback = document.body.dataset.vineyardDefaultsUrl || '/static/vinsdelux/images/vineyard-defaults/';
             primaryImage = primaryImage || `${vineyardFallback}vineyard_01.jpg`;
             
             // Create image carousel container
@@ -414,7 +414,7 @@ class StandalonePlotSelector {
             card.innerHTML = `
                 <div class="card-image" style="position: relative; height: 180px; overflow: hidden; background: linear-gradient(135deg, #8BC34A, #689F38);">
                     <div class="image-carousel" data-images='${JSON.stringify(images)}' data-current="0">
-                        <img src="${primaryImage}" alt="${plot.name}" style="width: 100%; height: 100%; object-fit: cover; transition: opacity 0.5s;" onerror="this.src='/static/images/journey/step_01.png'">
+                        <img src="${primaryImage}" alt="${plot.name}" style="width: 100%; height: 100%; object-fit: cover; transition: opacity 0.5s;" onerror="this.src='/static/vinsdelux/images/journey/step_01.png'">
                     </div>
                     ${imageCarouselHtml}
                     <div class="card-badge" style="position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.95); padding: 6px 12px; border-radius: 20px; font-size: 0.875rem; font-weight: 600; color: #495057;">

@@ -330,7 +330,7 @@ class EnhancedPlotSelector {
         
         // Update producer image (placeholder)
         const producerImage = document.getElementById('producerImage');
-        producerImage.src = `/static/images/vineyard-defaults/vineyard_01.jpg`;
+        producerImage.src = `/static/vinsdelux/images/vineyard-defaults/vineyard_01.jpg`;
         
         // Show panel
         panel.classList.add('active');

@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 def get_journey_base_url():
     """Get the base URL for journey images (Azure Blob in production, static in dev)."""
-    return getattr(settings, 'VINSDELUX_JOURNEY_BASE_URL', '/static/images/journey/')
+    return getattr(settings, 'VINSDELUX_JOURNEY_BASE_URL', '/static/vinsdelux/images/journey/')
 
 def home(request):
     """
