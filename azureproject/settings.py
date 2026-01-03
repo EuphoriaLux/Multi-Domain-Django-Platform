@@ -435,17 +435,17 @@ CRUSH_SOCIAL_PREVIEW_URL = os.getenv(
 # VinsDelux images
 VINSDELUX_JOURNEY_BASE_URL = os.getenv(
     'VINSDELUX_JOURNEY_BASE_URL',
-    '/static/images/journey/'
+    '/static/vinsdelux/images/journey/'
 )
 VINSDELUX_VINEYARD_DEFAULTS_URL = os.getenv(
     'VINSDELUX_VINEYARD_DEFAULTS_URL',
-    '/static/images/vineyard-defaults/'
+    '/static/vinsdelux/images/vineyard-defaults/'
 )
 
 # PowerUP/Entreprinder images
 POWERUP_DEFAULT_PROFILE_URL = os.getenv(
     'POWERUP_DEFAULT_PROFILE_URL',
-    '/static/images/default-profile.png'
+    '/static/vinsdelux/images/default-profile.png'
 )
 
 # =============================================================================

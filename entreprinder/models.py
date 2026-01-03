@@ -62,7 +62,7 @@ class EntrepreneurProfile(models.Model):
         """Return LinkedIn photo URL or default placeholder."""
         if self.linkedin_photo_url:
             return self.linkedin_photo_url
-        return '/static/images/default-avatar.png'
+        return '/static/entreprinder/images/default-avatar.png'
 
 
 # =============================================================================

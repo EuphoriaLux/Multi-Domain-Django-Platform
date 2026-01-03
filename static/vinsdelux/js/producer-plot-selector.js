@@ -150,7 +150,7 @@ class ProducerPlotSelector {
             producerImage.src = producer.logo || producer.producer_photo;
             producerImage.alt = producer.name;
         } else {
-            producerImage.src = '/static/images/vineyard-defaults/producer-default.jpg';
+            producerImage.src = '/static/vinsdelux/images/vineyard-defaults/producer-default.jpg';
         }
         
         // Load producer's plots

@@ -185,7 +185,7 @@ class VdlAdoptionPlan(BaseProduct):
             image_set = self._get_default_image_set()
             for i in range(1, 6):
                 default_images.append({
-                    'url': f'/static/images/vineyard-defaults/{image_set}_{i:02d}.jpg',
+                    'url': f'/static/vinsdelux/images/vineyard-defaults/{image_set}_{i:02d}.jpg',
                     'order': i - 1,
                     'is_primary': i == 1,
                     'caption': f'Vineyard View {i}',
@@ -215,7 +215,7 @@ class VdlAdoptionPlan(BaseProduct):
             image_set = self._get_default_image_set()
             for i in range(1, 6):
                 default_images.append({
-                    'url': f'/static/images/vineyard-defaults/{image_set}_{i:02d}.jpg',
+                    'url': f'/static/vinsdelux/images/vineyard-defaults/{image_set}_{i:02d}.jpg',
                     'order': i - 1,
                     'is_primary': i == 1,
                     'caption': f'Vineyard View {i}',

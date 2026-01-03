@@ -282,7 +282,7 @@ class PlotSelection {
         
         // Generate image based on region/wine type
         // Use Azure Blob URL from data attribute if available
-        const vineyardDefaultsUrl = document.body.dataset.vineyardDefaultsUrl || '/static/images/vineyard-defaults/';
+        const vineyardDefaultsUrl = document.body.dataset.vineyardDefaultsUrl || '/static/vinsdelux/images/vineyard-defaults/';
         const wineTypes = ['red', 'white', 'rose', 'burgundy', 'bordeaux'];
         const type = plot.wine_type?.toLowerCase() || 'red';
         const imageType = wineTypes.includes(type) ? type : 'vineyard';

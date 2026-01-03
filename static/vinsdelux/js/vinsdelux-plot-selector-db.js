@@ -88,7 +88,7 @@ class VinsDeluxPlotSelectorDB {
             
             <div class="plot-card-image">
                 ${plan.main_image ? 
-                    `<img src="${plan.main_image}" alt="${plan.name}" onerror="this.src='/static/images/journey/step_01.png'">` :
+                    `<img src="${plan.main_image}" alt="${plan.name}" onerror="this.src='/static/vinsdelux/images/journey/step_01.png'">` :
                     `<div class="image-placeholder" style="background: linear-gradient(135deg, #8BC34A, #689F38); height: 200px; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px;">
                         <i class="fas fa-wine-bottle" style="font-size: 48px;"></i>
                     </div>`
