@@ -188,9 +188,29 @@ def build_google_wallet_jwt(profile, request=None):
             },
             {
                 "uri": pass_data["referral_url"],
-                "description": "Share your referral link",
+                "description": "Copy referral link",
             },
         ]
+    }
+
+    # Add share functionality - triggers native Android share sheet
+    # This is better UX than opening a browser link
+    referral_code = pass_data["referral_url"].split("/")[-2] if pass_data["referral_url"] else ""
+    generic_object["appLinkData"] = {
+        "androidAppLinkInfo": {
+            "appTarget": {
+                "targetUri": {
+                    "uri": pass_data["referral_url"],
+                    "description": "Open in Crush.lu",
+                }
+            }
+        }
+    }
+
+    # Enable the share button on the pass
+    generic_object["shareData"] = {
+        "displayName": f"Join me on Crush.lu! Use my referral: {referral_code}",
+        "url": pass_data["referral_url"],
     }
 
     issued_at = int(time.time())

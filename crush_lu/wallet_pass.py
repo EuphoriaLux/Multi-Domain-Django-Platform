@@ -8,9 +8,10 @@ def build_wallet_pass_barcode_value(profile, request=None, base_url=None):
     """
     Build the QR/barcode payload for wallet passes.
     Embeds the referral URL so scans attribute signups.
+    Uses language-neutral URL so users get the site in their browser's preferred language.
     """
     referral_code = ReferralCode.get_or_create_for_profile(profile)
-    return build_referral_url(referral_code.code, request=request, base_url=base_url)
+    return build_referral_url(referral_code.code, base_url=base_url, language_neutral=True)
 
 
 def get_next_event_for_pass(profile):

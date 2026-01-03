@@ -18,10 +18,29 @@ def ensure_session_key(request):
     return request.session.session_key
 
 
-def build_referral_url(code, request=None, base_url=None):
-    path = reverse('crush_lu:referral_redirect', kwargs={'code': code})
-    if request is not None:
+def build_referral_url(code, request=None, base_url=None, language_neutral=False):
+    """
+    Build the referral URL for a given code.
+
+    Args:
+        code: The referral code string
+        request: Optional HttpRequest for building absolute URLs
+        base_url: Optional base URL override
+        language_neutral: If True, generates URL without language prefix (for wallet passes)
+
+    Returns:
+        Absolute referral URL
+    """
+    if language_neutral:
+        # For wallet passes and sharing - no language prefix
+        # Users will get the site in their browser's preferred language
+        path = f"/r/{code}/"
+    else:
+        path = reverse('crush_lu:referral_redirect', kwargs={'code': code})
+
+    if request is not None and not language_neutral:
         return request.build_absolute_uri(path)
+
     base = base_url or getattr(settings, 'CRUSH_BASE_URL', None) or "https://crush.lu"
     return f"{base.rstrip('/')}{path}"
 

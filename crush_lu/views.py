@@ -1213,8 +1213,11 @@ def dashboard(request):
                 is_pwa_user = activity.is_pwa_user
         except Exception:
             pass
-        referral_query = urlencode({'ref': request.user.id})
-        referral_url = request.build_absolute_uri(f"{reverse('crush_lu:home')}?{referral_query}")
+        # Get or create referral code for this user's profile
+        from .models import ReferralCode
+        from .referrals import build_referral_url
+        referral_code = ReferralCode.get_or_create_for_profile(profile)
+        referral_url = build_referral_url(referral_code.code, request=request)
 
         context = {
             'profile': profile,

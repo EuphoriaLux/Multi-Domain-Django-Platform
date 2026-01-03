@@ -113,6 +113,11 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/referral/me/', api_referral.referral_me, name='api_referral_me'),
     path('api/referral/redeem/', api_referral.redeem_points, name='api_referral_redeem'),
 
+    # Referral redirect (language-neutral for wallet passes and sharing)
+    # This allows https://crush.lu/r/CODE/ to work without language prefix
+    # Users will be redirected to the home page in their browser's preferred language
+    path('r/<str:code>/', views.referral_redirect, name='referral_redirect_neutral'),
+
     # ============================================================================
     # ADMIN PANELS (language-neutral - always accessible without language prefix)
     # These are moved outside i18n_patterns to avoid 404 errors when admins
