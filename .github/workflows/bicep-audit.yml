@@ -30,6 +30,7 @@ jobs:
 
       - name: Upload alerts to Security tab
         uses: github/codeql-action/upload-sarif@v4
-        if: github.repository_owner == 'Azure-Samples'
+        # Only upload on push or same-repo PRs (forked PRs have read-only token)
+        if: always() && steps.msdo.outputs.sarifFile != '' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
         with:
           sarif_file: ${{ steps.msdo.outputs.sarifFile }}
