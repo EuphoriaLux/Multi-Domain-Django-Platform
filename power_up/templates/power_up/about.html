@@ -1,0 +1,146 @@
+{% extends "power_up/base.html" %}
+{% load i18n %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-gradient text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <div class="text-center max-w-3xl mx-auto">
+            <h1 class="text-4xl sm:text-5xl font-bold mb-6">
+                {% trans "About Power-Up" %}
+            </h1>
+            <p class="text-xl text-purple-100">
+                {% trans "We're a Luxembourg-based company building digital platforms that matter." %}
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- Story Section -->
+<section class="section">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div>
+                <h2 class="text-3xl font-bold text-gray-900 mb-6">
+                    {% trans "Our Story" %}
+                </h2>
+                <div class="prose prose-lg text-gray-600">
+                    <p>
+                        {% trans "Power-Up was founded with a simple belief: Luxembourg deserves world-class digital platforms designed for its unique community." %}
+                    </p>
+                    <p>
+                        {% trans "In a country where everyone seems to know everyone, we recognized the need for platforms that respect privacy while fostering genuine connections. Whether it's dating, wine appreciation, or professional networking, we build with Luxembourg's values at heart." %}
+                    </p>
+                    <p>
+                        {% trans "Today, our platforms serve thousands of users across Luxembourg and the Greater Region, and we're just getting started." %}
+                    </p>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl p-8 lg:p-12">
+                <div class="space-y-6">
+                    <div class="flex items-center space-x-4">
+                        <div class="text-4xl font-bold text-purple-600">3</div>
+                        <div class="text-gray-600">{% trans "Live Platforms" %}</div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="text-4xl font-bold text-purple-600">2024</div>
+                        <div class="text-gray-600">{% trans "Founded" %}</div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="text-4xl font-bold text-purple-600">LU</div>
+                        <div class="text-gray-600">{% trans "Based in Luxembourg" %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Values Section -->
+<section class="section bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">
+                {% trans "Our Values" %}
+            </h2>
+            <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+                {% trans "The principles that guide everything we build." %}
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Value 1 -->
+            <div class="bg-white rounded-xl p-8 shadow-sm">
+                <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4">
+                    <svg class="w-6 h-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">{% trans "Privacy by Design" %}</h3>
+                <p class="text-gray-600">
+                    {% trans "In Luxembourg's close-knit community, privacy isn't optional. We build data protection into the foundation of every platform, giving users control over their information." %}
+                </p>
+            </div>
+
+            <!-- Value 2 -->
+            <div class="bg-white rounded-xl p-8 shadow-sm">
+                <div class="w-12 h-12 bg-pink-100 rounded-xl flex items-center justify-center mb-4">
+                    <svg class="w-6 h-6 text-pink-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">{% trans "Human Connection" %}</h3>
+                <p class="text-gray-600">
+                    {% trans "Technology should bring people together, not replace human interaction. Our platforms facilitate real connections - whether romantic, professional, or experiential." %}
+                </p>
+            </div>
+
+            <!-- Value 3 -->
+            <div class="bg-white rounded-xl p-8 shadow-sm">
+                <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4">
+                    <svg class="w-6 h-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">{% trans "Local Focus" %}</h3>
+                <p class="text-gray-600">
+                    {% trans "We understand Luxembourg's unique multilingual, multicultural context. Our platforms are designed specifically for this community, not adapted from solutions built elsewhere." %}
+                </p>
+            </div>
+
+            <!-- Value 4 -->
+            <div class="bg-white rounded-xl p-8 shadow-sm">
+                <div class="w-12 h-12 bg-pink-100 rounded-xl flex items-center justify-center mb-4">
+                    <svg class="w-6 h-6 text-pink-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">{% trans "Quality First" %}</h3>
+                <p class="text-gray-600">
+                    {% trans "We'd rather have fewer platforms that work exceptionally well than many mediocre ones. Every feature is carefully considered and thoroughly tested." %}
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="section">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 class="text-3xl font-bold text-gray-900 mb-4">
+            {% trans "Want to Know More?" %}
+        </h2>
+        <p class="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+            {% trans "Explore our platforms or get in touch to discuss partnership opportunities." %}
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <a href="{% url 'power_up:platforms' %}" class="btn-primary">
+                {% trans "View Our Platforms" %}
+            </a>
+            <a href="{% url 'power_up:contact' %}" class="btn-secondary">
+                {% trans "Contact Us" %}
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}

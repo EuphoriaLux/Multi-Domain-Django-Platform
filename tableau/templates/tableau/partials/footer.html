@@ -1,0 +1,54 @@
+<footer class="bg-gray-950 border-t border-gray-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Brand -->
+            <div class="col-span-1 md:col-span-2">
+                <div class="flex items-center space-x-2 mb-4">
+                    <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-lg">T</span>
+                    </div>
+                    <span class="text-xl font-bold text-white">Tableau</span>
+                </div>
+                <p class="text-gray-400 max-w-md">
+                    AI-generated art that creates emotional impact. Each piece is uniquely crafted to inspire, move, and transform your space.
+                </p>
+            </div>
+
+            <!-- Navigation -->
+            <div>
+                <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">
+                    Explore
+                </h3>
+                <ul class="space-y-3">
+                    <li>
+                        <a href="{% url 'tableau:home' %}" class="text-gray-400 hover:text-white transition-colors duration-200">
+                            Home
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'tableau:about' %}" class="text-gray-400 hover:text-white transition-colors duration-200">
+                            About
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#gallery" class="text-gray-400 hover:text-white transition-colors duration-200">
+                            Gallery
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Bottom bar -->
+        <div class="mt-12 pt-8 border-t border-gray-800">
+            <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+                <p class="text-gray-500 text-sm">
+                    &copy; {% now "Y" %} Tableau. All rights reserved.
+                </p>
+                <p class="text-gray-600 text-sm">
+                    Art generated with AI. Emotions are real.
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>

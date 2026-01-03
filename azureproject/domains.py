@@ -36,6 +36,18 @@ DOMAINS = {
         'app': 'entreprinder',
         'aliases': ['www.powerup.lu'],
     },
+    'power-up.lu': {
+        'urlconf': 'azureproject.urls_power_up',
+        'name': 'Power-Up',
+        'app': 'power_up',
+        'aliases': ['www.power-up.lu'],
+    },
+    'tableau.lu': {
+        'urlconf': 'azureproject.urls_tableau',
+        'name': 'Tableau',
+        'app': 'tableau',
+        'aliases': ['www.tableau.lu'],
+    },
 }
 
 # Development configuration

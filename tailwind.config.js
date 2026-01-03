@@ -4,6 +4,12 @@ module.exports = {
     './crush_lu/templates/**/*.html',
     './crush_lu/**/*.py',
     './static/crush_lu/js/**/*.js',
+    // Power-Up corporate site
+    './power_up/templates/**/*.html',
+    './power_up/**/*.py',
+    // Tableau AI Art e-commerce site
+    './tableau/templates/**/*.html',
+    './tableau/**/*.py',
   ],
   // No prefix - using native Tailwind classes
   darkMode: 'class',

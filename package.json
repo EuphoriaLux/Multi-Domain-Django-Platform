@@ -4,7 +4,12 @@
   "private": true,
   "scripts": {
     "build:css": "tailwindcss -i ./static/crush_lu/css/tailwind-input.css -o ./static/crush_lu/css/tailwind.css --minify",
-    "watch:css": "tailwindcss -i ./static/crush_lu/css/tailwind-input.css -o ./static/crush_lu/css/tailwind.css --watch"
+    "watch:css": "tailwindcss -i ./static/crush_lu/css/tailwind-input.css -o ./static/crush_lu/css/tailwind.css --watch",
+    "build:css:power-up": "tailwindcss -i ./static/power_up/css/tailwind-input.css -o ./static/power_up/css/tailwind.css --minify",
+    "watch:css:power-up": "tailwindcss -i ./static/power_up/css/tailwind-input.css -o ./static/power_up/css/tailwind.css --watch",
+    "build:css:tableau": "tailwindcss -i ./static/tableau/css/tailwind-input.css -o ./static/tableau/css/tailwind.css --minify",
+    "watch:css:tableau": "tailwindcss -i ./static/tableau/css/tailwind-input.css -o ./static/tableau/css/tailwind.css --watch",
+    "build:css:all": "npm run build:css && npm run build:css:power-up && npm run build:css:tableau"
   },
   "dependencies": {
     "alpinejs": "^3.13.3",

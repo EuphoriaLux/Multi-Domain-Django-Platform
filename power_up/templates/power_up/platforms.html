@@ -1,0 +1,105 @@
+{% extends "power_up/base.html" %}
+{% load i18n %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-gradient text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <div class="text-center max-w-3xl mx-auto">
+            <h1 class="text-4xl sm:text-5xl font-bold mb-6">
+                {% trans "Our Platforms" %}
+            </h1>
+            <p class="text-xl text-purple-100">
+                {% trans "Digital experiences designed for Luxembourg's communities." %}
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- Platforms Grid -->
+<section class="section">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {% for platform in platforms %}
+                {% include "power_up/partials/platform_card.html" with platform=platform %}
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Detailed Platform Sections -->
+<section class="section bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-24">
+        {% for platform in platforms %}
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center {% if forloop.counter|divisibleby:2 %}lg:flex-row-reverse{% endif %}">
+            <div class="{% if forloop.counter|divisibleby:2 %}lg:order-2{% endif %}">
+                <span class="text-purple-600 font-semibold text-sm uppercase tracking-wider">
+                    {{ platform.name }}
+                </span>
+                <h2 class="text-3xl font-bold text-gray-900 mt-2 mb-4">
+                    {{ platform.tagline }}
+                </h2>
+                <p class="text-lg text-gray-600 mb-6">
+                    {{ platform.description }}
+                </p>
+                <ul class="space-y-3 mb-8">
+                    {% for highlight in platform.highlights %}
+                    <li class="flex items-center text-gray-600">
+                        <svg class="w-5 h-5 text-green-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                        {{ highlight }}
+                    </li>
+                    {% endfor %}
+                </ul>
+                <a href="{{ platform.url }}"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="btn-primary">
+                    {% trans "Visit" %} {{ platform.name }}
+                    <svg class="w-4 h-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                </a>
+            </div>
+            <div class="{% if forloop.counter|divisibleby:2 %}lg:order-1{% endif %}">
+                <div class="bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl p-8 aspect-video flex items-center justify-center">
+                    <div class="text-center">
+                        {% if platform.icon == 'heart' %}
+                            <svg class="w-24 h-24 text-purple-600 mx-auto mb-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                            </svg>
+                        {% elif platform.icon == 'sparkles' %}
+                            <svg class="w-24 h-24 text-purple-600 mx-auto mb-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/>
+                            </svg>
+                        {% elif platform.icon == 'users' %}
+                            <svg class="w-24 h-24 text-purple-600 mx-auto mb-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
+                            </svg>
+                        {% endif %}
+                        <p class="text-purple-600 font-semibold">{{ platform.name }}</p>
+                        <p class="text-sm text-gray-500 mt-1">{% trans "Launched" %} {{ platform.launched }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- Future Platforms -->
+<section class="section">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 class="text-3xl font-bold text-gray-900 mb-4">
+            {% trans "More Coming Soon" %}
+        </h2>
+        <p class="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+            {% trans "We're constantly working on new ideas to serve Luxembourg's communities. Stay tuned for more platforms." %}
+        </p>
+        <a href="{% url 'power_up:contact' %}" class="btn-secondary">
+            {% trans "Get Updates" %}
+        </a>
+    </div>
+</section>
+{% endblock %}
