@@ -581,3 +581,21 @@ PROFILE_REMINDER_TIMING = {
 # Set CSP_REPORT_ONLY = False to enforce after testing.
 CSP_REPORT_ONLY = True  # Report violations but don't block (development/initial rollout)
 CSP_REPORT_URI = '/csp-report/'  # Endpoint for violation reports
+
+# =============================================================================
+# PASSKIT (APPLE WALLET) SETTINGS
+# =============================================================================
+PASSKIT_WEB_SERVICE_BASE_PATH = "/wallet/v1"
+PASSKIT_AUTH_TOKEN = os.getenv("PASSKIT_AUTH_TOKEN")
+PASSKIT_AUTH_TOKEN_RESOLVER = os.getenv("PASSKIT_AUTH_TOKEN_RESOLVER")
+PASSKIT_PASS_PROVIDER = os.getenv("PASSKIT_PASS_PROVIDER")
+PASSKIT_PASS_JSON_PROVIDER = os.getenv("PASSKIT_PASS_JSON_PROVIDER")
+PASSKIT_PASS_PACKAGE_BUILDER = os.getenv("PASSKIT_PASS_PACKAGE_BUILDER")
+PASSKIT_APNS_KEY_ID = os.getenv("PASSKIT_APNS_KEY_ID")
+PASSKIT_APNS_TEAM_ID = os.getenv("PASSKIT_APNS_TEAM_ID")
+PASSKIT_APNS_PRIVATE_KEY = os.getenv("PASSKIT_APNS_PRIVATE_KEY")
+PASSKIT_APNS_USE_SANDBOX = os.getenv("PASSKIT_APNS_USE_SANDBOX", "").lower() in (
+    "1",
+    "true",
+    "yes",
+)
