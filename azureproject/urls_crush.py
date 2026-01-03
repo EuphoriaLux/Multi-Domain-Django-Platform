@@ -17,6 +17,7 @@ from crush_lu.admin import crush_admin_site
 from crush_lu.admin.user_segments import user_segments_dashboard, segment_detail
 from crush_lu import admin_views, views, views_phone_verification, views_profile
 from crush_lu import api_views, api_push, api_coach_push, views_oauth_popup, api_journey, views_wallet
+from crush_lu.wallet import passkit_service
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt
 
@@ -75,6 +76,28 @@ urlpatterns = base_patterns + api_patterns + [
     # Journey Reward APIs (called from photo_reveal.html with hardcoded paths)
     path('api/journey/unlock-puzzle-piece/', api_journey.unlock_puzzle_piece, name='api_unlock_puzzle_piece'),
     path('api/journey/reward-progress/<int:reward_id>/', api_journey.get_reward_progress, name='api_get_reward_progress'),
+
+    # PassKit Web Service (Apple Wallet)
+    path(
+        'wallet/v1/devices/<str:device_library_identifier>/registrations/<str:pass_type_identifier>/<str:serial_number>',
+        passkit_service.device_registration,
+        name='passkit_device_registration',
+    ),
+    path(
+        'wallet/v1/devices/<str:device_library_identifier>/registrations/<str:pass_type_identifier>',
+        passkit_service.list_device_registrations,
+        name='passkit_list_registrations',
+    ),
+    path(
+        'wallet/v1/passes/<str:pass_type_identifier>/<str:serial_number>',
+        passkit_service.get_latest_pass,
+        name='passkit_get_pass',
+    ),
+    path(
+        'wallet/v1/log',
+        passkit_service.log_endpoint,
+        name='passkit_log',
+    ),
 
     # Profile Step-by-Step Saving APIs (called from alpine-components.js with hardcoded paths)
     path('api/profile/save-step1/', views_profile.save_profile_step1, name='api_save_profile_step1'),
