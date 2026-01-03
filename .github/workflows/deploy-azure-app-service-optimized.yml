@@ -110,11 +110,6 @@ jobs:
     environment:
       name: production
       url: https://crush.lu  # Primary domain (also serves powerup.lu, vinsdelux.com)
-    permissions:
-      id-token: write
-      contents: read
-      deployments: write
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -135,9 +130,7 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_B36E77B8614B469FB1CAEB89A0FD8820 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_9B47C4FC931C474D9EA5DF7AA7F520DC }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_29F8296DBCF74664BB44D22B1D60D435 }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       # OPTIMIZATION: Already configured via Azure CLI
       # Settings applied:
