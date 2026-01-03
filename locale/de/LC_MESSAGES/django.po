@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-30 23:09+0100\n"
+"POT-Creation-Date: 2026-01-03 19:20+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,15 +18,15 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: .\azureproject\settings.py:402
+#: .\azureproject\settings.py:403
 msgid "English"
 msgstr "Englisch"
 
-#: .\azureproject\settings.py:403
+#: .\azureproject\settings.py:404
 msgid "German"
 msgstr "Deutsch"
 
-#: .\azureproject\settings.py:404
+#: .\azureproject\settings.py:405
 msgid "French"
 msgstr "Französisch"
 
@@ -144,10 +144,8 @@ msgstr "Einstellungen speichern"
 #: .\entreprinder\templates\account\logout_powerup.html:4
 #: .\entreprinder\templates\account\logout_powerup.html:13
 #: .\entreprinder\templates\account\logout_powerup.html:23
-#, fuzzy
-#| msgid "Signup"
 msgid "Sign Out"
-msgstr "Registrieren"
+msgstr "Abmelden"
 
 #: .\crush_delegation\templates\account\logout_delegation.html:14
 #: .\crush_lu\templates\account\logout_crush.html:13
@@ -161,46 +159,55 @@ msgstr "Sind Sie sicher, dass Sie sich abmelden möchten?"
 msgid "Crush Delegation Management"
 msgstr "Crush Delegationsverwaltung"
 
-#: .\crush_lu\coach_notifications.py:142
+#: .\crush_lu\admin\notifications.py:106 .\crush_lu\admin\notifications.py:217
+#: .\crush_lu\coach_notifications.py:352 .\crush_lu\push_notifications.py:445
+msgid "Test Notification"
+msgstr "Testbenachrichtigung"
+
+#: .\crush_lu\admin\notifications.py:107 .\crush_lu\push_notifications.py:446
+msgid ""
+"Push notifications are working! You'll receive updates about events, "
+"messages, and connections."
+msgstr ""
+"Push-Benachrichtigungen funktionieren! Du erhältst Updates zu Events, "
+"Nachrichten und Verbindungen."
+
+#: .\crush_lu\admin\notifications.py:218 .\crush_lu\coach_notifications.py:353
+msgid "Your coach notifications are working correctly!"
+msgstr "Deine Coach-Benachrichtigungen funktionieren einwandfrei!"
+
+#: .\crush_lu\coach_notifications.py:223
 msgid "New Profile to Review"
 msgstr "Neues Profil zur Überprüfung"
 
-#: .\crush_lu\coach_notifications.py:143
+#: .\crush_lu\coach_notifications.py:224
 #, python-format
 msgid "%(name)s submitted a profile for review"
 msgstr "%(name)s hat ein Profil zur Überprüfung eingereicht"
 
-#: .\crush_lu\coach_notifications.py:176
+#: .\crush_lu\coach_notifications.py:260
 msgid "Profile Revision Submitted"
 msgstr "Profilüberarbeitung eingereicht"
 
-#: .\crush_lu\coach_notifications.py:177
+#: .\crush_lu\coach_notifications.py:261
 #, python-format
 msgid "%(name)s updated their profile based on your feedback"
 msgstr "%(name)s hat das Profil basierend auf deinem Feedback aktualisiert"
 
-#: .\crush_lu\coach_notifications.py:210
+#: .\crush_lu\coach_notifications.py:297
 msgid "Pending Screening Call"
 msgstr "Ausstehender Screening-Anruf"
 
-#: .\crush_lu\coach_notifications.py:211
+#: .\crush_lu\coach_notifications.py:298
 #, python-format
 msgid "Don't forget to schedule a call with %(name)s"
 msgstr "Vergiss nicht, einen Anruf mit %(name)s zu planen"
 
-#: .\crush_lu\coach_notifications.py:262 .\crush_lu\push_notifications.py:325
-msgid "Test Notification"
-msgstr "Testbenachrichtigung"
-
-#: .\crush_lu\coach_notifications.py:263
-msgid "Your coach notifications are working correctly!"
-msgstr "Deine Coach-Benachrichtigungen funktionieren einwandfrei!"
-
-#: .\crush_lu\forms.py:21
+#: .\crush_lu\forms.py:21 .\crush_lu\templates\crush_lu\signup.html:79
 msgid "First Name"
 msgstr "Vorname"
 
-#: .\crush_lu\forms.py:29
+#: .\crush_lu\forms.py:29 .\crush_lu\templates\crush_lu\signup.html:89
 msgid "Last Name"
 msgstr "Nachname"
 
@@ -217,6 +224,7 @@ msgid "Required for coach screening and event coordination"
 msgstr "Erforderlich für Coach-Screening und Veranstaltungskoordination"
 
 #: .\crush_lu\forms.py:101
+#: .\crush_lu\templates\crush_lu\create_profile.html:215
 msgid "Must be 18+ to join"
 msgstr "Sie müssen 18+ sein, um beizutreten"
 
@@ -247,54 +255,67 @@ msgid "Required"
 msgstr "Erforderlich"
 
 #: .\crush_lu\forms.py:138
+#: .\crush_lu\templates\crush_lu\create_profile.html:325
 msgid "Select your region..."
 msgstr "Wählen Sie Ihre Region..."
 
 #: .\crush_lu\forms.py:140
+#: .\crush_lu\templates\crush_lu\create_profile.html:327
 msgid "Capellen"
 msgstr "Capellen"
 
 #: .\crush_lu\forms.py:141
+#: .\crush_lu\templates\crush_lu\create_profile.html:328
 msgid "Clervaux"
 msgstr "Clerf"
 
 #: .\crush_lu\forms.py:142
+#: .\crush_lu\templates\crush_lu\create_profile.html:329
 msgid "Diekirch"
 msgstr "Diekirch"
 
 #: .\crush_lu\forms.py:143
+#: .\crush_lu\templates\crush_lu\create_profile.html:330
 msgid "Echternach"
 msgstr "Echternach"
 
 #: .\crush_lu\forms.py:144
+#: .\crush_lu\templates\crush_lu\create_profile.html:331
 msgid "Esch-sur-Alzette"
 msgstr "Esch-sur-Alzette"
 
 #: .\crush_lu\forms.py:145
+#: .\crush_lu\templates\crush_lu\create_profile.html:332
 msgid "Grevenmacher"
 msgstr "Grevenmacher"
 
 #: .\crush_lu\forms.py:146
+#: .\crush_lu\templates\crush_lu\create_profile.html:333
 msgid "Luxembourg"
 msgstr "Luxemburg"
 
 #: .\crush_lu\forms.py:147
+#: .\crush_lu\templates\crush_lu\create_profile.html:334
 msgid "Mersch"
 msgstr "Mersch"
 
 #: .\crush_lu\forms.py:148
+#: .\crush_lu\templates\crush_lu\create_profile.html:335
 msgid "Redange"
 msgstr "Redingen"
 
 #: .\crush_lu\forms.py:149
+#: .\crush_lu\templates\crush_lu\create_profile.html:336
 msgid "Remich"
 msgstr "Remich"
 
 #: .\crush_lu\forms.py:150
+#: .\crush_lu\templates\crush_lu\create_profile.html:337
 msgid "Vianden"
 msgstr "Vianden"
 
 #: .\crush_lu\forms.py:151
+#: .\crush_lu\templates\crush_lu\create_profile.html:338
 msgid "Wiltz"
 msgstr "Wiltz"
 
@@ -304,11 +325,13 @@ msgid "Belgium (Arlon area)"
 msgstr "Belgien (Raum Arlon)"
 
 #: .\crush_lu\forms.py:154
+#: .\crush_lu\templates\crush_lu\create_profile.html:342
 #: .\crush_lu\templates\crush_lu\partials\canton_map_svg.html:66
 msgid "Germany (Trier/Saarland area)"
 msgstr "Deutschland (Raum Trier/Saarland)"
 
 #: .\crush_lu\forms.py:155
+#: .\crush_lu\templates\crush_lu\create_profile.html:343
 #: .\crush_lu\templates\crush_lu\partials\canton_map_svg.html:75
 msgid "France (Thionville/Metz area)"
 msgstr "Frankreich (Raum Thionville/Metz)"
@@ -421,11 +444,9 @@ msgstr "Neues Passwort eingeben"
 msgid "Your password must be at least 8 characters."
 msgstr "Ihr Passwort muss mindestens 8 Zeichen lang sein."
 
-#: .\crush_lu\forms.py:473
-#, fuzzy
-#| msgid "Confirm"
+#: .\crush_lu\forms.py:473 .\crush_lu\templates\crush_lu\signup.html:121
 msgid "Confirm Password"
-msgstr "Bestätigen"
+msgstr "Passwort bestätigen"
 
 #: .\crush_lu\forms.py:476
 msgid "Confirm new password"
@@ -435,57 +456,49 @@ msgstr "Neues Passwort bestätigen"
 msgid "Passwords do not match."
 msgstr "Passwörter stimmen nicht überein."
 
-#: .\crush_lu\push_notifications.py:174
+#: .\crush_lu\push_notifications.py:295
 #, python-format
 msgid "Event Tomorrow: %(event_title)s"
 msgstr "Event morgen: %(event_title)s"
 
-#: .\crush_lu\push_notifications.py:175
+#: .\crush_lu\push_notifications.py:296
 #, python-format
 msgid "Don't forget! %(event_title)s starts at %(time)s. See you there!"
 msgstr "Nicht vergessen! %(event_title)s beginnt um %(time)s. Bis dann!"
 
-#: .\crush_lu\push_notifications.py:210
+#: .\crush_lu\push_notifications.py:332
 msgid "New Connection Request!"
 msgstr "Neue Verbindungsanfrage!"
 
-#: .\crush_lu\push_notifications.py:211
+#: .\crush_lu\push_notifications.py:333
 #, python-format
 msgid "%(name)s wants to connect with you!"
 msgstr "%(name)s möchte sich mit dir verbinden!"
 
-#: .\crush_lu\push_notifications.py:245
+#: .\crush_lu\push_notifications.py:368
 #, python-format
 msgid "New message from %(name)s"
 msgstr "Neue Nachricht von %(name)s"
 
-#: .\crush_lu\push_notifications.py:273
+#: .\crush_lu\push_notifications.py:395
 msgid "Profile Approved!"
 msgstr "Profil genehmigt!"
 
-#: .\crush_lu\push_notifications.py:274
+#: .\crush_lu\push_notifications.py:396
 msgid ""
 "Your Crush.lu profile has been approved! You can now register for events."
 msgstr ""
 "Dein Crush.lu Profil wurde genehmigt! Du kannst dich jetzt für Events "
 "anmelden."
 
-#: .\crush_lu\push_notifications.py:302
+#: .\crush_lu\push_notifications.py:423
 msgid "Profile Update Needed"
 msgstr "Profilaktualisierung erforderlich"
 
-#: .\crush_lu\push_notifications.py:303
+#: .\crush_lu\push_notifications.py:424
 #, python-format
 msgid "Your Crush Coach has some feedback: %(feedback)s..."
 msgstr "Dein Crush Coach hat Feedback: %(feedback)s..."
-
-#: .\crush_lu\push_notifications.py:326
-msgid ""
-"Push notifications are working! You'll receive updates about events, "
-"messages, and connections."
-msgstr ""
-"Push-Benachrichtigungen funktionieren! Du erhältst Updates zu Events, "
-"Nachrichten und Verbindungen."
 
 #: .\crush_lu\templates\admin\base_site.html:4
 #: .\crush_lu\templates\admin\base_site.html:29
@@ -515,7 +528,7 @@ msgstr "Ändern"
 
 #: .\crush_lu\templates\admin\index.html:103
 msgid "You don\\"
-msgstr ""
+msgstr "Sie haben keine Berechtigung, etwas anzuzeigen oder zu bearbeiten."
 
 #: .\crush_lu\templates\admin\index.html:111
 msgid "Recent actions"
@@ -533,110 +546,330 @@ msgstr "Keine verfügbar"
 msgid "Unknown content"
 msgstr "Unbekannter Inhalt"
 
-#: .\crush_lu\templates\crush_lu\account_settings.html:398
-#: .\crush_lu\templates\crush_lu\account_settings.html:599
+#: .\crush_lu\templates\crush_lu\about.html:4
+msgid "About Crush.lu - Privacy-First Dating Platform in Luxembourg"
+msgstr "Über Crush.lu - Datenschutzorientierte Dating-Plattform in Luxemburg"
+
+#: .\crush_lu\templates\crush_lu\about.html:6
+msgid "About Crush.lu - Our Mission & Values"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\about.html:7
+msgid ""
+"Learn about Crush.lu, Luxembourg's privacy-first dating platform. Discover "
+"our mission to bring authentic connections through coach-curated profiles "
+"and real-world events."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\about.html:9
+msgid ""
+"About Crush.lu: We're bringing authentic connections back to Luxembourg's "
+"dating scene. Coach-reviewed profiles, privacy-focused, and event-based "
+"meetups for meaningful relationships."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\about.html:10
+msgid ""
+"about crush.lu, dating luxembourg, crush coaches, privacy dating, authentic "
+"connections, luxembourg singles community"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\about.html:24
+#: .\crush_lu\templates\crush_lu\how_it_works.html:24
+#: .\entreprinder\templates\base.html:60
+#: .\vinsdelux\templates\vinsdelux\base.html:67
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:12
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:12
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:12
+msgid "Home"
+msgstr "Startseite"
+
+#: .\crush_lu\templates\crush_lu\about.html:30
+#: .\power_up\templates\power_up\partials\footer.html:26
+#: .\power_up\templates\power_up\partials\navigation.html:23
+#: .\power_up\templates\power_up\partials\navigation.html:55
+msgid "About"
+msgstr "Über"
+
+#: .\crush_lu\templates\crush_lu\about.html:42
+#: .\crush_lu\templates\crush_lu\about.html:57
+msgid "About Crush.lu"
+msgstr "Über Crush.lu"
+
+#: .\crush_lu\templates\crush_lu\about.html:43
+msgid ""
+"Learn about Crush.lu, Luxembourg's privacy-first dating platform bringing "
+"authentic connections through coach-curated profiles and real-world events."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\about.html:47
+#, fuzzy
+#| msgid ""
+#| "Privacy-first dating platform for Luxembourg. Join coach-curated events, "
+#| "meet real singles, and build authentic connections."
+msgid ""
+"Privacy-first dating platform for Luxembourg. Meet real people at organized "
+"events - no endless swiping, just authentic connections."
+msgstr ""
+"Datenschutz-orientierte Dating-Plattform für Luxemburg. Nehmen Sie an von "
+"Coaches kuratierten Events teil, treffen Sie echte Singles und bauen Sie "
+"authentische Verbindungen auf."
+
+#: .\crush_lu\templates\crush_lu\about.html:61
+#: .\power_up\templates\power_up\home.html:34
+msgid "Our Mission"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\about.html:63
+msgid "We're bringing back authentic connections in Luxembourg's dating scene."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\about.html:66
+msgid ""
+"In a world of endless swiping and superficial matches, Crush.lu takes a "
+"different approach. We believe that real relationships start with real "
+"conversations, face-to-face."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\about.html:73
+msgid "Why Luxembourg?"
+msgstr "Warum Luxemburg?"
+
+#: .\crush_lu\templates\crush_lu\about.html:75
+msgid ""
+"Luxembourg is a small, tight-knit community where privacy and discretion "
+"matter. Our platform is designed with this in mind, offering a curated "
+"experience that respects your privacy while helping you meet compatible "
+"people."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\about.html:82
+msgid "The Crush Coach Difference"
+msgstr "Der Crush Coach Unterschied"
+
+#: .\crush_lu\templates\crush_lu\about.html:84
+msgid ""
+"Every profile on Crush.lu is reviewed by a dedicated Crush Coach. This "
+"ensures:"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\about.html:87
+msgid "Authentic profiles only - no bots, no catfishing"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\about.html:88
+msgid "Personalized guidance to help you present your best self"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\about.html:89
+msgid "A safer, more respectful community"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\about.html:90
+msgid "Support throughout your journey to find connections"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\about.html:97
+msgid "Ready to Get Started?"
+msgstr "Bereit loszulegen?"
+
+#: .\crush_lu\templates\crush_lu\about.html:98
+msgid "Join our community and start meeting new people today!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\about.html:100
+#: .\crush_lu\templates\crush_lu\home.html:141
+#: .\crush_lu\templates\crush_lu\how_it_works.html:54
+#: .\crush_lu\templates\crush_lu\how_it_works.html:405
+msgid "Create Your Profile"
+msgstr "Erstellen Sie Ihr Profil"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:416
+#: .\crush_lu\templates\crush_lu\account_settings.html:610
 msgid "Never used"
-msgstr ""
+msgstr "Nie verwendet"
 
-#: .\crush_lu\templates\crush_lu\account_settings.html:399
-#: .\crush_lu\templates\crush_lu\account_settings.html:600
+#: .\crush_lu\templates\crush_lu\account_settings.html:417
+#: .\crush_lu\templates\crush_lu\account_settings.html:611
 msgid "Just now"
-msgstr ""
+msgstr "Gerade eben"
 
-#: .\crush_lu\templates\crush_lu\account_settings.html:400
-#: .\crush_lu\templates\crush_lu\account_settings.html:601
-#, fuzzy
-#| msgid "Last Name"
+#: .\crush_lu\templates\crush_lu\account_settings.html:418
+#: .\crush_lu\templates\crush_lu\account_settings.html:527
+#: .\crush_lu\templates\crush_lu\account_settings.html:612
+#: .\crush_lu\templates\crush_lu\account_settings.html:724
 msgid "Last active:"
-msgstr "Nachname"
+msgstr "Zuletzt aktiv:"
 
-#: .\crush_lu\templates\crush_lu\account_settings.html:401
-#: .\crush_lu\templates\crush_lu\account_settings.html:602
+#: .\crush_lu\templates\crush_lu\account_settings.html:419
+#: .\crush_lu\templates\crush_lu\account_settings.html:613
 msgid "m ago"
-msgstr ""
+msgstr "Min"
 
-#: .\crush_lu\templates\crush_lu\account_settings.html:402
-#: .\crush_lu\templates\crush_lu\account_settings.html:603
+#: .\crush_lu\templates\crush_lu\account_settings.html:420
+#: .\crush_lu\templates\crush_lu\account_settings.html:614
 msgid "h ago"
-msgstr ""
+msgstr "Std"
 
-#: .\crush_lu\templates\crush_lu\account_settings.html:403
-#: .\crush_lu\templates\crush_lu\account_settings.html:604
-#, fuzzy
-#| msgid "2 days ago"
+#: .\crush_lu\templates\crush_lu\account_settings.html:421
+#: .\crush_lu\templates\crush_lu\account_settings.html:615
 msgid "d ago"
-msgstr "vor 2 Tagen"
+msgstr "T"
 
-#: .\crush_lu\templates\crush_lu\account_settings.html:404
-#: .\crush_lu\templates\crush_lu\account_settings.html:605
+#: .\crush_lu\templates\crush_lu\account_settings.html:422
+#: .\crush_lu\templates\crush_lu\account_settings.html:616
 msgid "mo ago"
+msgstr "Mon"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:517
+#: .\crush_lu\templates\crush_lu\account_settings.html:714
+msgid "This device"
+msgstr "Dieses Gerät"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:541
+msgid "New Messages"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\account_settings.html:502
-#: .\crush_lu\templates\crush_lu\account_settings.html:706
-msgid "This device"
+#: .\crush_lu\templates\crush_lu\account_settings.html:542
+msgid "Get notified when you receive a new message"
+msgstr "Benachrichtigung erhalten, wenn Sie eine neue Nachricht erhalten"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:557
+msgid "Event Reminders"
+msgstr "Event-Erinnerungen"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:558
+msgid "Reminders about upcoming events"
+msgstr "Erinnerungen an bevorstehende Events"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:573
+msgid "New Connections"
+msgstr "Neue Kontakte"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:574
+msgid "Get notified when someone connects with you"
+msgstr "Benachrichtigung erhalten, wenn sich jemand mit Ihnen verbindet"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:589
+msgid "Profile Updates"
+msgstr "Profil-Updates"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:590
+msgid "Notifications about your profile status"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:597
+msgid "No devices registered for push notifications."
+msgstr "Keine Geräte für Push-Benachrichtigungen registriert."
+"Aktualisieren Sie diese Seite, um Push-Benachrichtigungen zu aktivieren."
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:738
+msgid "New Profile Submissions"
+msgstr "Neue Profilübermittlungen"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:739
+msgid "Get notified when new profiles need review"
+msgstr "Benachrichtigung erhalten, wenn neue Profile überprüft werden müssen"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:754
+msgid "Screening Reminders"
+msgstr "Screening-Erinnerungen"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:755
+msgid "Reminders about pending screening calls"
+msgstr "Erinnerungen an ausstehende Screening-Anrufe"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:770
+msgid "User Revisions"
+msgstr "Benutzerrevisionen"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:771
+msgid "Get notified when users submit profile revisions"
+msgstr "Benachrichtigung erhalten, wenn Benutzer Profilrevisionen einreichen"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:786
+msgid "System Alerts"
+msgstr "Systemmeldungen"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:787
+msgid "Important system notifications and alerts"
+msgstr "Wichtige Systemmeldungen und Benachrichtigungen"
+
+#: .\crush_lu\templates\crush_lu\account_settings.html:794
+msgid "No devices registered for coach notifications."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\base.html:645
+msgid "Your profile is incomplete"
+msgstr "Ihr Profil ist unvollständig"
+
+#: .\crush_lu\templates\crush_lu\base.html:648
+msgid "Complete your profile"
+msgstr "Vervollständigen Sie Ihr Profil"
+
+#: .\crush_lu\templates\crush_lu\base.html:657
+msgid "Your profile is under review by our Crush Coach"
+msgstr "Ihr Profil wird von unserem Crush Coach überprüft"
+"Ihre Privatsphäre ist uns wichtig. Alle Profile werden von unseren Crush-"
+"Coaches überprüft."
+
+#: .\crush_lu\templates\crush_lu\base.html:660
+msgid "Check status"
 msgstr ""
 
 # Footer translations (only new strings that don't exist elsewhere)
-#: .\crush_lu\templates\crush_lu\base.html:689
+#: .\crush_lu\templates\crush_lu\base.html:715
 msgid "Meet new people. Make real connections."
 msgstr "Neue Leute treffen. Echte Verbindungen knüpfen."
 
-#: .\crush_lu\templates\crush_lu\base.html:694
+#: .\crush_lu\templates\crush_lu\base.html:720
 msgid "Quick Links"
 msgstr "Schnelllinks"
 
-#: .\crush_lu\templates\crush_lu\base.html:696
-#, fuzzy
-#| msgid "About"
+#: .\crush_lu\templates\crush_lu\base.html:722
 msgid "About Us"
 msgstr "Über uns"
 
-#: .\crush_lu\templates\crush_lu\base.html:697
+#: .\crush_lu\templates\crush_lu\base.html:723
 #: .\crush_lu\templates\crush_lu\home.html:92
 #: .\crush_lu\templates\crush_lu\home.html:134
+#: .\crush_lu\templates\crush_lu\how_it_works.html:30
 msgid "How It Works"
 msgstr "So funktioniert's"
 
-#: .\crush_lu\templates\crush_lu\base.html:698
-#: .\crush_lu\templates\crush_lu\dashboard.html:150
+#: .\crush_lu\templates\crush_lu\base.html:724
+#: .\crush_lu\templates\crush_lu\dashboard.html:140
 msgid "Events"
 msgstr "Veranstaltungen"
 
-#: .\crush_lu\templates\crush_lu\base.html:704
+#: .\crush_lu\templates\crush_lu\base.html:730
 msgid "Legal"
 msgstr "Rechtliches"
 
-#: .\crush_lu\templates\crush_lu\base.html:706
-#, fuzzy
-#| msgid "Privacy First"
+#: .\crush_lu\templates\crush_lu\base.html:732
 msgid "Privacy Policy"
-msgstr "Datenschutz an erster Stelle"
+msgstr "Datenschutzerklärung"
 
-#: .\crush_lu\templates\crush_lu\base.html:707
-#, fuzzy
-#| msgid "Premium Service"
+#: .\crush_lu\templates\crush_lu\base.html:733
 msgid "Terms of Service"
-msgstr "Premium-Service"
+msgstr "Nutzungsbedingungen"
 
-#: .\crush_lu\templates\crush_lu\base.html:708
-#, fuzzy
-#| msgid "Plot Selection"
+#: .\crush_lu\templates\crush_lu\base.html:734
 msgid "Data Deletion"
-msgstr "Parzellenauswahl"
+msgstr "Datenlöschung"
 
-#: .\crush_lu\templates\crush_lu\base.html:714
+#: .\crush_lu\templates\crush_lu\base.html:740
 #: .\crush_lu\templates\crush_lu\home.html:109
 msgid "Privacy First"
 msgstr "Datenschutz an erster Stelle"
 
-#: .\crush_lu\templates\crush_lu\base.html:715
+#: .\crush_lu\templates\crush_lu\base.html:741
 msgid "Your privacy matters. All profiles are reviewed by our Crush Coaches."
 msgstr ""
 "Ihre Privatsphäre ist uns wichtig. Alle Profile werden von unseren Crush-"
 "Coaches überprüft."
 
-#: .\crush_lu\templates\crush_lu\base.html:721
+#: .\crush_lu\templates\crush_lu\base.html:747
 msgid "&copy; 2025 Crush.lu - Made with 💕 in Luxembourg"
 msgstr "&copy; 2025 Crush.lu - Mit 💕 in Luxemburg gemacht"
 
@@ -681,21 +914,16 @@ msgid "Coach Notifications"
 msgstr "Coach-Benachrichtigungen"
 
 #: .\crush_lu\templates\crush_lu\coach_dashboard.html:62
-#, fuzzy
-#| msgid ""
-#| "Enable push notifications to get alerts about new profile submissions, "
-#| "user revisions, and screening reminders."
 msgid ""
 "Manage your push notification preferences for new profile submissions, "
 "screening reminders, and user responses."
 msgstr ""
-"Aktivieren Sie Push-Benachrichtigungen, um Benachrichtigungen über neue "
-"Profilübermittlungen, Benutzerrevisionen und Screening-Erinnerungen zu "
-"erhalten."
+"Verwalten Sie Ihre Push-Benachrichtigungseinstellungen für neue "
+"Profilübermittlungen, Screening-Erinnerungen und Benutzerantworten."
 
 #: .\crush_lu\templates\crush_lu\coach_dashboard.html:69
 msgid "Open Account Settings"
-msgstr ""
+msgstr "Kontoeinstellungen öffnen"
 
 #: .\crush_lu\templates\crush_lu\coach_dashboard.html:80
 msgid "Journey Management"
@@ -764,6 +992,424 @@ msgstr "Überarbeitung angefordert"
 msgid "No recent reviews yet."
 msgstr "Noch keine aktuellen Überprüfungen."
 
+#: .\crush_lu\templates\crush_lu\create_profile.html:4
+msgid "Create Your Profile - Crush.lu"
+msgstr "Profil erstellen - Crush.lu"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:29
+#: .\crush_lu\templates\crush_lu\edit_profile.html:22
+msgid "Edit Your Profile"
+msgstr "Profil bearbeiten"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:30
+msgid "Update your profile information"
+msgstr "Aktualisieren Sie Ihre Profilinformationen"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:35
+msgid "Welcome to Crush!"
+msgstr "Willkommen bei Crush!"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:36
+msgid "Let's create your profile in just a few steps"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:51
+msgid "Basic Info"
+msgstr "Grundinformationen"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:65
+#: .\crush_lu\templates\crush_lu\create_profile.html:417
+msgid "About You"
+msgstr "Über dich"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:79
+msgid "Photos"
+msgstr "Fotos"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:90
+msgid "Review"
+msgstr "Überprüfung"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:116
+msgid "Please fix the following errors:"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:143
+msgid "Basic Information"
+msgstr "Grundinformationen"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:144
+msgid "Let's start with the essentials"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:153
+#: .\crush_lu\templates\crush_lu\create_profile.html:839
+msgid "Phone Number"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:156
+msgid "Verification Required"
+msgstr "Verifizierung erforderlich"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:163
+#: .\entreprinder\templates\account\email.html:43
+msgid "Verified"
+msgstr "Verifiziert"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:184
+msgid "Verify"
+msgstr "Verifizieren"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:191
+msgid "You must verify your phone number before continuing."
+msgstr "Sie müssen Ihre Telefonnummer verifizieren, bevor Sie fortfahren."
+"Bitte verifizieren Sie Ihre Telefonnummer, um alle Funktionen nutzen zu "
+"können."
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:212
+#: .\crush_lu\templates\crush_lu\create_profile.html:848
+msgid "Date of Birth"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:224
+#: .\crush_lu\templates\crush_lu\create_profile.html:857
+msgid "Gender"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:226
+msgid "Select your gender"
+msgstr "Wählen Sie Ihr Geschlecht"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:247
+msgid "Male"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:257
+msgid "Female"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:267
+msgid "Non-binary"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:277
+msgid "Other"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:290
+msgid "Location in Luxembourg"
+msgstr "Standort in Luxemburg"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:292
+msgid "Click the map or use the dropdown to select your region"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:297
+msgid "Click the map to select your region"
+msgstr "Klicken Sie auf die Karte, um Ihre Region auszuwählen"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:321
+msgid "Can't use the map? Select from list"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:326
+msgid "Luxembourg Cantons"
+msgstr "Luxemburger Kantone"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:340
+msgid "Border Regions"
+msgstr "Grenzregionen"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:341
+msgid "Belgium (Arlon/Virton area)"
+msgstr "Belgien (Raum Arlon/Virton)"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:368
+#: .\crush_lu\templates\crush_lu\create_profile.html:584
+#: .\crush_lu\templates\crush_lu\create_profile.html:787
+#: .\crush_lu\templates\crush_lu\partials\profile_completion_banner.html:27
+msgid "Continue"
+msgstr "Weiter"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:380
+#: .\crush_lu\templates\crush_lu\create_profile.html:596
+#: .\crush_lu\templates\crush_lu\create_profile.html:799
+msgid "Saving..."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:405
+msgid "Please verify your phone number to continue."
+msgstr "Bitte verifizieren Sie Ihre Telefonnummer, um fortzufahren."
+"Bitte verifizieren Sie Ihre Telefonnummer, um alle Funktionen nutzen zu "
+"können."
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:418
+msgid "Share what makes you unique (optional)"
+msgstr "Teilen Sie, was Sie einzigartig macht (optional)"
+"Teilen Sie mit, was Sie einzigartig macht! (Optional, max. 500 Zeichen)"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:424
+msgid "Bio"
+msgstr "Bio"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:425
+#: .\crush_lu\templates\crush_lu\create_profile.html:446
+msgid "Optional"
+msgstr "Optional"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:433
+#, fuzzy
+#| msgid ""
+#| "Tell us about yourself... What do you love? What makes you smile? "
+#| "(Optional)"
+msgid "Tell us about yourself... What do you love? What makes you smile?"
+msgstr ""
+"Erzählen Sie uns von sich... Was lieben Sie? Was bringt Sie zum Lächeln? "
+"(Optional)"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:435
+#: .\crush_lu\templates\crush_lu\create_profile.html:511
+msgid "characters"
+msgstr "Zeichen"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:445
+msgid "Interest Categories"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:455
+msgid "Sports & Fitness"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:464
+msgid "Arts & Culture"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:473
+msgid "Food & Wine"
+msgstr "Essen & Wein"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:482
+msgid "Outdoors"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:491
+msgid "Business & Tech"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:495
+msgid "Select all that apply, or skip to continue"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:501
+msgid "Or write your own interests"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:509
+msgid "e.g., hiking, photography, cooking..."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:518
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:34
+msgid "What are you looking for?"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:520
+msgid "Select what you are looking for"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:528
+msgid "New Friends"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:538
+msgid "Dating"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:548
+msgid "Both"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:558
+msgid "Networking"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:576
+#: .\crush_lu\templates\crush_lu\create_profile.html:779
+#: .\crush_lu\templates\crush_lu\create_profile.html:929
+msgid "Back"
+msgstr "Zurück"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:625
+msgid "Add Photos"
+msgstr "Fotos hinzufügen"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:626
+msgid "Upload at least one photo (optional but recommended)"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:654
+#: .\crush_lu\templates\crush_lu\create_profile.html:681
+#: .\crush_lu\templates\crush_lu\create_profile.html:708
+msgid "Photo"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:727
+msgid "Tip:"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:727
+msgid "Use clear photos where your face is visible. Avoid group photos!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:737
+msgid "Privacy Settings"
+msgstr "Datenschutzeinstellungen"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:745
+msgid "Show my full name"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:746
+msgid "Otherwise only your first name will be shown"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:754
+msgid "Show my exact age"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:755
+msgid "Otherwise show age range (e.g., 25-29)"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:763
+msgid "Blur my photos until mutual interest"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:764
+msgid "Photos will only be visible after you both connect"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:828
+msgid "Review & Submit"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:829
+msgid "Almost done! Review your information"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:840
+#: .\crush_lu\templates\crush_lu\create_profile.html:849
+msgid "Not provided"
+msgstr "Nicht angegeben"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:858
+#: .\crush_lu\templates\crush_lu\create_profile.html:867
+msgid "Not selected"
+msgstr "Nicht ausgewählt"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:866
+#: .\power_up\templates\power_up\contact.html:62
+msgid "Location"
+msgstr "Standort"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:876
+msgid "What Happens Next?"
+msgstr "Was passiert als Nächstes?"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:883
+msgid "Profile Submitted"
+msgstr "Profil eingereicht"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:884
+msgid "Your profile is sent to our Crush Coach team"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:890
+msgid "Coach Review"
+msgstr "Coach-Überprüfung"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:891
+#, fuzzy
+#| msgid ""
+#| "A Crush Coach reviews your profile and provides feedback within 24-48 "
+#| "hours."
+msgid "A coach will review your profile within 24-48 hours"
+msgstr ""
+"Ein Crush Coach prüft Ihr Profil und gibt innerhalb von 24-48 Stunden "
+"Feedback."
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:897
+msgid "Screening Call"
+msgstr "Screening-Anruf"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:898
+msgid "Your coach will call you to discuss your profile and goals"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:904
+#: .\crush_lu\templates\crush_lu\edit_profile.html:25
+msgid "Profile Approved"
+msgstr "Profil genehmigt"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:905
+msgid "You can start attending events and making connections!"
+msgstr "Sie können an Events teilnehmen und Kontakte knüpfen!"
+"Entdecken Sie unsere kommenden Veranstaltungen und knüpfen Sie Kontakte!"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:917
+msgid "Privacy First:"
+msgstr "Datenschutz zuerst:"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:917
+msgid ""
+"Your phone number will only be used by your coach for screening. It won't be "
+"shared with other members without your consent."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:941
+msgid "Submit Profile"
+msgstr "Profil einreichen"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:950
+msgid "Submitting..."
+msgstr "Wird eingereicht..."
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:998
+msgid "Verify Your Phone"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:1004
+msgid "Sending verification code..."
+msgstr "Verifizierungscode wird gesendet..."
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:1010
+msgid "We sent a 6-digit code to"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:1043
+msgid "Verify Code"
+msgstr "Code verifizieren"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:1049
+msgid "Resend available in"
+msgstr "Erneut senden verfügbar in"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:1054
+msgid "Resend Code"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:1062
+msgid "Verifying your code..."
+msgstr "Ihr Code wird verifiziert..."
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:1072
+msgid "Phone Verified!"
+msgstr "Telefon verifiziert!"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:1073
+msgid "Your phone number has been verified successfully."
+msgstr "Ihre Telefonnummer wurde erfolgreich verifiziert."
+
 #: .\crush_lu\templates\crush_lu\dashboard.html:5
 msgid "Dashboard - Crush.lu"
 msgstr "Dashboard - Crush.lu"
@@ -777,102 +1423,80 @@ msgstr "Willkommen zurück, %(name)s! 👋"
 msgid "Settings"
 msgstr "Einstellungen"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:23
+#: .\crush_lu\templates\crush_lu\dashboard.html:26
 msgid "Phone verification required!"
 msgstr "Telefonverifizierung erforderlich!"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:23
+#: .\crush_lu\templates\crush_lu\dashboard.html:26
 msgid "Please verify your phone number to access all features."
 msgstr ""
 "Bitte verifizieren Sie Ihre Telefonnummer, um alle Funktionen nutzen zu "
 "können."
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:26
+#: .\crush_lu\templates\crush_lu\dashboard.html:29
 msgid "Verify Now"
 msgstr "Jetzt verifizieren"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:35
+#: .\crush_lu\templates\crush_lu\dashboard.html:38
 msgid "Profile Status"
 msgstr "Profilstatus"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:38
+#: .\crush_lu\templates\crush_lu\dashboard.html:41
 msgid "✅ Your profile is approved and active!"
 msgstr "✅ Ihr Profil ist genehmigt und aktiv!"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:43
+#: .\crush_lu\templates\crush_lu\dashboard.html:46
 #, python-format
 msgid "⏳ Your profile is currently under review by %(coach)s"
 msgstr "⏳ Ihr Profil wird derzeit von %(coach)s überprüft"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:47
+#: .\crush_lu\templates\crush_lu\dashboard.html:50
 msgid "📝 Your coach has requested some revisions"
 msgstr "📝 Ihr Coach hat einige Überarbeitungen angefordert"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:48
-#: .\crush_lu\templates\crush_lu\dashboard.html:53
+#: .\crush_lu\templates\crush_lu\dashboard.html:51
+#: .\crush_lu\templates\crush_lu\dashboard.html:56
 msgid "Feedback:"
 msgstr "Feedback:"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:52
+#: .\crush_lu\templates\crush_lu\dashboard.html:55
 msgid "❌ Your profile was not approved"
 msgstr "❌ Ihr Profil wurde nicht genehmigt"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:60
+#: .\crush_lu\templates\crush_lu\dashboard.html:65
 msgid "Edit Profile"
 msgstr "Profil bearbeiten"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:71
-msgid "🔔 Push Notifications"
-msgstr "🔔 Push-Benachrichtigungen"
+#: .\crush_lu\templates\crush_lu\dashboard.html:69
+msgid "Profile under review"
+msgstr "Profil wird überprüft"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:72
-msgid "Get notified about events, messages, and connections"
-msgstr ""
-"Erhalten Sie Benachrichtigungen über Veranstaltungen, Nachrichten und "
-"Verbindungen"
-
-#: .\crush_lu\templates\crush_lu\dashboard.html:77
-msgid "Checking notification status..."
-msgstr "Benachrichtigungsstatus wird überprüft..."
-
-#: .\crush_lu\templates\crush_lu\dashboard.html:82
-msgid "Enable Notifications"
-msgstr "Benachrichtigungen aktivieren"
+#: .\crush_lu\templates\crush_lu\dashboard.html:74
+msgid "Complete Profile"
+msgstr "Profil vervollständigen"
 
 #: .\crush_lu\templates\crush_lu\dashboard.html:86
-msgid "Disable"
-msgstr "Deaktivieren"
+msgid "📲 Crush.lu App"
+msgstr "📲 Crush.lu App"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:90
-msgid "Send Test"
-msgstr "Test senden"
+#: .\crush_lu\templates\crush_lu\dashboard.html:89
+#: .\crush_lu\templates\crush_lu\dashboard.html:109
+msgid "App installed!"
+msgstr "App installiert!"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:96
-msgid "Push notifications not available"
-msgstr "Push-Benachrichtigungen nicht verfügbar"
+#: .\crush_lu\templates\crush_lu\dashboard.html:91
+msgid "Manage your push notifications in account settings."
+msgstr "Verwalten Sie Ihre Push-Benachrichtigungen in den Kontoeinstellungen."
+
+#: .\crush_lu\templates\crush_lu\dashboard.html:93
+msgid "Notification Settings"
+msgstr "Benachrichtigungseinstellungen"
 
 #: .\crush_lu\templates\crush_lu\dashboard.html:98
-msgid "To receive push notifications, try opening Crush.lu in:"
-msgstr ""
-"Um Push-Benachrichtigungen zu erhalten, versuchen Sie Crush.lu zu öffnen in:"
-
-#: .\crush_lu\templates\crush_lu\dashboard.html:99
-msgid "• Chrome or Edge on Android"
-msgstr "• Chrome oder Edge auf Android"
-
-#: .\crush_lu\templates\crush_lu\dashboard.html:100
-msgid "• Chrome, Firefox, or Edge on Desktop"
-msgstr "• Chrome, Firefox oder Edge auf Desktop"
-
-#: .\crush_lu\templates\crush_lu\dashboard.html:101
-msgid "• Safari on iOS 16.4+ or macOS 16.4+"
-msgstr "• Safari auf iOS 16.4+ oder macOS 16.4+"
-
-#: .\crush_lu\templates\crush_lu\dashboard.html:108
 msgid "📲 Install Crush.lu App"
 msgstr "📲 Crush.lu App installieren"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:109
+#: .\crush_lu\templates\crush_lu\dashboard.html:99
 msgid ""
 "Install our app to get push notifications about events, messages, and "
 "connections!"
@@ -880,94 +1504,359 @@ msgstr ""
 "Installieren Sie unsere App, um Push-Benachrichtigungen über "
 "Veranstaltungen, Nachrichten und Verbindungen zu erhalten!"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:113
+#: .\crush_lu\templates\crush_lu\dashboard.html:103
 msgid "Install App"
 msgstr "App installieren"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:119
-msgid "App installed!"
-msgstr "App installiert!"
-
-#: .\crush_lu\templates\crush_lu\dashboard.html:121
+#: .\crush_lu\templates\crush_lu\dashboard.html:111
 msgid "Refresh this page to enable push notifications."
 msgstr ""
 "Aktualisieren Sie diese Seite, um Push-Benachrichtigungen zu aktivieren."
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:129
+#: .\crush_lu\templates\crush_lu\dashboard.html:119
 msgid "How to install"
 msgstr "So installieren Sie"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:146
+#: .\crush_lu\templates\crush_lu\dashboard.html:136
 msgid "Your Activity"
 msgstr "Ihre Aktivität"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:154
+#: .\crush_lu\templates\crush_lu\dashboard.html:144
 msgid "Age"
 msgstr "Alter"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:159
-#, fuzzy
-#| msgid "Connect"
+#: .\crush_lu\templates\crush_lu\dashboard.html:149
 msgid "Connections"
-msgstr "Verbinden"
+msgstr "Verbindungen"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:170
+#: .\crush_lu\templates\crush_lu\dashboard.html:160
 msgid "Your Events"
 msgstr "Ihre Veranstaltungen"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:186
-#, fuzzy
-#| msgid "Confirm"
+#: .\crush_lu\templates\crush_lu\dashboard.html:176
 msgid "Confirmed"
-msgstr "Bestätigen"
+msgstr "Bestätigt"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:188
+#: .\crush_lu\templates\crush_lu\dashboard.html:178
 msgid "Waitlist"
 msgstr "Warteliste"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:190
+#: .\crush_lu\templates\crush_lu\dashboard.html:180
 msgid "Cancelled"
 msgstr "Abgesagt"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:192
+#: .\crush_lu\templates\crush_lu\dashboard.html:182
 msgid "Attended"
 msgstr "Teilgenommen"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:198
+#: .\crush_lu\templates\crush_lu\dashboard.html:188
 msgid "View Event"
 msgstr "Veranstaltung ansehen"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:202
+#: .\crush_lu\templates\crush_lu\dashboard.html:192
 #: .\crush_lu\templates\crush_lu\home.html:162
-#, fuzzy
-#| msgid "Connect"
+#: .\crush_lu\templates\crush_lu\how_it_works.html:75
+#: .\crush_lu\templates\crush_lu\how_it_works.html:455
 msgid "Make Connections"
-msgstr "Verbinden"
+msgstr "Verbindungen knüpfen"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:206
+#: .\crush_lu\templates\crush_lu\dashboard.html:196
 msgid "Cancel Registration"
 msgstr "Anmeldung stornieren"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:214
+#: .\crush_lu\templates\crush_lu\dashboard.html:204
 msgid "You haven't registered for any events yet."
 msgstr "Sie haben sich noch für keine Veranstaltungen angemeldet."
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:216
+#: .\crush_lu\templates\crush_lu\dashboard.html:206
+#: .\crush_lu\templates\crush_lu\how_it_works.html:68
+#: .\crush_lu\templates\crush_lu\how_it_works.html:435
 msgid "Browse Events"
 msgstr "Veranstaltungen durchsuchen"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:226
+#: .\crush_lu\templates\crush_lu\dashboard.html:216
 msgid "Ready to Meet New People?"
 msgstr "Bereit, neue Leute kennenzulernen?"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:227
+#: .\crush_lu\templates\crush_lu\dashboard.html:217
 msgid "Check out our upcoming events and start making connections!"
 msgstr ""
 "Entdecken Sie unsere kommenden Veranstaltungen und knüpfen Sie Kontakte!"
 
-#: .\crush_lu\templates\crush_lu\dashboard.html:229
+#: .\crush_lu\templates\crush_lu\dashboard.html:219
 msgid "View Upcoming Events"
 msgstr "Kommende Veranstaltungen ansehen"
+
+#: .\crush_lu\templates\crush_lu\edit_profile.html:4
+msgid "Edit Your Profile - Crush.lu"
+msgstr "Profil bearbeiten - Crush.lu"
+
+#: .\crush_lu\templates\crush_lu\edit_profile.html:23
+msgid "Update your information below"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:4
+msgid "Complete Your Profile"
+msgstr "Vervollständigen Sie Ihr Profil"
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:6
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:11
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_final.html:11
+msgid "Hey"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:9
+msgid "Your profile is waiting for you"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:11
+msgid ""
+"You started creating your Crush.lu profile yesterday, and we noticed you "
+"haven't finished yet."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:14
+msgid ""
+"You're just a few steps away from meeting amazing people in Luxembourg! It "
+"only takes about 5 minutes to complete your profile."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:17
+msgid "What you'll add:"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:19
+msgid "Basic info (name, age, location)"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:20
+msgid "A short bio about yourself"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:21
+#, fuzzy
+#| msgid ""
+#| "Sign up and tell us about yourself. Share your interests and what you're "
+#| "looking for."
+msgid "Your interests and what you're looking for"
+msgstr ""
+"Melden Sie sich an und erzählen Sie uns von sich. Teilen Sie Ihre Interessen "
+"und wonach Sie suchen."
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:22
+msgid "A few photos"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:27
+msgid ""
+"Great start! You've completed the basics. Now let's add a bio and your "
+"interests so people can get to know you better."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:30
+msgid "Next up:"
+msgstr "Als Nächstes:"
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:32
+msgid "Tell us about yourself"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:33
+msgid "Share your hobbies and interests"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:39
+msgid ""
+"You're almost there! Just add some photos and your profile will be ready for "
+"review."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:42
+msgid "Did you know?"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:43
+msgid "Profiles with 2-3 photos get 3x more connections at our events!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:49
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_final.html:32
+msgid "Complete My Profile"
+msgstr "Mein Profil vervollständigen"
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:53
+msgid ""
+"Once your profile is complete, our team will review it and you'll be ready "
+"to join events and meet new people!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:58
+msgid ""
+"You're receiving this reminder because you started creating a profile on "
+"Crush.lu."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:4
+msgid "Don't Miss Out"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:6
+msgid "Still thinking about it?"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:9
+msgid "Your profile is"
+msgstr "Ihr Profil ist"
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:9
+msgid "waiting to be created"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:9
+msgid "almost ready"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:13
+msgid ""
+"We noticed you started signing up a few days ago but haven't finished your "
+"profile yet. We get it - life gets busy!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:17
+msgid "Why complete your profile now?"
+msgstr "Warum jetzt Ihr Profil vervollständigen?"
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:19
+msgid "Meet like-minded people at our events"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:20
+msgid "Join exclusive speed dating and mixer events"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:21
+msgid "Connect with the Luxembourg dating community"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:25
+msgid ""
+"It only takes 5 minutes to create your profile. Our friendly coaches will "
+"review it personally to ensure everyone has a great experience."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:28
+msgid ""
+"You've already done the hard part - now just add a short bio and your "
+"interests. This helps us match you with events and people you'll actually "
+"enjoy meeting."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:31
+msgid "Pro tip:"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:32
+msgid ""
+"Be authentic! Mention your hobbies, what makes you laugh, or what you're "
+"passionate about."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:36
+msgid ""
+"You're SO close! Just add 1-3 photos and you're done. Your privacy is "
+"protected - you can blur photos or show only your first name."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:39
+msgid "Photo tips:"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:41
+msgid "Use a clear, recent photo of yourself"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:42
+msgid "Show your personality - hobbies, travel, pets"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:43
+msgid "Smile! It makes a huge difference"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:50
+msgid "Finish My Profile Now"
+msgstr "Profil jetzt fertigstellen"
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:54
+msgid "Questions? Reply to this email and we'll help you out!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:59
+msgid ""
+"You're receiving this because you signed up for Crush.lu but haven't "
+"completed your profile."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_final.html:4
+msgid "Last Chance to Complete Your Profile"
+msgstr "Letzte Chance, Ihr Profil zu vervollständigen"
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_final.html:6
+msgid "We miss you!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_final.html:9
+msgid "One week later - your profile is still incomplete"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_final.html:13
+msgid ""
+"This is our final reminder - your Crush.lu profile is still waiting for you!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_final.html:16
+msgid ""
+"We know starting something new can feel like a big step. But here's the "
+"thing: you already took the first step by signing up. Now let's finish what "
+"you started!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_final.html:19
+msgid ""
+"You've already started your profile - you're more than halfway there! Just a "
+"few more details and you'll be ready to meet amazing people."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_final.html:22
+msgid ""
+"You're literally one step away! Just add a photo or two and your profile "
+"goes to our review team."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_final.html:27
+msgid "What's happening on Crush.lu?"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_final.html:28
+msgid ""
+"People are signing up, profiles are being approved, and events are being "
+"organized. Don't miss out on the fun!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_final.html:36
+msgid ""
+"If dating isn't on your mind right now, no worries - we won't send any more "
+"reminders about your profile. But your account will be here whenever you're "
+"ready!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_final.html:40
+msgid "Have questions or need help? Just reply to this email!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_final.html:45
+msgid "This is our final profile completion reminder. We won't send any more."
+msgstr ""
 
 #: .\crush_lu\templates\crush_lu\home.html:5
 msgid ""
@@ -1039,10 +1928,8 @@ msgstr ""
 "Verbindungen zusammen. Kein endloses Swipen. Nur authentische Treffen."
 
 #: .\crush_lu\templates\crush_lu\home.html:89
-#, fuzzy
-#| msgid "Get Started"
 msgid "Get Started Free"
-msgstr "Loslegen"
+msgstr "Kostenlos starten"
 
 #: .\crush_lu\templates\crush_lu\home.html:105
 msgid "Why Choose Crush.lu"
@@ -1080,10 +1967,6 @@ msgstr ""
 "Arbeiten Sie mit Ihrem persönlichen Crush Coach, um Selbstvertrauen "
 "aufzubauen und echte Verbindungen zu knüpfen."
 
-#: .\crush_lu\templates\crush_lu\home.html:141
-msgid "Create Your Profile"
-msgstr "Erstellen Sie Ihr Profil"
-
 #: .\crush_lu\templates\crush_lu\home.html:142
 msgid ""
 "Sign up and tell us about yourself. Share your interests and what you're "
@@ -1093,6 +1976,7 @@ msgstr ""
 "und wonach Sie suchen."
 
 #: .\crush_lu\templates\crush_lu\home.html:148
+#: .\crush_lu\templates\crush_lu\how_it_works.html:61
 msgid "Get Coach Approval"
 msgstr "Coach-Genehmigung erhalten"
 
@@ -1146,6 +2030,7 @@ msgid "View All Events"
 msgstr "Alle Veranstaltungen ansehen"
 
 #: .\crush_lu\templates\crush_lu\home.html:220
+#: .\crush_lu\templates\crush_lu\how_it_works.html:521
 msgid "Ready to Meet Your Crush?"
 msgstr "Bereit, deinen Crush zu treffen?"
 
@@ -1165,6 +2050,243 @@ msgstr "Jetzt Profil erstellen"
 msgid "No credit card required • Free to join • Cancel anytime"
 msgstr ""
 "Keine Kreditkarte erforderlich • Kostenlos beitreten • Jederzeit kündigen"
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:4
+msgid "How Crush.lu Works - 4 Steps to Meet Singles in Luxembourg"
+msgstr "So funktioniert Crush.lu - 4 Schritte, um Singles in Luxemburg zu treffen"
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:6
+msgid "How Crush.lu Works - Meet Singles in Luxembourg"
+msgstr "So funktioniert Crush.lu - Singles in Luxemburg treffen"
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:7
+msgid ""
+"Discover how Crush.lu helps you meet singles in Luxembourg. Create your "
+"profile, get coach approval, join events, and make authentic connections. No "
+"endless swiping!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:9
+msgid ""
+"Learn how Crush.lu works in 4 simple steps: Create your profile, get coach "
+"approval, browse events, and meet real people. Luxembourg's privacy-first "
+"dating platform."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:10
+#, fuzzy
+#| msgid ""
+#| "crush.lu, dating luxembourg, speed dating luxembourg, singles events "
+#| "luxembourg, meetup luxembourg, dating events, luxembourg singles, coach "
+#| "dating, privacy dating"
+msgid ""
+"how crush.lu works, dating process luxembourg, speed dating how it works, "
+"meet singles luxembourg, coach dating"
+msgstr ""
+"crush.lu, dating luxemburg, speed dating luxemburg, singles events "
+"luxemburg, meetup luxemburg, dating events, luxemburg singles, coach dating, "
+"datenschutz dating"
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:42
+msgid "How to Start Dating with Crush.lu"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:43
+msgid ""
+"A step-by-step guide to meeting singles in Luxembourg through Crush.lu's "
+"coach-curated dating events."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:55
+msgid ""
+"Share who you are, what you love, and what you're looking for. Add photos "
+"and let your personality shine through."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:62
+#, fuzzy
+#| msgid ""
+#| "A Crush Coach reviews your profile and provides feedback within 24-48 "
+#| "hours."
+msgid ""
+"A dedicated Crush Coach reviews your profile within 24-48 hours, provides "
+"personalized feedback, and ensures authenticity."
+msgstr ""
+"Ein Crush Coach prüft Ihr Profil und gibt innerhalb von 24-48 Stunden "
+"Feedback."
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:69
+msgid ""
+"Once approved, explore speed dating nights, social mixers, themed events, "
+"and outdoor adventures."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:76
+#: .\crush_lu\templates\crush_lu\how_it_works.html:457
+msgid ""
+"Show up, be yourself, and meet amazing people face-to-face. Real "
+"relationships start with real conversations."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:376
+msgid "How Crush.lu Works"
+msgstr "So funktioniert Crush.lu"
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:377
+msgid ""
+"Your journey to meaningful connections starts here. No endless swiping, just "
+"real events with real people."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:384
+msgid "Simple Steps"
+msgstr "Einfache Schritte"
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:388
+msgid "Profile Review"
+msgstr "Profil-Überprüfung"
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:392
+msgid "Verified Profiles"
+msgstr "Verifizierte Profile"
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:407
+msgid ""
+"Share who you are, what you love, and what you're looking for. Add photos "
+"and let your personality shine through. Authenticity is key!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:420
+msgid "Meet Your Coach"
+msgstr "Lernen Sie Ihren Coach kennen"
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:422
+msgid ""
+"A dedicated Crush Coach reviews your profile, provides personalized "
+"feedback, and ensures our community stays authentic and respectful."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:437
+msgid ""
+"Once approved, explore speed dating nights, social mixers, themed events, "
+"and outdoor adventures. Find what excites you!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:441
+#, fuzzy
+#| msgid "How It Works"
+msgid "See How Voting Works"
+msgstr "So funktioniert's"
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:466
+msgid "Privacy & Safety First"
+msgstr "Datenschutz & Sicherheit zuerst"
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:471
+msgid "Your Privacy Matters"
+msgstr "Ihre Privatsphäre ist wichtig"
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:474
+msgid "Control what information you share"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:475
+msgid "Show full name or just first name"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:476
+msgid "Blur photos until mutual interest"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:477
+msgid "No public profiles browsing"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:478
+msgid "Event-based connections only"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:484
+msgid "Community Standards"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:487
+msgid "All profiles reviewed by coaches"
+msgstr "Alle Profile werden von Coaches überprüft"
+"Ihre Privatsphäre ist uns wichtig. Alle Profile werden von unseren Crush-"
+"Coaches überprüft."
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:488
+msgid "Zero tolerance for inappropriate behavior"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:489
+msgid "Respectful, inclusive environment"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:490
+msgid "18+ only, verified ages"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:491
+msgid "Safe, organized meetup spaces"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:499
+msgid "Why Crush.lu is Different"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:503
+msgid "No Endless Swiping"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:504
+msgid "We focus on quality over quantity. Real events, real people."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:508
+msgid "Human-Curated"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:509
+msgid "Every profile reviewed by real coaches, not algorithms."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:513
+msgid "Luxembourg-Focused"
+msgstr "Fokus auf Luxemburg"
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:514
+msgid "Built for our small community with privacy in mind."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:522
+#, fuzzy
+#| msgid ""
+#| "Join Luxembourg's most authentic way to meet new people and build real "
+#| "relationships."
+msgid ""
+"Join Luxembourg's most authentic way to meet new people and make real "
+"connections."
+msgstr ""
+"Schließen Sie sich Luxemburgs authentischster Art an, neue Leute "
+"kennenzulernen und echte Beziehungen aufzubauen."
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:524
+msgid "Get Started Now"
+msgstr "Jetzt loslegen"
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:528
+msgid "No credit card required"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:528
+msgid "Free to join"
+msgstr "Kostenlos beitreten"
+
+#: .\crush_lu\templates\crush_lu\how_it_works.html:528
+msgid "Cancel anytime"
+msgstr "Jederzeit kündbar"
 
 #: .\crush_lu\templates\crush_lu\partials\canton_map_svg.html:7
 msgid "Select your region on the map"
@@ -1195,10 +2317,101 @@ msgid "Language"
 msgstr "Sprache"
 
 #: .\crush_lu\templates\crush_lu\partials\language_switcher.html:38
-#, fuzzy
-#| msgid "Grow"
 msgid "Go"
-msgstr "Wachsen"
+msgstr "Los"
+
+#: .\crush_lu\templates\crush_lu\partials\profile_completion_banner.html:11
+msgid "Almost there! Complete your profile to meet amazing people"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\partials\profile_completion_banner.html:15
+msgid "Step 1 of 4 - Let's get started with the basics!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\partials\profile_completion_banner.html:17
+msgid "Step 2 of 4 - Tell us about yourself"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\partials\profile_completion_banner.html:19
+msgid "Step 3 of 4 - Add your photos"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\partials\profile_completion_banner.html:21
+msgid "Step 4 of 4 - Review and submit"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\partials\profile_completion_banner.html:38
+msgid "Your journey begins here - just a few minutes to get started"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\partials\profile_completion_banner.html:40
+msgid "Great start! Add a bit more about yourself"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\partials\profile_completion_banner.html:42
+msgid "Looking good! Photos help you stand out"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\partials\profile_completion_banner.html:44
+msgid "Almost done! One final review and you're set"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\signup.html:6
+msgid "Sign Up - Crush.lu"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\signup.html:15
+msgid "Join Crush.lu"
+msgstr "Bei Crush.lu anmelden"
+
+#: .\crush_lu\templates\crush_lu\signup.html:17
+msgid "Create your account to start meeting new people"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\signup.html:35
+msgid "Sign up with Google"
+msgstr "Mit Google anmelden"
+
+#: .\crush_lu\templates\crush_lu\signup.html:46
+msgid "Sign up with Facebook"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\signup.html:60
+msgid "Sign up with Microsoft"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\signup.html:66
+msgid "Or sign up with email"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\signup.html:99
+#: .\crush_lu\templates\socialaccount\signup_crush.html:35
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:38
+#: .\power_up\templates\power_up\contact.html:41
+msgid "Email"
+msgstr "E-Mail"
+
+#: .\crush_lu\templates\crush_lu\signup.html:109
+#: .\entreprinder\templates\account\signup.html:27
+msgid "Password"
+msgstr "Passwort"
+
+#: .\crush_lu\templates\crush_lu\signup.html:116
+msgid "Your password must contain at least 8 characters."
+msgstr "Ihr Passwort muss mindestens 8 Zeichen enthalten."
+
+#: .\crush_lu\templates\crush_lu\signup.html:129
+msgid "Create Account"
+msgstr "Konto erstellen"
+
+#: .\crush_lu\templates\crush_lu\signup.html:135
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:66
+msgid "Already have an account?"
+msgstr "Haben Sie bereits ein Konto?"
+
+#: .\crush_lu\templates\crush_lu\signup.html:136
+msgid "Log in"
+msgstr ""
 
 #: .\crush_lu\templates\socialaccount\authentication_error.html:12
 msgid "Third-Party Login Error"
@@ -1244,84 +2457,79 @@ msgstr "Neues Konto erstellen"
 msgid "Errors:"
 msgstr "Fehler:"
 
-#: .\crush_lu\templates\socialaccount\signup_crush.html:35
-#: .\entreprinder\templates\socialaccount\signup_powerup.html:38
-msgid "Email"
-msgstr "E-Mail"
-
-#: .\crush_lu\views.py:509
+#: .\crush_lu\views.py:522
 msgid "Email preferences updated successfully!"
 msgstr "E-Mail-Einstellungen erfolgreich aktualisiert!"
 
-#: .\crush_lu\views.py:526
+#: .\crush_lu\views.py:539
 msgid "Invalid unsubscribe link. Please check your email or contact support."
 msgstr ""
 "Ungültiger Abmeldelink. Bitte überprüfen Sie Ihre E-Mail oder kontaktieren "
 "Sie den Support."
 
-#: .\crush_lu\views.py:539
+#: .\crush_lu\views.py:552
 msgid "You have been unsubscribed from all Crush.lu emails."
 msgstr "Sie wurden von allen Crush.lu E-Mails abgemeldet."
 
-#: .\crush_lu\views.py:545
+#: .\crush_lu\views.py:558
 msgid "You have been unsubscribed from marketing emails."
 msgstr "Sie wurden von Marketing-E-Mails abgemeldet."
 
-#: .\crush_lu\views.py:555
+#: .\crush_lu\views.py:568
 msgid "You have been re-subscribed to Crush.lu emails."
 msgstr "Sie wurden erneut für Crush.lu E-Mails angemeldet."
 
-#: .\crush_lu\views.py:678
+#: .\crush_lu\views.py:691
 msgid "Please type \"DELETE MY ACCOUNT\" to confirm."
 msgstr "Bitte geben Sie \"DELETE MY ACCOUNT\" ein, um zu bestätigen."
 
-#: .\crush_lu\views.py:684
+#: .\crush_lu\views.py:697
 msgid "Incorrect password. Please try again."
 msgstr "Falsches Passwort. Bitte versuchen Sie es erneut."
 
-#: .\crush_lu\views.py:700
+#: .\crush_lu\views.py:713
 msgid "Your account has been successfully deleted."
 msgstr "Ihr Konto wurde erfolgreich gelöscht."
 
-#: .\crush_lu\views.py:707
+#: .\crush_lu\views.py:720
 msgid "An error occurred while deleting your account. Please contact support."
 msgstr ""
 "Beim Löschen Ihres Kontos ist ein Fehler aufgetreten. Bitte kontaktieren Sie "
 "den Support."
 
-#: .\crush_lu\views.py:891 .\crush_lu\views.py:1087
+#: .\crush_lu\views.py:904 .\crush_lu\views.py:1100
 msgid "Profile submitted for review!"
 msgstr "Profil zur Überprüfung eingereicht!"
 
-#: .\crush_lu\views.py:967 .\crush_lu\views.py:1023
+#: .\crush_lu\views.py:980 .\crush_lu\views.py:1036
 msgid "You need to create a profile first."
 msgstr "Sie müssen zuerst ein Profil erstellen."
 
-#: .\crush_lu\views.py:972
+#: .\crush_lu\views.py:985
 msgid "Your profile must be approved before editing."
 msgstr "Ihr Profil muss genehmigt werden, bevor Sie es bearbeiten können."
 
-#: .\crush_lu\views.py:989
+#: .\crush_lu\views.py:1002
 msgid "Profile updated successfully!"
 msgstr "Profil erfolgreich aktualisiert!"
 
-#: .\crush_lu\views.py:1355
+#: .\crush_lu\views.py:1368
 msgid "You are already registered for this event."
 msgstr "Sie sind bereits für diese Veranstaltung angemeldet."
 
-#: .\crush_lu\views.py:1360
+#: .\crush_lu\views.py:1373
 msgid "Registration is not available for this event."
 msgstr "Anmeldung für diese Veranstaltung nicht verfügbar."
 
-#: .\crush_lu\views.py:1373
+#: .\crush_lu\views.py:1386
 msgid "Event is full. You have been added to the waitlist."
 msgstr "Veranstaltung ist voll. Sie wurden auf die Warteliste gesetzt."
 
-#: .\crush_lu\views.py:1376
+#: .\crush_lu\views.py:1389
 msgid "Successfully registered for the event!"
 msgstr "Erfolgreich für die Veranstaltung angemeldet!"
 
-#: .\crush_lu\views.py:1426
+#: .\crush_lu\views.py:1439
 msgid "Your registration has been cancelled."
 msgstr "Ihre Anmeldung wurde storniert."
 
@@ -1355,18 +2563,12 @@ msgstr "FinOps Hub - FAQ & Datenfluss"
 
 #: .\entreprinder\templates\account\email.html:4
 #: .\entreprinder\templates\account\email.html:22
-#, fuzzy
-#| msgid "Confirm E-mail Address"
 msgid "Manage E-mail Addresses"
-msgstr "E-Mail-Adresse bestätigen"
+msgstr "E-Mail-Adressen verwalten"
 
 #: .\entreprinder\templates\account\email.html:26
 msgid "The following e-mail addresses are associated with your account:"
 msgstr "Die folgenden E-Mail-Adressen sind mit Ihrem Konto verknüpft:"
-
-#: .\entreprinder\templates\account\email.html:43
-msgid "Verified"
-msgstr "Verifiziert"
 
 #: .\entreprinder\templates\account\email.html:45
 msgid "Unverified"
@@ -1389,10 +2591,8 @@ msgid "Remove"
 msgstr "Entfernen"
 
 #: .\entreprinder\templates\account\email.html:76
-#, fuzzy
-#| msgid "Confirm E-mail Address"
 msgid "Add E-mail Address"
-msgstr "E-Mail-Adresse bestätigen"
+msgstr "E-Mail-Adresse hinzufügen"
 
 #: .\entreprinder\templates\account\email.html:83
 msgid "Add E-mail"
@@ -1438,7 +2638,7 @@ msgstr "Anmelden"
 
 #: .\entreprinder\templates\account\login.html:36
 #: .\entreprinder\templates\account\login_powerup.html:36
-#: .\entreprinder\templates\base.html:127
+#: .\entreprinder\templates\base.html:126
 msgid "Sign in with LinkedIn"
 msgstr "Mit LinkedIn anmelden"
 
@@ -1473,15 +2673,12 @@ msgstr "Registrieren"
 msgid "E-mail"
 msgstr "E-Mail"
 
-#: .\entreprinder\templates\account\signup.html:27
-msgid "Password"
-msgstr "Passwort"
-
 #: .\entreprinder\templates\account\signup.html:32
 msgid "Password (again)"
 msgstr "Passwort (nochmal)"
 
 #: .\entreprinder\templates\account\signup.html:37
+#: .\power_up\templates\power_up\partials\footer.html:21
 msgid "Company"
 msgstr "Unternehmen"
 
@@ -1496,46 +2693,41 @@ msgstr ""
 msgid "PowerUP Administration"
 msgstr "PowerUP Verwaltung"
 
-#: .\entreprinder\templates\base.html:61
-#: .\vinsdelux\templates\vinsdelux\base.html:68
-#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:12
-#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:12
-#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:12
-msgid "Home"
-msgstr "Startseite"
-
-#: .\entreprinder\templates\base.html:66
+#: .\entreprinder\templates\base.html:65
 msgid "Vibe Coding"
 msgstr "Vibe Coding"
 
-#: .\entreprinder\templates\base.html:71
+#: .\entreprinder\templates\base.html:70
+#: .\power_up\templates\power_up\partials\footer.html:41
+#: .\power_up\templates\power_up\partials\navigation.html:35
+#: .\power_up\templates\power_up\partials\navigation.html:67
 msgid "Contact"
 msgstr "Kontakt"
 
-#: .\entreprinder\templates\base.html:77
+#: .\entreprinder\templates\base.html:76
 msgid "Find Entrepreneurs"
 msgstr "Unternehmer finden"
 
-#: .\entreprinder\templates\base.html:115
+#: .\entreprinder\templates\base.html:114
 msgid "Logout"
 msgstr "Abmelden"
 
-#: .\entreprinder\templates\base.html:159
+#: .\entreprinder\templates\base.html:158
 #, python-format
 msgid "Your email address (%(email)s) is not verified."
 msgstr "Ihre E-Mail-Adresse (%(email)s) ist nicht verifiziert."
 
-#: .\entreprinder\templates\base.html:160
+#: .\entreprinder\templates\base.html:159
 msgid "Please verify your email address to access all features."
 msgstr ""
 "Bitte verifizieren Sie Ihre E-Mail-Adresse, um alle Funktionen nutzen zu "
 "können."
 
-#: .\entreprinder\templates\base.html:161
+#: .\entreprinder\templates\base.html:160
 msgid "Need a new verification email?"
 msgstr "Benötigen Sie eine neue Verifizierungs-E-Mail?"
 
-#: .\entreprinder\templates\base.html:161
+#: .\entreprinder\templates\base.html:160
 msgid "Resend verification"
 msgstr "Verifizierung erneut senden"
 
@@ -1623,10 +2815,8 @@ msgid "Get Started"
 msgstr "Loslegen"
 
 #: .\entreprinder\templates\matching\no_more_profiles.html:4
-#, fuzzy
-#| msgid "Welcome to Entreprinder"
 msgid "No More Profiles - Entreprinder"
-msgstr "Willkommen bei Entreprinder"
+msgstr "Keine weiteren Profile - Entreprinder"
 
 #: .\entreprinder\templates\matching\no_more_profiles.html:10
 msgid "No More Profiles Available"
@@ -1672,10 +2862,6 @@ msgstr ""
 #: .\entreprinder\templates\socialaccount\signup_powerup.html:60
 msgid "Complete Signup"
 msgstr "Registrierung abschließen"
-
-#: .\entreprinder\templates\socialaccount\signup_powerup.html:66
-msgid "Already have an account?"
-msgstr "Haben Sie bereits ein Konto?"
 
 #: .\entreprinder\templates\socialaccount\signup_powerup.html:67
 msgid "Login here"
@@ -1870,25 +3056,662 @@ msgstr "Pixel Wars React Demo"
 msgid "Road Trip Discovery with Music - 90 Minutes to Connection"
 msgstr "Road Trip Entdeckung mit Musik - 90 Minuten zur Verbindung"
 
-#: .\vinsdelux\models.py:394
+#: .\power_up\platforms.py:14
+msgid "Privacy-first dating for Luxembourg"
+msgstr ""
+
+#: .\power_up\platforms.py:16
+msgid ""
+"A coach-curated dating platform focused on real connections through "
+"organized events. No endless swiping - just authentic meetups with people "
+"who share your values."
+msgstr ""
+
+#: .\power_up\platforms.py:25
+msgid "Event-based matchmaking"
+msgstr ""
+
+#: .\power_up\platforms.py:26
+msgid "Coach-reviewed profiles"
+msgstr "Von Coaches überprüfte Profile"
+
+#: .\power_up\platforms.py:27
+msgid "Privacy controls"
+msgstr "Datenschutzkontrollen"
+
+#: .\power_up\platforms.py:28
+msgid "Luxembourg community focus"
+msgstr "Fokus auf Luxemburger Gemeinschaft"
+
+#: .\power_up\platforms.py:34
+msgid "Adopt a vineyard plot in Luxembourg"
+msgstr ""
+
+#: .\power_up\platforms.py:36
+msgid ""
+"Premium wine e-commerce with a unique twist - adopt your own vineyard plot "
+"and receive wines from your personal vines. Experience Luxembourg's Moselle "
+"wine culture firsthand."
+msgstr ""
+
+#: .\power_up\platforms.py:45
+#, fuzzy
+#| msgid "Plot adoption price"
+msgid "Plot adoption program"
+msgstr "Parzellenadoptionspreis"
+
+#: .\power_up\platforms.py:46
+#, fuzzy
+#| msgid "Luxembourg cantons"
+msgid "Luxembourg Moselle wines"
+msgstr "Luxemburger Kantone"
+
+#: .\power_up\platforms.py:47
+#, fuzzy
+#| msgid "Vineyard visit included"
+msgid "Vineyard visit experiences"
+msgstr "Weinbergbesuch inklusive"
+
+#: .\power_up\platforms.py:48
+#, fuzzy
+#| msgid "Meet Our Producers"
+msgid "Direct from producers"
+msgstr "Unsere Produzenten kennenlernen"
+
+#: .\power_up\platforms.py:54
+#, fuzzy
+#| msgid "Entreprinder - Connect Entrepreneurs in Luxembourg"
+msgid "Entrepreneur networking for Luxembourg"
+msgstr "Entreprinder - Unternehmer in Luxemburg vernetzen"
+
+#: .\power_up\platforms.py:56
+msgid ""
+"Connect with fellow entrepreneurs using smart matching. Find co-founders, "
+"mentors, and business partners in Luxembourg's growing startup ecosystem."
+msgstr ""
+
+#: .\power_up\platforms.py:65
+msgid "Smart matching algorithm"
+msgstr ""
+
+#: .\power_up\platforms.py:66
+#, fuzzy
+#| msgid "Site administration"
+msgid "LinkedIn integration"
+msgstr "Website-Verwaltung"
+
+#: .\power_up\platforms.py:67
+msgid "Local business focus"
+msgstr ""
+
+#: .\power_up\platforms.py:68
+msgid "FinOps tools"
+msgstr ""
+
+#: .\power_up\templates\power_up\about.html:10 .\power_up\views.py:30
+#, fuzzy
+#| msgid "About Us"
+msgid "About Power-Up"
+msgstr "Über uns"
+
+#: .\power_up\templates\power_up\about.html:13
+msgid ""
+"We're a Luxembourg-based company building digital platforms that matter."
+msgstr ""
+
+#: .\power_up\templates\power_up\about.html:25
+msgid "Our Story"
+msgstr ""
+
+#: .\power_up\templates\power_up\about.html:29
+msgid ""
+"Power-Up was founded with a simple belief: Luxembourg deserves world-class "
+"digital platforms designed for its unique community."
+msgstr ""
+
+#: .\power_up\templates\power_up\about.html:32
+msgid ""
+"In a country where everyone seems to know everyone, we recognized the need "
+"for platforms that respect privacy while fostering genuine connections. "
+"Whether it's dating, wine appreciation, or professional networking, we build "
+"with Luxembourg's values at heart."
+msgstr ""
+
+#: .\power_up\templates\power_up\about.html:35
+msgid ""
+"Today, our platforms serve thousands of users across Luxembourg and the "
+"Greater Region, and we're just getting started."
+msgstr ""
+
+#: .\power_up\templates\power_up\about.html:43
+msgid "Live Platforms"
+msgstr ""
+
+#: .\power_up\templates\power_up\about.html:47
+msgid "Founded"
+msgstr ""
+
+#: .\power_up\templates\power_up\about.html:51
+#, fuzzy
+#| msgid "Luxembourg"
+msgid "Based in Luxembourg"
+msgstr "Luxemburg"
+
+#: .\power_up\templates\power_up\about.html:64
+msgid "Our Values"
+msgstr ""
+
+#: .\power_up\templates\power_up\about.html:67
+msgid "The principles that guide everything we build."
+msgstr ""
+
+#: .\power_up\templates\power_up\about.html:79
+#, fuzzy
+#| msgid "Privacy First"
+msgid "Privacy by Design"
+msgstr "Datenschutz an erster Stelle"
+
+#: .\power_up\templates\power_up\about.html:81
+msgid ""
+"In Luxembourg's close-knit community, privacy isn't optional. We build data "
+"protection into the foundation of every platform, giving users control over "
+"their information."
+msgstr ""
+
+#: .\power_up\templates\power_up\about.html:92
+#, fuzzy
+#| msgid "Make Connections"
+msgid "Human Connection"
+msgstr "Verbindungen knüpfen"
+
+#: .\power_up\templates\power_up\about.html:94
+msgid ""
+"Technology should bring people together, not replace human interaction. Our "
+"platforms facilitate real connections - whether romantic, professional, or "
+"experiential."
+msgstr ""
+
+#: .\power_up\templates\power_up\about.html:105
+msgid "Local Focus"
+msgstr ""
+
+#: .\power_up\templates\power_up\about.html:107
+msgid ""
+"We understand Luxembourg's unique multilingual, multicultural context. Our "
+"platforms are designed specifically for this community, not adapted from "
+"solutions built elsewhere."
+msgstr ""
+
+#: .\power_up\templates\power_up\about.html:118
+#, fuzzy
+#| msgid "Quality Rating"
+msgid "Quality First"
+msgstr "Qualitätsbewertung"
+
+#: .\power_up\templates\power_up\about.html:120
+msgid ""
+"We'd rather have fewer platforms that work exceptionally well than many "
+"mediocre ones. Every feature is carefully considered and thoroughly tested."
+msgstr ""
+
+#: .\power_up\templates\power_up\about.html:131
+msgid "Want to Know More?"
+msgstr ""
+
+#: .\power_up\templates\power_up\about.html:134
+msgid ""
+"Explore our platforms or get in touch to discuss partnership opportunities."
+msgstr ""
+
+#: .\power_up\templates\power_up\about.html:138
+#, fuzzy
+#| msgid "View Your Matches"
+msgid "View Our Platforms"
+msgstr "Ihre Matches ansehen"
+
+#: .\power_up\templates\power_up\about.html:141
+#: .\power_up\templates\power_up\contact.html:10
+#, fuzzy
+#| msgid "Contact"
+msgid "Contact Us"
+msgstr "Kontakt"
+
+#: .\power_up\templates\power_up\contact.html:13
+msgid "We'd love to hear from you. Get in touch with our team."
+msgstr ""
+
+#: .\power_up\templates\power_up\contact.html:26
+#: .\power_up\templates\power_up\home.html:120
+#: .\power_up\templates\power_up\investors.html:184
+msgid "Get in Touch"
+msgstr ""
+
+#: .\power_up\templates\power_up\contact.html:29
+msgid ""
+"Whether you're interested in partnership opportunities, have questions about "
+"our platforms, or just want to say hello - we're here to help."
+msgstr ""
+
+#: .\power_up\templates\power_up\contact.html:48
+msgid "We typically respond within 24 hours."
+msgstr ""
+
+#: .\power_up\templates\power_up\contact.html:64
+msgid "Luxembourg City, Luxembourg"
+msgstr ""
+
+#: .\power_up\templates\power_up\contact.html:67
+msgid "Heart of Europe"
+msgstr ""
+
+#: .\power_up\templates\power_up\contact.html:80
+msgid "Business Hours"
+msgstr ""
+
+#: .\power_up\templates\power_up\contact.html:82
+msgid "Monday - Friday: 9:00 - 18:00 CET"
+msgstr ""
+
+#: .\power_up\templates\power_up\contact.html:85
+msgid "Closed on Luxembourg public holidays."
+msgstr ""
+
+#: .\power_up\templates\power_up\contact.html:95
+msgid "How Can We Help?"
+msgstr ""
+
+#: .\power_up\templates\power_up\contact.html:102
+#: .\power_up\templates\power_up\investors.html:10
+msgid "Investors & Partners"
+msgstr ""
+
+#: .\power_up\templates\power_up\contact.html:105
+msgid "Interested in investment or partnership opportunities?"
+msgstr ""
+
+#: .\power_up\templates\power_up\contact.html:115
+msgid "Press & Media"
+msgstr ""
+
+#: .\power_up\templates\power_up\contact.html:118
+msgid "Working on a story about Luxembourg's tech scene?"
+msgstr ""
+
+#: .\power_up\templates\power_up\contact.html:128
+#, fuzzy
+#| msgid "h Support"
+msgid "Platform Support"
+msgstr "Std. Support"
+
+#: .\power_up\templates\power_up\contact.html:131
+msgid "Need help with one of our platforms? Visit the platform directly:"
+msgstr ""
+
+#: .\power_up\templates\power_up\contact.html:161
+msgid "Part of Luxembourg's Tech Ecosystem"
+msgstr ""
+
+#: .\power_up\templates\power_up\contact.html:164
+msgid ""
+"We're proud to be building in Luxembourg alongside a vibrant community of "
+"innovators, startups, and tech enthusiasts."
+msgstr ""
+
+#: .\power_up\templates\power_up\home.html:11
+#, fuzzy
+#| msgid "Luxembourg"
+msgid "Building Luxembourg's"
+msgstr "Luxemburg"
+
+#: .\power_up\templates\power_up\home.html:12
+#, fuzzy
+#| msgid "Special Features"
+msgid "Digital Future"
+msgstr "Besondere Merkmale"
+
+#: .\power_up\templates\power_up\home.html:15
+msgid ""
+"We create innovative digital platforms that connect people, foster "
+"communities, and drive growth in Luxembourg and beyond."
+msgstr ""
+
+#: .\power_up\templates\power_up\home.html:19
+#, fuzzy
+#| msgid "Explore Vineyards"
+msgid "Explore Platforms"
+msgstr "Weinberge erkunden"
+
+#: .\power_up\templates\power_up\home.html:22
+msgid "Partner With Us"
+msgstr ""
+
+#: .\power_up\templates\power_up\home.html:37
+msgid ""
+"We believe technology should bring people together, not drive them apart. "
+"Our platforms are designed to create meaningful connections and lasting "
+"value for Luxembourg's communities."
+msgstr ""
+
+#: .\power_up\templates\power_up\home.html:49
+msgid "Community First"
+msgstr ""
+
+#: .\power_up\templates\power_up\home.html:51
+msgid ""
+"Every platform we build serves Luxembourg's unique communities with care and "
+"understanding."
+msgstr ""
+
+#: .\power_up\templates\power_up\home.html:62
+#, fuzzy
+#| msgid "Privacy First"
+msgid "Privacy Focused"
+msgstr "Datenschutz an erster Stelle"
+
+#: .\power_up\templates\power_up\home.html:64
+msgid ""
+"In a small country, privacy matters. We build with data protection and user "
+"trust at the core."
+msgstr ""
+
+#: .\power_up\templates\power_up\home.html:75
+msgid "Innovation Driven"
+msgstr ""
+
+#: .\power_up\templates\power_up\home.html:77
+msgid ""
+"We combine proven technology with creative solutions tailored to local needs."
+msgstr ""
+
+#: .\power_up\templates\power_up\home.html:89
+#: .\power_up\templates\power_up\partials\footer.html:50
+#: .\power_up\templates\power_up\platforms.html:10
+msgid "Our Platforms"
+msgstr ""
+
+#: .\power_up\templates\power_up\home.html:92
+msgid ""
+"Discover the digital experiences we've built for Luxembourg's communities."
+msgstr ""
+
+#: .\power_up\templates\power_up\home.html:104
+#, fuzzy
+#| msgid "Learn More About Our Process"
+msgid "Learn More About Our Platforms"
+msgstr "Mehr über unseren Prozess erfahren"
+
+#: .\power_up\templates\power_up\home.html:114
+msgid "Ready to Partner?"
+msgstr ""
+
+#: .\power_up\templates\power_up\home.html:117
+msgid ""
+"We're always looking for partners who share our vision for Luxembourg's "
+"digital future."
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:13
+msgid "Join us in building Luxembourg's digital future."
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:25
+msgid "Why Power-Up?"
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:29
+msgid ""
+"Luxembourg represents a unique market opportunity. With one of Europe's "
+"highest GDP per capita, a highly international population, and strong "
+"digital infrastructure, it's an ideal testbed for innovative platforms."
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:32
+msgid ""
+"Yet despite its wealth, Luxembourg has been underserved by homegrown digital "
+"platforms. Most residents rely on platforms designed for larger markets that "
+"don't understand local nuances."
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:35
+msgid ""
+"Power-Up is changing that. We build platforms specifically for Luxembourg - "
+"with the right languages, the right features, and the right approach to "
+"privacy for a small, interconnected community."
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:40
+msgid "Market Highlights"
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:48
+msgid "GDP per capita"
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:59
+#, fuzzy
+#| msgid "Production"
+msgid "Population"
+msgstr "Produktion"
+
+#: .\power_up\templates\power_up\investors.html:70
+msgid "Nationalities represented"
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:81
+#, fuzzy
+#| msgid "Internet connection restored"
+msgid "Internet penetration"
+msgstr "Internetverbindung wiederhergestellt"
+
+#: .\power_up\templates\power_up\investors.html:95
+msgid "Partnership Opportunities"
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:98
+msgid ""
+"We're looking for partners who share our vision for Luxembourg's digital "
+"future."
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:110
+#, fuzzy
+#| msgid "Choose Investment"
+msgid "Investment"
+msgstr "Investment wählen"
+
+#: .\power_up\templates\power_up\investors.html:112
+msgid ""
+"We welcome discussions with investors interested in Luxembourg's growing "
+"tech ecosystem. Seed and Series A opportunities available."
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:123
+msgid "Strategic Partners"
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:125
+msgid ""
+"Looking for organizations that can help us scale our platforms or bring "
+"complementary services to our users."
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:136
+msgid "Local Businesses"
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:138
+msgid ""
+"Luxembourg businesses looking to reach our engaged user base through "
+"tasteful, relevant partnerships."
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:150
+msgid "Track Record"
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:153
+msgid "What we've built so far."
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:160
+msgid "Platforms Launched"
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:164
+#, fuzzy
+#| msgid "Company"
+msgid "Company Founded"
+msgstr "Unternehmen"
+
+#: .\power_up\templates\power_up\investors.html:168
+#, fuzzy
+#| msgid "Luxembourg"
+msgid "Focused on Luxembourg"
+msgstr "Luxemburg"
+
+#: .\power_up\templates\power_up\investors.html:178
+msgid "Let's Talk"
+msgstr ""
+
+#: .\power_up\templates\power_up\investors.html:181
+msgid "Interested in learning more? We'd love to hear from you."
+msgstr ""
+
+#: .\power_up\templates\power_up\partials\footer.html:14
+msgid ""
+"Building Luxembourg's digital future through innovative platforms that "
+"connect people and create value."
+msgstr ""
+
+#: .\power_up\templates\power_up\partials\footer.html:31
+#: .\power_up\templates\power_up\partials\navigation.html:27
+#: .\power_up\templates\power_up\partials\navigation.html:59
+msgid "Platforms"
+msgstr ""
+
+#: .\power_up\templates\power_up\partials\footer.html:36
+#: .\power_up\templates\power_up\partials\navigation.html:31
+#: .\power_up\templates\power_up\partials\navigation.html:63
+msgid "Investors"
+msgstr ""
+
+#: .\power_up\templates\power_up\partials\footer.html:79
+msgid "All rights reserved."
+msgstr ""
+
+#: .\power_up\templates\power_up\partials\footer.html:82
+#, fuzzy
+#| msgid "Luxembourg"
+msgid "Made in Luxembourg"
+msgstr "Luxemburg"
+
+#: .\power_up\templates\power_up\partials\platform_card.html:34
+msgid "Live"
+msgstr ""
+
+#: .\power_up\templates\power_up\partials\platform_card.html:36
+msgid "Coming Soon"
+msgstr ""
+
+#: .\power_up\templates\power_up\partials\platform_card.html:64
+msgid "Visit Platform"
+msgstr ""
+
+#: .\power_up\templates\power_up\platforms.html:13
+msgid "Digital experiences designed for Luxembourg's communities."
+msgstr ""
+
+#: .\power_up\templates\power_up\platforms.html:59
+msgid "Visit"
+msgstr ""
+
+#: .\power_up\templates\power_up\platforms.html:82
+msgid "Launched"
+msgstr ""
+
+#: .\power_up\templates\power_up\platforms.html:95
+#, fuzzy
+#| msgid "Interactive Map Coming Soon"
+msgid "More Coming Soon"
+msgstr "Interaktive Karte kommt bald"
+
+#: .\power_up\templates\power_up\platforms.html:98
+msgid ""
+"We're constantly working on new ideas to serve Luxembourg's communities. "
+"Stay tuned for more platforms."
+msgstr ""
+
+#: .\power_up\templates\power_up\platforms.html:101
+#, fuzzy
+#| msgid "Get Started"
+msgid "Get Updates"
+msgstr "Loslegen"
+
+#: .\power_up\views.py:18
+msgid "Power-Up - Building Luxembourg's Digital Future"
+msgstr ""
+
+#: .\power_up\views.py:20
+msgid ""
+"Power-Up builds digital platforms for Luxembourg. Discover our portfolio: "
+"Crush.lu, VinsDelux, and PowerUP."
+msgstr ""
+
+#: .\power_up\views.py:32
+msgid ""
+"Learn about Power-Up, the company building Luxembourg's digital future "
+"through innovative platforms."
+msgstr ""
+
+#: .\power_up\views.py:43
+msgid "Our Platforms - Power-Up"
+msgstr ""
+
+#: .\power_up\views.py:45
+msgid ""
+"Explore Power-Up's portfolio of digital platforms: Crush.lu dating, "
+"VinsDelux wine adoption, and PowerUP networking."
+msgstr ""
+
+#: .\power_up\views.py:55
+msgid "Investors & Partners - Power-Up"
+msgstr ""
+
+#: .\power_up\views.py:57
+msgid ""
+"Partner with Power-Up to build Luxembourg's digital future. Investment and "
+"partnership opportunities."
+msgstr ""
+
+#: .\power_up\views.py:67
+msgid "Contact Us - Power-Up"
+msgstr ""
+
+#: .\power_up\views.py:69
+msgid ""
+"Get in touch with Power-Up. Contact information for investors, partners, and "
+"general inquiries."
+msgstr ""
+
+#: .\vinsdelux\models.py:396
 #: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:32
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:122
 msgid "Available"
 msgstr "Verfügbar"
 
-#: .\vinsdelux\models.py:395
+#: .\vinsdelux\models.py:397
 #: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:37
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:127
 msgid "Reserved"
 msgstr "Reserviert"
 
-#: .\vinsdelux\models.py:396
+#: .\vinsdelux\models.py:398
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:132
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1314
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1313
 msgid "Unavailable"
 msgstr "Nicht verfügbar"
 
-#: .\vinsdelux\models.py:397
+#: .\vinsdelux\models.py:399
 msgid "Adopted"
 msgstr "Adoptiert"
 
@@ -1897,51 +3720,51 @@ msgstr "Adoptiert"
 msgid "VinsDelux Management"
 msgstr "VinsDelux Verwaltung"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:73
+#: .\vinsdelux\templates\vinsdelux\base.html:72
 msgid "Products"
 msgstr "Produkte"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:77
+#: .\vinsdelux\templates\vinsdelux\base.html:76
 #: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:5
 #: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:60
 #: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:57
 msgid "Wine Coffrets"
 msgstr "Wein-Coffrets"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:80
+#: .\vinsdelux\templates\vinsdelux\base.html:79
 #: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:13
 msgid "Producers"
 msgstr "Produzenten"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:86
+#: .\vinsdelux\templates\vinsdelux\base.html:85
 msgid "Your Journey"
 msgstr "Ihre Reise"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:90 .\vinsdelux\views.py:325
+#: .\vinsdelux\templates\vinsdelux\base.html:89 .\vinsdelux\views.py:325
 msgid "Plot Selection"
 msgstr "Parzellenauswahl"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:93
+#: .\vinsdelux\templates\vinsdelux\base.html:92
 msgid "Personalize Your Wine"
 msgstr "Personalisieren Sie Ihren Wein"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:96
+#: .\vinsdelux\templates\vinsdelux\base.html:95
 msgid "Follow Production"
 msgstr "Produktion verfolgen"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:99
+#: .\vinsdelux\templates\vinsdelux\base.html:98
 msgid "Receive & Taste"
 msgstr "Empfangen & Verkosten"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:102
+#: .\vinsdelux\templates\vinsdelux\base.html:101
 msgid "Create Legacy"
 msgstr "Vermächtnis schaffen"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:108
+#: .\vinsdelux\templates\vinsdelux\base.html:107
 msgid "Cart"
 msgstr "Warenkorb"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:113
+#: .\vinsdelux\templates\vinsdelux\base.html:112
 msgid "Account"
 msgstr "Konto"
 
@@ -2000,14 +3823,14 @@ msgstr "Premium"
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:65
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:206
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:182
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:177
 msgid "Size"
 msgstr "Größe"
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:71
 #: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:179
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:210
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:187
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:182
 msgid "Elevation"
 msgstr "Höhe"
 
@@ -2021,7 +3844,7 @@ msgid "Soil Type"
 msgstr "Bodentyp"
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:98
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:192
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:187
 msgid "Exposure"
 msgstr "Ausrichtung"
 
@@ -2050,7 +3873,7 @@ msgid "Quality Rating"
 msgstr "Qualitätsbewertung"
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:186
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:205
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:200
 msgid "Select This Plot"
 msgstr "Diese Parzelle auswählen"
 
@@ -2145,10 +3968,8 @@ msgstr "Weinpräferenzen"
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:152
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:334
-#, fuzzy
-#| msgid "Confirm"
 msgid "Confirm Adoption"
-msgstr "Bestätigen"
+msgstr "Adoption bestätigen"
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:154
 msgid "Review and finalize your vineyard adoption"
@@ -2471,7 +4292,7 @@ msgid "Select the perfect wine adoption plan for your journey"
 msgstr "Wählen Sie den perfekten Weinadoptionsplan für Ihre Reise"
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:286
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1261
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1260
 msgid "Loading adoption plans..."
 msgstr "Adoptionspläne werden geladen..."
 
@@ -2551,837 +4372,837 @@ msgstr ""
 msgid "VinsDelux Interactive Journey"
 msgstr "VinsDelux Interaktive Reise"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:52
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:47
 msgid "Your Wine Journey"
 msgstr "Ihre Weinreise"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:62
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:57
 msgid "Plot"
 msgstr "Parzelle"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:66
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:61
 msgid "Personalize"
 msgstr "Personalisieren"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:70
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:65
 msgid "Production"
 msgstr "Produktion"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:74
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:69
 msgid "Delivery"
 msgstr "Lieferung"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:78
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:73
 msgid "Legacy"
 msgstr "Vermächtnis"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:86
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:81
 msgid "Points"
 msgstr "Punkte"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:91
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:86
 msgid "Time"
 msgstr "Uhrzeit"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:96
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:91
 msgid "Complete"
 msgstr "Abgeschlossen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:105
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:100
 msgid "Save"
 msgstr "Speichern"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:126
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:121
 msgid "Select Your Perfect Plot"
 msgstr "Wählen Sie Ihre perfekte Parzelle"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:127
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:122
 msgid ""
 "Explore our exclusive vineyard plots and find the one that matches your "
 "vision"
 msgstr ""
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:145
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:140
 msgid "Terroir Types"
 msgstr "Terroir-Typen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:148
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:143
 msgid "Clay-Limestone"
 msgstr "Ton-Kalk"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:152
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:147
 msgid "Sandy"
 msgstr "Sandig"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:156
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:151
 msgid "Granite"
 msgstr "Granit"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:164
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:159
 msgid "Plot Information"
 msgstr "Parzelleninformationen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:173
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:168
 msgid "360° View"
 msgstr "360°-Ansicht"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:197
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:192
 msgid "Soil"
 msgstr "Boden"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:209
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:204
 msgid "Compare"
 msgstr "Vergleichen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:219
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:214
 msgid "Featured Plots"
 msgstr "Ausgewählte Parzellen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:224
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:219
 msgid "Best Seller"
 msgstr "Bestseller"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:228
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:223
 msgid "Premium south-facing slopes with exceptional drainage"
 msgstr "Premium-Südhänge mit außergewöhnlicher Drainage"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:242
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:237
 msgid "Limited"
 msgstr "Begrenzt"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:246
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:241
 msgid "Historic vineyard with century-old vines"
 msgstr "Historischer Weinberg mit jahrhundertealten Reben"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:260
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:255
 msgid "Exclusive"
 msgstr "Exklusiv"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:264
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:259
 msgid "Unique microclimate with morning mists"
 msgstr "Einzigartiges Mikroklima mit Morgennebel"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:284
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:279
 msgid "Craft Your Signature Wine"
 msgstr "Gestalten Sie Ihren Signaturwein"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:285
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:280
 msgid "Work with our master winemakers to create your unique blend"
 msgstr ""
 "Arbeiten Sie mit unseren Winzermeistern zusammen, um Ihre einzigartige "
 "Mischung zu kreieren"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:293
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:288
 msgid "Select Grape Varieties"
 msgstr "Rebsorten auswählen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:296
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:291
 msgid "Available Varieties"
 msgstr "Verfügbare Sorten"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:331
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:846
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:326
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:841
 msgid "Your Blend"
 msgstr "Ihre Mischung"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:335
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:330
 msgid "Drag grapes here to create your blend"
 msgstr "Trauben hierher ziehen, um Ihre Mischung zu erstellen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:350
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:345
 msgid "Winemaking Techniques"
 msgstr "Weinherstellungstechniken"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:356
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:351
 msgid "Steel Tank"
 msgstr "Stahltank"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:357
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:352
 msgid "Clean, fruit-forward profile"
 msgstr "Sauberes, fruchtbetontes Profil"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:364
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:359
 msgid "Oak Barrel"
 msgstr "Eichenfass"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:365
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:360
 msgid "Complex, vanilla notes"
 msgstr "Komplexe Vanillenoten"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:372
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:367
 msgid "Concrete Egg"
 msgstr "Beton-Ei"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:373
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:368
 msgid "Mineral, textured finish"
 msgstr "Mineralischer, strukturierter Abgang"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:379
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:374
 msgid "Aging Duration"
 msgstr "Reifezeit"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:383
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:384
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:385
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:378
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:379
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:380
 #: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:95
 #: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:142
 #: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:110
 msgid "months"
 msgstr "Monate"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:393
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:388
 msgid "Your Wine Preview"
 msgstr "Ihre Wein-Vorschau"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:401
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:396
 msgid "Your Signature Wine"
 msgstr "Ihr Signaturwein"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:407
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:402
 msgid "Expected Profile"
 msgstr "Erwartetes Profil"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:412
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:407
 msgid "Tasting Notes"
 msgstr "Verkostungsnotizen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:431
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:426
 msgid ""
 "Welcome! I'm here to help you create your perfect wine. What style are you "
 "aiming for?"
 msgstr ""
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:435
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:430
 msgid "Bold & Full-bodied"
 msgstr "Kräftig & Vollmundig"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:436
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:431
 msgid "Light & Elegant"
 msgstr "Leicht & Elegant"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:437
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:432
 msgid "Balanced & Classic"
 msgstr "Ausgewogen & Klassisch"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:449
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:444
 msgid "Follow Your Wine's Journey"
 msgstr "Verfolgen Sie die Reise Ihres Weins"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:450
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:445
 msgid "Track every stage from vine to bottle"
 msgstr "Verfolgen Sie jede Phase von der Rebe bis zur Flasche"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:456
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:451
 msgid "Production Timeline"
 msgstr "Produktionszeitplan"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:460
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:455
 msgid "Play Journey"
 msgstr "Reise abspielen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:474
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:469
 msgid "Winter Pruning"
 msgstr "Winterschnitt"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:475
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:470
 msgid "January - February"
 msgstr "Januar - Februar"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:486
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:481
 msgid "Bud Break"
 msgstr "Knospenaufbruch"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:487
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:482
 msgid "March - April"
 msgstr "März - April"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:498
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:493
 msgid "Flowering"
 msgstr "Blüte"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:499
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:494
 msgid "May - June"
 msgstr "Mai - Juni"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:510
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:505
 msgid "Veraison"
 msgstr "Véraison"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:511
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:506
 msgid "July - August"
 msgstr "Juli - August"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:522
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:517
 msgid "Harvest"
 msgstr "Ernte"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:523
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:518
 msgid "September - October"
 msgstr "September - Oktober"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:534
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:529
 msgid "Fermentation"
 msgstr "Gärung"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:535
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:530
 msgid "October - November"
 msgstr "Oktober - November"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:546
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:541
 msgid "Aging"
 msgstr "Reifung"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:547
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:542
 msgid "12-24 months"
 msgstr "12-24 Monate"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:558
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:553
 msgid "Bottling"
 msgstr "Abfüllung"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:559
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:554
 msgid "Final Stage"
 msgstr "Letzte Phase"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:574
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:569
 msgid "Vineyard Weather"
 msgstr "Weinberg-Wetter"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:583
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:578
 msgid "Humidity"
 msgstr "Luftfeuchtigkeit"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:587
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:582
 msgid "Wind"
 msgstr "Wind"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:594
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:589
 msgid "Latest Photos"
 msgstr "Neueste Fotos"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:604
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:599
 msgid "Winemaker's Notes"
 msgstr "Winzernotizen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:607
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:602
 msgid "2 days ago"
 msgstr "vor 2 Tagen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:608
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:603
 msgid "The vines are showing excellent growth this season..."
 msgstr "Die Reben zeigen in dieser Saison hervorragendes Wachstum..."
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:611
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:606
 msgid "1 week ago"
 msgstr "vor 1 Woche"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:612
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:607
 msgid "We've completed the green harvest to ensure optimal ripening..."
 msgstr ""
 "Wir haben die Grünlese abgeschlossen, um optimale Reifung zu gewährleisten..."
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:625
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:620
 msgid "Receive Your Masterpiece"
 msgstr "Empfangen Sie Ihr Meisterwerk"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:626
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:621
 msgid "White-glove delivery and exclusive tasting experience"
 msgstr "White-Glove-Lieferung und exklusives Verkostungserlebnis"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:633
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:628
 msgid "Delivery Details"
 msgstr "Lieferdetails"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:636
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:631
 msgid "Delivery Address"
 msgstr "Lieferadresse"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:637
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:632
 msgid "Enter your address"
 msgstr "Geben Sie Ihre Adresse ein"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:640
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:635
 msgid "Preferred Date"
 msgstr "Bevorzugtes Datum"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:644
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:639
 msgid "Delivery Options"
 msgstr "Lieferoptionen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:650
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:645
 msgid "Standard Delivery"
 msgstr "Standardlieferung"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:651
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:646
 msgid "5-7 business days"
 msgstr "5-7 Werktage"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:658
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:653
 msgid "Express Delivery"
 msgstr "Expresslieferung"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:659
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:654
 msgid "2-3 business days"
 msgstr "2-3 Werktage"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:666
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:661
 msgid "Ceremony Delivery"
 msgstr "Zeremonie-Lieferung"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:667
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:662
 msgid "Personal sommelier presentation"
 msgstr "Persönliche Sommelier-Präsentation"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:676
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:671
 msgid "Your Package"
 msgstr "Ihr Paket"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:688
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:683
 msgid "Package Includes"
 msgstr "Paketinhalt"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:690
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:685
 msgid "6 bottles of your signature wine"
 msgstr "6 Flaschen Ihres Signaturweins"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:691
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:686
 msgid "Certificate of authenticity"
 msgstr "Echtheitszertifikat"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:692
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:687
 msgid "Tasting guide & food pairings"
 msgstr "Verkostungsführer & Speiseempfehlungen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:693
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:688
 msgid "Crystal wine glasses (2)"
 msgstr "Kristall-Weingläser (2)"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:694
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:689
 msgid "Cellar membership card"
 msgstr "Kellermitgliedschaftskarte"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:703
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:698
 msgid "Virtual Tasting Experience"
 msgstr "Virtuelle Verkostungserfahrung"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:715
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:710
 msgid "Tasting Steps"
 msgstr "Verkostungsschritte"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:720
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:715
 msgid "Visual"
 msgstr "Visuell"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:721
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:716
 msgid "Observe the color and clarity"
 msgstr "Beobachten Sie Farbe und Klarheit"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:727
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:722
 msgid "Aroma"
 msgstr "Aroma"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:728
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:723
 msgid "Swirl and identify the bouquet"
 msgstr "Schwenken und das Bouquet identifizieren"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:734
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:729
 msgid "Taste"
 msgstr "Geschmack"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:735
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:730
 msgid "Savor the flavors and texture"
 msgstr "Genießen Sie die Aromen und Textur"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:741
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:736
 msgid "Finish"
 msgstr "Abgang"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:742
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:737
 msgid "Note the aftertaste and length"
 msgstr "Beachten Sie den Nachgeschmack und die Länge"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:756
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:751
 msgid "Build Your Wine Legacy"
 msgstr "Bauen Sie Ihr Wein-Vermächtnis auf"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:757
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:752
 msgid "Create a lasting heritage for generations to come"
 msgstr "Schaffen Sie ein bleibendes Erbe für kommende Generationen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:767
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:762
 msgid "Family Heritage"
 msgstr "Familienerbe"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:768
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:763
 msgid "Pass down your wine tradition through generations"
 msgstr "Geben Sie Ihre Weintradition über Generationen weiter"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:770
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:765
 msgid "Family crest on labels"
 msgstr "Familienwappen auf Etiketten"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:771
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:766
 msgid "Annual family harvest event"
 msgstr "Jährliches Familien-Ernteevent"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:772
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:767
 msgid "Heritage documentation"
 msgstr "Erbe-Dokumentation"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:775
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:770
 msgid "Choose Family Heritage"
 msgstr "Familienerbe wählen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:783
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:778
 msgid "Investment Portfolio"
 msgstr "Investment-Portfolio"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:784
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:779
 msgid "Build value with rare vintages and limited editions"
 msgstr "Wert aufbauen mit seltenen Jahrgängen und limitierten Editionen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:786
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:781
 msgid "Market valuation tracking"
 msgstr "Marktwert-Verfolgung"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:787
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:782
 msgid "Auction house partnerships"
 msgstr "Auktionshaus-Partnerschaften"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:788
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:783
 msgid "Storage in bonded warehouse"
 msgstr "Lagerung im Zollfreilager"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:791
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:786
 msgid "Choose Investment"
 msgstr "Investment wählen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:799
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:794
 msgid "Collector's Reserve"
 msgstr "Sammler-Reserve"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:800
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:795
 msgid "Create an exclusive collection for special occasions"
 msgstr "Erstellen Sie eine exklusive Sammlung für besondere Anlässe"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:802
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:797
 msgid "Custom aging program"
 msgstr "Individuelles Reifeprogramm"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:803
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:798
 msgid "Numbered bottles"
 msgstr "Nummerierte Flaschen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:804
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:799
 msgid "Private cellar allocation"
 msgstr "Private Kellerzuteilung"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:807
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:802
 msgid "Choose Collector's"
 msgstr "Sammler-Option wählen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:814
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:809
 msgid "Your Wine Journey Through Time"
 msgstr "Ihre Weinreise durch die Zeit"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:821
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:816
 msgid "First Vintage"
 msgstr "Erster Jahrgang"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:825
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:820
 msgid "5 Year Member"
 msgstr "5-Jahres-Mitglied"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:829
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:824
 msgid "Legacy Founder"
 msgstr "Vermächtnis-Gründer"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:837
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:832
 msgid "Your Journey Summary"
 msgstr "Ihre Reise-Zusammenfassung"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:841
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:836
 msgid "Plot Selected"
 msgstr "Parzelle ausgewählt"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:842
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:837
 msgid "Premium vineyard location"
 msgstr "Premium-Weinberglage"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:847
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:842
 msgid "Unique composition"
 msgstr "Einzigartige Zusammensetzung"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:851
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:846
 msgid "Production Time"
 msgstr "Produktionszeit"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:852
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:847
 msgid "18 months estimated"
 msgstr "geschätzte 18 Monate"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:856
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:851
 msgid "Experience Points"
 msgstr "Erfahrungspunkte"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:857
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:852
 msgid "earned"
 msgstr "verdient"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:864
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:859
 msgid "Complete Your Journey"
 msgstr "Schließen Sie Ihre Reise ab"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:868
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:863
 msgid "Share Your Experience"
 msgstr "Teilen Sie Ihre Erfahrung"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:879
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:874
 #: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:33
 #: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:33
 #: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:108
 msgid "Previous"
 msgstr "Zurück"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:889
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:884
 #: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:37
 #: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:37
 #: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:118
 msgid "Next"
 msgstr "Weiter"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:901
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:896
 msgid "Journey Guide"
 msgstr "Reiseführer"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:908
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:903
 msgid "Keyboard Shortcuts"
 msgstr "Tastaturkürzel"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:910
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:905
 msgid "Next step"
 msgstr "Nächster Schritt"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:911
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:906
 msgid "Previous step"
 msgstr "Vorheriger Schritt"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:912
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:907
 msgid "Save progress"
 msgstr "Fortschritt speichern"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:913
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:908
 msgid "Show help"
 msgstr "Hilfe anzeigen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:914
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:909
 msgid "Toggle sound"
 msgstr "Ton umschalten"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:917
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:912
 msgid "Tips"
 msgstr "Tipps"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:919
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:914
 msgid "Complete each step thoroughly to earn maximum points"
 msgstr ""
 "Schließen Sie jeden Schritt gründlich ab, um maximale Punkte zu verdienen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:920
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:915
 msgid "Your progress is automatically saved"
 msgstr "Ihr Fortschritt wird automatisch gespeichert"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:921
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:916
 msgid "Explore all options to unlock achievements"
 msgstr "Erkunden Sie alle Optionen, um Erfolge freizuschalten"
 
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:937
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:932
 msgid "Loading your journey..."
 msgstr "Ihre Reise wird geladen..."
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1150
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1149
 msgid "Select Your Adoption Plan"
 msgstr "Wählen Sie Ihren Adoptionsplan"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1151
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1150
 msgid ""
 "Choose from our exclusive collection of vineyard adoption plans. Each plan "
 "offers a unique terroir, producer story, and wine experience tailored to "
 "your preferences."
 msgstr ""
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1185
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1184
 #: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:20
 msgid "Search"
 msgstr "Suchen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1187
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1186
 msgid "Search by name, producer, or region..."
 msgstr "Nach Name, Produzent oder Region suchen..."
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1191
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1190
 msgid "Region"
 msgstr "Region"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1193
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1490
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1192
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1489
 msgid "All Regions"
 msgstr "Alle Regionen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1198
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1197
 #: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:26
 msgid "Wine Type"
 msgstr "Weintyp"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1200
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1199
 #: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:28
 msgid "All Types"
 msgstr "Alle Typen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1201
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1200
 msgid "Red Wine"
 msgstr "Rotwein"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1202
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1201
 msgid "White Wine"
 msgstr "Weißwein"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1203
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1202
 msgid "Rosé"
 msgstr "Rosé"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1204
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1203
 msgid "Sparkling Wine"
 msgstr "Schaumwein"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1209
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1208
 msgid "Price Range"
 msgstr "Preisbereich"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1211
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1210
 msgid "All Prices"
 msgstr "Alle Preise"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1225
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1224
 msgid "Vineyard Visit"
 msgstr "Weinbergbesuch"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1231
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1230
 msgid "Personalized Medallion"
 msgstr "Personalisierte Medaille"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1237
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1236
 msgid "Club Membership"
 msgstr "Clubmitgliedschaft"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1245
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1244
 msgid "Showing"
 msgstr "Zeigt"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1245
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1244
 msgid "adoption plans"
 msgstr "Adoptionspläne"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1250
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1249
 msgid "Grid"
 msgstr "Raster"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1253
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1252
 msgid "Map"
 msgstr "Karte"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1290
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1289
 msgid "Interactive Map Coming Soon"
 msgstr "Interaktive Karte kommt bald"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1291
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1290
 msgid ""
 "We're integrating advanced mapping features to help you explore vineyard "
 "locations in detail."
 msgstr ""
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1297
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1296
 msgid "Legend"
 msgstr "Legende"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1302
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1301
 msgid "Available Plot"
 msgstr "Verfügbare Parzelle"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1308
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1307
 msgid "Selected Plot"
 msgstr "Ausgewählte Parzelle"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1328
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1327
 msgid "Adoption Plan Details"
 msgstr "Adoptionsplan-Details"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1337
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1336
 msgid "Producer Information"
 msgstr "Produzenteninformationen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1340
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1339
 #: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:64
 #: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:54
 msgid "Producer:"
 msgstr "Produzent:"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1344
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1343
 msgid "Region:"
 msgstr "Region:"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1348
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1347
 msgid "Vineyard Size:"
 msgstr "Weinberggröße:"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1352
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1351
 msgid "Elevation:"
 msgstr "Höhe:"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1356
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1355
 msgid "Soil Type:"
 msgstr "Bodentyp:"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1364
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1363
 msgid "Wine Production"
 msgstr "Weinproduktion"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1374
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1373
 msgid "Wine Coffret Selection"
 msgstr "Wein-Coffret Auswahl"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1384
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1383
 msgid "Adoption Benefits"
 msgstr "Adoptionsvorteile"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1387
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1386
 #: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:95
 #: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:142
 #: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:110
 msgid "Duration:"
 msgstr "Dauer:"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1391
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1390
 msgid "Deliveries/Year:"
 msgstr "Lieferungen/Jahr:"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1395
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1394
 msgid "Price:"
 msgstr "Preis:"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1399
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1398
 msgid "Included Features:"
 msgstr "Enthaltene Funktionen:"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1408
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1407
 msgid "Confirm Selection"
 msgstr "Auswahl bestätigen"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1417
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1416
 msgid "No adoption plans found"
 msgstr "Keine Adoptionspläne gefunden"
 
-#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1418
+#: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1417
 msgid "Try adjusting your filters or search criteria"
 msgstr "Versuchen Sie, Ihre Filter oder Suchkriterien anzupassen"
 
@@ -3731,10 +5552,8 @@ msgid "Go to step"
 msgstr "Gehe zu Schritt"
 
 #: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:52
-#, fuzzy
-#| msgid "Get Started"
 msgid "Next Step"
-msgstr "Loslegen"
+msgstr "Nächster Schritt"
 
 #: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:83
 msgid "Actif"
@@ -3928,10 +5747,8 @@ msgid "Fermer l'aide"
 msgstr "Hilfe schließen"
 
 #: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:351
-#, fuzzy
-#| msgid "Fermer l'aide"
 msgid "Fermer l\\"
-msgstr "Hilfe schließen"
+msgstr "Schließen"
 
 #: .\vinsdelux\templates\vinsdelux\sections\wine_plots.html:7
 msgid "Our selection of plots to adopt"
@@ -3976,7 +5793,7 @@ msgstr ""
 msgid "VinsDeLux Journey Test Suite"
 msgstr "VinsDeLux Reise-Testsuite"
 
-#: .\vinsdelux\templates\vinsdelux\testing\test_runner.html:127
+#: .\vinsdelux\templates\vinsdelux\testing\test_runner.html:123
 msgid "Comprehensive testing for the futuristic journey experience"
 msgstr "Umfassende Tests für das futuristische Reiseerlebnis"
 
@@ -3993,16 +5810,12 @@ msgid "Select your plan"
 msgstr "Wählen Sie Ihren Plan"
 
 #: .\vinsdelux\views.py:339
-#, fuzzy
-#| msgid "Confirm"
 msgid "Confirmation"
-msgstr "Bestätigen"
+msgstr "Bestätigung"
 
 #: .\vinsdelux\views.py:340
-#, fuzzy
-#| msgid "Confirm"
 msgid "Confirm adoption"
-msgstr "Bestätigen"
+msgstr "Adoption bestätigen"
 
 #: .\vinsdelux\views.py:354
 msgid ""
@@ -4029,6 +5842,43 @@ msgstr "Ungültiges Anfrageformat"
 #: .\vinsdelux\views.py:425
 msgid "An error occurred while processing your selection"
 msgstr "Bei der Verarbeitung Ihrer Auswahl ist ein Fehler aufgetreten"
+
+#~ msgid "🔔 Push Notifications"
+#~ msgstr "🔔 Push-Benachrichtigungen"
+
+#~ msgid "Get notified about events, messages, and connections"
+#~ msgstr ""
+#~ "Erhalten Sie Benachrichtigungen über Veranstaltungen, Nachrichten und "
+#~ "Verbindungen"
+
+#~ msgid "Checking notification status..."
+#~ msgstr "Benachrichtigungsstatus wird überprüft..."
+
+#~ msgid "Enable Notifications"
+#~ msgstr "Benachrichtigungen aktivieren"
+
+#~ msgid "Disable"
+#~ msgstr "Deaktivieren"
+
+#~ msgid "Send Test"
+#~ msgstr "Test senden"
+
+#~ msgid "Push notifications not available"
+#~ msgstr "Push-Benachrichtigungen nicht verfügbar"
+
+#~ msgid "To receive push notifications, try opening Crush.lu in:"
+#~ msgstr ""
+#~ "Um Push-Benachrichtigungen zu erhalten, versuchen Sie Crush.lu zu öffnen "
+#~ "in:"
+
+#~ msgid "• Chrome or Edge on Android"
+#~ msgstr "• Chrome oder Edge auf Android"
+
+#~ msgid "• Chrome, Firefox, or Edge on Desktop"
+#~ msgstr "• Chrome, Firefox oder Edge auf Desktop"
+
+#~ msgid "• Safari on iOS 16.4+ or macOS 16.4+"
+#~ msgstr "• Safari auf iOS 16.4+ oder macOS 16.4+"
 
 #~ msgid "You don't have permission to view or edit anything."
 #~ msgstr "Sie haben keine Berechtigung, etwas anzuzeigen oder zu bearbeiten."
@@ -4061,37 +5911,8 @@ msgstr "Bei der Verarbeitung Ihrer Auswahl ist ein Fehler aufgetreten"
 #~ "Sie haben bereits ein Konto? Dann <a href=\"%(login_url)s\">melden Sie "
 #~ "sich bitte an</a>."
 
-#~ msgid "Loading notification settings..."
-#~ msgstr "Benachrichtigungseinstellungen werden geladen..."
-
 #~ msgid "Push notifications are not supported in this browser."
 #~ msgstr "Push-Benachrichtigungen werden in diesem Browser nicht unterstützt."
 
 #~ msgid "Coach notifications are enabled on this device."
 #~ msgstr "Coach-Benachrichtigungen sind auf diesem Gerät aktiviert."
-
-#~ msgid "Notification Types"
-#~ msgstr "Benachrichtigungstypen"
-
-#~ msgid "New Profile Submissions"
-#~ msgstr "Neue Profilübermittlungen"
-
-#~ msgid "Get notified when new profiles need review"
-#~ msgstr ""
-#~ "Benachrichtigung erhalten, wenn neue Profile überprüft werden müssen"
-
-#~ msgid "User Revisions"
-#~ msgstr "Benutzerrevisionen"
-
-#~ msgid "Get notified when users submit profile revisions"
-#~ msgstr ""
-#~ "Benachrichtigung erhalten, wenn Benutzer Profilrevisionen einreichen"
-
-#~ msgid "Screening Reminders"
-#~ msgstr "Screening-Erinnerungen"
-
-#~ msgid "System Alerts"
-#~ msgstr "Systemmeldungen"
-
-#~ msgid "Important system and admin messages"
-#~ msgstr "Wichtige System- und Admin-Nachrichten"
