@@ -1,4 +1,0 @@
-{
-  "schedule": "0 0 2 * * *",
-  "description": "Sync Azure cost data daily at 2 AM UTC"
-}
