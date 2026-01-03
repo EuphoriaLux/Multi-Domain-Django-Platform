@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0035_add_profile_reminder_and_user_activity_fields"),
+        ("crush_lu", "0037_referralcode_referralattribution"),
     ]
 
     operations = [

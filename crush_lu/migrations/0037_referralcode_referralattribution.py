@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0035_add_profile_reminder_and_user_activity_fields"),
+        ("crush_lu", "0036_add_wallet_fields"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
