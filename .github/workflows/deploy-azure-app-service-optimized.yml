@@ -5,6 +5,7 @@
 # 3. Parallel static file collection
 # 4. Startup script optimization
 # 5. Reduced migration overhead
+# 6. Skip validate/test on merge (already passed in PR) - requires branch protection
 
 name: Deploy Multi-Domain App to Azure (Optimized)
 
@@ -33,7 +34,9 @@ concurrency:
 
 jobs:
   # Quick pre-deployment validation (runs in ~30 seconds)
+  # Only runs on PRs - merge to main skips this (already validated in PR)
   validate:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -68,15 +71,13 @@ jobs:
         run: |
           echo "🔍 Running Django System Checks..."
           python manage.py check
-
-          echo "🔒 Running Deployment Security Checks..."
-          # Note: --deploy checks are skipped in CI as they require production settings
-          # The actual deployment will use production.py with real credentials
-          python manage.py check
+          echo "✅ Django checks passed"
 
   # Run pytest tests (skips Playwright browser tests for speed)
+  # Only runs on PRs - merge to main skips this (already tested in PR)
   test:
     needs: validate
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -102,8 +103,9 @@ jobs:
           echo "✅ All tests passed"
 
   deploy:
-    needs: [validate, test]  # Only deploy if validation AND tests pass
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'  # Only deploy on push to main, not PRs
+    # On PRs: wait for validate/test. On push to main: deploy immediately (tests passed in PR)
+    needs: [validate, test]
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: production
