@@ -105,9 +105,13 @@ jobs:
     needs: [validate, test]  # Only deploy if validation AND tests pass
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'  # Only deploy on push to main, not PRs
     runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://crush.lu  # Primary domain (also serves powerup.lu, vinsdelux.com)
     permissions:
       id-token: write
       contents: read
+      deployments: write
 
     steps:
       - name: Checkout code
