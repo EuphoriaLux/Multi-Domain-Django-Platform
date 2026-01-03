@@ -167,7 +167,6 @@ def send_welcome_email(user, request):
 
     context = get_email_context_with_unsubscribe(user, request,
         first_name=user.first_name,
-        user=user,
         profile_url=profile_url,
         how_it_works_url=how_it_works_url,
     )
