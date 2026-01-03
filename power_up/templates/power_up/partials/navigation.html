@@ -1,0 +1,69 @@
+{% load static %}
+{% load i18n %}
+<header class="bg-white shadow-sm sticky top-0 z-50">
+    <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16">
+            <!-- Logo -->
+            <div class="flex items-center">
+                <a href="{% url 'power_up:home' %}" class="flex items-center space-x-2">
+                    <div class="w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-500 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-lg">P</span>
+                    </div>
+                    <span class="text-xl font-bold text-gray-900">Power-Up</span>
+                </a>
+            </div>
+
+            <!-- Desktop Navigation -->
+            <div class="hidden md:flex md:items-center md:space-x-8">
+                <a href="{% url 'power_up:about' %}"
+                   class="text-gray-600 hover:text-purple-600 font-medium transition-colors duration-200">
+                    {% trans "About" %}
+                </a>
+                <a href="{% url 'power_up:platforms' %}"
+                   class="text-gray-600 hover:text-purple-600 font-medium transition-colors duration-200">
+                    {% trans "Platforms" %}
+                </a>
+                <a href="{% url 'power_up:investors' %}"
+                   class="text-gray-600 hover:text-purple-600 font-medium transition-colors duration-200">
+                    {% trans "Investors" %}
+                </a>
+                <a href="{% url 'power_up:contact' %}"
+                   class="btn-primary text-sm py-2 px-4">
+                    {% trans "Contact" %}
+                </a>
+            </div>
+
+            <!-- Mobile menu button (CSS-only toggle using checkbox hack) -->
+            <div class="md:hidden flex items-center">
+                <input type="checkbox" id="mobile-menu-toggle" class="hidden peer">
+                <label for="mobile-menu-toggle" class="cursor-pointer p-2 rounded-lg hover:bg-gray-100">
+                    <svg class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </label>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation (CSS-only, uses peer selector) -->
+        <div class="md:hidden hidden peer-checked:block pb-4">
+            <div class="flex flex-col space-y-3 pt-4 border-t border-gray-100">
+                <a href="{% url 'power_up:about' %}"
+                   class="text-gray-600 hover:text-purple-600 font-medium py-2">
+                    {% trans "About" %}
+                </a>
+                <a href="{% url 'power_up:platforms' %}"
+                   class="text-gray-600 hover:text-purple-600 font-medium py-2">
+                    {% trans "Platforms" %}
+                </a>
+                <a href="{% url 'power_up:investors' %}"
+                   class="text-gray-600 hover:text-purple-600 font-medium py-2">
+                    {% trans "Investors" %}
+                </a>
+                <a href="{% url 'power_up:contact' %}"
+                   class="btn-primary text-center py-2">
+                    {% trans "Contact" %}
+                </a>
+            </div>
+        </div>
+    </nav>
+</header>

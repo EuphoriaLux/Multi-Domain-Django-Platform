@@ -1,0 +1,38 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ page_title|default:"Tableau - AI-Generated Art" }}{% endblock %}</title>
+
+    <!-- Tailwind CSS (compiled locally, no CDN) -->
+    <link rel="stylesheet" href="{% static 'tableau/css/tailwind.css' %}">
+
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="{% block meta_description %}{{ page_description|default:"Discover unique AI-generated artwork that creates emotional impact. Each piece is crafted to inspire and transform your space." }}{% endblock %}">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://tableau.lu{{ request.path }}">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="{% block og_title %}{{ page_title|default:"Tableau - AI-Generated Art" }}{% endblock %}">
+    <meta property="og:description" content="{{ page_description|default:"Discover unique AI-generated artwork that creates emotional impact." }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://tableau.lu{{ request.path }}">
+    <meta property="og:site_name" content="Tableau">
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-950 text-gray-100 antialiased">
+    {% include "tableau/partials/navigation.html" %}
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    {% include "tableau/partials/footer.html" %}
+
+    {# No JavaScript - pure HTML/CSS static site for CSP safety #}
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

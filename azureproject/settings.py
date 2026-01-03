@@ -55,6 +55,8 @@ INSTALLED_APPS = [
     'crush_delegation',
     'vinsdelux',
     'entreprinder',  # Includes merged: matching, finops, vibe_coding
+    'power_up',  # Corporate/investor site for power-up.lu
+    'tableau',  # AI Art e-commerce site for tableau.lu
     # Allauth apps
     'allauth',
     'allauth.account',

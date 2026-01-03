@@ -1,6 +1,6 @@
 # azureproject/views_seo.py
 """
-SEO-related views for all domains (VinsDelux, PowerUP).
+SEO-related views for all domains (VinsDelux, PowerUP, Power-Up).
 
 This module provides domain-specific robots.txt generation.
 Crush.lu has its own views_seo.py in the crush_lu app.
@@ -129,6 +129,68 @@ def robots_txt_powerup(request):
         "",
         "# Sitemap location",
         "Sitemap: https://powerup.lu/sitemap.xml",
+        "",
+    ]
+
+    return HttpResponse("\n".join(lines), content_type="text/plain")
+
+
+@require_GET
+@cache_page(60 * 60 * 24)  # Cache for 24 hours
+def robots_txt_power_up(request):
+    """
+    Generate robots.txt for Power-Up corporate/investor site.
+
+    Simple static site - allow crawling of all public pages.
+    No auth, no API, no forms - just static content.
+    """
+    lines = [
+        "# Robots.txt for Power-Up Corporate Site",
+        "# https://power-up.lu/robots.txt",
+        "",
+        "User-agent: *",
+        "",
+        "# Allow all public pages",
+        "Allow: /",
+        "",
+        "# Block health check endpoint",
+        "Disallow: /healthz/",
+        "",
+        "# Crawl delay (be nice to our server)",
+        "Crawl-delay: 1",
+        "",
+        "# No sitemap yet - static corporate site",
+        "",
+    ]
+
+    return HttpResponse("\n".join(lines), content_type="text/plain")
+
+
+@require_GET
+@cache_page(60 * 60 * 24)  # Cache for 24 hours
+def robots_txt_tableau(request):
+    """
+    Generate robots.txt for Tableau AI Art e-commerce site.
+
+    Simple static site - allow crawling of all public pages.
+    No auth, no API, no forms - just static content.
+    """
+    lines = [
+        "# Robots.txt for Tableau AI Art",
+        "# https://tableau.lu/robots.txt",
+        "",
+        "User-agent: *",
+        "",
+        "# Allow all public pages",
+        "Allow: /",
+        "",
+        "# Block health check endpoint",
+        "Disallow: /healthz/",
+        "",
+        "# Crawl delay (be nice to our server)",
+        "Crawl-delay: 1",
+        "",
+        "# No sitemap yet - e-commerce coming soon",
         "",
     ]
 

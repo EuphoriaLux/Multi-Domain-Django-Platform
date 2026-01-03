@@ -1,0 +1,87 @@
+{% load i18n %}
+<footer class="bg-gray-900 text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <!-- Brand -->
+            <div class="col-span-1 md:col-span-2">
+                <div class="flex items-center space-x-2 mb-4">
+                    <div class="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-lg">P</span>
+                    </div>
+                    <span class="text-xl font-bold">Power-Up</span>
+                </div>
+                <p class="text-gray-400 max-w-md">
+                    {% trans "Building Luxembourg's digital future through innovative platforms that connect people and create value." %}
+                </p>
+            </div>
+
+            <!-- Navigation -->
+            <div>
+                <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">
+                    {% trans "Company" %}
+                </h3>
+                <ul class="space-y-3">
+                    <li>
+                        <a href="{% url 'power_up:about' %}" class="text-gray-400 hover:text-white transition-colors duration-200">
+                            {% trans "About" %}
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'power_up:platforms' %}" class="text-gray-400 hover:text-white transition-colors duration-200">
+                            {% trans "Platforms" %}
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'power_up:investors' %}" class="text-gray-400 hover:text-white transition-colors duration-200">
+                            {% trans "Investors" %}
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'power_up:contact' %}" class="text-gray-400 hover:text-white transition-colors duration-200">
+                            {% trans "Contact" %}
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Platforms -->
+            <div>
+                <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">
+                    {% trans "Our Platforms" %}
+                </h3>
+                <ul class="space-y-3">
+                    <li>
+                        <a href="https://crush.lu" target="_blank" rel="noopener noreferrer"
+                           class="text-gray-400 hover:text-white transition-colors duration-200">
+                            Crush.lu
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://vinsdelux.com" target="_blank" rel="noopener noreferrer"
+                           class="text-gray-400 hover:text-white transition-colors duration-200">
+                            VinsDelux
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://powerup.lu" target="_blank" rel="noopener noreferrer"
+                           class="text-gray-400 hover:text-white transition-colors duration-200">
+                            PowerUP
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Bottom bar -->
+        <div class="mt-12 pt-8 border-t border-gray-800">
+            <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+                <p class="text-gray-400 text-sm">
+                    &copy; {% now "Y" %} Power-Up. {% trans "All rights reserved." %}
+                </p>
+                <p class="text-gray-500 text-sm">
+                    {% trans "Made in Luxembourg" %} 🇱🇺
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>

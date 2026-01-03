@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Power-Up Corporate Site Custom Styles */
+@layer components {
+  /* Primary button */
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors duration-200;
+  }
+
+  /* Secondary button */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-6 py-3 border-2 border-purple-600 text-base font-medium rounded-lg text-purple-600 bg-white hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors duration-200;
+  }
+
+  /* Card component */
+  .card {
+    @apply bg-white rounded-xl shadow-md overflow-hidden transition-shadow duration-300 hover:shadow-lg;
+  }
+
+  /* Section container */
+  .section {
+    @apply py-16 lg:py-24;
+  }
+
+  /* Hero gradient */
+  .hero-gradient {
+    @apply bg-gradient-to-br from-purple-600 via-purple-700 to-pink-600;
+  }
+
+  /* Platform status badge */
+  .badge-live {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800;
+  }
+
+  .badge-coming-soon {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800;
+  }
+}
+
+@layer utilities {
+  /* Text gradient utility */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-500;
+  }
+}

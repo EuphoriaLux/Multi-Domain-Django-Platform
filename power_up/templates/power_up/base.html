@@ -1,0 +1,42 @@
+{% load static %}
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ page_title|default:"Power-Up" }}{% endblock %}</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{% static 'power_up/img/favicon.ico' %}">
+
+    <!-- Tailwind CSS (compiled locally, no CDN) -->
+    <link rel="stylesheet" href="{% static 'power_up/css/tailwind.css' %}">
+
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="{% block meta_description %}{{ meta_description|default:"Power-Up builds digital platforms for Luxembourg's future." }}{% endblock %}">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://power-up.lu{{ request.path }}">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="{% block og_title %}{{ page_title|default:"Power-Up" }}{% endblock %}">
+    <meta property="og:description" content="{{ meta_description|default:"Power-Up builds digital platforms for Luxembourg's future." }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://power-up.lu{{ request.path }}">
+    <meta property="og:site_name" content="Power-Up">
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-white text-gray-900 antialiased">
+    {% include "power_up/partials/navigation.html" %}
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    {% include "power_up/partials/footer.html" %}
+
+    {# No JavaScript - pure HTML/CSS static site for CSP safety #}
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

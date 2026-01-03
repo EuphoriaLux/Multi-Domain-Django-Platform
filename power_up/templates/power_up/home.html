@@ -1,0 +1,124 @@
+{% extends "power_up/base.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-gradient text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
+        <div class="text-center max-w-3xl mx-auto">
+            <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
+                {% trans "Building Luxembourg's" %}
+                <span class="block">{% trans "Digital Future" %}</span>
+            </h1>
+            <p class="text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
+                {% trans "We create innovative digital platforms that connect people, foster communities, and drive growth in Luxembourg and beyond." %}
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="{% url 'power_up:platforms' %}" class="btn-primary bg-white text-purple-600 hover:bg-gray-100">
+                    {% trans "Explore Platforms" %}
+                </a>
+                <a href="{% url 'power_up:investors' %}" class="btn-secondary border-white text-white hover:bg-white/10">
+                    {% trans "Partner With Us" %}
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Mission Section -->
+<section class="section bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center max-w-3xl mx-auto mb-16">
+            <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+                {% trans "Our Mission" %}
+            </h2>
+            <p class="text-lg text-gray-600">
+                {% trans "We believe technology should bring people together, not drive them apart. Our platforms are designed to create meaningful connections and lasting value for Luxembourg's communities." %}
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Value 1 -->
+            <div class="text-center">
+                <div class="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">{% trans "Community First" %}</h3>
+                <p class="text-gray-600">
+                    {% trans "Every platform we build serves Luxembourg's unique communities with care and understanding." %}
+                </p>
+            </div>
+
+            <!-- Value 2 -->
+            <div class="text-center">
+                <div class="w-16 h-16 bg-pink-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-pink-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">{% trans "Privacy Focused" %}</h3>
+                <p class="text-gray-600">
+                    {% trans "In a small country, privacy matters. We build with data protection and user trust at the core." %}
+                </p>
+            </div>
+
+            <!-- Value 3 -->
+            <div class="text-center">
+                <div class="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">{% trans "Innovation Driven" %}</h3>
+                <p class="text-gray-600">
+                    {% trans "We combine proven technology with creative solutions tailored to local needs." %}
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Platforms Preview Section -->
+<section class="section">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+            <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+                {% trans "Our Platforms" %}
+            </h2>
+            <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+                {% trans "Discover the digital experiences we've built for Luxembourg's communities." %}
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {% for platform in platforms %}
+                {% include "power_up/partials/platform_card.html" with platform=platform %}
+            {% endfor %}
+        </div>
+
+        <div class="text-center mt-12">
+            <a href="{% url 'power_up:platforms' %}" class="btn-secondary">
+                {% trans "Learn More About Our Platforms" %}
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="section bg-gray-900 text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 class="text-3xl sm:text-4xl font-bold mb-4">
+            {% trans "Ready to Partner?" %}
+        </h2>
+        <p class="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+            {% trans "We're always looking for partners who share our vision for Luxembourg's digital future." %}
+        </p>
+        <a href="{% url 'power_up:contact' %}" class="btn-primary bg-purple-600 hover:bg-purple-700">
+            {% trans "Get in Touch" %}
+        </a>
+    </div>
+</section>
+{% endblock %}

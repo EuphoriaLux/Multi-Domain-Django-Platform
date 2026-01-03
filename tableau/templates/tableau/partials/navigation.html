@@ -1,0 +1,60 @@
+{% load static %}
+<header class="bg-gray-950/80 backdrop-blur-sm border-b border-gray-800 sticky top-0 z-50">
+    <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16">
+            <!-- Logo -->
+            <div class="flex items-center">
+                <a href="{% url 'tableau:home' %}" class="flex items-center space-x-2">
+                    <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-lg">T</span>
+                    </div>
+                    <span class="text-xl font-bold text-white">Tableau</span>
+                </a>
+            </div>
+
+            <!-- Desktop Navigation -->
+            <div class="hidden md:flex md:items-center md:space-x-8">
+                <a href="{% url 'tableau:about' %}"
+                   class="text-gray-300 hover:text-white font-medium transition-colors duration-200">
+                    About
+                </a>
+                <a href="#gallery"
+                   class="text-gray-300 hover:text-white font-medium transition-colors duration-200">
+                    Gallery
+                </a>
+                <a href="#"
+                   class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition-colors duration-200">
+                    Coming Soon
+                </a>
+            </div>
+
+            <!-- Mobile menu button (CSS-only toggle using checkbox hack) -->
+            <div class="md:hidden flex items-center">
+                <input type="checkbox" id="mobile-menu-toggle" class="hidden peer">
+                <label for="mobile-menu-toggle" class="cursor-pointer p-2 rounded-lg hover:bg-gray-800">
+                    <svg class="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </label>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation (CSS-only, uses peer selector) -->
+        <div class="md:hidden hidden peer-checked:block pb-4">
+            <div class="flex flex-col space-y-3 pt-4 border-t border-gray-800">
+                <a href="{% url 'tableau:about' %}"
+                   class="text-gray-300 hover:text-white font-medium py-2">
+                    About
+                </a>
+                <a href="#gallery"
+                   class="text-gray-300 hover:text-white font-medium py-2">
+                    Gallery
+                </a>
+                <a href="#"
+                   class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition-colors duration-200 text-center">
+                    Coming Soon
+                </a>
+            </div>
+        </div>
+    </nav>
+</header>
