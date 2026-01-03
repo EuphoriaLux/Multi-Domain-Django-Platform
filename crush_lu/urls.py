@@ -95,6 +95,10 @@ urlpatterns = [
     # Secure media serving
     path('media/profile/<int:user_id>/<str:photo_field>/', views_media.serve_profile_photo, name='serve_profile_photo'),
 
+    # Wallet passes
+    path('wallet/apple/pass/', views.wallet_apple_pass, name='wallet_apple_pass'),
+    path('wallet/google/save/', views.wallet_google_save, name='wallet_google_save'),
+
     # Landing and public pages
     path('', views.home, name='home'),
     path('about/', views.about, name='about'),
