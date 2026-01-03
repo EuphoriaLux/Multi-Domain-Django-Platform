@@ -17,6 +17,7 @@ Modules:
 - notifications.py: Push notification admins
 - preferences.py: User activity and email preference admins
 - users.py: User admin classes
+- referrals.py: Referral code admins
 """
 
 from django.contrib import admin
@@ -111,6 +112,11 @@ from .users import (
     CrushUserAdmin,
 )
 
+from .referrals import (
+    ReferralCodeAdmin,
+    ReferralAttributionAdmin,
+)
+
 # Import all models for registration
 from crush_lu.models import (
     SpecialUserExperience,
@@ -148,6 +154,8 @@ from crush_lu.models import (
     UserActivity,
     EmailPreference,
     ProfileReminder,
+    ReferralCode,
+    ReferralAttribution,
 )
 
 
@@ -208,6 +216,10 @@ crush_admin_site.register(CoachPushSubscription, CoachPushSubscriptionAdmin)
 crush_admin_site.register(UserActivity, UserActivityAdmin)
 crush_admin_site.register(EmailPreference, EmailPreferenceAdmin)
 crush_admin_site.register(ProfileReminder, ProfileReminderAdmin)
+
+# Referral System
+crush_admin_site.register(ReferralCode, ReferralCodeAdmin)
+crush_admin_site.register(ReferralAttribution, ReferralAttributionAdmin)
 
 # NOTE: User is NOT registered with crush_admin_site to hide "Authentication and Authorization" section
 # Users can still be viewed/edited via the "👤 User" links in CrushProfile and CrushCoach admin pages
@@ -292,6 +304,10 @@ __all__ = [
     'UserActivityAdmin',
     'EmailPreferenceAdmin',
     'ProfileReminderAdmin',
+
+    # Referrals
+    'ReferralCodeAdmin',
+    'ReferralAttributionAdmin',
 
     # Users
     'CrushProfileUserInline',

@@ -169,6 +169,9 @@ urlpatterns = [
     # Special user experience
     path('special-welcome/', views.special_welcome, name='special_welcome'),
 
+    # Referral landing (public access)
+    path('r/<str:code>/', views.referral_redirect, name='referral_redirect'),
+
     # Private Invitation System (PUBLIC ACCESS)
     path('invite/<uuid:code>/', views.invitation_landing, name='invitation_landing'),
     path('invite/<uuid:code>/accept/', views.invitation_accept, name='invitation_accept'),
