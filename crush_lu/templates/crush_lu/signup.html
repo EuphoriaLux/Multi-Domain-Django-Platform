@@ -1,9 +1,9 @@
 {% extends 'crush_lu/base.html' %}
 {% load socialaccount %}
-{% load static %}
+{% load static i18n %}
 {% load analytics %}
 
-{% block title %}Sign Up - Crush.lu{% endblock %}
+{% block title %}{% trans "Sign Up - Crush.lu" %}{% endblock %}
 
 {% block content %}
 {# Track signup page view in Application Insights #}
@@ -12,9 +12,9 @@
     <div class="w-full max-w-lg">
         <div class="bg-white rounded-xl shadow-lg">
             <div class="p-8 md:p-10">
-                <h2 class="text-center text-2xl font-bold text-gray-900 mb-4">Join Crush.lu</h2>
+                <h2 class="text-center text-2xl font-bold text-gray-900 mb-4">{% trans "Join Crush.lu" %}</h2>
                 <p class="text-center text-gray-500 mb-6">
-                    Create your account to start meeting new people
+                    {% trans "Create your account to start meeting new people" %}
                 </p>
 
                 {% get_providers as socialaccount_providers %}
@@ -32,7 +32,7 @@
                                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                             </svg>
                         </span>
-                        Sign up with Google
+                        {% trans "Sign up with Google" %}
                     </a>
                         {% endif %}
                         {% if provider.id == "facebook" %}
@@ -43,7 +43,7 @@
                                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" fill="#ffffff"/>
                             </svg>
                         </span>
-                        Sign up with Facebook
+                        {% trans "Sign up with Facebook" %}
                     </a>
                         {% endif %}
                         {% if provider.id == "microsoft" %}
@@ -57,13 +57,13 @@
                                 <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
                             </svg>
                         </span>
-                        Sign up with Microsoft
+                        {% trans "Sign up with Microsoft" %}
                     </a>
                         {% endif %}
                     {% endfor %}
                 </div>
 
-                <div class="social-login-divider text-center text-gray-500 text-sm my-6 relative">Or sign up with email</div>
+                <div class="social-login-divider text-center text-gray-500 text-sm my-6 relative">{% trans "Or sign up with email" %}</div>
                 {% endif %}
 
                 <form method="post" novalidate>
@@ -76,7 +76,7 @@
                     {% endif %}
 
                     <div class="mb-4">
-                        <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                        <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{% trans "First Name" %}</label>
                         <input type="text" class="w-full px-4 py-3 border {% if form.first_name.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                                id="{{ form.first_name.id_for_label }}" name="{{ form.first_name.name }}"
                                value="{{ form.first_name.value|default:'' }}" required>
@@ -86,7 +86,7 @@
                     </div>
 
                     <div class="mb-4">
-                        <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                        <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Last Name" %}</label>
                         <input type="text" class="w-full px-4 py-3 border {% if form.last_name.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                                id="{{ form.last_name.id_for_label }}" name="{{ form.last_name.name }}"
                                value="{{ form.last_name.value|default:'' }}" required>
@@ -96,7 +96,7 @@
                     </div>
 
                     <div class="mb-4">
-                        <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Email" %}</label>
                         <input type="email" class="w-full px-4 py-3 border {% if form.email.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                                id="{{ form.email.id_for_label }}" name="{{ form.email.name }}"
                                value="{{ form.email.value|default:'' }}" required>
@@ -106,19 +106,19 @@
                     </div>
 
                     <div class="mb-4">
-                        <label for="{{ form.password1.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <label for="{{ form.password1.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Password" %}</label>
                         <input type="password" class="w-full px-4 py-3 border {% if form.password1.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                                id="{{ form.password1.id_for_label }}" name="{{ form.password1.name }}" required>
                         {% if form.password1.errors %}
                             <p class="mt-1 text-sm text-red-600">{{ form.password1.errors.0 }}</p>
                         {% endif %}
                         <p class="mt-1 text-sm text-gray-500">
-                            Your password must contain at least 8 characters.
+                            {% trans "Your password must contain at least 8 characters." %}
                         </p>
                     </div>
 
                     <div class="mb-6">
-                        <label for="{{ form.password2.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                        <label for="{{ form.password2.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Confirm Password" %}</label>
                         <input type="password" class="w-full px-4 py-3 border {% if form.password2.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                                id="{{ form.password2.id_for_label }}" name="{{ form.password2.name }}" required>
                         {% if form.password2.errors %}
@@ -126,14 +126,14 @@
                         {% endif %}
                     </div>
 
-                    <button type="submit" class="btn-crush-primary w-full py-3 text-lg font-semibold" id="signup-submit-btn">Create Account</button>
+                    <button type="submit" class="btn-crush-primary w-full py-3 text-lg font-semibold" id="signup-submit-btn">{% trans "Create Account" %}</button>
                 </form>
 
                 <hr class="my-6 border-gray-200">
 
                 <p class="text-center text-gray-500 mb-0">
-                    Already have an account?
-                    <a href="{% url 'crush_lu:login' %}" class="text-purple-600 hover:text-purple-800 font-medium">Log in</a>
+                    {% trans "Already have an account?" %}
+                    <a href="{% url 'crush_lu:login' %}" class="text-purple-600 hover:text-purple-800 font-medium">{% trans "Log in" %}</a>
                 </p>
             </div>
         </div>

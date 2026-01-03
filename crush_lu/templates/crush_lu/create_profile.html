@@ -1,7 +1,7 @@
 {% extends 'crush_lu/base.html' %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Create Your Profile - Crush.lu{% endblock %}
+{% block title %}{% trans "Create Your Profile - Crush.lu" %}{% endblock %}
 
 {% block extra_css %}
 <!-- intl-tel-input CSS with SRI for security -->
@@ -26,14 +26,14 @@
         <div class="text-center mb-8">
             <template x-if="isEditing">
                 <div>
-                    <h1 class="text-2xl md:text-3xl font-bold mb-3">Edit Your Profile</h1>
-                    <p class="text-gray-500">Update your profile information</p>
+                    <h1 class="text-2xl md:text-3xl font-bold mb-3">{% trans "Edit Your Profile" %}</h1>
+                    <p class="text-gray-500">{% trans "Update your profile information" %}</p>
                 </div>
             </template>
             <template x-if="isNotEditing">
                 <div>
-                    <h1 class="text-2xl md:text-3xl font-bold mb-3">Welcome to Crush!</h1>
-                    <p class="text-gray-500">Let's create your profile in just a few steps</p>
+                    <h1 class="text-2xl md:text-3xl font-bold mb-3">{% trans "Welcome to Crush!" %}</h1>
+                    <p class="text-gray-500">{% trans "Let's create your profile in just a few steps" %}</p>
                 </div>
             </template>
 
@@ -48,7 +48,7 @@
                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                         </svg>
                     </div>
-                    <span class="text-xs mt-1" x-bind:class="step1TextClass">Basic Info</span>
+                    <span class="text-xs mt-1" x-bind:class="step1TextClass">{% trans "Basic Info" %}</span>
                 </div>
 
                 <div class="w-12 h-1 mx-1" x-bind:class="step1ConnectorClass"></div>
@@ -62,7 +62,7 @@
                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                         </svg>
                     </div>
-                    <span class="text-xs mt-1" x-bind:class="step2TextClass">About You</span>
+                    <span class="text-xs mt-1" x-bind:class="step2TextClass">{% trans "About You" %}</span>
                 </div>
 
                 <div class="w-12 h-1 mx-1" x-bind:class="step2ConnectorClass"></div>
@@ -76,7 +76,7 @@
                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                         </svg>
                     </div>
-                    <span class="text-xs mt-1" x-bind:class="step3TextClass">Photos</span>
+                    <span class="text-xs mt-1" x-bind:class="step3TextClass">{% trans "Photos" %}</span>
                 </div>
 
                 <div class="w-12 h-1 mx-1" x-bind:class="step3ConnectorClass"></div>
@@ -87,7 +87,7 @@
                          x-bind:class="step4CircleClass">
                         4
                     </div>
-                    <span class="text-xs mt-1" x-bind:class="step4TextClass">Review</span>
+                    <span class="text-xs mt-1" x-bind:class="step4TextClass">{% trans "Review" %}</span>
                 </div>
             </div>
         </div>
@@ -113,7 +113,7 @@
             {% if form.errors %}
             <div x-data="dismissible" x-show="show" x-transition
                  class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 relative">
-                <strong class="font-semibold">Please fix the following errors:</strong>
+                <strong class="font-semibold">{% trans "Please fix the following errors:" %}</strong>
                 <ul class="mt-2 list-disc list-inside">
                     {% for field, errors in form.errors.items %}
                         {% for error in errors %}
@@ -140,8 +140,8 @@
 
                 <div class="text-center mb-6">
                     <div class="text-4xl mb-2">📋</div>
-                    <h3 class="text-xl font-semibold">Basic Information</h3>
-                    <p class="text-gray-500 text-sm">Let's start with the essentials</p>
+                    <h3 class="text-xl font-semibold">{% trans "Basic Information" %}</h3>
+                    <p class="text-gray-500 text-sm">{% trans "Let's start with the essentials" %}</p>
                 </div>
 
                 <!-- Phone Number with Verification -->
@@ -150,17 +150,17 @@
                      data-verified="{{ profile.phone_verified|yesno:'true,false'|default:'false' }}"
                      data-phone-input-id="{{ form.phone_number.id_for_label }}">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                        {% include "shared/icons/phone.html" with class="w-5 h-5" %} Phone Number *
+                        {% include "shared/icons/phone.html" with class="w-5 h-5" %} {% trans "Phone Number" %} *
                         <span x-show="notVerified"
                               class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 ml-2">
-                            Verification Required
+                            {% trans "Verification Required" %}
                         </span>
                         <span x-show="verified" x-cloak
                               class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 ml-2">
                             <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                             </svg>
-                            Verified
+                            {% trans "Verified" %}
                         </span>
                     </label>
 
@@ -181,14 +181,14 @@
                                 x-bind:disabled="cannotVerify"
                                 class="px-4 py-3 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2">
                             {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}
-                            <span class="hidden sm:inline">Verify</span>
+                            <span class="hidden sm:inline">{% trans "Verify" %}</span>
                         </button>
                         <!-- Change phone number button removed - users must contact support to change verified phone -->
                     </div>
 
                     <p class="text-sm text-gray-500 mt-2">
                         {% include "shared/icons/information-circle.html" with class="w-5 h-5" %}
-                        You must verify your phone number before continuing.
+                        {% trans "You must verify your phone number before continuing." %}
                     </p>
 
                     {% if form.phone_number.errors %}
@@ -209,10 +209,10 @@
                 <!-- Date of Birth -->
                 <div class="mb-6">
                     <label for="{{ form.date_of_birth.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
-                        {% include "shared/icons/calendar.html" with class="w-5 h-5" %} Date of Birth *
+                        {% include "shared/icons/calendar.html" with class="w-5 h-5" %} {% trans "Date of Birth" %} *
                     </label>
                     {{ form.date_of_birth }}
-                    <p class="text-sm text-gray-500 mt-1">Must be 18+ to join</p>
+                    <p class="text-sm text-gray-500 mt-1">{% trans "Must be 18+ to join" %}</p>
                     {% if form.date_of_birth.errors %}
                         <p class="text-sm text-red-600 mt-1">{{ form.date_of_birth.errors.0 }}</p>
                     {% endif %}
@@ -221,9 +221,9 @@
                 <!-- Gender Selection -->
                 <fieldset class="mb-6">
                     <legend class="block text-sm font-medium text-gray-700 mb-3">
-                        <span aria-hidden="true">{% include "shared/icons/user.html" with class="w-5 h-5" %}</span> Gender <span class="text-red-500" aria-label="required">*</span>
+                        <span aria-hidden="true">{% include "shared/icons/user.html" with class="w-5 h-5" %}</span> {% trans "Gender" %} <span class="text-red-500" aria-label="required">*</span>
                     </legend>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3" role="radiogroup" aria-label="Select your gender">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3" role="radiogroup" aria-label="{% trans "Select your gender" %}">
                         {% for value, label, icon in gender_choices %}
                         <label class="cursor-pointer">
                             <input type="radio" name="gender" value="{{ value }}" class="peer hidden"
@@ -244,7 +244,7 @@
                                         peer-checked:border-purple-500 peer-checked:bg-purple-50
                                         hover:border-purple-300">
                                 <div class="text-2xl mb-1">👨</div>
-                                <div class="text-sm font-medium">Male</div>
+                                <div class="text-sm font-medium">{% trans "Male" %}</div>
                             </div>
                         </label>
                         <label class="cursor-pointer">
@@ -254,7 +254,7 @@
                                         peer-checked:border-purple-500 peer-checked:bg-purple-50
                                         hover:border-purple-300">
                                 <div class="text-2xl mb-1">👩</div>
-                                <div class="text-sm font-medium">Female</div>
+                                <div class="text-sm font-medium">{% trans "Female" %}</div>
                             </div>
                         </label>
                         <label class="cursor-pointer">
@@ -264,7 +264,7 @@
                                         peer-checked:border-purple-500 peer-checked:bg-purple-50
                                         hover:border-purple-300">
                                 <div class="text-2xl mb-1">🧑</div>
-                                <div class="text-sm font-medium">Non-binary</div>
+                                <div class="text-sm font-medium">{% trans "Non-binary" %}</div>
                             </div>
                         </label>
                         <label class="cursor-pointer">
@@ -274,7 +274,7 @@
                                         peer-checked:border-purple-500 peer-checked:bg-purple-50
                                         hover:border-purple-300">
                                 <div class="text-2xl mb-1">✨</div>
-                                <div class="text-sm font-medium">Other</div>
+                                <div class="text-sm font-medium">{% trans "Other" %}</div>
                             </div>
                         </label>
                         {% endfor %}
@@ -287,14 +287,14 @@
                 <!-- Location (Canton Map) -->
                 <div class="mb-6">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                        {% include "shared/icons/map-pin.html" with class="w-5 h-5" %} Location in Luxembourg *
+                        {% include "shared/icons/map-pin.html" with class="w-5 h-5" %} {% trans "Location in Luxembourg" %} *
                     </label>
-                    <p class="text-sm text-gray-500 mb-2">Click the map or use the dropdown to select your region</p>
+                    <p class="text-sm text-gray-500 mb-2">{% trans "Click the map or use the dropdown to select your region" %}</p>
 
                     <div x-data="cantonMap"
                          data-initial-value="{{ profile.location|default:'' }}"
                          data-initial-name="{% if profile.location %}{{ profile.get_location_display }}{% endif %}"
-                         data-placeholder="Click the map to select your region"
+                         data-placeholder="{% trans "Click the map to select your region" %}"
                          class="canton-map-container {% if form.location.errors %}has-error{% endif %}">
 
                         <!-- Selection Display -->
@@ -318,29 +318,29 @@
                                     @click="toggleFallbackDropdown"
                                     class="canton-map-fallback-toggle">
                                 {% include "shared/icons/list-bullet.html" with class="w-4 h-4" %}
-                                Can't use the map? Select from list
+                                {% trans "Can't use the map? Select from list" %}
                             </button>
                             <div x-show="fallbackDropdownVisible" x-transition class="canton-map-fallback-dropdown">
                                 <select @change="handleFallbackSelect" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                                    <option value="">Select your region...</option>
-                                    <optgroup label="Luxembourg Cantons">
-                                        <option value="canton-capellen">Capellen</option>
-                                        <option value="canton-clervaux">Clervaux</option>
-                                        <option value="canton-diekirch">Diekirch</option>
-                                        <option value="canton-echternach">Echternach</option>
-                                        <option value="canton-esch">Esch-sur-Alzette</option>
-                                        <option value="canton-grevenmacher">Grevenmacher</option>
-                                        <option value="canton-luxembourg">Luxembourg</option>
-                                        <option value="canton-mersch">Mersch</option>
-                                        <option value="canton-redange">Redange</option>
-                                        <option value="canton-remich">Remich</option>
-                                        <option value="canton-vianden">Vianden</option>
-                                        <option value="canton-wiltz">Wiltz</option>
+                                    <option value="">{% trans "Select your region..." %}</option>
+                                    <optgroup label="{% trans "Luxembourg Cantons" %}">
+                                        <option value="canton-capellen">{% trans "Capellen" %}</option>
+                                        <option value="canton-clervaux">{% trans "Clervaux" %}</option>
+                                        <option value="canton-diekirch">{% trans "Diekirch" %}</option>
+                                        <option value="canton-echternach">{% trans "Echternach" %}</option>
+                                        <option value="canton-esch">{% trans "Esch-sur-Alzette" %}</option>
+                                        <option value="canton-grevenmacher">{% trans "Grevenmacher" %}</option>
+                                        <option value="canton-luxembourg">{% trans "Luxembourg" %}</option>
+                                        <option value="canton-mersch">{% trans "Mersch" %}</option>
+                                        <option value="canton-redange">{% trans "Redange" %}</option>
+                                        <option value="canton-remich">{% trans "Remich" %}</option>
+                                        <option value="canton-vianden">{% trans "Vianden" %}</option>
+                                        <option value="canton-wiltz">{% trans "Wiltz" %}</option>
                                     </optgroup>
-                                    <optgroup label="Border Regions">
-                                        <option value="border-belgium">Belgium (Arlon/Virton area)</option>
-                                        <option value="border-germany">Germany (Trier/Saarland area)</option>
-                                        <option value="border-france">France (Thionville/Metz area)</option>
+                                    <optgroup label="{% trans "Border Regions" %}">
+                                        <option value="border-belgium">{% trans "Belgium (Arlon/Virton area)" %}</option>
+                                        <option value="border-germany">{% trans "Germany (Trier/Saarland area)" %}</option>
+                                        <option value="border-france">{% trans "France (Thionville/Metz area)" %}</option>
                                     </optgroup>
                                 </select>
                             </div>
@@ -365,7 +365,7 @@
                         id="step1-continue-btn">
                     <template x-if="isNotSaving">
                         <span class="flex items-center gap-2">
-                            Continue
+                            {% trans "Continue" %}
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                             </svg>
@@ -377,7 +377,7 @@
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            Saving...
+                            {% trans "Saving..." %}
                         </span>
                     </template>
                 </button>
@@ -402,7 +402,7 @@
                     <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
                     </svg>
-                    Please verify your phone number to continue.
+                    {% trans "Please verify your phone number to continue." %}
                 </div>
             </div>
 
@@ -414,15 +414,15 @@
 
                 <div class="text-center mb-6">
                     <div class="text-4xl mb-2">✍️</div>
-                    <h3 class="text-xl font-semibold">About You</h3>
-                    <p class="text-gray-500 text-sm">Share what makes you unique (optional)</p>
+                    <h3 class="text-xl font-semibold">{% trans "About You" %}</h3>
+                    <p class="text-gray-500 text-sm">{% trans "Share what makes you unique (optional)" %}</p>
                 </div>
 
                 <!-- Bio -->
                 <div class="mb-6" x-data="charCounter" data-initial-count="{{ profile.bio|length|default:0 }}" data-max-length="500">
                     <label for="{{ form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
-                        {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5" %} Bio
-                        <span class="text-xs text-gray-400 font-normal ml-1">Optional</span>
+                        {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5" %} {% trans "Bio" %}
+                        <span class="text-xs text-gray-400 font-normal ml-1">{% trans "Optional" %}</span>
                     </label>
                     <textarea name="bio"
                               id="{{ form.bio.id_for_label }}"
@@ -430,9 +430,9 @@
                               rows="4"
                               maxlength="500"
                               @input="updateCount"
-                              placeholder="Tell us about yourself... What do you love? What makes you smile?">{{ profile.bio|default:"" }}</textarea>
+                              placeholder="{% trans "Tell us about yourself... What do you love? What makes you smile?" %}">{{ profile.bio|default:"" }}</textarea>
                     <div class="text-right text-sm text-gray-400 mt-1">
-                        <span x-text="charCount"></span>/500 characters
+                        <span x-text="charCount"></span>/500 {% trans "characters" %}
                     </div>
                     {% if form.bio.errors %}
                         <p class="text-sm text-red-600 mt-1">{{ form.bio.errors.0 }}</p>
@@ -442,8 +442,8 @@
                 <!-- Interest Categories -->
                 <div class="mb-6">
                     <label class="block text-sm font-medium text-gray-700 mb-3">
-                        {% include "shared/icons/star.html" with class="w-5 h-5" %} Interest Categories
-                        <span class="text-xs text-gray-400 font-normal ml-1">Optional</span>
+                        {% include "shared/icons/star.html" with class="w-5 h-5" %} {% trans "Interest Categories" %}
+                        <span class="text-xs text-gray-400 font-normal ml-1">{% trans "Optional" %}</span>
                     </label>
                     <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
                         <label class="cursor-pointer">
@@ -452,7 +452,7 @@
                                         peer-checked:border-purple-500 peer-checked:bg-purple-50
                                         hover:border-purple-300">
                                 <div class="text-xl mb-1">⚽</div>
-                                <div class="text-xs font-medium">Sports & Fitness</div>
+                                <div class="text-xs font-medium">{% trans "Sports & Fitness" %}</div>
                             </div>
                         </label>
                         <label class="cursor-pointer">
@@ -461,7 +461,7 @@
                                         peer-checked:border-purple-500 peer-checked:bg-purple-50
                                         hover:border-purple-300">
                                 <div class="text-xl mb-1">🎨</div>
-                                <div class="text-xs font-medium">Arts & Culture</div>
+                                <div class="text-xs font-medium">{% trans "Arts & Culture" %}</div>
                             </div>
                         </label>
                         <label class="cursor-pointer">
@@ -470,7 +470,7 @@
                                         peer-checked:border-purple-500 peer-checked:bg-purple-50
                                         hover:border-purple-300">
                                 <div class="text-xl mb-1">🍷</div>
-                                <div class="text-xs font-medium">Food & Wine</div>
+                                <div class="text-xs font-medium">{% trans "Food & Wine" %}</div>
                             </div>
                         </label>
                         <label class="cursor-pointer">
@@ -479,7 +479,7 @@
                                         peer-checked:border-purple-500 peer-checked:bg-purple-50
                                         hover:border-purple-300">
                                 <div class="text-xl mb-1">🏔️</div>
-                                <div class="text-xs font-medium">Outdoors</div>
+                                <div class="text-xs font-medium">{% trans "Outdoors" %}</div>
                             </div>
                         </label>
                         <label class="cursor-pointer">
@@ -488,17 +488,17 @@
                                         peer-checked:border-purple-500 peer-checked:bg-purple-50
                                         hover:border-purple-300">
                                 <div class="text-xl mb-1">💼</div>
-                                <div class="text-xs font-medium">Business & Tech</div>
+                                <div class="text-xs font-medium">{% trans "Business & Tech" %}</div>
                             </div>
                         </label>
                     </div>
-                    <p class="text-sm text-gray-500 mt-2">Select all that apply, or skip to continue</p>
+                    <p class="text-sm text-gray-500 mt-2">{% trans "Select all that apply, or skip to continue" %}</p>
                 </div>
 
                 <!-- Custom Interests -->
                 <div class="mb-6" x-data="charCounter" data-initial-count="{{ profile.interests|length|default:0 }}" data-max-length="300">
                     <label for="{{ form.interests.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
-                        {% include "shared/icons/pencil.html" with class="w-5 h-5" %} Or write your own interests
+                        {% include "shared/icons/pencil.html" with class="w-5 h-5" %} {% trans "Or write your own interests" %}
                     </label>
                     <textarea name="interests"
                               id="{{ form.interests.id_for_label }}"
@@ -506,18 +506,18 @@
                               rows="2"
                               maxlength="300"
                               @input="updateCount"
-                              placeholder="e.g., hiking, photography, cooking...">{{ profile.interests|default:"" }}</textarea>
+                              placeholder="{% trans "e.g., hiking, photography, cooking..." %}">{{ profile.interests|default:"" }}</textarea>
                     <div class="text-right text-sm text-gray-400 mt-1">
-                        <span x-text="charCount"></span>/300 characters
+                        <span x-text="charCount"></span>/300 {% trans "characters" %}
                     </div>
                 </div>
 
                 <!-- Looking For -->
                 <fieldset class="mb-6">
                     <legend class="block text-sm font-medium text-gray-700 mb-3">
-                        <span aria-hidden="true">{% include "shared/icons/heart.html" with class="w-5 h-5" %}</span> What are you looking for? <span class="text-red-500" aria-label="required">*</span>
+                        <span aria-hidden="true">{% include "shared/icons/heart.html" with class="w-5 h-5" %}</span> {% trans "What are you looking for?" %} <span class="text-red-500" aria-label="required">*</span>
                     </legend>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3" role="radiogroup" aria-label="Select what you are looking for">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3" role="radiogroup" aria-label="{% trans "Select what you are looking for" %}">
                         <label class="cursor-pointer">
                             <input type="radio" name="looking_for" value="friends" class="peer hidden"
                                    {% if profile.looking_for == 'friends' %}checked{% endif %} required>
@@ -525,7 +525,7 @@
                                         peer-checked:border-purple-500 peer-checked:bg-purple-50
                                         hover:border-purple-300">
                                 <div class="text-2xl mb-1">👋</div>
-                                <div class="text-sm font-medium">New Friends</div>
+                                <div class="text-sm font-medium">{% trans "New Friends" %}</div>
                             </div>
                         </label>
                         <label class="cursor-pointer">
@@ -535,7 +535,7 @@
                                         peer-checked:border-purple-500 peer-checked:bg-purple-50
                                         hover:border-purple-300">
                                 <div class="text-2xl mb-1">💕</div>
-                                <div class="text-sm font-medium">Dating</div>
+                                <div class="text-sm font-medium">{% trans "Dating" %}</div>
                             </div>
                         </label>
                         <label class="cursor-pointer">
@@ -545,7 +545,7 @@
                                         peer-checked:border-purple-500 peer-checked:bg-purple-50
                                         hover:border-purple-300">
                                 <div class="text-2xl mb-1">🌟</div>
-                                <div class="text-sm font-medium">Both</div>
+                                <div class="text-sm font-medium">{% trans "Both" %}</div>
                             </div>
                         </label>
                         <label class="cursor-pointer">
@@ -555,7 +555,7 @@
                                         peer-checked:border-purple-500 peer-checked:bg-purple-50
                                         hover:border-purple-300">
                                 <div class="text-2xl mb-1">🤝</div>
-                                <div class="text-sm font-medium">Networking</div>
+                                <div class="text-sm font-medium">{% trans "Networking" %}</div>
                             </div>
                         </label>
                     </div>
@@ -573,7 +573,7 @@
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                         </svg>
-                        Back
+                        {% trans "Back" %}
                     </button>
                     <button type="button" @click="saveAndNextStep2"
                             x-bind:disabled="isSavingStep"
@@ -581,7 +581,7 @@
                                    hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2">
                         <template x-if="isNotSaving">
                             <span class="flex items-center gap-2">
-                                Continue
+                                {% trans "Continue" %}
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                                 </svg>
@@ -593,7 +593,7 @@
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                Saving...
+                                {% trans "Saving..." %}
                             </span>
                         </template>
                     </button>
@@ -622,8 +622,8 @@
 
                 <div class="text-center mb-6">
                     <div class="text-4xl mb-2">📸</div>
-                    <h3 class="text-xl font-semibold">Add Photos</h3>
-                    <p class="text-gray-500 text-sm">Upload at least one photo (optional but recommended)</p>
+                    <h3 class="text-xl font-semibold">{% trans "Add Photos" %}</h3>
+                    <p class="text-gray-500 text-sm">{% trans "Upload at least one photo (optional but recommended)" %}</p>
                 </div>
 
                 <!-- Photo Upload Grid -->
@@ -651,7 +651,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
                                 </svg>
-                                <span class="text-sm">Photo 1</span>
+                                <span class="text-sm">{% trans "Photo" %} 1</span>
                             </div>
                         </label>
                         <button type="button" x-show="photo1HasImage" @click="removePhoto1"
@@ -678,7 +678,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
                                 </svg>
-                                <span class="text-sm">Photo 2</span>
+                                <span class="text-sm">{% trans "Photo" %} 2</span>
                             </div>
                         </label>
                         <button type="button" x-show="photo2HasImage" @click="removePhoto2"
@@ -705,7 +705,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
                                 </svg>
-                                <span class="text-sm">Photo 3</span>
+                                <span class="text-sm">{% trans "Photo" %} 3</span>
                             </div>
                         </label>
                         <button type="button" x-show="photo3HasImage" @click="removePhoto3"
@@ -724,7 +724,7 @@
                         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
                     </svg>
                     <div>
-                        <strong>Tip:</strong> Use clear photos where your face is visible. Avoid group photos!
+                        <strong>{% trans "Tip:" %}</strong> {% trans "Use clear photos where your face is visible. Avoid group photos!" %}
                     </div>
                 </div>
 
@@ -734,7 +734,7 @@
                         <svg class="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
                         </svg>
-                        Privacy Settings
+                        {% trans "Privacy Settings" %}
                     </h5>
 
                     <div class="space-y-4">
@@ -742,8 +742,8 @@
                             <input type="checkbox" name="show_full_name"
                                    class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                             <div>
-                                <span class="font-medium">Show my full name</span>
-                                <p class="text-sm text-gray-500">Otherwise only your first name will be shown</p>
+                                <span class="font-medium">{% trans "Show my full name" %}</span>
+                                <p class="text-sm text-gray-500">{% trans "Otherwise only your first name will be shown" %}</p>
                             </div>
                         </label>
 
@@ -751,8 +751,8 @@
                             <input type="checkbox" name="show_exact_age" checked
                                    class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                             <div>
-                                <span class="font-medium">Show my exact age</span>
-                                <p class="text-sm text-gray-500">Otherwise show age range (e.g., 25-29)</p>
+                                <span class="font-medium">{% trans "Show my exact age" %}</span>
+                                <p class="text-sm text-gray-500">{% trans "Otherwise show age range (e.g., 25-29)" %}</p>
                             </div>
                         </label>
 
@@ -760,8 +760,8 @@
                             <input type="checkbox" name="blur_photos"
                                    class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                             <div>
-                                <span class="font-medium">Blur my photos until mutual interest</span>
-                                <p class="text-sm text-gray-500">Photos will only be visible after you both connect</p>
+                                <span class="font-medium">{% trans "Blur my photos until mutual interest" %}</span>
+                                <p class="text-sm text-gray-500">{% trans "Photos will only be visible after you both connect" %}</p>
                             </div>
                         </label>
                     </div>
@@ -776,7 +776,7 @@
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                         </svg>
-                        Back
+                        {% trans "Back" %}
                     </button>
                     <button type="button" @click="saveAndNextStep3"
                             x-bind:disabled="isSavingStep"
@@ -784,7 +784,7 @@
                                    hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2">
                         <template x-if="isNotSaving">
                             <span class="flex items-center gap-2">
-                                Continue
+                                {% trans "Continue" %}
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                                 </svg>
@@ -796,7 +796,7 @@
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                Saving...
+                                {% trans "Saving..." %}
                             </span>
                         </template>
                     </button>
@@ -825,8 +825,8 @@
 
                 <div class="text-center mb-6">
                     <div class="text-4xl mb-2">✅</div>
-                    <h3 class="text-xl font-semibold">Review & Submit</h3>
-                    <p class="text-gray-500 text-sm">Almost done! Review your information</p>
+                    <h3 class="text-xl font-semibold">{% trans "Review & Submit" %}</h3>
+                    <p class="text-gray-500 text-sm">{% trans "Almost done! Review your information" %}</p>
                 </div>
 
                 <!-- Review Summary -->
@@ -836,8 +836,8 @@
                             {% include "shared/icons/phone.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">Phone Number</span>
-                            <p class="font-medium" x-ref="reviewPhone">Not provided</p>
+                            <span class="text-sm text-gray-500">{% trans "Phone Number" %}</span>
+                            <p class="font-medium" x-ref="reviewPhone">{% trans "Not provided" %}</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-3">
@@ -845,8 +845,8 @@
                             {% include "shared/icons/calendar.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">Date of Birth</span>
-                            <p class="font-medium" x-ref="reviewDob">Not provided</p>
+                            <span class="text-sm text-gray-500">{% trans "Date of Birth" %}</span>
+                            <p class="font-medium" x-ref="reviewDob">{% trans "Not provided" %}</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-3">
@@ -854,8 +854,8 @@
                             {% include "shared/icons/user.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">Gender</span>
-                            <p class="font-medium" x-ref="reviewGender">Not selected</p>
+                            <span class="text-sm text-gray-500">{% trans "Gender" %}</span>
+                            <p class="font-medium" x-ref="reviewGender">{% trans "Not selected" %}</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-3">
@@ -863,8 +863,8 @@
                             {% include "shared/icons/map-pin.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">Location</span>
-                            <p class="font-medium" x-ref="reviewLocation">Not selected</p>
+                            <span class="text-sm text-gray-500">{% trans "Location" %}</span>
+                            <p class="font-medium" x-ref="reviewLocation">{% trans "Not selected" %}</p>
                         </div>
                     </div>
                 </div>
@@ -873,36 +873,36 @@
                 <div class="mb-6">
                     <h5 class="font-semibold mb-4 flex items-center gap-2">
                         {% include "shared/icons/hourglass.html" with class="w-5 h-5 text-purple-600" %}
-                        What Happens Next?
+                        {% trans "What Happens Next?" %}
                     </h5>
 
                     <div class="space-y-4">
                         <div class="flex gap-4">
                             <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">1</div>
                             <div>
-                                <h6 class="font-medium">Profile Submitted</h6>
-                                <p class="text-sm text-gray-500">Your profile is sent to our Crush Coach team</p>
+                                <h6 class="font-medium">{% trans "Profile Submitted" %}</h6>
+                                <p class="text-sm text-gray-500">{% trans "Your profile is sent to our Crush Coach team" %}</p>
                             </div>
                         </div>
                         <div class="flex gap-4">
                             <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">2</div>
                             <div>
-                                <h6 class="font-medium">Coach Review</h6>
-                                <p class="text-sm text-gray-500">A coach will review your profile within 24-48 hours</p>
+                                <h6 class="font-medium">{% trans "Coach Review" %}</h6>
+                                <p class="text-sm text-gray-500">{% trans "A coach will review your profile within 24-48 hours" %}</p>
                             </div>
                         </div>
                         <div class="flex gap-4">
                             <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">3</div>
                             <div>
-                                <h6 class="font-medium">Screening Call</h6>
-                                <p class="text-sm text-gray-500">Your coach will call you to discuss your profile and goals</p>
+                                <h6 class="font-medium">{% trans "Screening Call" %}</h6>
+                                <p class="text-sm text-gray-500">{% trans "Your coach will call you to discuss your profile and goals" %}</p>
                             </div>
                         </div>
                         <div class="flex gap-4">
                             <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">4</div>
                             <div>
-                                <h6 class="font-medium">Profile Approved</h6>
-                                <p class="text-sm text-gray-500">You can start attending events and making connections!</p>
+                                <h6 class="font-medium">{% trans "Profile Approved" %}</h6>
+                                <p class="text-sm text-gray-500">{% trans "You can start attending events and making connections!" %}</p>
                             </div>
                         </div>
                     </div>
@@ -914,7 +914,7 @@
                         <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                     </svg>
                     <div>
-                        <strong>Privacy First:</strong> Your phone number will only be used by your coach for screening. It won't be shared with other members without your consent.
+                        <strong>{% trans "Privacy First:" %}</strong> {% trans "Your phone number will only be used by your coach for screening. It won't be shared with other members without your consent." %}
                     </div>
                 </div>
 
@@ -926,7 +926,7 @@
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                         </svg>
-                        Back
+                        {% trans "Back" %}
                     </button>
                     <button type="submit"
                             :disabled="isSubmitting"
@@ -938,7 +938,7 @@
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                 </svg>
-                                Submit Profile
+                                {% trans "Submit Profile" %}
                             </span>
                         </template>
                         <template x-if="isSubmitting">
@@ -947,7 +947,7 @@
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                Submitting...
+                                {% trans "Submitting..." %}
                             </span>
                         </template>
                     </button>
@@ -995,19 +995,19 @@
                 </button>
 
                 <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
-                    {% include "shared/icons/phone.html" with class="w-5 h-5" %} Verify Your Phone
+                    {% include "shared/icons/phone.html" with class="w-5 h-5" %} {% trans "Verify Your Phone" %}
                 </h3>
 
                 <!-- Step: Sending -->
                 <div x-show="isSendingStep" class="text-center py-8">
                     <div class="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p class="text-gray-600">Sending verification code...</p>
+                    <p class="text-gray-600">{% trans "Sending verification code..." %}</p>
                 </div>
 
                 <!-- Step: Enter Code -->
                 <div x-show="isCodeStep" class="text-center">
                     <p class="mb-4">
-                        We sent a 6-digit code to<br>
+                        {% trans "We sent a 6-digit code to" %}<br>
                         <strong x-text="maskedPhone"></strong>
                     </p>
 
@@ -1040,18 +1040,18 @@
                             x-bind:disabled="isCodeIncomplete"
                             class="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold
                                    hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 transition">
-                        Verify Code
+                        {% trans "Verify Code" %}
                     </button>
 
                     <!-- Resend -->
                     <div class="mt-4 text-sm text-gray-500">
                         <span x-show="cannotResend">
-                            Resend available in <span x-text="resendCountdown"></span>s
+                            {% trans "Resend available in" %} <span x-text="resendCountdown"></span>s
                         </span>
                         <button x-show="canResend"
                                 @click="resendCode"
                                 class="text-purple-600 hover:text-purple-800 font-medium">
-                            Resend Code
+                            {% trans "Resend Code" %}
                         </button>
                     </div>
                 </div>
@@ -1059,7 +1059,7 @@
                 <!-- Step: Verifying -->
                 <div x-show="isVerifyingStep" class="text-center py-8">
                     <div class="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p class="text-gray-600">Verifying your code...</p>
+                    <p class="text-gray-600">{% trans "Verifying your code..." %}</p>
                 </div>
 
                 <!-- Step: Success -->
@@ -1069,8 +1069,8 @@
                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                         </svg>
                     </div>
-                    <h4 class="text-xl font-semibold text-green-700 mb-2">Phone Verified!</h4>
-                    <p class="text-gray-500">Your phone number has been verified successfully.</p>
+                    <h4 class="text-xl font-semibold text-green-700 mb-2">{% trans "Phone Verified!" %}</h4>
+                    <p class="text-gray-500">{% trans "Your phone number has been verified successfully." %}</p>
                 </div>
             </div>
         </div>

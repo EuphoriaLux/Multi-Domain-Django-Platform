@@ -1,13 +1,13 @@
 {% extends 'crush_lu/base.html' %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}About Crush.lu - Privacy-First Dating Platform in Luxembourg{% endblock %}
+{% block title %}{% trans "About Crush.lu - Privacy-First Dating Platform in Luxembourg" %}{% endblock %}
 
-{% block og_title %}About Crush.lu - Our Mission & Values{% endblock %}
-{% block og_description %}Learn about Crush.lu, Luxembourg's privacy-first dating platform. Discover our mission to bring authentic connections through coach-curated profiles and real-world events.{% endblock %}
+{% block og_title %}{% trans "About Crush.lu - Our Mission & Values" %}{% endblock %}
+{% block og_description %}{% trans "Learn about Crush.lu, Luxembourg's privacy-first dating platform. Discover our mission to bring authentic connections through coach-curated profiles and real-world events." %}{% endblock %}
 
-{% block meta_description %}About Crush.lu: We're bringing authentic connections back to Luxembourg's dating scene. Coach-reviewed profiles, privacy-focused, and event-based meetups for meaningful relationships.{% endblock %}
-{% block meta_keywords %}about crush.lu, dating luxembourg, crush coaches, privacy dating, authentic connections, luxembourg singles community{% endblock %}
+{% block meta_description %}{% trans "About Crush.lu: We're bringing authentic connections back to Luxembourg's dating scene. Coach-reviewed profiles, privacy-focused, and event-based meetups for meaningful relationships." %}{% endblock %}
+{% block meta_keywords %}{% trans "about crush.lu, dating luxembourg, crush coaches, privacy dating, authentic connections, luxembourg singles community" %}{% endblock %}
 
 {% block structured_data %}
 {{ block.super }}
@@ -21,13 +21,13 @@
         {
             "@type": "ListItem",
             "position": 1,
-            "name": "Home",
+            "name": "{% trans "Home" %}",
             "item": "https://crush.lu/"
         },
         {
             "@type": "ListItem",
             "position": 2,
-            "name": "About",
+            "name": "{% trans "About" %}",
             "item": "https://crush.lu{% url 'crush_lu:about' %}"
         }
     ]
@@ -39,12 +39,12 @@
 {
     "@context": "https://schema.org",
     "@type": "AboutPage",
-    "name": "About Crush.lu",
-    "description": "Learn about Crush.lu, Luxembourg's privacy-first dating platform bringing authentic connections through coach-curated profiles and real-world events.",
+    "name": "{% trans "About Crush.lu" %}",
+    "description": "{% trans "Learn about Crush.lu, Luxembourg's privacy-first dating platform bringing authentic connections through coach-curated profiles and real-world events." %}",
     "mainEntity": {
         "@type": "Organization",
         "name": "Crush.lu",
-        "description": "Privacy-first dating platform for Luxembourg. Meet real people at organized events - no endless swiping, just authentic connections.",
+        "description": "{% trans "Privacy-first dating platform for Luxembourg. Meet real people at organized events - no endless swiping, just authentic connections." %}",
         "url": "https://crush.lu",
         "areaServed": "Luxembourg"
     }
@@ -54,53 +54,50 @@
 
 {% block content %}
 <div class="max-w-3xl mx-auto">
-    <h1 class="text-center text-3xl font-bold mb-10">About Crush.lu</h1>
+    <h1 class="text-center text-3xl font-bold mb-10">{% trans "About Crush.lu" %}</h1>
 
     <div class="bg-white rounded-xl shadow-sm mb-6">
         <div class="p-6">
-            <h3 class="text-xl font-semibold mb-3">Our Mission</h3>
+            <h3 class="text-xl font-semibold mb-3">{% trans "Our Mission" %}</h3>
             <p class="text-xl text-gray-600 mb-3">
-                We're bringing back authentic connections in Luxembourg's dating scene.
+                {% trans "We're bringing back authentic connections in Luxembourg's dating scene." %}
             </p>
             <p class="text-gray-600">
-                In a world of endless swiping and superficial matches, Crush.lu takes a different approach.
-                We believe that real relationships start with real conversations, face-to-face.
+                {% trans "In a world of endless swiping and superficial matches, Crush.lu takes a different approach. We believe that real relationships start with real conversations, face-to-face." %}
             </p>
         </div>
     </div>
 
     <div class="bg-white rounded-xl shadow-sm mb-6">
         <div class="p-6">
-            <h3 class="text-xl font-semibold mb-3">Why Luxembourg?</h3>
+            <h3 class="text-xl font-semibold mb-3">{% trans "Why Luxembourg?" %}</h3>
             <p class="text-gray-600">
-                Luxembourg is a small, tight-knit community where privacy and discretion matter.
-                Our platform is designed with this in mind, offering a curated experience that
-                respects your privacy while helping you meet compatible people.
+                {% trans "Luxembourg is a small, tight-knit community where privacy and discretion matter. Our platform is designed with this in mind, offering a curated experience that respects your privacy while helping you meet compatible people." %}
             </p>
         </div>
     </div>
 
     <div class="bg-white rounded-xl shadow-sm mb-6">
         <div class="p-6">
-            <h3 class="text-xl font-semibold mb-3">The Crush Coach Difference</h3>
+            <h3 class="text-xl font-semibold mb-3">{% trans "The Crush Coach Difference" %}</h3>
             <p class="text-gray-600 mb-3">
-                Every profile on Crush.lu is reviewed by a dedicated Crush Coach. This ensures:
+                {% trans "Every profile on Crush.lu is reviewed by a dedicated Crush Coach. This ensures:" %}
             </p>
             <ul class="list-disc list-inside text-gray-600 space-y-2">
-                <li>Authentic profiles only - no bots, no catfishing</li>
-                <li>Personalized guidance to help you present your best self</li>
-                <li>A safer, more respectful community</li>
-                <li>Support throughout your journey to find connections</li>
+                <li>{% trans "Authentic profiles only - no bots, no catfishing" %}</li>
+                <li>{% trans "Personalized guidance to help you present your best self" %}</li>
+                <li>{% trans "A safer, more respectful community" %}</li>
+                <li>{% trans "Support throughout your journey to find connections" %}</li>
             </ul>
         </div>
     </div>
 
     <div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 rounded-xl shadow-sm mb-6">
         <div class="p-8 text-center">
-            <h3 class="text-xl font-semibold mb-3">Ready to Get Started?</h3>
-            <p class="text-gray-600 mb-6">Join our community and start meeting new people today!</p>
+            <h3 class="text-xl font-semibold mb-3">{% trans "Ready to Get Started?" %}</h3>
+            <p class="text-gray-600 mb-6">{% trans "Join our community and start meeting new people today!" %}</p>
             <a href="{% url 'crush_lu:signup' %}" class="btn-crush-primary inline-flex items-center justify-center px-8 py-4 text-lg">
-                Create Your Profile
+                {% trans "Create Your Profile" %}
             </a>
         </div>
     </div>
