@@ -6,7 +6,20 @@ This module configures mocks for external services to ensure tests run
 without requiring real Azure, email, or OAuth credentials.
 """
 import os
+import sys
 import pytest
+from unittest.mock import MagicMock
+
+# Mock pywebpush module before Django imports it
+# This allows tests to run without installing pywebpush (which has complex C dependencies)
+mock_pywebpush = MagicMock()
+mock_pywebpush.WebPushException = type('WebPushException', (Exception,), {
+    '__init__': lambda self, message, response=None: (
+        setattr(self, 'response', response) or Exception.__init__(self, message)
+    )
+})
+mock_pywebpush.webpush = MagicMock()
+sys.modules['pywebpush'] = mock_pywebpush
 
 
 # Force synchronous database operations for Playwright tests

@@ -20,6 +20,9 @@ on:
       - 'LICENSE'
       - 'README.md'
       - 'CLAUDE.md'
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 # Cancel in-progress deployments when a new one starts
@@ -32,7 +35,6 @@ jobs:
   # Quick pre-deployment validation (runs in ~30 seconds)
   validate:
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[skip deploy]')"
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -101,6 +103,7 @@ jobs:
 
   deploy:
     needs: [validate, test]  # Only deploy if validation AND tests pass
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'  # Only deploy on push to main, not PRs
     runs-on: ubuntu-latest
     permissions:
       id-token: write
