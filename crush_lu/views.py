@@ -10,6 +10,7 @@ from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+from django.urls import reverse
 from django.conf import settings
 from datetime import timedelta
 import logging
@@ -61,6 +62,7 @@ from .coach_notifications import (
     notify_coach_new_submission,
     notify_coach_user_revision,
 )
+from .referrals import capture_referral, capture_referral_from_request, apply_referral_to_user
 
 
 # Authentication views - login/logout are now handled by AllAuth
@@ -725,6 +727,18 @@ def delete_account(request):
 
 
 # Onboarding
+def referral_redirect(request, code):
+    """
+    Referral landing route.
+    Stores referral attribution and redirects to signup with code preserved.
+    """
+    referral = capture_referral(request, code, source="link")
+    signup_url = reverse('crush_lu:signup')
+    if referral:
+        return redirect(f"{signup_url}?ref={referral.code}")
+    return redirect(signup_url)
+
+
 @ratelimit(key='ip', rate='5/h', method='POST')
 def signup(request):
     """
@@ -734,6 +748,7 @@ def signup(request):
     """
     from allauth.account.forms import LoginForm
 
+    capture_referral_from_request(request)
     signup_form = CrushSignupForm()
     login_form = LoginForm()
 
@@ -3587,4 +3602,3 @@ def pwa_debug_view(request):
     return render(request, 'crush_lu/pwa_debug.html', {
         'sw_version': 'crush-v16-icon-cache-fix',  # Keep in sync with sw-workbox.js
     })
-

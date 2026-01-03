@@ -7,6 +7,8 @@ from django.utils.translation import get_language, override
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.account.adapter import DefaultAccountAdapter
 
+from .referrals import apply_referral_to_user
+
 
 def get_i18n_redirect_url(request, url_name, user=None):
     """
@@ -85,6 +87,11 @@ class CrushSocialAccountAdapter(DefaultSocialAccountAdapter):
 
         return user
 
+    def save_user(self, request, sociallogin, form=None):
+        user = super().save_user(request, sociallogin, form=form)
+        apply_referral_to_user(request, user)
+        return user
+
 
 class CrushAccountAdapter(DefaultAccountAdapter):
     """
@@ -128,3 +135,8 @@ class CrushAccountAdapter(DefaultAccountAdapter):
         Allow signups for all domains
         """
         return True
+
+    def save_user(self, request, user, form, commit=True):
+        user = super().save_user(request, user, form, commit=commit)
+        apply_referral_to_user(request, user)
+        return user

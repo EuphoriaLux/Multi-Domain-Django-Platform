@@ -21,6 +21,7 @@ from crush_lu.models import (
     CrushCoach, CrushProfile, ProfileSubmission, CoachSession,
     EventRegistration, EventConnection,
     SpecialUserExperience, JourneyConfiguration, JourneyProgress,
+    ReferralCode, ReferralAttribution,
 )
 from .filters import ReviewTimeFilter, SubmissionWorkflowFilter, CoachAssignmentFilter
 
@@ -127,7 +128,7 @@ class ProfileSubmissionProfileInline(admin.TabularInline):
 
 
 class CrushProfileAdmin(admin.ModelAdmin):
-    list_display = ('get_user_link', 'get_email', 'age', 'gender', 'location', 'get_language_display', 'phone_verified_icon', 'completion_status', 'get_assigned_coach', 'is_approved', 'is_active', 'created_at', 'is_coach')
+    list_display = ('get_user_link', 'get_email', 'age', 'gender', 'location', 'get_language_display', 'phone_verified_icon', 'completion_status', 'get_assigned_coach', 'get_referral_code', 'get_referral_count', 'is_approved', 'is_active', 'created_at', 'is_coach')
     list_filter = ('is_approved', 'is_active', 'phone_verified', 'gender', 'completion_status', CoachAssignmentFilter, 'preferred_language', 'looking_for', 'created_at')
     search_fields = ('user__username', 'user__email', 'location', 'bio', 'phone_number')
     ordering = ['-is_approved', '-is_active', '-created_at']
@@ -139,6 +140,8 @@ class CrushProfileAdmin(admin.ModelAdmin):
         'phone_verified_at', 'phone_verification_uid',
         'get_event_registrations',
         'get_connections_summary',
+        'get_referral_code',
+        'get_referral_count',
         'get_journey_progress',
     )
     actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'reset_phone_verification', 'export_profiles_csv']
@@ -193,6 +196,10 @@ class CrushProfileAdmin(admin.ModelAdmin):
         ('Connections', {
             'fields': ('get_connections_summary',),
             'description': 'Connections sent and received from events',
+        }),
+        ('Referrals', {
+            'fields': ('get_referral_code', 'get_referral_count'),
+            'description': 'Referral code and conversions for this profile',
         }),
         ('Journey Progress', {
             'fields': ('get_journey_progress',),
@@ -410,6 +417,23 @@ class CrushProfileAdmin(admin.ModelAdmin):
 
         return format_html(html)
     get_connections_summary.short_description = 'Connections'
+
+    def get_referral_code(self, obj):
+        code = ReferralCode.objects.filter(referrer=obj, is_active=True).order_by('-created_at').first()
+        return code.code if code else '—'
+    get_referral_code.short_description = 'Referral Code'
+
+    def get_referral_count(self, obj):
+        converted = ReferralAttribution.objects.filter(
+            referrer=obj,
+            status=ReferralAttribution.Status.CONVERTED
+        ).count()
+        pending = ReferralAttribution.objects.filter(
+            referrer=obj,
+            status=ReferralAttribution.Status.PENDING
+        ).count()
+        return f"{converted} converted / {pending} pending"
+    get_referral_count.short_description = 'Referrals'
 
     def get_user_account_info(self, obj):
         """Display comprehensive User account information as HTML block"""
