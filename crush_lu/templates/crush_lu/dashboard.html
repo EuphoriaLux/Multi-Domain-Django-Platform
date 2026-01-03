@@ -127,6 +127,31 @@
             {% endif %}
         </div>
     </div>
+
+    <!-- Membership Card -->
+    <div class="bg-white rounded-xl shadow-sm h-full">
+        <div class="p-6">
+            <h5 class="font-semibold text-lg mb-2">{% trans "Membership Card" %}</h5>
+            <p class="text-gray-500 mb-4">{% trans "Save your Crush.lu membership card to your mobile wallet and share your referral link." %}</p>
+            <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
+                <a href="{% url 'crush_lu:wallet_apple_pass' %}" class="btn-crush-primary inline-flex items-center gap-2 text-sm">
+                    {% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4" %}
+                    {% trans "Add to Apple Wallet" %}
+                </a>
+                <a href="{% url 'crush_lu:wallet_google_save' %}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+                    {% include "shared/icons/device-mobile.html" with class="w-4 h-4" %}
+                    {% trans "Save to Google Wallet" %}
+                </a>
+            </div>
+            <div class="mt-4">
+                <button type="button" id="share-referral-btn" data-referral-url="{{ referral_url }}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-purple-300 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors">
+                    {% include "shared/icons/link.html" with class="w-4 h-4" %}
+                    {% trans "Share Referral Link" %}
+                </button>
+                <p id="share-referral-status" class="text-sm text-green-600 mt-2 hidden" role="status" aria-live="polite"></p>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="grid grid-cols-1 gap-6 mb-6">
@@ -221,6 +246,85 @@
     </div>
 </div>
 {% endif %}
+
+{% trans "Crush.lu" as referral_share_title %}
+{% trans "Join me on Crush.lu" as referral_share_text %}
+{% trans "Referral link shared!" as referral_shared_message %}
+{% trans "Referral link copied to clipboard." as referral_copied_message %}
+{% trans "Unable to copy referral link." as referral_copy_failed_message %}
+{% trans "Referral link unavailable." as referral_unavailable_message %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const shareButton = document.getElementById('share-referral-btn');
+        if (!shareButton) {
+            return;
+        }
+
+        const statusElement = document.getElementById('share-referral-status');
+        const referralUrl = shareButton.dataset.referralUrl;
+        const shareTitle = "{{ referral_share_title|escapejs }}";
+        const shareText = "{{ referral_share_text|escapejs }}";
+        const sharedMessage = "{{ referral_shared_message|escapejs }}";
+        const copiedMessage = "{{ referral_copied_message|escapejs }}";
+        const copyFailedMessage = "{{ referral_copy_failed_message|escapejs }}";
+        const unavailableMessage = "{{ referral_unavailable_message|escapejs }}";
+
+        const setStatus = (message, isError = false) => {
+            if (!statusElement) {
+                return;
+            }
+            statusElement.textContent = message;
+            statusElement.classList.remove('hidden');
+            statusElement.classList.toggle('text-green-600', !isError);
+            statusElement.classList.toggle('text-red-600', isError);
+        };
+
+        shareButton.addEventListener('click', async () => {
+            if (!referralUrl) {
+                setStatus(unavailableMessage, true);
+                return;
+            }
+
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: shareTitle,
+                        text: shareText,
+                        url: referralUrl,
+                    });
+                    setStatus(sharedMessage);
+                    return;
+                } catch (error) {
+                    if (error && error.name === 'AbortError') {
+                        return;
+                    }
+                }
+            }
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                try {
+                    await navigator.clipboard.writeText(referralUrl);
+                    setStatus(copiedMessage);
+                    return;
+                } catch (error) {
+                    // Fall back to legacy copy below.
+                }
+            }
+
+            const tempInput = document.createElement('input');
+            tempInput.value = referralUrl;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            const copied = document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            if (copied) {
+                setStatus(copiedMessage);
+            } else {
+                setStatus(copyFailedMessage, true);
+            }
+        });
+    });
+</script>
 
 <!-- Styles are in static/crush_lu/css/pages/dashboard.css -->
 {% endblock %}

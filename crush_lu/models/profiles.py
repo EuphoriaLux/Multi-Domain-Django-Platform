@@ -360,6 +360,45 @@ class CrushProfile(models.Model):
         help_text="Preferred language for emails and notifications"
     )
 
+    # Wallet passes
+    apple_pass_serial = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="Apple Wallet pass serial number"
+    )
+    apple_auth_token = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="Apple Wallet authentication token"
+    )
+    google_wallet_object_id = models.CharField(
+        max_length=128,
+        blank=True,
+        help_text="Google Wallet object ID"
+    )
+    show_photo_on_wallet = models.BooleanField(
+        default=True,
+        help_text="Show profile photo on wallet card"
+    )
+
+    # Referral Rewards
+    MEMBERSHIP_TIER_CHOICES = [
+        ('basic', 'Basic'),
+        ('bronze', 'Bronze'),
+        ('silver', 'Silver'),
+        ('gold', 'Gold'),
+    ]
+    referral_points = models.PositiveIntegerField(
+        default=0,
+        help_text="Points earned from referrals"
+    )
+    membership_tier = models.CharField(
+        max_length=20,
+        choices=MEMBERSHIP_TIER_CHOICES,
+        default='basic',
+        help_text="Membership tier based on referral activity"
+    )
+
     # Status
     is_approved = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)

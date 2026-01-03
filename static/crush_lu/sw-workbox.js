@@ -16,6 +16,19 @@
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
+  const acceptHeader = event.request.headers.get('accept') || '';
+  const isGoogleWalletSaveUrl =
+    (url.hostname === 'pay.google.com' && url.pathname.startsWith('/gp/v/save')) ||
+    (url.hostname === 'wallet.google.com' && url.pathname.startsWith('/save'));
+
+  // TRUE HARD BYPASS: Apple Wallet pkpass downloads & Google Wallet save URLs
+  if (
+    acceptHeader.includes('application/vnd.apple.pkpass') ||
+    isGoogleWalletSaveUrl
+  ) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
 
   // TRUE HARD BYPASS: External CDN resources (cross-origin)
   // These cause "opaque" response errors when cached by service worker
@@ -31,6 +44,7 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/oauth/') ||      // OAuth landing and callbacks
     url.pathname.includes('/login/callback') ||// Explicit callback match
     url.pathname.startsWith('/api/auth/') ||   // Auth status API
+    url.pathname.startsWith('/wallet/') ||     // Wallet pass endpoints
     url.pathname === '/login/' ||              // Login page
     url.pathname === '/logout/'                // Logout page
   ) {
@@ -223,7 +237,8 @@ if (workbox) {
         url.pathname.startsWith('/accounts/') ||
         url.pathname.startsWith('/oauth/') ||
         url.pathname.startsWith('/login') ||
-        url.pathname.startsWith('/logout')
+        url.pathname.startsWith('/logout') ||
+        url.pathname.startsWith('/wallet/')
       ),
     new workbox.strategies.NetworkOnly()
   );
@@ -261,12 +276,25 @@ if (workbox) {
 
   console.log('[Workbox] Auth routes registered (NetworkOnly backup)');
 
+  // Wallet routes - NetworkOnly to prevent pass caching
+  workbox.routing.registerRoute(
+    ({ url, request }) =>
+      url.pathname.startsWith('/wallet/') ||
+      (request.headers.get('accept') || '').includes('application/vnd.apple.pkpass') ||
+      (url.hostname === 'pay.google.com' && url.pathname.startsWith('/gp/v/save')) ||
+      (url.hostname === 'wallet.google.com' && url.pathname.startsWith('/save')),
+    new workbox.strategies.NetworkOnly()
+  );
+
+  console.log('[Workbox] Wallet routes registered (NetworkOnly)');
+
   // Helper function to check if path matches authenticated routes (with i18n support)
   function isAuthenticatedRoute(pathname) {
     const authPaths = [
       '/admin', '/accounts', '/coach', '/dashboard',
       '/login', '/logout', '/profile', '/connections',
       '/journey', '/create-profile', '/edit', '/signup',
+      '/wallet',           // Wallet pass endpoints - must never be cached
       '/oauth-complete',   // PWA OAuth return handler - must never be cached
       '/oauth/popup-callback',  // Popup OAuth callback - must never be cached
       '/oauth/popup-error',     // Popup OAuth error - must never be cached

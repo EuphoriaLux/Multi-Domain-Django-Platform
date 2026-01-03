@@ -16,7 +16,8 @@ from .urls_shared import base_patterns, api_patterns
 from crush_lu.admin import crush_admin_site
 from crush_lu.admin.user_segments import user_segments_dashboard, segment_detail
 from crush_lu import admin_views, views, views_phone_verification, views_profile
-from crush_lu import api_views, api_push, api_coach_push, views_oauth_popup, api_journey
+from crush_lu import api_views, api_push, api_coach_push, views_oauth_popup, api_journey, views_wallet, api_referral
+from crush_lu.wallet import passkit_service
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt
 
@@ -76,11 +77,41 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/journey/unlock-puzzle-piece/', api_journey.unlock_puzzle_piece, name='api_unlock_puzzle_piece'),
     path('api/journey/reward-progress/<int:reward_id>/', api_journey.get_reward_progress, name='api_get_reward_progress'),
 
+    # PassKit Web Service (Apple Wallet)
+    path(
+        'wallet/v1/devices/<str:device_library_identifier>/registrations/<str:pass_type_identifier>/<str:serial_number>',
+        passkit_service.device_registration,
+        name='passkit_device_registration',
+    ),
+    path(
+        'wallet/v1/devices/<str:device_library_identifier>/registrations/<str:pass_type_identifier>',
+        passkit_service.list_device_registrations,
+        name='passkit_list_registrations',
+    ),
+    path(
+        'wallet/v1/passes/<str:pass_type_identifier>/<str:serial_number>',
+        passkit_service.get_latest_pass,
+        name='passkit_get_pass',
+    ),
+    path(
+        'wallet/v1/log',
+        passkit_service.log_endpoint,
+        name='passkit_log',
+    ),
+
     # Profile Step-by-Step Saving APIs (called from alpine-components.js with hardcoded paths)
     path('api/profile/save-step1/', views_profile.save_profile_step1, name='api_save_profile_step1'),
     path('api/profile/save-step2/', views_profile.save_profile_step2, name='api_save_profile_step2'),
     path('api/profile/save-step3/', views_profile.save_profile_step3, name='api_save_profile_step3'),
     path('api/profile/progress/', views_profile.get_profile_progress, name='api_get_profile_progress'),
+
+    # Wallet passes (language-neutral for platform-specific clients)
+    path('wallet/apple/pass/', views_wallet.apple_wallet_pass, name='wallet_apple_pass'),
+    path('wallet/google/jwt/', views_wallet.google_wallet_jwt, name='wallet_google_jwt'),
+
+    # Referral API (called from dashboard with hardcoded paths)
+    path('api/referral/me/', api_referral.referral_me, name='api_referral_me'),
+    path('api/referral/redeem/', api_referral.redeem_points, name='api_referral_redeem'),
 
     # ============================================================================
     # ADMIN PANELS (language-neutral - always accessible without language prefix)

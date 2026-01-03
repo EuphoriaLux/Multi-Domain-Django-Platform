@@ -5,11 +5,13 @@ from django.contrib.auth.models import User
 from django.contrib import messages
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from django.urls import reverse
 from django.db.models import Q
 from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+from django.urls import reverse
 from django.conf import settings
 from datetime import timedelta
 import logging
@@ -18,6 +20,7 @@ import json
 import base64
 import hashlib
 import hmac
+from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +64,7 @@ from .coach_notifications import (
     notify_coach_new_submission,
     notify_coach_user_revision,
 )
+from .referrals import capture_referral, capture_referral_from_request, apply_referral_to_user
 
 
 # Authentication views - login/logout are now handled by AllAuth
@@ -725,6 +729,18 @@ def delete_account(request):
 
 
 # Onboarding
+def referral_redirect(request, code):
+    """
+    Referral landing route.
+    Stores referral attribution and redirects to signup with code preserved.
+    """
+    referral = capture_referral(request, code, source="link")
+    signup_url = reverse('crush_lu:signup')
+    if referral:
+        return redirect(f"{signup_url}?ref={referral.code}")
+    return redirect(signup_url)
+
+
 @ratelimit(key='ip', rate='5/h', method='POST')
 def signup(request):
     """
@@ -734,6 +750,7 @@ def signup(request):
     """
     from allauth.account.forms import LoginForm
 
+    capture_referral_from_request(request)
     signup_form = CrushSignupForm()
     login_form = LoginForm()
 
@@ -1196,6 +1213,8 @@ def dashboard(request):
                 is_pwa_user = activity.is_pwa_user
         except Exception:
             pass
+        referral_query = urlencode({'ref': request.user.id})
+        referral_url = request.build_absolute_uri(f"{reverse('crush_lu:home')}?{referral_query}")
 
         context = {
             'profile': profile,
@@ -1203,12 +1222,34 @@ def dashboard(request):
             'registrations': registrations,
             'connection_count': connection_count,
             'is_pwa_user': is_pwa_user,
+            'referral_url': referral_url,
         }
     except CrushProfile.DoesNotExist:
         messages.warning(request, 'Please complete your profile first.')
         return redirect('crush_lu:create_profile')
 
     return render(request, 'crush_lu/dashboard.html', context)
+
+
+# Wallet
+@crush_login_required
+def wallet_apple_pass(request):
+    """Redirect to the Apple Wallet pass URL if configured."""
+    pass_url = getattr(settings, 'APPLE_WALLET_PASS_URL', None)
+    if pass_url:
+        return redirect(pass_url)
+    messages.error(request, _('Membership card is not available yet. Please try again later.'))
+    return redirect('crush_lu:dashboard')
+
+
+@crush_login_required
+def wallet_google_save(request):
+    """Redirect to the Google Wallet Save URL (JWT) if configured."""
+    save_url = getattr(settings, 'GOOGLE_WALLET_SAVE_URL', None)
+    if save_url:
+        return redirect(save_url)
+    messages.error(request, _('Membership card is not available yet. Please try again later.'))
+    return redirect('crush_lu:dashboard')
 
 
 # Events
@@ -3587,4 +3628,3 @@ def pwa_debug_view(request):
     return render(request, 'crush_lu/pwa_debug.html', {
         'sw_version': 'crush-v16-icon-cache-fix',  # Keep in sync with sw-workbox.js
     })
-

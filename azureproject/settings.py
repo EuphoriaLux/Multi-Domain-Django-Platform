@@ -216,6 +216,46 @@ SESSION_REMEMBER_ME = True
 # PWA Manifest version - bump when updating icons to force cache refresh
 PWA_MANIFEST_VERSION = "v16"
 
+# Wallet settings (Apple PassKit / Google Wallet)
+WALLET_APPLE_PASS_TYPE_IDENTIFIER = os.getenv("WALLET_APPLE_PASS_TYPE_IDENTIFIER", "")
+WALLET_APPLE_TEAM_IDENTIFIER = os.getenv("WALLET_APPLE_TEAM_IDENTIFIER", "")
+WALLET_APPLE_ORGANIZATION_NAME = os.getenv("WALLET_APPLE_ORGANIZATION_NAME", "Crush.lu")
+WALLET_APPLE_WEB_SERVICE_URL = os.getenv("WALLET_APPLE_WEB_SERVICE_URL", "")
+WALLET_APPLE_CERT_PATH = os.getenv("WALLET_APPLE_CERT_PATH", "")
+WALLET_APPLE_KEY_PATH = os.getenv("WALLET_APPLE_KEY_PATH", "")
+WALLET_APPLE_KEY_PASSWORD = os.getenv("WALLET_APPLE_KEY_PASSWORD", "")
+WALLET_APPLE_WWDR_CERT_PATH = os.getenv("WALLET_APPLE_WWDR_CERT_PATH", "")
+
+WALLET_GOOGLE_ISSUER_ID = os.getenv("WALLET_GOOGLE_ISSUER_ID", "")
+WALLET_GOOGLE_CLASS_SUFFIX = os.getenv("WALLET_GOOGLE_CLASS_SUFFIX", "crush-member")
+# CLASS_ID is derived from ISSUER_ID.CLASS_SUFFIX, or can be overridden
+WALLET_GOOGLE_CLASS_ID = os.getenv(
+    "WALLET_GOOGLE_CLASS_ID",
+    f"{WALLET_GOOGLE_ISSUER_ID}.{WALLET_GOOGLE_CLASS_SUFFIX}" if WALLET_GOOGLE_ISSUER_ID else ""
+)
+WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL = os.getenv("WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL", "")
+WALLET_GOOGLE_PRIVATE_KEY = os.getenv("WALLET_GOOGLE_PRIVATE_KEY", "")
+WALLET_GOOGLE_PRIVATE_KEY_PATH = os.getenv("WALLET_GOOGLE_PRIVATE_KEY_PATH", "")
+WALLET_GOOGLE_KEY_ID = os.getenv("WALLET_GOOGLE_KEY_ID", "")
+
+# Referral points configuration
+REFERRAL_POINTS_PER_SIGNUP = int(os.getenv("REFERRAL_POINTS_PER_SIGNUP", "100"))
+REFERRAL_POINTS_PER_PROFILE_APPROVED = int(
+    os.getenv("REFERRAL_POINTS_PER_PROFILE_APPROVED", "50")
+)
+
+# Membership tier thresholds (points needed to reach each tier)
+MEMBERSHIP_TIER_THRESHOLDS = {
+    "bronze": 200,
+    "silver": 500,
+    "gold": 1000,
+}
+
+# Points redemption rates
+POINTS_PER_EURO_DISCOUNT = 50  # 50 points = €1 off event fees
+POINTS_FOR_PRIORITY_ACCESS = 200  # Unlock priority event registration
+POINTS_FOR_VISIBILITY_BOOST = 150  # Boost profile visibility temporarily
+
 
 CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
 CRISPY_TEMPLATE_PACK = "tailwind"
@@ -581,3 +621,21 @@ PROFILE_REMINDER_TIMING = {
 # Set CSP_REPORT_ONLY = False to enforce after testing.
 CSP_REPORT_ONLY = True  # Report violations but don't block (development/initial rollout)
 CSP_REPORT_URI = '/csp-report/'  # Endpoint for violation reports
+
+# =============================================================================
+# PASSKIT (APPLE WALLET) SETTINGS
+# =============================================================================
+PASSKIT_WEB_SERVICE_BASE_PATH = "/wallet/v1"
+PASSKIT_AUTH_TOKEN = os.getenv("PASSKIT_AUTH_TOKEN")
+PASSKIT_AUTH_TOKEN_RESOLVER = os.getenv("PASSKIT_AUTH_TOKEN_RESOLVER")
+PASSKIT_PASS_PROVIDER = os.getenv("PASSKIT_PASS_PROVIDER")
+PASSKIT_PASS_JSON_PROVIDER = os.getenv("PASSKIT_PASS_JSON_PROVIDER")
+PASSKIT_PASS_PACKAGE_BUILDER = os.getenv("PASSKIT_PASS_PACKAGE_BUILDER")
+PASSKIT_APNS_KEY_ID = os.getenv("PASSKIT_APNS_KEY_ID")
+PASSKIT_APNS_TEAM_ID = os.getenv("PASSKIT_APNS_TEAM_ID")
+PASSKIT_APNS_PRIVATE_KEY = os.getenv("PASSKIT_APNS_PRIVATE_KEY")
+PASSKIT_APNS_USE_SANDBOX = os.getenv("PASSKIT_APNS_USE_SANDBOX", "").lower() in (
+    "1",
+    "true",
+    "yes",
+)

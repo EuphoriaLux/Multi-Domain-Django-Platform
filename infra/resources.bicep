@@ -200,6 +200,38 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       POPULATE_SAMPLE_DATA: 'false'
       //Added for Azure Redis Cache
  //     AZURE_REDIS_CONNECTIONSTRING: 'rediss://:${redisCache.listKeys().primaryKey}@${redisCache.name}.redis.cache.windows.net:6380/0'
+
+      // =============================================================================
+      // WALLET PASS CONFIGURATION (Crush.lu)
+      // =============================================================================
+      // NOTE: Sensitive values (private keys, passwords) should be added manually
+      // in Azure Portal -> App Service -> Configuration -> Application settings
+      //
+      // Apple Wallet - Add these manually in Azure Portal:
+      //   WALLET_APPLE_PASS_TYPE_IDENTIFIER=pass.lu.crush.member
+      //   WALLET_APPLE_TEAM_IDENTIFIER=<your-apple-team-id>
+      //   WALLET_APPLE_ORGANIZATION_NAME=Crush.lu
+      //   WALLET_APPLE_CERT_PATH=/home/site/wwwroot/certs/pass-cert.pem
+      //   WALLET_APPLE_KEY_PATH=/home/site/wwwroot/certs/pass-key.pem
+      //   WALLET_APPLE_WWDR_CERT_PATH=/home/site/wwwroot/certs/AppleWWDRCA.pem
+      //   WALLET_APPLE_KEY_PASSWORD=<your-key-password>
+      //   WALLET_APPLE_WEB_SERVICE_URL=https://crush.lu/wallet/v1
+      //   PASSKIT_APNS_KEY_ID=<your-apns-key-id>
+      //   PASSKIT_APNS_TEAM_ID=<your-apple-team-id>
+      //   PASSKIT_APNS_PRIVATE_KEY=<your-apns-private-key>
+      //   PASSKIT_APNS_USE_SANDBOX=false
+      //
+      // Google Wallet - Add these manually in Azure Portal:
+      //   WALLET_GOOGLE_ISSUER_ID=<your-google-issuer-id>
+      //   WALLET_GOOGLE_CLASS_SUFFIX=crush-member
+      //   WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL=<your-service-account>@<project>.iam.gserviceaccount.com
+      //   WALLET_GOOGLE_PRIVATE_KEY=<your-private-key-with-escaped-newlines>
+      //   WALLET_GOOGLE_KEY_ID=<optional-key-id>
+      // =============================================================================
+
+      // Referral points configuration (safe to include here)
+      REFERRAL_POINTS_PER_SIGNUP: '100'
+      REFERRAL_POINTS_PER_PROFILE_APPROVED: '50'
     }
   }
 
