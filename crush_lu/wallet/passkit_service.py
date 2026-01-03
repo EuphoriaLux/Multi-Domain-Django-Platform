@@ -29,7 +29,35 @@ def _load_callable(path):
     return getattr(module, attr)
 
 
+def _resolve_auth_token_from_profile(pass_type_identifier, serial_number):
+    """
+    Resolve PassKit auth token by looking up the CrushProfile with matching serial number.
+
+    Each Apple Wallet pass is generated with a unique auth token stored on the profile.
+    This resolver looks up that token so PassKit web service requests can be authenticated.
+    """
+    if not serial_number:
+        return None
+
+    from ..models import CrushProfile
+
+    try:
+        profile = CrushProfile.objects.filter(apple_pass_serial=serial_number).first()
+        if profile and profile.apple_auth_token:
+            return profile.apple_auth_token
+    except Exception as e:
+        logger.error("Error resolving PassKit auth token for serial %s: %s", serial_number, e)
+
+    return None
+
+
 def _get_expected_auth_token(pass_type_identifier, serial_number):
+    # First, try to resolve from CrushProfile (per-pass tokens)
+    profile_token = _resolve_auth_token_from_profile(pass_type_identifier, serial_number)
+    if profile_token:
+        return profile_token
+
+    # Then, check for custom resolver
     resolver_path = getattr(settings, "PASSKIT_AUTH_TOKEN_RESOLVER", None)
     if resolver_path:
         resolver = _load_callable(resolver_path)
@@ -37,10 +65,12 @@ def _get_expected_auth_token(pass_type_identifier, serial_number):
         if resolved:
             return resolved
 
+    # Check token map
     token_map = getattr(settings, "PASSKIT_AUTH_TOKENS", {})
     if isinstance(token_map, dict) and serial_number in token_map:
         return token_map[serial_number]
 
+    # Fall back to global token
     return getattr(settings, "PASSKIT_AUTH_TOKEN", None)
 
 

@@ -79,7 +79,7 @@ def apply_referral_to_user(request, user):
     if attribution:
         attribution.mark_converted(user)
     else:
-        ReferralAttribution.objects.create(
+        attribution = ReferralAttribution.objects.create(
             referral_code=referral,
             referrer=referral.referrer,
             referred_user=user,
@@ -93,6 +93,11 @@ def apply_referral_to_user(request, user):
 
     referral.last_used_at = timezone.now()
     referral.save(update_fields=['last_used_at'])
+
+    # Award signup points to the referrer
+    if attribution:
+        apply_referral_reward(attribution, reward_type="signup")
+
     return referral
 
 
