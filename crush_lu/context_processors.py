@@ -33,8 +33,8 @@ def crush_user_context(request):
 
         # Profile submission status for visual indicators
         profile_submission = None
-        if hasattr(request.user, 'crushprofile'):
-            profile = request.user.crushprofile
+        profile = CrushProfile.objects.filter(user=request.user).first()
+        if profile:
             context['profile_completion_status'] = profile.completion_status
 
             profile_submission = ProfileSubmission.objects.filter(
