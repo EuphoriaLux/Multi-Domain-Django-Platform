@@ -33,7 +33,7 @@ def user_with_profile(db):
     profile = CrushProfile.objects.create(
         user=user,
         date_of_birth='1990-01-01',
-        gender='male',
+        gender='M',
         location='Luxembourg',
         is_approved=True
     )

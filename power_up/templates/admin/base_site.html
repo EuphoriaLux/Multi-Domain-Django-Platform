@@ -1,14 +1,14 @@
 {% extends "admin/base.html" %}
 {% load i18n %}
 
-{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Entreprinder Administration') }}{% endblock %}
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Power-Up Administration') }}{% endblock %}
 
 {% block extrastyle %}
 {{ block.super }}
 <style>
-    /* Entreprinder Admin Branding - Orange/Amber theme for business networking */
+    /* Power-Up Admin Branding - Professional blue/gray theme for corporate site */
     #header {
-        background: linear-gradient(135deg, #f39c12, #e67e22) !important;
+        background: linear-gradient(135deg, #2c3e50, #34495e) !important;
     }
     #branding h1, #branding h1 a:link, #branding h1 a:visited {
         color: white !important;
@@ -26,7 +26,7 @@
 {% endblock %}
 
 {% block branding %}
-<div id="site-name"><a href="{% url 'entreprinder_admin:index' %}">{{ site_header|default:_('Entreprinder Administration') }}</a></div>
+<div id="site-name"><a href="{% url 'power_up_admin:index' %}">{{ site_header|default:_('Power-Up Administration') }}</a></div>
 {% if user.is_anonymous %}
   {% include "admin/color_theme_toggle.html" %}
 {% endif %}

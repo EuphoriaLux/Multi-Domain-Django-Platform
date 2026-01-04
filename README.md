@@ -13,7 +13,7 @@ Multi-domain Django application serving 6 distinct platforms from a single codeb
 |--------|-------------|------|
 | [crush.lu](https://crush.lu) | Privacy-first event-based dating for Luxembourg | Full-featured |
 | [vinsdelux.com](https://vinsdelux.com) | Premium wine e-commerce with vineyard plot adoption | Full-featured |
-| [powerup.lu](https://powerup.lu) | Entrepreneur networking with Tinder-style matching | Full-featured |
+| [entreprinder.lu](https://entreprinder.lu) | Entrepreneur networking with Tinder-style matching | Full-featured |
 | [power-up.lu](https://power-up.lu) | Corporate/investor information site | Static |
 | [tableau.lu](https://tableau.lu) | AI Art e-commerce platform | Static |
 | delegation.crush.lu | Crush.lu delegation features | Subdomain |
@@ -264,10 +264,10 @@ Domain-based routing is configured in `azureproject/domains.py`:
 | localhost, 127.0.0.1 | Uses `DEV_DEFAULT` | crush.lu |
 | crush.lu | `urls_crush.py` | - |
 | vinsdelux.com | `urls_vinsdelux.py` | - |
-| powerup.lu | `urls_powerup.py` | - |
-| power-up.lu | `urls_power_up.py` | - |
+| entreprinder.lu | `urls_entreprinder.py` | - |
+| power-up.lu, powerup.lu | `urls_power_up.py` | - |
 | tableau.lu | `urls_tableau.py` | - |
-| *.azurewebsites.net | `urls_powerup.py` | - |
+| *.azurewebsites.net | `urls_entreprinder.py` | - |
 
 ## Code Quality
 

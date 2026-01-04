@@ -1,11 +1,9 @@
-# azureproject/urls_powerup.py
+# azureproject/urls_entreprinder.py
 """
 URL configuration for Entreprinder business networking platform.
 
-DEPRECATED: This file is kept for backwards compatibility.
-- powerup.lu now serves the power_up static corporate site (via urls_power_up.py)
-- entreprinder.lu serves the entreprinder app (via urls_entreprinder.py)
-- Use urls_entreprinder.py for new development
+This is the URL config used when requests come from entreprinder.lu domain.
+Tinder-style matching for entrepreneurs, investors, and business professionals.
 """
 from django.contrib import admin
 from django.urls import path, include
@@ -13,13 +11,13 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 from .urls_shared import base_patterns, api_patterns
-from .views_seo import robots_txt_powerup
+from .views_seo import robots_txt_entreprinder
 from entreprinder import views as entreprinder_views
 from entreprinder.admin import entreprinder_admin_site
 
 urlpatterns = base_patterns + api_patterns + [
     # SEO - robots.txt
-    path('robots.txt', robots_txt_powerup, name='robots_txt'),
+    path('robots.txt', robots_txt_entreprinder, name='robots_txt'),
 
     # Custom Entreprinder Admin Panel
     path('entreprinder-admin/', entreprinder_admin_site.urls),

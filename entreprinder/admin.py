@@ -15,12 +15,12 @@ from .vibe.admin import (
 
 
 # ============================================================================
-# CUSTOM ADMIN SITE - PowerUP Administration
+# CUSTOM ADMIN SITE - Entreprinder Administration
 # ============================================================================
 
-class PowerUPAdminSite(admin.AdminSite):
-    site_header = 'PowerUP Administration'
-    site_title = 'PowerUP Admin'
+class EntreprinderAdminSite(admin.AdminSite):
+    site_header = 'Entreprinder Administration'
+    site_title = 'Entreprinder Admin'
     index_title = 'Entrepreneur Network Management'
 
     def get_app_list(self, request, app_label=None):
@@ -30,7 +30,7 @@ class PowerUPAdminSite(admin.AdminSite):
         """
         app_list = super().get_app_list(request, app_label)
 
-        # Custom ordering and grouping for PowerUP/Entreprinder models
+        # Custom ordering and grouping for Entreprinder models
         custom_order = {
             # 1. Profiles
             'entrepreneurprofile': {'order': 1, 'icon': '👤', 'group': 'Profiles'},
@@ -118,7 +118,7 @@ class PowerUPAdminSite(admin.AdminSite):
 
 
 # Instantiate the custom admin site
-powerup_admin_site = PowerUPAdminSite(name='powerup_admin')
+entreprinder_admin_site = EntreprinderAdminSite(name='entreprinder_admin')
 
 
 # ============================================================================
@@ -207,25 +207,25 @@ admin.site.index_title = "Welcome to Entreprinder Admin"
 # ============================================================================
 
 # Profiles
-powerup_admin_site.register(EntrepreneurProfile, EntrepreneurProfileAdmin)
+entreprinder_admin_site.register(EntrepreneurProfile, EntrepreneurProfileAdmin)
 
 # Matching
-powerup_admin_site.register(Match, MatchAdmin)
-powerup_admin_site.register(Like, LikeAdmin)
-powerup_admin_site.register(Dislike, DislikeAdmin)
+entreprinder_admin_site.register(Match, MatchAdmin)
+entreprinder_admin_site.register(Like, LikeAdmin)
+entreprinder_admin_site.register(Dislike, DislikeAdmin)
 
 # Categories
-powerup_admin_site.register(Industry, IndustryAdmin)
-powerup_admin_site.register(Skill, SkillAdmin)
+entreprinder_admin_site.register(Industry, IndustryAdmin)
+entreprinder_admin_site.register(Skill, SkillAdmin)
 
 # FinOps
-powerup_admin_site.register(CostExport, CostExportAdmin)
-powerup_admin_site.register(CostRecord, CostRecordAdmin)
-powerup_admin_site.register(CostAggregation, CostAggregationAdmin)
+entreprinder_admin_site.register(CostExport, CostExportAdmin)
+entreprinder_admin_site.register(CostRecord, CostRecordAdmin)
+entreprinder_admin_site.register(CostAggregation, CostAggregationAdmin)
 
 # Vibe Coding
-powerup_admin_site.register(PixelCanvas, PixelCanvasAdmin)
-powerup_admin_site.register(Pixel, PixelAdmin)
-powerup_admin_site.register(PixelHistory, PixelHistoryAdmin)
-powerup_admin_site.register(UserPixelCooldown, UserPixelCooldownAdmin)
-powerup_admin_site.register(UserPixelStats, UserPixelStatsAdmin)
+entreprinder_admin_site.register(PixelCanvas, PixelCanvasAdmin)
+entreprinder_admin_site.register(Pixel, PixelAdmin)
+entreprinder_admin_site.register(PixelHistory, PixelHistoryAdmin)
+entreprinder_admin_site.register(UserPixelCooldown, UserPixelCooldownAdmin)
+entreprinder_admin_site.register(UserPixelStats, UserPixelStatsAdmin)

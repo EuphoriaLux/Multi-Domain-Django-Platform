@@ -49,15 +49,15 @@ PLATFORMS = [
         ],
     },
     {
-        "slug": "powerup-networking",
-        "name": "PowerUP",
+        "slug": "entreprinder",
+        "name": "Entreprinder",
         "tagline": _("Entrepreneur networking for Luxembourg"),
         "description": _(
             "Connect with fellow entrepreneurs using smart matching. "
             "Find co-founders, mentors, and business partners in "
             "Luxembourg's growing startup ecosystem."
         ),
-        "url": "https://powerup.lu",
+        "url": "https://entreprinder.lu",
         "icon": "users",
         "status": "live",
         "launched": "2024",

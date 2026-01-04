@@ -217,7 +217,7 @@ class SafeCurrentSiteMiddleware:
             # Create default site
             site, _ = Site.objects.get_or_create(
                 pk=1,
-                defaults={'domain': 'powerup.lu', 'name': 'PowerUP'}
+                defaults={'domain': 'entreprinder.lu', 'name': 'Entreprinder'}
             )
             logger.info("SafeCurrentSiteMiddleware: Created default Site (pk=1)")
             return site
@@ -234,8 +234,9 @@ class ForceAdminToEnglishMiddleware:
     ADMIN_PATHS = (
         '/admin/',
         '/crush-admin/',
-        '/powerup-admin/',
+        '/entreprinder-admin/',
         '/vinsdelux-admin/',
+        '/power-admin/',
         '/delegation-admin/',
     )
 
@@ -259,7 +260,7 @@ class AdminLanguagePrefixRedirectMiddleware:
     Admin panels are defined outside i18n_patterns() and must be accessed
     without language prefixes.
     """
-    ADMIN_PATHS = ('admin/', 'crush-admin/', 'powerup-admin/', 'vinsdelux-admin/', 'delegation-admin/')
+    ADMIN_PATHS = ('admin/', 'crush-admin/', 'entreprinder-admin/', 'vinsdelux-admin/', 'power-admin/', 'delegation-admin/')
     LANG_CODES = ('en', 'de', 'fr')
 
     def __init__(self, get_response):

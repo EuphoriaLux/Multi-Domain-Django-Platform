@@ -53,7 +53,7 @@ def user_with_profile(user):
     CrushProfile.objects.create(
         user=user,
         date_of_birth=date(1990, 1, 1),
-        gender='male',
+        gender='M',
         location='Luxembourg',
         is_approved=True,
         preferred_language='en'
@@ -74,7 +74,7 @@ def user_with_german_profile(db):
     CrushProfile.objects.create(
         user=user,
         date_of_birth=date(1990, 1, 1),
-        gender='male',
+        gender='M',
         location='Luxembourg',
         is_approved=True,
         preferred_language='de'
@@ -95,7 +95,7 @@ def user_with_french_profile(db):
     CrushProfile.objects.create(
         user=user,
         date_of_birth=date(1990, 1, 1),
-        gender='male',
+        gender='M',
         location='Luxembourg',
         is_approved=True,
         preferred_language='fr'
@@ -116,7 +116,7 @@ def user_with_invalid_language(db):
     CrushProfile.objects.create(
         user=user,
         date_of_birth=date(1990, 1, 1),
-        gender='male',
+        gender='M',
         location='Luxembourg',
         is_approved=True,
         preferred_language='es'  # Spanish - not supported
@@ -235,7 +235,7 @@ class TestGetUserLanguage:
         CrushProfile.objects.create(
             user=user,
             date_of_birth=date(1990, 1, 1),
-            gender='male',
+            gender='M',
             location='Luxembourg',
             preferred_language='en'  # Default language
         )
@@ -246,7 +246,7 @@ class TestGetUserLanguage:
         CrushProfile.objects.create(
             user=user,
             date_of_birth=date(1990, 1, 1),
-            gender='male',
+            gender='M',
             location='Luxembourg',
             preferred_language=''
         )
@@ -725,7 +725,7 @@ class TestSendNewConnectionNotification:
         CrushProfile.objects.create(
             user=other_user,
             date_of_birth=date(1990, 1, 1),
-            gender='female',
+            gender='F',
             location='Luxembourg',
             preferred_language='en'
         )
@@ -789,7 +789,7 @@ class TestSendNewMessageNotification:
         CrushProfile.objects.create(
             user=sender,
             date_of_birth=date(1990, 1, 1),
-            gender='female',
+            gender='F',
             location='Luxembourg',
             preferred_language='en'
         )

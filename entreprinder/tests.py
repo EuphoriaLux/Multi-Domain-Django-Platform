@@ -32,15 +32,15 @@ class ViewsTestCase(TestCase):
     """
     Test views for Entreprinder app.
 
-    Note: We use HTTP_HOST='powerup.lu' to ensure the DomainURLRoutingMiddleware
-    routes requests to the correct URL configuration (urls_powerup.py which
+    Note: We use HTTP_HOST='entreprinder.lu' to ensure the DomainURLRoutingMiddleware
+    routes requests to the correct URL configuration (urls_entreprinder.py which
     includes entreprinder URLs). Without this, 'testserver' falls back to
-    PowerUP URLs but with different routing behavior.
+    default URLs with different routing behavior.
 
     Important: We use direct URLs (/, /profile/) instead of reverse() because:
     - reverse() uses ROOT_URLCONF (azureproject.urls) which has i18n_patterns
-    - urls_powerup.py does NOT use i18n_patterns, so URLs are at / not /en/
-    - Using reverse() would give us /en/ which returns 404 on powerup.lu
+    - urls_entreprinder.py does NOT use i18n_patterns, so URLs are at / not /en/
+    - Using reverse() would give us /en/ which returns 404 on entreprinder.lu
     """
     @classmethod
     def setUpTestData(cls):
@@ -49,7 +49,7 @@ class ViewsTestCase(TestCase):
         # Django creates Site id=1 with 'example.com' by default in tests
         cls.site, created = Site.objects.update_or_create(
             id=1,
-            defaults={'domain': 'powerup.lu', 'name': 'PowerUP'}
+            defaults={'domain': 'entreprinder.lu', 'name': 'Entreprinder'}
         )
 
         # Create LinkedIn OpenID Connect SocialApp (required by landing page template)
@@ -65,7 +65,7 @@ class ViewsTestCase(TestCase):
         cls.linkedin_app.sites.add(cls.site)
 
     def setUp(self):
-        self.client = Client(HTTP_HOST='powerup.lu')
+        self.client = Client(HTTP_HOST='entreprinder.lu')
         self.user = User.objects.create_user(username='testuser', password='12345')
         self.industry = Industry.objects.create(name='Tech')
         self.profile = EntrepreneurProfile.objects.create(
@@ -196,7 +196,7 @@ class LinkedInOAuthFlowTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.hosts = ['powerup.lu', 'crush.lu', 'vinsdelux.com']
+        cls.hosts = ['entreprinder.lu', 'crush.lu', 'vinsdelux.com']
         cls.provider_slug = 'linkedin_oauth2'
         cls.login_path = f'/accounts/{cls.provider_slug}/login/'
         cls.callback_path = f'/accounts/{cls.provider_slug}/login/callback/'
@@ -258,7 +258,7 @@ class LinkedInOAuthFlowTests(TestCase):
                 self.assertIn(self.callback_path, redirect_uri)
 
     def test_callback_exchanges_code_and_logs_user_in(self):
-        host = 'powerup.lu'
+        host = 'entreprinder.lu'
         client = Client(HTTP_HOST=host)
 
         start_response = client.get(self.login_path)

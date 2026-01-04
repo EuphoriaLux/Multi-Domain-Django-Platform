@@ -35,8 +35,9 @@ class RedirectWWWToRootDomainMiddleware:
     Redirects:
     - www.crush.lu -> crush.lu
     - www.vinsdelux.com -> vinsdelux.com
-    - www.powerup.lu -> powerup.lu
-    - *.azurewebsites.net -> powerup.lu (PRODUCTION_DEFAULT)
+    - www.entreprinder.lu -> entreprinder.lu
+    - www.power-up.lu -> power-up.lu
+    - *.azurewebsites.net -> entreprinder.lu (PRODUCTION_DEFAULT)
 
     All redirects are HTTP 301 (permanent) for SEO purposes.
     """

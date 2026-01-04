@@ -27,11 +27,11 @@ ADMIN_PLATFORMS = [
         'description': 'Dating platform coach panel',
     },
     {
-        'name': 'PowerUP',
+        'name': 'Entreprinder',
         'icon': '',
-        'domain': 'powerup.lu',
-        'path': '/powerup-admin/',
-        'key': 'powerup',
+        'domain': 'entreprinder.lu',
+        'path': '/entreprinder-admin/',
+        'key': 'entreprinder',
         'description': 'Business networking admin',
     },
     {
@@ -41,6 +41,14 @@ ADMIN_PLATFORMS = [
         'path': '/vinsdelux-admin/',
         'key': 'vinsdelux',
         'description': 'Wine e-commerce admin',
+    },
+    {
+        'name': 'Power-Up',
+        'icon': '',
+        'domain': 'power-up.lu',
+        'path': '/power-admin/',
+        'key': 'power_up',
+        'description': 'Corporate site admin',
     },
     {
         'name': 'Delegation',
@@ -55,8 +63,9 @@ ADMIN_PLATFORMS = [
 # Development domain mappings - maps production domains to localhost paths
 DEV_DOMAIN_PATHS = {
     'crush.lu': '/crush-admin/',
-    'powerup.lu': '/powerup-admin/',
+    'entreprinder.lu': '/entreprinder-admin/',
     'vinsdelux.com': '/vinsdelux-admin/',
+    'power-up.lu': '/power-admin/',
     'delegation.crush.lu': '/delegation-admin/',
 }
 
@@ -75,10 +84,12 @@ def _get_current_platform_key(request):
     # Order matters: check specific paths before generic /admin/
     if '/crush-admin/' in path:
         return 'crush'
-    if '/powerup-admin/' in path:
-        return 'powerup'
+    if '/entreprinder-admin/' in path:
+        return 'entreprinder'
     if '/vinsdelux-admin/' in path:
         return 'vinsdelux'
+    if '/power-admin/' in path:
+        return 'power_up'
     if '/delegation-admin/' in path:
         return 'delegation'
 
@@ -126,7 +137,7 @@ def admin_navigation(request):
     Context processor that provides admin navigation links for superusers.
 
     This allows superusers to quickly switch between different platform
-    admin panels (Crush.lu, PowerUP, VinsDelux, Delegation).
+    admin panels (Crush.lu, Entreprinder, VinsDelux, Delegation).
 
     The navigation is only visible to superusers and appears in the
     admin header area of all admin panels.

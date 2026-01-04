@@ -48,7 +48,7 @@ CUSTOM_DOMAINS = [d.strip() for d in os.environ.get('CUSTOM_DOMAINS', '').split(
 ALLOWED_HOSTS = []
 if 'WEBSITE_HOSTNAME' in os.environ:
     ALLOWED_HOSTS.append(os.environ['WEBSITE_HOSTNAME'])
-# Add custom domains (crush.lu, powerup.lu, vinsdelux.com, etc.)
+# Add custom domains (crush.lu, entreprinder.lu, vinsdelux.com, etc.)
 ALLOWED_HOSTS += CUSTOM_DOMAINS
 # Add any additional hosts from environment
 ALLOWED_HOSTS += [h.strip() for h in os.environ.get('ALLOWED_HOSTS_ENV', '').split(',') if h.strip()]
@@ -94,8 +94,8 @@ auth_idx = MIDDLEWARE.index('django.contrib.auth.middleware.AuthenticationMiddle
 MIDDLEWARE.insert(auth_idx + 1, 'azureproject.middleware.OAuthCallbackProtectionMiddleware')
 
 # Set default URL configuration; this will be overridden by our middleware as needed.
-# Using powerup as default to match middleware fallback behavior
-ROOT_URLCONF = 'azureproject.urls_powerup'
+# Using entreprinder as default to match middleware fallback behavior
+ROOT_URLCONF = 'azureproject.urls_entreprinder'
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
@@ -275,11 +275,11 @@ CSRF_COOKIE_HTTPONLY = False
 
 # Multi-domain cookie configuration
 # ============================================================================
-# IMPORTANT: For multi-domain apps serving crush.lu, powerup.lu, vinsdelux.com,
+# IMPORTANT: For multi-domain apps serving crush.lu, entreprinder.lu, vinsdelux.com,
 # we must NOT set a fixed SESSION_COOKIE_DOMAIN or CSRF_COOKIE_DOMAIN.
 #
 # Setting a fixed domain (e.g., '.crush.lu') would make cookies ONLY work for
-# that domain, breaking auth on other domains like powerup.lu.
+# that domain, breaking auth on other domains like entreprinder.lu.
 #
 # By leaving these unset, Django uses the default behavior:
 # - Cookie domain matches the request host
