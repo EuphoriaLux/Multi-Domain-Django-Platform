@@ -1,0 +1,127 @@
+{% extends "finops/base_finops.html" %}
+{% load static %}
+
+{% block title %}FinOps Hub - Import Data{% endblock %}
+
+{% block finops_content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">FinOps Hub - Import Data</h1>
+    <p class="text-gray-500">Manage Azure cost data imports</p>
+    <nav class="flex mt-2" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-2 text-sm text-gray-500">
+            <li><a href="{% url 'finops_hub:dashboard' %}" class="hover:text-blue-600">Dashboard</a></li>
+            <li><span class="mx-1">/</span></li>
+            <li class="text-gray-900">Import</li>
+        </ol>
+    </nav>
+</div>
+
+{% if incomplete_exports %}
+<div class="bg-amber-50 border border-amber-300 rounded-lg p-5 mb-6">
+    <div class="flex items-start">
+        <svg class="w-6 h-6 text-amber-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+        </svg>
+        <div class="flex-1">
+            <h3 class="font-semibold text-amber-800 mb-2">Action Required: Complete Import Setup</h3>
+            <p class="text-amber-700 mb-3"><strong>{{ incomplete_exports.count }}</strong> export{{ incomplete_exports.count|pluralize }} completed with 0 records. Add the subscription ID to enable data import.</p>
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white rounded border divide-y divide-gray-200 text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left font-medium text-gray-700">Subscription</th>
+                            <th class="px-4 py-2 text-left font-medium text-gray-700">Billing Period</th>
+                            <th class="px-4 py-2 text-left font-medium text-gray-700">Import Date</th>
+                            <th class="px-4 py-2 text-left font-medium text-gray-700">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for export in incomplete_exports %}
+                        <tr>
+                            <td class="px-4 py-2 font-medium">{{ export.subscription_name }}</td>
+                            <td class="px-4 py-2 text-gray-600">{{ export.billing_period_start|date:"Y-m-d" }} to {{ export.billing_period_end|date:"Y-m-d" }}</td>
+                            <td class="px-4 py-2 text-gray-500">{{ export.import_completed_at|date:"Y-m-d H:i" }}</td>
+                            <td class="px-4 py-2"><a href="{% url 'finops_hub:update_subscription_id' export.id %}" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">Add ID</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <div class="lg:col-span-2 bg-white rounded-lg shadow p-5">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Import Commands</h3>
+        <h4 class="font-medium text-gray-700 mb-2">Production: Import from Azure Blob Storage</h4>
+        <pre class="bg-gray-800 text-gray-100 p-3 rounded mb-4 overflow-x-auto"><code>python manage.py import_cost_data</code></pre>
+        <h4 class="font-medium text-gray-700 mb-2">Options:</h4>
+        <ul class="list-disc list-inside text-gray-600 mb-4 space-y-1">
+            <li><code class="bg-gray-100 px-1 rounded">--subscription PartnerLed-power_up</code> - Filter by subscription</li>
+            <li><code class="bg-gray-100 px-1 rounded">--force</code> - Re-import already processed exports</li>
+            <li><code class="bg-gray-100 px-1 rounded">--limit 5</code> - Process only first 5 exports</li>
+            <li><code class="bg-gray-100 px-1 rounded">--batch-size 1000</code> - Records per batch</li>
+        </ul>
+        <h4 class="font-medium text-gray-700 mb-2">Testing: Import Local CSV</h4>
+        <pre class="bg-gray-800 text-gray-100 p-3 rounded mb-4 overflow-x-auto"><code>python manage.py import_local_csv part_0_0001.csv --subscription "Test"</code></pre>
+        <h4 class="font-medium text-gray-700 mb-2">Daily Sync (Recommended)</h4>
+        <pre class="bg-gray-800 text-gray-100 p-3 rounded mb-2 overflow-x-auto"><code>python manage.py sync_daily_costs</code></pre>
+        <p class="text-gray-500 text-sm">Imports new data and refreshes aggregations.</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-5">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Configuration</h3>
+        <h4 class="font-medium text-gray-700 mb-2">Required Environment Variables</h4>
+        <ul class="text-gray-600 mb-4 space-y-1">
+            <li><code class="bg-gray-100 px-1 rounded">AZURE_ACCOUNT_NAME</code></li>
+            <li><code class="bg-gray-100 px-1 rounded">AZURE_ACCOUNT_KEY</code></li>
+        </ul>
+        <h4 class="font-medium text-gray-700 mb-2">Azure Container</h4>
+        <p class="text-gray-600"><strong>Container:</strong> msexports</p>
+        <p class="text-gray-500 text-sm">Path: partnerled/{subscription}/...</p>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow mb-6">
+    <div class="px-5 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900">Recent Import History</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Subscription</th>
+                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Billing Period</th>
+                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Records</th>
+                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Status</th>
+                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Started</th>
+                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Completed</th>
+                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Blob Path</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for import in recent_imports %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ import.subscription_name }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ import.billing_period_start|date:"Y-m-d" }} to {{ import.billing_period_end|date:"Y-m-d" }}</td>
+                    <td class="px-4 py-3"><span class="px-2 py-1 bg-cyan-100 text-cyan-800 rounded">{{ import.records_imported }}</span></td>
+                    <td class="px-4 py-3">
+                        {% if import.import_status == 'completed' %}<span class="px-2 py-1 bg-green-100 text-green-800 rounded">Completed</span>
+                        {% elif import.import_status == 'failed' %}<span class="px-2 py-1 bg-red-100 text-red-800 rounded">Failed</span>
+                        {% else %}<span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded">{{ import.import_status|title }}</span>{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-500">{{ import.import_started_at|date:"Y-m-d H:i" }}</td>
+                    <td class="px-4 py-3 text-gray-500">{% if import.import_completed_at %}{{ import.import_completed_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}</td>
+                    <td class="px-4 py-3 text-gray-400 text-xs">{{ import.blob_path|truncatechars:40 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">No import history available</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<a href="{% url 'finops_hub:dashboard' %}" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">Back to Dashboard</a>
+{% endblock %}

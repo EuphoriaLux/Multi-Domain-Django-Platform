@@ -1,0 +1,364 @@
+{% extends "finops/base_finops.html" %}
+{% load static %}
+{% load finops_filters %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block finops_content %}
+<!-- Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">FinOps Hub - Cost Dashboard</h1>
+        <p class="text-gray-500">Azure cost analytics and insights</p>
+    </div>
+    <div class="mt-4 md:mt-0 flex space-x-2">
+        <a href="?days=7" class="px-3 py-1.5 text-sm font-medium rounded-md {% if period.days == 7 %}bg-blue-600 text-white{% else %}bg-white text-gray-700 border border-gray-300 hover:bg-gray-50{% endif %}">7 days</a>
+        <a href="?days=30" class="px-3 py-1.5 text-sm font-medium rounded-md {% if period.days == 30 %}bg-blue-600 text-white{% else %}bg-white text-gray-700 border border-gray-300 hover:bg-gray-50{% endif %}">30 days</a>
+        <a href="?days=60" class="px-3 py-1.5 text-sm font-medium rounded-md {% if period.days == 60 %}bg-blue-600 text-white{% else %}bg-white text-gray-700 border border-gray-300 hover:bg-gray-50{% endif %}">60 days</a>
+        <a href="?days=90" class="px-3 py-1.5 text-sm font-medium rounded-md {% if period.days == 90 %}bg-blue-600 text-white{% else %}bg-white text-gray-700 border border-gray-300 hover:bg-gray-50{% endif %}">90 days</a>
+    </div>
+</div>
+
+<!-- Discount Control -->
+<div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+        <div class="mb-3 md:mb-0">
+            <h6 class="font-semibold text-amber-800">Microsoft Services Discount</h6>
+            <p class="text-sm text-amber-700">Apply partner concession to Microsoft Azure services (0-15%)</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <input type="range" id="discountSlider" min="0" max="15" step="0.5" value="0" class="w-32 h-2 bg-amber-200 rounded-lg appearance-none cursor-pointer">
+            <div class="flex items-center">
+                <input type="number" id="discountInput" min="0" max="15" step="0.5" value="0" class="w-16 px-2 py-1 text-sm border border-amber-300 rounded">
+                <span class="ml-1 text-amber-800">%</span>
+            </div>
+            <div id="discountSavings" class="text-right">
+                <span class="text-sm text-gray-500">Savings: </span>
+                <strong class="text-green-600">0.00</strong>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow border-l-4 border-blue-500 p-5">
+        <p class="text-sm text-gray-500 mb-1">Total Cost ({{ period.days }} days)</p>
+        <p class="text-2xl font-bold text-blue-600">{{ summary.total_cost|floatformat:2 }}</p>
+        <p class="text-sm text-gray-400">Avg: {{ summary.avg_daily_cost|floatformat:2 }}/day</p>
+    </div>
+    <div class="bg-white rounded-lg shadow border-l-4 border-green-500 p-5">
+        <p class="text-sm text-gray-500 mb-1">Month-to-Date</p>
+        <p class="text-2xl font-bold text-green-600">{{ summary.mtd_cost|floatformat:2 }}</p>
+        <p class="text-sm text-gray-400">{{ period.end|date:"F Y" }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow border-l-4 border-cyan-500 p-5">
+        <p class="text-sm text-gray-500 mb-1">Year-to-Date</p>
+        <p class="text-2xl font-bold text-cyan-600">{{ summary.ytd_cost|floatformat:2 }}</p>
+        <p class="text-sm text-gray-400">{{ period.end|date:"Y" }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow border-l-4 border-gray-400 p-5">
+        <p class="text-sm text-gray-500 mb-1">Data Imports</p>
+        <p class="text-2xl font-bold text-gray-700">{{ summary.completed_exports }}/{{ summary.total_exports }}</p>
+        {% if latest_export %}
+        <p class="text-sm text-gray-400">Latest: {{ latest_export.billing_period_start|date:"M Y" }}</p>
+        {% else %}
+        <p class="text-sm text-gray-400">No imports yet</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Cost Trend Chart -->
+    <div class="lg:col-span-2 bg-white rounded-lg shadow p-5">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Cost Trend (Last {{ period.days }} Days)</h3>
+            <div class="flex space-x-2">
+                <button id="dailyView" class="px-3 py-1 text-sm font-medium rounded-md bg-blue-600 text-white" onclick="toggleChartView('daily')">Daily</button>
+                <button id="weeklyView" class="px-3 py-1 text-sm font-medium rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50" onclick="toggleChartView('weekly')">Weekly</button>
+            </div>
+        </div>
+        <canvas id="costTrendChart" height="100"></canvas>
+        <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+            <div class="flex flex-wrap items-center gap-4 text-sm">
+                <span class="font-medium text-blue-800">Cost Categories:</span>
+                <span class="flex items-center">
+                    <span class="w-4 h-4 bg-blue-500 rounded mr-2"></span>
+                    <strong>Usage Cost</strong>
+                    <span class="ml-1 text-gray-600">- Pay-as-you-go</span>
+                </span>
+                <span class="flex items-center">
+                    <span class="w-4 h-4 bg-orange-400 rounded mr-2"></span>
+                    <strong>Purchase Cost</strong>
+                    <span class="ml-1 text-gray-600">- Reservations</span>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subscription Chart -->
+    <div class="bg-white rounded-lg shadow p-5">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Top Subscriptions</h3>
+        <div class="flex justify-center items-center" style="height: 300px;">
+            <canvas id="subscriptionChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Top Services Table -->
+<div class="bg-white rounded-lg shadow mb-6">
+    <div class="flex justify-between items-center px-5 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900">Top Services by Cost</h3>
+        <a href="{% url 'finops_hub:services' %}" class="text-sm text-blue-600 hover:text-blue-800 font-medium">View All Services</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">#</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service Name</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">Cost Distribution</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Cost (EUR)</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for service in top_services %}
+                <tr class="service-row hover:bg-gray-50" data-service-name="{{ service.service_name }}" data-original-cost="{{ service.cost }}">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ forloop.counter }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ service.service_name|default:"Unknown" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="w-full bg-gray-200 rounded-full h-4">
+                            {% with width=service.cost|percentage:summary.total_cost %}
+                            <div class="progress-bar bg-blue-600 h-4 rounded-full flex items-center justify-end pr-2"
+                                 style="width: {{ width }}%;"
+                                 data-width="{{ width }}" data-cost="{{ service.cost }}" data-total="{{ summary.total_cost }}">
+                                <span class="progress-bar-text text-xs text-white font-medium">{{ service.cost|format_percentage:summary.total_cost }}</span>
+                            </div>
+                            {% endwith %}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
+                        <strong class="service-cost text-gray-900">{{ service.cost|floatformat:2 }}</strong>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+                        No service data available
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Quick Actions & Export -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div>
+        <h6 class="text-sm font-medium text-gray-500 mb-3">Quick Actions</h6>
+        <div class="flex flex-wrap gap-2">
+            <a href="{% url 'finops_hub:subscriptions' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">View Subscriptions</a>
+            <a href="{% url 'finops_hub:services' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">View Services</a>
+            <a href="{% url 'finops_hub:resources' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">Explore Resources</a>
+            <a href="{% url 'finops_hub:import' %}" class="inline-flex items-center px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-md hover:bg-gray-700">Import Data</a>
+            <a href="{% url 'finops_hub:faq' %}" class="inline-flex items-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-md hover:bg-cyan-700">FAQ & Data Flow</a>
+        </div>
+    </div>
+    <div>
+        <h6 class="text-sm font-medium text-gray-500 mb-3">Export Data</h6>
+        <div class="relative inline-block text-left" x-data="{ open: false }">
+            <button @click="open = !open" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700">
+                Export CSV
+                <svg class="ml-2 -mr-1 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+            </button>
+            <div x-show="open" @click.away="open = false" class="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                <div class="py-1">
+                    <a href="/finops/api/costs/export-csv/?days={{ period.days }}&format=daily_summary" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Daily Summary</a>
+                    <a href="/finops/api/costs/export-csv/?days={{ period.days }}&format=by_service" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">By Service</a>
+                    <a href="/finops/api/costs/export-csv/?days={{ period.days }}&format=by_resource" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">By Resource (Top 1000)</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script>
+    let costChart = null;
+    let rawCostData = [];
+    let currentView = 'daily';
+
+    document.addEventListener('DOMContentLoaded', function() {
+        fetchCostTrend();
+        const subscriptionData = {{ top_subscriptions|safe }};
+        renderSubscriptionChart(subscriptionData);
+    });
+
+    function fetchCostTrend() {
+        fetch('/finops/api/costs/trend/?days={{ period.days }}')
+            .then(response => response.json())
+            .then(data => {
+                rawCostData = data.daily_costs;
+                renderCostTrendChart(rawCostData, 'daily');
+            });
+    }
+
+    function toggleChartView(view) {
+        currentView = view;
+        document.getElementById('dailyView').className = view === 'daily'
+            ? 'px-3 py-1 text-sm font-medium rounded-md bg-blue-600 text-white'
+            : 'px-3 py-1 text-sm font-medium rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50';
+        document.getElementById('weeklyView').className = view === 'weekly'
+            ? 'px-3 py-1 text-sm font-medium rounded-md bg-blue-600 text-white'
+            : 'px-3 py-1 text-sm font-medium rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50';
+        renderCostTrendChart(rawCostData, view);
+    }
+
+    function aggregateWeekly(dailyCosts) {
+        const weeklyData = {};
+        dailyCosts.forEach(day => {
+            const date = new Date(day.usage_date);
+            const monday = new Date(date);
+            monday.setDate(date.getDate() - date.getDay() + 1);
+            const weekKey = monday.toISOString().split('T')[0];
+            if (!weeklyData[weekKey]) {
+                weeklyData[weekKey] = { usage_date: weekKey, total_cost: 0, usage_cost: 0, purchase_cost: 0 };
+            }
+            weeklyData[weekKey].total_cost += parseFloat(day.total_cost || 0);
+            weeklyData[weekKey].usage_cost += parseFloat(day.usage_cost || 0);
+            weeklyData[weekKey].purchase_cost += parseFloat(day.purchase_cost || 0);
+        });
+        return Object.values(weeklyData).sort((a, b) => new Date(a.usage_date) - new Date(b.usage_date));
+    }
+
+    function formatDate(dateStr, view) {
+        const date = new Date(dateStr);
+        if (view === 'weekly') {
+            const endDate = new Date(date);
+            endDate.setDate(date.getDate() + 6);
+            const options = { month: 'short', day: 'numeric' };
+            return date.toLocaleDateString('en-US', options) + ' - ' + endDate.toLocaleDateString('en-US', options);
+        }
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    function renderCostTrendChart(dailyCosts, view = 'daily') {
+        const data = view === 'weekly' ? aggregateWeekly(dailyCosts) : dailyCosts;
+        const ctx = document.getElementById('costTrendChart').getContext('2d');
+        const labels = data.map(d => formatDate(d.usage_date, view));
+        const usageCosts = data.map(d => parseFloat(d.usage_cost || 0));
+        const purchaseCosts = data.map(d => parseFloat(d.purchase_cost || 0));
+
+        if (costChart) costChart.destroy();
+
+        costChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'Usage Cost', data: usageCosts, backgroundColor: 'rgba(59, 130, 246, 0.8)', borderWidth: 0 },
+                    { label: 'Purchase Cost', data: purchaseCosts, backgroundColor: 'rgba(251, 146, 60, 0.8)', borderWidth: 0 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2),
+                            footer: items => 'Total: ' + items.reduce((a, b) => a + b.parsed.y, 0).toFixed(2)
+                        }
+                    }
+                },
+                scales: {
+                    x: { stacked: true, ticks: { maxRotation: 45, minRotation: 45 } },
+                    y: { stacked: true, beginAtZero: true, ticks: { callback: v => '' + v.toFixed(2) } }
+                }
+            }
+        });
+    }
+
+    function renderSubscriptionChart(subscriptions) {
+        const ctx = document.getElementById('subscriptionChart').getContext('2d');
+        const labels = subscriptions.map(s => s.sub_account_name || 'Unknown');
+        const costs = subscriptions.map(s => parseFloat(s.cost));
+        const colors = ['rgba(239, 68, 68, 0.9)', 'rgba(59, 130, 246, 0.9)', 'rgba(234, 179, 8, 0.9)', 'rgba(34, 197, 94, 0.9)', 'rgba(168, 85, 247, 0.9)'];
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: { labels, datasets: [{ data: costs, backgroundColor: colors.slice(0, costs.length), borderWidth: 0 }] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '60%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { padding: 15, font: { size: 11 }, usePointStyle: true } },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => {
+                                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                                return ctx.label + ': ' + ctx.parsed.toFixed(2) + ' (' + pct + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Discount slider logic
+    document.addEventListener('DOMContentLoaded', function() {
+        const slider = document.getElementById('discountSlider');
+        const input = document.getElementById('discountInput');
+        const savingsEl = document.getElementById('discountSavings');
+        const originalTotal = parseFloat('{{ summary.total_cost }}'.replace(',', '.'));
+
+        slider.addEventListener('input', function() {
+            input.value = this.value;
+            applyDiscount(parseFloat(this.value));
+        });
+
+        input.addEventListener('input', function() {
+            let v = Math.max(0, Math.min(15, parseFloat(this.value) || 0));
+            this.value = v;
+            slider.value = v;
+            applyDiscount(v);
+        });
+
+        function applyDiscount(pct) {
+            let savings = 0, newTotal = 0;
+            document.querySelectorAll('.service-row').forEach(row => {
+                const name = row.dataset.serviceName;
+                const orig = parseFloat(row.dataset.originalCost.replace(',', '.'));
+                const isMicrosoft = name.toLowerCase().includes('azure') || name.toLowerCase().includes('microsoft');
+                let discounted = orig;
+                if (isMicrosoft && pct > 0) {
+                    const disc = orig * (pct / 100);
+                    discounted = orig - disc;
+                    savings += disc;
+                }
+                newTotal += discounted;
+                const costCell = row.querySelector('.service-cost');
+                if (costCell) {
+                    costCell.innerHTML = isMicrosoft && pct > 0
+                        ? '<span class="text-green-600">' + discounted.toFixed(2) + '</span> <small class="text-gray-400">(-' + pct + '%)</small>'
+                        : discounted.toFixed(2);
+                }
+            });
+            savingsEl.innerHTML = '<span class="text-sm text-gray-500">Savings: </span><strong class="text-green-600">' + savings.toFixed(2) + '</strong><br><small class="text-gray-500">New Total: ' + newTotal.toFixed(2) + '</small>';
+        }
+    });
+</script>
+{% endblock %}

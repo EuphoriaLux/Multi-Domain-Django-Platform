@@ -1,0 +1,191 @@
+{% extends "finops/base_finops.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block finops_content %}
+<div class="mb-6">
+    <nav class="flex mb-2" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-2 text-sm text-gray-500">
+            <li><a href="{% url 'finops_hub:dashboard' %}" class="hover:text-blue-600">Dashboard</a></li>
+            <li><span class="mx-1">/</span></li>
+            <li class="text-gray-900">FAQ & Data Flow</li>
+        </ol>
+    </nav>
+    <h1 class="text-2xl font-bold text-gray-900">How Does FinOps Hub Work?</h1>
+    <p class="text-gray-500">Understanding your Azure cost data journey from export to dashboard</p>
+</div>
+
+<!-- Status Banner -->
+<div class="bg-blue-50 border-l-4 border-blue-600 p-4 mb-6 rounded-r-lg">
+    <div class="flex items-center">
+        <svg class="w-6 h-6 text-blue-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+        </svg>
+        <div>
+            <strong class="text-blue-800">Current Status:</strong>
+            {% if latest_export %}
+            <span class="text-blue-700">Latest data from {{ latest_export.billing_period_start|date:"M d, Y" }} to {{ latest_export.billing_period_end|date:"M d, Y" }}</span>
+            <br><small class="text-blue-600">Tracking {{ subscriptions_count }} subscription(s)</small>
+            {% else %}
+            <span class="text-blue-700">No data imported yet. Configure your Azure Cost Export first.</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Data Flow Diagram -->
+<div class="bg-gradient-to-br from-gray-700 to-gray-900 text-white rounded-2xl p-8 mb-8 shadow-xl">
+    <h2 class="text-2xl font-bold text-center mb-6">The Complete Data Journey</h2>
+
+    {% for step in "123456" %}
+    <div class="bg-white/10 rounded-lg p-5 mb-3 border-l-4 border-blue-500 hover:bg-white/15 transition-all">
+        {% if step == "1" %}
+        <h3 class="font-bold text-lg mb-2">Step 1: Azure Cost Management Export</h3>
+        <p class="text-gray-300 mb-2">Azure generates your cost data in <strong>FOCUS format</strong></p>
+        <ul class="text-gray-300 text-sm space-y-1 list-disc list-inside">
+            <li>Exports run on your configured schedule</li>
+            <li>Data stored as .csv.gz files in Azure Blob Storage</li>
+            <li>Container: <code class="bg-black/30 px-1 rounded text-yellow-400">msexports</code></li>
+        </ul>
+        {% elif step == "2" %}
+        <h3 class="font-bold text-lg mb-2">Step 2: Automatic Import (Daily Sync)</h3>
+        <p class="text-gray-300 mb-2">System checks for new exports and imports automatically</p>
+        <ul class="text-gray-300 text-sm space-y-1 list-disc list-inside">
+            <li>Runs <strong>daily at 2:00 AM UTC</strong></li>
+            <li>Scans for new .csv.gz files</li>
+            <li>Smart detection: Only imports new or updated exports</li>
+        </ul>
+        {% elif step == "3" %}
+        <h3 class="font-bold text-lg mb-2">Step 3: Data Parsing & Validation</h3>
+        <p class="text-gray-300 mb-2">Raw CSV data transformed into structured records</p>
+        <ul class="text-gray-300 text-sm space-y-1 list-disc list-inside">
+            <li>Parses 96 columns of FOCUS-formatted data</li>
+            <li>Validates required fields</li>
+            <li>Handles multiple currencies</li>
+        </ul>
+        {% elif step == "4" %}
+        <h3 class="font-bold text-lg mb-2">Step 4: Database Storage & Indexing</h3>
+        <p class="text-gray-300 mb-2">Validated data stored with optimized indexes</p>
+        <ul class="text-gray-300 text-sm space-y-1 list-disc list-inside">
+            <li>Each line item becomes a CostRecord</li>
+            <li>Indexed by dates, subscriptions, services</li>
+            <li>Prevents duplicate imports</li>
+        </ul>
+        {% elif step == "5" %}
+        <h3 class="font-bold text-lg mb-2">Step 5: Aggregation & Caching</h3>
+        <p class="text-gray-300 mb-2">Pre-computed summaries for fast dashboard performance</p>
+        <ul class="text-gray-300 text-sm space-y-1 list-disc list-inside">
+            <li>Daily, weekly, monthly aggregations</li>
+            <li>Grouped by subscription, service, resource group</li>
+            <li>Identifies top cost drivers</li>
+        </ul>
+        {% elif step == "6" %}
+        <h3 class="font-bold text-lg mb-2">Step 6: Dashboard Visualization</h3>
+        <p class="text-gray-300 mb-2">Real-time insights with interactive charts</p>
+        <ul class="text-gray-300 text-sm space-y-1 list-disc list-inside">
+            <li>Multiple time ranges (7, 30, 60, 90 days)</li>
+            <li>Breakdown by subscription, service, resource</li>
+            <li>Export to CSV for further analysis</li>
+        </ul>
+        {% endif %}
+    </div>
+    {% if not forloop.last %}<div class="text-center text-3xl text-blue-400 my-2">↓</div>{% endif %}
+    {% endfor %}
+</div>
+
+<!-- FAQ Section -->
+<div class="mb-8">
+    <h2 class="text-xl font-bold text-gray-900 border-b-2 border-blue-600 pb-2 mb-6">Frequently Asked Questions</h2>
+
+    <div class="space-y-4" x-data="{ open: 1 }">
+        <div class="border rounded-lg">
+            <button @click="open = open === 1 ? null : 1" class="w-full px-5 py-4 text-left font-semibold flex justify-between items-center" :class="open === 1 ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'">
+                When does the daily update run?
+                <span x-text="open === 1 ? '−' : '+'"></span>
+            </button>
+            <div x-show="open === 1" class="px-5 py-4 text-gray-600">
+                <p class="mb-2">The daily sync runs at <strong>2:00 AM UTC</strong> every day.</p>
+                <ul class="list-disc list-inside text-sm space-y-1">
+                    <li>Allows Azure exports to complete first</li>
+                    <li>Processes data during low-traffic hours</li>
+                    <li>Fresh data available when you start your day</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="border rounded-lg">
+            <button @click="open = open === 2 ? null : 2" class="w-full px-5 py-4 text-left font-semibold flex justify-between items-center" :class="open === 2 ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'">
+                How do I configure my Azure Cost Export?
+                <span x-text="open === 2 ? '−' : '+'"></span>
+            </button>
+            <div x-show="open === 2" class="px-5 py-4 text-gray-600">
+                <p class="mb-3">Azure Cost Management Exports must be configured correctly:</p>
+                <ul class="list-disc list-inside text-sm space-y-1 mb-3">
+                    <li><strong>Export Type:</strong> Cost and usage (FOCUS format)</li>
+                    <li><strong>Frequency:</strong> Daily (recommended)</li>
+                    <li><strong>Container:</strong> <code class="bg-gray-100 px-1 rounded">msexports</code></li>
+                    <li><strong>File Format:</strong> CSV (.csv.gz)</li>
+                </ul>
+                <p class="text-sm">Go to Azure Portal → Cost Management → Exports to set up.</p>
+            </div>
+        </div>
+
+        <div class="border rounded-lg">
+            <button @click="open = open === 3 ? null : 3" class="w-full px-5 py-4 text-left font-semibold flex justify-between items-center" :class="open === 3 ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'">
+                Why is my data delayed by 24-48 hours?
+                <span x-text="open === 3 ? '−' : '+'"></span>
+            </button>
+            <div x-show="open === 3" class="px-5 py-4 text-gray-600">
+                <p class="mb-2">Azure Cost Management has an inherent <strong>24-48 hour delay</strong>. This is a Microsoft limitation.</p>
+                <ul class="list-disc list-inside text-sm space-y-1">
+                    <li>Azure collects usage data globally</li>
+                    <li>Data must be validated and reconciled</li>
+                    <li>Billing calculations include discounts and credits</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="border rounded-lg">
+            <button @click="open = open === 4 ? null : 4" class="w-full px-5 py-4 text-left font-semibold flex justify-between items-center" :class="open === 4 ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'">
+                Can I track multiple subscriptions?
+                <span x-text="open === 4 ? '−' : '+'"></span>
+            </button>
+            <div x-show="open === 4" class="px-5 py-4 text-gray-600">
+                <p class="mb-2"><strong>Yes!</strong> FinOps Hub auto-detects all subscriptions in your <code class="bg-gray-100 px-1 rounded">msexports</code> container.</p>
+                <p class="text-sm">Currently tracking: <strong>{{ subscriptions_count }}</strong> subscription(s)</p>
+                <ul class="mt-2 list-disc list-inside text-sm space-y-1">
+                    {% for sub in subscriptions %}
+                    <li><code>{{ sub }}</code></li>
+                    {% empty %}
+                    <li>No subscriptions configured yet</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <div class="border rounded-lg">
+            <button @click="open = open === 5 ? null : 5" class="w-full px-5 py-4 text-left font-semibold flex justify-between items-center" :class="open === 5 ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'">
+                How can I manually trigger an import?
+                <span x-text="open === 5 ? '−' : '+'"></span>
+            </button>
+            <div x-show="open === 5" class="px-5 py-4 text-gray-600">
+                <p class="mb-2">Use Django management commands:</p>
+                <pre class="bg-gray-800 text-gray-100 p-3 rounded text-sm overflow-x-auto mb-2"><code>python manage.py import_cost_data
+python manage.py sync_daily_costs</code></pre>
+                <p class="text-sm">Or visit the <a href="{% url 'finops_hub:import' %}" class="text-blue-600 hover:underline">Import Data page</a>.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="text-center">
+    <a href="{% url 'finops_hub:dashboard' %}" class="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-full hover:bg-blue-700 shadow-lg">
+        ← Back to Dashboard
+    </a>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+{% endblock %}

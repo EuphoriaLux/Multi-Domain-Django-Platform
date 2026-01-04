@@ -29,3 +29,11 @@ class PowerUpAdminSite(admin.AdminSite):
 
 # Instantiate the custom admin site
 power_up_admin_site = PowerUpAdminSite(name='power_up_admin')
+
+
+# ============================================================================
+# IMPORT SUBMODULE ADMIN REGISTRATIONS
+# ============================================================================
+# Import finops admin to register models with power_up_admin_site
+# This must be done after power_up_admin_site is created
+from power_up.finops import admin as finops_admin  # noqa: F401, E402

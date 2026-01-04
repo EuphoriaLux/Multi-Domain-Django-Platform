@@ -1,0 +1,104 @@
+{% extends "finops/base_finops.html" %}
+{% load static %}
+
+{% block title %}Update Subscription ID - FinOps Hub{% endblock %}
+
+{% block finops_content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Complete Subscription Setup</h1>
+    <nav class="flex mt-2" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-2 text-sm text-gray-500">
+            <li><a href="{% url 'finops_hub:dashboard' %}" class="hover:text-blue-600">Dashboard</a></li>
+            <li><span class="mx-1">/</span></li>
+            <li><a href="{% url 'finops_hub:import' %}" class="hover:text-blue-600">Import</a></li>
+            <li><span class="mx-1">/</span></li>
+            <li class="text-gray-900">Update Subscription ID</li>
+        </ol>
+    </nav>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2">
+        <div class="bg-white rounded-lg shadow">
+            <div class="bg-blue-600 text-white px-5 py-4 rounded-t-lg">
+                <h2 class="text-lg font-semibold">Add Azure Subscription ID</h2>
+            </div>
+            <div class="p-5">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <h3 class="font-medium text-blue-800 mb-1">Why is this needed?</h3>
+                    <p class="text-blue-700 text-sm">The import for <strong>{{ export.subscription_name }}</strong> completed with 0 records. This typically happens when the subscription ID is missing from the Azure export data.</p>
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-5">
+                        <label for="{{ form.subscription_id.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                            {{ form.subscription_id.label }} <span class="text-red-500">*</span>
+                        </label>
+                        {{ form.subscription_id }}
+                        {% if form.subscription_id.help_text %}
+                        <p class="mt-1 text-sm text-gray-500">{{ form.subscription_id.help_text }}</p>
+                        {% endif %}
+                        {% if form.subscription_id.errors %}
+                        <p class="mt-1 text-sm text-red-600">{{ form.subscription_id.errors }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-4 mb-5">
+                        <h4 class="font-medium text-gray-700 mb-3">Export Details</h4>
+                        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                            <dt class="text-gray-500">Subscription Name:</dt>
+                            <dd class="text-gray-900">{{ export.subscription_name }}</dd>
+                            <dt class="text-gray-500">Billing Period:</dt>
+                            <dd class="text-gray-900">{{ export.billing_period_start|date:"Y-m-d" }} to {{ export.billing_period_end|date:"Y-m-d" }}</dd>
+                            <dt class="text-gray-500">Import Status:</dt>
+                            <dd><span class="px-2 py-1 bg-amber-100 text-amber-800 rounded text-xs">Completed with 0 records</span></dd>
+                            <dt class="text-gray-500">Blob Path:</dt>
+                            <dd class="text-gray-600 text-xs font-mono break-all">{{ export.blob_path }}</dd>
+                        </dl>
+                    </div>
+
+                    <div class="flex justify-end gap-3">
+                        <a href="{% url 'finops_hub:import' %}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Cancel</a>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Save Subscription ID</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <div class="bg-white rounded-lg shadow mb-4">
+            <div class="px-5 py-4 border-b border-gray-200">
+                <h3 class="font-medium text-gray-900">How to Find Your Subscription ID</h3>
+            </div>
+            <div class="p-5">
+                <ol class="list-decimal list-inside text-sm text-gray-600 space-y-2">
+                    <li>Go to <a href="https://portal.azure.com" target="_blank" class="text-blue-600 hover:underline">Azure Portal</a></li>
+                    <li>Search for "Subscriptions"</li>
+                    <li>Find: <strong>{{ export.subscription_name }}</strong></li>
+                    <li>Copy the "Subscription ID" (GUID)</li>
+                </ol>
+                <div class="mt-4 bg-gray-50 rounded p-3">
+                    <p class="text-xs text-gray-500 mb-1"><strong>Example format:</strong></p>
+                    <code class="text-xs text-gray-600">a1b2c3d4-e5f6-7890-abcd-ef1234567890</code>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-5 py-4 border-b border-gray-200">
+                <h3 class="font-medium text-gray-900">Next Steps</h3>
+            </div>
+            <div class="p-5">
+                <p class="text-sm text-gray-600 mb-2">After saving the subscription ID:</p>
+                <ol class="list-decimal list-inside text-sm text-gray-600 space-y-1">
+                    <li>Re-run import with <code class="bg-gray-100 px-1 rounded">--force</code></li>
+                    <li>System will map cost data correctly</li>
+                    <li>Check dashboard for updated costs</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
