@@ -93,7 +93,8 @@ def sync_status(request):
         })
 
     except Exception as e:
+        logger.exception("Error while fetching sync status")
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': 'Internal server error while fetching sync status'
         }, status=500)
