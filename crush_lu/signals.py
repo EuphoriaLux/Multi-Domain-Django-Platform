@@ -219,12 +219,22 @@ def create_crush_profile_on_login(sender, request, user, **kwargs):
         logger.debug(f"Skipping CrushProfile creation for delegation subdomain: {host}")
         return
 
+    preferred_language = 'en'
+    request_language = getattr(request, 'LANGUAGE_CODE', None)
+    if request_language in ['en', 'de', 'fr']:
+        preferred_language = request_language
+    else:
+        session_language = request.session.get('django_language')
+        if session_language in ['en', 'de', 'fr']:
+            preferred_language = session_language
+
     try:
         # Use get_or_create to avoid duplicates
         profile, created = CrushProfile.objects.get_or_create(
             user=user,
             defaults={
                 'completion_status': 'not_started',  # Mark as not started
+                'preferred_language': preferred_language,
             }
         )
 

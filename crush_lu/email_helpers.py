@@ -37,6 +37,10 @@ def get_user_language_url(user, url_name, request, **kwargs):
             lang = profile_lang
         elif profile_lang:
             logger.warning(f"User {user.id} has invalid language: {profile_lang}, using 'en'")
+    else:
+        request_language = getattr(request, 'LANGUAGE_CODE', None)
+        if request_language in ['en', 'de', 'fr']:
+            lang = request_language
 
     # Use override() context manager for thread-safety
     # This ensures language state is reset after the block
