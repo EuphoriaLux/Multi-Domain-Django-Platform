@@ -177,6 +177,8 @@ class CSPMiddleware:
             "https://identitytoolkit.googleapis.com",
             "https://securetoken.googleapis.com",
             "https://www.googleapis.com",
+            # Google Translate (users translating the page)
+            "https://translate.googleapis.com",
             # Geo-IP lookup for phone country detection
             "https://ipapi.co",
             # Azure Blob Storage (media files)

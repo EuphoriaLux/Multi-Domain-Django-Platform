@@ -120,6 +120,7 @@ def get_email_context_with_unsubscribe(user, request, **extra_context):
     base_urls = get_email_base_urls(user, request)
 
     context = {
+        'user': user,  # Include user object for templates that need it
         'unsubscribe_url': get_unsubscribe_url(user, request),
         **base_urls,  # home_url, about_url, events_url, settings_url
         **extra_context
@@ -890,7 +891,6 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
     if request:
         profile_url = get_user_language_url(user, 'crush_lu:create_profile', request)
         context = get_email_context_with_unsubscribe(user, request,
-            user=user,
             completion_status=profile.completion_status,
             profile_url=profile_url,
         )

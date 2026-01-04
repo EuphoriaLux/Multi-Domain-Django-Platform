@@ -292,7 +292,7 @@ class CrushProfileForm(forms.ModelForm):
         - File size limit: 10MB
         - File type: JPEG, PNG, WebP only (both extension AND content)
         - MIME type validation: Verify actual file content matches extension
-        - Image dimensions: Max 4000x4000px
+        - Image dimensions: Max 5000x5000px
         - Content validation: Verify it's actually an image
         """
         if not photo:
@@ -349,8 +349,8 @@ class CrushProfileForm(forms.ModelForm):
             img = Image.open(photo)
             width, height = img.size
 
-            # Check dimensions (max 4000x4000)
-            max_dimension = 4000
+            # Check dimensions (max 5000x5000 - accommodates modern phone cameras)
+            max_dimension = 5000
             if width > max_dimension or height > max_dimension:
                 raise ValidationError(
                     f"{field_name} dimensions too large ({width}x{height}px). "
