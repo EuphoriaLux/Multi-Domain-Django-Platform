@@ -13,6 +13,9 @@ from django.conf import settings
 from django.core.management import call_command
 import os
 import io
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @csrf_exempt
@@ -50,10 +53,11 @@ def trigger_cost_sync(request):
             'errors': errors if errors else None
         })
 
-    except Exception as e:
+    except Exception:
+        logger.exception("Error during cost sync triggered via webhook")
         return JsonResponse({
             'success': False,
-            'error': str(e),
+            'error': 'Internal server error during cost sync',
             'message': 'Cost sync failed'
         }, status=500)
 
