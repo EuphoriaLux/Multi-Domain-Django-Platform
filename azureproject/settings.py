@@ -227,7 +227,8 @@ WALLET_APPLE_KEY_PASSWORD = os.getenv("WALLET_APPLE_KEY_PASSWORD", "")
 WALLET_APPLE_WWDR_CERT_PATH = os.getenv("WALLET_APPLE_WWDR_CERT_PATH", "")
 
 WALLET_GOOGLE_ISSUER_ID = os.getenv("WALLET_GOOGLE_ISSUER_ID", "")
-WALLET_GOOGLE_CLASS_SUFFIX = os.getenv("WALLET_GOOGLE_CLASS_SUFFIX", "crush-member")
+# Note: Class IDs can only contain alphanumeric, dots, and underscores (no hyphens)
+WALLET_GOOGLE_CLASS_SUFFIX = os.getenv("WALLET_GOOGLE_CLASS_SUFFIX", "crush_member")
 # CLASS_ID is derived from ISSUER_ID.CLASS_SUFFIX, or can be overridden
 WALLET_GOOGLE_CLASS_ID = os.getenv(
     "WALLET_GOOGLE_CLASS_ID",

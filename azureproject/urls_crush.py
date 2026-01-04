@@ -17,7 +17,7 @@ from crush_lu.admin import crush_admin_site
 from crush_lu.admin.user_segments import user_segments_dashboard, segment_detail
 from crush_lu import admin_views, views, views_phone_verification, views_profile
 from crush_lu import api_views, api_push, api_coach_push, views_oauth_popup, api_journey, views_wallet, api_referral
-from crush_lu.wallet import passkit_service
+from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt
 
@@ -108,6 +108,9 @@ urlpatterns = base_patterns + api_patterns + [
     # Wallet passes (language-neutral for platform-specific clients)
     path('wallet/apple/pass/', views_wallet.apple_wallet_pass, name='wallet_apple_pass'),
     path('wallet/google/jwt/', views_wallet.google_wallet_jwt, name='wallet_google_jwt'),
+
+    # Google Wallet callback (called by Google when users save/delete passes)
+    path('wallet/google/callback/', google_callback.google_wallet_callback, name='wallet_google_callback'),
 
     # Referral API (called from dashboard with hardcoded paths)
     path('api/referral/me/', api_referral.referral_me, name='api_referral_me'),

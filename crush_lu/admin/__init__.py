@@ -18,6 +18,7 @@ Modules:
 - preferences.py: User activity and email preference admins
 - users.py: User admin classes
 - referrals.py: Referral code admins
+- wallet.py: Wallet pass management (Apple & Google)
 """
 
 from django.contrib import admin
@@ -115,6 +116,12 @@ from .users import (
 from .referrals import (
     ReferralCodeAdmin,
     ReferralAttributionAdmin,
+)
+
+from .wallet import (
+    WalletPassFilter,
+    WalletPassAdmin,
+    WalletPassProxy,
 )
 
 # Import all models for registration
@@ -221,6 +228,9 @@ crush_admin_site.register(ProfileReminder, ProfileReminderAdmin)
 crush_admin_site.register(ReferralCode, ReferralCodeAdmin)
 crush_admin_site.register(ReferralAttribution, ReferralAttributionAdmin)
 
+# Wallet Pass Management
+crush_admin_site.register(WalletPassProxy, WalletPassAdmin)
+
 # NOTE: User is NOT registered with crush_admin_site to hide "Authentication and Authorization" section
 # Users can still be viewed/edited via the "👤 User" links in CrushProfile and CrushCoach admin pages
 
@@ -313,4 +323,9 @@ __all__ = [
     'CrushProfileUserInline',
     'CrushCoachUserInline',
     'CrushUserAdmin',
+
+    # Wallet
+    'WalletPassFilter',
+    'WalletPassAdmin',
+    'WalletPassProxy',
 ]

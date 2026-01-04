@@ -50,11 +50,13 @@ def build_google_wallet_jwt(profile, request=None):
     """
     Build a JWT for adding a pass to Google Wallet.
 
-    The pass includes:
-    - Member name and tier (header/subheader)
-    - Next event info (text module)
-    - Points balance (text module)
-    - Referral QR code (barcode)
+    Design inspired by Buffalo Grill pass:
+    - Big promotional header with emoji
+    - Points counter (like "COMPTEUR")
+    - Secondary fields for offers/events
+    - QR code with call-to-action
+    - Hero image at bottom for promotion
+    - Detailed back/info section
 
     Args:
         profile: CrushProfile instance
@@ -73,40 +75,56 @@ def build_google_wallet_jwt(profile, request=None):
     # Get dynamic pass data
     pass_data = build_wallet_pass_data(profile, request=request)
 
-    # Build text modules for card content
+    # Map tier to emoji and promotional message
+    tier = pass_data["membership_tier"] or "basic"
+    tier_config = {
+        "basic": {"emoji": "💜", "promo": "Invite friends & earn rewards! 🎁"},
+        "bronze": {"emoji": "🥉", "promo": "You're on fire! Keep inviting! 🔥"},
+        "silver": {"emoji": "🥈", "promo": "Almost Gold! Just a few more! ⭐"},
+        "gold": {"emoji": "🥇", "promo": "VIP Status! Exclusive perks! 👑"},
+    }
+    tier_info = tier_config.get(tier, tier_config["basic"])
+
+    # Get logo URL
+    logo_url = getattr(settings, "WALLET_GOOGLE_LOGO_URL", None)
+    if not logo_url:
+        logo_url = "https://crush.lu/static/crush_lu/icons/android-launchericon-192-192.png"
+
+    # Get hero/promo image URL (for bottom promotional banner like Buffalo Grill)
+    hero_url = getattr(settings, "WALLET_GOOGLE_HERO_URL", None)
+    if not hero_url:
+        hero_url = "https://crush.lu/static/crush_lu/images/wallet-promo-banner.png"
+
+    # Extract referral code for display
+    referral_code = pass_data["referral_url"].split("/")[-2] if pass_data["referral_url"] else ""
+
+    # Build text modules - similar to Buffalo Grill's layout
+    # First row: "Mes offres en cours" equivalent + Points counter
     text_modules = [
         {
-            "id": "member_status",
-            "header": "Status",
-            "body": pass_data["tier_display"],
+            "id": "promo_message",
+            "header": "🎯 Your Rewards",
+            "body": tier_info["promo"],
         },
         {
-            "id": "points",
-            "header": "Points",
-            "body": str(pass_data["referral_points"]),
+            "id": "points_counter",
+            "header": "POINTS",
+            "body": f"{pass_data['referral_points']:,}",
         },
     ]
 
-    # Add next event info if available
+    # Second row: Next event info (like "Voir au verso")
     if pass_data["next_event"]:
         text_modules.append({
             "id": "next_event",
-            "header": "Next Event",
-            "body": f"{pass_data['next_event']['title']} - {pass_data['next_event']['date']}",
+            "header": "📅 Next Event",
+            "body": f"{pass_data['next_event']['title']}\n{pass_data['next_event']['date']}",
         })
     else:
         text_modules.append({
             "id": "next_event",
-            "header": "Next Event",
-            "body": "No upcoming events",
-        })
-
-    # Add member since info
-    if pass_data["member_since"]:
-        text_modules.append({
-            "id": "member_since",
-            "header": "Member Since",
-            "body": pass_data["member_since"],
+            "header": "📅 Upcoming Events",
+            "body": "Browse events on crush.lu 💜",
         })
 
     # Build the generic object
@@ -114,88 +132,103 @@ def build_google_wallet_jwt(profile, request=None):
         "id": object_id,
         "classId": class_id,
         "state": "active",
+        # Logo in top-left corner (like Buffalo Grill's red circle with "B")
+        "logo": {
+            "sourceUri": {"uri": logo_url},
+            "contentDescription": {
+                "defaultValue": {"language": "en-US", "value": "Crush.lu Logo"}
+            },
+        },
+        # Main header - Big promotional text like "Manger et être récompensé!"
         "header": {
             "defaultValue": {
                 "language": "en-US",
-                "value": pass_data["display_name"],
+                "value": f"Meet & get rewarded! {tier_info['emoji']}",
             }
         },
+        # Subheader - User name and tier
         "subheader": {
             "defaultValue": {
                 "language": "en-US",
-                "value": pass_data["tier_display"],
+                "value": f"{pass_data['display_name']} • {pass_data['tier_display']}",
             }
         },
         "textModulesData": text_modules,
+        # QR code with call-to-action text (like "Scannez-moi à chaque visite")
         "barcode": {
             "type": "QR_CODE",
             "value": pass_data["referral_url"],
-            "alternateText": "Scan to join Crush.lu",
+            "alternateText": "Share me to earn points! 🤳",
         },
         "cardTitle": {
-            "defaultValue": {
-                "language": "en-US",
-                "value": "Crush.lu Member",
-            }
+            "defaultValue": {"language": "en-US", "value": "Crush.lu"}
         },
-        # Crush.lu brand colors
-        "hexBackgroundColor": "#9B59B6",  # crush-purple
+        # Crush.lu brand color (purple like Buffalo Grill's red)
+        "hexBackgroundColor": "#9B59B6",
     }
 
-    # Add profile image if available and user has opted in
+    # Hero image at bottom - promotional banner (like Buffalo Grill's "-10% toutes les 3 visites")
+    # Use profile photo if available, otherwise use promo banner
     if pass_data["photo_url"]:
         generic_object["heroImage"] = {
-            "sourceUri": {
-                "uri": pass_data["photo_url"],
-            },
+            "sourceUri": {"uri": pass_data["photo_url"]},
             "contentDescription": {
-                "defaultValue": {
-                    "language": "en-US",
-                    "value": "Profile Photo",
-                }
+                "defaultValue": {"language": "en-US", "value": "Your Profile"}
+            },
+        }
+    else:
+        # Use a promotional banner image
+        generic_object["heroImage"] = {
+            "sourceUri": {"uri": hero_url},
+            "contentDescription": {
+                "defaultValue": {"language": "en-US", "value": "Invite friends, earn rewards!"}
             },
         }
 
-    # Add info module with referral details (shown on back)
+    # Info module - detailed back of card (like Buffalo Grill's expandable sections)
     generic_object["infoModuleData"] = {
         "showLastUpdateTime": True,
         "labelValueRows": [
             {
                 "columns": [
-                    {
-                        "label": "Referral Code",
-                        "value": pass_data["referral_url"].split("/")[-2] if pass_data["referral_url"] else "",
-                    }
+                    {"label": "🔗 Your Referral Code", "value": referral_code}
                 ]
             },
             {
                 "columns": [
-                    {
-                        "label": "Earn Points",
-                        "value": "Invite friends and earn 100 points per signup!",
-                    }
+                    {"label": "🎁 How to Earn", "value": "Invite friends → +100 pts per signup!"}
+                ]
+            },
+            {
+                "columns": [
+                    {"label": "🏆 Tier Levels", "value": "🥉 200 | 🥈 500 | 🥇 1000 pts"}
+                ]
+            },
+            {
+                "columns": [
+                    {"label": "💰 Redeem Points", "value": "Event discounts & exclusive perks!"}
+                ]
+            },
+            {
+                "columns": [
+                    {"label": "🗓️ Member Since", "value": pass_data["member_since"] or "Welcome!"}
                 ]
             },
         ],
     }
 
-    # Add links module
+    # Links module (like Buffalo Grill's MON COMPTE, FACEBOOK, etc.)
     generic_object["linksModuleData"] = {
         "uris": [
-            {
-                "uri": "https://crush.lu",
-                "description": "Visit Crush.lu",
-            },
-            {
-                "uri": pass_data["referral_url"],
-                "description": "Copy referral link",
-            },
+            {"uri": "https://crush.lu/dashboard/", "description": "👤 My Account"},
+            {"uri": "https://crush.lu/events/", "description": "📅 Browse Events"},
+            {"uri": pass_data["referral_url"], "description": "📋 Share Referral Link"},
+            {"uri": "https://crush.lu", "description": "💜 Visit Crush.lu"},
+            {"uri": "https://instagram.com/crush.lu", "description": "📸 Instagram"},
         ]
     }
 
-    # Add share functionality - triggers native Android share sheet
-    # This is better UX than opening a browser link
-    referral_code = pass_data["referral_url"].split("/")[-2] if pass_data["referral_url"] else ""
+    # Share functionality
     generic_object["appLinkData"] = {
         "androidAppLinkInfo": {
             "appTarget": {
@@ -207,9 +240,8 @@ def build_google_wallet_jwt(profile, request=None):
         }
     }
 
-    # Enable the share button on the pass
     generic_object["shareData"] = {
-        "displayName": f"Join me on Crush.lu! Use my referral: {referral_code}",
+        "displayName": f"Join me on Crush.lu! 💜 Use my code: {referral_code}",
         "url": pass_data["referral_url"],
     }
 

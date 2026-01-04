@@ -193,10 +193,11 @@ class Command(BaseCommand):
                     },
                 ]
             },
-            # Callback URL for pass updates (optional)
-            # "callbackOptions": {
-            #     "url": "https://crush.lu/api/wallet/google/callback/"
-            # },
+            # Callback URL for pass save/delete events
+            # Google will POST to this URL when users save or delete passes
+            "callbackOptions": {
+                "url": "https://crush.lu/wallet/google/callback/"
+            },
         }
 
     def _get_credentials(self):

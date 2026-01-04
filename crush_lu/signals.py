@@ -79,8 +79,8 @@ def _trigger_google_wallet_object_update(profile):
     """
     Trigger Google Wallet object update via REST API.
 
-    For Google Wallet, we need to PATCH the object to update it.
-    This requires the Google Wallet API client (future implementation).
+    For Google Wallet, we PATCH the object to update its content.
+    Uses the Google Wallet REST API with service account authentication.
 
     Args:
         profile: CrushProfile instance with google_wallet_object_id set
@@ -88,15 +88,26 @@ def _trigger_google_wallet_object_update(profile):
     if not profile.google_wallet_object_id:
         return
 
-    # TODO: Implement Google Wallet REST API client for object updates
-    # This requires:
-    # 1. Service account authentication
-    # 2. PATCH request to update the object
-    # For now, we just log that an update would be triggered
-    logger.debug(
-        f"Google Wallet object update would be triggered for user {profile.user_id}: "
-        f"object_id={profile.google_wallet_object_id}"
-    )
+    try:
+        from .wallet.google_api import update_google_wallet_pass
+
+        result = update_google_wallet_pass(profile)
+
+        if result["success"]:
+            logger.info(
+                f"Google Wallet pass updated for user {profile.user_id}: "
+                f"object_id={profile.google_wallet_object_id}"
+            )
+        else:
+            logger.warning(
+                f"Google Wallet pass update failed for user {profile.user_id}: "
+                f"{result['message']}"
+            )
+
+    except Exception as e:
+        logger.error(
+            f"Error updating Google Wallet pass for user {profile.user_id}: {e}"
+        )
 
 
 def trigger_wallet_pass_updates(profile):
