@@ -65,7 +65,27 @@ PLATFORMS = [
             _("Smart matching algorithm"),
             _("LinkedIn integration"),
             _("Local business focus"),
-            _("FinOps tools"),
+            _("Startup ecosystem"),
+        ],
+    },
+    {
+        "slug": "finops-hub",
+        "name": "FinOps Hub",
+        "tagline": _("Azure cost management & analytics"),
+        "description": _(
+            "Comprehensive Azure cost management dashboard for enterprises. "
+            "Track cloud spending, analyze trends, and optimize costs across "
+            "all your Azure subscriptions in real-time."
+        ),
+        "url": "/finops/",
+        "icon": "chart",
+        "status": "live",
+        "launched": "2025",
+        "highlights": [
+            _("Multi-subscription tracking"),
+            _("Cost trend analysis"),
+            _("Service-level breakdown"),
+            _("Automated daily sync"),
         ],
     },
 ]

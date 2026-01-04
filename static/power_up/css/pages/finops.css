@@ -1,0 +1,51 @@
+/* FinOps Hub Styles - Power-Up Platform
+   Minimal custom styles - most styling via Tailwind CSS classes */
+
+/* Chart container sizing */
+.chart-container {
+    position: relative;
+    height: 300px;
+}
+
+/* Trend indicators */
+.trend-up {
+    color: #dc2626; /* red-600 */
+}
+
+.trend-down {
+    color: #16a34a; /* green-600 */
+}
+
+/* Microsoft Discount Slider */
+#discountSlider {
+    cursor: pointer;
+    accent-color: #2563eb; /* blue-600 */
+}
+
+#discountSlider::-webkit-slider-thumb {
+    cursor: grab;
+}
+
+#discountSlider::-webkit-slider-thumb:active {
+    cursor: grabbing;
+}
+
+/* Service row transition for discount animation */
+.service-row {
+    transition: background-color 0.3s ease;
+}
+
+/* Chart canvas max height */
+canvas {
+    max-height: 400px;
+}
+
+/* Card hover effect */
+.cost-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.cost-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}

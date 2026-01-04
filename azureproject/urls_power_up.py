@@ -32,6 +32,9 @@ urlpatterns = [
     # Standard Django admin (for superusers)
     path("admin/", admin.site.urls),
 
+    # FinOps Hub - Azure cost management dashboard
+    path("finops/", include(("power_up.finops.urls", "finops_hub"))),
+
     # Power-Up corporate site pages
     path("", include("power_up.urls", namespace="power_up")),
 ]

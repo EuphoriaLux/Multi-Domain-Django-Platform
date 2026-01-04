@@ -1,0 +1,110 @@
+{% extends "finops/base_finops.html" %}
+{% load static %}
+
+{% block title %}FinOps Hub - Services{% endblock %}
+
+{% block finops_content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">FinOps Hub - Service Breakdown</h1>
+    <p class="text-gray-500">Azure service-level cost analysis</p>
+    <nav class="flex mt-2" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-2 text-sm text-gray-500">
+            <li><a href="{% url 'finops_hub:dashboard' %}" class="hover:text-blue-600">Dashboard</a></li>
+            <li><span class="mx-1">/</span></li>
+            <li class="text-gray-900">Services</li>
+        </ol>
+    </nav>
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-lg shadow p-4 mb-6">
+    <form method="get" class="flex flex-wrap items-end gap-4">
+        <div>
+            <label for="days" class="block text-sm font-medium text-gray-700 mb-1">Time Period</label>
+            <select name="days" id="days" class="px-3 py-2 border border-gray-300 rounded-md">
+                <option value="7" {% if period.days == 7 %}selected{% endif %}>Last 7 days</option>
+                <option value="30" {% if period.days == 30 %}selected{% endif %}>Last 30 days</option>
+                <option value="60" {% if period.days == 60 %}selected{% endif %}>Last 60 days</option>
+                <option value="90" {% if period.days == 90 %}selected{% endif %}>Last 90 days</option>
+            </select>
+        </div>
+        <div>
+            <label for="subscription" class="block text-sm font-medium text-gray-700 mb-1">Subscription</label>
+            <select name="subscription" id="subscription" class="px-3 py-2 border border-gray-300 rounded-md">
+                <option value="">All Subscriptions</option>
+                {% for sub in available_subscriptions %}
+                <option value="{{ sub }}" {% if subscription == sub %}selected{% endif %}>{{ sub }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700">Apply Filter</button>
+    </form>
+</div>
+
+<!-- Chart -->
+<div class="bg-white rounded-lg shadow p-5 mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">Top 10 Services by Cost</h3>
+    <canvas id="serviceChart" height="60"></canvas>
+</div>
+
+<!-- Table -->
+<div class="bg-white rounded-lg shadow mb-6">
+    <div class="flex justify-between items-center px-5 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900">All Services</h3>
+        {% if subscription %}<span class="px-2 py-1 bg-cyan-100 text-cyan-800 rounded text-sm">{{ subscription }}</span>{% endif %}
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service Name</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cost (EUR)</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Records</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">% of Total</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for service in services_table %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 text-sm text-gray-500">{{ forloop.counter }}</td>
+                    <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ service.service_name }}</td>
+                    <td class="px-6 py-4 text-sm">{% if service.service_category %}<span class="px-2 py-1 bg-gray-100 rounded text-gray-600">{{ service.service_category }}</span>{% else %}-{% endif %}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-900">{{ service.total_cost|floatformat:2 }}</td>
+                    <td class="px-6 py-4 text-sm text-right"><span class="px-2 py-1 bg-gray-100 rounded text-gray-600">{{ service.record_count }}</span></td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-500">{% widthratio service.total_cost total_cost 100 as pct %}{{ pct|floatformat:1 }}%</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No service data available</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="flex gap-2">
+    <a href="{% url 'finops_hub:dashboard' %}" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">Back to Dashboard</a>
+    <a href="{% url 'finops_hub:subscriptions' %}" class="px-4 py-2 border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50">Subscriptions</a>
+    <a href="{% url 'finops_hub:resources' %}" class="px-4 py-2 border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50">Resources</a>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const data = {{ services|safe }};
+    if (data && data.length > 0) {
+        new Chart(document.getElementById('serviceChart'), {
+            type: 'bar',
+            data: {
+                labels: data.map(s => s.service_name),
+                datasets: [{ label: 'Cost (EUR)', data: data.map(s => parseFloat(s.total_cost)), backgroundColor: 'rgba(20,184,166,0.8)' }]
+            },
+            options: { indexAxis: 'y', responsive: true, scales: { x: { beginAtZero: true, ticks: { callback: v => '' + v.toFixed(2) } } } }
+        });
+    }
+});
+</script>
+{% endblock %}
