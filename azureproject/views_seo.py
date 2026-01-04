@@ -1,6 +1,6 @@
 # azureproject/views_seo.py
 """
-SEO-related views for all domains (VinsDelux, PowerUP, Power-Up).
+SEO-related views for all domains (VinsDelux, Entreprinder, Power-Up, Tableau).
 
 This module provides domain-specific robots.txt generation.
 Crush.lu has its own views_seo.py in the crush_lu app.
@@ -76,16 +76,16 @@ def robots_txt_vinsdelux(request):
 
 @require_GET
 @cache_page(60 * 60 * 24)  # Cache for 24 hours
-def robots_txt_powerup(request):
+def robots_txt_entreprinder(request):
     """
-    Generate robots.txt for PowerUP business networking platform.
+    Generate robots.txt for Entreprinder business networking platform.
 
     Allows crawling of public pages while blocking admin,
     API endpoints, and user account areas.
     """
     lines = [
-        "# Robots.txt for PowerUP",
-        "# https://powerup.lu/robots.txt",
+        "# Robots.txt for Entreprinder",
+        "# https://entreprinder.lu/robots.txt",
         "",
         "User-agent: *",
         "",
@@ -128,11 +128,24 @@ def robots_txt_powerup(request):
         "Crawl-delay: 1",
         "",
         "# Sitemap location",
-        "Sitemap: https://powerup.lu/sitemap.xml",
+        "Sitemap: https://entreprinder.lu/sitemap.xml",
         "",
     ]
 
     return HttpResponse("\n".join(lines), content_type="text/plain")
+
+
+@require_GET
+@cache_page(60 * 60 * 24)  # Cache for 24 hours
+def robots_txt_powerup(request):
+    """
+    Generate robots.txt for PowerUP business networking platform.
+
+    NOTE: powerup.lu now redirects to power-up.lu corporate site.
+    This view is kept for backwards compatibility during transition.
+    """
+    # Redirect to power-up.lu robots.txt for consistency
+    return robots_txt_power_up(request)
 
 
 @require_GET

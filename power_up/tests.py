@@ -178,7 +178,7 @@ class PowerUpNavigationTestCase(TestCase):
         content = response.content.decode()
         self.assertIn("https://crush.lu", content)
         self.assertIn("https://vinsdelux.com", content)
-        self.assertIn("https://powerup.lu", content)
+        self.assertIn("https://entreprinder.lu", content)
 
 
 class PowerUpSEOTestCase(TestCase):

@@ -18,7 +18,7 @@ def home(request):
         "page_title": _("Power-Up - Building Luxembourg's Digital Future"),
         "meta_description": _(
             "Power-Up builds digital platforms for Luxembourg. "
-            "Discover our portfolio: Crush.lu, VinsDelux, and PowerUP."
+            "Discover our portfolio: Crush.lu, VinsDelux, and Entreprinder."
         ),
     }
     return render(request, "power_up/home.html", context)
@@ -43,7 +43,7 @@ def platforms(request):
         "page_title": _("Our Platforms - Power-Up"),
         "meta_description": _(
             "Explore Power-Up's portfolio of digital platforms: "
-            "Crush.lu dating, VinsDelux wine adoption, and PowerUP networking."
+            "Crush.lu dating, VinsDelux wine adoption, and Entreprinder networking."
         ),
     }
     return render(request, "power_up/platforms.html", context)

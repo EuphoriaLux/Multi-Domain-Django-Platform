@@ -8,7 +8,7 @@ Usage:
     from azureproject.domains import DOMAINS, DEV_DEFAULT, get_domain_config
 
 To test a different site locally, change DEV_DEFAULT:
-    DEV_DEFAULT = 'vinsdelux.com'  # or 'powerup.lu'
+    DEV_DEFAULT = 'vinsdelux.com'  # or 'entreprinder.lu'
 """
 
 DOMAINS = {
@@ -30,17 +30,17 @@ DOMAINS = {
         'app': 'vinsdelux',
         'aliases': ['www.vinsdelux.com'],
     },
-    'powerup.lu': {
-        'urlconf': 'azureproject.urls_powerup',
-        'name': 'PowerUP',
+    'entreprinder.lu': {
+        'urlconf': 'azureproject.urls_entreprinder',
+        'name': 'Entreprinder',
         'app': 'entreprinder',
-        'aliases': ['www.powerup.lu'],
+        'aliases': ['www.entreprinder.lu'],
     },
     'power-up.lu': {
         'urlconf': 'azureproject.urls_power_up',
         'name': 'Power-Up',
         'app': 'power_up',
-        'aliases': ['www.power-up.lu'],
+        'aliases': ['www.power-up.lu', 'powerup.lu', 'www.powerup.lu'],
     },
     'tableau.lu': {
         'urlconf': 'azureproject.urls_tableau',
@@ -56,7 +56,7 @@ DEV_HOSTS = ['localhost', '127.0.0.1', '192.168.178.184', 'testserver']
 DEV_DEFAULT = 'crush.lu'  # Change this to test different sites locally
 
 # Production fallback (used for unknown domains and Azure hostnames)
-PRODUCTION_DEFAULT = 'powerup.lu'
+PRODUCTION_DEFAULT = 'entreprinder.lu'
 
 
 def get_domain_config(host):
