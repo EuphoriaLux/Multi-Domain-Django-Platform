@@ -1,0 +1,65 @@
+{% load i18n %}
+{# CSS-Only Language Switcher for Power-Up #}
+{# No JavaScript/Alpine.js - uses CSS :focus-within for dropdown #}
+
+{% get_current_language as CURRENT_LANGUAGE %}
+{% get_available_languages as AVAILABLE_LANGUAGES %}
+
+{% if mobile %}
+{# Mobile version - simple select dropdown #}
+<div class="py-2">
+    <form action="{% url 'set_language' %}" method="post" class="flex items-center gap-2">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <label for="language-mobile" class="text-gray-600 text-sm flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+            </svg>
+        </label>
+        <select name="language" id="language-mobile"
+                onchange="this.form.submit()"
+                class="flex-1 bg-gray-100 border border-gray-200 text-gray-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-powerup-orange">
+            {% for lang_code, lang_name in AVAILABLE_LANGUAGES %}
+                <option value="{{ lang_code }}" {% if lang_code == CURRENT_LANGUAGE %}selected{% endif %}>
+                    {{ lang_name }}
+                </option>
+            {% endfor %}
+        </select>
+        <noscript>
+            <button type="submit" class="bg-powerup-orange hover:bg-powerup-orange-dark text-white rounded-lg px-3 py-1.5 text-sm transition-colors">
+                {% trans "Go" %}
+            </button>
+        </noscript>
+    </form>
+</div>
+{% else %}
+{# Desktop version - CSS-only dropdown using :focus-within #}
+<div class="relative group">
+    {# Dropdown trigger button #}
+    <button type="button"
+            class="text-gray-600 hover:text-powerup-orange font-medium transition-colors duration-200 flex items-center gap-1 px-2 py-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-powerup-orange">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+        </svg>
+        <span class="uppercase text-xs font-medium">{{ CURRENT_LANGUAGE }}</span>
+        <svg class="w-3 h-3 transition-transform duration-200 group-focus-within:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+    </button>
+
+    {# Dropdown menu - shown on hover and focus-within #}
+    <div class="absolute right-0 mt-2 w-32 bg-white rounded-lg shadow-lg py-1 z-50 invisible opacity-0 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 transition-all duration-150">
+        {% for lang_code, lang_name in AVAILABLE_LANGUAGES %}
+            <form action="{% url 'set_language' %}" method="post" class="block">
+                {% csrf_token %}
+                <input type="hidden" name="language" value="{{ lang_code }}">
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <button type="submit"
+                        class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-powerup-orange {% if lang_code == CURRENT_LANGUAGE %}bg-orange-50 font-semibold text-powerup-orange{% endif %}">
+                    {{ lang_name }}
+                </button>
+            </form>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}

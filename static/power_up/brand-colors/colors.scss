@@ -1,0 +1,32 @@
+// power_up Brand Colors
+
+// Primary
+$color-primary: #ffffff;
+
+// Secondary
+$color-secondary: #fe4901;
+
+// Accent Colors
+$color-accent-1: #80735f;
+$color-accent-2: #010106;
+$color-accent-3: #151625;
+
+// All Brand Colors
+$brand-color-1: #ffffff; // White
+$brand-color-2: #fe4901; // Orange
+$brand-color-3: #80735f; // Orange
+$brand-color-4: #010106; // Very Dark Blue
+$brand-color-5: #151625; // Very Dark Blue
+$brand-color-6: #03030c; // Very Dark Blue
+$brand-color-7: #090a18; // Very Dark Blue
+
+// Color Map
+$brand-colors: (
+  'white': #ffffff,
+  'orange': #fe4901,
+  'orange': #80735f,
+  'very-dark-blue': #010106,
+  'very-dark-blue': #151625,
+  'very-dark-blue': #03030c,
+  'very-dark-blue': #090a18,
+);

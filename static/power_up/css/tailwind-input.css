@@ -6,12 +6,12 @@
 @layer components {
   /* Primary button */
   .btn-primary {
-    @apply inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors duration-200;
+    @apply inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-powerup-orange hover:bg-powerup-orange-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-powerup-orange transition-colors duration-200;
   }
 
   /* Secondary button */
   .btn-secondary {
-    @apply inline-flex items-center justify-center px-6 py-3 border-2 border-purple-600 text-base font-medium rounded-lg text-purple-600 bg-white hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors duration-200;
+    @apply inline-flex items-center justify-center px-6 py-3 border-2 border-powerup-orange text-base font-medium rounded-lg text-powerup-orange bg-white hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-powerup-orange transition-colors duration-200;
   }
 
   /* Outline white button for dark backgrounds */
@@ -29,9 +29,9 @@
     @apply py-16 lg:py-24;
   }
 
-  /* Hero gradient */
+  /* Hero gradient - orange to dark blue */
   .hero-gradient {
-    @apply bg-gradient-to-br from-purple-600 via-purple-700 to-pink-600;
+    @apply bg-gradient-to-br from-powerup-orange via-powerup-orange-dark to-powerup-dark-blue;
   }
 
   /* Platform status badge */
@@ -45,8 +45,8 @@
 }
 
 @layer utilities {
-  /* Text gradient utility */
+  /* Text gradient utility - orange theme */
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-500;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-powerup-orange to-powerup-orange-light;
   }
 }

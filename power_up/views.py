@@ -7,10 +7,12 @@ This is a static marketing site for investors and partners.
 
 from django.shortcuts import render
 from django.utils.translation import gettext_lazy as _
+from django.views.decorators.http import require_GET
 
 from .platforms import PLATFORMS
 
 
+@require_GET
 def home(request):
     """Landing page with hero, mission, and portfolio preview."""
     context = {
@@ -24,6 +26,7 @@ def home(request):
     return render(request, "power_up/home.html", context)
 
 
+@require_GET
 def about(request):
     """Company story, team, and values."""
     context = {
@@ -36,6 +39,7 @@ def about(request):
     return render(request, "power_up/about.html", context)
 
 
+@require_GET
 def platforms(request):
     """Portfolio showcase with all platforms."""
     context = {
@@ -49,6 +53,7 @@ def platforms(request):
     return render(request, "power_up/platforms.html", context)
 
 
+@require_GET
 def investors(request):
     """Investment and partnership information."""
     context = {
@@ -61,6 +66,7 @@ def investors(request):
     return render(request, "power_up/investors.html", context)
 
 
+@require_GET
 def contact(request):
     """Static contact information block."""
     context = {

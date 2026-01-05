@@ -1,0 +1,152 @@
+{
+  "brand": "power_up",
+  "primary": {
+    "rgb": [
+      255,
+      255,
+      255
+    ],
+    "hex": "#ffffff",
+    "name": "White",
+    "luminance": 1.0,
+    "frequency": 87.0
+  },
+  "secondary": {
+    "rgb": [
+      254,
+      73,
+      1
+    ],
+    "hex": "#fe4901",
+    "name": "Orange",
+    "luminance": 0.258,
+    "frequency": 2.8
+  },
+  "accent": [
+    {
+      "rgb": [
+        128,
+        115,
+        95
+      ],
+      "hex": "#80735f",
+      "name": "Orange",
+      "luminance": 0.177,
+      "frequency": 1.5
+    },
+    {
+      "rgb": [
+        1,
+        1,
+        6
+      ],
+      "hex": "#010106",
+      "name": "Very Dark Blue",
+      "luminance": 0.0,
+      "frequency": 22.0
+    },
+    {
+      "rgb": [
+        21,
+        22,
+        37
+      ],
+      "hex": "#151625",
+      "name": "Very Dark Blue",
+      "luminance": 0.009,
+      "frequency": 19.9
+    }
+  ],
+  "neutral": [
+    {
+      "rgb": [
+        255,
+        255,
+        255
+      ],
+      "hex": "#ffffff",
+      "name": "White",
+      "luminance": 1.0,
+      "frequency": 87.0
+    }
+  ],
+  "all_colors": [
+    {
+      "rgb": [
+        255,
+        255,
+        255
+      ],
+      "hex": "#ffffff",
+      "name": "White",
+      "luminance": 1.0,
+      "frequency": 87.0
+    },
+    {
+      "rgb": [
+        254,
+        73,
+        1
+      ],
+      "hex": "#fe4901",
+      "name": "Orange",
+      "luminance": 0.258,
+      "frequency": 2.8
+    },
+    {
+      "rgb": [
+        128,
+        115,
+        95
+      ],
+      "hex": "#80735f",
+      "name": "Orange",
+      "luminance": 0.177,
+      "frequency": 1.5
+    },
+    {
+      "rgb": [
+        1,
+        1,
+        6
+      ],
+      "hex": "#010106",
+      "name": "Very Dark Blue",
+      "luminance": 0.0,
+      "frequency": 22.0
+    },
+    {
+      "rgb": [
+        21,
+        22,
+        37
+      ],
+      "hex": "#151625",
+      "name": "Very Dark Blue",
+      "luminance": 0.009,
+      "frequency": 19.9
+    },
+    {
+      "rgb": [
+        3,
+        3,
+        12
+      ],
+      "hex": "#03030c",
+      "name": "Very Dark Blue",
+      "luminance": 0.001,
+      "frequency": 28.3
+    },
+    {
+      "rgb": [
+        9,
+        10,
+        24
+      ],
+      "hex": "#090a18",
+      "name": "Very Dark Blue",
+      "luminance": 0.003,
+      "frequency": 20.1
+    }
+  ]
+}
