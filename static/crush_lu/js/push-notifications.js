@@ -209,9 +209,22 @@
 
         } catch (error) {
             console.error('[Push] Error subscribing to push:', error);
+
+            // Provide more helpful error messages for common issues
+            var errorMessage = error.message;
+            if (error.name === 'AbortError') {
+                // This typically means the VAPID key is invalid or push service is unavailable
+                errorMessage = 'Push service error. This may be due to server misconfiguration or network issues. Please try again later.';
+                console.error('[Push] AbortError details: VAPID key may be invalid or push service unavailable');
+            } else if (error.name === 'NotAllowedError') {
+                errorMessage = 'Push notifications are blocked. Please enable them in your browser settings.';
+            } else if (error.name === 'InvalidStateError') {
+                errorMessage = 'Push subscription already exists or is in an invalid state.';
+            }
+
             return {
                 success: false,
-                error: error.message
+                error: errorMessage
             };
         }
     }

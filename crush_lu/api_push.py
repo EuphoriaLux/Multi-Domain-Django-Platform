@@ -5,6 +5,7 @@ Handles subscription management and notification delivery
 
 import json
 import logging
+import re
 from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -23,16 +24,38 @@ def get_vapid_public_key(request):
     """
     Return the VAPID public key for push subscription.
     This is needed by the frontend to subscribe to push notifications.
+
+    VAPID public key should be a base64url-encoded P-256 ECDSA public key,
+    typically 87 characters long.
     """
     if not hasattr(settings, 'VAPID_PUBLIC_KEY') or not settings.VAPID_PUBLIC_KEY:
+        logger.error("VAPID_PUBLIC_KEY not configured - push notifications unavailable")
         return JsonResponse({
             'success': False,
-            'error': 'Push notifications not configured'
-        }, status=500)
+            'error': 'Push notifications not configured on server'
+        }, status=503)
+
+    vapid_key = settings.VAPID_PUBLIC_KEY
+
+    # Basic validation: VAPID public keys should be ~87 chars base64url
+    if len(vapid_key) < 80 or len(vapid_key) > 100:
+        logger.error(f"VAPID_PUBLIC_KEY has invalid length: {len(vapid_key)} (expected ~87)")
+        return JsonResponse({
+            'success': False,
+            'error': 'Push notifications misconfigured on server'
+        }, status=503)
+
+    # Check for valid base64url characters
+    if not re.match(r'^[A-Za-z0-9_-]+$', vapid_key):
+        logger.error("VAPID_PUBLIC_KEY contains invalid characters")
+        return JsonResponse({
+            'success': False,
+            'error': 'Push notifications misconfigured on server'
+        }, status=503)
 
     return JsonResponse({
         'success': True,
-        'publicKey': settings.VAPID_PUBLIC_KEY
+        'publicKey': vapid_key
     })
 
 
