@@ -19,6 +19,7 @@ Modules:
 - users.py: User admin classes
 - referrals.py: Referral code admins
 - wallet.py: Wallet pass management (Apple & Google)
+- pwa_devices.py: PWA device installation tracking (admin-only)
 """
 
 from django.contrib import admin
@@ -124,6 +125,8 @@ from .wallet import (
     WalletPassProxy,
 )
 
+from .pwa_devices import PWADeviceInstallationAdmin
+
 # Import all models for registration
 from crush_lu.models import (
     SpecialUserExperience,
@@ -163,6 +166,7 @@ from crush_lu.models import (
     ProfileReminder,
     ReferralCode,
     ReferralAttribution,
+    PWADeviceInstallation,
 )
 
 
@@ -230,6 +234,9 @@ crush_admin_site.register(ReferralAttribution, ReferralAttributionAdmin)
 
 # Wallet Pass Management
 crush_admin_site.register(WalletPassProxy, WalletPassAdmin)
+
+# PWA Device Installation Tracking (Admin-only analytics)
+crush_admin_site.register(PWADeviceInstallation, PWADeviceInstallationAdmin)
 
 # NOTE: User is NOT registered with crush_admin_site to hide "Authentication and Authorization" section
 # Users can still be viewed/edited via the "👤 User" links in CrushProfile and CrushCoach admin pages
@@ -328,4 +335,7 @@ __all__ = [
     'WalletPassFilter',
     'WalletPassAdmin',
     'WalletPassProxy',
+
+    # PWA Devices
+    'PWADeviceInstallationAdmin',
 ]

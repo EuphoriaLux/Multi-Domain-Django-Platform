@@ -37,6 +37,18 @@ ALLOWED_HOSTS = get_all_hosts()
 if 'CODESPACE_NAME' in os.environ:
     CSRF_TRUSTED_ORIGINS = [f'https://{os.getenv("CODESPACE_NAME")}-8000.{os.getenv("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")}']
 
+# Local development CSRF trusted origins (for .localhost domains)
+# These only apply locally - production uses real domains
+CSRF_TRUSTED_ORIGINS = getattr(globals(), 'CSRF_TRUSTED_ORIGINS', []) + [
+    'http://crush.localhost:8000',
+    'http://power-up.localhost:8000',
+    'http://powerup.localhost:8000',
+    'http://vinsdelux.localhost:8000',
+    'http://entreprinder.localhost:8000',
+    'http://tableau.localhost:8000',
+    'http://delegation.localhost:8000',
+]
+
 # Application definition
 
 INSTALLED_APPS = [

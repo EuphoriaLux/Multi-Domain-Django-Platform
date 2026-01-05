@@ -2363,4 +2363,73 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // PWA Install Button component for membership page
+    // CSP-compatible with computed getters
+    Alpine.data('pwaInstallButton', function() {
+        return {
+            deferredPrompt: null,
+            canInstall: false,
+            isInstalled: false,
+            showInstructions: false,
+            instructions: '',
+
+            // Computed getters for CSP compatibility
+            get canInstallVisible() { return this.canInstall; },
+            get isInstalledVisible() { return this.isInstalled; },
+            get showInstructionsVisible() { return this.showInstructions; },
+
+            init: function() {
+                var self = this;
+
+                // Check if already installed (standalone mode)
+                if (window.matchMedia('(display-mode: standalone)').matches ||
+                    window.navigator.standalone === true) {
+                    self.isInstalled = true;
+                    return;
+                }
+
+                // Check CrushPWA if available
+                if (window.CrushPWA && window.CrushPWA.isStandalone) {
+                    self.isInstalled = true;
+                    return;
+                }
+
+                // Listen for beforeinstallprompt event (Chrome, Edge, Samsung)
+                window.addEventListener('beforeinstallprompt', function(e) {
+                    e.preventDefault();
+                    self.deferredPrompt = e;
+                    self.canInstall = true;
+                });
+
+                // Listen for appinstalled event
+                window.addEventListener('appinstalled', function() {
+                    self.isInstalled = true;
+                    self.canInstall = false;
+                    self.deferredPrompt = null;
+                });
+
+                // iOS-specific instructions (no beforeinstallprompt on iOS)
+                var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                if (isIOS) {
+                    self.showInstructions = true;
+                    self.instructions = 'Tap Share, then "Add to Home Screen"';
+                }
+            },
+
+            install: function() {
+                var self = this;
+                if (!self.deferredPrompt) return;
+
+                self.deferredPrompt.prompt();
+                self.deferredPrompt.userChoice.then(function(result) {
+                    if (result.outcome === 'accepted') {
+                        self.isInstalled = true;
+                        self.canInstall = false;
+                    }
+                    self.deferredPrompt = null;
+                });
+            }
+        };
+    });
+
 });

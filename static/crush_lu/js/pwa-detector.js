@@ -140,6 +140,223 @@
         return cookieValue;
     }
 
+    // ========================================================================
+    // Device Detection Functions
+    // ========================================================================
+
+    /**
+     * Detect operating system from userAgent and userAgentData
+     */
+    function detectOS() {
+        // Modern API (Chrome 90+)
+        if (navigator.userAgentData && navigator.userAgentData.platform) {
+            var platform = navigator.userAgentData.platform.toLowerCase();
+            if (platform.includes('android')) return 'android';
+            if (platform.includes('ios') || platform === 'iphone' || platform === 'ipad') return 'ios';
+            if (platform.includes('windows')) return 'windows';
+            if (platform.includes('mac') || platform.includes('macos')) return 'macos';
+            if (platform.includes('linux')) return 'linux';
+            if (platform.includes('chrome os') || platform.includes('chromeos')) return 'chromeos';
+        }
+
+        // Fallback to userAgent parsing
+        var ua = navigator.userAgent.toLowerCase();
+        if (/iphone|ipad|ipod/.test(ua)) return 'ios';
+        if (/android/.test(ua)) return 'android';
+        if (/windows/.test(ua)) return 'windows';
+        if (/macintosh|mac os/.test(ua)) return 'macos';
+        if (/cros/.test(ua)) return 'chromeos';
+        if (/linux/.test(ua)) return 'linux';
+
+        return 'unknown';
+    }
+
+    /**
+     * Detect form factor (phone, tablet, desktop)
+     */
+    function detectFormFactor() {
+        var ua = navigator.userAgent.toLowerCase();
+        var minDimension = Math.min(window.screen.width, window.screen.height);
+
+        var isMobileUA = /mobile|android.*mobile|iphone|ipod|blackberry|opera mini|iemobile/i.test(ua);
+        var isTabletUA = /ipad|android(?!.*mobile)|tablet/i.test(ua);
+
+        if (isMobileUA) return 'phone';
+        if (isTabletUA) return 'tablet';
+        if (minDimension <= 480) return 'phone';
+        if (minDimension <= 1024 && 'ontouchstart' in window) return 'tablet';
+
+        return 'desktop';
+    }
+
+    /**
+     * Detect browser name
+     */
+    function detectBrowser() {
+        var ua = navigator.userAgent;
+        if (/Edg\//.test(ua)) return 'Edge';
+        if (/OPR\/|Opera/.test(ua)) return 'Opera';
+        if (/Firefox\//.test(ua)) return 'Firefox';
+        if (/SamsungBrowser\//.test(ua)) return 'Samsung Internet';
+        if (/Chrome\//.test(ua) && !/Edg\//.test(ua)) return 'Chrome';
+        if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) return 'Safari';
+        return 'Unknown';
+    }
+
+    /**
+     * Build device category string (e.g., "Android Phone", "Windows Desktop")
+     */
+    function getDeviceCategory(os, formFactor) {
+        var osNames = {
+            'ios': 'iOS', 'android': 'Android', 'windows': 'Windows',
+            'macos': 'macOS', 'linux': 'Linux', 'chromeos': 'ChromeOS', 'unknown': 'Unknown'
+        };
+        var formNames = {
+            'phone': 'Phone', 'tablet': 'Tablet', 'desktop': 'Desktop', 'unknown': 'Device'
+        };
+
+        // Special cases for better readability
+        if (os === 'ios' && formFactor === 'phone') return 'iPhone';
+        if (os === 'ios' && formFactor === 'tablet') return 'iPad';
+
+        return osNames[os] + ' ' + formNames[formFactor];
+    }
+
+    // ========================================================================
+    // Device Fingerprint Generation (matches push-notifications.js pattern)
+    // ========================================================================
+
+    /**
+     * Generate a stable device fingerprint
+     */
+    function generateDeviceFingerprint() {
+        var components = [
+            screen.width,
+            screen.height,
+            window.devicePixelRatio || 1,
+            new Date().getTimezoneOffset(),
+            navigator.language || '',
+            navigator.platform || '',
+            navigator.hardwareConcurrency || 0,
+            navigator.deviceMemory || 0,
+            ('ontouchstart' in window) ? 1 : 0,
+            screen.colorDepth || 0,
+            getCanvasFingerprint()
+        ];
+        return simpleHash(components.join('|'));
+    }
+
+    /**
+     * Get canvas-based fingerprint
+     */
+    function getCanvasFingerprint() {
+        try {
+            var canvas = document.createElement('canvas');
+            canvas.width = 200;
+            canvas.height = 50;
+            var ctx = canvas.getContext('2d');
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#f60';
+            ctx.fillRect(125, 1, 62, 20);
+            ctx.fillStyle = '#069';
+            ctx.fillText('Crush.lu PWA', 2, 15);
+            ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+            ctx.fillText('Crush.lu PWA', 4, 17);
+            return canvas.toDataURL().slice(-50);
+        } catch (e) {
+            return 'no-canvas';
+        }
+    }
+
+    /**
+     * Simple hash function (djb2)
+     */
+    function simpleHash(str) {
+        var hash = 5381;
+        for (var i = 0; i < str.length; i++) {
+            hash = ((hash << 5) + hash) + str.charCodeAt(i);
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        return Math.abs(hash).toString(16).padStart(8, '0');
+    }
+
+    // ========================================================================
+    // PWA Installation Registration
+    // ========================================================================
+
+    /**
+     * Register PWA installation with device info to backend
+     */
+    async function registerPWAInstallation() {
+        // Only register if running as PWA
+        if (!isPWAMode()) {
+            return;
+        }
+
+        // Only register once per session
+        if (sessionStorage.getItem('pwaInstallationRegistered') === 'true') {
+            console.log('[PWA] Installation already registered this session');
+            return;
+        }
+
+        // Get CSRF token
+        var csrfToken = getCookie('csrftoken');
+        if (!csrfToken) {
+            console.warn('[PWA] No CSRF token available, skipping installation registration');
+            return;
+        }
+
+        var os = detectOS();
+        var formFactor = detectFormFactor();
+        var fingerprint = generateDeviceFingerprint();
+
+        try {
+            var response = await fetch('/api/pwa/register-installation/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'Crush-PWA'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    deviceFingerprint: fingerprint,
+                    osType: os,
+                    formFactor: formFactor,
+                    browser: detectBrowser(),
+                    deviceCategory: getDeviceCategory(os, formFactor),
+                    userAgent: navigator.userAgent
+                })
+            });
+
+            if (response.ok) {
+                var data = await response.json();
+                if (data.success) {
+                    console.log('[PWA] Installation registered:', data.deviceCategory, '(' + data.message + ')');
+                    sessionStorage.setItem('pwaInstallationRegistered', 'true');
+                }
+            } else if (response.status === 403) {
+                // User not logged in, that's OK
+                console.log('[PWA] User not logged in, cannot register installation');
+            } else {
+                console.warn('[PWA] Failed to register installation:', response.status);
+            }
+        } catch (error) {
+            console.error('[PWA] Error registering installation:', error);
+        }
+    }
+
+    // Register installation after marking PWA user (if running as PWA)
+    if (isRunningAsPWA) {
+        // Small delay to ensure markPWAUser runs first
+        setTimeout(registerPWAInstallation, 500);
+    }
+
+    // ========================================================================
+    // Global API Exposure
+    // ========================================================================
+
     // Expose detection function globally
     window.CrushPWA = {
         isStandalone: isRunningAsPWA,
@@ -151,9 +368,20 @@
             if (window.matchMedia('(display-mode: fullscreen)').matches) return 'fullscreen';
             if (window.matchMedia('(display-mode: minimal-ui)').matches) return 'minimal-ui';
             return 'browser';
-        }
+        },
+        // Expose device detection for external use
+        detectOS: detectOS,
+        detectFormFactor: detectFormFactor,
+        detectBrowser: detectBrowser,
+        getDeviceCategory: function() {
+            return getDeviceCategory(detectOS(), detectFormFactor());
+        },
+        getDeviceFingerprint: generateDeviceFingerprint
     };
 
     console.log('[PWA] Display mode:', window.CrushPWA.getDisplayMode());
+    if (isRunningAsPWA) {
+        console.log('[PWA] Device:', getDeviceCategory(detectOS(), detectFormFactor()));
+    }
 
 })();

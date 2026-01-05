@@ -175,6 +175,17 @@ class SafeCurrentSiteMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        from azureproject.domains import DEV_DOMAIN_MAPPINGS
+
+        # Map dev domains for Sites framework (e.g., crush.localhost -> crush.lu)
+        host = request.get_host().split(':')[0].lower()
+        if host in DEV_DOMAIN_MAPPINGS:
+            mapped_host = DEV_DOMAIN_MAPPINGS[host]
+            # Store original and override META for Sites framework compatibility
+            request._original_http_host = request.META.get('HTTP_HOST', '')
+            port = request.get_port()
+            request.META['HTTP_HOST'] = f"{mapped_host}:{port}" if port != '80' else mapped_host
+
         # Set request.site safely
         request.site = self._get_site(request)
         return self.get_response(request)
@@ -184,9 +195,8 @@ class SafeCurrentSiteMiddleware:
 
         Uses caching to avoid repeated database queries for the same domain.
         Cache expires after 5 minutes to pick up any Site changes.
+        Note: Dev domain mappings are handled in __call__ before this is called.
         """
-        from django.conf import settings
-
         host = request.get_host().split(':')[0].lower()
 
         # Skip internal Azure IPs - use default site
@@ -417,6 +427,8 @@ class DomainURLRoutingMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        from azureproject.domains import DEV_DOMAIN_MAPPINGS
+
         host = request.get_host().split(':')[0].lower()
 
         # Try to get domain config (checks both primary domains and aliases)
@@ -425,6 +437,13 @@ class DomainURLRoutingMiddleware:
         if config:
             request.urlconf = config['urlconf']
             logger.debug(f"DomainURLRoutingMiddleware: Routing to {config['urlconf']} for host: {host}")
+
+        elif host in DEV_DOMAIN_MAPPINGS:
+            # Dev domain mapping (e.g., crush.localhost -> crush.lu)
+            mapped_domain = DEV_DOMAIN_MAPPINGS[host]
+            mapped_config = DOMAINS[mapped_domain]
+            request.urlconf = mapped_config['urlconf']
+            logger.debug(f"DomainURLRoutingMiddleware: Dev mapping {host} -> {mapped_config['urlconf']} (mapped to {mapped_domain})")
 
         elif host in DEV_HOSTS:
             # Development: use configurable default

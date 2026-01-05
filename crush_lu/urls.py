@@ -103,6 +103,7 @@ urlpatterns = [
     path('', views.home, name='home'),
     path('about/', views.about, name='about'),
     path('how-it-works/', views.how_it_works, name='how_it_works'),
+    path('membership/', views.membership, name='membership'),
 
     # PWA Debug Page (language-prefixed is fine for debug pages)
     # Note: sw-workbox.js, manifest.json, and offline/ are now in urls_crush.py
