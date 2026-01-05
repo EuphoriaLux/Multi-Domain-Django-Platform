@@ -233,7 +233,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Enable submit button
             submitBtn.removeAttribute('disabled');
-            submitBtn.innerHTML = 'Submit Answer {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}';
+            submitBtn.innerHTML = `Submit Answer {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}`;
         });
     });
 
@@ -244,7 +244,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         submitBtn.setAttribute('disabled', 'disabled');
-        submitBtn.innerHTML = '{% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Checking...';
+        submitBtn.innerHTML = `{% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Checking...`;
 
         fetch('{% url "crush_lu:api_submit_challenge" %}', {
             method: 'POST',
@@ -263,8 +263,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Answer submitted successfully
                 const isChapter2 = {{ chapter.chapter_number }} === 2;
                 const title = isChapter2
-                    ? '{% include "shared/icons/heart.html" with class="w-5 h-5" %} Thank you for sharing!'
-                    : '{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Correct!';
+                    ? `{% include "shared/icons/heart.html" with class="w-5 h-5" %} Thank you for sharing!`
+                    : `{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Correct!`;
 
                 messageBox.innerHTML = `
                     <h3>${title}</h3>
@@ -287,13 +287,13 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 // Wrong answer (shouldn't happen with proper admin setup or in Chapter 2)
                 submitBtn.removeAttribute('disabled');
-                submitBtn.innerHTML = 'Submit Answer {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}';
+                submitBtn.innerHTML = `Submit Answer {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}`;
             }
         })
         .catch(error => {
             console.error('Error:', error);
             submitBtn.removeAttribute('disabled');
-            submitBtn.innerHTML = 'Submit Answer {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}';
+            submitBtn.innerHTML = `Submit Answer {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}`;
         });
     });
 });

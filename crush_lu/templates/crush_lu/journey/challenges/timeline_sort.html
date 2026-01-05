@@ -332,7 +332,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const answer = order.join(',');
 
         submitBtn.setAttribute('disabled', 'disabled');
-        submitBtn.innerHTML = '{% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Checking...';
+        submitBtn.innerHTML = `{% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Checking...`;
 
         fetch('{% url "crush_lu:api_submit_challenge" %}', {
             method: 'POST',
@@ -372,11 +372,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
             } else {
                 // Wrong order
-                messageBox.innerHTML = '{% include "shared/icons/x-circle.html" with class="w-5 h-5" %} Not quite right. Try rearranging the events!';
+                messageBox.innerHTML = `{% include "shared/icons/x-circle.html" with class="w-5 h-5" %} Not quite right. Try rearranging the events!`;
                 messageBox.className = 'message-box error active';
 
                 submitBtn.removeAttribute('disabled');
-                submitBtn.innerHTML = 'Submit Timeline {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}';
+                submitBtn.innerHTML = `Submit Timeline {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}`;
 
                 // Hide error after 3 seconds
                 setTimeout(() => {
@@ -386,11 +386,11 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Error:', error);
-            messageBox.innerHTML = '{% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %} An error occurred. Please try again.';
+            messageBox.innerHTML = `{% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %} An error occurred. Please try again.`;
             messageBox.className = 'message-box error active';
 
             submitBtn.removeAttribute('disabled');
-            submitBtn.innerHTML = 'Submit Timeline {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}';
+            submitBtn.innerHTML = `Submit Timeline {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}`;
         });
     });
 

@@ -314,10 +314,10 @@ document.addEventListener('DOMContentLoaded', function() {
             // Enable submit button if there's meaningful content (at least 10 characters)
             if (length >= 10) {
                 submitBtn.removeAttribute('disabled');
-                submitBtn.innerHTML = '{% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %} Submit Response';
+                submitBtn.innerHTML = `{% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %} Submit Response`;
             } else {
                 submitBtn.setAttribute('disabled', 'disabled');
-                submitBtn.innerHTML = '{% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %} Submit Response (min 10 characters)';
+                submitBtn.innerHTML = `{% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %} Submit Response (min 10 characters)`;
             }
 
             // Color coding for character count
@@ -346,7 +346,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             submitBtn.setAttribute('disabled', 'disabled');
-            submitBtn.innerHTML = '{% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Submitting...';
+            submitBtn.innerHTML = `{% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Submitting...`;
 
             fetch('{% url "crush_lu:api_submit_challenge" %}', {
                 method: 'POST',
@@ -365,8 +365,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Answer submitted successfully
                     const isQuestionnaire = {{ chapter.chapter_number }} in [2, 4, 5];
                     const title = isQuestionnaire
-                        ? '{% include "shared/icons/heart.html" with class="w-5 h-5" %} Thank you for sharing!'
-                        : '{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Submitted!';
+                        ? `{% include "shared/icons/heart.html" with class="w-5 h-5" %} Thank you for sharing!`
+                        : `{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Submitted!`;
 
                     messageBox.innerHTML = `
                         <h3>${title}</h3>
@@ -390,14 +390,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     // Shouldn't happen with open text
                     submitBtn.removeAttribute('disabled');
-                    submitBtn.innerHTML = '{% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %} Submit Response';
+                    submitBtn.innerHTML = `{% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %} Submit Response`;
                     showMessage('Something went wrong. Please try again.', 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
                 submitBtn.removeAttribute('disabled');
-                submitBtn.innerHTML = '{% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %} Submit Response';
+                submitBtn.innerHTML = `{% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %} Submit Response`;
                 showMessage('An error occurred. Please try again.', 'error');
             });
         });
