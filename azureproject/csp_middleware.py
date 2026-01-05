@@ -107,6 +107,7 @@ class CSPMiddleware:
             # CDN sources (with SRI)
             "https://unpkg.com",
             "https://cdn.jsdelivr.net",
+            "https://cdnjs.cloudflare.com",  # GSAP animation library (VinsDelux)
             # Firebase/Google
             "https://www.gstatic.com",
             "https://apis.google.com",
@@ -127,6 +128,7 @@ class CSPMiddleware:
             "'unsafe-inline'",  # Required for Tailwind JIT and inline styles
             "https://cdn.jsdelivr.net",
             "https://fonts.googleapis.com",
+            "https://unpkg.com",  # Leaflet CSS (VinsDelux maps)
         ]
         directives.append(f"style-src {' '.join(style_src)}")
 
@@ -177,6 +179,8 @@ class CSPMiddleware:
             "https://identitytoolkit.googleapis.com",
             "https://securetoken.googleapis.com",
             "https://www.googleapis.com",
+            # Google Translate (users translating the page)
+            "https://translate.googleapis.com",
             # Geo-IP lookup for phone country detection
             "https://ipapi.co",
             # Azure Blob Storage (media files)

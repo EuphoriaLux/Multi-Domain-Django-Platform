@@ -242,8 +242,8 @@
                     </span>
                 </div>
                 <div>
-                    <button onclick="copyInvitationLink('{{ request.scheme }}://{{ request.get_host }}{% url 'crush_lu:invitation_landing' code=invitation.invitation_code %}')"
-                            class="inline-flex items-center gap-1 px-3 py-2 border border-purple-500 text-purple-600 text-sm font-semibold rounded-lg hover:bg-purple-50 transition-colors">
+                    <button data-copy-url="{{ request.scheme }}://{{ request.get_host }}{% url 'crush_lu:invitation_landing' code=invitation.invitation_code %}"
+                            class="copy-invitation-btn inline-flex items-center gap-1 px-3 py-2 border border-purple-500 text-purple-600 text-sm font-semibold rounded-lg hover:bg-purple-50 transition-colors">
                         {% include "shared/icons/clipboard.html" with class="w-5 h-5" %} Copy Link
                     </button>
                 </div>
@@ -298,22 +298,27 @@
 
 {% block extra_js %}
 <script nonce="{{ request.csp_nonce }}">
-function copyInvitationLink(url) {
-    navigator.clipboard.writeText(url).then(function() {
-        const btn = event.target.closest('button');
-        const originalHTML = btn.innerHTML;
-        btn.innerHTML = '{% include "shared/icons/check.html" with class="w-5 h-5" %} Copied!';
-        btn.classList.add('bg-green-500', 'text-white', 'border-green-500');
-        btn.classList.remove('text-purple-600', 'border-purple-500');
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.copy-invitation-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const url = btn.dataset.copyUrl;
+            const originalHTML = btn.innerHTML;
 
-        setTimeout(function() {
-            btn.innerHTML = originalHTML;
-            btn.classList.remove('bg-green-500', 'text-white', 'border-green-500');
-            btn.classList.add('text-purple-600', 'border-purple-500');
-        }, 2000);
-    }, function(err) {
-        alert('Failed to copy link. Please copy manually.');
+            navigator.clipboard.writeText(url).then(function() {
+                btn.innerHTML = '{% include "shared/icons/check.html" with class="w-5 h-5" %} Copied!';
+                btn.classList.add('bg-green-500', 'text-white', 'border-green-500');
+                btn.classList.remove('text-purple-600', 'border-purple-500');
+
+                setTimeout(function() {
+                    btn.innerHTML = originalHTML;
+                    btn.classList.remove('bg-green-500', 'text-white', 'border-green-500');
+                    btn.classList.add('text-purple-600', 'border-purple-500');
+                }, 2000);
+            }, function(err) {
+                alert('Failed to copy link. Please copy manually.');
+            });
+        });
     });
-}
+});
 </script>
 {% endblock %}

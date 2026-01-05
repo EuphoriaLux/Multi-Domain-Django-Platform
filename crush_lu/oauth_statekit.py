@@ -37,7 +37,6 @@ def is_patched() -> bool:
 def ensure_patched():
     """Ensure the OAuth statekit is patched. Safe to call multiple times."""
     if not _patched:
-        logger.warning("[OAUTH-DB] Patch not applied yet, applying now...")
         patch_allauth_statekit()
     return _patched
 
@@ -93,24 +92,19 @@ def patch_allauth_statekit():
         Returns:
             state_id: The state identifier to pass to OAuth provider
         """
-        # Log that our patched function is being called (WARNING level to ensure visibility)
-        logger.warning(f"[OAUTH-DB] >>> db_stash_state CALLED (patched version) <<<")
-
         # Check for popup mode parameter and store in session
         # This happens BEFORE the redirect to the OAuth provider
         is_popup = request.GET.get('popup') == '1'
         if is_popup:
             request.session['oauth_popup_mode'] = True
-            logger.warning("[OAUTH-DB] Popup mode detected and stored in session")
+            logger.debug("[OAUTH] Popup mode detected and stored in session")
 
         # First, use original session-based storage (for compatibility)
-        logger.warning("[OAUTH-DB] About to call _original_stash_state...")
         try:
             state_id = _original_stash_state(request, state, state_id)
-            logger.warning(f"[OAUTH-DB] State ID from session storage: {state_id[:8]}...")
+            logger.debug(f"[OAUTH] State {state_id[:8]}... stored in session")
         except Exception as e:
-            logger.error(f"[OAUTH-DB] _original_stash_state FAILED: {e}")
-            logger.error(f"[OAUTH-DB] Traceback: {traceback.format_exc()}")
+            logger.error(f"[OAUTH] Session state storage failed: {e}")
             raise
 
         # Also store in database for cross-browser persistence
@@ -131,12 +125,8 @@ def patch_allauth_statekit():
                     if len(parts) >= 2:
                         provider = parts[1]  # e.g., 'facebook'
 
-            logger.warning(f"[OAUTH-DB] Storing state {state_id[:8]}... in database (provider: {provider}, ip: {ip_address})")
-
-            # Create database record
+            # Create database record (delete existing first to avoid duplicates)
             deleted_count, _ = OAuthState.objects.filter(state_id=state_id).delete()
-            if deleted_count:
-                logger.warning(f"[OAUTH-DB] Deleted {deleted_count} existing state(s) with same ID")
 
             oauth_state = OAuthState.objects.create(
                 state_id=state_id,
@@ -145,14 +135,13 @@ def patch_allauth_statekit():
                 provider=provider,
                 user_agent=user_agent[:500] if user_agent else '',
                 ip_address=ip_address,
-                is_popup=is_popup,  # Store popup mode in database for cross-session retrieval
+                is_popup=is_popup,
             )
-            logger.warning(f"[OAUTH-DB] SUCCESS: State {state_id[:8]}... stored in database (pk={oauth_state.pk}, is_popup={is_popup})")
+            logger.debug(f"[OAUTH] State {state_id[:8]}... stored in DB (provider={provider})")
 
         except Exception as e:
-            # Log the full exception with traceback
-            logger.error(f"[OAUTH-DB] FAILED to store state in database: {e}")
-            logger.error(f"[OAUTH-DB] Traceback: {traceback.format_exc()}")
+            # Log error but don't fail - session storage is the primary mechanism
+            logger.error(f"[OAUTH] Database state storage failed: {e}")
 
         return state_id
 
@@ -167,12 +156,10 @@ def patch_allauth_statekit():
         Returns:
             State dictionary, or None if not found/expired/used
         """
-        logger.info(f"[OAUTH-DB] db_unstash_state called for state {state_id[:8]}... (patched version)")
-
         # First, try original session-based lookup (fast path)
         state = _original_unstash_state(request, state_id)
         if state is not None:
-            logger.info(f"[OAUTH-DB] State {state_id[:8]}... found in session")
+            logger.debug(f"[OAUTH] State {state_id[:8]}... found in session")
             # Also clean up database record
             try:
                 from crush_lu.models import OAuthState
@@ -181,34 +168,25 @@ def patch_allauth_statekit():
                 pass
             return state
 
-        # Session lookup failed - try database (cross-browser case)
-        logger.warning(f"[OAUTH-DB] State {state_id[:8]}... NOT in session, trying database...")
+        # Session lookup failed - try database (cross-browser case, e.g., Android PWA)
+        logger.info(f"[OAUTH] State {state_id[:8]}... not in session, trying database fallback")
         try:
             from crush_lu.models import OAuthState
 
-            # First, check if the state exists at all
-            existing = OAuthState.objects.filter(state_id=state_id).first()
-            if existing:
-                logger.warning(f"[OAUTH-DB] State {state_id[:8]}... EXISTS in DB (used={existing.used}, expired={timezone.now() > existing.expires_at})")
-            else:
-                logger.warning(f"[OAUTH-DB] State {state_id[:8]}... does NOT exist in database!")
-                # Log recent states for debugging
-                recent_states = OAuthState.objects.order_by('-created_at')[:5]
-                if recent_states:
-                    recent_ids = [s.state_id[:8] for s in recent_states]
-                    logger.warning(f"[OAUTH-DB] Recent state IDs in DB: {recent_ids}")
-
             state = OAuthState.get_and_consume_state(state_id)
             if state:
-                logger.info(f"[OAUTH-DB] SUCCESS: State {state_id[:8]}... retrieved from database")
+                logger.info(f"[OAUTH] State {state_id[:8]}... retrieved from database (cross-browser)")
                 return state
             else:
-                logger.warning(f"[OAUTH-DB] get_and_consume_state returned None for {state_id[:8]}...")
+                # State not found - this is an error condition
+                existing = OAuthState.objects.filter(state_id=state_id).first()
+                if existing:
+                    logger.warning(f"[OAUTH] State {state_id[:8]}... in DB but invalid (used={existing.used}, expired={timezone.now() > existing.expires_at})")
+                else:
+                    logger.warning(f"[OAUTH] State {state_id[:8]}... not found in session or database")
         except Exception as e:
-            logger.error(f"[OAUTH-DB] Exception during database lookup: {e}")
-            logger.error(f"[OAUTH-DB] Traceback: {traceback.format_exc()}")
+            logger.error(f"[OAUTH] Database state lookup failed: {e}")
 
-        logger.warning(f"[OAUTH-DB] FAILED: State {state_id[:8]}... not found in session or database")
         return None
 
     def db_unstash_last_state(request) -> Optional[Dict[str, Any]]:
@@ -249,22 +227,13 @@ def patch_allauth_statekit():
     statekit.unstash_last_state = db_unstash_last_state
 
     _patched = True
-    logger.warning("[OAUTH-DB] *** Allauth statekit PATCHED for database-backed OAuth state storage ***")
+    logger.info("[OAUTH] Database-backed OAuth state storage enabled")
 
-    # Verify the patch was applied correctly
-    if statekit.stash_state == db_stash_state:
-        logger.warning("[OAUTH-DB] Verification: stash_state patch confirmed")
-    else:
-        logger.error("[OAUTH-DB] Verification FAILED: stash_state patch not applied!")
-
-    if statekit.unstash_state == db_unstash_state:
-        logger.warning("[OAUTH-DB] Verification: unstash_state patch confirmed")
-    else:
-        logger.error("[OAUTH-DB] Verification FAILED: unstash_state patch not applied!")
-
-    # Log the actual function IDs for debugging
-    logger.warning(f"[OAUTH-DB] statekit.stash_state id: {id(statekit.stash_state)}")
-    logger.warning(f"[OAUTH-DB] db_stash_state id: {id(db_stash_state)}")
+    # Verify the patch was applied correctly (only log errors)
+    if statekit.stash_state != db_stash_state:
+        logger.error("[OAUTH] CRITICAL: stash_state patch not applied!")
+    if statekit.unstash_state != db_unstash_state:
+        logger.error("[OAUTH] CRITICAL: unstash_state patch not applied!")
 
 
 def cleanup_expired_states():

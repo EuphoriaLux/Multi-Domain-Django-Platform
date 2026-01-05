@@ -89,10 +89,10 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'azureproject.middleware.AuthRateLimitMiddleware',  # Rate limit password reset before CSRF
+    'azureproject.middleware.DomainURLRoutingMiddleware',  # Multi-domain routing - MUST be before LocaleMiddleware
     'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',  # MUST be before SafeCurrentSiteMiddleware
     'azureproject.middleware.SafeCurrentSiteMiddleware',  # Safe site detection (auto-creates missing Sites)
-    'azureproject.middleware.DomainURLRoutingMiddleware',  # Multi-domain routing
     'azureproject.middleware.AdminLanguagePrefixRedirectMiddleware',  # Redirect /fr/admin/ -> /admin/
     'azureproject.middleware.LoginPostDebugMiddleware',  # DEBUG: Log /login/ POSTs before CSRF check
     'django.middleware.csrf.CsrfViewMiddleware',

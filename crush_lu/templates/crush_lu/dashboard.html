@@ -138,10 +138,10 @@
                     {% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4" %}
                     {% trans "Add to Apple Wallet" %}
                 </a>
-                <a href="{% url 'crush_lu:wallet_google_save' %}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+                <button type="button" id="save-google-wallet-btn" data-jwt-url="/wallet/google/jwt/" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
                     {% include "shared/icons/device-mobile.html" with class="w-4 h-4" %}
-                    {% trans "Save to Google Wallet" %}
-                </a>
+                    <span id="google-wallet-text">{% trans "Save to Google Wallet" %}</span>
+                </button>
             </div>
             <div class="mt-4">
                 <button type="button" id="share-referral-btn" data-referral-url="{{ referral_url }}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-purple-300 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors">
@@ -253,7 +253,7 @@
 {% trans "Referral link copied to clipboard." as referral_copied_message %}
 {% trans "Unable to copy referral link." as referral_copy_failed_message %}
 {% trans "Referral link unavailable." as referral_unavailable_message %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
     document.addEventListener('DOMContentLoaded', () => {
         const shareButton = document.getElementById('share-referral-btn');
         if (!shareButton) {
@@ -323,6 +323,37 @@
                 setStatus(copyFailedMessage, true);
             }
         });
+
+        // Google Wallet handler
+        const googleWalletBtn = document.getElementById('save-google-wallet-btn');
+        if (googleWalletBtn) {
+            const googleWalletText = document.getElementById('google-wallet-text');
+            const jwtUrl = googleWalletBtn.dataset.jwtUrl;
+
+            googleWalletBtn.addEventListener('click', async () => {
+                const originalText = googleWalletText.textContent;
+                googleWalletText.textContent = '{% trans "Loading..." %}';
+                googleWalletBtn.disabled = true;
+
+                try {
+                    const response = await fetch(jwtUrl);
+                    const data = await response.json();
+
+                    if (data.jwt) {
+                        // Redirect to Google Wallet save URL
+                        window.location.href = 'https://pay.google.com/gp/v/save/' + data.jwt;
+                    } else if (data.error) {
+                        alert(data.error);
+                        googleWalletText.textContent = originalText;
+                        googleWalletBtn.disabled = false;
+                    }
+                } catch (error) {
+                    alert('{% trans "Failed to generate wallet pass. Please try again." %}');
+                    googleWalletText.textContent = originalText;
+                    googleWalletBtn.disabled = false;
+                }
+            });
+        }
     });
 </script>
 

@@ -312,12 +312,8 @@ LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
-            'style': '{',
-        },
-        'simple': {
-            'format': '{levelname} {message}',
+        'production': {
+            'format': '{levelname} [{name}] {message}',
             'style': '{',
         },
     },
@@ -330,97 +326,108 @@ LOGGING = {
         },
     },
     'handlers': {
+        # Console handler - ERROR only to avoid Gunicorn worker duplicates
+        # App Insights captures everything via OpenTelemetry autoinstrumentation
         'console': {
-            'level': 'WARNING',  # Only log WARNING and above to console
+            'level': 'ERROR',
             'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-            'filters': ['pii_masking'],  # Mask PII in all console output
-        },
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': '/tmp/django.log',
-            'formatter': 'verbose',
+            'formatter': 'production',
+            'filters': ['pii_masking'],
         },
     },
     'root': {
         'handlers': ['console'],
-        'level': 'WARNING',
+        'level': 'INFO',  # Allow INFO+ to propagate to App Insights
     },
     'loggers': {
+        # =================================================================
+        # Django Core Loggers - Minimal console output
+        # =================================================================
         'django': {
             'handlers': ['console'],
-            'level': 'WARNING',  # Only WARNING and above for Django
+            'level': 'ERROR',
             'propagate': False,
         },
         'django.request': {
             'handlers': ['console'],
-            'level': 'ERROR',  # Only ERROR for request handling
+            'level': 'ERROR',
             'propagate': False,
         },
         'django.db.backends': {
             'handlers': ['console'],
-            'level': 'ERROR',  # No SQL query logging
+            'level': 'ERROR',
             'propagate': False,
         },
+
+        # =================================================================
+        # Azure SDK Loggers - Silence noisy logging
+        # =================================================================
         'azure': {
-            'handlers': ['console'],
-            'level': 'WARNING',  # Reduce Azure SDK logging
-            'propagate': False,
-        },
-        # Silence noisy Azure middleware logs
-        'Microsoft': {
             'handlers': ['console'],
             'level': 'ERROR',
             'propagate': False,
         },
-        'Microsoft.AspNetCore': {
-            'handlers': ['console'],
+        'azure.core.pipeline.policies.http_logging_policy': {
+            'handlers': [],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'Microsoft': {
+            'handlers': [],
             'level': 'ERROR',
             'propagate': False,
         },
         'MiddlewareConsoleLogs': {
-            'handlers': ['console'],
+            'handlers': [],
             'level': 'ERROR',
             'propagate': False,
         },
-        # OAuth debugging - temporarily INFO level
+
+        # =================================================================
+        # Application Loggers - Propagate to App Insights
+        # Console shows ERROR only, App Insights captures INFO+
+        # =================================================================
+
+        # OAuth state management (database-backed)
+        # DEBUG: state storage/retrieval details
+        # INFO: cross-browser fallback used
+        # WARNING: state not found
+        # ERROR: database failures
         'crush_lu.oauth_statekit': {
             'handlers': ['console'],
-            'level': 'INFO',  # Enable INFO logging for OAuth debugging
-            'propagate': True,  # MUST propagate to root for Azure App Insights
+            'level': 'INFO',
+            'propagate': True,  # Propagate to App Insights
         },
-        # Login/CSRF debugging - WARNING level to capture debug logs
+
+        # Middleware logging (CSRF failures, routing)
         'azureproject.middleware': {
             'handlers': ['console'],
-            'level': 'WARNING',  # Log login debug and CSRF failures
-            'propagate': True,  # MUST propagate to root for Azure App Insights
+            'level': 'WARNING',
+            'propagate': True,
         },
-        # Crush.lu app logging for login debugging
+
+        # Crush.lu application logging
         'crush_lu': {
             'handlers': ['console'],
-            'level': 'WARNING',  # Log login debug from UnifiedAuthView
-            'propagate': True,  # MUST propagate to root for Azure App Insights
+            'level': 'INFO',
+            'propagate': True,
         },
-        # CSP violation reports - sent to Application Insights via OpenTelemetry
-        # Query in App Insights: traces | where message contains "CSP Violation"
+
+        # CSP violation reports
+        # Query in App Insights: traces | where message contains "CSP"
         'csp_reports': {
             'handlers': ['console'],
-            'level': 'WARNING',  # Log CSP violations
-            'propagate': True,  # MUST propagate to root for Azure App Insights
+            'level': 'WARNING',
+            'propagate': True,
         },
     },
 }
 
-# Set Azure App Service logging level via environment variable
+# Suppress Azure's verbose logging at runtime
 import logging
-# This affects the Azure middleware logs
 if 'WEBSITE_HOSTNAME' in os.environ:
-    # Suppress Azure's verbose logging
-    logging.getLogger('azure').setLevel(logging.WARNING)
-    logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
-    # Set root logger to WARNING to suppress Trace and Debug logs
-    logging.root.setLevel(logging.WARNING)
+    logging.getLogger('azure').setLevel(logging.ERROR)
+    logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.ERROR)
 
 # =============================================================================
 # CONTENT SECURITY POLICY (CSP) SETTINGS - Production

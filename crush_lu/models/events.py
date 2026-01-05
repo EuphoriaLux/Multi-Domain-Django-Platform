@@ -146,6 +146,10 @@ class EventRegistration(models.Model):
     class Meta:
         unique_together = ('event', 'user')
         ordering = ['registered_at']
+        indexes = [
+            # Optimize COUNT queries for get_confirmed_count() and get_waitlist_count()
+            models.Index(fields=['event', 'status'], name='eventregistration_event_status'),
+        ]
 
     def __str__(self):
         return f"{self.user.username} - {self.event.title} ({self.get_status_display()})"

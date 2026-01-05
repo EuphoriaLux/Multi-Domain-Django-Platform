@@ -20,8 +20,9 @@ from django.core.files.base import ContentFile
 
 logger = logging.getLogger(__name__)
 
-# Cache timeout for social photo URLs (5 minutes)
-SOCIAL_PHOTO_CACHE_TIMEOUT = 300
+# Cache timeout for social photo URLs (1 hour)
+# Profile pictures rarely change, and longer caching reduces slow Facebook API calls
+SOCIAL_PHOTO_CACHE_TIMEOUT = 3600
 
 # Provider display names
 PROVIDER_DISPLAY_NAMES = {
@@ -36,7 +37,7 @@ def get_facebook_photo_url(social_account):
     Get Facebook profile photo URL from social account.
 
     Tries high-resolution first (720x720), falls back to standard picture.
-    Results are cached for 5 minutes to avoid slow API calls.
+    Results are cached for 1 hour to avoid slow API calls.
 
     Args:
         social_account: SocialAccount instance for Facebook
@@ -134,7 +135,7 @@ def get_microsoft_photo_url(social_account):
 
     Microsoft doesn't include photo URL in OAuth extra_data.
     We need to fetch it using the stored access token.
-    Results are cached for 5 minutes to avoid slow API calls.
+    Results are cached for 1 hour to avoid slow API calls.
 
     Requires: ProfilePhoto.Read.All permission on Azure app registration.
 
