@@ -1,0 +1,365 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "# Bug Detection Dashboard\n\nThis workbook helps identify and investigate bugs in the Entreprinder application (Crush.lu, VinsDelux, Entreprinder, Power-UP).\n\n**Quick Actions:**\n- Check the **Error Overview** for current issues\n- Drill into **Server Exceptions** for stack traces\n- Review **Browser Exceptions** for JavaScript errors\n- Analyze **Slow Requests** for performance issues"
+      },
+      "name": "header"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "timeRange",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "type": 4,
+            "isRequired": true,
+            "value": {
+              "durationMs": 86400000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                { "durationMs": 3600000 },
+                { "durationMs": 14400000 },
+                { "durationMs": 86400000 },
+                { "durationMs": 259200000 },
+                { "durationMs": 604800000 }
+              ],
+              "allowCustom": true
+            }
+          }
+        ],
+        "style": "pills",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components"
+      },
+      "name": "parameters"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Error Overview"
+      },
+      "name": "errorOverviewHeader"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let failedRequests = requests\n| where timestamp {TimeRange}\n| where success == false\n| count;\nlet exceptions = exceptions\n| where timestamp {TimeRange}\n| count;\nlet browserExceptions = exceptions\n| where timestamp {TimeRange}\n| where client_Type == \"Browser\"\n| count;\nlet slowRequests = requests\n| where timestamp {TimeRange}\n| where duration > 3000\n| count;\nlet depFailures = dependencies\n| where timestamp {TimeRange}\n| where success == false\n| count;\nunion\n  (failedRequests | extend Metric = \"Failed Requests\"),\n  (exceptions | extend Metric = \"Server Exceptions\"),\n  (browserExceptions | extend Metric = \"Browser Exceptions\"),\n  (slowRequests | extend Metric = \"Slow Requests (>3s)\"),\n  (depFailures | extend Metric = \"Dependency Failures\")\n| project Metric, Count = Count",
+        "size": 3,
+        "title": "Current Issues",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": { "columnMatch": "Metric", "formatter": 1 },
+          "leftContent": { "columnMatch": "Count", "formatter": 12, "formatOptions": { "palette": "auto" } },
+          "showBorder": true
+        }
+      },
+      "name": "errorTiles"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "requests\n| where timestamp {TimeRange}\n| where success == false\n| summarize FailedCount = count() by bin(timestamp, 1h)\n| render timechart",
+        "size": 0,
+        "title": "Failed Requests Over Time",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "timechart"
+      },
+      "customWidth": "50",
+      "name": "failedRequestsChart"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "exceptions\n| where timestamp {TimeRange}\n| summarize ExceptionCount = count() by bin(timestamp, 1h)\n| render timechart",
+        "size": 0,
+        "title": "Exceptions Over Time",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "timechart"
+      },
+      "customWidth": "50",
+      "name": "exceptionsChart"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Server Exceptions"
+      },
+      "name": "serverExceptionsHeader"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "exceptions\n| where timestamp {TimeRange}\n| where client_Type != \"Browser\"\n| summarize Count = count(), LastSeen = max(timestamp) by type, outerMessage\n| order by Count desc\n| take 20\n| project Type = type, Message = outerMessage, Count, LastSeen",
+        "size": 0,
+        "title": "Top Server Exceptions",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            { "columnMatch": "Count", "formatter": 4, "formatOptions": { "palette": "redGreen" } },
+            { "columnMatch": "LastSeen", "formatter": 6 }
+          ]
+        }
+      },
+      "name": "serverExceptionsTable"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "exceptions\n| where timestamp {TimeRange}\n| where client_Type != \"Browser\"\n| order by timestamp desc\n| take 10\n| project Timestamp = timestamp, Type = type, Message = outerMessage, StackTrace = details[0].rawStack, Operation = operation_Name",
+        "size": 0,
+        "title": "Recent Exceptions with Stack Traces",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            { "columnMatch": "Timestamp", "formatter": 6 },
+            { "columnMatch": "StackTrace", "formatter": 7, "formatOptions": { "linkTarget": "CellDetails", "linkIsContextBlade": true } }
+          ]
+        }
+      },
+      "name": "recentExceptionsTable"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Browser Exceptions (JavaScript Errors)"
+      },
+      "name": "browserExceptionsHeader"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "exceptions\n| where timestamp {TimeRange}\n| where client_Type == \"Browser\"\n| summarize Count = count(), LastSeen = max(timestamp) by type, outerMessage\n| order by Count desc\n| take 20\n| project Type = type, Message = outerMessage, Count, LastSeen",
+        "size": 0,
+        "title": "Top Browser Exceptions",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            { "columnMatch": "Count", "formatter": 4, "formatOptions": { "palette": "redGreen" } },
+            { "columnMatch": "LastSeen", "formatter": 6 }
+          ]
+        }
+      },
+      "name": "browserExceptionsTable"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "exceptions\n| where timestamp {TimeRange}\n| where client_Type == \"Browser\"\n| summarize Count = count() by client_Browser\n| order by Count desc\n| take 10",
+        "size": 0,
+        "title": "Errors by Browser",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "piechart"
+      },
+      "customWidth": "50",
+      "name": "browserErrorsPie"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "pageViews\n| where timestamp {TimeRange}\n| join kind=inner (\n    exceptions\n    | where timestamp {TimeRange}\n    | where client_Type == \"Browser\"\n) on session_Id\n| summarize ErrorCount = count() by url\n| order by ErrorCount desc\n| take 10",
+        "size": 0,
+        "title": "Pages with Most Browser Errors",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "table"
+      },
+      "customWidth": "50",
+      "name": "pagesWithErrors"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Slow Requests (Performance Issues)"
+      },
+      "name": "slowRequestsHeader"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "requests\n| where timestamp {TimeRange}\n| where duration > 1000\n| summarize AvgDuration = avg(duration), P95Duration = percentile(duration, 95), MaxDuration = max(duration), Count = count() by name\n| where Count > 5\n| order by P95Duration desc\n| take 20\n| project Endpoint = name, AvgDuration = round(AvgDuration, 0), P95Duration = round(P95Duration, 0), MaxDuration = round(MaxDuration, 0), Count",
+        "size": 0,
+        "title": "Slowest Endpoints (>1s avg)",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            { "columnMatch": "AvgDuration", "formatter": 4, "formatOptions": { "palette": "greenRed" }, "numberFormat": { "unit": 23 } },
+            { "columnMatch": "P95Duration", "formatter": 4, "formatOptions": { "palette": "greenRed" }, "numberFormat": { "unit": 23 } },
+            { "columnMatch": "MaxDuration", "formatter": 4, "formatOptions": { "palette": "greenRed" }, "numberFormat": { "unit": 23 } }
+          ]
+        }
+      },
+      "name": "slowEndpointsTable"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "requests\n| where timestamp {TimeRange}\n| summarize P50 = percentile(duration, 50), P90 = percentile(duration, 90), P95 = percentile(duration, 95), P99 = percentile(duration, 99) by bin(timestamp, 1h)\n| render timechart",
+        "size": 0,
+        "title": "Response Time Percentiles Over Time",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "timechart"
+      },
+      "name": "responseTimeChart"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Dependency Failures (Database, APIs, External Services)"
+      },
+      "name": "dependencyFailuresHeader"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "dependencies\n| where timestamp {TimeRange}\n| where success == false\n| summarize FailureCount = count(), LastFailure = max(timestamp) by type, target, name\n| order by FailureCount desc\n| take 20\n| project Type = type, Target = target, Operation = name, FailureCount, LastFailure",
+        "size": 0,
+        "title": "Failed Dependencies",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            { "columnMatch": "FailureCount", "formatter": 4, "formatOptions": { "palette": "redGreen" } },
+            { "columnMatch": "LastFailure", "formatter": 6 }
+          ]
+        }
+      },
+      "name": "failedDependenciesTable"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "dependencies\n| where timestamp {TimeRange}\n| where type == \"PostgreSQL\" or type contains \"SQL\"\n| summarize AvgDuration = avg(duration), MaxDuration = max(duration), FailureRate = round(100.0 * countif(success == false) / count(), 2), Count = count() by name\n| where Count > 10\n| order by AvgDuration desc\n| take 20\n| project Query = name, AvgDuration = round(AvgDuration, 0), MaxDuration = round(MaxDuration, 0), FailureRate, Count",
+        "size": 0,
+        "title": "Slowest Database Queries",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            { "columnMatch": "AvgDuration", "formatter": 4, "formatOptions": { "palette": "greenRed" }, "numberFormat": { "unit": 23 } },
+            { "columnMatch": "FailureRate", "formatter": 4, "formatOptions": { "palette": "greenRed" } }
+          ]
+        }
+      },
+      "name": "slowDatabaseQueries"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## User Impact"
+      },
+      "name": "userImpactHeader"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let affectedUsers = union requests, exceptions\n| where timestamp {TimeRange}\n| where success == false or itemType == \"exception\"\n| summarize AffectedUsers = dcount(user_Id);\nlet totalUsers = union requests, pageViews\n| where timestamp {TimeRange}\n| summarize TotalUsers = dcount(user_Id);\naffectedUsers\n| join totalUsers on 1==1\n| project AffectedUsers, TotalUsers, ImpactPercentage = round(100.0 * AffectedUsers / TotalUsers, 2)",
+        "size": 3,
+        "title": "Users Affected by Errors",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": { "columnMatch": "ImpactPercentage", "formatter": 1 },
+          "subtitleContent": { "columnMatch": "AffectedUsers", "formatter": 12 },
+          "showBorder": true
+        }
+      },
+      "customWidth": "50",
+      "name": "userImpactTiles"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "requests\n| where timestamp {TimeRange}\n| where success == false\n| summarize ErrorCount = count() by client_CountryOrRegion\n| order by ErrorCount desc\n| take 10",
+        "size": 0,
+        "title": "Errors by Country",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "piechart"
+      },
+      "customWidth": "50",
+      "name": "errorsByCountry"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Custom Events (User Journey)"
+      },
+      "name": "customEventsHeader"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "customEvents\n| where timestamp {TimeRange}\n| summarize Count = count() by name\n| order by Count desc\n| take 20",
+        "size": 0,
+        "title": "Custom Event Counts",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "barchart"
+      },
+      "name": "customEventCounts"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let signup = customEvents | where timestamp {TimeRange} | where name == \"signup_page_viewed\" | summarize SignupViews = dcount(user_Id);\nlet dashboard = customEvents | where timestamp {TimeRange} | where name == \"dashboard_viewed\" | summarize DashboardViews = dcount(user_Id);\nlet events = customEvents | where timestamp {TimeRange} | where name == \"events_page_viewed\" | summarize EventsViews = dcount(user_Id);\nlet registration = customEvents | where timestamp {TimeRange} | where name == \"event_registration_started\" | summarize RegistrationStarts = dcount(user_Id);\nunion\n  (signup | extend Step = \"1. Signup Page\", Users = SignupViews),\n  (dashboard | extend Step = \"2. Dashboard\", Users = DashboardViews),\n  (events | extend Step = \"3. Events Page\", Users = EventsViews),\n  (registration | extend Step = \"4. Registration Started\", Users = RegistrationStarts)\n| project Step, Users",
+        "size": 0,
+        "title": "User Funnel (Crush.lu)",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components",
+        "visualization": "table"
+      },
+      "name": "userFunnel"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Quick Investigation Queries\n\nCopy these queries to **Logs** for deeper investigation:\n\n**Find all errors for a specific user:**\n```kusto\nunion requests, exceptions\n| where user_AuthenticatedId == \"USER_ID_HERE\"\n| where success == false or itemType == \"exception\"\n| order by timestamp desc\n```\n\n**Find all activity in a session:**\n```kusto\nunion requests, exceptions, traces, dependencies, pageViews\n| where session_Id == \"SESSION_ID_HERE\"\n| order by timestamp asc\n```\n\n**Find 500 errors with request details:**\n```kusto\nrequests\n| where resultCode == \"500\"\n| project timestamp, url, duration, customDimensions\n| order by timestamp desc\n```\n\n**CSP Violations:**\n```kusto\ntraces\n| where message contains \"CSP\"\n| order by timestamp desc\n```"
+      },
+      "name": "investigationQueries"
+    }
+  ],
+  "fallbackResourceIds": [
+    "/subscriptions/64c21818-0806-461a-919c-1c02b989a2d1/resourceGroups/django-app-rg/providers/microsoft.insights/components/django-app-ajfffwjb5ie3s-app-service"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
