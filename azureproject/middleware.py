@@ -10,6 +10,7 @@ This module contains middleware for:
 - Custom CSRF failure handling
 """
 import logging
+from django.core.cache import cache
 from django.utils import translation
 from django.http import HttpResponse, HttpResponseForbidden
 from django.contrib.sites.models import Site
@@ -179,7 +180,11 @@ class SafeCurrentSiteMiddleware:
         return self.get_response(request)
 
     def _get_site(self, request):
-        """Get or create Site for the current request host."""
+        """Get or create Site for the current request host.
+
+        Uses caching to avoid repeated database queries for the same domain.
+        Cache expires after 5 minutes to pick up any Site changes.
+        """
         from django.conf import settings
 
         host = request.get_host().split(':')[0].lower()
@@ -188,9 +193,17 @@ class SafeCurrentSiteMiddleware:
         if host.startswith('169.254.'):
             return self._get_default_site()
 
+        # Check cache first
+        cache_key = f'site_by_domain:{host}'
+        site = cache.get(cache_key)
+        if site is not None:
+            return site
+
         try:
             # Try exact domain match first
-            return Site.objects.get(domain__iexact=host)
+            site = Site.objects.get(domain__iexact=host)
+            cache.set(cache_key, site, 300)  # Cache for 5 minutes
+            return site
         except Site.DoesNotExist:
             pass
 
@@ -204,15 +217,27 @@ class SafeCurrentSiteMiddleware:
             )
             if created:
                 logger.info(f"SafeCurrentSiteMiddleware: Auto-created Site for {host}")
+            cache.set(cache_key, site, 300)  # Cache for 5 minutes
             return site
 
         # For Azure hostnames, dev hosts, and unknown hosts - use default
         return self._get_default_site()
 
     def _get_default_site(self):
-        """Get or create a default Site (ID=1)."""
+        """Get or create a default Site (ID=1).
+
+        Uses caching to avoid repeated database queries.
+        Cache expires after 5 minutes to pick up any Site changes.
+        """
+        cache_key = 'site_default_pk1'
+        site = cache.get(cache_key)
+        if site is not None:
+            return site
+
         try:
-            return Site.objects.get(pk=1)
+            site = Site.objects.get(pk=1)
+            cache.set(cache_key, site, 300)  # Cache for 5 minutes
+            return site
         except Site.DoesNotExist:
             # Create default site
             site, _ = Site.objects.get_or_create(
@@ -220,6 +245,7 @@ class SafeCurrentSiteMiddleware:
                 defaults={'domain': 'entreprinder.lu', 'name': 'Entreprinder'}
             )
             logger.info("SafeCurrentSiteMiddleware: Created default Site (pk=1)")
+            cache.set(cache_key, site, 300)  # Cache for 5 minutes
             return site
 
 

@@ -253,7 +253,7 @@
 {% trans "Referral link copied to clipboard." as referral_copied_message %}
 {% trans "Unable to copy referral link." as referral_copy_failed_message %}
 {% trans "Referral link unavailable." as referral_unavailable_message %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
     document.addEventListener('DOMContentLoaded', () => {
         const shareButton = document.getElementById('share-referral-btn');
         if (!shareButton) {
