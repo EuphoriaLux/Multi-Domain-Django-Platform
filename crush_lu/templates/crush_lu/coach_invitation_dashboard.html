@@ -305,7 +305,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const originalHTML = btn.innerHTML;
 
             navigator.clipboard.writeText(url).then(function() {
-                btn.innerHTML = '{% include "shared/icons/check.html" with class="w-5 h-5" %} Copied!';
+                btn.innerHTML = `{% include "shared/icons/check.html" with class="w-5 h-5" %} Copied!`;
                 btn.classList.add('bg-green-500', 'text-white', 'border-green-500');
                 btn.classList.remove('text-purple-600', 'border-purple-500');
 

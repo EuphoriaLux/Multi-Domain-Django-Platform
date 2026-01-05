@@ -336,7 +336,7 @@ function submitAnswer() {
     }
 
     submitBtn.disabled = true;
-    submitBtn.innerHTML = '{% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Checking...';
+    submitBtn.innerHTML = `{% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Checking...`;
 
     fetch('{% url "crush_lu:api_submit_challenge" %}', {
         method: 'POST',
@@ -375,7 +375,7 @@ function submitAnswer() {
             // Wrong answer
             showMessage('Not quite right. Try again! 💪', 'error');
             submitBtn.disabled = false;
-            submitBtn.innerHTML = 'Submit Answer {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}';
+            submitBtn.innerHTML = `Submit Answer {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}`;
             answerInput.value = '';
             answerInput.focus();
         }
@@ -384,7 +384,7 @@ function submitAnswer() {
         console.error('Error:', error);
         showMessage('An error occurred. Please try again.', 'error');
         submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Submit Answer {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}';
+        submitBtn.innerHTML = `Submit Answer {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}`;
     });
 }
 

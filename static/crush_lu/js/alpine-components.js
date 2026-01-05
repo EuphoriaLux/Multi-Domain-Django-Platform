@@ -1425,6 +1425,19 @@ document.addEventListener('alpine:init', function() {
 
             setSubmitting: function() {
                 this.isSubmitting = true;
+                // CRITICAL: Before form submission, ensure phone number input has full international number
+                // intlTelInput with separateDialCode=true stores only national number in input.value
+                // We need to set the full number so Django form receives it correctly
+                if (window.itiInstance) {
+                    var phoneInput = document.querySelector('[name="phone_number"]');
+                    if (phoneInput && !phoneInput.readOnly) {
+                        // Get full international number from intlTelInput
+                        var fullNumber = window.itiInstance.getNumber();
+                        if (fullNumber) {
+                            phoneInput.value = fullNumber;
+                        }
+                    }
+                }
             },
 
             nextStepAndReview: function() {
@@ -1446,8 +1459,17 @@ document.addEventListener('alpine:init', function() {
                 var genderEl = document.querySelector('[name="gender"]:checked');
                 var locationEl = document.getElementById('id_location');
 
+                // Get phone number: prefer intlTelInput's getNumber() for full international format
+                // intlTelInput with separateDialCode=true stores only national number in input.value
+                var phoneNumber = '';
+                if (window.itiInstance) {
+                    phoneNumber = window.itiInstance.getNumber() || '';
+                } else if (phoneEl) {
+                    phoneNumber = phoneEl.value || '';
+                }
+
                 return {
-                    phone_number: phoneEl ? phoneEl.value : '',
+                    phone_number: phoneNumber,
                     date_of_birth: dobEl ? dobEl.value : '',
                     gender: genderEl ? genderEl.value : '',
                     location: locationEl ? locationEl.value : ''

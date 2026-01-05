@@ -494,7 +494,7 @@ async function submitFinalResponse(response) {
     btnThinking.disabled = true;
 
     // Show loading message
-    statusDiv.innerHTML = '{% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Submitting your response...';
+    statusDiv.innerHTML = `{% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Submitting your response...`;
     statusDiv.style.color = 'var(--journey-secondary)';
 
     try {
@@ -528,7 +528,7 @@ async function submitFinalResponse(response) {
 
         if (data.success) {
             // Show success message
-            statusDiv.innerHTML = '{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Thank you for your response! 💖';
+            statusDiv.innerHTML = `{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Thank you for your response! 💖`;
             statusDiv.style.color = 'var(--journey-success)';
 
             // Reload page after 2 seconds to show the confirmed response
@@ -537,7 +537,7 @@ async function submitFinalResponse(response) {
             }, 2000);
         } else {
             // Show error
-            statusDiv.innerHTML = '{% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %} ' + (data.message || 'An error occurred. Please try again.');
+            statusDiv.innerHTML = `{% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %} ` + (data.message || 'An error occurred. Please try again.');
             statusDiv.style.color = 'var(--journey-error)';
 
             // Re-enable buttons
@@ -546,7 +546,7 @@ async function submitFinalResponse(response) {
         }
     } catch (error) {
         console.error('Error submitting final response:', error);
-        statusDiv.innerHTML = '{% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %} Network error. Please check your connection and try again.';
+        statusDiv.innerHTML = `{% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %} Network error. Please check your connection and try again.`;
         statusDiv.style.color = 'var(--journey-error)';
 
         // Re-enable buttons

@@ -1123,9 +1123,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Listen for verification events
 window.addEventListener('phone-verified', function(e) {
-    // Update all Alpine components
     var phoneInput = document.getElementById('{{ form.phone_number.id_for_label }}');
     if (phoneInput) {
+        // Use intlTelInput's setNumber() if available, otherwise set directly
+        // This ensures the full international number is properly handled
+        if (window.itiInstance) {
+            window.itiInstance.setNumber(e.detail);
+        }
+        // Also set the input value directly for form submission
+        // (important when intlTelInput is destroyed or not managing the input)
         phoneInput.value = e.detail;
         phoneInput.readOnly = true;
     }
