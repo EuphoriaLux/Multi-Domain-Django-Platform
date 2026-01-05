@@ -16,7 +16,7 @@ from .urls_shared import base_patterns, api_patterns
 from crush_lu.admin import crush_admin_site
 from crush_lu.admin.user_segments import user_segments_dashboard, segment_detail
 from crush_lu import admin_views, views, views_phone_verification, views_profile
-from crush_lu import api_views, api_push, api_coach_push, views_oauth_popup, api_journey, views_wallet, api_referral
+from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt
@@ -55,6 +55,9 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/push/test/', api_push.send_test_push, name='api_send_test_push'),
     path('api/push/mark-pwa-user/', api_push.mark_pwa_user, name='api_mark_pwa_user'),
     path('api/push/pwa-status/', api_push.get_pwa_status, name='api_pwa_status'),
+
+    # PWA Device Registration API (called from pwa-detector.js)
+    path('api/pwa/register-installation/', api_pwa.register_pwa_installation, name='api_pwa_register_installation'),
 
     # Coach Push Notifications API (called from alpine-components.js)
     path('api/coach/push/vapid-public-key/', api_coach_push.get_vapid_public_key, name='api_coach_vapid_public_key'),

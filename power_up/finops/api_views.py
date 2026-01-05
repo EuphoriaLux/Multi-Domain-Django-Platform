@@ -372,98 +372,112 @@ def export_status(request):
 
 
 @api_view(['GET'])
-@permission_classes([HasSessionOrIsAuthenticated])
+@permission_classes([AllowAny])  # Allow any to return proper error message
 def export_costs_csv(request):
-    """Export cost data as CSV file"""
-    currency = request.query_params.get('currency', 'EUR')
-    days = int(request.query_params.get('days', 30))
-    subscription = request.query_params.get('subscription')
-    export_format = request.query_params.get('format', 'daily_summary')
+    """
+    Export cost data as CSV file.
 
-    base_filters = {'billing_currency': currency}
-    if subscription:
-        base_filters['sub_account_name'] = subscription
-
-    date_range = CostRecord.objects.filter(**base_filters).aggregate(
-        min_date=Min('billing_period_start'),
-        max_date=Max('billing_period_start')
+    NOTE: This feature is temporarily disabled - returns "Coming Soon" message.
+    """
+    # Feature temporarily disabled
+    return Response(
+        {
+            'error': 'CSV export is coming soon. This feature is temporarily disabled.',
+            'status': 'coming_soon',
+        },
+        status=status.HTTP_501_NOT_IMPLEMENTED
     )
 
-    end_date = timezone.now().date()
-    start_date = end_date - timedelta(days=days)
-
-    if date_range['min_date'] and date_range['max_date']:
-        if start_date > date_range['max_date'] or end_date < date_range['min_date']:
-            end_date = date_range['max_date']
-            start_date = max(date_range['min_date'], end_date - timedelta(days=days))
-
-    filters = {
-        **base_filters,
-        'billing_period_start__gte': start_date,
-        'billing_period_start__lte': end_date,
-    }
-
-    response = HttpResponse(content_type='text/csv')
-    filename = f'azure_costs_{start_date}_{end_date}.csv'
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-
-    writer = csv.writer(response)
-
-    if export_format == 'daily_summary':
-        writer.writerow(['Date', 'Total Cost', 'Usage Cost', 'Purchase Cost', 'Record Count'])
-        daily_costs = CostRecord.objects.filter(**filters).annotate(
-            usage_date=TruncDate('charge_period_start')
-        ).values('usage_date').annotate(
-            total_cost=Sum('billed_cost'),
-            usage_cost=Sum('billed_cost', filter=Q(charge_category='Usage')),
-            purchase_cost=Sum('billed_cost', filter=Q(charge_category='Purchase')),
-            record_count=Count('id'),
-        ).order_by('usage_date')
-
-        for record in daily_costs:
-            writer.writerow([
-                record['usage_date'],
-                f"{float(record['total_cost'] or 0):.2f}",
-                f"{float(record['usage_cost'] or 0):.2f}",
-                f"{float(record['purchase_cost'] or 0):.2f}",
-                record['record_count'],
-            ])
-
-    elif export_format == 'by_service':
-        writer.writerow(['Service Name', 'Total Cost', 'Record Count', 'Percentage'])
-        total = CostRecord.objects.filter(**filters).aggregate(total=Sum('billed_cost'))['total'] or 1
-        services = CostRecord.objects.filter(**filters).values('service_name').annotate(
-            total_cost=Sum('billed_cost'),
-            record_count=Count('id'),
-        ).order_by('-total_cost')
-
-        for service in services:
-            cost = float(service['total_cost'] or 0)
-            percentage = (cost / float(total)) * 100
-            writer.writerow([
-                service['service_name'] or 'Unknown',
-                f"{cost:.2f}",
-                service['record_count'],
-                f"{percentage:.1f}%",
-            ])
-
-    elif export_format == 'by_resource':
-        writer.writerow(['Resource Name', 'Resource Type', 'Service', 'Resource Group', 'Total Cost', 'Record Count'])
-        resources = CostRecord.objects.filter(**filters).values(
-            'resource_name', 'resource_type', 'service_name', 'resource_group_name'
-        ).annotate(
-            total_cost=Sum('billed_cost'),
-            record_count=Count('id'),
-        ).order_by('-total_cost')[:1000]
-
-        for resource in resources:
-            writer.writerow([
-                resource['resource_name'] or 'Unknown',
-                resource['resource_type'] or 'Unknown',
-                resource['service_name'] or 'Unknown',
-                resource['resource_group_name'] or 'Unknown',
-                f"{float(resource['total_cost'] or 0):.2f}",
-                resource['record_count'],
-            ])
-
-    return response
+    # TODO: Uncomment below when CSV export is ready
+    # currency = request.query_params.get('currency', 'EUR')
+    # days = int(request.query_params.get('days', 30))
+    # subscription = request.query_params.get('subscription')
+    # export_format = request.query_params.get('format', 'daily_summary')
+    #
+    # base_filters = {'billing_currency': currency}
+    # if subscription:
+    #     base_filters['sub_account_name'] = subscription
+    #
+    # date_range = CostRecord.objects.filter(**base_filters).aggregate(
+    #     min_date=Min('billing_period_start'),
+    #     max_date=Max('billing_period_start')
+    # )
+    #
+    # end_date = timezone.now().date()
+    # start_date = end_date - timedelta(days=days)
+    #
+    # if date_range['min_date'] and date_range['max_date']:
+    #     if start_date > date_range['max_date'] or end_date < date_range['min_date']:
+    #         end_date = date_range['max_date']
+    #         start_date = max(date_range['min_date'], end_date - timedelta(days=days))
+    #
+    # filters = {
+    #     **base_filters,
+    #     'billing_period_start__gte': start_date,
+    #     'billing_period_start__lte': end_date,
+    # }
+    #
+    # response = HttpResponse(content_type='text/csv')
+    # filename = f'azure_costs_{start_date}_{end_date}.csv'
+    # response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    #
+    # writer = csv.writer(response)
+    #
+    # if export_format == 'daily_summary':
+    #     writer.writerow(['Date', 'Total Cost', 'Usage Cost', 'Purchase Cost', 'Record Count'])
+    #     daily_costs = CostRecord.objects.filter(**filters).annotate(
+    #         usage_date=TruncDate('charge_period_start')
+    #     ).values('usage_date').annotate(
+    #         total_cost=Sum('billed_cost'),
+    #         usage_cost=Sum('billed_cost', filter=Q(charge_category='Usage')),
+    #         purchase_cost=Sum('billed_cost', filter=Q(charge_category='Purchase')),
+    #         record_count=Count('id'),
+    #     ).order_by('usage_date')
+    #
+    #     for record in daily_costs:
+    #         writer.writerow([
+    #             record['usage_date'],
+    #             f"{float(record['total_cost'] or 0):.2f}",
+    #             f"{float(record['usage_cost'] or 0):.2f}",
+    #             f"{float(record['purchase_cost'] or 0):.2f}",
+    #             record['record_count'],
+    #         ])
+    #
+    # elif export_format == 'by_service':
+    #     writer.writerow(['Service Name', 'Total Cost', 'Record Count', 'Percentage'])
+    #     total = CostRecord.objects.filter(**filters).aggregate(total=Sum('billed_cost'))['total'] or 1
+    #     services = CostRecord.objects.filter(**filters).values('service_name').annotate(
+    #         total_cost=Sum('billed_cost'),
+    #         record_count=Count('id'),
+    #     ).order_by('-total_cost')
+    #
+    #     for service in services:
+    #         cost = float(service['total_cost'] or 0)
+    #         percentage = (cost / float(total)) * 100
+    #         writer.writerow([
+    #             service['service_name'] or 'Unknown',
+    #             f"{cost:.2f}",
+    #             service['record_count'],
+    #             f"{percentage:.1f}%",
+    #         ])
+    #
+    # elif export_format == 'by_resource':
+    #     writer.writerow(['Resource Name', 'Resource Type', 'Service', 'Resource Group', 'Total Cost', 'Record Count'])
+    #     resources = CostRecord.objects.filter(**filters).values(
+    #         'resource_name', 'resource_type', 'service_name', 'resource_group_name'
+    #     ).annotate(
+    #         total_cost=Sum('billed_cost'),
+    #         record_count=Count('id'),
+    #     ).order_by('-total_cost')[:1000]
+    #
+    #     for resource in resources:
+    #         writer.writerow([
+    #             resource['resource_name'] or 'Unknown',
+    #             resource['resource_type'] or 'Unknown',
+    #             resource['service_name'] or 'Unknown',
+    #             resource['resource_group_name'] or 'Unknown',
+    #             f"{float(resource['total_cost'] or 0):.2f}",
+    #             resource['record_count'],
+    #         ])
+    #
+    # return response

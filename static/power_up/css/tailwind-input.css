@@ -4,43 +4,110 @@
 
 /* Power-Up Corporate Site Custom Styles */
 @layer components {
-  /* Primary button */
+  /* Primary button - enhanced with shadow and hover effects */
   .btn-primary {
-    @apply inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-powerup-orange hover:bg-powerup-orange-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-powerup-orange transition-colors duration-200;
+    @apply inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-semibold rounded-xl text-white bg-powerup-orange hover:bg-powerup-orange-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-powerup-orange transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5;
   }
 
   /* Secondary button */
   .btn-secondary {
-    @apply inline-flex items-center justify-center px-6 py-3 border-2 border-powerup-orange text-base font-medium rounded-lg text-powerup-orange bg-white hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-powerup-orange transition-colors duration-200;
+    @apply inline-flex items-center justify-center px-6 py-3 border-2 border-powerup-orange text-base font-semibold rounded-xl text-powerup-orange bg-white hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-powerup-orange transition-all duration-200;
+  }
+
+  /* Ghost button - subtle outline */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center px-6 py-3 text-base font-semibold rounded-xl text-powerup-orange bg-transparent border-2 border-powerup-orange/20 hover:border-powerup-orange hover:bg-orange-50 transition-all duration-200;
   }
 
   /* Outline white button for dark backgrounds */
   .btn-outline-white {
-    @apply inline-flex items-center justify-center px-6 py-3 border-2 border-white text-base font-medium rounded-lg text-white bg-transparent hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white/50 transition-colors duration-200;
+    @apply inline-flex items-center justify-center px-6 py-3 border-2 border-white text-base font-semibold rounded-xl text-white bg-transparent hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white/50 transition-all duration-200;
   }
 
-  /* Card component */
+  /* Card component - enhanced with hover lift */
   .card {
-    @apply bg-white rounded-xl shadow-md overflow-hidden transition-shadow duration-300 hover:shadow-lg;
+    @apply bg-white rounded-2xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border border-gray-100;
   }
 
   /* Section container */
   .section {
-    @apply py-16 lg:py-24;
+    @apply py-20 lg:py-32;
   }
 
-  /* Hero gradient - orange to dark blue */
+  /* Section with warm background */
+  .section-warm {
+    @apply py-20 lg:py-32 bg-gradient-to-b from-white to-powerup-cream;
+  }
+
+  /* Section with accent background */
+  .section-accent {
+    @apply py-20 lg:py-32 bg-gradient-to-br from-orange-50/50 to-white;
+  }
+
+  /* Section with dark background */
+  .section-dark {
+    @apply py-20 lg:py-32 bg-gradient-to-br from-powerup-dark-blue to-powerup-navy text-white;
+  }
+
+  /* Hero gradient - orange to dark blue - enhanced */
   .hero-gradient {
-    @apply bg-gradient-to-br from-powerup-orange via-powerup-orange-dark to-powerup-dark-blue;
+    @apply bg-gradient-to-br from-powerup-orange via-powerup-orange-dark to-powerup-dark-blue relative overflow-hidden;
+  }
+
+  /* Hero pattern overlay */
+  .hero-pattern {
+    background-image:
+      radial-gradient(circle at 20% 50%, rgba(255,255,255,0.1) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(255,107,45,0.2) 0%, transparent 40%);
   }
 
   /* Platform status badge */
   .badge-live {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800;
   }
 
   .badge-coming-soon {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800;
+  }
+
+  /* Feature card */
+  .feature-card {
+    @apply bg-white rounded-2xl p-8 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border border-gray-100;
+  }
+
+  /* Feature icon container */
+  .feature-icon {
+    @apply w-14 h-14 rounded-xl bg-gradient-to-br from-orange-100 to-orange-50 flex items-center justify-center mb-4;
+  }
+
+  /* Stat card */
+  .stat-card {
+    @apply text-center p-6;
+  }
+
+  .stat-value {
+    @apply text-4xl lg:text-5xl font-bold text-powerup-orange mb-2;
+  }
+
+  .stat-label {
+    @apply text-gray-600 text-sm uppercase tracking-wider;
+  }
+
+  /* Typography utilities */
+  .heading-hero {
+    @apply text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight;
+  }
+
+  .heading-section {
+    @apply text-3xl sm:text-4xl font-bold tracking-tight;
+  }
+
+  .heading-subsection {
+    @apply text-xl sm:text-2xl font-semibold;
+  }
+
+  .body-large {
+    @apply text-lg sm:text-xl text-gray-600 leading-relaxed;
   }
 }
 
@@ -49,4 +116,65 @@
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-powerup-orange to-powerup-orange-light;
   }
+
+  /* Hover lift effect */
+  .hover-lift {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-xl;
+  }
+
+  /* Link with underline animation */
+  .link-animated {
+    @apply relative inline-block text-powerup-orange hover:text-powerup-orange-dark transition-colors duration-200;
+  }
+
+  .link-animated::after {
+    content: '';
+    @apply absolute bottom-0 left-0 w-0 h-0.5 bg-powerup-orange transition-all duration-300;
+  }
+
+  .link-animated:hover::after {
+    @apply w-full;
+  }
+}
+
+/* CSS-only animations (CSP safe) */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes subtlePulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(254, 73, 1, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(254, 73, 1, 0);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.animate-pulse-cta {
+  animation: subtlePulse 2s infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
 }

@@ -1247,6 +1247,95 @@ def dashboard(request):
     return render(request, 'crush_lu/dashboard.html', context)
 
 
+# Membership program page
+def membership(request):
+    """
+    Membership program landing page.
+    Public access for viewing, login required for wallet actions.
+    Explains membership tiers, how to earn points, and PWA benefits.
+    """
+    is_pwa_user = False
+    profile = None
+    referral_url = None
+
+    if request.user.is_authenticated:
+        # Check if user has installed PWA
+        try:
+            activity = UserActivity.objects.get(user=request.user)
+            is_pwa_user = activity.is_pwa_user
+        except UserActivity.DoesNotExist:
+            pass
+
+        # Get profile and referral URL if available
+        try:
+            profile = CrushProfile.objects.get(user=request.user)
+            from .models import ReferralCode
+            from .referrals import build_referral_url
+            referral_code = ReferralCode.get_or_create_for_profile(profile)
+            referral_url = build_referral_url(referral_code.code, request=request)
+        except CrushProfile.DoesNotExist:
+            pass
+
+    # Membership tier data
+    tiers = [
+        {
+            'name': _('Basic'),
+            'key': 'basic',
+            'points': 0,
+            'emoji': '💜',
+            'benefits': [
+                _('Access to public events'),
+                _('Basic profile features'),
+                _('Connection messaging'),
+            ]
+        },
+        {
+            'name': _('Bronze'),
+            'key': 'bronze',
+            'points': 100,
+            'emoji': '🥉',
+            'benefits': [
+                _('All Basic benefits'),
+                _('Priority event registration'),
+                _('Profile badge'),
+            ]
+        },
+        {
+            'name': _('Silver'),
+            'key': 'silver',
+            'points': 500,
+            'emoji': '🥈',
+            'benefits': [
+                _('All Bronze benefits'),
+                _('Exclusive events access'),
+                _('Extended profile features'),
+            ]
+        },
+        {
+            'name': _('Gold'),
+            'key': 'gold',
+            'points': 1000,
+            'emoji': '🥇',
+            'benefits': [
+                _('All Silver benefits'),
+                _('VIP event access'),
+                _('Personal coach session'),
+            ]
+        },
+    ]
+
+    context = {
+        'is_pwa_user': is_pwa_user,
+        'profile': profile,
+        'referral_url': referral_url,
+        'tiers': tiers,
+        'current_tier': profile.membership_tier if profile else 'basic',
+        'current_points': profile.referral_points if profile else 0,
+    }
+
+    return render(request, 'crush_lu/membership.html', context)
+
+
 # Wallet
 @crush_login_required
 def wallet_apple_pass(request):

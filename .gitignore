@@ -50,6 +50,7 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+logs_export/
 
 # Translations
 # Note: We DO commit locale/*.mo files for Django i18n (see !locale/ exception below)
@@ -144,6 +145,8 @@ yarn-error.log*
 
 # Tailwind CSS (compiled on CI/CD, not committed)
 static/crush_lu/css/tailwind.css
+static/power_up/css/tailwind.css
+static/tableau/css/tailwind.css
 
 # Build outputs
 *.tsbuildinfo
@@ -160,6 +163,7 @@ _backup_old_apps/
 
 # Visual regression test screenshots (regenerated per environment)
 crush_lu/tests/screenshots_baseline/
+crush_lu/tests/screenshots/
 
 # VSCode settings (environment-specific)
 .vscode/

@@ -50,35 +50,50 @@ def apple_wallet_pass(request):
     - Next upcoming event (if registered)
     - Referral QR code
     - Points balance
+
+    NOTE: Apple Wallet is currently not implemented - returns "Coming Soon" message.
     """
-    # Check if Apple Wallet is configured
-    if not _is_apple_wallet_configured():
-        logger.warning("Apple Wallet pass requested but not configured")
-        return JsonResponse(
-            {"error": "Apple Wallet is not configured on this server."},
-            status=503,
-        )
+    # Feature not yet implemented - return Coming Soon message
+    from django.utils.translation import gettext as _
 
-    try:
-        from .wallet import build_apple_pass
+    logger.info("Apple Wallet pass requested - feature coming soon")
+    return JsonResponse(
+        {
+            "error": _("Apple Wallet support is coming soon! Please use Google Wallet in the meantime."),
+            "status": "coming_soon",
+        },
+        status=501,  # Not Implemented
+    )
 
-        profile, _ = CrushProfile.objects.get_or_create(user=request.user)
-        pkpass_data = build_apple_pass(profile, request=request)
-        response = HttpResponse(pkpass_data, content_type="application/vnd.apple.pkpass")
-        response["Content-Disposition"] = "attachment; filename=crushlu.pkpass"
-        return response
-    except ImproperlyConfigured as e:
-        logger.error("Apple Wallet configuration error: %s", e)
-        return JsonResponse(
-            {"error": "Apple Wallet is not properly configured."},
-            status=503,
-        )
-    except Exception as e:
-        logger.exception("Error generating Apple Wallet pass: %s", e)
-        return JsonResponse(
-            {"error": "Failed to generate Apple Wallet pass."},
-            status=500,
-        )
+    # TODO: Uncomment below when Apple Wallet is implemented
+    # # Check if Apple Wallet is configured
+    # if not _is_apple_wallet_configured():
+    #     logger.warning("Apple Wallet pass requested but not configured")
+    #     return JsonResponse(
+    #         {"error": "Apple Wallet is not configured on this server."},
+    #         status=503,
+    #     )
+    #
+    # try:
+    #     from .wallet import build_apple_pass
+    #
+    #     profile, _ = CrushProfile.objects.get_or_create(user=request.user)
+    #     pkpass_data = build_apple_pass(profile, request=request)
+    #     response = HttpResponse(pkpass_data, content_type="application/vnd.apple.pkpass")
+    #     response["Content-Disposition"] = "attachment; filename=crushlu.pkpass"
+    #     return response
+    # except ImproperlyConfigured as e:
+    #     logger.error("Apple Wallet configuration error: %s", e)
+    #     return JsonResponse(
+    #         {"error": "Apple Wallet is not properly configured."},
+    #         status=503,
+    #     )
+    # except Exception as e:
+    #     logger.exception("Error generating Apple Wallet pass: %s", e)
+    #     return JsonResponse(
+    #         {"error": "Failed to generate Apple Wallet pass."},
+    #         status=500,
+    #     )
 
 
 @login_required

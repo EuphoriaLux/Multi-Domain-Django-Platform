@@ -682,6 +682,103 @@ class UserActivity(models.Model):
         return True
 
 
+class PWADeviceInstallation(models.Model):
+    """
+    Tracks individual PWA installations across user devices.
+    Each user can have multiple installations (phone, tablet, desktop).
+    Admin-only visibility - not exposed to end users.
+    """
+
+    OS_CHOICES = [
+        ('ios', 'iOS'),
+        ('android', 'Android'),
+        ('windows', 'Windows'),
+        ('macos', 'macOS'),
+        ('linux', 'Linux'),
+        ('chromeos', 'ChromeOS'),
+        ('unknown', 'Unknown'),
+    ]
+
+    FORM_FACTOR_CHOICES = [
+        ('phone', 'Phone'),
+        ('tablet', 'Tablet'),
+        ('desktop', 'Desktop'),
+        ('unknown', 'Unknown'),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='pwa_installations',
+        help_text="User who installed the PWA"
+    )
+
+    # Device identification
+    device_fingerprint = models.CharField(
+        max_length=64,
+        db_index=True,
+        help_text="Stable browser fingerprint for device identification"
+    )
+
+    # Device classification
+    os_type = models.CharField(
+        max_length=20,
+        choices=OS_CHOICES,
+        default='unknown',
+        help_text="Operating system type"
+    )
+    form_factor = models.CharField(
+        max_length=20,
+        choices=FORM_FACTOR_CHOICES,
+        default='unknown',
+        help_text="Device form factor (phone, tablet, desktop)"
+    )
+    device_category = models.CharField(
+        max_length=50,
+        help_text="Combined category like 'Android Phone', 'Windows Desktop'"
+    )
+    browser = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Browser name (Chrome, Safari, Edge, etc.)"
+    )
+
+    # Raw data for debugging
+    user_agent = models.TextField(
+        blank=True,
+        help_text="Full user agent string"
+    )
+
+    # Timestamps
+    installed_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When PWA was first installed on this device"
+    )
+    last_used_at = models.DateTimeField(
+        auto_now=True,
+        help_text="Last time PWA was used on this device"
+    )
+
+    class Meta:
+        unique_together = ('user', 'device_fingerprint')
+        ordering = ['-last_used_at']
+        verbose_name = "PWA Device Installation"
+        verbose_name_plural = "PWA Device Installations"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.device_category}"
+
+    @property
+    def days_since_last_use(self):
+        """Days since last PWA usage on this device."""
+        return (timezone.now() - self.last_used_at).days
+
+    @property
+    def is_recently_active(self):
+        """Active within last 7 days."""
+        return self.days_since_last_use < 7
+
+
 class PushSubscription(models.Model):
     """
     Stores Web Push API subscription data for sending push notifications to PWA users.

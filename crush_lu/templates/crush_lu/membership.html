@@ -1,0 +1,323 @@
+{% extends 'crush_lu/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Membership - Crush.lu" %}{% endblock %}
+
+{% block og_title %}{% trans "Crush.lu Membership Program" %}{% endblock %}
+{% block og_description %}{% trans "Join the Crush.lu membership program. Earn points, unlock rewards, and get your digital membership card in your wallet." %}{% endblock %}
+
+{% block meta_description %}{% trans "Crush.lu Membership: Install our app to unlock your digital membership card. Earn points by inviting friends and climb the tiers from Basic to Gold." %}{% endblock %}
+{% block meta_keywords %}{% trans "crush.lu membership, dating rewards, referral program, membership card, pwa app" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Hero Section -->
+    <div class="text-center mb-10">
+        <h1 class="text-3xl font-bold mb-4">{% trans "Crush.lu Membership" %}</h1>
+        <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+            {% trans "Get your digital membership card, earn rewards, and unlock exclusive benefits by inviting friends." %}
+        </p>
+    </div>
+
+    {% if not is_pwa_user %}
+    <!-- PWA Install Banner for non-PWA users -->
+    <div class="bg-gradient-to-br from-crush-purple to-crush-pink rounded-xl shadow-lg mb-8 overflow-hidden">
+        <div class="p-8 text-white text-center">
+            <div class="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                {% include "shared/icons/device-phone-mobile.html" with class="w-8 h-8 text-white" %}
+            </div>
+            <h2 class="text-2xl font-bold mb-2">{% trans "Install the App to Unlock" %}</h2>
+            <p class="text-white/90 mb-6 max-w-md mx-auto">
+                {% trans "Get your membership card in Apple Wallet or Google Wallet, plus push notifications for events and connections." %}
+            </p>
+
+            <!-- PWA Install Button using Alpine.js component -->
+            <div x-data="pwaInstallButton()" class="inline-block">
+                <template x-if="canInstallVisible">
+                    <button @click="install" class="bg-white text-crush-purple font-semibold px-6 py-3 rounded-lg hover:bg-gray-100 transition-colors inline-flex items-center gap-2">
+                        {% include "shared/icons/arrow-down-tray.html" with class="w-5 h-5" %}
+                        {% trans "Install Crush.lu App" %}
+                    </button>
+                </template>
+
+                <template x-if="isInstalledVisible">
+                    <div class="bg-white/20 text-white font-semibold px-6 py-3 rounded-lg inline-flex items-center gap-2">
+                        {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                        {% trans "App Installed!" %}
+                    </div>
+                </template>
+
+                <template x-if="showInstructionsVisible">
+                    <div class="bg-white/10 text-white px-6 py-3 rounded-lg text-sm">
+                        <strong>{% trans "iOS:" %}</strong> {% trans "Tap Share" %} {% include "shared/icons/arrow-up-on-square.html" with class="w-4 h-4 inline" %} {% trans "then 'Add to Home Screen'" %}
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Membership Card Preview -->
+    <div class="bg-white rounded-xl shadow-sm mb-8">
+        <div class="p-6">
+            <h2 class="text-xl font-semibold mb-4">{% trans "Your Membership Card" %}</h2>
+
+            {% if is_pwa_user and user.is_authenticated %}
+            {# Full membership card for PWA users #}
+            <div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 rounded-xl p-6 mb-4">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-12 h-12 bg-crush-purple rounded-xl flex items-center justify-center text-white text-xl">
+                        {% for tier in tiers %}{% if tier.key == current_tier %}{{ tier.emoji }}{% endif %}{% endfor %}
+                    </div>
+                    <div>
+                        <p class="font-semibold text-lg">{{ user.first_name }} {{ user.last_name }}</p>
+                        <p class="text-gray-600">
+                            {% for tier in tiers %}{% if tier.key == current_tier %}{{ tier.name }}{% endif %}{% endfor %} {% trans "Member" %}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-600">{% trans "Points:" %} <strong class="text-crush-purple">{{ current_points }}</strong></span>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
+                {# Apple Wallet - Coming Soon #}
+                <button type="button" disabled class="inline-flex items-center gap-2 text-sm px-4 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed" title="{% trans 'Coming soon' %}">
+                    {% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4" %}
+                    {% trans "Apple Wallet" %}
+                    <span class="text-xs bg-gray-200 px-2 py-0.5 rounded-full">{% trans "Soon" %}</span>
+                </button>
+                <button type="button" id="save-google-wallet-btn" data-jwt-url="/wallet/google/jwt/" class="google-wallet-btn p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                    {% get_current_language as LANGUAGE_CODE %}
+                    {% if LANGUAGE_CODE == 'de' %}
+                    <img src="{% static 'crush_lu/img/wallet/de_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto" id="google-wallet-img">
+                    {% elif LANGUAGE_CODE == 'fr' %}
+                    <img src="{% static 'crush_lu/img/wallet/fr_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto" id="google-wallet-img">
+                    {% else %}
+                    <img src="{% static 'crush_lu/img/wallet/en_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto" id="google-wallet-img">
+                    {% endif %}
+                </button>
+            </div>
+            {% if referral_url %}
+            <div class="mt-4">
+                <button type="button" id="share-referral-btn" data-referral-url="{{ referral_url }}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-purple-300 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors">
+                    {% include "shared/icons/link.html" with class="w-4 h-4" %}
+                    {% trans "Share Referral Link" %}
+                </button>
+                <p id="share-referral-status" class="text-sm text-green-600 mt-2 hidden"></p>
+            </div>
+            {% endif %}
+
+            {% elif user.is_authenticated %}
+            {# Logged in but not PWA user - show locked preview #}
+            <div class="relative min-h-[160px]">
+                <div class="filter blur-sm pointer-events-none select-none opacity-60" aria-hidden="true">
+                    <div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 rounded-xl p-6 mb-4">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-crush-purple rounded-xl"></div>
+                            <div>
+                                <p class="font-semibold">{{ user.first_name }} {{ user.last_name }}</p>
+                                <p class="text-gray-600">{% trans "Member" %}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <span class="btn-crush-primary text-sm">{% trans "Add to Apple Wallet" %}</span>
+                        <span class="bg-gray-200 px-4 py-2 rounded-lg text-sm">{% trans "Add to Google Wallet" %}</span>
+                    </div>
+                </div>
+                <div class="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm rounded-lg">
+                    <div class="text-center p-4">
+                        {% include "shared/icons/lock-closed.html" with class="w-10 h-10 text-crush-purple mx-auto mb-3" %}
+                        <h6 class="font-semibold text-gray-900 mb-2">{% trans "Install App to Unlock" %}</h6>
+                        <p class="text-sm text-gray-600">{% trans "Install the Crush.lu app above to get your membership card" %}</p>
+                    </div>
+                </div>
+            </div>
+
+            {% else %}
+            {# Not logged in - show login CTA #}
+            <div class="text-center py-8">
+                <p class="text-gray-600 mb-4">{% trans "Sign in to access your membership card" %}</p>
+                <a href="{% url 'crush_lu:login' %}" class="btn-crush-primary inline-flex items-center gap-2">
+                    {% trans "Sign In" %}
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Membership Tiers -->
+    <div class="bg-white rounded-xl shadow-sm mb-8">
+        <div class="p-6">
+            <h2 class="text-xl font-semibold mb-6">{% trans "Membership Tiers" %}</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {% for tier in tiers %}
+                <div class="border rounded-xl p-4 {% if tier.key == current_tier %}border-crush-purple bg-crush-purple/5{% else %}border-gray-200{% endif %}">
+                    <div class="text-center mb-3">
+                        <span class="text-3xl">{{ tier.emoji }}</span>
+                        <h3 class="font-semibold text-lg mt-2">{{ tier.name }}</h3>
+                        <p class="text-sm text-gray-500">
+                            {% if tier.points == 0 %}
+                            {% trans "Starting tier" %}
+                            {% else %}
+                            {{ tier.points }} {% trans "points" %}
+                            {% endif %}
+                        </p>
+                    </div>
+                    <ul class="text-sm space-y-2">
+                        {% for benefit in tier.benefits %}
+                        <li class="flex items-start gap-2">
+                            {% include "shared/icons/check.html" with class="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" %}
+                            <span>{{ benefit }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% if tier.key == current_tier and user.is_authenticated %}
+                    <div class="mt-4 text-center">
+                        <span class="inline-block px-3 py-1 bg-crush-purple text-white text-xs font-semibold rounded-full">
+                            {% trans "Current" %}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- How to Earn Points -->
+    <div class="bg-white rounded-xl shadow-sm mb-8">
+        <div class="p-6">
+            <h2 class="text-xl font-semibold mb-4">{% trans "How to Earn Points" %}</h2>
+
+            <div class="space-y-4">
+                <div class="flex items-start gap-4">
+                    <div class="w-10 h-10 bg-crush-purple/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        {% include "shared/icons/user-plus.html" with class="w-5 h-5 text-crush-purple" %}
+                    </div>
+                    <div>
+                        <h3 class="font-semibold">{% trans "Invite Friends" %}</h3>
+                        <p class="text-gray-600 text-sm">{% trans "Earn 100 points when a friend signs up using your referral link." %}</p>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-4">
+                    <div class="w-10 h-10 bg-crush-purple/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        {% include "shared/icons/check-badge.html" with class="w-5 h-5 text-crush-purple" %}
+                    </div>
+                    <div>
+                        <h3 class="font-semibold">{% trans "Profile Approved" %}</h3>
+                        <p class="text-gray-600 text-sm">{% trans "Earn 50 bonus points when your referred friend's profile is approved." %}</p>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-4">
+                    <div class="w-10 h-10 bg-crush-purple/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        {% include "shared/icons/calendar.html" with class="w-5 h-5 text-crush-purple" %}
+                    </div>
+                    <div>
+                        <h3 class="font-semibold">{% trans "Attend Events" %}</h3>
+                        <p class="text-gray-600 text-sm">{% trans "Coming soon: Earn points by attending Crush.lu events." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CTA for non-authenticated users -->
+    {% if not user.is_authenticated %}
+    <div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 rounded-xl shadow-sm">
+        <div class="text-center p-10">
+            <h2 class="text-2xl font-bold mb-2">{% trans "Ready to Join?" %}</h2>
+            <p class="text-gray-600 mb-6">{% trans "Create your account and start earning rewards today." %}</p>
+            <a href="{% url 'crush_lu:signup' %}" class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3">
+                {% trans "Sign Up Now" %}
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if is_pwa_user and user.is_authenticated %}
+<!-- Google Wallet and Referral JavaScript -->
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    // Google Wallet handler
+    var googleWalletBtn = document.getElementById('save-google-wallet-btn');
+    if (googleWalletBtn) {
+        var googleWalletImg = document.getElementById('google-wallet-img');
+        var jwtUrl = googleWalletBtn.dataset.jwtUrl;
+
+        googleWalletBtn.addEventListener('click', async function() {
+            googleWalletBtn.disabled = true;
+            if (googleWalletImg) googleWalletImg.style.opacity = '0.5';
+
+            try {
+                var response = await fetch(jwtUrl);
+                var data = await response.json();
+
+                if (data.jwt) {
+                    window.location.href = 'https://pay.google.com/gp/v/save/' + data.jwt;
+                } else if (data.error) {
+                    alert(data.error);
+                    googleWalletBtn.disabled = false;
+                    if (googleWalletImg) googleWalletImg.style.opacity = '1';
+                }
+            } catch (error) {
+                alert('{% trans "Failed to generate wallet pass. Please try again." %}');
+                googleWalletBtn.disabled = false;
+                if (googleWalletImg) googleWalletImg.style.opacity = '1';
+            }
+        });
+    }
+
+    // Referral share handler
+    var shareButton = document.getElementById('share-referral-btn');
+    if (shareButton) {
+        var statusElement = document.getElementById('share-referral-status');
+        var referralUrl = shareButton.dataset.referralUrl;
+
+        shareButton.addEventListener('click', async function() {
+            if (!referralUrl) return;
+
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'Crush.lu',
+                        text: '{% trans "Join me on Crush.lu" %}',
+                        url: referralUrl,
+                    });
+                    if (statusElement) {
+                        statusElement.textContent = '{% trans "Referral link shared!" %}';
+                        statusElement.classList.remove('hidden');
+                    }
+                    return;
+                } catch (e) {
+                    if (e.name === 'AbortError') return;
+                }
+            }
+
+            // Fallback to clipboard
+            if (navigator.clipboard) {
+                try {
+                    await navigator.clipboard.writeText(referralUrl);
+                    if (statusElement) {
+                        statusElement.textContent = '{% trans "Referral link copied to clipboard." %}';
+                        statusElement.classList.remove('hidden');
+                    }
+                } catch (e) {
+                    if (statusElement) {
+                        statusElement.textContent = '{% trans "Unable to copy referral link." %}';
+                        statusElement.classList.remove('hidden');
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

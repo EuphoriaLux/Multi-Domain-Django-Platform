@@ -55,6 +55,17 @@ DOMAINS = {
 DEV_HOSTS = ['localhost', '127.0.0.1', '192.168.178.184', 'testserver']
 DEV_DEFAULT = 'crush.lu'  # Change this to test different sites locally
 
+# Local development domain mappings (avoids HSTS issues with real domains)
+DEV_DOMAIN_MAPPINGS = {
+    'crush.localhost': 'crush.lu',
+    'power-up.localhost': 'power-up.lu',
+    'powerup.localhost': 'power-up.lu',
+    'vinsdelux.localhost': 'vinsdelux.com',
+    'entreprinder.localhost': 'entreprinder.lu',
+    'tableau.localhost': 'tableau.lu',
+    'delegation.localhost': 'delegation.crush.lu',
+}
+
 # Production fallback (used for unknown domains and Azure hostnames)
 PRODUCTION_DEFAULT = 'entreprinder.lu'
 
@@ -100,6 +111,11 @@ def get_urlconf_for_host(host):
     if config:
         return config['urlconf']
 
+    # Check dev domain mappings (e.g., crush.localhost -> crush.lu)
+    if host in DEV_DOMAIN_MAPPINGS:
+        mapped_domain = DEV_DOMAIN_MAPPINGS[host]
+        return DOMAINS[mapped_domain]['urlconf']
+
     # Development hosts
     if host in DEV_HOSTS:
         return DOMAINS[DEV_DEFAULT]['urlconf']
@@ -123,6 +139,8 @@ def get_all_hosts():
     for config in DOMAINS.values():
         hosts.extend(config.get('aliases', []))
     hosts.extend(DEV_HOSTS)
+    # Add dev domain mappings (*.localhost)
+    hosts.extend(DEV_DOMAIN_MAPPINGS.keys())
     return hosts
 
 

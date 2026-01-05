@@ -62,12 +62,18 @@ module.exports = {
         },
         // Power-Up brand colors (from logo color extraction)
         powerup: {
-          orange: '#fe4901',      // Primary brand color
+          orange: '#fe4901',         // Primary brand color
           'orange-light': '#ff6a2d', // Lighter variant
+          'orange-lighter': '#ff8c5a', // Even lighter
           'orange-dark': '#d93e00',  // Darker variant
-          'dark-blue': '#151625', // Dark blue accent
-          'darker-blue': '#010106', // Darkest blue
-          tan: '#80735f',         // Brown/tan accent
+          'orange-darker': '#b33300', // Even darker
+          'dark-blue': '#151625',    // Dark blue accent
+          'darker-blue': '#010106',  // Darkest blue
+          navy: '#0a0b15',           // Navy variant
+          tan: '#80735f',            // Brown/tan accent
+          'tan-light': '#a09580',    // Lighter tan
+          cream: '#faf8f5',          // Warm cream background
+          'warm-gray': '#f5f3f0',    // Warm gray
         },
       },
       spacing: {
@@ -98,6 +104,11 @@ module.exports = {
         'crush-lg': '0 10px 30px rgba(0, 0, 0, 0.15)',
         'crush-purple': '0 5px 15px rgba(155, 89, 182, 0.4)',
         'crush-pink': '0 5px 15px rgba(255, 107, 157, 0.4)',
+        // Power-Up shadows
+        'powerup-sm': '0 2px 10px rgba(254, 73, 1, 0.1)',
+        'powerup-md': '0 4px 20px rgba(254, 73, 1, 0.15)',
+        'powerup-lg': '0 10px 30px rgba(254, 73, 1, 0.2)',
+        'powerup-orange': '0 5px 15px rgba(254, 73, 1, 0.4)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
