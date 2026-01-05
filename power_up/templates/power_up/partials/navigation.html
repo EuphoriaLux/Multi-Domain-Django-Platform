@@ -8,32 +8,33 @@
         <div class="flex justify-between h-16">
             <!-- Logo -->
             <div class="flex items-center">
-                <a href="{% url 'power_up:home' %}" class="flex items-center space-x-2">
-                    <div class="w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-500 rounded-lg flex items-center justify-center">
-                        <span class="text-white font-bold text-lg">P</span>
-                    </div>
-                    <span class="text-xl font-bold text-gray-900">Power-Up</span>
+                <a href="{% url 'power_up:home' %}" class="flex items-center">
+                    <img src="{% static 'power_up/profiles/linkedin_logo.png' %}"
+                         alt="Power-Up"
+                         class="h-10 w-auto">
                 </a>
             </div>
 
             <!-- Desktop Navigation -->
             <div class="hidden md:flex md:items-center md:space-x-8">
                 <a href="{% url 'power_up:about' %}"
-                   class="text-gray-600 hover:text-purple-600 font-medium transition-colors duration-200">
+                   class="text-gray-600 hover:text-powerup-orange font-medium transition-colors duration-200">
                     {% trans "About" %}
                 </a>
                 <a href="{% url 'power_up:platforms' %}"
-                   class="text-gray-600 hover:text-purple-600 font-medium transition-colors duration-200">
+                   class="text-gray-600 hover:text-powerup-orange font-medium transition-colors duration-200">
                     {% trans "Platforms" %}
                 </a>
                 <a href="{% url 'power_up:investors' %}"
-                   class="text-gray-600 hover:text-purple-600 font-medium transition-colors duration-200">
+                   class="text-gray-600 hover:text-powerup-orange font-medium transition-colors duration-200">
                     {% trans "Investors" %}
                 </a>
                 <a href="{% url 'power_up:contact' %}"
                    class="btn-primary text-sm py-2 px-4">
                     {% trans "Contact" %}
                 </a>
+                <!-- Language Switcher -->
+                {% include "power_up/partials/language_switcher.html" %}
             </div>
 
             <!-- Mobile menu button -->
@@ -51,21 +52,25 @@
         <div class="md:hidden hidden peer-checked:block pb-4">
             <div class="flex flex-col space-y-3 pt-4 border-t border-gray-100">
                 <a href="{% url 'power_up:about' %}"
-                   class="text-gray-600 hover:text-purple-600 font-medium py-2">
+                   class="text-gray-600 hover:text-powerup-orange font-medium py-2">
                     {% trans "About" %}
                 </a>
                 <a href="{% url 'power_up:platforms' %}"
-                   class="text-gray-600 hover:text-purple-600 font-medium py-2">
+                   class="text-gray-600 hover:text-powerup-orange font-medium py-2">
                     {% trans "Platforms" %}
                 </a>
                 <a href="{% url 'power_up:investors' %}"
-                   class="text-gray-600 hover:text-purple-600 font-medium py-2">
+                   class="text-gray-600 hover:text-powerup-orange font-medium py-2">
                     {% trans "Investors" %}
                 </a>
                 <a href="{% url 'power_up:contact' %}"
                    class="btn-primary text-center py-2">
                     {% trans "Contact" %}
                 </a>
+                <!-- Mobile Language Switcher -->
+                <div class="pt-2 border-t border-gray-100">
+                    {% include "power_up/partials/language_switcher.html" with mobile=True %}
+                </div>
             </div>
         </div>
     </nav>

@@ -3,38 +3,39 @@
 URL configuration for Power-Up corporate/investor site.
 
 This is the URL config used when requests come from power-up.lu and powerup.lu domains.
-Static corporate site - no authentication, no API, no forms.
+Supports internationalization with language-prefixed URLs (/en/, /de/, /fr/).
 """
 
 from django.contrib import admin
-from django.http import HttpResponse
 from django.urls import path, include
+from django.conf.urls.i18n import i18n_patterns
 
 from power_up.admin import power_up_admin_site
 from .views_seo import robots_txt_power_up
+from .urls_shared import base_patterns
 
 
-def health_check(request):
-    """Simple health check endpoint for Azure App Service."""
-    return HttpResponse("OK", content_type="text/plain")
-
-
-urlpatterns = [
-    # Health check (required for Azure App Service)
-    path("healthz/", health_check, name="health_check"),
-
+# Language-neutral patterns (no /en/, /de/, /fr/ prefix)
+urlpatterns = base_patterns + [
     # SEO - robots.txt
     path("robots.txt", robots_txt_power_up, name="robots_txt"),
 
-    # Power-Up custom admin panel
+    # Power-Up custom admin panel (language-neutral)
     path("power-admin/", power_up_admin_site.urls),
 
-    # Standard Django admin (for superusers)
+    # Standard Django admin (language-neutral)
     path("admin/", admin.site.urls),
 
-    # FinOps Hub - Azure cost management dashboard
+    # FinOps Hub - Azure cost management dashboard (language-neutral)
     path("finops/", include(("power_up.finops.urls", "finops_hub"))),
+]
 
+# Language-prefixed patterns (user-facing pages)
+# URLs will be: /en/, /de/, /fr/, /en/about/, /de/about/, etc.
+urlpatterns += i18n_patterns(
     # Power-Up corporate site pages
     path("", include("power_up.urls", namespace="power_up")),
-]
+
+    # Include /en/ prefix even for default language
+    prefix_default_language=True,
+)

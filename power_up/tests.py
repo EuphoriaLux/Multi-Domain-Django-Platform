@@ -3,6 +3,8 @@ Tests for Power-Up corporate/investor site.
 
 Tests use Client(HTTP_HOST='power-up.lu') to ensure domain routing works correctly.
 This follows the established pattern in entreprinder/tests.py.
+
+Note: Power-Up uses i18n_patterns, so user-facing pages are under /en/, /de/, /fr/.
 """
 
 from django.test import TestCase, Client
@@ -27,25 +29,25 @@ class PowerUpRoutingTestCase(TestCase):
 
     def test_home_page_returns_200(self):
         """Home page returns 200 and uses correct template."""
-        response = self.client.get("/")
+        response = self.client.get("/en/")
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "power_up/home.html")
 
     def test_home_page_has_platforms(self):
         """Home page includes platforms in context."""
-        response = self.client.get("/")
+        response = self.client.get("/en/")
         self.assertIn("platforms", response.context)
         self.assertEqual(len(response.context["platforms"]), len(PLATFORMS))
 
     def test_about_page_returns_200(self):
         """About page returns 200 and uses correct template."""
-        response = self.client.get("/about/")
+        response = self.client.get("/en/about/")
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "power_up/about.html")
 
     def test_platforms_page_returns_200(self):
         """Platforms page returns 200 and includes platform data."""
-        response = self.client.get("/platforms/")
+        response = self.client.get("/en/platforms/")
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "power_up/platforms.html")
         self.assertIn("platforms", response.context)
@@ -53,13 +55,13 @@ class PowerUpRoutingTestCase(TestCase):
 
     def test_investors_page_returns_200(self):
         """Investors page returns 200 and uses correct template."""
-        response = self.client.get("/investors/")
+        response = self.client.get("/en/investors/")
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "power_up/investors.html")
 
     def test_contact_page_returns_200(self):
         """Contact page returns 200 and uses correct template."""
-        response = self.client.get("/contact/")
+        response = self.client.get("/en/contact/")
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "power_up/contact.html")
 
@@ -76,8 +78,8 @@ class PowerUpRoutingTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
-class PowerUpNoRedirectTestCase(TestCase):
-    """Verify that power-up.lu pages don't redirect."""
+class PowerUpI18nRedirectTestCase(TestCase):
+    """Verify that power-up.lu i18n redirects work correctly."""
 
     def setUp(self):
         """Create test client with power-up.lu host header."""
@@ -86,34 +88,27 @@ class PowerUpNoRedirectTestCase(TestCase):
             domain="power-up.lu", defaults={"name": "Power-Up"}
         )
 
-    def test_home_no_redirect(self):
-        """Home page doesn't redirect (status is 200, not 301/302)."""
+    def test_home_redirects_to_language(self):
+        """Root path redirects to language-prefixed URL."""
         response = self.client.get("/")
-        self.assertNotIn(response.status_code, [301, 302])
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/en/", response["Location"])
 
-    def test_about_no_redirect(self):
-        """About page doesn't redirect."""
+    def test_about_redirects_to_language(self):
+        """About path without language prefix redirects."""
         response = self.client.get("/about/")
-        self.assertNotIn(response.status_code, [301, 302])
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/en/about/", response["Location"])
+
+    def test_language_prefixed_pages_no_redirect(self):
+        """Language-prefixed pages return 200 (no redirect)."""
+        response = self.client.get("/en/")
         self.assertEqual(response.status_code, 200)
 
-    def test_platforms_no_redirect(self):
-        """Platforms page doesn't redirect."""
-        response = self.client.get("/platforms/")
-        self.assertNotIn(response.status_code, [301, 302])
+        response = self.client.get("/de/")
         self.assertEqual(response.status_code, 200)
 
-    def test_investors_no_redirect(self):
-        """Investors page doesn't redirect."""
-        response = self.client.get("/investors/")
-        self.assertNotIn(response.status_code, [301, 302])
-        self.assertEqual(response.status_code, 200)
-
-    def test_contact_no_redirect(self):
-        """Contact page doesn't redirect."""
-        response = self.client.get("/contact/")
-        self.assertNotIn(response.status_code, [301, 302])
+        response = self.client.get("/fr/")
         self.assertEqual(response.status_code, 200)
 
 
@@ -127,30 +122,33 @@ class PowerUpNoBleedTestCase(TestCase):
             domain="power-up.lu", defaults={"name": "Power-Up"}
         )
 
-    def test_no_auth_endpoints(self):
-        """Authentication endpoints should not be available (404)."""
-        response = self.client.get("/accounts/login/")
-        self.assertEqual(response.status_code, 404)
-
     def test_no_api_endpoints(self):
-        """API endpoints should not be available (404)."""
+        """API token endpoints should not be available (404)."""
         response = self.client.get("/api/token/")
-        self.assertEqual(response.status_code, 404)
-
-    def test_no_admin(self):
-        """Admin should not be accessible (404)."""
-        response = self.client.get("/admin/")
         self.assertEqual(response.status_code, 404)
 
     def test_no_crush_pages(self):
         """Crush.lu specific pages should not be available (404)."""
-        response = self.client.get("/dashboard/")
+        response = self.client.get("/en/dashboard/")
         self.assertEqual(response.status_code, 404)
 
     def test_no_entreprinder_pages(self):
         """Entreprinder specific pages should not be available (404)."""
-        response = self.client.get("/matching/swipe/")
+        response = self.client.get("/en/matching/swipe/")
         self.assertEqual(response.status_code, 404)
+
+    def test_auth_endpoints_available(self):
+        """Authentication endpoints are available via base_patterns."""
+        # Test signup page which is simpler and doesn't have namespace dependencies
+        response = self.client.get("/accounts/signup/")
+        # Should not return 404 - auth endpoints are available
+        self.assertNotEqual(response.status_code, 404)
+
+    def test_admin_requires_login(self):
+        """Admin is available but requires authentication."""
+        response = self.client.get("/admin/")
+        # Should redirect to login, not 404
+        self.assertIn(response.status_code, [200, 302])
 
 
 class PowerUpNavigationTestCase(TestCase):
@@ -164,17 +162,18 @@ class PowerUpNavigationTestCase(TestCase):
         )
 
     def test_home_has_nav_links(self):
-        """Home page contains navigation links."""
-        response = self.client.get("/")
+        """Home page contains navigation links (with language prefix)."""
+        response = self.client.get("/en/")
         content = response.content.decode()
-        self.assertIn('href="/about/"', content)
-        self.assertIn('href="/platforms/"', content)
-        self.assertIn('href="/investors/"', content)
-        self.assertIn('href="/contact/"', content)
+        # URLs now have language prefix
+        self.assertIn('href="/en/about/"', content)
+        self.assertIn('href="/en/platforms/"', content)
+        self.assertIn('href="/en/investors/"', content)
+        self.assertIn('href="/en/contact/"', content)
 
     def test_home_has_platform_links(self):
         """Home page contains links to external platforms."""
-        response = self.client.get("/")
+        response = self.client.get("/en/")
         content = response.content.decode()
         self.assertIn("https://crush.lu", content)
         self.assertIn("https://vinsdelux.com", content)
@@ -193,23 +192,30 @@ class PowerUpSEOTestCase(TestCase):
 
     def test_home_has_meta_description(self):
         """Home page has meta description."""
-        response = self.client.get("/")
+        response = self.client.get("/en/")
         content = response.content.decode()
         self.assertIn('name="description"', content)
 
     def test_home_has_canonical_url(self):
         """Home page has canonical URL."""
-        response = self.client.get("/")
+        response = self.client.get("/en/")
         content = response.content.decode()
         self.assertIn('rel="canonical"', content)
         self.assertIn("power-up.lu", content)
 
     def test_home_has_og_tags(self):
         """Home page has Open Graph tags."""
-        response = self.client.get("/")
+        response = self.client.get("/en/")
         content = response.content.decode()
         self.assertIn('property="og:title"', content)
         self.assertIn('property="og:description"', content)
+
+    def test_home_has_twitter_card(self):
+        """Home page has Twitter Card meta tags."""
+        response = self.client.get("/en/")
+        content = response.content.decode()
+        self.assertIn('name="twitter:card"', content)
+        self.assertIn('name="twitter:image"', content)
 
     def test_robots_txt_allows_crawling(self):
         """robots.txt allows crawling of public pages."""
@@ -245,12 +251,13 @@ class PowerUpPlatformDataTestCase(TestCase):
                 )
 
     def test_platforms_have_valid_urls(self):
-        """Platform URLs are valid HTTPS URLs."""
+        """Platform URLs are valid HTTPS URLs or internal paths."""
         for platform in PLATFORMS:
             url = platform["url"]
+            # External URLs must be HTTPS, internal URLs start with /
             self.assertTrue(
-                url.startswith("https://"),
-                f"Platform {platform['name']} URL should be HTTPS",
+                url.startswith("https://") or url.startswith("/"),
+                f"Platform {platform['name']} URL should be HTTPS or internal path",
             )
 
     def test_platforms_have_highlights(self):

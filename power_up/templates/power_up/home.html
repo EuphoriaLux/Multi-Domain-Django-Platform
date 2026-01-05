@@ -11,11 +11,11 @@
                 {% trans "Building Luxembourg's" %}
                 <span class="block">{% trans "Digital Future" %}</span>
             </h1>
-            <p class="text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
+            <p class="text-xl text-orange-100 mb-8 max-w-2xl mx-auto">
                 {% trans "We create innovative digital platforms that connect people, foster communities, and drive growth in Luxembourg and beyond." %}
             </p>
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                <a href="{% url 'power_up:platforms' %}" class="btn-primary bg-white text-purple-600 hover:bg-gray-100">
+                <a href="{% url 'power_up:platforms' %}" class="btn-primary bg-white text-powerup-orange hover:bg-gray-100">
                     {% trans "Explore Platforms" %}
                 </a>
                 <a href="{% url 'power_up:investors' %}" class="btn-outline-white">
@@ -41,8 +41,8 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
             <!-- Value 1 -->
             <div class="text-center">
-                <div class="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <svg class="w-8 h-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-powerup-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
                     </svg>
                 </div>
@@ -54,8 +54,8 @@
 
             <!-- Value 2 -->
             <div class="text-center">
-                <div class="w-16 h-16 bg-pink-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <svg class="w-8 h-8 text-pink-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-powerup-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
                     </svg>
                 </div>
@@ -67,8 +67,8 @@
 
             <!-- Value 3 -->
             <div class="text-center">
-                <div class="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <svg class="w-8 h-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-powerup-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                     </svg>
                 </div>
@@ -116,7 +116,7 @@
         <p class="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
             {% trans "We're always looking for partners who share our vision for Luxembourg's digital future." %}
         </p>
-        <a href="{% url 'power_up:contact' %}" class="btn-primary bg-purple-600 hover:bg-purple-700">
+        <a href="{% url 'power_up:contact' %}" class="btn-primary">
             {% trans "Get in Touch" %}
         </a>
     </div>

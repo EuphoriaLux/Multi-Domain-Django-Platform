@@ -826,6 +826,15 @@ def create_profile(request):
             # Check if this is first submission or resubmission
             is_first_submission = profile.completion_status != 'submitted'
 
+            # Set preferred language from current request language on first submission
+            # This respects the user's browser language detected by Django's LocaleMiddleware
+            if is_first_submission and hasattr(request, 'LANGUAGE_CODE'):
+                current_lang = request.LANGUAGE_CODE
+                # Only set if it's a supported language
+                if current_lang in ['en', 'de', 'fr']:
+                    profile.preferred_language = current_lang
+                    logger.debug(f"Set preferred_language to '{current_lang}' for {request.user.email}")
+
             # Mark profile as completed and submitted
             profile.completion_status = 'submitted'
 
@@ -1378,17 +1387,26 @@ def event_register(request, event_id):
                 # Existing users keep their own profile approval status
             except CrushProfile.DoesNotExist:
                 # Edge case: invited user doesn't have profile yet - create minimal one
+                # Get preferred language from current request
+                preferred_lang = getattr(request, 'LANGUAGE_CODE', 'en')
+                if preferred_lang not in ['en', 'de', 'fr']:
+                    preferred_lang = 'en'
                 profile = CrushProfile.objects.create(
                     user=request.user,
                     is_approved=True,
                     approved_at=timezone.now(),
                     completion_status='completed',
                     date_of_birth=timezone.now().date() - timedelta(days=365*25),
+                    preferred_language=preferred_lang,
                 )
                 logger.info(f"Auto-created profile for invited existing user: {request.user.email}")
 
         # EXTERNAL GUESTS: Create minimal profile with auto-approval
         else:
+            # Get preferred language from current request
+            preferred_lang = getattr(request, 'LANGUAGE_CODE', 'en')
+            if preferred_lang not in ['en', 'de', 'fr']:
+                preferred_lang = 'en'
             profile, created = CrushProfile.objects.get_or_create(
                 user=request.user,
                 defaults={
@@ -1396,6 +1414,7 @@ def event_register(request, event_id):
                     'approved_at': timezone.now(),
                     'completion_status': 'completed',
                     'date_of_birth': timezone.now().date() - timedelta(days=365*25),  # Default age 25
+                    'preferred_language': preferred_lang,
                 }
             )
             if created:

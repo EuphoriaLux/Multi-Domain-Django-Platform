@@ -1,14 +1,24 @@
 {% load static %}
 {% load i18n %}
+{% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ page_title|default:"Power-Up" }}{% endblock %}</title>
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="{% static 'power_up/img/favicon.ico' %}">
+    <!-- Favicon and Icons (SVG preferred, with fallbacks) -->
+    <link rel="icon" type="image/svg+xml" href="{% static 'power_up/icons/favicon.svg' %}">
+    <link rel="icon" type="image/x-icon" href="{% static 'power_up/icons/favicon.ico' %}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'power_up/icons/favicon-32x32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'power_up/icons/favicon-16x16.png' %}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'power_up/icons/apple-touch-icon.png' %}">
+    <link rel="manifest" href="{% static 'power_up/manifest.json' %}">
+
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#fe4901">
+    <meta name="msapplication-TileColor" content="#fe4901">
 
     <!-- Tailwind CSS (compiled locally, no CDN) -->
     <link rel="stylesheet" href="{% static 'power_up/css/tailwind.css' %}">
@@ -18,12 +28,22 @@
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://power-up.lu{{ request.path }}">
 
-    <!-- Open Graph -->
+    <!-- Open Graph / Facebook -->
     <meta property="og:title" content="{% block og_title %}{{ page_title|default:"Power-Up" }}{% endblock %}">
     <meta property="og:description" content="{{ meta_description|default:"Power-Up builds digital platforms for Luxembourg's future." }}">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://power-up.lu{{ request.path }}">
     <meta property="og:site_name" content="Power-Up">
+    <meta property="og:image" content="https://power-up.lu{% static 'power_up/social/og_preview.jpg' %}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:locale" content="{{ LANGUAGE_CODE }}">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ page_title|default:"Power-Up" }}">
+    <meta name="twitter:description" content="{{ meta_description|default:"Power-Up builds digital platforms for Luxembourg's future." }}">
+    <meta name="twitter:image" content="https://power-up.lu{% static 'power_up/social/twitter_card.jpg' %}">
 
     {% block extra_head %}{% endblock %}
 </head>

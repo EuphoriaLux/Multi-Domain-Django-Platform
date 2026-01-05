@@ -60,6 +60,15 @@ module.exports = {
           danger: '#dc3545',
           info: '#17a2b8',
         },
+        // Power-Up brand colors (from logo color extraction)
+        powerup: {
+          orange: '#fe4901',      // Primary brand color
+          'orange-light': '#ff6a2d', // Lighter variant
+          'orange-dark': '#d93e00',  // Darker variant
+          'dark-blue': '#151625', // Dark blue accent
+          'darker-blue': '#010106', // Darkest blue
+          tan: '#80735f',         // Brown/tan accent
+        },
       },
       spacing: {
         '0': '0',

@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>power_up - Asset Preview</title>
+    <link rel="icon" type="image/x-icon" href="icons/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 40px;
+            line-height: 1.6;
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+        .subtitle {
+            color: #888;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+        h2 {
+            color: #fff;
+            margin: 50px 0 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        h2 .count {
+            background: #333;
+            color: #888;
+            font-size: 0.5em;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: normal;
+        }
+        .section {
+            margin-bottom: 60px;
+        }
+        .grid {
+            display: grid;
+            gap: 20px;
+        }
+        .grid-icons {
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        }
+        .grid-social {
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        }
+        .grid-banners {
+            grid-template-columns: 1fr;
+        }
+        .grid-profiles {
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        }
+        .grid-misc {
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        }
+        .asset-card {
+            background: #252542;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .asset-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+        .asset-preview {
+            background: repeating-conic-gradient(#333 0% 25%, #222 0% 50%) 50% / 20px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+            min-height: 100px;
+        }
+        .asset-preview img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+        .asset-preview.banner-preview {
+            padding: 10px;
+        }
+        .asset-preview.banner-preview img {
+            width: 100%;
+        }
+        .asset-info {
+            padding: 12px 15px;
+            background: #1e1e36;
+        }
+        .asset-name {
+            font-weight: 600;
+            font-size: 0.9em;
+            margin-bottom: 4px;
+            word-break: break-all;
+        }
+        .asset-meta {
+            font-size: 0.75em;
+            color: #666;
+        }
+        .icon-preview {
+            width: 64px;
+            height: 64px;
+            object-fit: contain;
+        }
+        .profile-preview {
+            width: 100px;
+            height: 100px;
+            object-fit: contain;
+            border-radius: 50%;
+        }
+        .story-card {
+            max-width: 200px;
+        }
+        .story-preview {
+            max-height: 350px;
+        }
+        .color-strip {
+            display: flex;
+            height: 60px;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .color-strip > div {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .instructions {
+            background: #252542;
+            padding: 25px;
+            border-radius: 12px;
+            margin-top: 40px;
+        }
+        .instructions h3 {
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        .instructions ul {
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin: 8px 0;
+            color: #aaa;
+        }
+        .instructions code {
+            background: #1a1a2e;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.9em;
+        }
+        .download-btn {
+            display: inline-block;
+            background: #4a90d9;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            margin-top: 15px;
+            font-weight: 500;
+        }
+        .download-btn:hover {
+            background: #5a9fe9;
+        }
+        @media (max-width: 768px) {
+            body { padding: 20px; }
+            .grid-social { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <h1>POWER_UP Brand Assets</h1>
+    <p class="subtitle">Generated asset preview - Review all assets before deployment</p>
+
+    <section class="section">
+        <h2>Icons & Favicons <span class="count">22 files</span></h2>
+        <div class="grid grid-icons">
+            <div class="asset-card">
+                <div class="asset-preview">
+                    <img src="icons/favicon.ico" alt="favicon.ico" class="icon-preview">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">favicon.ico</div>
+                    <div class="asset-meta">Multi-size</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview">
+                    <img src="icons/favicon-16x16.png" alt="favicon-16x16.png" class="icon-preview">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">favicon-16x16.png</div>
+                    <div class="asset-meta">16x16</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview">
+                    <img src="icons/favicon-32x32.png" alt="favicon-32x32.png" class="icon-preview">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">favicon-32x32.png</div>
+                    <div class="asset-meta">32x32</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview">
+                    <img src="icons/favicon-48x48.png" alt="favicon-48x48.png" class="icon-preview">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">favicon-48x48.png</div>
+                    <div class="asset-meta">48x48</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview">
+                    <img src="icons/android-chrome-192x192.png" alt="android-chrome-192x192.png" class="icon-preview">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">android-chrome-192x192.png</div>
+                    <div class="asset-meta">192x192</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview">
+                    <img src="icons/android-chrome-512x512.png" alt="android-chrome-512x512.png" class="icon-preview">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">android-chrome-512x512.png</div>
+                    <div class="asset-meta">512x512</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview">
+                    <img src="icons/apple-touch-icon.png" alt="apple-touch-icon.png" class="icon-preview">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">apple-touch-icon.png</div>
+                    <div class="asset-meta">180x180</div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="section">
+        <h2>Social Previews <span class="count">OG & Twitter</span></h2>
+        <div class="grid grid-social">
+            <div class="asset-card">
+                <div class="asset-preview banner-preview">
+                    <img src="social/og_preview.jpg" alt="Open Graph">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">Open Graph</div>
+                    <div class="asset-meta">og_preview.jpg - 1200x630</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview banner-preview">
+                    <img src="social/twitter_card.jpg" alt="Twitter Card">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">Twitter Card</div>
+                    <div class="asset-meta">twitter_card.jpg - 1200x600</div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="section">
+        <h2>Social Media Banners <span class="count">Headers & Covers</span></h2>
+        <div class="grid grid-banners">
+            <div class="asset-card">
+                <div class="asset-preview banner-preview">
+                    <img src="banners/linkedin_banner.jpg" alt="LinkedIn Banner">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">LinkedIn Banner</div>
+                    <div class="asset-meta">linkedin_banner.jpg - 1584x396</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview banner-preview">
+                    <img src="banners/facebook_cover.jpg" alt="Facebook Cover">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">Facebook Cover</div>
+                    <div class="asset-meta">facebook_cover.jpg - 820x312</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview banner-preview">
+                    <img src="banners/twitter_header.jpg" alt="Twitter/X Header">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">Twitter/X Header</div>
+                    <div class="asset-meta">twitter_header.jpg - 1500x500</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview banner-preview">
+                    <img src="banners/youtube_banner.jpg" alt="YouTube Banner">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">YouTube Banner</div>
+                    <div class="asset-meta">youtube_banner.jpg - 2560x1440</div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="section">
+        <h2>Stories <span class="count">Portrait Format</span></h2>
+        <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));">
+            <div class="asset-card story-card">
+                <div class="asset-preview story-preview">
+                    <img src="banners/instagram_story.jpg" alt="Instagram Story" style="max-height: 300px;">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">Instagram Story</div>
+                    <div class="asset-meta">instagram_story.jpg - 1080x1920</div>
+                </div>
+            </div>
+            <div class="asset-card story-card">
+                <div class="asset-preview story-preview">
+                    <img src="banners/facebook_story.jpg" alt="Facebook Story" style="max-height: 300px;">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">Facebook Story</div>
+                    <div class="asset-meta">facebook_story.jpg - 1080x1920</div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="section">
+        <h2>Profile Images <span class="count">Platform Avatars</span></h2>
+        <div class="grid grid-profiles">
+            <div class="asset-card">
+                <div class="asset-preview">
+                    <img src="profiles/linkedin_profile.png" alt="LinkedIn" class="profile-preview">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">LinkedIn</div>
+                    <div class="asset-meta">linkedin_profile.png - 400x400</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview">
+                    <img src="profiles/facebook_profile.png" alt="Facebook" class="profile-preview">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">Facebook</div>
+                    <div class="asset-meta">facebook_profile.png - 170x170</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview">
+                    <img src="profiles/instagram_profile.png" alt="Instagram" class="profile-preview">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">Instagram</div>
+                    <div class="asset-meta">instagram_profile.png - 320x320</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview">
+                    <img src="profiles/twitter_profile.png" alt="Twitter/X" class="profile-preview">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">Twitter/X</div>
+                    <div class="asset-meta">twitter_profile.png - 400x400</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview">
+                    <img src="profiles/youtube_profile.png" alt="YouTube" class="profile-preview">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">YouTube</div>
+                    <div class="asset-meta">youtube_profile.png - 800x800</div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="section">
+        <h2>Google My Business <span class="count">GMB Assets</span></h2>
+        <div class="grid grid-social">
+            <div class="asset-card">
+                <div class="asset-preview banner-preview">
+                    <img src="google-my-business/gmb_profile.jpg" alt="GMB Profile">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">GMB Profile</div>
+                    <div class="asset-meta">gmb_profile.jpg - 720x720</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview banner-preview">
+                    <img src="google-my-business/gmb_cover.jpg" alt="GMB Cover">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">GMB Cover</div>
+                    <div class="asset-meta">gmb_cover.jpg - 1080x608</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview banner-preview">
+                    <img src="google-my-business/gmb_post.jpg" alt="GMB Post">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">GMB Post</div>
+                    <div class="asset-meta">gmb_post.jpg - 1200x900</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview banner-preview">
+                    <img src="google-my-business/gmb_logo.png" alt="GMB Logo">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">GMB Logo</div>
+                    <div class="asset-meta">gmb_logo.png - 250x250</div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="section">
+        <h2>Miscellaneous <span class="count">Email & More</span></h2>
+        <div class="grid grid-misc">
+            <div class="asset-card">
+                <div class="asset-preview">
+                    <img src="misc/email_signature.png" alt="Email Signature">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">Email Signature</div>
+                    <div class="asset-meta">email_signature.png - 300x100</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview">
+                    <img src="misc/email_logo.png" alt="Email Logo">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">Email Logo</div>
+                    <div class="asset-meta">email_logo.png - 200x50</div>
+                </div>
+            </div>
+            <div class="asset-card">
+                <div class="asset-preview">
+                    <img src="misc/watermark.png" alt="Watermark">
+                </div>
+                <div class="asset-info">
+                    <div class="asset-name">Watermark</div>
+                    <div class="asset-meta">watermark.png - 200x200</div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="section">
+        <h2>Brand Colors</h2>
+        <p style="color: #888; margin-bottom: 20px;">Open <a href="brand-colors/color_guide.html" style="color: #4a90d9;">color_guide.html</a> for detailed color information.</p>
+        <img src="brand-colors/color_palette.png" alt="Color Palette" style="max-width: 100%; border-radius: 8px;">
+    </section>
+    <div class="instructions">
+        <h3>Implementation Instructions</h3>
+        <ul>
+            <li>Copy the <code>icons/</code> folder to your static assets directory</li>
+            <li>Add the contents of <code>meta_tags.html</code> to your HTML &lt;head&gt;</li>
+            <li>Upload <code>manifest.json</code> to enable PWA support</li>
+            <li>Use profile images from <code>profiles/</code> for social media accounts</li>
+            <li>Upload banners from <code>banners/</code> to respective platforms</li>
+            <li>Use <code>brand-colors/colors.css</code> for consistent color variables</li>
+        </ul>
+        <a href="meta_tags.html" class="download-btn" download>Download Meta Tags</a>
+    </div>
+
+</body>
+</html>

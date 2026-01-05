@@ -88,7 +88,14 @@ def mark_phone_verified(request):
             profile = request.user.crushprofile
         except CrushProfile.DoesNotExist:
             # Create profile if it doesn't exist (shouldn't happen normally)
-            profile = CrushProfile.objects.create(user=request.user)
+            # Set preferred language from current request
+            preferred_lang = getattr(request, 'LANGUAGE_CODE', 'en')
+            if preferred_lang not in ['en', 'de', 'fr']:
+                preferred_lang = 'en'
+            profile = CrushProfile.objects.create(
+                user=request.user,
+                preferred_language=preferred_lang,
+            )
 
         # Update profile with verified phone
         profile.phone_number = phone_number
@@ -171,9 +178,14 @@ def verify_phone_page(request):
     except CrushProfile.DoesNotExist:
         # Create profile if it doesn't exist (needed for new signups
         # who are redirected here before completing profile creation)
+        # Set preferred language from current request
+        preferred_lang = getattr(request, 'LANGUAGE_CODE', 'en')
+        if preferred_lang not in ['en', 'de', 'fr']:
+            preferred_lang = 'en'
         profile = CrushProfile.objects.create(
             user=request.user,
-            completion_status='not_started'
+            completion_status='not_started',
+            preferred_language=preferred_lang,
         )
         logger.info(f"Created CrushProfile for user {request.user.id} during phone verification")
 
