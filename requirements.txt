@@ -21,7 +21,7 @@ django-storages==1.14.6  # Updated from 1.14.2
 azure-storage-blob==12.27.1
 
 # Image processing
-Pillow==12.0.0  # Updated from 11.0.0 (security fixes)
+Pillow==12.1.0  # Updated from 11.0.0 (security fixes)
 olefile==0.47
 # MIME type detection - platform-specific packages
 # Linux (Azure): python-magic requires libmagic1 (pre-installed on most Linux distros)
