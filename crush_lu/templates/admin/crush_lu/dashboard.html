@@ -1092,6 +1092,206 @@
     </p>
     {% endif %}
 
+    <!-- Referral Program Section -->
+    {% if referral_metrics.total_codes > 0 or referral_metrics.total_attributions > 0 %}
+    <h2 class="section-header">🧲 Referral Program</h2>
+    <div class="dashboard-grid">
+        <div class="metric-card purple">
+            <div class="icon-large">🔗</div>
+            <div class="metric-label">Active Referral Codes</div>
+            <div class="metric-value">{{ referral_metrics.active_codes }}</div>
+            <div class="metric-subtitle">{{ referral_metrics.total_codes }} total codes</div>
+        </div>
+
+        <div class="metric-card green">
+            <div class="icon-large">✅</div>
+            <div class="metric-label">Conversions</div>
+            <div class="metric-value">{{ referral_metrics.converted_attributions }}</div>
+            <div class="metric-subtitle">{{ referral_metrics.conversion_rate }}% conversion rate</div>
+        </div>
+
+        <div class="metric-card orange">
+            <div class="icon-large">⏳</div>
+            <div class="metric-label">Pending</div>
+            <div class="metric-value">{{ referral_metrics.pending_attributions }}</div>
+            <div class="metric-subtitle">Awaiting signup</div>
+        </div>
+
+        <div class="metric-card blue">
+            <div class="icon-large">🏆</div>
+            <div class="metric-label">Reward Points Given</div>
+            <div class="metric-value">{{ referral_metrics.total_reward_points }}</div>
+            <div class="metric-subtitle">{{ referral_metrics.rewards_applied }} rewards applied</div>
+        </div>
+    </div>
+
+    {% if top_referrers %}
+    <div class="table-container">
+        <h3 style="margin-top: 0;">🌟 Top Referrers</h3>
+        <table class="stats-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Referral Code</th>
+                    <th>Conversions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for code in top_referrers %}
+                <tr>
+                    <td>{{ code.referrer.user.get_full_name|default:code.referrer.user.email }}</td>
+                    <td><code>{{ code.code }}</code></td>
+                    <td><span class="badge badge-success">{{ code.conversion_count }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <p style="margin-bottom: 30px;">
+        <a href="{% url 'crush_admin:crush_lu_referralcode_changelist' %}" class="quick-action-btn" style="display: inline-block;">
+            Manage Referral Codes
+        </a>
+        <a href="{% url 'crush_admin:crush_lu_referralattribution_changelist' %}" class="quick-action-btn" style="display: inline-block; margin-left: 10px;">
+            View Attributions
+        </a>
+    </p>
+    {% endif %}
+
+    <!-- Event Invitations Section -->
+    {% if invitation_metrics.total_invitations > 0 %}
+    <h2 class="section-header">💌 Event Invitations</h2>
+    <div class="dashboard-grid">
+        <div class="metric-card green">
+            <div class="icon-large">✅</div>
+            <div class="metric-label">Accepted</div>
+            <div class="metric-value">{{ invitation_metrics.accepted_invitations }}</div>
+            <div class="metric-subtitle">{{ invitation_metrics.acceptance_rate }}% acceptance rate</div>
+        </div>
+
+        <div class="metric-card orange">
+            <div class="icon-large">⏳</div>
+            <div class="metric-label">Pending</div>
+            <div class="metric-value">{{ invitation_metrics.pending_invitations }}</div>
+            <div class="metric-subtitle">Awaiting response</div>
+        </div>
+
+        <div class="metric-card pink">
+            <div class="icon-large">❌</div>
+            <div class="metric-label">Declined</div>
+            <div class="metric-value">{{ invitation_metrics.declined_invitations }}</div>
+            <div class="metric-subtitle">{{ invitation_metrics.expired_invitations }} expired</div>
+        </div>
+
+        <div class="metric-card blue">
+            <div class="icon-large">👤</div>
+            <div class="metric-label">External Guests</div>
+            <div class="metric-value">{{ invitation_metrics.external_guests }}</div>
+            <div class="metric-subtitle">Non-registered invitees</div>
+        </div>
+    </div>
+
+    <p style="margin-bottom: 30px;">
+        <a href="{% url 'crush_admin:crush_lu_eventinvitation_changelist' %}" class="quick-action-btn" style="display: inline-block;">
+            Manage Invitations
+        </a>
+    </p>
+    {% endif %}
+
+    <!-- Connection Messages Section -->
+    {% if message_metrics.total_messages > 0 %}
+    <h2 class="section-header">💬 Connection Messages</h2>
+    <div class="dashboard-grid">
+        <div class="metric-card purple">
+            <div class="icon-large">💬</div>
+            <div class="metric-label">Total Messages</div>
+            <div class="metric-value">{{ message_metrics.total_messages }}</div>
+            <div class="metric-subtitle">{{ message_metrics.avg_messages_per_connection }} avg per connection</div>
+        </div>
+
+        <div class="metric-card pink">
+            <div class="icon-large">👥</div>
+            <div class="metric-label">User Messages</div>
+            <div class="metric-value">{{ message_metrics.user_messages }}</div>
+            <div class="metric-subtitle">Between connections</div>
+        </div>
+
+        <div class="metric-card blue">
+            <div class="icon-large">🎯</div>
+            <div class="metric-label">Coach Messages</div>
+            <div class="metric-value">{{ message_metrics.coach_messages }}</div>
+            <div class="metric-subtitle">Facilitated introductions</div>
+        </div>
+
+        <div class="metric-card orange">
+            <div class="icon-large">📭</div>
+            <div class="metric-label">Unread</div>
+            <div class="metric-value">{{ message_metrics.unread_messages }}</div>
+            <div class="metric-subtitle">Awaiting response</div>
+        </div>
+    </div>
+
+    <p style="margin-bottom: 30px;">
+        <a href="{% url 'crush_admin:crush_lu_connectionmessage_changelist' %}" class="quick-action-btn" style="display: inline-block;">
+            View Messages
+        </a>
+    </p>
+    {% endif %}
+
+    <!-- Profile Reminders Section -->
+    {% if reminder_metrics.total_reminders > 0 %}
+    <h2 class="section-header">📬 Profile Reminders</h2>
+    <div class="dashboard-grid">
+        <div class="metric-card purple">
+            <div class="icon-large">📧</div>
+            <div class="metric-label">Total Reminders Sent</div>
+            <div class="metric-value">{{ reminder_metrics.total_reminders }}</div>
+            <div class="metric-subtitle">{{ reminder_metrics.recent_reminders }} this month</div>
+        </div>
+
+        <div class="metric-card orange">
+            <div class="icon-large">⏰</div>
+            <div class="metric-label">24h Reminders</div>
+            <div class="metric-value">{{ reminder_metrics.reminders_24h }}</div>
+            <div class="metric-subtitle">First reminder</div>
+        </div>
+
+        <div class="metric-card blue">
+            <div class="icon-large">📅</div>
+            <div class="metric-label">72h Reminders</div>
+            <div class="metric-value">{{ reminder_metrics.reminders_72h }}</div>
+            <div class="metric-subtitle">Second reminder</div>
+        </div>
+
+        <div class="metric-card pink">
+            <div class="icon-large">🔔</div>
+            <div class="metric-label">7d Final Reminders</div>
+            <div class="metric-value">{{ reminder_metrics.reminders_7d }}</div>
+            <div class="metric-subtitle">Final push</div>
+        </div>
+    </div>
+
+    <!-- Reminder Effectiveness -->
+    <div class="chart-container">
+        <h3 style="margin-top: 0;">📈 Reminder Effectiveness</h3>
+        <div class="progress-bar-container">
+            <div class="progress-bar" style="width: {{ reminder_metrics.effectiveness_rate }}%;">
+                {{ reminder_metrics.effectiveness_rate }}% Completed After Reminder
+            </div>
+        </div>
+        <p style="margin-top: 10px; color: var(--text-muted); font-size: 14px;">
+            Percentage of users who completed their profile after receiving a reminder
+        </p>
+    </div>
+
+    <p style="margin-bottom: 30px;">
+        <a href="{% url 'crush_admin:crush_lu_profilereminder_changelist' %}" class="quick-action-btn" style="display: inline-block;">
+            View All Reminders
+        </a>
+    </p>
+    {% endif %}
+
     <!-- Recent Activity Section -->
     <h2 class="section-header">📊 Recent Activity</h2>
 

@@ -28,9 +28,10 @@
     }
 
     .scrambled-word {
-        font-size: 2.5rem;
+        font-size: 2rem;
         font-weight: bold;
-        letter-spacing: 10px;
+        letter-spacing: 3px;
+        word-spacing: 15px;
         text-align: center;
         margin: 30px 0;
         padding: 30px;
@@ -39,6 +40,7 @@
         border: 3px dashed var(--journey-primary);
         color: var(--journey-secondary);
         text-transform: uppercase;
+        line-height: 1.5;
     }
 
     .word-instruction {
@@ -74,6 +76,7 @@
     }
 
     .submit-btn {
+        display: block;
         width: 100%;
         padding: 15px;
         font-size: 1.2rem;
@@ -84,6 +87,9 @@
         color: white;
         cursor: pointer;
         transition: all 0.3s ease;
+        text-decoration: none;
+        text-align: center;
+        box-sizing: border-box;
     }
 
     .submit-btn:hover:not(:disabled) {
@@ -297,17 +303,19 @@ const pointsValue = document.getElementById('pointsValue');
 const scrambledDisplay = document.getElementById('scrambledDisplay');
 const shuffleBtn = document.getElementById('shuffleBtn');
 let currentPoints = {{ challenge.points_awarded }};
-let scrambledLetters = '{{ challenge.options.scrambled }}'.split('').filter(c => c.trim());
+// Split by words (spaces) to keep words together when shuffling
+let scrambledWords = '{{ challenge.options.scrambled }}'.split(/\s+/).filter(w => w.trim());
 
-// Shuffle function
+// Shuffle function - shuffles words, not individual letters
 if (shuffleBtn) {
     shuffleBtn.addEventListener('click', function() {
-        // Shuffle the letters
-        for (let i = scrambledLetters.length - 1; i > 0; i--) {
+        // Fisher-Yates shuffle for words
+        for (let i = scrambledWords.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            [scrambledLetters[i], scrambledLetters[j]] = [scrambledLetters[j], scrambledLetters[i]];
+            [scrambledWords[i], scrambledWords[j]] = [scrambledWords[j], scrambledWords[i]];
         }
-        scrambledDisplay.textContent = scrambledLetters.join(' ');
+        // Join words with a bullet separator for clear visual separation
+        scrambledDisplay.textContent = scrambledWords.join('  •  ');
 
         // Animate
         scrambledDisplay.style.transform = 'scale(1.1)';

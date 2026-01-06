@@ -13,7 +13,10 @@ from datetime import timedelta
 from .models import (
     CrushProfile, CrushCoach, ProfileSubmission, MeetupEvent, EventRegistration,
     EventConnection, JourneyProgress, SpecialUserExperience, CoachSession,
-    EmailPreference, PWADeviceInstallation, OAuthState, PasskitDeviceRegistration
+    EmailPreference, PWADeviceInstallation, OAuthState, PasskitDeviceRegistration,
+    # Additional models for expanded analytics
+    ReferralCode, ReferralAttribution, EventInvitation, ConnectionMessage,
+    ProfileReminder
 )
 
 
@@ -296,7 +299,7 @@ def crush_admin_dashboard(request):
         'completed_auth': OAuthState.objects.filter(auth_completed=True).count(),
         'recent_states': OAuthState.objects.filter(created_at__gte=oauth_hour_ago).count(),
         'provider_distribution': list(OAuthState.objects.exclude(provider='')
-            .values('provider').annotate(count=Count('id')).order_by('-count')),
+            .values('provider').annotate(count=Count('state_id')).order_by('-count')),
     }
 
     # ============================================================================
@@ -317,6 +320,128 @@ def crush_admin_dashboard(request):
         'pass_types': list(PasskitDeviceRegistration.objects.values('pass_type_identifier')
             .annotate(count=Count('id')).order_by('-count')),
     }
+
+    # ============================================================================
+    # REFERRAL PROGRAM METRICS
+    # ============================================================================
+
+    referral_metrics = {
+        'total_codes': ReferralCode.objects.count(),
+        'active_codes': ReferralCode.objects.filter(is_active=True).count(),
+        'total_attributions': ReferralAttribution.objects.count(),
+        'converted_attributions': ReferralAttribution.objects.filter(
+            status='converted'
+        ).count(),
+        'pending_attributions': ReferralAttribution.objects.filter(
+            status='pending'
+        ).count(),
+        'rewards_applied': ReferralAttribution.objects.filter(
+            reward_applied=True
+        ).count(),
+        'total_reward_points': ReferralAttribution.objects.filter(
+            reward_applied=True
+        ).aggregate(total=Sum('reward_points'))['total'] or 0,
+        'recent_conversions': ReferralAttribution.objects.filter(
+            status='converted',
+            converted_at__gte=thirty_days_ago
+        ).count(),
+    }
+
+    # Calculate conversion rate
+    if referral_metrics['total_attributions'] > 0:
+        referral_metrics['conversion_rate'] = round(
+            referral_metrics['converted_attributions'] / referral_metrics['total_attributions'] * 100, 1
+        )
+    else:
+        referral_metrics['conversion_rate'] = 0
+
+    # Top referrers (by conversions)
+    top_referrers = ReferralCode.objects.filter(
+        is_active=True
+    ).annotate(
+        conversion_count=Count(
+            'attributions',
+            filter=Q(attributions__status='converted')
+        )
+    ).filter(
+        conversion_count__gt=0
+    ).select_related('referrer__user').order_by('-conversion_count')[:5]
+
+    # ============================================================================
+    # EVENT INVITATION METRICS
+    # ============================================================================
+
+    invitation_metrics = {
+        'total_invitations': EventInvitation.objects.count(),
+        'pending_invitations': EventInvitation.objects.filter(status='pending').count(),
+        'accepted_invitations': EventInvitation.objects.filter(status='accepted').count(),
+        'declined_invitations': EventInvitation.objects.filter(status='declined').count(),
+        'expired_invitations': EventInvitation.objects.filter(status='expired').count(),
+        'external_guests': EventInvitation.objects.filter(is_external_guest=True).count(),
+        'recent_invitations': EventInvitation.objects.filter(
+            created_at__gte=thirty_days_ago
+        ).count(),
+    }
+
+    # Invitation acceptance rate
+    responded = invitation_metrics['accepted_invitations'] + invitation_metrics['declined_invitations']
+    if responded > 0:
+        invitation_metrics['acceptance_rate'] = round(
+            invitation_metrics['accepted_invitations'] / responded * 100, 1
+        )
+    else:
+        invitation_metrics['acceptance_rate'] = 0
+
+    # ============================================================================
+    # CONNECTION MESSAGE METRICS
+    # ============================================================================
+
+    message_metrics = {
+        'total_messages': ConnectionMessage.objects.count(),
+        'coach_messages': ConnectionMessage.objects.filter(is_coach_message=True).count(),
+        'user_messages': ConnectionMessage.objects.filter(is_coach_message=False).count(),
+        'unread_messages': ConnectionMessage.objects.filter(read_at__isnull=True).count(),
+        'recent_messages': ConnectionMessage.objects.filter(
+            sent_at__gte=thirty_days_ago
+        ).count(),
+    }
+
+    # Messages per connection (engagement)
+    if total_connections > 0:
+        message_metrics['avg_messages_per_connection'] = round(
+            message_metrics['total_messages'] / total_connections, 1
+        )
+    else:
+        message_metrics['avg_messages_per_connection'] = 0
+
+    # ============================================================================
+    # PROFILE REMINDER METRICS
+    # ============================================================================
+
+    reminder_metrics = {
+        'total_reminders': ProfileReminder.objects.count(),
+        'reminders_24h': ProfileReminder.objects.filter(reminder_type='24h').count(),
+        'reminders_72h': ProfileReminder.objects.filter(reminder_type='72h').count(),
+        'reminders_7d': ProfileReminder.objects.filter(reminder_type='7d').count(),
+        'recent_reminders': ProfileReminder.objects.filter(
+            sent_at__gte=thirty_days_ago
+        ).count(),
+    }
+
+    # Check effectiveness: users who received reminders and completed profile
+    users_with_reminders = ProfileReminder.objects.values('user_id').distinct()
+    completed_after_reminder = CrushProfile.objects.filter(
+        user_id__in=users_with_reminders,
+        completion_status__in=['completed', 'submitted']
+    ).count()
+
+    if reminder_metrics['total_reminders'] > 0:
+        # Approximate effectiveness (users who completed / users who received reminders)
+        reminder_metrics['effectiveness_rate'] = round(
+            completed_after_reminder / users_with_reminders.count() * 100, 1
+        ) if users_with_reminders.count() > 0 else 0
+    else:
+        reminder_metrics['effectiveness_rate'] = 0
 
     # ============================================================================
     # PENDING ACTIONS (Coach Workflow Quick Links)
@@ -460,6 +585,19 @@ def crush_admin_dashboard(request):
 
         # PassKit Device Metrics (Apple Wallet)
         'passkit_metrics': passkit_metrics,
+
+        # Referral Program Metrics
+        'referral_metrics': referral_metrics,
+        'top_referrers': top_referrers,
+
+        # Event Invitation Metrics
+        'invitation_metrics': invitation_metrics,
+
+        # Connection Message Metrics
+        'message_metrics': message_metrics,
+
+        # Profile Reminder Metrics
+        'reminder_metrics': reminder_metrics,
 
         # Recent activity
         'recent_submissions': recent_submissions,
