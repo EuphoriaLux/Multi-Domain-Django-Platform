@@ -1,29 +1,30 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}About Entreprinder{% endblock %}
+{% block title %}{% trans "About Entreprinder" %}{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-lg-8 mx-auto">
-        <h1 class="mb-4">About Entreprinder</h1>
-        <p class="lead">Entreprinder is the premier platform connecting entrepreneurs in Luxembourg.</p>
+        <h1 class="mb-4">{% trans "About Entreprinder" %}</h1>
+        <p class="lead">{% trans "Entreprinder is the premier platform connecting entrepreneurs in Luxembourg." %}</p>
 
-        <h2 class="mt-5 mb-3">Our Mission</h2>
-        <p>At Entreprinder, we believe in the power of connection and collaboration. Our mission is to foster a vibrant entrepreneurial ecosystem in Luxembourg by providing a platform where innovators, creators, and business leaders can come together, share ideas, and build successful ventures.</p>
+        <h2 class="mt-5 mb-3">{% trans "Our Mission" %}</h2>
+        <p>{% trans "At Entreprinder, we believe in the power of connection and collaboration. Our mission is to foster a vibrant entrepreneurial ecosystem in Luxembourg by providing a platform where innovators, creators, and business leaders can come together, share ideas, and build successful ventures." %}</p>
 
-        <h2 class="mt-5 mb-3">Our Story</h2>
-        <p>Founded in 2024, Entreprinder was born out of a need for a centralized hub where Luxembourg's diverse and dynamic entrepreneurial community could thrive. We recognized the unique challenges and opportunities that Luxembourg's business landscape presents, and created a tailored solution to address these needs.</p>
+        <h2 class="mt-5 mb-3">{% trans "Our Story" %}</h2>
+        <p>{% trans "Founded in 2024, Entreprinder was born out of a need for a centralized hub where Luxembourg's diverse and dynamic entrepreneurial community could thrive. We recognized the unique challenges and opportunities that Luxembourg's business landscape presents, and created a tailored solution to address these needs." %}</p>
 
-        <h2 class="mt-5 mb-3">What We Offer</h2>
+        <h2 class="mt-5 mb-3">{% trans "What We Offer" %}</h2>
         <ul>
-            <li>A user-friendly platform for networking and collaboration</li>
-            <li>Access to local events and workshops</li>
-            <li>Resources tailored to Luxembourg's business environment</li>
-            <li>Opportunities for mentorship and knowledge sharing</li>
+            <li>{% trans "A user-friendly platform for networking and collaboration" %}</li>
+            <li>{% trans "Access to local events and workshops" %}</li>
+            <li>{% trans "Resources tailored to Luxembourg's business environment" %}</li>
+            <li>{% trans "Opportunities for mentorship and knowledge sharing" %}</li>
         </ul>
 
-        <p class="mt-5">Join us in shaping the future of entrepreneurship in Luxembourg!</p>
-        <a href="#" class="btn btn-primary">Join Entreprinder</a>
+        <p class="mt-5">{% trans "Join us in shaping the future of entrepreneurship in Luxembourg!" %}</p>
+        <a href="#" class="btn btn-primary">{% trans "Join Entreprinder" %}</a>
     </div>
 </div>
 {% endblock %}

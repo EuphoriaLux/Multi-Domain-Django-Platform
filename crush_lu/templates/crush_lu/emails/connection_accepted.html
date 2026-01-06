@@ -1,40 +1,41 @@
 {% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
 
-{% block title %}Connection Accepted - Crush.lu{% endblock %}
+{% block title %}{% trans "Connection Accepted" %} - Crush.lu{% endblock %}
 
-{% block header_title %}You're connected! 🎉{% endblock %}
+{% block header_title %}{% trans "You're connected!" %} 🎉{% endblock %}
 
 {% block content %}
-<h2>Great news, {{ first_name }}!</h2>
+<h2>{% blocktrans with first_name=first_name %}Great news, {{ first_name }}!{% endblocktrans %}</h2>
 
-<p><strong>{{ accepter_name }}</strong> has accepted your connection request!</p>
+<p><strong>{{ accepter_name }}</strong> {% trans "has accepted your connection request!" %}</p>
 
 <div class="info-box">
-    <strong>You can now:</strong>
+    <strong>{% trans "You can now:" %}</strong>
     <ul style="margin: 10px 0;">
-        <li>Send messages directly to {{ accepter_name }}</li>
-        <li>Continue the conversation from {{ event_title }}</li>
-        <li>Get to know each other better</li>
+        <li>{% blocktrans with name=accepter_name %}Send messages directly to {{ name }}{% endblocktrans %}</li>
+        <li>{% blocktrans with title=event_title %}Continue the conversation from {{ title }}{% endblocktrans %}</li>
+        <li>{% trans "Get to know each other better" %}</li>
     </ul>
 </div>
 
 <p style="text-align: center;">
-    <a href="{{ connection_url }}" class="button">Start Chatting</a>
+    <a href="{{ connection_url }}" class="button">{% trans "Start Chatting" %}</a>
 </p>
 
-<p><strong>Tips for great conversations:</strong></p>
+<p><strong>{% trans "Tips for great conversations:" %}</strong></p>
 <ul>
-    <li>Reference something you talked about at the event</li>
-    <li>Ask open-ended questions</li>
-    <li>Be genuine and respectful</li>
+    <li>{% trans "Reference something you talked about at the event" %}</li>
+    <li>{% trans "Ask open-ended questions" %}</li>
+    <li>{% trans "Be genuine and respectful" %}</li>
 </ul>
 
 <p>
-    Good luck!<br>
-    <strong>The Crush.lu Team</strong>
+    {% trans "Good luck!" %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
 </p>
 {% endblock %}
 
 {% block footer_message %}
-You're receiving this because your connection request was accepted.<br>
+{% trans "You're receiving this because your connection request was accepted." %}<br>
 {% endblock %}

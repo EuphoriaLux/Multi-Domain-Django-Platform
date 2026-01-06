@@ -1,21 +1,21 @@
 {% extends 'crush_lu/base.html' %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Connection with {{ other_user.first_name }}{% endblock %}
+{% block title %}{% blocktrans with name=other_user.first_name %}Connection with {{ name }}{% endblocktrans %}{% endblock %}
 {% block meta_robots %}noindex, nofollow{% endblock %}
 
 {% block content %}
 <div class="max-w-3xl mx-auto">
     <!-- Header -->
     <div class="text-center mb-8">
-        <h1 class="text-3xl font-bold mb-3">Connection with {{ other_user.first_name }} <span aria-hidden="true">💕</span></h1>
+        <h1 class="text-3xl font-bold mb-3">{% blocktrans with name=other_user.first_name %}Connection with {{ name }}{% endblocktrans %} <span aria-hidden="true">💕</span></h1>
         <p class="text-gray-500">{{ connection.event.title }}</p>
     </div>
 
     <!-- Connection Status Timeline -->
     <div class="bg-white rounded-xl shadow-lg mb-6">
         <div class="p-6">
-            <h5 class="font-semibold mb-6">Connection Progress</h5>
+            <h5 class="font-semibold mb-6">{% trans "Connection Progress" %}</h5>
 
             <div class="timeline">
                 <!-- Step 1: Requested -->

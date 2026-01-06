@@ -1,36 +1,37 @@
 {% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
 
-{% block title %}Profile Submitted - Crush.lu{% endblock %}
+{% block title %}{% trans "Profile Submitted" %} - Crush.lu{% endblock %}
 
-{% block header_title %}Profile Submitted! 🎉{% endblock %}
+{% block header_title %}{% trans "Profile Submitted!" %} 🎉{% endblock %}
 
 {% block content %}
-<h2>Hey {{ first_name }}!</h2>
+<h2>{% blocktrans with first_name=first_name %}Hey {{ first_name }}!{% endblocktrans %}</h2>
 
-<p>Thanks for submitting your Crush.lu profile! We're excited to have you join our community.</p>
+<p>{% trans "Thanks for submitting your Crush.lu profile! We're excited to have you join our community." %}</p>
 
 <div class="info-box">
-    <strong>What happens next?</strong>
+    <strong>{% trans "What happens next?" %}</strong>
     <ul>
-        <li>Our coaches will review your profile within 24-48 hours</li>
-        <li>You'll receive an email once your profile is approved</li>
-        <li>Then you can start browsing and registering for events!</li>
+        <li>{% trans "Our coaches will review your profile within 24-48 hours" %}</li>
+        <li>{% trans "You'll receive an email once your profile is approved" %}</li>
+        <li>{% trans "Then you can start browsing and registering for events!" %}</li>
     </ul>
 </div>
 
-<p>We carefully review every profile to ensure our community stays authentic and respectful. This helps create a safe, quality experience for everyone.</p>
+<p>{% trans "We carefully review every profile to ensure our community stays authentic and respectful. This helps create a safe, quality experience for everyone." %}</p>
 
-<p><strong>While you wait:</strong></p>
+<p><strong>{% trans "While you wait:" %}</strong></p>
 <ul>
-    <li>Check out our <a href="{{ events_url }}" style="color: #9B59B6;">upcoming events</a></li>
-    <li>Read our <a href="{{ how_it_works_url }}" style="color: #9B59B6;">how it works</a> guide</li>
-    <li>Follow us on social media for updates</li>
+    <li>{% trans "Check out our" %} <a href="{{ events_url }}" style="color: #9B59B6;">{% trans "upcoming events" %}</a></li>
+    <li>{% trans "Read our" %} <a href="{{ how_it_works_url }}" style="color: #9B59B6;">{% trans "how it works" %}</a> {% trans "guide" %}</li>
+    <li>{% trans "Follow us on social media for updates" %}</li>
 </ul>
 
-<p>We'll be in touch soon!</p>
+<p>{% trans "We'll be in touch soon!" %}</p>
 
 <p>
-    Best,<br>
-    <strong>The Crush.lu Team</strong>
+    {% trans "Best," %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
 </p>
 {% endblock %}

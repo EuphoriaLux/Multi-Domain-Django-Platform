@@ -1,10 +1,11 @@
 /**
  * Voting System Styles
  * Styles for event voting lobby, results, and demo pages
+ * Most styles now handled by Tailwind CSS - this file contains only tour-specific styles
  */
 
 /* ===================
-   Countdown Timer
+   Countdown Timer (for actual voting pages)
    =================== */
 .countdown-timer {
     font-size: 4rem;
@@ -14,14 +15,6 @@
     margin: 2rem 0;
 }
 
-.countdown-demo {
-    background: linear-gradient(135deg, var(--crush-pink) 0%, var(--crush-purple) 100%);
-    color: white;
-    padding: 2rem;
-    border-radius: 15px;
-    text-align: center;
-}
-
 .timer-display {
     font-size: 3rem;
     font-weight: bold;
@@ -29,7 +22,7 @@
 }
 
 /* ===================
-   Activity Cards
+   Activity Cards (for actual voting pages)
    =================== */
 .activity-preview-card {
     border: 2px solid #e9ecef;
@@ -50,44 +43,8 @@
     margin-bottom: 0.5rem;
 }
 
-.activity-group-card {
-    border: 2px solid #e9ecef;
-    border-radius: 15px;
-    padding: 2rem;
-    margin-bottom: 2rem;
-}
-
 /* ===================
-   Variant Options
-   =================== */
-.variant-option-item {
-    border: 2px solid #e9ecef;
-    border-radius: 10px;
-    padding: 1.25rem;
-    margin-bottom: 1rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.variant-option-item:hover {
-    border-color: var(--crush-purple);
-    background-color: rgba(155, 89, 182, 0.05);
-}
-
-.variant-option-item:has(input:checked) {
-    border-color: var(--crush-purple);
-    background: linear-gradient(135deg, rgba(155, 89, 182, 0.15) 0%, rgba(255, 107, 157, 0.15) 100%);
-    box-shadow: 0 4px 12px rgba(155, 89, 182, 0.2);
-}
-
-.variant-radio {
-    width: 1.5rem;
-    height: 1.5rem;
-    cursor: pointer;
-}
-
-/* ===================
-   Status Card
+   Status Card (for actual voting pages)
    =================== */
 .status-card {
     background: linear-gradient(135deg, var(--crush-purple) 0%, var(--crush-pink) 100%);
@@ -98,7 +55,7 @@
 }
 
 /* ===================
-   Results Display
+   Results Display (for actual voting pages)
    =================== */
 .winner-banner {
     background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
@@ -134,7 +91,7 @@
 }
 
 /* ===================
-   Progress Bars
+   Progress Bars (for actual voting pages)
    =================== */
 .vote-progress {
     height: 30px;
@@ -160,27 +117,8 @@
     color: #333;
 }
 
-.progress-bar-demo {
-    height: 30px;
-    border-radius: 15px;
-    background-color: #e9ecef;
-    overflow: hidden;
-    margin-top: 1rem;
-}
-
-.progress-fill {
-    height: 100%;
-    background: linear-gradient(135deg, var(--crush-purple) 0%, var(--crush-pink) 100%);
-    transition: width 0.5s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: bold;
-}
-
 /* ===================
-   Stats Card
+   Stats Card (for actual voting pages)
    =================== */
 .stats-card {
     background: linear-gradient(135deg, var(--crush-purple) 0%, var(--crush-pink) 100%);
@@ -200,30 +138,11 @@
 }
 
 /* ===================
-   Results Preview
+   Demo Section Active State
    =================== */
-.results-preview {
-    border: 2px solid #FFD700;
-    background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 165, 0, 0.1) 100%);
-    border-radius: 15px;
-    padding: 2rem;
-    margin-bottom: 1rem;
-}
-
-/* ===================
-   Demo Sections
-   =================== */
-.demo-section {
-    border: 2px solid #e9ecef;
-    border-radius: 15px;
-    padding: 2rem;
-    margin-bottom: 2rem;
-    background: white;
-}
-
 .demo-section.active {
-    border-color: var(--crush-purple);
-    box-shadow: 0 8px 24px rgba(155, 89, 182, 0.2);
+    border-color: var(--crush-purple) !important;
+    box-shadow: 0 8px 24px rgba(155, 89, 182, 0.2) !important;
 }
 
 /* ===================

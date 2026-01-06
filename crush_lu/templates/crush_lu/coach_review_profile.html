@@ -1,18 +1,19 @@
 {% extends 'crush_lu/base.html' %}
+{% load i18n %}
 
-{% block title %}Review Profile - Crush.lu{% endblock %}
+{% block title %}{% trans "Review Profile" %} - Crush.lu{% endblock %}
 
 {% block content %}
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2">
         <a href="{% url 'crush_lu:coach_dashboard' %}" class="inline-flex items-center gap-2 px-4 py-2 mb-4 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
             {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
-            Back to Dashboard
+            {% trans "Back to Dashboard" %}
         </a>
 
         <div class="bg-white rounded-xl shadow-sm mb-6">
             <div class="px-6 py-4 border-b border-gray-100">
-                <h4 class="font-semibold mb-0">Profile Review</h4>
+                <h4 class="font-semibold mb-0">{% trans "Profile Review" %}</h4>
             </div>
             <div class="p-6">
                 <h5 class="text-xl font-semibold">{{ profile.user.get_full_name }}</h5>

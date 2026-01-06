@@ -1,34 +1,35 @@
 {% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
 
-{% block title %}Profile Needs Updates - Crush.lu{% endblock %}
+{% block title %}{% trans "Profile Needs Updates" %} - Crush.lu{% endblock %}
 
-{% block header_title %}Profile Review Feedback{% endblock %}
+{% block header_title %}{% trans "Profile Review Feedback" %}{% endblock %}
 
 {% block content %}
-<h2>Hey {{ first_name }},</h2>
+<h2>{% blocktrans with first_name=first_name %}Hey {{ first_name }},{% endblocktrans %}</h2>
 
-<p>Thanks for your interest in Crush.lu! Our team has reviewed your profile and we'd love to see a few updates before approval.</p>
+<p>{% trans "Thanks for your interest in Crush.lu! Our team has reviewed your profile and we'd love to see a few updates before approval." %}</p>
 
 <div class="info-box">
-    <strong>Feedback from your coach:</strong>
+    <strong>{% trans "Feedback from your coach:" %}</strong>
     <p>{{ feedback }}</p>
 </div>
 
-<p><strong>What to do next:</strong></p>
+<p><strong>{% trans "What to do next:" %}</strong></p>
 <ul>
-    <li>Review the feedback above</li>
-    <li>Update your profile with the requested changes</li>
-    <li>Resubmit for review</li>
+    <li>{% trans "Review the feedback above" %}</li>
+    <li>{% trans "Update your profile with the requested changes" %}</li>
+    <li>{% trans "Resubmit for review" %}</li>
 </ul>
 
-<a href="{{ edit_profile_url }}" class="button">Update Profile</a>
+<a href="{{ edit_profile_url }}" class="button">{% trans "Update Profile" %}</a>
 
-<p>Don't worry - most profiles need small tweaks to ensure the best experience for everyone. We're here to help create a community where everyone feels comfortable and respected.</p>
+<p>{% trans "Don't worry - most profiles need small tweaks to ensure the best experience for everyone. We're here to help create a community where everyone feels comfortable and respected." %}</p>
 
-<p>If you have any questions about the feedback, feel free to reach out!</p>
+<p>{% trans "If you have any questions about the feedback, feel free to reach out!" %}</p>
 
 <p>
-    Best,<br>
-    <strong>The Crush.lu Team</strong>
+    {% trans "Best," %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
 </p>
 {% endblock %}

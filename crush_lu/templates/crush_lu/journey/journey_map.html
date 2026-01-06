@@ -1,5 +1,5 @@
 {% extends "crush_lu/journey/journey_base.html" %}
-{% load static %}
+{% load static i18n %}
 
 {% block extra_journey_css %}
 <style>
@@ -583,7 +583,7 @@
 <!-- Journey Header -->
 <div class="journey-header animate-fade-in">
     <h1 class="journey-title">{{ journey.journey_name }}</h1>
-    <p class="journey-subtitle">Your personalized adventure awaits</p>
+    <p class="journey-subtitle">{% trans "Your personalized adventure awaits" %}</p>
 </div>
 
 <!-- Progress Bar -->
@@ -597,15 +597,15 @@
 <div class="journey-stats animate-fade-in" style="animation-delay: 0.3s;">
     <div class="stat-card">
         <div class="stat-value">{{ journey_progress.current_chapter }}</div>
-        <div class="stat-label">Current Chapter</div>
+        <div class="stat-label">{% trans "Current Chapter" %}</div>
     </div>
     <div class="stat-card">
         <div class="stat-value">{{ journey_progress.total_points }}</div>
-        <div class="stat-label">Total Points</div>
+        <div class="stat-label">{% trans "Total Points" %}</div>
     </div>
     <div class="stat-card">
         <div class="stat-value">{{ completion_percentage }}%</div>
-        <div class="stat-label">Completion</div>
+        <div class="stat-label">{% trans "Completion" %}</div>
     </div>
 </div>
 
@@ -651,20 +651,20 @@
             {% if chapter_item.is_completed %}
                 <div class="mt-3" style="color: var(--journey-success); font-weight: 600;">
                     {% include "shared/icons/trophy.html" with class="w-5 h-5" %}
-                    {{ chapter_item.points_earned }} points earned
+                    {% blocktrans with points=chapter_item.points_earned %}{{ points }} points earned{% endblocktrans %}
                 </div>
                 <a href="{% url 'crush_lu:chapter_view' chapter_item.chapter.chapter_number %}"
                    class="chapter-btn">
-                    💕 Revisit Chapter
+                    {% trans "💕 Revisit Chapter" %}
                 </a>
             {% elif chapter_item.is_unlocked %}
                 <a href="{% url 'crush_lu:chapter_view' chapter_item.chapter.chapter_number %}"
                    class="chapter-btn">
-                    {% if chapter_item.is_current %}💖 Continue Journey{% else %}✨ Start Chapter{% endif %}
+                    {% if chapter_item.is_current %}{% trans "💖 Continue Journey" %}{% else %}{% trans "✨ Start Chapter" %}{% endif %}
                 </a>
             {% else %}
                 <button class="chapter-btn disabled" disabled>
-                    🔒 Locked
+                    {% trans "🔒 Locked" %}
                 </button>
             {% endif %}
         </div>
@@ -677,15 +677,15 @@
 <div class="text-center my-5 animate-fade-in">
     <div style="animation-delay: 0.3s;">
         <h2 style="font-size: 3rem; margin-bottom: 30px; background: linear-gradient(135deg, #FF6B9D, #C850C0); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-            🎉 Journey Complete! 🎉
+            {% trans "🎉 Journey Complete! 🎉" %}
         </h2>
         <p style="font-size: 1.4rem; opacity: 0.9; margin-bottom: 40px;">
-            You've conquered all {{ journey.total_chapters }} chapters!
+            {% blocktrans with chapters=journey.total_chapters %}You've conquered all {{ chapters }} chapters!{% endblocktrans %}
         </p>
         <a href="{% url 'crush_lu:certificate_view' %}"
            class="chapter-btn"
            style="font-size: 1.3rem; padding: 18px 50px;">
-            {% include "shared/icons/trophy.html" with class="w-5 h-5" %} View Your Certificate
+            {% include "shared/icons/trophy.html" with class="w-5 h-5" %} {% trans "View Your Certificate" %}
         </a>
     </div>
 </div>

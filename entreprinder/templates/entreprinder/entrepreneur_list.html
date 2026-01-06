@@ -1,34 +1,34 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Find Entrepreneurs - Entreprinder{% endblock %}
+{% block title %}{% trans "Find Entrepreneurs - Entreprinder" %}{% endblock %}
 
 {% block content %}
 <div class="container mt-5">
-    <h1 class="mb-4">Find Entrepreneurs</h1>
-    
+    <h1 class="mb-4">{% trans "Find Entrepreneurs" %}</h1>
+
     <div class="row">
         {% for profile in profiles %}
             <div class="col-md-4 mb-4 entrepreneur-card">
                 <div class="card">
                     {% if profile.profile_picture %}
-                        <img src="{{ profile.profile_picture.url }}" class="card-img-top" alt="{{ profile.user.username }}'s profile picture">
+                        <img src="{{ profile.profile_picture.url }}" class="card-img-top" alt="{% blocktrans with username=profile.user.username %}{{ username }}'s profile picture{% endblocktrans %}">
                     {% else %}
-                        <img src="{{ POWERUP_DEFAULT_PROFILE_URL }}" class="card-img-top" alt="Default profile picture">
+                        <img src="{{ POWERUP_DEFAULT_PROFILE_URL }}" class="card-img-top" alt="{% trans 'Default profile picture' %}">
                     {% endif %}
                     <div class="card-body">
                         <h5 class="card-title">{{ profile.user.get_full_name|default:profile.user.username }}</h5>
-                        <p class="card-text"><strong>Industry:</strong> {{ profile.industry }}</p>
-                        <p class="card-text"><strong>Company:</strong> {{ profile.company }}</p>
+                        <p class="card-text"><strong>{% trans "Industry:" %}</strong> {{ profile.industry }}</p>
+                        <p class="card-text"><strong>{% trans "Company:" %}</strong> {{ profile.company }}</p>
                         <p class="card-text">{{ profile.bio|truncatewords:20 }}</p>
-                        <button class="btn btn-primary like-button" data-profile-id="{{ profile.id }}">Like</button>
-                        <div class="loading-spinner" style="display: none;">Loading...</div>
+                        <button class="btn btn-primary like-button" data-profile-id="{{ profile.id }}">{% trans "Like" %}</button>
+                        <div class="loading-spinner" style="display: none;">{% trans "Loading..." %}</div>
                     </div>
                 </div>
             </div>
         {% empty %}
             <div class="col-12">
-                <p>No more entrepreneurs to show at the moment.</p>
+                <p>{% trans "No more entrepreneurs to show at the moment." %}</p>
             </div>
         {% endfor %}
     </div>
@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 this.querySelector('.loading-spinner').style.display = 'none';
                 if (data.status === 'match') {
-                    alert('It\'s a match!');
+                    alert("{% trans "It's a match!" %}");
                 }
                 if (data.status === 'no_more_profiles') {
                     window.location.href = data.redirect_url;

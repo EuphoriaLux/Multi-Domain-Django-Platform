@@ -128,18 +128,26 @@ def crush_admin_dashboard(request):
         rejected_count=Count('profilesubmission', filter=Q(profilesubmission__status='rejected'))
     ).order_by('-total_reviews')[:5]
 
-    # Average review time (if reviewed_at exists)
+    # Average review time (if reviewed_at exists) - optimized with DB aggregation
+    from django.db.models import ExpressionWrapper, DurationField
+    from django.db.models.functions import Extract
+
     reviewed_submissions = ProfileSubmission.objects.filter(
         reviewed_at__isnull=False,
         submitted_at__isnull=False
     )
 
     if reviewed_submissions.exists():
-        total_review_time = sum([
-            (submission.reviewed_at - submission.submitted_at).total_seconds() / 3600
-            for submission in reviewed_submissions
-        ])
-        avg_review_hours = total_review_time / reviewed_submissions.count()
+        # Use database-level aggregation instead of Python iteration (N+1 fix)
+        avg_review_result = reviewed_submissions.annotate(
+            review_duration=ExpressionWrapper(
+                F('reviewed_at') - F('submitted_at'),
+                output_field=DurationField()
+            )
+        ).aggregate(
+            avg_seconds=Avg(Extract('review_duration', 'epoch'))
+        )
+        avg_review_hours = (avg_review_result['avg_seconds'] or 0) / 3600
     else:
         avg_review_hours = 0
 
@@ -606,6 +614,23 @@ def crush_admin_dashboard(request):
 
         # Pending actions (workflow quick links)
         'pending_actions': pending_actions,
+
+        # Quick action URLs for dashboard links
+        'quick_links': {
+            'urgent_reviews': '/crush-admin/crush_lu/profilesubmission/?workflow=urgent',
+            'awaiting_call': '/crush-admin/crush_lu/profilesubmission/?workflow=awaiting_call',
+            'ready_approve': '/crush-admin/crush_lu/profilesubmission/?workflow=ready_approve',
+            'unassigned': '/crush-admin/crush_lu/profilesubmission/?coach_assignment=no_coach',
+            'all_pending': '/crush-admin/crush_lu/profilesubmission/?status__exact=pending',
+            'all_profiles': '/crush-admin/crush_lu/crushprofile/',
+            'all_events': '/crush-admin/crush_lu/meetupevent/',
+            'upcoming_events': '/crush-admin/crush_lu/meetupevent/?is_published__exact=1&is_cancelled__exact=0',
+            'all_connections': '/crush-admin/crush_lu/eventconnection/',
+            'mutual_connections': '/crush-admin/crush_lu/eventconnection/?connection_type=mutual',
+            'all_journeys': '/crush-admin/crush_lu/journeyconfiguration/',
+            'phone_unverified': '/crush-admin/crush_lu/crushprofile/?phone_status=unverified',
+            'inactive_users': '/crush-admin/crush_lu/crushprofile/?last_login=inactive',
+        },
 
         # Page metadata
         'title': 'Crush.lu Analytics Dashboard',

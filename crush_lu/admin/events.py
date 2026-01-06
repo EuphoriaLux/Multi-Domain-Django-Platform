@@ -17,6 +17,7 @@ from crush_lu.models import (
     MeetupEvent, EventRegistration, EventInvitation,
     EventVotingSession, PresentationQueue, SpeedDatingPair,
 )
+from .filters import EventCapacityFilter
 
 
 # Inline admin for Event Registrations
@@ -83,7 +84,7 @@ class MeetupEventAdmin(admin.ModelAdmin):
         'max_participants', 'get_spots_remaining',
         'is_private_invitation', 'get_invited_users_count', 'get_voting_status', 'is_published', 'is_cancelled'
     )
-    list_filter = ('event_type', 'is_published', 'is_cancelled', 'is_private_invitation', 'date_time')
+    list_filter = ('event_type', 'is_published', 'is_cancelled', 'is_private_invitation', EventCapacityFilter, 'date_time')
     search_fields = ('title', 'description', 'location', 'address')
     readonly_fields = (
         'created_at', 'updated_at', 'invitation_code',
@@ -291,6 +292,8 @@ class EventRegistrationAdmin(admin.ModelAdmin):
     list_filter = ('status', 'payment_confirmed', 'registered_at')
     search_fields = ('user__username', 'event__title')
     readonly_fields = ('registered_at', 'updated_at')
+    # Quick inline editing for registration management
+    list_editable = ('status', 'payment_confirmed')
     fieldsets = (
         ('Registration Details', {
             'fields': ('event', 'user', 'status')

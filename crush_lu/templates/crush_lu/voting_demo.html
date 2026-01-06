@@ -1,10 +1,10 @@
 {% extends 'crush_lu/base.html' %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Voting System Demo - Crush.lu{% endblock %}
+{% block title %}{% trans "How Event Voting Works - Crush.lu" %}{% endblock %}
 
 {% block extra_css %}
-{# Styles moved to static/crush_lu/css/pages/voting.css #}
+{# Styles in static/crush_lu/css/pages/voting.css #}
 {% endblock %}
 
 {% block content %}
@@ -13,204 +13,625 @@
     <h3 id="tourTitle"></h3>
     <p id="tourText"></p>
     <div class="tour-tooltip-buttons">
-        <button class="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors" id="tourPrev">← Previous</button>
-        <button class="btn-crush-primary px-4 py-2" id="tourNext">Next →</button>
+        <button class="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors" id="tourPrev">{% trans "Previous" %}</button>
+        <button class="btn-crush-primary px-4 py-2" id="tourNext">{% trans "Next" %}</button>
     </div>
 </div>
 
-<div class="container py-5">
-    <div class="flex justify-center">
-        <div class="w-full max-w-5xl px-4">
-            <div class="text-center mb-5">
-                <h1 class="display-4">🎯 Voting System Demo</h1>
-                <p class="lead text-muted">Learn how event voting works at Crush.lu</p>
-                <button class="btn-crush-primary px-6 py-3 text-lg" id="startTour">
-                    Start Guided Tour
-                </button>
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Hero Section -->
+    <div class="text-center mb-12 py-8">
+        <div class="inline-block mb-4">
+            <span class="text-5xl">🗳️</span>
+        </div>
+        <h1 class="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-crush-purple to-crush-pink bg-clip-text text-transparent">
+            {% trans "How Event Voting Works" %}
+        </h1>
+        <p class="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed mb-8">
+            {% trans "Your voice shapes the evening! Learn how you'll vote on TWO categories to customize your Crush.lu event experience." %}
+        </p>
+        <button class="btn-crush-primary px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 inline-flex items-center gap-2" id="startTour">
+            <span>{% trans "Start Interactive Tour" %}</span>
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Step 1: Three-Phase Event Overview -->
+    <div class="demo-section relative bg-white rounded-2xl shadow-lg mb-10 overflow-hidden border border-gray-100 transition-all duration-300" id="step-overview">
+        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-crush-purple via-purple-500 to-crush-pink"></div>
+
+        <div class="p-6 md:p-8">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center">
+                    <span class="text-white text-lg">🎯</span>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">{% trans "Step 1: Your Event Has 3 Phases" %}</h2>
             </div>
 
-            <!-- Step 1: Event Timing -->
-            <div class="demo-section" id="step-timing">
-                <h2 class="mb-4">⏰ Step 1: Voting Timeline</h2>
-                <div class="countdown-demo">
-                    <h3 class="mb-3">Event Day Timeline</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                        <div>
-                            <div class="text-4xl">🎉</div>
-                            <strong>Event Starts</strong>
-                            <p class="mb-0 text-sm">e.g., 7:00 PM</p>
-                        </div>
-                        <div>
-                            <div class="text-4xl">🗳️</div>
-                            <strong>Voting Opens</strong>
-                            <p class="mb-0 text-sm">15 min later (7:15 PM)</p>
-                        </div>
-                        <div>
-                            <div class="text-4xl">🏆</div>
-                            <strong>Voting Closes</strong>
-                            <p class="mb-0 text-sm">30 min to vote (7:45 PM)</p>
-                        </div>
+            <p class="text-gray-600 mb-8 leading-relaxed">
+                {% trans "Every Crush.lu event follows this structure. Your votes determine what happens in Phases 2 and 3!" %}
+            </p>
+
+            <!-- Three Phase Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="timeline">
+                <!-- Phase 1 -->
+                <div class="relative bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-2xl p-6 text-center hover:shadow-lg transition-all duration-300">
+                    <div class="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                        {% trans "0-15 min" %}
                     </div>
-                    <div class="alert alert-light mt-3 mb-0">
-                        <strong>Countdown Timer:</strong> You'll see a live countdown on your phone showing exactly how much time remains to vote!
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 2: Activity Options -->
-            <div class="demo-section" id="step-options">
-                <h2 class="mb-4">🎭 Step 2: Choose Your Activity</h2>
-                <p class="text-muted mb-4">You'll vote on ONE activity from these options. The winning activity determines how the evening unfolds!</p>
-
-                <form id="demoVoteForm">
-                    <!-- Speed Dating -->
-                    <div class="activity-group-card" id="group-speed-dating">
-                        <h3 class="text-primary mb-3">💕 Speed Dating</h3>
-                        <p class="text-muted mb-3">Quick 3-5 minute conversations in organized formats</p>
-
-                        <div class="variant-option-item">
-                            <input class="form-check-input variant-radio" type="radio" name="demo_vote" id="demo-random" value="random">
-                            <label class="form-check-label w-100" for="demo-random">
-                                <strong>Random Order</strong>: Classic speed dating with random pairing. Perfect for meeting diverse people!
-                            </label>
-                        </div>
-
-                        <div class="variant-option-item">
-                            <input class="form-check-input variant-radio" type="radio" name="demo_vote" id="demo-alphabetic" value="alphabetic">
-                            <label class="form-check-label w-100" for="demo-alphabetic">
-                                <strong>Alphabetic Order</strong>: Organized by first name. Creates natural conversation starters!
-                            </label>
-                        </div>
-
-                        <div class="variant-option-item">
-                            <input class="form-check-input variant-radio" type="radio" name="demo_vote" id="demo-hair" value="hair">
-                            <label class="form-check-label w-100" for="demo-hair">
-                                <strong>By Hair Color</strong>: A playful twist that creates fun icebreakers!
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Presentations -->
-                    <div class="activity-group-card" id="group-presentations">
-                        <h3 class="text-primary mb-3">🎤 90 Second Presentations</h3>
-                        <p class="text-muted mb-3">Everyone introduces themselves in creative ways</p>
-
-                        <div class="variant-option-item">
-                            <input class="form-check-input variant-radio" type="radio" name="demo_vote" id="demo-music" value="music">
-                            <label class="form-check-label w-100" for="demo-music">
-                                <strong>With Favorite Music</strong>: Introduce yourself while your song plays!
-                            </label>
-                        </div>
-
-                        <div class="variant-option-item">
-                            <input class="form-check-input variant-radio" type="radio" name="demo_vote" id="demo-questions" value="questions">
-                            <label class="form-check-label w-100" for="demo-questions">
-                                <strong>5 Predefined Questions</strong>: Fun questions everyone answers!
-                            </label>
-                        </div>
-
-                        <div class="variant-option-item">
-                            <input class="form-check-input variant-radio" type="radio" name="demo_vote" id="demo-picture" value="picture">
-                            <label class="form-check-label w-100" for="demo-picture">
-                                <strong>Share Picture & Story</strong>: Show a favorite photo and tell its story!
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Mystery -->
-                    <div class="activity-group-card" id="group-mystery">
-                        <h3 class="text-primary mb-3">🎭 Mystery Event</h3>
-                        <p class="text-muted mb-3">Trust the coaches with a surprise activity!</p>
-
-                        <div class="variant-option-item">
-                            <input class="form-check-input variant-radio" type="radio" name="demo_vote" id="demo-mystery" value="mystery">
-                            <label class="form-check-label w-100" for="demo-mystery">
-                                We've prepared a surprise designed to help you connect in unexpected ways. Adventure awaits!
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="text-center">
-                        <button type="button" class="btn-crush-primary px-8 py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed" id="demoSubmitBtn" disabled>
-                            Submit My Vote
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Step 3: Results -->
-            <div class="demo-section" id="step-results">
-                <h2 class="mb-4">📊 Step 3: See Results & Winner</h2>
-                <p class="text-muted mb-4">After voting closes, you'll see live results with vote counts and percentages!</p>
-
-                <div class="results-preview">
-                    <div class="text-center mb-3">
-                        <h3>🏆 Winner: Speed Dating - Random Order</h3>
-                        <p class="text-muted mb-0">The activity with the most votes wins!</p>
-                    </div>
+                    <div class="text-5xl mb-4 mt-2">🎉</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2">{% trans "Phase 1: Icebreaker" %}</h3>
+                    <p class="text-gray-600 text-sm">{% trans "Mingle and get comfortable. Voting opens at the 15-minute mark!" %}</p>
                 </div>
 
-                <div class="mb-3">
-                    <strong>Speed Dating - Random Order</strong>
-                    <div class="progress-bar-demo">
-                        <div class="progress-fill" style="width: 45%;">15 votes (45%)</div>
+                <!-- Phase 2 -->
+                <div class="relative bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200 rounded-2xl p-6 text-center hover:shadow-lg transition-all duration-300">
+                    <div class="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-crush-purple text-white text-xs font-bold px-3 py-1 rounded-full">
+                        {% trans "After voting" %}
                     </div>
+                    <div class="text-5xl mb-4 mt-2">🎤</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2">{% trans "Phase 2: Presentations" %}</h3>
+                    <p class="text-gray-600 text-sm">{% trans "Everyone gets 90 seconds to introduce themselves. Style chosen by YOUR votes!" %}</p>
                 </div>
 
-                <div class="mb-3">
-                    <strong>Presentations - With Music</strong>
-                    <div class="progress-bar-demo">
-                        <div class="progress-fill" style="width: 30%;">10 votes (30%)</div>
+                <!-- Phase 3 -->
+                <div class="relative bg-gradient-to-br from-pink-50 to-pink-100 border-2 border-pink-200 rounded-2xl p-6 text-center hover:shadow-lg transition-all duration-300">
+                    <div class="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-crush-pink text-white text-xs font-bold px-3 py-1 rounded-full">
+                        {% trans "Final phase" %}
                     </div>
-                </div>
-
-                <div class="mb-3">
-                    <strong>Mystery Event</strong>
-                    <div class="progress-bar-demo">
-                        <div class="progress-fill" style="width: 25%;">8 votes (25%)</div>
-                    </div>
-                </div>
-
-                <div class="alert alert-success mt-4">
-                    <strong>What happens next?</strong> The winning activity starts! In this example, you'd begin speed dating in random order with 3-5 minute conversations.
+                    <div class="text-5xl mb-4 mt-2">💕</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2">{% trans "Phase 3: Speed Dating" %}</h3>
+                    <p class="text-gray-600 text-sm">{% trans "3-5 minute conversations with matched pairs. Twist chosen by YOUR votes!" %}</p>
                 </div>
             </div>
 
-            <!-- Step 4: Post-Event -->
-            <div class="demo-section" id="step-connections">
-                <h2 class="mb-4">💕 Step 4: Make Connections</h2>
-                <p class="text-muted mb-4">After the event, you can request connections with people you clicked with!</p>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Voting Window Info -->
+            <div class="mt-8 bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-amber-500 rounded-lg p-5">
+                <div class="flex items-start gap-3">
+                    <span class="text-2xl flex-shrink-0">⏱️</span>
                     <div>
-                        <h5>✓ You Can:</h5>
-                        <ul class="list-disc list-inside space-y-1">
-                            <li>View all event attendees</li>
-                            <li>Send connection requests</li>
-                            <li>Get coach-facilitated introductions</li>
-                            <li>Exchange contact info with mutual matches</li>
-                        </ul>
+                        <strong class="text-gray-900 block mb-1">{% trans "Voting Window: 30 Minutes" %}</strong>
+                        <p class="text-gray-700">{% trans "Voting opens 15 minutes after the event starts. You have 30 minutes to cast your votes. A live countdown shows exactly how much time remains!" %}</p>
                     </div>
-                    <div>
-                        <h5>🔒 Privacy Protected:</h5>
-                        <ul class="list-disc list-inside space-y-1">
-                            <li>Only attendees can see each other</li>
-                            <li>Coach reviews all connections</li>
-                            <li>Both people must consent</li>
-                            <li>No info shared without permission</li>
-                        </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 2: Two-Category Voting Explanation -->
+    <div class="demo-section relative bg-white rounded-2xl shadow-lg mb-10 overflow-hidden border border-gray-100 transition-all duration-300" id="step-categories">
+        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-crush-purple via-purple-500 to-crush-pink"></div>
+
+        <div class="p-6 md:p-8">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center">
+                    <span class="text-white text-lg">✌️</span>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">{% trans "Step 2: You Vote on TWO Categories" %}</h2>
+            </div>
+
+            <div class="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-5 mb-8">
+                <p class="text-gray-800 text-center font-medium">
+                    {% trans "Unlike simple polls, you'll vote on TWO separate things. Each category affects a different phase of the event!" %}
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Category A: Presentation Style -->
+                <div class="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-2xl p-6" id="category-presentation">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-12 h-12 bg-gradient-to-br from-crush-purple to-purple-700 rounded-xl flex items-center justify-center shadow-md">
+                            <span class="text-white text-2xl">🎤</span>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-purple-600 uppercase tracking-wide">{% trans "Category A" %}</span>
+                            <h3 class="text-xl font-bold text-gray-900">{% trans "Presentation Style" %}</h3>
+                        </div>
+                    </div>
+                    <p class="text-gray-700 mb-4 text-sm">{% trans "How will everyone introduce themselves in Phase 2?" %}</p>
+
+                    <div class="space-y-2">
+                        {% for option in presentation_options %}
+                        <div class="bg-white border border-gray-200 rounded-lg p-3 flex items-center gap-3">
+                            <span class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold text-sm">{{ forloop.counter }}</span>
+                            <div>
+                                <strong class="text-gray-900 text-sm">{{ option.display_name }}</strong>
+                                {% if option.description %}
+                                <p class="text-gray-500 text-xs">{{ option.description|truncatewords:10 }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="bg-white border border-gray-200 rounded-lg p-3">
+                            <strong class="text-gray-900 text-sm">{% trans "With Favorite Music" %}</strong>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-3">
+                            <strong class="text-gray-900 text-sm">{% trans "5 Predefined Questions" %}</strong>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-3">
+                            <strong class="text-gray-900 text-sm">{% trans "Share Picture & Story" %}</strong>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mt-4 text-center">
+                        <span class="inline-flex items-center gap-1.5 text-purple-600 font-medium text-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                            </svg>
+                            {% trans "Winner decides Phase 2 format" %}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Category B: Speed Dating Twist -->
+                <div class="bg-gradient-to-br from-pink-50 to-purple-50 border-2 border-pink-200 rounded-2xl p-6" id="category-twist">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-12 h-12 bg-gradient-to-br from-crush-pink to-pink-600 rounded-xl flex items-center justify-center shadow-md">
+                            <span class="text-white text-2xl">💕</span>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-pink-600 uppercase tracking-wide">{% trans "Category B" %}</span>
+                            <h3 class="text-xl font-bold text-gray-900">{% trans "Speed Dating Twist" %}</h3>
+                        </div>
+                    </div>
+                    <p class="text-gray-700 mb-4 text-sm">{% trans "What fun twist will spice up Phase 3?" %}</p>
+
+                    <div class="space-y-2">
+                        {% for option in twist_options %}
+                        <div class="bg-white border border-gray-200 rounded-lg p-3 flex items-center gap-3">
+                            <span class="w-8 h-8 bg-pink-100 rounded-full flex items-center justify-center text-pink-600 font-bold text-sm">{{ forloop.counter }}</span>
+                            <div>
+                                <strong class="text-gray-900 text-sm">{{ option.display_name }}</strong>
+                                {% if option.description %}
+                                <p class="text-gray-500 text-xs">{{ option.description|truncatewords:10 }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="bg-white border border-gray-200 rounded-lg p-3">
+                            <strong class="text-gray-900 text-sm">{% trans "Spicy Questions First" %}</strong>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-3">
+                            <strong class="text-gray-900 text-sm">{% trans "Forbidden Word Game" %}</strong>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-3">
+                            <strong class="text-gray-900 text-sm">{% trans "Algorithm Extended" %}</strong>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mt-4 text-center">
+                        <span class="inline-flex items-center gap-1.5 text-pink-600 font-medium text-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                            </svg>
+                            {% trans "Winner decides Phase 3 twist" %}
+                        </span>
                     </div>
                 </div>
             </div>
 
-            <div class="text-center mt-5 flex flex-wrap gap-3 justify-center">
-                <button class="px-6 py-3 text-lg border border-purple-500 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" id="restartTour">
-                    🔄 Replay Tour
-                </button>
-                <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-primary px-6 py-3 text-lg">
-                    Browse Events →
-                </a>
+            <!-- Mystery Event Callout -->
+            <div class="mt-8 bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-dashed border-indigo-300 rounded-xl p-5" id="mystery-callout">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
+                        <span class="text-white text-2xl">🎭</span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-gray-900 mb-1">{% trans "Special: Mystery Event" %}</h4>
+                        <p class="text-gray-700 text-sm">
+                            {% trans "Some events feature a Mystery option! If chosen, coaches surprise everyone with a unique activity designed to create unexpected connections. Adventure awaits!" %}
+                        </p>
+                    </div>
+                </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Step 3: Interactive Voting Demo -->
+    <div class="demo-section relative bg-white rounded-2xl shadow-lg mb-10 overflow-hidden border border-gray-100 transition-all duration-300" id="step-demo">
+        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-crush-purple via-purple-500 to-crush-pink"></div>
+
+        <div class="p-6 md:p-8">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center">
+                    <span class="text-white text-lg">🗳️</span>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">{% trans "Step 3: Try Voting Now!" %}</h2>
+            </div>
+
+            <div class="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl p-4 mb-6">
+                <p class="text-gray-800 text-center font-medium">
+                    {% trans "Practice voting below! You must select ONE option from EACH category before you can submit." %}
+                </p>
+            </div>
+
+            <form id="demoVoteForm">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Category A: Presentation Style -->
+                    <div id="group-presentations">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="w-8 h-8 bg-crush-purple text-white rounded-full flex items-center justify-center font-bold">A</span>
+                            <h3 class="text-lg font-bold text-gray-900">{% trans "Presentation Style" %}</h3>
+                        </div>
+
+                        <div class="space-y-3">
+                            {% for option in presentation_options %}
+                            <div class="variant-option-item group relative bg-white border-2 border-gray-200 rounded-xl p-4 cursor-pointer hover:border-crush-purple hover:bg-gradient-to-r hover:from-purple-50/50 hover:to-pink-50/50 transition-all duration-300 has-[:checked]:border-crush-purple has-[:checked]:bg-gradient-to-r has-[:checked]:from-purple-50 has-[:checked]:to-pink-50 has-[:checked]:shadow-md">
+                                <label class="flex items-start gap-4 cursor-pointer" for="demo-pres-{{ option.id }}">
+                                    <input class="variant-radio mt-1 w-5 h-5 text-crush-purple focus:ring-crush-purple focus:ring-2 cursor-pointer" type="radio" name="demo_presentation" id="demo-pres-{{ option.id }}" value="{{ option.activity_variant }}">
+                                    <div class="flex-1">
+                                        <strong class="text-gray-900 block mb-1">{{ option.display_name }}</strong>
+                                        <span class="text-gray-600 text-sm">{{ option.description }}</span>
+                                    </div>
+                                </label>
+                            </div>
+                            {% empty %}
+                            <div class="variant-option-item group relative bg-white border-2 border-gray-200 rounded-xl p-4 cursor-pointer hover:border-crush-purple transition-all duration-300 has-[:checked]:border-crush-purple has-[:checked]:bg-purple-50 has-[:checked]:shadow-md">
+                                <label class="flex items-start gap-4 cursor-pointer" for="demo-pres-music">
+                                    <input class="variant-radio mt-1 w-5 h-5 text-crush-purple focus:ring-crush-purple cursor-pointer" type="radio" name="demo_presentation" id="demo-pres-music" value="music">
+                                    <div class="flex-1">
+                                        <strong class="text-gray-900 block mb-1">{% trans "With Favorite Music" %}</strong>
+                                        <span class="text-gray-600 text-sm">{% trans "Introduce yourself while your song plays!" %}</span>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="variant-option-item group relative bg-white border-2 border-gray-200 rounded-xl p-4 cursor-pointer hover:border-crush-purple transition-all duration-300 has-[:checked]:border-crush-purple has-[:checked]:bg-purple-50 has-[:checked]:shadow-md">
+                                <label class="flex items-start gap-4 cursor-pointer" for="demo-pres-questions">
+                                    <input class="variant-radio mt-1 w-5 h-5 text-crush-purple focus:ring-crush-purple cursor-pointer" type="radio" name="demo_presentation" id="demo-pres-questions" value="questions">
+                                    <div class="flex-1">
+                                        <strong class="text-gray-900 block mb-1">{% trans "5 Predefined Questions" %}</strong>
+                                        <span class="text-gray-600 text-sm">{% trans "Fun questions everyone answers!" %}</span>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="variant-option-item group relative bg-white border-2 border-gray-200 rounded-xl p-4 cursor-pointer hover:border-crush-purple transition-all duration-300 has-[:checked]:border-crush-purple has-[:checked]:bg-purple-50 has-[:checked]:shadow-md">
+                                <label class="flex items-start gap-4 cursor-pointer" for="demo-pres-picture">
+                                    <input class="variant-radio mt-1 w-5 h-5 text-crush-purple focus:ring-crush-purple cursor-pointer" type="radio" name="demo_presentation" id="demo-pres-picture" value="picture">
+                                    <div class="flex-1">
+                                        <strong class="text-gray-900 block mb-1">{% trans "Share Picture & Story" %}</strong>
+                                        <span class="text-gray-600 text-sm">{% trans "Show a favorite photo and tell its story!" %}</span>
+                                    </div>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Selection status -->
+                        <div id="pres-status" class="mt-3 text-center text-sm text-gray-500 hidden">
+                            <span class="inline-flex items-center gap-1 text-green-600 font-medium">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                {% trans "Selected!" %}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Category B: Speed Dating Twist -->
+                    <div id="group-speed-dating">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="w-8 h-8 bg-crush-pink text-white rounded-full flex items-center justify-center font-bold">B</span>
+                            <h3 class="text-lg font-bold text-gray-900">{% trans "Speed Dating Twist" %}</h3>
+                        </div>
+
+                        <div class="space-y-3">
+                            {% for option in twist_options %}
+                            <div class="variant-option-item group relative bg-white border-2 border-gray-200 rounded-xl p-4 cursor-pointer hover:border-crush-pink hover:bg-gradient-to-r hover:from-pink-50/50 hover:to-purple-50/50 transition-all duration-300 has-[:checked]:border-crush-pink has-[:checked]:bg-gradient-to-r has-[:checked]:from-pink-50 has-[:checked]:to-purple-50 has-[:checked]:shadow-md">
+                                <label class="flex items-start gap-4 cursor-pointer" for="demo-twist-{{ option.id }}">
+                                    <input class="variant-radio mt-1 w-5 h-5 text-crush-pink focus:ring-crush-pink focus:ring-2 cursor-pointer" type="radio" name="demo_twist" id="demo-twist-{{ option.id }}" value="{{ option.activity_variant }}">
+                                    <div class="flex-1">
+                                        <strong class="text-gray-900 block mb-1">{{ option.display_name }}</strong>
+                                        <span class="text-gray-600 text-sm">{{ option.description }}</span>
+                                    </div>
+                                </label>
+                            </div>
+                            {% empty %}
+                            <div class="variant-option-item group relative bg-white border-2 border-gray-200 rounded-xl p-4 cursor-pointer hover:border-crush-pink transition-all duration-300 has-[:checked]:border-crush-pink has-[:checked]:bg-pink-50 has-[:checked]:shadow-md">
+                                <label class="flex items-start gap-4 cursor-pointer" for="demo-twist-spicy">
+                                    <input class="variant-radio mt-1 w-5 h-5 text-crush-pink focus:ring-crush-pink cursor-pointer" type="radio" name="demo_twist" id="demo-twist-spicy" value="spicy">
+                                    <div class="flex-1">
+                                        <strong class="text-gray-900 block mb-1">{% trans "Spicy Questions First" %}</strong>
+                                        <span class="text-gray-600 text-sm">{% trans "Start with fun, revealing questions!" %}</span>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="variant-option-item group relative bg-white border-2 border-gray-200 rounded-xl p-4 cursor-pointer hover:border-crush-pink transition-all duration-300 has-[:checked]:border-crush-pink has-[:checked]:bg-pink-50 has-[:checked]:shadow-md">
+                                <label class="flex items-start gap-4 cursor-pointer" for="demo-twist-forbidden">
+                                    <input class="variant-radio mt-1 w-5 h-5 text-crush-pink focus:ring-crush-pink cursor-pointer" type="radio" name="demo_twist" id="demo-twist-forbidden" value="forbidden">
+                                    <div class="flex-1">
+                                        <strong class="text-gray-900 block mb-1">{% trans "Forbidden Word Game" %}</strong>
+                                        <span class="text-gray-600 text-sm">{% trans "Avoid saying certain words - hilarious!" %}</span>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="variant-option-item group relative bg-white border-2 border-gray-200 rounded-xl p-4 cursor-pointer hover:border-crush-pink transition-all duration-300 has-[:checked]:border-crush-pink has-[:checked]:bg-pink-50 has-[:checked]:shadow-md">
+                                <label class="flex items-start gap-4 cursor-pointer" for="demo-twist-algorithm">
+                                    <input class="variant-radio mt-1 w-5 h-5 text-crush-pink focus:ring-crush-pink cursor-pointer" type="radio" name="demo_twist" id="demo-twist-algorithm" value="algorithm">
+                                    <div class="flex-1">
+                                        <strong class="text-gray-900 block mb-1">{% trans "Algorithm Extended" %}</strong>
+                                        <span class="text-gray-600 text-sm">{% trans "Top matches get extended 8-min conversations!" %}</span>
+                                    </div>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Selection status -->
+                        <div id="twist-status" class="mt-3 text-center text-sm text-gray-500 hidden">
+                            <span class="inline-flex items-center gap-1 text-green-600 font-medium">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                {% trans "Selected!" %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit button and status -->
+                <div class="mt-8 text-center">
+                    <div id="vote-warning" class="mb-4 text-amber-600 font-medium hidden">
+                        {% trans "Please select one option from EACH category to continue" %}
+                    </div>
+                    <button type="button" class="btn-crush-primary px-10 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-lg inline-flex items-center gap-2" id="demoSubmitBtn" disabled>
+                        <span>{% trans "Submit My Votes" %}</span>
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Step 4: Results Display -->
+    <div class="demo-section relative bg-white rounded-2xl shadow-lg mb-10 overflow-hidden border border-gray-100 transition-all duration-300" id="step-results">
+        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-crush-purple via-purple-500 to-crush-pink"></div>
+
+        <div class="p-6 md:p-8">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center">
+                    <span class="text-white text-lg">📊</span>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">{% trans "Step 4: See the Winners" %}</h2>
+            </div>
+            <p class="text-gray-600 mb-8 leading-relaxed">{% trans "After voting closes, you'll see the winners for BOTH categories - each one shapes a different part of your evening!" %}</p>
+
+            <!-- Two Winner Banners -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <!-- Presentation Winner -->
+                <div class="relative bg-gradient-to-br from-purple-400 via-purple-500 to-purple-600 rounded-2xl p-6 text-center overflow-hidden shadow-lg">
+                    <div class="absolute inset-0 opacity-10">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-white rounded-full blur-3xl"></div>
+                    </div>
+                    <div class="absolute top-3 left-3 text-2xl opacity-70 animate-pulse">🎤</div>
+                    <div class="relative">
+                        <span class="text-xs font-bold text-purple-200 uppercase tracking-wide">{% trans "Category A Winner" %}</span>
+                        <div class="text-4xl my-3">🏆</div>
+                        <h3 class="text-xl font-bold text-white mb-1">{% trans "With Favorite Music" %}</h3>
+                        <p class="text-purple-200 text-sm">{% trans "Presentation Style" %}</p>
+                    </div>
+                </div>
+
+                <!-- Speed Dating Winner -->
+                <div class="relative bg-gradient-to-br from-pink-400 via-pink-500 to-pink-600 rounded-2xl p-6 text-center overflow-hidden shadow-lg">
+                    <div class="absolute inset-0 opacity-10">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-white rounded-full blur-3xl"></div>
+                    </div>
+                    <div class="absolute top-3 right-3 text-2xl opacity-70 animate-pulse">💕</div>
+                    <div class="relative">
+                        <span class="text-xs font-bold text-pink-200 uppercase tracking-wide">{% trans "Category B Winner" %}</span>
+                        <div class="text-4xl my-3">🏆</div>
+                        <h3 class="text-xl font-bold text-white mb-1">{% trans "Spicy Questions First" %}</h3>
+                        <p class="text-pink-200 text-sm">{% trans "Speed Dating Twist" %}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sample Vote Breakdown -->
+            <h4 class="font-bold text-gray-900 mb-4">{% trans "Example Vote Breakdown:" %}</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Presentation Results -->
+                <div class="space-y-3">
+                    <div class="text-sm font-medium text-purple-600 mb-2">{% trans "Presentation Style" %}</div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-gray-700 text-sm">{% trans "With Favorite Music" %}</span>
+                            <span class="text-purple-600 font-bold text-sm">45%</span>
+                        </div>
+                        <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-crush-purple to-purple-600 rounded-full" style="width: 45%;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-gray-700 text-sm">{% trans "5 Questions" %}</span>
+                            <span class="text-gray-500 font-bold text-sm">35%</span>
+                        </div>
+                        <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-gray-400 rounded-full" style="width: 35%;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-gray-700 text-sm">{% trans "Picture & Story" %}</span>
+                            <span class="text-gray-500 font-bold text-sm">20%</span>
+                        </div>
+                        <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-gray-400 rounded-full" style="width: 20%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Twist Results -->
+                <div class="space-y-3">
+                    <div class="text-sm font-medium text-pink-600 mb-2">{% trans "Speed Dating Twist" %}</div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-gray-700 text-sm">{% trans "Spicy Questions" %}</span>
+                            <span class="text-pink-600 font-bold text-sm">50%</span>
+                        </div>
+                        <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-crush-pink to-pink-600 rounded-full" style="width: 50%;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-gray-700 text-sm">{% trans "Forbidden Word" %}</span>
+                            <span class="text-gray-500 font-bold text-sm">30%</span>
+                        </div>
+                        <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-gray-400 rounded-full" style="width: 30%;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-gray-700 text-sm">{% trans "Algorithm Extended" %}</span>
+                            <span class="text-gray-500 font-bold text-sm">20%</span>
+                        </div>
+                        <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-gray-400 rounded-full" style="width: 20%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg p-5">
+                <div class="flex items-start gap-3">
+                    <span class="text-2xl flex-shrink-0">🎯</span>
+                    <div>
+                        <strong class="text-gray-900 block mb-1">{% trans "What happens next?" %}</strong>
+                        <p class="text-gray-700">{% trans "The winning options are applied! In this example: Everyone presents with their favorite music playing, then speed dating starts with spicy questions to break the ice!" %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 5: After the Event -->
+    <div class="demo-section relative bg-white rounded-2xl shadow-lg mb-10 overflow-hidden border border-gray-100 transition-all duration-300" id="step-connections">
+        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-crush-purple via-purple-500 to-crush-pink"></div>
+
+        <div class="p-6 md:p-8">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center">
+                    <span class="text-white text-lg">💕</span>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">{% trans "Step 5: Make Connections" %}</h2>
+            </div>
+            <p class="text-gray-600 mb-8 leading-relaxed">{% trans "After the event, you can request connections with people you clicked with!" %}</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- You Can -->
+                <div class="group bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-6 hover:shadow-lg transition-all duration-300">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                            <span class="text-white text-lg">✓</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900">{% trans "You Can:" %}</h3>
+                    </div>
+                    <ul class="space-y-3">
+                        <li class="flex items-start gap-3">
+                            <span class="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mt-0.5">
+                                <svg class="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                            </span>
+                            <span class="text-gray-700">{% trans "View all event attendees" %}</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mt-0.5">
+                                <svg class="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                            </span>
+                            <span class="text-gray-700">{% trans "Send connection requests" %}</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mt-0.5">
+                                <svg class="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                            </span>
+                            <span class="text-gray-700">{% trans "Get coach-facilitated introductions" %}</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mt-0.5">
+                                <svg class="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                            </span>
+                            <span class="text-gray-700">{% trans "Exchange contact info with mutual matches" %}</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Privacy Protected -->
+                <div class="group bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl p-6 hover:shadow-lg transition-all duration-300">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                            <span class="text-white text-lg">🔒</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900">{% trans "Privacy Protected:" %}</h3>
+                    </div>
+                    <ul class="space-y-3">
+                        <li class="flex items-start gap-3">
+                            <span class="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mt-0.5">
+                                <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                </svg>
+                            </span>
+                            <span class="text-gray-700">{% trans "Only attendees can see each other" %}</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mt-0.5">
+                                <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                </svg>
+                            </span>
+                            <span class="text-gray-700">{% trans "Coach reviews all connections" %}</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mt-0.5">
+                                <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                </svg>
+                            </span>
+                            <span class="text-gray-700">{% trans "Both people must consent" %}</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mt-0.5">
+                                <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                </svg>
+                            </span>
+                            <span class="text-gray-700">{% trans "No info shared without permission" %}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CTA Section -->
+    <div class="text-center mt-12 mb-8">
+        <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <button class="group inline-flex items-center gap-3 px-8 py-4 text-lg font-semibold border-2 border-crush-purple text-crush-purple hover:bg-crush-purple hover:text-white rounded-xl transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105" id="restartTour">
+                <svg class="w-5 h-5 transform group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                <span>{% trans "Replay Tour" %}</span>
+            </button>
+            <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-primary px-10 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 inline-flex items-center gap-2">
+                <span>{% trans "Browse Events" %}</span>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                </svg>
+            </a>
         </div>
     </div>
 </div>
@@ -223,62 +644,68 @@ class VotingTour {
         this.currentStep = 0;
         this.steps = [
             {
-                title: "Welcome to Event Voting! 🎉",
-                text: "At Crush.lu events, YOU decide the activity! This tour shows how voting works on event day.",
+                title: "{% trans 'Welcome to Event Voting!' %} 🎉",
+                text: "{% trans 'At Crush.lu events, YOU shape the evening! This tour shows you exactly how voting works.' %}",
                 target: null,
                 highlight: null
             },
             {
-                title: "The Timeline ⏰",
-                text: "Voting opens 15 minutes after the event starts and lasts 30 minutes. You'll see a live countdown timer on your phone showing exactly how much time remains!",
-                target: "step-timing",
-                highlight: "step-timing"
+                title: "{% trans 'Three-Phase Events' %} 🎯",
+                text: "{% trans 'Every event has 3 phases: Icebreaker, Presentations, and Speed Dating. Your votes decide what happens in phases 2 and 3!' %}",
+                target: "step-overview",
+                highlight: "timeline"
             },
             {
-                title: "Choose Your Activity 🎭",
-                text: "You'll see 3 main activity types, each with different variants. Select ONE option from all the choices - the one with the most votes wins!",
-                target: "step-options",
-                highlight: "step-options"
+                title: "{% trans 'Voting Opens at 15 Minutes' %} ⏱️",
+                text: "{% trans 'After 15 minutes of mingling, voting opens for 30 minutes. You will see a live countdown timer on your phone!' %}",
+                target: "step-overview",
+                highlight: "step-overview"
             },
             {
-                title: "Speed Dating Options 💕",
-                text: "If you prefer quick conversations, choose one of the Speed Dating variants. Each offers a different way to organize the rounds!",
-                target: "group-speed-dating",
-                highlight: "group-speed-dating"
+                title: "{% trans 'TWO Categories!' %} ✌️",
+                text: "{% trans 'Unlike simple polls, you vote on TWO separate things. Each one affects a different phase of the event.' %}",
+                target: "step-categories",
+                highlight: "step-categories"
             },
             {
-                title: "Presentation Options 🎤",
-                text: "Prefer something creative? Choose a presentation style where everyone gets 90 seconds to introduce themselves in unique ways!",
-                target: "group-presentations",
-                highlight: "group-presentations"
+                title: "{% trans 'Category A: Presentation Style' %} 🎤",
+                text: "{% trans 'First, choose HOW everyone will introduce themselves. With music? Fun questions? Photos? You decide!' %}",
+                target: "step-categories",
+                highlight: "category-presentation"
             },
             {
-                title: "Mystery Event 🎭",
-                text: "Feeling adventurous? Trust our coaches with a surprise activity designed to create unexpected connections!",
-                target: "group-mystery",
-                highlight: "group-mystery"
+                title: "{% trans 'Category B: Speed Dating Twist' %} 💕",
+                text: "{% trans 'Then, pick a fun TWIST for the speed dating phase. Spicy questions? Word games? Extended time for top matches?' %}",
+                target: "step-categories",
+                highlight: "category-twist"
             },
             {
-                title: "Submit Your Vote ✓",
-                text: "Try selecting an option now! Once you pick one, the submit button activates. You can change your vote anytime before voting closes.",
-                target: "demoVoteForm",
-                highlight: "demoSubmitBtn"
+                title: "{% trans 'Mystery Option' %} 🎭",
+                text: "{% trans 'Some events offer a Mystery option! Trust the coaches with a surprise activity designed to create unexpected connections.' %}",
+                target: "step-categories",
+                highlight: "mystery-callout"
             },
             {
-                title: "Live Results 📊",
-                text: "After voting closes, see how everyone voted! The winning activity is announced and you can see the vote breakdown with percentages.",
+                title: "{% trans 'Try It Now!' %} 🗳️",
+                text: "{% trans 'Practice voting below! Select ONE option from EACH category - the submit button only activates when both are chosen.' %}",
+                target: "step-demo",
+                highlight: "demoVoteForm"
+            },
+            {
+                title: "{% trans 'TWO Winners!' %} 📊",
+                text: "{% trans 'After voting closes, winners are announced for BOTH categories. Each winner shapes a different part of your evening!' %}",
                 target: "step-results",
                 highlight: "step-results"
             },
             {
-                title: "Make Connections After 💕",
-                text: "When the event ends, you can connect with people you clicked with. Our coaches help facilitate introductions while protecting everyone's privacy!",
+                title: "{% trans 'Make Connections' %} 💕",
+                text: "{% trans 'After the event, connect with people you clicked with. Coaches facilitate introductions while protecting privacy!' %}",
                 target: "step-connections",
                 highlight: "step-connections"
             },
             {
-                title: "You're Ready! 🎉",
-                text: "That's how voting works! On event day, simply open the voting link on your phone when it's time. Questions? Ask a coach at the event!",
+                title: "{% trans 'You are Ready!' %} 🎉",
+                text: "{% trans 'That is everything! On event day, open the voting link on your phone. Questions? Ask a coach at the event!' %}",
                 target: null,
                 highlight: null
             }
@@ -288,23 +715,53 @@ class VotingTour {
     }
 
     init() {
-        document.getElementById('startTour').addEventListener('click', () => this.start());
-        document.getElementById('restartTour').addEventListener('click', () => this.start());
-        document.getElementById('tourNext').addEventListener('click', () => this.next());
-        document.getElementById('tourPrev').addEventListener('click', () => this.prev());
-        document.getElementById('tourOverlay').addEventListener('click', () => this.end());
+        var self = this;
+        document.getElementById('startTour').addEventListener('click', function() { self.start(); });
+        document.getElementById('restartTour').addEventListener('click', function() { self.start(); });
+        document.getElementById('tourNext').addEventListener('click', function() { self.next(); });
+        document.getElementById('tourPrev').addEventListener('click', function() { self.prev(); });
+        document.getElementById('tourOverlay').addEventListener('click', function() { self.end(); });
 
-        // Enable submit button when radio is selected
-        document.querySelectorAll('input[name="demo_vote"]').forEach(radio => {
-            radio.addEventListener('change', () => {
-                document.getElementById('demoSubmitBtn').disabled = false;
+        // Track selections for both categories
+        var presSelected = false;
+        var twistSelected = false;
+
+        document.querySelectorAll('input[name="demo_presentation"]').forEach(function(radio) {
+            radio.addEventListener('change', function() {
+                presSelected = true;
+                document.getElementById('pres-status').classList.remove('hidden');
+                self.checkBothSelected(presSelected, twistSelected);
+            });
+        });
+
+        document.querySelectorAll('input[name="demo_twist"]').forEach(function(radio) {
+            radio.addEventListener('change', function() {
+                twistSelected = true;
+                document.getElementById('twist-status').classList.remove('hidden');
+                self.checkBothSelected(presSelected, twistSelected);
             });
         });
 
         // Demo submit
-        document.getElementById('demoSubmitBtn').addEventListener('click', () => {
-            alert('✓ Vote submitted! In the real event, you\'d now see the results page.');
+        document.getElementById('demoSubmitBtn').addEventListener('click', function() {
+            var presChoice = document.querySelector('input[name="demo_presentation"]:checked');
+            var twistChoice = document.querySelector('input[name="demo_twist"]:checked');
+            if (presChoice && twistChoice) {
+                alert("{% trans 'Votes submitted! In a real event, you would now see the results page with live vote counts.' %}");
+            }
         });
+    }
+
+    checkBothSelected(presSelected, twistSelected) {
+        var btn = document.getElementById('demoSubmitBtn');
+        var warning = document.getElementById('vote-warning');
+        if (presSelected && twistSelected) {
+            btn.disabled = false;
+            warning.classList.add('hidden');
+        } else {
+            btn.disabled = true;
+            warning.classList.remove('hidden');
+        }
     }
 
     start() {
@@ -313,52 +770,46 @@ class VotingTour {
     }
 
     show() {
-        const step = this.steps[this.currentStep];
-        const tooltip = document.getElementById('tourTooltip');
-        const overlay = document.getElementById('tourOverlay');
+        var step = this.steps[this.currentStep];
+        var tooltip = document.getElementById('tourTooltip');
+        var overlay = document.getElementById('tourOverlay');
 
-        // Update text
         document.getElementById('tourTitle').textContent = step.title;
         document.getElementById('tourText').textContent = step.text;
 
-        // Update buttons
         document.getElementById('tourPrev').style.display = this.currentStep === 0 ? 'none' : 'block';
-        document.getElementById('tourNext').textContent = this.currentStep === this.steps.length - 1 ? 'Finish' : 'Next →';
+        document.getElementById('tourNext').textContent = this.currentStep === this.steps.length - 1 ? "{% trans 'Finish' %}" : "{% trans 'Next' %} →";
 
-        // Remove previous highlights
-        document.querySelectorAll('.tour-highlight').forEach(el => {
+        document.querySelectorAll('.tour-highlight').forEach(function(el) {
             el.classList.remove('tour-highlight');
         });
-        document.querySelectorAll('.demo-section.active').forEach(el => {
+        document.querySelectorAll('.demo-section.active').forEach(function(el) {
             el.classList.remove('active');
         });
 
-        // Show overlay and tooltip
         overlay.classList.add('active');
         tooltip.classList.add('active');
 
-        // Position tooltip and highlight
         if (step.target) {
-            const target = document.getElementById(step.target);
-            const rect = target.getBoundingClientRect();
+            var target = document.getElementById(step.target);
+            var rect = target.getBoundingClientRect();
 
             tooltip.style.top = (rect.top + window.scrollY - 250) + 'px';
             tooltip.style.left = Math.max(20, (rect.left + rect.width / 2 - 200)) + 'px';
+            tooltip.style.transform = 'none';
 
-            // Scroll into view
             target.scrollIntoView({ behavior: 'smooth', block: 'center' });
             target.classList.add('active');
         } else {
-            // Center tooltip
             tooltip.style.top = '50%';
             tooltip.style.left = '50%';
             tooltip.style.transform = 'translate(-50%, -50%)';
         }
 
         if (step.highlight) {
-            const highlight = document.getElementById(step.highlight);
+            var highlight = document.getElementById(step.highlight);
             if (highlight) {
-                setTimeout(() => {
+                setTimeout(function() {
                     highlight.classList.add('tour-highlight');
                 }, 300);
             }
@@ -384,17 +835,16 @@ class VotingTour {
     end() {
         document.getElementById('tourOverlay').classList.remove('active');
         document.getElementById('tourTooltip').classList.remove('active');
-        document.querySelectorAll('.tour-highlight').forEach(el => {
+        document.querySelectorAll('.tour-highlight').forEach(function(el) {
             el.classList.remove('tour-highlight');
         });
-        document.querySelectorAll('.demo-section.active').forEach(el => {
+        document.querySelectorAll('.demo-section.active').forEach(function(el) {
             el.classList.remove('active');
         });
     }
 }
 
-// Initialize tour when page loads
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function() {
     new VotingTour();
 });
 </script>

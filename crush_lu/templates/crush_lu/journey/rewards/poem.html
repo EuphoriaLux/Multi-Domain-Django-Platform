@@ -1,5 +1,5 @@
 {% extends "crush_lu/journey/journey_base.html" %}
-{% load static %}
+{% load static i18n %}
 
 {% block extra_journey_css %}
 <style>
@@ -164,7 +164,7 @@
     <!-- Back Button -->
     <div class="text-center mb-4">
         <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Back to Chapter
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Chapter" %}
         </a>
     </div>
 
@@ -187,24 +187,24 @@
             </div>
 
             <div class="signature">
-                — With all my heart 💜
+                — {% trans "With all my heart 💜" %}
             </div>
 
             {% if reward.audio_file %}
             <div style="margin-top: 40px; text-align: center;">
                 <p style="font-size: 1.1rem; margin-bottom: 15px; opacity: 0.9;">
-                    {% include "shared/icons/musical-note.html" with class="w-5 h-5" %} Listen to this special message
+                    {% include "shared/icons/musical-note.html" with class="w-5 h-5" %} {% trans "Listen to this special message" %}
                 </p>
                 <audio controls style="width: 100%; max-width: 500px; border-radius: 10px;">
                     <source src="{{ reward.audio_file.url|safe }}" type="audio/mpeg">
                     <source src="{{ reward.audio_file.url|safe }}" type="audio/mp3">
-                    Your browser does not support the audio element.
+                    {% trans "Your browser does not support the audio element." %}
                 </audio>
             </div>
             {% endif %}
 
             <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="continue-btn">
-                Continue Your Journey {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+                {% trans "Continue Your Journey" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
             </a>
         </div>
     </div>

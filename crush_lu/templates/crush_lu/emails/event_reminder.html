@@ -1,46 +1,47 @@
 {% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
 
-{% block title %}Event Reminder - Crush.lu{% endblock %}
+{% block title %}{% trans "Event Reminder" %} - Crush.lu{% endblock %}
 
-{% block header_title %}Event Reminder 📅{% endblock %}
+{% block header_title %}{% trans "Event Reminder" %} 📅{% endblock %}
 
 {% block content %}
-<h2>Hey {{ registration.user.first_name }}!</h2>
+<h2>{% blocktrans with first_name=registration.user.first_name %}Hey {{ first_name }}!{% endblocktrans %}</h2>
 
-<p><strong>Reminder:</strong> You're registered for <strong>{{ event.title }}</strong> happening in {{ days_until_event }} day{{ days_until_event|pluralize }}!</p>
+<p><strong>{% trans "Reminder:" %}</strong> {% blocktrans with title=event.title count days=days_until_event %}You're registered for <strong>{{ title }}</strong> happening in {{ days }} day!{% plural %}You're registered for <strong>{{ title }}</strong> happening in {{ days }} days!{% endblocktrans %}</p>
 
 <div class="info-box">
-    <strong>Event Details:</strong>
+    <strong>{% trans "Event Details:" %}</strong>
     <ul style="margin: 10px 0;">
-        <li><strong>Date:</strong> {{ event.date_time|date:"l, F j, Y" }}</li>
-        <li><strong>Time:</strong> {{ event.date_time|date:"g:i A" }}</li>
-        <li><strong>Location:</strong> {{ event.location }}</li>
+        <li><strong>{% trans "Date:" %}</strong> {{ event.date_time|date:"l, F j, Y" }}</li>
+        <li><strong>{% trans "Time:" %}</strong> {{ event.date_time|date:"g:i A" }}</li>
+        <li><strong>{% trans "Location:" %}</strong> {{ event.location }}</li>
     </ul>
 </div>
 
 <p><strong>{{ event.description }}</strong></p>
 
-<p><strong>Remember to bring:</strong></p>
+<p><strong>{% trans "Remember to bring:" %}</strong></p>
 <ul>
-    <li>Valid ID for age verification</li>
-    <li>An open mind and positive energy</li>
-    <li>Yourself - no one else!</li>
+    <li>{% trans "Valid ID for age verification" %}</li>
+    <li>{% trans "An open mind and positive energy" %}</li>
+    <li>{% trans "Yourself - no one else!" %}</li>
 </ul>
 
-<a href="{{ event_url }}" class="button">View Event Details</a>
+<a href="{{ event_url }}" class="button">{% trans "View Event Details" %}</a>
 
-<p><strong>Tips for a great experience:</strong></p>
+<p><strong>{% trans "Tips for a great experience:" %}</strong></p>
 <ul>
-    <li>Arrive 10-15 minutes early</li>
-    <li>Be yourself and relax</li>
-    <li>Respect everyone's privacy</li>
-    <li>Have fun and make connections!</li>
+    <li>{% trans "Arrive 10-15 minutes early" %}</li>
+    <li>{% trans "Be yourself and relax" %}</li>
+    <li>{% trans "Respect everyone's privacy" %}</li>
+    <li>{% trans "Have fun and make connections!" %}</li>
 </ul>
 
-<p>Can't make it? Please <a href="{{ cancel_url }}" style="color: #9B59B6;">cancel your registration</a> so someone on the waitlist can attend.</p>
+<p>{% trans "Can't make it? Please" %} <a href="{{ cancel_url }}" style="color: #9B59B6;">{% trans "cancel your registration" %}</a> {% trans "so someone on the waitlist can attend." %}</p>
 
 <p>
-    See you soon!<br>
-    <strong>The Crush.lu Team</strong>
+    {% trans "See you soon!" %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
 </p>
 {% endblock %}

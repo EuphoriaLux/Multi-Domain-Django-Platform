@@ -1,7 +1,8 @@
 {% extends 'crush_lu/base.html' %}
 {% load static %}
+{% load i18n %}
 
-{% block title %}Manage Invitations - {{ event.title }} - Crush.lu{% endblock %}
+{% block title %}{% trans "Manage Invitations" %} - {{ event.title }} - Crush.lu{% endblock %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-8">
@@ -10,7 +11,7 @@
         <div class="flex flex-col md:flex-row md:items-center md:justify-between">
             <div>
                 <h2 class="text-2xl font-bold mb-2 flex items-center gap-2">
-                    {% include "shared/icons/envelope.html" with class="w-5 h-5" %} Manage Private Invitations
+                    {% include "shared/icons/envelope.html" with class="w-5 h-5" %} {% trans "Manage Private Invitations" %}
                 </h2>
                 <h4 class="text-xl mb-2">{{ event.title }}</h4>
                 <p class="text-white/80">
@@ -22,7 +23,7 @@
             <div class="mt-4 md:mt-0">
                 <a href="{% url 'crush_lu:event_detail' event_id=event.id %}"
                    class="inline-flex items-center gap-2 bg-white text-gray-800 px-5 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
-                    {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Back to Event
+                    {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Event" %}
                 </a>
             </div>
         </div>
@@ -32,19 +33,19 @@
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div class="bg-white rounded-2xl p-6 shadow-sm text-center hover:-translate-y-1 transition-transform">
             <div class="text-4xl font-bold text-purple-600">{{ invitations.count }}</div>
-            <div class="text-gray-500 text-sm uppercase tracking-wide mt-1">Total Invitations</div>
+            <div class="text-gray-500 text-sm uppercase tracking-wide mt-1">{% trans "Total Invitations" %}</div>
         </div>
         <div class="bg-white rounded-2xl p-6 shadow-sm text-center hover:-translate-y-1 transition-transform">
             <div class="text-4xl font-bold text-amber-500">{{ pending_approvals.count }}</div>
-            <div class="text-gray-500 text-sm uppercase tracking-wide mt-1">Pending Approval</div>
+            <div class="text-gray-500 text-sm uppercase tracking-wide mt-1">{% trans "Pending Approval" %}</div>
         </div>
         <div class="bg-white rounded-2xl p-6 shadow-sm text-center hover:-translate-y-1 transition-transform">
             <div class="text-4xl font-bold text-green-500">{{ approved_guests.count }}</div>
-            <div class="text-gray-500 text-sm uppercase tracking-wide mt-1">Approved</div>
+            <div class="text-gray-500 text-sm uppercase tracking-wide mt-1">{% trans "Approved" %}</div>
         </div>
         <div class="bg-white rounded-2xl p-6 shadow-sm text-center hover:-translate-y-1 transition-transform">
             <div class="text-4xl font-bold text-blue-500">{{ pending_invitations.count }}</div>
-            <div class="text-gray-500 text-sm uppercase tracking-wide mt-1">Not Accepted</div>
+            <div class="text-gray-500 text-sm uppercase tracking-wide mt-1">{% trans "Not Accepted" %}</div>
         </div>
     </div>
 
@@ -52,7 +53,7 @@
     <div class="bg-white rounded-2xl shadow-sm mb-8 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100">
             <h5 class="font-semibold flex items-center gap-2">
-                {% include "shared/icons/plus-circle.html" with class="w-5 h-5" %} Send New Invitation
+                {% include "shared/icons/plus-circle.html" with class="w-5 h-5" %} {% trans "Send New Invitation" %}
             </h5>
         </div>
         <div class="p-6">
@@ -61,23 +62,23 @@
                 <input type="hidden" name="action" value="send_invitation">
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                     <div class="md:col-span-3">
-                        <label for="invite_first_name" class="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
+                        <label for="invite_first_name" class="block text-sm font-medium text-gray-700 mb-1">{% trans "First Name *" %}</label>
                         <input type="text" name="first_name" id="invite_first_name" required
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
                     </div>
                     <div class="md:col-span-3">
-                        <label for="invite_last_name" class="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
+                        <label for="invite_last_name" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Last Name *" %}</label>
                         <input type="text" name="last_name" id="invite_last_name" required
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
                     </div>
                     <div class="md:col-span-4">
-                        <label for="invite_email" class="block text-sm font-medium text-gray-700 mb-1">Email Address *</label>
+                        <label for="invite_email" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Email Address *" %}</label>
                         <input type="email" name="email" id="invite_email" required
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
                     </div>
                     <div class="md:col-span-2">
                         <button type="submit" class="btn-crush-primary w-full py-2">
-                            {% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %} Send
+                            {% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %} {% trans "Send" %}
                         </button>
                     </div>
                 </div>
@@ -89,7 +90,7 @@
     {% if pending_approvals.exists %}
     <div class="mb-8">
         <h4 class="text-lg font-semibold mb-4 flex items-center gap-2">
-            {% include "shared/icons/clock.html" with class="w-5 h-5 text-amber-500" %} Pending Approval ({{ pending_approvals.count }})
+            {% include "shared/icons/clock.html" with class="w-5 h-5 text-amber-500" %} {% blocktrans count counter=pending_approvals.count %}Pending Approval ({{ counter }}){% plural %}Pending Approvals ({{ counter }}){% endblocktrans %}
         </h4>
         {% for invitation in pending_approvals %}
         <div x-data="invitationRow" class="bg-white rounded-2xl p-5 shadow-sm mb-3 border-l-4 border-amber-400">
@@ -101,26 +102,26 @@
                     </p>
                 </div>
                 <div class="md:w-40">
-                    <span class="text-gray-500 text-sm block">Accepted</span>
+                    <span class="text-gray-500 text-sm block">{% trans "Accepted" %}</span>
                     <strong class="text-sm">{{ invitation.accepted_at|date:"M j, Y g:i A" }}</strong>
                 </div>
                 <div class="md:w-28">
                     <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold bg-amber-100 text-amber-800">
-                        {% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Pending
+                        {% include "shared/icons/hourglass.html" with class="w-5 h-5" %} {% trans "Pending" %}
                     </span>
                 </div>
                 <div class="flex gap-2">
-                    <form method="post" class="inline" onsubmit="return confirm('Approve this guest?');">
+                    <form method="post" class="inline" onsubmit="return confirm('{% trans "Approve this guest?" %}');">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="approve_guest">
                         <input type="hidden" name="invitation_id" value="{{ invitation.id }}">
                         <button type="submit" class="inline-flex items-center gap-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg transition-colors">
-                            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Approve
+                            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} {% trans "Approve" %}
                         </button>
                     </form>
                     <button @click="openRejectModal"
                             class="inline-flex items-center gap-1 px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-colors">
-                        {% include "shared/icons/x-circle.html" with class="w-5 h-5" %} Reject
+                        {% include "shared/icons/x-circle.html" with class="w-5 h-5" %} {% trans "Reject" %}
                     </button>
                 </div>
             </div>
@@ -144,7 +145,7 @@
                      x-transition:leave-start="opacity-100 scale-100"
                      x-transition:leave-end="opacity-0 scale-95">
                     <div class="flex items-center justify-between p-5 border-b border-gray-100">
-                        <h5 class="font-semibold">Reject Guest</h5>
+                        <h5 class="font-semibold">{% trans "Reject Guest" %}</h5>
                         <button @click="closeRejectModal" class="text-gray-400 hover:text-gray-600">
                             {% include "shared/icons/x-mark.html" with class="w-5 h-5" %}
                         </button>
@@ -154,22 +155,22 @@
                         <input type="hidden" name="action" value="reject_guest">
                         <input type="hidden" name="invitation_id" value="{{ invitation.id }}">
                         <div class="p-5">
-                            <p class="mb-4">Are you sure you want to reject <strong>{{ invitation.guest_first_name }} {{ invitation.guest_last_name }}</strong>?</p>
+                            <p class="mb-4">{% blocktrans with first_name=invitation.guest_first_name last_name=invitation.guest_last_name %}Are you sure you want to reject <strong>{{ first_name }} {{ last_name }}</strong>?{% endblocktrans %}</p>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Rejection Notes (Optional)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Rejection Notes (Optional)" %}</label>
                                 <textarea name="rejection_notes" rows="3"
-                                          placeholder="Internal notes about this decision..."
+                                          placeholder="{% trans 'Internal notes about this decision...' %}"
                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"></textarea>
                             </div>
                         </div>
                         <div class="flex justify-end gap-3 p-5 border-t border-gray-100">
                             <button type="button" @click="closeRejectModal"
                                     class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                                Cancel
+                                {% trans "Cancel" %}
                             </button>
                             <button type="submit"
                                     class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors">
-                                Reject Guest
+                                {% trans "Reject Guest" %}
                             </button>
                         </div>
                     </form>
@@ -184,7 +185,7 @@
     {% if approved_guests.exists %}
     <div class="mb-8">
         <h4 class="text-lg font-semibold mb-4 flex items-center gap-2">
-            {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %} Approved Guests ({{ approved_guests.count }})
+            {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %} {% blocktrans count counter=approved_guests.count %}Approved Guests ({{ counter }}){% plural %}Approved Guests ({{ counter }}){% endblocktrans %}
         </h4>
         {% for invitation in approved_guests %}
         <div class="bg-white rounded-2xl p-5 shadow-sm mb-3 border-l-4 border-green-400">
@@ -196,17 +197,17 @@
                     </p>
                 </div>
                 <div class="md:w-40">
-                    <span class="text-gray-500 text-sm block">Approved</span>
+                    <span class="text-gray-500 text-sm block">{% trans "Approved" %}</span>
                     <strong class="text-sm">{{ invitation.approved_at|date:"M j, Y g:i A" }}</strong>
                 </div>
                 <div class="md:w-28">
                     <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">
-                        {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Approved
+                        {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} {% trans "Approved" %}
                     </span>
                 </div>
                 <div class="md:w-32 text-right">
                     {% if invitation.created_user %}
-                    <span class="text-gray-400 text-sm">User ID: {{ invitation.created_user.id }}</span>
+                    <span class="text-gray-400 text-sm">{% trans "User ID:" %} {{ invitation.created_user.id }}</span>
                     {% endif %}
                 </div>
             </div>
@@ -219,7 +220,7 @@
     {% if pending_invitations.exists %}
     <div class="mb-8">
         <h4 class="text-lg font-semibold mb-4 flex items-center gap-2">
-            {% include "shared/icons/envelope.html" with class="w-5 h-5 text-blue-500" %} Sent Invitations ({{ pending_invitations.count }})
+            {% include "shared/icons/envelope.html" with class="w-5 h-5 text-blue-500" %} {% blocktrans count counter=pending_invitations.count %}Sent Invitations ({{ counter }}){% plural %}Sent Invitations ({{ counter }}){% endblocktrans %}
         </h4>
         {% for invitation in pending_invitations %}
         <div class="bg-white rounded-2xl p-5 shadow-sm mb-3 border-l-4 border-blue-400">
@@ -231,20 +232,20 @@
                     </p>
                 </div>
                 <div class="md:flex-1">
-                    <span class="text-gray-500 text-sm block">Invitation Link:</span>
+                    <span class="text-gray-500 text-sm block">{% trans "Invitation Link:" %}</span>
                     <code class="inline-block bg-gray-100 px-3 py-1 rounded text-sm font-mono mt-1 break-all">
                         {{ request.scheme }}://{{ request.get_host }}{% url 'crush_lu:invitation_landing' code=invitation.invitation_code %}
                     </code>
                 </div>
                 <div class="md:w-24">
                     <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800">
-                        {% include "shared/icons/envelope.html" with class="w-5 h-5" %} Sent
+                        {% include "shared/icons/envelope.html" with class="w-5 h-5" %} {% trans "Sent" %}
                     </span>
                 </div>
                 <div>
                     <button data-copy-url="{{ request.scheme }}://{{ request.get_host }}{% url 'crush_lu:invitation_landing' code=invitation.invitation_code %}"
                             class="copy-invitation-btn inline-flex items-center gap-1 px-3 py-2 border border-purple-500 text-purple-600 text-sm font-semibold rounded-lg hover:bg-purple-50 transition-colors">
-                        {% include "shared/icons/clipboard.html" with class="w-5 h-5" %} Copy Link
+                        {% include "shared/icons/clipboard.html" with class="w-5 h-5" %} {% trans "Copy Link" %}
                     </button>
                 </div>
             </div>
@@ -257,7 +258,7 @@
     {% if rejected_guests.exists %}
     <div class="mb-8">
         <h4 class="text-lg font-semibold mb-4 flex items-center gap-2">
-            {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-red-500" %} Rejected ({{ rejected_guests.count }})
+            {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-red-500" %} {% blocktrans count counter=rejected_guests.count %}Rejected ({{ counter }}){% plural %}Rejected ({{ counter }}){% endblocktrans %}
         </h4>
         {% for invitation in rejected_guests %}
         <div class="bg-white rounded-2xl p-5 shadow-sm mb-3 border-l-4 border-red-400">
@@ -270,13 +271,13 @@
                 </div>
                 <div class="md:flex-1">
                     {% if invitation.approval_notes %}
-                    <span class="text-gray-500 text-sm block">Notes:</span>
+                    <span class="text-gray-500 text-sm block">{% trans "Notes:" %}</span>
                     <p class="text-sm">{{ invitation.approval_notes }}</p>
                     {% endif %}
                 </div>
                 <div class="md:w-28">
                     <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800">
-                        {% include "shared/icons/x-circle.html" with class="w-5 h-5" %} Rejected
+                        {% include "shared/icons/x-circle.html" with class="w-5 h-5" %} {% trans "Rejected" %}
                     </span>
                 </div>
             </div>
@@ -289,8 +290,8 @@
     {% if not invitations.exists %}
     <div class="text-center py-16">
         <div class="text-6xl opacity-30 mb-4">📭</div>
-        <h4 class="text-xl text-gray-500 mb-2">No Invitations Yet</h4>
-        <p class="text-gray-400">Send your first invitation using the form above!</p>
+        <h4 class="text-xl text-gray-500 mb-2">{% trans "No Invitations Yet" %}</h4>
+        <p class="text-gray-400">{% trans "Send your first invitation using the form above!" %}</p>
     </div>
     {% endif %}
 </div>

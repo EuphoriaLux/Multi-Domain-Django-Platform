@@ -1,5 +1,5 @@
 {% extends "crush_lu/journey/journey_base.html" %}
-{% load static %}
+{% load static i18n %}
 
 {% block extra_journey_css %}
 <style>
@@ -218,17 +218,17 @@
     <!-- Back Button -->
     <div class="mb-4">
         <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Back to Chapter
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Chapter" %}
         </a>
     </div>
 
     <div class="challenge-card">
         <div class="challenge-type-badge">
-            {% include "shared/icons/pencil.html" with class="w-5 h-5" %} Open Response
+            {% include "shared/icons/pencil.html" with class="w-5 h-5" %} {% trans "Open Response" %}
         </div>
 
         <div class="points-display">
-            💎 {{ challenge.points_awarded }} Points
+            {% blocktrans with points=challenge.points_awarded %}💎 {{ points }} Points{% endblocktrans %}
         </div>
 
         <!-- Question -->
@@ -237,21 +237,21 @@
         </div>
 
         <div class="instruction-text">
-            Share your thoughts freely - there are no wrong answers ✨
+            {% trans "Share your thoughts freely - there are no wrong answers ✨" %}
         </div>
 
         {% if existing_attempt %}
         <!-- Already Completed -->
         <div class="message-box success active">
-            <h3>{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Already Submitted!</h3>
-            <p>You've already shared your response and earned <strong>{{ existing_attempt.points_earned }} points</strong>.</p>
+            <h3>{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} {% trans "Already Submitted!" %}</h3>
+            <p>{% blocktrans with points=existing_attempt.points_earned %}You've already shared your response and earned <strong>{{ points }} points</strong>.{% endblocktrans %}</p>
 
             <div class="personal-message">
                 {{ challenge.success_message|linebreaks }}
             </div>
 
             <div class="mt-3" style="padding: 20px; background: rgba(255, 255, 255, 0.05); border-radius: 10px;">
-                <strong>Your Response:</strong>
+                <strong>{% trans "Your Response:" %}</strong>
                 <div style="margin-top: 10px; font-style: italic; opacity: 0.9;">
                     "{{ existing_attempt.user_answer }}"
                 </div>
@@ -259,18 +259,18 @@
 
             <div class="mt-4">
                 <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
-                    Continue to Next Challenge {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+                    {% trans "Continue to Next Challenge" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
                 </a>
             </div>
         </div>
         {% else %}
         <!-- Writing Prompts (optional help) -->
         <div class="writing-prompt">
-            <h4>💭 Not sure what to write? Consider:</h4>
+            <h4>{% trans "💭 Not sure what to write? Consider:" %}</h4>
             <ul>
-                <li>What immediately comes to mind?</li>
-                <li>How does this question make you feel?</li>
-                <li>What would you want someone to know about your answer?</li>
+                <li>{% trans "What immediately comes to mind?" %}</li>
+                <li>{% trans "How does this question make you feel?" %}</li>
+                <li>{% trans "What would you want someone to know about your answer?" %}</li>
             </ul>
         </div>
 
@@ -279,17 +279,17 @@
             <textarea
                 id="textInput"
                 class="text-input"
-                placeholder="Start typing your thoughts here..."
+                placeholder="{% trans "Start typing your thoughts here..." %}"
                 maxlength="2000"
                 rows="8"
             ></textarea>
             <div id="charCounter" class="char-counter">
-                <span id="charCount">0</span> / 2000 characters
+                <span id="charCount">0</span> / {% trans "2000 characters" %}
             </div>
         </div>
 
         <button id="submitBtn" class="submit-btn" disabled>
-            {% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %} Submit Response
+            {% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %} {% trans "Submit Response" %}
         </button>
 
         <!-- Message Box -->

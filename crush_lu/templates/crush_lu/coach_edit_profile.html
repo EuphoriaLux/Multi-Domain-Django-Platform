@@ -1,7 +1,8 @@
 {% extends 'crush_lu/base.html' %}
 {% load static %}
+{% load i18n %}
 
-{% block title %}Edit Coach Profile - Crush.lu{% endblock %}
+{% block title %}{% trans "Edit Coach Profile" %} - Crush.lu{% endblock %}
 
 {% block extra_js %}
 <script src="{% static 'crush_lu/js/photo-preview.js' %}"></script>
@@ -12,9 +13,9 @@
     <div class="w-full max-w-2xl">
         <div class="bg-white rounded-xl shadow-sm">
             <div class="p-8">
-                <h2 class="text-2xl font-bold text-center mb-4">Edit Coach Profile</h2>
+                <h2 class="text-2xl font-bold text-center mb-4">{% trans "Edit Coach Profile" %}</h2>
                 <p class="text-center text-gray-500 mb-6">
-                    Update your coaching bio and specializations that users see when assigned to you.
+                    {% trans "Update your coaching bio and specializations that users see when assigned to you." %}
                 </p>
 
                 <form method="post" enctype="multipart/form-data" novalidate>
@@ -29,23 +30,23 @@
                     <!-- Coach Photo Section -->
                     <div class="mb-6">
                         <label class="block text-sm font-semibold text-gray-700 mb-1">
-                            Coach Photo
+                            {% trans "Coach Photo" %}
                         </label>
                         <p class="text-gray-500 text-sm mb-3">
-                            This photo is shown to users when they're assigned to you as their coach.
+                            {% trans "This photo is shown to users when they're assigned to you as their coach." %}
                         </p>
 
                         <div class="photo-upload-card photo-upload-card--bordered">
                             <div class="photo-preview-container photo-preview-container--circular">
                                 {% if coach.photo %}
-                                    <img src="{{ coach.photo.url }}" alt="Current photo" class="photo-preview" id="photo-preview">
-                                    <span class="photo-badge">Current</span>
+                                    <img src="{{ coach.photo.url }}" alt="{% trans 'Current photo' %}" class="photo-preview" id="photo-preview">
+                                    <span class="photo-badge">{% trans "Current" %}</span>
                                 {% else %}
                                     <div class="photo-placeholder" id="photo-preview">
                                         <svg class="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                                         </svg>
-                                        <span class="text-gray-500 text-sm">No photo</span>
+                                        <span class="text-gray-500 text-sm">{% trans "No photo" %}</span>
                                     </div>
                                 {% endif %}
                             </div>
@@ -65,7 +66,7 @@
 
                     <div class="mb-6">
                         <label for="{{ form.bio.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-1">
-                            Coach Bio
+                            {% trans "Coach Bio" %}
                         </label>
                         {{ form.bio }}
                         {% if form.bio.help_text %}
@@ -78,7 +79,7 @@
 
                     <div class="mb-6">
                         <label for="{{ form.specializations.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-1">
-                            Specializations
+                            {% trans "Specializations" %}
                         </label>
                         {{ form.specializations }}
                         {% if form.specializations.help_text %}
@@ -93,15 +94,15 @@
 
                     <!-- Coach Stats (read-only) -->
                     <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 mb-6">
-                        <h6 class="font-semibold mb-4">Your Coach Stats</h6>
+                        <h6 class="font-semibold mb-4">{% trans "Your Coach Stats" %}</h6>
                         <div class="grid grid-cols-2 gap-4 text-center">
                             <div>
                                 <strong class="text-xl">{{ coach.max_active_reviews }}</strong>
-                                <br><small class="text-gray-500">Max Active Reviews</small>
+                                <br><small class="text-gray-500">{% trans "Max Active Reviews" %}</small>
                             </div>
                             <div>
-                                <strong class="text-xl">{% if coach.is_active %}Active{% else %}Inactive{% endif %}</strong>
-                                <br><small class="text-gray-500">Status</small>
+                                <strong class="text-xl">{% if coach.is_active %}{% trans "Active" %}{% else %}{% trans "Inactive" %}{% endif %}</strong>
+                                <br><small class="text-gray-500">{% trans "Status" %}</small>
                             </div>
                         </div>
                     </div>
@@ -109,21 +110,21 @@
                     {% if has_dating_profile %}
                         <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-6 flex items-start gap-2">
                             {% include "shared/icons/info.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
-                            <span>You also have a dating profile. <a href="{% url 'crush_lu:edit_profile' %}" class="font-medium underline hover:no-underline">Edit your dating profile</a></span>
+                            <span>{% trans "You also have a dating profile." %} <a href="{% url 'crush_lu:edit_profile' %}" class="font-medium underline hover:no-underline">{% trans "Edit your dating profile" %}</a></span>
                         </div>
                     {% else %}
                         <div class="bg-gray-50 border border-gray-200 text-gray-700 rounded-lg p-4 mb-6 flex items-start gap-2">
                             {% include "shared/icons/user-plus.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
-                            <span>Want to use Crush.lu for dating too? <a href="{% url 'crush_lu:create_profile' %}" class="font-medium underline hover:no-underline">Create a dating profile</a></span>
+                            <span>{% trans "Want to use Crush.lu for dating too?" %} <a href="{% url 'crush_lu:create_profile' %}" class="font-medium underline hover:no-underline">{% trans "Create a dating profile" %}</a></span>
                         </div>
                     {% endif %}
 
                     <div class="flex gap-3">
                         <button type="submit" class="btn-crush-primary flex-1 py-3">
-                            Save Changes
+                            {% trans "Save Changes" %}
                         </button>
                         <a href="{% url 'crush_lu:coach_dashboard' %}" class="inline-flex items-center justify-center px-6 py-3 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-                            Cancel
+                            {% trans "Cancel" %}
                         </a>
                     </div>
                 </form>

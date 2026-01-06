@@ -1,9 +1,10 @@
+{% load i18n %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Entreprinder{% endblock %}</title>
+    <title>{% block title %}{% trans "Entreprinder" %}{% endblock %}</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -85,7 +86,7 @@
 <body>
     <div class="email-container">
         <div class="header">
-            <h1>{% block header_title %}Entreprinder{% endblock %}</h1>
+            <h1>{% block header_title %}{% trans "Entreprinder" %}{% endblock %}</h1>
         </div>
         <div class="content">
             {% block content %}
@@ -93,14 +94,14 @@
         </div>
         <div class="footer">
             <p>
-                <strong>Entreprinder</strong> - Entrepreneur Networking<br>
+                <strong>{% trans "Entreprinder" %}</strong> - {% trans "Entrepreneur Networking" %}<br>
                 <a href="{{ home_url|default:'https://entreprinder.lu' }}">entreprinder.lu</a>
             </p>
             <p style="font-size: 12px; color: #999;">
                 {% block footer_message %}
-                You're receiving this because you have an account on Entreprinder.<br>
+                {% trans "You're receiving this because you have an account on Entreprinder." %}<br>
                 {% endblock %}
-                If you have questions, contact us at contact@entreprinder.lu
+                {% trans "If you have questions, contact us at contact@entreprinder.lu" %}
             </p>
         </div>
     </div>

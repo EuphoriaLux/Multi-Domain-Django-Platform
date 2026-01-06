@@ -1,5 +1,5 @@
 {% extends "crush_lu/journey/journey_base.html" %}
-{% load static %}
+{% load static i18n %}
 
 {% block extra_head %}
 <!-- CSRF token for AJAX requests -->
@@ -323,7 +323,7 @@
     <!-- Back Button -->
     <div class="text-center mb-4">
         <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Back to Chapter
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Chapter" %}
         </a>
     </div>
 
@@ -340,13 +340,13 @@
             </div>
 
             <div class="instruction-text">
-                Click on pieces to unlock them! Each piece costs <strong>50 points</strong> 💎
+                {% trans "Click on pieces to unlock them! Each piece costs <strong>50 points</strong> 💎" %}
             </div>
 
             <!-- Points Display -->
             <div class="text-center mb-3">
                 <span class="badge" style="background: linear-gradient(135deg, #FFD700, #FFA500); font-size: 1.2rem; padding: 10px 20px;">
-                    {% include "shared/icons/star.html" with class="w-5 h-5" %} <span id="currentPoints">Loading...</span> Points
+                    {% include "shared/icons/star.html" with class="w-5 h-5" %} <span id="currentPoints">{% trans "Loading..." %}</span> {% trans "Points" %}
                 </span>
             </div>
 
@@ -362,20 +362,20 @@
                 </div>
                 <div class="puzzle-overlay" id="puzzleOverlay">
                     <div class="puzzle-complete-message">
-                        🎉 Photo Revealed! 🎉
+                        {% trans "🎉 Photo Revealed! 🎉" %}
                     </div>
                 </div>
             </div>
 
             <div id="completionButtons" style="display: none; text-align: center;">
                 <a href="#" id="downloadBtn" class="continue-btn" style="display: inline-block; margin: 20px 10px;">
-                    {% include "shared/icons/arrow-down-tray.html" with class="w-5 h-5" %} Download Photo
+                    {% include "shared/icons/arrow-down-tray.html" with class="w-5 h-5" %} {% trans "Download Photo" %}
                 </a>
                 <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="continue-btn" style="display: inline-block; margin: 20px 10px;">
-                    Continue Your Journey {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+                    {% trans "Continue Your Journey" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
                 </a>
                 <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; margin-top: 10px; font-style: italic;">
-                    💡 Tip: Download this special memory to keep forever!
+                    {% trans "💡 Tip: Download this special memory to keep forever!" %}
                 </div>
             </div>
         </div>

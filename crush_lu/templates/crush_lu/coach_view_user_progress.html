@@ -1,7 +1,8 @@
 {% extends "crush_lu/base.html" %}
 {% load static %}
+{% load i18n %}
 
-{% block title %}Journey Report - {{ progress.user.first_name|default:progress.user.username }}{% endblock %}
+{% block title %}{% trans "Journey Report" %} - {{ progress.user.first_name|default:progress.user.username }}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -410,36 +411,36 @@
     <!-- Report Header -->
     <div class="report-header">
         <div class="report-title">
-            {% include "shared/icons/book-open.html" with class="w-5 h-5" %} Journey Report: {{ progress.journey.journey_name }}
+            {% include "shared/icons/book-open.html" with class="w-5 h-5" %} {% blocktrans with name=progress.journey.journey_name %}Journey Report: {{ name }}{% endblocktrans %}
         </div>
         <div class="report-subtitle">
             <strong>{{ progress.user.first_name|default:progress.user.username }}</strong>
             {% if progress.user.email %} ({{ progress.user.email }}){% endif %}
         </div>
         <div class="report-subtitle" style="margin-top: 10px;">
-            {% include "shared/icons/calendar-days.html" with class="w-5 h-5" %} Started: {{ progress.started_at|date:"M d, Y" }} &bull;
-            {% include "shared/icons/clock.html" with class="w-5 h-5" %} Last Activity: {{ progress.last_activity|date:"M d, Y H:i" }}
+            {% include "shared/icons/calendar-days.html" with class="w-5 h-5" %} {% blocktrans with started=progress.started_at|date:"M d, Y" %}Started: {{ started }}{% endblocktrans %} &bull;
+            {% include "shared/icons/clock.html" with class="w-5 h-5" %} {% blocktrans with activity=progress.last_activity|date:"M d, Y H:i" %}Last Activity: {{ activity }}{% endblocktrans %}
             {% if stats.journey_duration %}
-                &bull; {% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Duration: {{ stats.journey_duration.days }} days
+                &bull; {% include "shared/icons/hourglass.html" with class="w-5 h-5" %} {% blocktrans count counter=stats.journey_duration.days %}Duration: {{ counter }} day{% plural %}Duration: {{ counter }} days{% endblocktrans %}
             {% endif %}
         </div>
 
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-number">{{ progress.current_chapter }}/{{ progress.journey.total_chapters }}</div>
-                <div class="stat-label">Chapters Completed</div>
+                <div class="stat-label">{% trans "Chapters Completed" %}</div>
             </div>
             <div class="stat-card">
                 <div class="stat-number">{{ progress.total_points }}</div>
-                <div class="stat-label">Total Points</div>
+                <div class="stat-label">{% trans "Total Points" %}</div>
             </div>
             <div class="stat-card">
                 <div class="stat-number">{{ stats.completed_challenges }}/{{ stats.total_challenges }}</div>
-                <div class="stat-label">Challenges Done</div>
+                <div class="stat-label">{% trans "Challenges Done" %}</div>
             </div>
             <div class="stat-card">
                 <div class="stat-number">{{ stats.total_attempts }}</div>
-                <div class="stat-label">Total Attempts</div>
+                <div class="stat-label">{% trans "Total Attempts" %}</div>
             </div>
             <div class="stat-card">
                 <div class="stat-number">
@@ -449,7 +450,7 @@
                         {% include "shared/icons/hourglass.html" with class="w-5 h-5" %}
                     {% endif %}
                 </div>
-                <div class="stat-label">{% if progress.is_completed %}Completed{% else %}In Progress{% endif %}</div>
+                <div class="stat-label">{% if progress.is_completed %}{% trans "Completed" %}{% else %}{% trans "In Progress" %}{% endif %}</div>
             </div>
         </div>
     </div>
@@ -465,7 +466,7 @@
             {% endif %}
         </div>
         <div class="final-response-text">
-            <h4>Final Response</h4>
+            <h4>{% trans "Final Response" %}</h4>
             <p>{{ progress.get_final_response_display }}</p>
             <small style="opacity: 0.8;">{% include "shared/icons/clock.html" with class="w-5 h-5" %} {{ progress.final_response_at|date:"M d, Y H:i" }}</small>
         </div>
@@ -476,7 +477,7 @@
     {% if questionnaire_responses %}
     <div class="insights-section">
         <div class="insights-title">
-            {% include "shared/icons/light-bulb.html" with class="w-5 h-5" %} Key Insights & Personal Responses
+            {% include "shared/icons/light-bulb.html" with class="w-5 h-5" %} {% trans "Key Insights & Personal Responses" %}
         </div>
 
         {% for response in questionnaire_responses %}
@@ -501,7 +502,7 @@
 
     <!-- Chapter-by-Chapter Results -->
     <h3 class="mb-4" style="color: #2d3748;">
-        {% include "shared/icons/document-text.html" with class="w-5 h-5" %} Detailed Journey Results
+        {% include "shared/icons/document-text.html" with class="w-5 h-5" %} {% trans "Detailed Journey Results" %}
     </h3>
 
     {% for chapter_info in chapter_data %}
@@ -653,13 +654,13 @@
     <!-- Action Buttons -->
     <div class="mt-10 flex flex-wrap gap-4">
         <a href="{% url 'crush_lu:coach_journey_dashboard' %}" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Back to Journeys
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Journeys" %}
         </a>
         <button onclick="window.print()" class="border border-purple-500 text-purple-600 hover:bg-purple-50 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
-            {% include "shared/icons/printer.html" with class="w-5 h-5" %} Print Report
+            {% include "shared/icons/printer.html" with class="w-5 h-5" %} {% trans "Print Report" %}
         </button>
         <a href="{% url 'crush_admin:crush_lu_journeyprogress_change' progress.id %}" class="border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
-            {% include "shared/icons/cog-6-tooth.html" with class="w-5 h-5" %} Admin View
+            {% include "shared/icons/cog-6-tooth.html" with class="w-5 h-5" %} {% trans "Admin View" %}
         </a>
     </div>
 </div>

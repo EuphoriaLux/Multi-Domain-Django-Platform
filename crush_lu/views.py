@@ -3268,7 +3268,24 @@ def get_current_presenter_api(request, event_id):
 # Demo/Guided Tour View
 def voting_demo(request):
     """Interactive demo of the voting system for new users"""
-    return render(request, 'crush_lu/voting_demo.html')
+    from .models import GlobalActivityOption
+
+    # Get actual activity options from database
+    presentation_options = GlobalActivityOption.objects.filter(
+        activity_type='presentation_style',
+        is_active=True
+    ).order_by('sort_order')
+
+    twist_options = GlobalActivityOption.objects.filter(
+        activity_type='speed_dating_twist',
+        is_active=True
+    ).order_by('sort_order')
+
+    context = {
+        'presentation_options': presentation_options,
+        'twist_options': twist_options,
+    }
+    return render(request, 'crush_lu/voting_demo.html', context)
 
 
 # ============================================================================

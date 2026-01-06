@@ -1,31 +1,32 @@
 {% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
 
-{% block title %}Profile Review Update - Crush.lu{% endblock %}
+{% block title %}{% trans "Profile Review Update" %} - Crush.lu{% endblock %}
 
-{% block header_title %}Profile Review Update{% endblock %}
+{% block header_title %}{% trans "Profile Review Update" %}{% endblock %}
 
 {% block content %}
-<h2>Hey {{ first_name }},</h2>
+<h2>{% blocktrans with first_name=first_name %}Hey {{ first_name }},{% endblocktrans %}</h2>
 
-<p>Thank you for your interest in Crush.lu. After careful review, we're unable to approve your profile at this time.</p>
+<p>{% trans "Thank you for your interest in Crush.lu. After careful review, we're unable to approve your profile at this time." %}</p>
 
 <div class="info-box">
-    <strong>Reason:</strong>
+    <strong>{% trans "Reason:" %}</strong>
     <p>{{ reason }}</p>
 </div>
 
-<p>We take profile quality and community safety seriously to ensure the best experience for all members. We appreciate your understanding.</p>
+<p>{% trans "We take profile quality and community safety seriously to ensure the best experience for all members. We appreciate your understanding." %}</p>
 
-<p><strong>What you can do:</strong></p>
+<p><strong>{% trans "What you can do:" %}</strong></p>
 <ul>
-    <li>If you believe this was an error, please contact us at support@crush.lu</li>
-    <li>You may create a new profile addressing the concerns mentioned above</li>
+    <li>{% trans "If you believe this was an error, please contact us at support@crush.lu" %}</li>
+    <li>{% trans "You may create a new profile addressing the concerns mentioned above" %}</li>
 </ul>
 
-<p>We wish you the best in your search!</p>
+<p>{% trans "We wish you the best in your search!" %}</p>
 
 <p>
-    Best regards,<br>
-    <strong>The Crush.lu Team</strong>
+    {% trans "Best regards," %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
 </p>
 {% endblock %}

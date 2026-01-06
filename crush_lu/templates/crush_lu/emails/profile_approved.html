@@ -1,43 +1,44 @@
 {% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
 
-{% block title %}Profile Approved - Crush.lu{% endblock %}
+{% block title %}{% trans "Profile Approved" %} - Crush.lu{% endblock %}
 
-{% block header_title %}Welcome to Crush.lu! 🎉{% endblock %}
+{% block header_title %}{% trans "Welcome to Crush.lu!" %} 🎉{% endblock %}
 
 {% block content %}
-<h2>Congratulations {{ first_name }}!</h2>
+<h2>{% blocktrans with first_name=first_name %}Congratulations {{ first_name }}!{% endblocktrans %}</h2>
 
-<p><strong>Your profile has been approved!</strong> You're now part of the Crush.lu community.</p>
+<p><strong>{% trans "Your profile has been approved!" %}</strong> {% trans "You're now part of the Crush.lu community." %}</p>
 
 {% if coach_notes %}
 <div class="info-box">
-    <strong>Feedback from your coach:</strong>
+    <strong>{% trans "Feedback from your coach:" %}</strong>
     <p>{{ coach_notes }}</p>
 </div>
 {% endif %}
 
-<p><strong>What you can do now:</strong></p>
+<p><strong>{% trans "What you can do now:" %}</strong></p>
 <ul>
-    <li>Browse and register for upcoming events</li>
-    <li>Meet new people at speed dating and social mixers</li>
-    <li>Connect with attendees after events</li>
+    <li>{% trans "Browse and register for upcoming events" %}</li>
+    <li>{% trans "Meet new people at speed dating and social mixers" %}</li>
+    <li>{% trans "Connect with attendees after events" %}</li>
 </ul>
 
-<a href="{{ events_url }}" class="button">Browse Events</a>
+<a href="{{ events_url }}" class="button">{% trans "Browse Events" %}</a>
 
 <div class="info-box">
-    <strong>💡 Pro Tips:</strong>
+    <strong>{% trans "💡 Pro Tips:" %}</strong>
     <ul style="margin: 10px 0;">
-        <li>Events fill up fast - register early!</li>
-        <li>Be yourself and have fun</li>
-        <li>Respect everyone's privacy and boundaries</li>
+        <li>{% trans "Events fill up fast - register early!" %}</li>
+        <li>{% trans "Be yourself and have fun" %}</li>
+        <li>{% trans "Respect everyone's privacy and boundaries" %}</li>
     </ul>
 </div>
 
-<p>We're excited to see you at our events!</p>
+<p>{% trans "We're excited to see you at our events!" %}</p>
 
 <p>
-    Cheers,<br>
-    <strong>The Crush.lu Team</strong>
+    {% trans "Cheers," %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
 </p>
 {% endblock %}

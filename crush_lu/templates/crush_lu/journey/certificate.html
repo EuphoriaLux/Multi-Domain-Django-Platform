@@ -1,5 +1,5 @@
 {% extends "crush_lu/journey/journey_base.html" %}
-{% load static %}
+{% load static i18n %}
 
 {% block extra_journey_css %}
 <style>
@@ -254,7 +254,7 @@
     <!-- Back Button -->
     <div class="text-center mb-4" style="color: white;">
         <a href="{% url 'crush_lu:journey_map' %}" class="nav-btn">
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Back to Journey Map
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Journey Map" %}
         </a>
     </div>
 
@@ -267,20 +267,20 @@
         <!-- Header -->
         <div class="certificate-header">
             <div class="certificate-ornament">🌟 ✨ 🌟</div>
-            <h1 class="certificate-title">CERTIFICATE OF COMPLETION</h1>
-            <p class="certificate-subtitle">For extraordinary courage and dedication</p>
+            <h1 class="certificate-title">{% trans "CERTIFICATE OF COMPLETION" %}</h1>
+            <p class="certificate-subtitle">{% trans "For extraordinary courage and dedication" %}</p>
         </div>
 
         <!-- Body -->
         <div class="certificate-body">
-            <p class="certify-text">This certifies that</p>
+            <p class="certify-text">{% trans "This certifies that" %}</p>
 
             <div class="recipient-name">
                 {{ journey_progress.user.first_name }} {{ journey_progress.user.last_name }}
             </div>
 
             <p class="achievement-text">
-                has successfully completed the journey through
+                {% trans "has successfully completed the journey through" %}
             </p>
 
             <div class="journey-title">
@@ -288,37 +288,35 @@
             </div>
 
             <p class="achievement-text">
-                Demonstrating courage, wisdom, and the ability<br>
-                to see magic in the everyday.
+                {% trans "Demonstrating courage, wisdom, and the ability to see magic in the everyday." %}
             </p>
 
             <!-- Stats -->
             <div class="stats-section">
                 <div class="stat-box">
                     <div class="stat-value">{{ total_chapters }}</div>
-                    <div class="stat-label">Chapters Completed</div>
+                    <div class="stat-label">{% trans "Chapters Completed" %}</div>
                 </div>
                 <div class="stat-box">
                     <div class="stat-value">{{ total_points }}</div>
-                    <div class="stat-label">Points Earned</div>
+                    <div class="stat-label">{% trans "Points Earned" %}</div>
                 </div>
                 <div class="stat-box">
                     <div class="stat-value">∞</div>
-                    <div class="stat-label">Hearts Captured</div>
+                    <div class="stat-label">{% trans "Hearts Captured" %}</div>
                 </div>
             </div>
 
             {% if hours_spent > 0 %}
             <p class="achievement-text">
-                Time invested in this journey: <strong>{{ hours_spent }}h {{ minutes_spent }}m</strong>
+                {% blocktrans with hours=hours_spent minutes=minutes_spent %}Time invested in this journey: <strong>{{ hours }}h {{ minutes }}m</strong>{% endblocktrans %}
             </p>
             {% endif %}
 
             <!-- Quote -->
             <div class="quote-section">
                 <p class="quote-text">
-                    "Not all who wander are lost,<br>
-                    But some wander straight into each other's hearts."
+                    {% trans "Not all who wander are lost, but some wander straight into each other's hearts." %}
                 </p>
             </div>
 
@@ -332,7 +330,7 @@
         <div class="certificate-footer">
             <div class="signature-section">
                 <div class="signature-line"></div>
-                <div class="signature-label">Date Completed</div>
+                <div class="signature-label">{% trans "Date Completed" %}</div>
                 <div style="color: #2c3e50; font-weight: bold; margin-top: 5px;">
                     {{ completion_date|date:"F j, Y" }}
                 </div>
@@ -340,9 +338,9 @@
 
             <div class="signature-section">
                 <div class="signature-line"></div>
-                <div class="signature-label">Created with</div>
+                <div class="signature-label">{% trans "Created with" %}</div>
                 <div style="color: #2c3e50; font-weight: bold; margin-top: 5px;">
-                    💖 Hours of thinking about you
+                    {% trans "💖 Hours of thinking about you" %}
                 </div>
             </div>
         </div>
@@ -351,13 +349,13 @@
     <!-- Action Buttons -->
     <div class="action-buttons">
         <a href="javascript:window.print()" class="action-btn">
-            {% include "shared/icons/printer.html" with class="w-5 h-5" %} Print Certificate
+            {% include "shared/icons/printer.html" with class="w-5 h-5" %} {% trans "Print Certificate" %}
         </a>
         <a href="{% url 'crush_lu:journey_map' %}" class="action-btn secondary">
-            {% include "shared/icons/map.html" with class="w-5 h-5" %} View Journey Map
+            {% include "shared/icons/map.html" with class="w-5 h-5" %} {% trans "View Journey Map" %}
         </a>
         <a href="{% url 'crush_lu:dashboard' %}" class="action-btn secondary">
-            {% include "shared/icons/home.html" with class="w-5 h-5" %} Dashboard
+            {% include "shared/icons/home.html" with class="w-5 h-5" %} {% trans "Dashboard" %}
         </a>
     </div>
 </div>

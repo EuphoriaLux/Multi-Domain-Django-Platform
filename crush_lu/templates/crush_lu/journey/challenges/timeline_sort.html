@@ -1,5 +1,5 @@
 {% extends "crush_lu/journey/journey_base.html" %}
-{% load static %}
+{% load static i18n %}
 
 {% block extra_journey_css %}
 <style>
@@ -216,17 +216,17 @@
     <!-- Back Button -->
     <div class="mb-4">
         <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Back to Chapter
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Chapter" %}
         </a>
     </div>
 
     <div class="challenge-card">
         <div class="challenge-type-badge">
-            {% include "shared/icons/clock.html" with class="w-5 h-5" %} Timeline Challenge
+            {% include "shared/icons/clock.html" with class="w-5 h-5" %} {% trans "Timeline Challenge" %}
         </div>
 
         <div class="points-display">
-            💎 {{ challenge.points_awarded }} Points
+            {% blocktrans with points=challenge.points_awarded %}💎 {{ points }} Points{% endblocktrans %}
         </div>
 
         <!-- Question -->
@@ -237,18 +237,18 @@
         {% if existing_attempt %}
         <!-- Already Completed -->
         <div class="message-box success active">
-            <h3>{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Already Completed!</h3>
-            <p>You already sorted this timeline correctly and earned <strong>{{ existing_attempt.points_earned }} points</strong>.</p>
+            <h3>{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} {% trans "Already Completed!" %}</h3>
+            <p>{% blocktrans with points=existing_attempt.points_earned %}You already sorted this timeline correctly and earned <strong>{{ points }} points</strong>.{% endblocktrans %}</p>
             <div class="mt-3">
                 <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
-                    Continue to Next Challenge {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+                    {% trans "Continue to Next Challenge" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
                 </a>
             </div>
         </div>
         {% else %}
         <!-- Instructions -->
         <div class="instruction-box">
-            {% include "shared/icons/hand-raised.html" with class="w-5 h-5" %} <span id="instructionText">Drag and drop the events to arrange them in chronological order</span>
+            {% include "shared/icons/hand-raised.html" with class="w-5 h-5" %} <span id="instructionText">{% trans "Drag and drop the events to arrange them in chronological order" %}</span>
         </div>
 
         <!-- Timeline -->
@@ -266,7 +266,7 @@
         </div>
 
         <button id="submitBtn" class="submit-btn">
-            Submit Timeline {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}
+            {% trans "Submit Timeline" %} {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}
         </button>
 
         <!-- Message Box -->
@@ -290,7 +290,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Update instruction text for mobile users
     if (isTouchDevice && instructionText) {
-        instructionText.textContent = 'Touch and drag the events to arrange them in chronological order';
+        instructionText.textContent = '{% trans "Touch and drag the events to arrange them in chronological order" %}';
     }
 
     // Initialize Sortable.js with touch support

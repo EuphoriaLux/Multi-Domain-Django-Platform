@@ -1,3 +1,4 @@
+{% load i18n %}
 <div id="connection-actions-{{ recipient.id }}" class="space-y-2" role="status" aria-live="polite">
     <form hx-post="{% url 'crush_lu:request_connection_inline' event.id recipient.id %}"
           hx-target="#connection-actions-{{ recipient.id }}"
@@ -7,7 +8,7 @@
         <div>
             <textarea name="note"
                       rows="2"
-                      placeholder="Add a note (optional)..."
+                      placeholder="{% trans 'Add a note (optional)...' %}"
                       class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"></textarea>
         </div>
         <div class="flex gap-2">
@@ -18,7 +19,7 @@
                 </span>
                 <span class="htmx-hide-on-request inline-flex items-center gap-1">
                     {% include "shared/icons/heart.html" with class="w-4 h-4" %}
-                    Send Request
+                    {% trans "Send Request" %}
                 </span>
             </button>
             <button type="button"
@@ -26,7 +27,7 @@
                     hx-target="#connection-actions-{{ recipient.id }}"
                     hx-swap="outerHTML"
                     class="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                Cancel
+                {% trans "Cancel" %}
             </button>
         </div>
     </form>
