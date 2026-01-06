@@ -377,9 +377,9 @@ def crush_admin_dashboard(request):
         'accepted_invitations': EventInvitation.objects.filter(status='accepted').count(),
         'declined_invitations': EventInvitation.objects.filter(status='declined').count(),
         'expired_invitations': EventInvitation.objects.filter(status='expired').count(),
-        'external_guests': EventInvitation.objects.filter(is_external_guest=True).count(),
+        'external_guests': EventInvitation.objects.filter(created_user__isnull=True).count(),
         'recent_invitations': EventInvitation.objects.filter(
-            created_at__gte=thirty_days_ago
+            invitation_sent_at__gte=thirty_days_ago
         ).count(),
     }
 
