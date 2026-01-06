@@ -1,7 +1,8 @@
 {% extends 'crush_lu/base.html' %}
 {% load static %}
+{% load i18n %}
 
-{% block title %}Voting Results - {{ event.title }} - Crush.lu{% endblock %}
+{% block title %}{% trans "Voting Results" %} - {{ event.title }} - Crush.lu{% endblock %}
 
 {% block extra_css %}
 {# Styles moved to static/crush_lu/css/pages/voting.css #}
@@ -14,39 +15,39 @@
 <div class="flex justify-center">
     <div class="w-full max-w-4xl px-4">
         <a href="{% url 'crush_lu:event_detail' event.id %}" class="inline-flex items-center gap-2 px-4 py-2 mb-4 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
-            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} Back to Event
+            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} {% trans "Back to Event" %}
         </a>
 
         <div class="bg-white rounded-xl shadow-sm">
             <div class="p-8">
                 <div class="text-center mb-4">
-                    <h1 class="display-5">Voting Results</h1>
+                    <h1 class="display-5">{% trans "Voting Results" %}</h1>
                     <p class="text-lg text-gray-500">{{ event.title }}</p>
                     {% if voting_session.is_voting_open %}
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">Voting Still Open</span>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">{% trans "Voting Still Open" %}</span>
                     {% else %}
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">Voting Closed</span>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">{% trans "Voting Closed" %}</span>
                     {% endif %}
                 </div>
 
                 {% if winner %}
                 <div class="winner-banner">
                     <div class="winner-icon">🏆</div>
-                    <h2 class="mb-3">The Winner Is:</h2>
+                    <h2 class="mb-3">{% trans "The Winner Is:" %}</h2>
                     <h1 class="display-4 mb-0">{{ winner.display_name }}</h1>
                 </div>
 
                 <div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4">
-                    <h5 class="font-semibold mb-2">What happens next?</h5>
+                    <h5 class="font-semibold mb-2">{% trans "What happens next?" %}</h5>
                     <p class="mb-0">{{ winner.description }}</p>
                 </div>
                 {% else %}
                 <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 text-center">
-                    <h5 class="font-semibold mb-2">Voting in Progress</h5>
-                    <p class="mb-0">Results will be final when voting closes. Keep checking back!</p>
+                    <h5 class="font-semibold mb-2">{% trans "Voting in Progress" %}</h5>
+                    <p class="mb-0">{% trans "Results will be final when voting closes. Keep checking back!" %}</p>
                     {% if voting_session.is_voting_open %}
                     <div class="mt-3">
-                        <strong>Time Remaining:</strong>
+                        <strong>{% trans "Time Remaining:" %}</strong>
                         <div class="text-xl text-purple-600" id="time-remaining">
                             {{ voting_session.time_remaining|floatformat:0 }}s
                         </div>
@@ -59,16 +60,16 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <h2 id="total-votes-display">{{ total_votes }}</h2>
-                            <p class="mb-0">Total Votes</p>
+                            <p class="mb-0">{% trans "Total Votes" %}</p>
                         </div>
                         <div>
                             <h2>{{ activity_options|length }}</h2>
-                            <p class="mb-0">Activity Options</p>
+                            <p class="mb-0">{% trans "Activity Options" %}</p>
                         </div>
                     </div>
                 </div>
 
-                <h3 class="mb-4">Detailed Results</h3>
+                <h3 class="mb-4">{% trans "Detailed Results" %}</h3>
 
                 <div id="voting-results-container">
                     {% for option in activity_options %}
@@ -86,10 +87,10 @@
                             </div>
                             <div class="text-end">
                                 {% if option.is_winner %}
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Winner 🏆</span>
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{% trans "Winner 🏆" %}</span>
                                 {% endif %}
                                 {% if user_vote and user_vote.selected_option.id == option.id %}
-                                <span class="badge-user-vote">Your Vote ✓</span>
+                                <span class="badge-user-vote">{% trans "Your Vote ✓" %}</span>
                                 {% endif %}
                             </div>
                         </div>
@@ -102,7 +103,7 @@
                                  aria-valuenow="{% if total_votes > 0 %}{{ option.vote_count|floatformat:0 }}{% else %}0{% endif %}"
                                  aria-valuemin="0"
                                  aria-valuemax="100">
-                                <span id="option-{{ option.id }}-count">{{ option.vote_count }}</span> votes
+                                <span id="option-{{ option.id }}-count">{{ option.vote_count }}</span> {% trans "votes" %}
                                 <span id="option-{{ option.id }}-percent" class="ml-2">
                                     ({% if total_votes > 0 %}{{ option.vote_count|floatformat:0|add:"0" }}{% else %}0{% endif %}%)
                                 </span>
@@ -115,13 +116,13 @@
                 {% if voting_session.is_voting_open and not user_vote %}
                 <div class="text-center mt-6">
                     <a href="{% url 'crush_lu:event_activity_vote' event.id %}" class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3 text-lg">
-                        Cast Your Vote Now
+                        {% trans "Cast Your Vote Now" %}
                     </a>
                 </div>
                 {% elif voting_session.is_voting_open and user_vote %}
                 <div class="text-center mt-6">
                     <a href="{% url 'crush_lu:event_activity_vote' event.id %}" class="inline-flex items-center gap-2 px-6 py-3 border border-purple-500 text-purple-600 hover:bg-purple-50 font-medium rounded-lg transition-colors text-lg">
-                        Change Your Vote
+                        {% trans "Change Your Vote" %}
                     </a>
                 </div>
                 {% endif %}
@@ -129,7 +130,7 @@
                 {% if not voting_session.is_voting_open and winner %}
                 <div class="text-center mt-6">
                     <a href="{% url 'crush_lu:event_attendees' event.id %}" class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3 text-lg">
-                        View Event Attendees
+                        {% trans "View Event Attendees" %}
                     </a>
                 </div>
                 {% endif %}

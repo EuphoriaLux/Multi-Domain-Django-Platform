@@ -1,14 +1,14 @@
 {% extends 'crush_lu/base.html' %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Request Connection{% endblock %}
+{% block title %}{% trans "Request Connection" %}{% endblock %}
 
 {% block content %}
 <div class="py-10">
     <div class="max-w-lg mx-auto">
         <!-- Header -->
         <div class="text-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-900 mb-3">Request Connection 💕</h1>
+            <h1 class="text-3xl font-bold text-gray-900 mb-3">{% trans "Request Connection 💕" %}</h1>
             <p class="text-gray-500">{{ event.title }}</p>
         </div>
 

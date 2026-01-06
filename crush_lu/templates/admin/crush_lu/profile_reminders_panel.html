@@ -1,0 +1,702 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Profile Reminders - Crush.lu Admin{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    /* Theme-aware CSS variables */
+    :root {
+        --card-bg: #ffffff;
+        --card-shadow: rgba(0,0,0,0.1);
+        --text-primary: #333333;
+        --text-secondary: #666666;
+        --text-muted: #999999;
+        --success-bg: #d4edda;
+        --success-border: #c3e6cb;
+        --success-text: #155724;
+        --warning-bg: #fff3cd;
+        --warning-border: #ffeeba;
+        --warning-text: #856404;
+        --danger-bg: #f8d7da;
+        --danger-border: #f5c6cb;
+        --danger-text: #721c24;
+        --info-bg: #d1ecf1;
+        --info-border: #bee5eb;
+        --info-text: #0c5460;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --card-bg: #1e1e2e;
+            --card-shadow: rgba(0,0,0,0.3);
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --text-muted: #888888;
+            --success-bg: #1e3a29;
+            --success-border: #2d5a3d;
+            --success-text: #a3d9a5;
+            --warning-bg: #3a3520;
+            --warning-border: #5a5230;
+            --warning-text: #f5d78e;
+            --danger-bg: #3a1e20;
+            --danger-border: #5a2d30;
+            --danger-text: #f5a3a7;
+            --info-bg: #1e2e3a;
+            --info-border: #2d4a5a;
+            --info-text: #a3d1e0;
+        }
+    }
+
+    [data-theme="dark"] {
+        --card-bg: #1e1e2e;
+        --card-shadow: rgba(0,0,0,0.3);
+        --text-primary: #e0e0e0;
+        --text-secondary: #b0b0b0;
+        --text-muted: #888888;
+    }
+
+    .reminders-container {
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 14px;
+        margin-bottom: 16px;
+    }
+
+    .back-link:hover {
+        color: var(--text-primary);
+    }
+
+    .page-header {
+        margin-bottom: 24px;
+    }
+
+    .page-header h1 {
+        margin: 0 0 8px 0;
+        color: var(--text-primary);
+    }
+
+    .page-header p {
+        margin: 0;
+        color: var(--text-muted);
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .summary-card {
+        background: var(--card-bg);
+        border-radius: 8px;
+        padding: 16px 20px;
+        box-shadow: 0 2px 4px var(--card-shadow);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .summary-card.clickable {
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .summary-card.clickable:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px var(--card-shadow);
+    }
+
+    .summary-icon {
+        font-size: 28px;
+    }
+
+    .summary-content h3 {
+        margin: 0;
+        font-size: 24px;
+        color: var(--text-primary);
+    }
+
+    .summary-content p {
+        margin: 0;
+        font-size: 12px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .panel-section {
+        background: var(--card-bg);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 4px var(--card-shadow);
+    }
+
+    .section-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 16px;
+        border-bottom: 1px solid var(--card-shadow);
+        padding-bottom: 12px;
+    }
+
+    .section-header h2 {
+        margin: 0;
+        font-size: 18px;
+        color: var(--text-primary);
+    }
+
+    .section-icon {
+        font-size: 24px;
+    }
+
+    /* Form Styles */
+    .reminder-form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        align-items: end;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .form-group label {
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 13px;
+    }
+
+    .form-group select,
+    .form-group input[type="number"] {
+        padding: 10px 12px;
+        border: 1px solid var(--card-shadow);
+        border-radius: 6px;
+        font-size: 14px;
+        background: var(--card-bg);
+        color: var(--text-primary);
+    }
+
+    .form-group select:focus,
+    .form-group input:focus {
+        outline: none;
+        border-color: #9B59B6;
+        box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.2);
+    }
+
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 0;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+
+    .checkbox-group label {
+        font-weight: normal;
+        cursor: pointer;
+    }
+
+    .btn-submit {
+        padding: 12px 24px;
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-submit:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
+    }
+
+    .btn-submit:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    /* Results Styles */
+    .results-banner {
+        padding: 16px 20px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+    }
+
+    .results-banner.success {
+        background: var(--success-bg);
+        border: 1px solid var(--success-border);
+        color: var(--success-text);
+    }
+
+    .results-banner.warning {
+        background: var(--warning-bg);
+        border: 1px solid var(--warning-border);
+        color: var(--warning-text);
+    }
+
+    .results-banner.info {
+        background: var(--info-bg);
+        border: 1px solid var(--info-border);
+        color: var(--info-text);
+    }
+
+    .results-stats {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+    }
+
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .stat-value {
+        font-size: 20px;
+        font-weight: bold;
+    }
+
+    .stat-label {
+        font-size: 13px;
+    }
+
+    .results-details {
+        margin-top: 16px;
+    }
+
+    .results-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .results-table th,
+    .results-table td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--card-shadow);
+    }
+
+    .results-table th {
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+
+    .results-table td {
+        color: var(--text-primary);
+        font-size: 14px;
+    }
+
+    .result-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .result-badge.sent,
+    .result-badge.would_send {
+        background: var(--success-bg);
+        color: var(--success-text);
+    }
+
+    .result-badge.skipped {
+        background: var(--warning-bg);
+        color: var(--warning-text);
+    }
+
+    .result-badge.failed {
+        background: var(--danger-bg);
+        color: var(--danger-text);
+    }
+
+    /* Preview Styles */
+    .preview-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 16px;
+    }
+
+    .preview-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-shadow);
+        border-radius: 8px;
+        padding: 16px;
+    }
+
+    .preview-card h4 {
+        margin: 0 0 12px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: var(--text-primary);
+    }
+
+    .preview-count {
+        background: #9B59B6;
+        color: white;
+        padding: 2px 10px;
+        border-radius: 12px;
+        font-size: 14px;
+    }
+
+    .preview-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .preview-list li {
+        padding: 6px 0;
+        font-size: 13px;
+        color: var(--text-secondary);
+        border-bottom: 1px solid var(--card-shadow);
+    }
+
+    .preview-list li:last-child {
+        border-bottom: none;
+    }
+
+    .no-users {
+        color: var(--text-muted);
+        font-style: italic;
+    }
+
+    /* History Table */
+    .history-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .history-table th,
+    .history-table td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--card-shadow);
+    }
+
+    .history-table th {
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+
+    .history-table td {
+        color: var(--text-primary);
+        font-size: 14px;
+    }
+
+    .type-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .type-badge.type-24h {
+        background: #e3f2fd;
+        color: #1565c0;
+    }
+
+    .type-badge.type-72h {
+        background: #fff3e0;
+        color: #ef6c00;
+    }
+
+    .type-badge.type-7d {
+        background: #fce4ec;
+        color: #c2185b;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        .type-badge.type-24h {
+            background: #1e3a5a;
+            color: #64b5f6;
+        }
+        .type-badge.type-72h {
+            background: #3a2e1e;
+            color: #ffb74d;
+        }
+        .type-badge.type-7d {
+            background: #3a1e2e;
+            color: #f48fb1;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="reminders-container">
+    <a href="{% url 'crush_admin_dashboard' %}" class="back-link">
+        &larr; Back to Dashboard
+    </a>
+
+    <div class="page-header">
+        <h1>Profile Reminder Panel</h1>
+        <p>Send profile completion reminder emails to users who haven't finished their profiles.</p>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+        <div class="summary-card">
+            <span class="summary-icon">📬</span>
+            <div class="summary-content">
+                <h3>{{ total_eligible }}</h3>
+                <p>Total Eligible</p>
+            </div>
+        </div>
+        <div class="summary-card">
+            <span class="summary-icon">⏰</span>
+            <div class="summary-content">
+                <h3>{{ preview.24h.count }}</h3>
+                <p>24h Reminders</p>
+            </div>
+        </div>
+        <div class="summary-card">
+            <span class="summary-icon">📅</span>
+            <div class="summary-content">
+                <h3>{{ preview.72h.count }}</h3>
+                <p>72h Reminders</p>
+            </div>
+        </div>
+        <div class="summary-card">
+            <span class="summary-icon">🔔</span>
+            <div class="summary-content">
+                <h3>{{ preview.7d.count }}</h3>
+                <p>7d Final Reminders</p>
+            </div>
+        </div>
+    </div>
+
+    {% if results %}
+    <!-- Results Section -->
+    <div class="panel-section">
+        <div class="section-header">
+            <span class="section-icon">📊</span>
+            <h2>Execution Results</h2>
+        </div>
+
+        <div class="results-banner {% if results.dry_run %}info{% elif results.failed > 0 %}warning{% else %}success{% endif %}">
+            {% if results.dry_run %}
+            <strong>Dry Run Complete</strong> - No emails were actually sent.
+            {% else %}
+            <strong>Reminders Sent!</strong> - Execution completed at {{ results.executed_at|date:"H:i:s" }}.
+            {% endif %}
+
+            <div class="results-stats">
+                <div class="stat-item">
+                    <span class="stat-value">{{ results.sent }}</span>
+                    <span class="stat-label">{% if results.dry_run %}Would Send{% else %}Sent{% endif %}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value">{{ results.skipped }}</span>
+                    <span class="stat-label">Skipped</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value">{{ results.failed }}</span>
+                    <span class="stat-label">Failed</span>
+                </div>
+            </div>
+        </div>
+
+        {% if results.details %}
+        <div class="results-details">
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Type</th>
+                        <th>Profile Status</th>
+                        <th>Result</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for detail in results.details %}
+                    <tr>
+                        <td>{{ detail.user_email }}</td>
+                        <td><span class="type-badge type-{{ detail.reminder_type }}">{{ detail.reminder_type }}</span></td>
+                        <td>{{ detail.status }}</td>
+                        <td>
+                            <span class="result-badge {{ detail.result }}">{{ detail.result }}</span>
+                            {% if detail.error %}<br><small>{{ detail.error }}</small>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Send Reminders Form -->
+    <div class="panel-section">
+        <div class="section-header">
+            <span class="section-icon">📤</span>
+            <h2>Send Reminders</h2>
+        </div>
+
+        <form method="post" class="reminder-form">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="reminder_type">Reminder Type</label>
+                <select name="reminder_type" id="reminder_type">
+                    <option value="all">All Types (24h, 72h, 7d)</option>
+                    <option value="24h">24 Hour Only ({{ preview.24h.count }} users)</option>
+                    <option value="72h">72 Hour Only ({{ preview.72h.count }} users)</option>
+                    <option value="7d">7 Day Final Only ({{ preview.7d.count }} users)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="limit">Max Emails to Send</label>
+                <input type="number" name="limit" id="limit" value="100" min="1" max="500">
+            </div>
+
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" name="dry_run" id="dry_run">
+                    <label for="dry_run">Dry Run (preview without sending)</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <button type="submit" class="btn-submit" {% if total_eligible == 0 %}disabled{% endif %}>
+                    Send Reminders
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Preview Section -->
+    <div class="panel-section">
+        <div class="section-header">
+            <span class="section-icon">👀</span>
+            <h2>Eligible Users Preview</h2>
+        </div>
+
+        <div class="preview-grid">
+            <div class="preview-card">
+                <h4>
+                    24 Hour Reminders
+                    <span class="preview-count">{{ preview.24h.count }}</span>
+                </h4>
+                {% if preview.24h.users %}
+                <ul class="preview-list">
+                    {% for user in preview.24h.users %}
+                    <li>{{ user.email }} ({{ user.crushprofile.completion_status }})</li>
+                    {% endfor %}
+                    {% if preview.24h.count > 10 %}
+                    <li class="no-users">... and {{ preview.24h.count|add:"-10" }} more</li>
+                    {% endif %}
+                </ul>
+                {% else %}
+                <p class="no-users">No users eligible for 24h reminder</p>
+                {% endif %}
+            </div>
+
+            <div class="preview-card">
+                <h4>
+                    72 Hour Reminders
+                    <span class="preview-count">{{ preview.72h.count }}</span>
+                </h4>
+                {% if preview.72h.users %}
+                <ul class="preview-list">
+                    {% for user in preview.72h.users %}
+                    <li>{{ user.email }} ({{ user.crushprofile.completion_status }})</li>
+                    {% endfor %}
+                    {% if preview.72h.count > 10 %}
+                    <li class="no-users">... and {{ preview.72h.count|add:"-10" }} more</li>
+                    {% endif %}
+                </ul>
+                {% else %}
+                <p class="no-users">No users eligible for 72h reminder</p>
+                {% endif %}
+            </div>
+
+            <div class="preview-card">
+                <h4>
+                    7 Day Final Reminders
+                    <span class="preview-count">{{ preview.7d.count }}</span>
+                </h4>
+                {% if preview.7d.users %}
+                <ul class="preview-list">
+                    {% for user in preview.7d.users %}
+                    <li>{{ user.email }} ({{ user.crushprofile.completion_status }})</li>
+                    {% endfor %}
+                    {% if preview.7d.count > 10 %}
+                    <li class="no-users">... and {{ preview.7d.count|add:"-10" }} more</li>
+                    {% endif %}
+                </ul>
+                {% else %}
+                <p class="no-users">No users eligible for 7d reminder</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent History -->
+    <div class="panel-section">
+        <div class="section-header">
+            <span class="section-icon">📜</span>
+            <h2>Recent Reminders Sent</h2>
+        </div>
+
+        {% if recent_reminders %}
+        <table class="history-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Type</th>
+                    <th>Sent At</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for reminder in recent_reminders %}
+                <tr>
+                    <td>{{ reminder.user.email }}</td>
+                    <td><span class="type-badge type-{{ reminder.reminder_type }}">{{ reminder.get_reminder_type_display }}</span></td>
+                    <td>{{ reminder.sent_at|date:"M d, Y H:i" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="no-users">No reminders have been sent yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

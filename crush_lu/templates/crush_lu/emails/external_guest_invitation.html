@@ -1,9 +1,10 @@
+{% load i18n %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ LANGUAGE_CODE|default:'en' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>You're Invited to Crush.lu</title>
+    <title>{% trans "You're Invited to Crush.lu" %}</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -102,28 +103,28 @@
 <body>
     <div class="container">
         <div class="inner-content">
-            <h1>💌 You're Invited!</h1>
-            <p class="subtitle">Someone special wants you to join them on Crush.lu</p>
+            <h1>💌 {% trans "You're Invited!" %}</h1>
+            <p class="subtitle">{% trans "Someone special wants you to join them on Crush.lu" %}</p>
 
-            <p>Hi {{ guest_first_name }},</p>
+            <p>{% blocktrans with first_name=guest_first_name %}Hi {{ first_name }},{% endblocktrans %}</p>
 
-            <p>You've received a special invitation to join an exclusive event on Crush.lu, Luxembourg's privacy-first dating platform:</p>
+            <p>{% trans "You've received a special invitation to join an exclusive event on Crush.lu, Luxembourg's privacy-first dating platform:" %}</p>
 
             <div class="event-details">
-                <span class="private-badge">✨ EXCLUSIVE INVITATION</span>
+                <span class="private-badge">✨ {% trans "EXCLUSIVE INVITATION" %}</span>
                 <h2>{{ event.title }}</h2>
 
                 <div class="detail-row">
                     <span class="detail-icon">📅</span>
                     <div>
-                        <strong>When:</strong> {{ event.date_time|date:"l, F j, Y" }} at {{ event.date_time|time:"g:i A" }}
+                        <strong>{% trans "When:" %}</strong> {{ event.date_time|date:"l, F j, Y" }} {% trans "at" %} {{ event.date_time|time:"g:i A" }}
                     </div>
                 </div>
 
                 <div class="detail-row">
                     <span class="detail-icon">📍</span>
                     <div>
-                        <strong>Where:</strong> {{ event.location }}
+                        <strong>{% trans "Where:" %}</strong> {{ event.location }}
                         {% if event.address %}
                         <br><span style="color: #666;">{{ event.address }}</span>
                         {% endif %}
@@ -134,7 +135,7 @@
                 <div class="detail-row">
                     <span class="detail-icon">ℹ️</span>
                     <div>
-                        <strong>About:</strong><br>{{ event.description|truncatewords:30 }}
+                        <strong>{% trans "About:" %}</strong><br>{{ event.description|truncatewords:30 }}
                     </div>
                 </div>
                 {% endif %}
@@ -143,39 +144,39 @@
                 <div class="detail-row">
                     <span class="detail-icon">💰</span>
                     <div>
-                        <strong>Fee:</strong> €{{ event.registration_fee }}
+                        <strong>{% trans "Fee:" %}</strong> €{{ event.registration_fee }}
                     </div>
                 </div>
                 {% endif %}
             </div>
 
             <div class="info-box">
-                <strong>ℹ️ What happens next?</strong><br>
-                1. Click the button below to accept your invitation<br>
-                2. Create your Crush.lu account (quick & easy!)<br>
-                3. Your profile will be reviewed by our team<br>
-                4. Once approved, you can register for the event
+                <strong>ℹ️ {% trans "What happens next?" %}</strong><br>
+                {% trans "1. Click the button below to accept your invitation" %}<br>
+                {% trans "2. Create your Crush.lu account (quick & easy!)" %}<br>
+                {% trans "3. Your profile will be reviewed by our team" %}<br>
+                {% trans "4. Once approved, you can register for the event" %}
             </div>
 
             <a href="{{ invitation_url }}" class="cta-button">
-                Accept Invitation & Create Account
+                {% trans "Accept Invitation & Create Account" %}
             </a>
 
             <p style="text-align: center; color: #666; font-size: 14px; margin-top: 25px;">
-                Your unique invitation link:<br>
+                {% trans "Your unique invitation link:" %}<br>
                 <a href="{{ invitation_url }}" style="color: #9B59B6; word-break: break-all;">{{ invitation_url }}</a>
             </p>
 
             <div class="footer">
-                <p><strong>About Crush.lu</strong></p>
-                <p>Crush.lu is Luxembourg's privacy-first dating platform focused on real connections through in-person events. We prioritize quality over quantity, with human-reviewed profiles and exclusive events.</p>
+                <p><strong>{% trans "About Crush.lu" %}</strong></p>
+                <p>{% trans "Crush.lu is Luxembourg's privacy-first dating platform focused on real connections through in-person events. We prioritize quality over quantity, with human-reviewed profiles and exclusive events." %}</p>
 
                 <p style="margin-top: 20px;">
-                    Questions? Just reply to this email!
+                    {% trans "Questions? Just reply to this email!" %}
                 </p>
 
                 <p style="margin-top: 15px;">
-                    © {{ "now"|date:"Y" }} Crush.lu - Privacy-First Dating in Luxembourg
+                    © {{ "now"|date:"Y" }} Crush.lu - {% trans "Privacy-First Dating in Luxembourg" %}
                 </p>
             </div>
         </div>

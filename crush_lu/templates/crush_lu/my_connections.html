@@ -1,15 +1,15 @@
 {% extends 'crush_lu/base.html' %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}My Connections{% endblock %}
+{% block title %}{% trans "My Connections" %}{% endblock %}
 {% block meta_robots %}noindex, nofollow{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto">
     <!-- Header -->
     <div class="text-center mb-8">
-        <h1 class="text-3xl font-bold mb-3">My Connections 💕</h1>
-        <p class="text-lg text-gray-500">Track your connection requests and active connections</p>
+        <h1 class="text-3xl font-bold mb-3">{% trans "My Connections 💕" %}</h1>
+        <p class="text-lg text-gray-500">{% trans "Track your connection requests and active connections" %}</p>
     </div>
 
     <!-- Received Requests (Pending Action) -->
@@ -17,7 +17,7 @@
         <div class="mb-8">
             <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
                 {% include "shared/icons/inbox.html" with class="w-5 h-5" %}
-                <span>Requests You've Received</span>
+                <span>{% trans "Requests You've Received" %}</span>
                 <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold bg-red-500 text-white rounded-full">{{ received_requests|length }}</span>
             </h3>
 
@@ -34,7 +34,7 @@
         <div class="mb-8">
             <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
                 {% include "shared/icons/users.html" with class="w-5 h-5" %}
-                <span>Active Connections</span>
+                <span>{% trans "Active Connections" %}</span>
             </h3>
 
             <div class="space-y-4">
@@ -58,7 +58,7 @@
         <div class="mb-8">
             <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
                 {% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %}
-                <span>Requests You've Sent</span>
+                <span>{% trans "Requests You've Sent" %}</span>
             </h3>
 
             <div class="space-y-4">
@@ -90,7 +90,7 @@
                                         </p>
                                         <span class="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full mt-2">
                                             {% include "shared/icons/clock.html" with class="w-3 h-3" %}
-                                            Waiting for response
+                                            {% trans "Waiting for response" %}
                                         </span>
                                     </div>
                                 </div>
@@ -108,13 +108,13 @@
             <div class="mb-6">
                 <span class="text-8xl">💕</span>
             </div>
-            <h3 class="text-2xl font-semibold mb-2">No connections yet</h3>
+            <h3 class="text-2xl font-semibold mb-2">{% trans "No connections yet" %}</h3>
             <p class="text-gray-500 mb-6">
-                Attend an event and connect with people you meet!
+                {% trans "Attend an event and connect with people you meet!" %}
             </p>
             <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3">
                 {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
-                Browse Events
+                {% trans "Browse Events" %}
             </a>
         </div>
     {% endif %}

@@ -23,7 +23,10 @@ from crush_lu.models import (
     SpecialUserExperience, JourneyConfiguration, JourneyProgress,
     ReferralCode, ReferralAttribution,
 )
-from .filters import ReviewTimeFilter, SubmissionWorkflowFilter, CoachAssignmentFilter
+from .filters import (
+    ReviewTimeFilter, SubmissionWorkflowFilter, CoachAssignmentFilter,
+    PhoneVerificationFilter, AgeRangeFilter, LastLoginFilter
+)
 
 
 class CrushCoachAdmin(admin.ModelAdmin):
@@ -129,7 +132,10 @@ class ProfileSubmissionProfileInline(admin.TabularInline):
 
 class CrushProfileAdmin(admin.ModelAdmin):
     list_display = ('get_user_link', 'get_email', 'age', 'gender', 'location', 'get_language_display', 'phone_verified_icon', 'completion_status', 'get_assigned_coach', 'get_referral_code', 'get_referral_count', 'is_approved', 'is_active', 'created_at', 'is_coach')
-    list_filter = ('is_approved', 'is_active', 'phone_verified', 'gender', 'completion_status', CoachAssignmentFilter, 'preferred_language', 'looking_for', 'created_at')
+    list_filter = (
+        'is_approved', 'is_active', PhoneVerificationFilter, AgeRangeFilter, LastLoginFilter,
+        'gender', 'completion_status', CoachAssignmentFilter, 'preferred_language', 'looking_for', 'created_at'
+    )
     search_fields = ('user__username', 'user__email', 'location', 'bio', 'phone_number')
     ordering = ['-is_approved', '-is_active', '-created_at']
     readonly_fields = (
@@ -144,7 +150,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
         'get_referral_count',
         'get_journey_progress',
     )
-    actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'reset_phone_verification', 'export_profiles_csv']
+    actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'reset_phone_verification', 'export_profiles_csv', 'send_bulk_email']
     inlines = [ProfileSubmissionProfileInline]
     change_list_template = 'admin/crush_lu/crushprofile/change_list.html'
     fieldsets = (
@@ -708,6 +714,40 @@ class CrushProfileAdmin(admin.ModelAdmin):
         django_messages.success(request, f"Exported {queryset.count()} profile(s) to CSV.")
         return response
 
+    @admin.action(description='📧 Send bulk email to selected users')
+    def send_bulk_email(self, request, queryset):
+        """Redirect to bulk email composition form with selected user IDs"""
+        from django.http import HttpResponseRedirect
+        from django.contrib import messages
+        import urllib.parse
+
+        # Get all user emails from selected profiles
+        emails = list(queryset.values_list('user__email', flat=True))
+
+        if not emails:
+            messages.warning(request, "No profiles selected for email.")
+            return
+
+        # Store selected profile IDs in session for the email form
+        request.session['bulk_email_profile_ids'] = list(queryset.values_list('pk', flat=True))
+        request.session['bulk_email_count'] = len(emails)
+
+        # For now, show a summary message with instructions
+        # In the future, this can redirect to a custom email composition view
+        email_list = ', '.join(emails[:10])
+        if len(emails) > 10:
+            email_list += f'... and {len(emails) - 10} more'
+
+        messages.info(
+            request,
+            f"📧 Ready to email {len(emails)} user(s). "
+            f"Recipients: {email_list}. "
+            f"Use the Email Preferences panel or your email client to send messages."
+        )
+
+        # Could redirect to a custom bulk email form:
+        # return HttpResponseRedirect(f'/crush-admin/bulk-email/?profiles={",".join(map(str, queryset.values_list("pk", flat=True)))}')
+
     def get_queryset(self, request):
         """Optimize queries with select_related and prefetch_related"""
         qs = super().get_queryset(request)
@@ -728,6 +768,8 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
     list_filter = ('status', ReviewTimeFilter, SubmissionWorkflowFilter, 'review_call_completed', 'coach', 'submitted_at')
     search_fields = ('profile__user__username', 'profile__user__email', 'coach__user__username', 'coach_notes', 'feedback_to_user')
     readonly_fields = ('submitted_at', 'get_profile_details')
+    # Quick inline editing for common workflow actions
+    list_editable = ('review_call_completed', 'status')
     actions = [
         'bulk_approve_profiles',
         'bulk_reject_profiles',
@@ -973,3 +1015,8 @@ class CoachSessionAdmin(admin.ModelAdmin):
     list_filter = ('session_type', 'scheduled_at', 'completed_at')
     search_fields = ('coach__user__username', 'user__username', 'notes')
     readonly_fields = ('created_at',)
+
+    def get_queryset(self, request):
+        """Optimize queries with select_related for coach and user FKs"""
+        qs = super().get_queryset(request)
+        return qs.select_related('coach__user', 'user')

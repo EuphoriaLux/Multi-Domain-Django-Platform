@@ -1,9 +1,10 @@
+{% load i18n %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ LANGUAGE_CODE|default:'en' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invitation Approved!</title>
+    <title>{% trans "Invitation Approved!" %}</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -101,28 +102,28 @@
     <div class="container">
         <div class="inner-content">
             <div class="success-icon">✅</div>
-            <h1>Invitation Approved!</h1>
-            <p class="subtitle">You're all set to attend the event</p>
+            <h1>{% trans "Invitation Approved!" %}</h1>
+            <p class="subtitle">{% trans "You're all set to attend the event" %}</p>
 
-            <p>Hi {{ user.first_name|default:user.username }},</p>
+            <p>{% blocktrans with first_name=user.first_name|default:user.username %}Hi {{ first_name }},{% endblocktrans %}</p>
 
-            <p>Great news! Your invitation to our exclusive event has been approved by our team. You can now register to attend:</p>
+            <p>{% trans "Great news! Your invitation to our exclusive event has been approved by our team. You can now register to attend:" %}</p>
 
             <div class="event-details">
-                <span class="approved-badge">✅ APPROVED</span>
+                <span class="approved-badge">✅ {% trans "APPROVED" %}</span>
                 <h2>{{ event.title }}</h2>
 
                 <div class="detail-row">
                     <span class="detail-icon">📅</span>
                     <div>
-                        <strong>When:</strong> {{ event.date_time|date:"l, F j, Y" }} at {{ event.date_time|time:"g:i A" }}
+                        <strong>{% trans "When:" %}</strong> {{ event.date_time|date:"l, F j, Y" }} {% trans "at" %} {{ event.date_time|time:"g:i A" }}
                     </div>
                 </div>
 
                 <div class="detail-row">
                     <span class="detail-icon">📍</span>
                     <div>
-                        <strong>Where:</strong> {{ event.location }}
+                        <strong>{% trans "Where:" %}</strong> {{ event.location }}
                         {% if event.address %}
                         <br><span style="color: #666;">{{ event.address }}</span>
                         {% endif %}
@@ -133,7 +134,7 @@
                 <div class="detail-row">
                     <span class="detail-icon">ℹ️</span>
                     <div>
-                        <strong>About:</strong><br>{{ event.description|truncatewords:30 }}
+                        <strong>{% trans "About:" %}</strong><br>{{ event.description|truncatewords:30 }}
                     </div>
                 </div>
                 {% endif %}
@@ -142,28 +143,28 @@
                 <div class="detail-row">
                     <span class="detail-icon">💰</span>
                     <div>
-                        <strong>Fee:</strong> €{{ event.registration_fee }}
+                        <strong>{% trans "Fee:" %}</strong> €{{ event.registration_fee }}
                     </div>
                 </div>
                 {% endif %}
             </div>
 
-            <p><strong>Next Step:</strong> Click the button below to complete your event registration. Spots are limited!</p>
+            <p><strong>{% trans "Next Step:" %}</strong> {% trans "Click the button below to complete your event registration. Spots are limited!" %}</p>
 
             <a href="{{ event_url }}" class="cta-button">
-                Register for Event Now
+                {% trans "Register for Event Now" %}
             </a>
 
             <p style="text-align: center; color: #666; font-size: 14px; margin-top: 25px;">
-                Or visit your dashboard to see all your events:<br>
+                {% trans "Or visit your dashboard to see all your events:" %}<br>
                 <a href="{{ dashboard_url }}" style="color: #28a745;">{{ dashboard_url }}</a>
             </p>
 
             <div class="footer">
-                <p>We're excited to see you at the event!</p>
-                <p>If you have any questions, please reply to this email.</p>
+                <p>{% trans "We're excited to see you at the event!" %}</p>
+                <p>{% trans "If you have any questions, please reply to this email." %}</p>
                 <p style="margin-top: 15px;">
-                    © {{ "now"|date:"Y" }} Crush.lu - Privacy-First Dating in Luxembourg
+                    © {{ "now"|date:"Y" }} Crush.lu - {% trans "Privacy-First Dating in Luxembourg" %}
                 </p>
             </div>
         </div>

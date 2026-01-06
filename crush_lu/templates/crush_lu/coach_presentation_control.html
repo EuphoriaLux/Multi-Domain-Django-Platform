@@ -1,7 +1,8 @@
 {% extends 'crush_lu/base.html' %}
 {% load static %}
+{% load i18n %}
 
-{% block title %}Presentation Control - {{ event.title }} - Crush.lu Coach{% endblock %}
+{% block title %}{% trans "Presentation Control" %} - {{ event.title }} - Crush.lu{% endblock %}
 
 {% block extra_css %}
 {# Styles moved to static/crush_lu/css/pages/coach-presentation.css #}
@@ -11,27 +12,27 @@
 <div class="flex justify-center">
     <div class="w-full max-w-6xl px-4 control-panel">
         <a href="{% url 'crush_lu:event_detail' event.id %}" class="inline-flex items-center gap-2 px-4 py-2 mb-4 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
-            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} Back to Event
+            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} {% trans "Back to Event" %}
         </a>
 
         <div class="bg-white rounded-xl shadow-sm">
             <div class="p-8">
                 <div class="text-center mb-4">
-                    <h1 class="display-5">🎬 Coach Control Panel</h1>
-                    <p class="text-lg text-gray-500">{{ event.title }} - Presentation Round</p>
+                    <h1 class="display-5">🎬 {% trans "Coach Control Panel" %}</h1>
+                    <p class="text-lg text-gray-500">{% blocktrans with title=event.title %}{{ title }} - Presentation Round{% endblocktrans %}</p>
                 </div>
 
                 <!-- Progress Bar -->
                 <div class="progress-bar-container">
                     <div class="progress-bar" style="width: {% widthratio completed_presentations total_presentations 100 %}%;">
-                        {{ completed_presentations }} / {{ total_presentations }} Completed
+                        {% blocktrans with completed=completed_presentations total=total_presentations %}{{ completed }} / {{ total }} Completed{% endblocktrans %}
                     </div>
                 </div>
 
                 <!-- Winning Style -->
                 {% if winning_style %}
                 <div class="style-banner">
-                    <h4 class="mb-0">📋 Presentation Style: <strong>{{ winning_style.display_name }}</strong></h4>
+                    <h4 class="mb-0">📋 {% blocktrans with style=winning_style.display_name %}Presentation Style: <strong>{{ style }}</strong>{% endblocktrans %}</h4>
                     <small>{{ winning_style.description }}</small>
                 </div>
                 {% endif %}
@@ -39,27 +40,27 @@
                 <!-- Current Presenter -->
                 {% if current_presentation %}
                 <div class="current-presenter-card">
-                    <h3 class="text-gray-500 mb-2">Currently Presenting:</h3>
+                    <h3 class="text-gray-500 mb-2">{% trans "Currently Presenting:" %}</h3>
                     <div class="current-presenter-name">
                         {{ current_presentation.user.crushprofile.display_name }}
                     </div>
-                    <p class="text-gray-500">Presentation #{{ current_presentation.presentation_order }} of {{ total_presentations }}</p>
+                    <p class="text-gray-500">{% blocktrans with order=current_presentation.presentation_order total=total_presentations %}Presentation #{{ order }} of {{ total }}{% endblocktrans %}</p>
 
                     <button class="btn advance-btn mt-4" id="advance-btn">
-                        Next Presenter →
+                        {% trans "Next Presenter →" %}
                     </button>
                 </div>
                 {% else %}
                 <div class="current-presenter-card">
                     {% if next_presentation %}
-                    <h3 class="text-gray-500 mb-3">Ready to Start Presentations</h3>
-                    <p class="mb-4">Click below to begin with the first presenter</p>
+                    <h3 class="text-gray-500 mb-3">{% trans "Ready to Start Presentations" %}</h3>
+                    <p class="mb-4">{% trans "Click below to begin with the first presenter" %}</p>
                     <button class="btn advance-btn" id="advance-btn">
-                        Start Presentations →
+                        {% trans "Start Presentations →" %}
                     </button>
                     {% else %}
-                    <h3 class="text-green-600">🎉 All Presentations Completed!</h3>
-                    <p class="text-gray-500">Ready to move to Phase 3: Speed Dating</p>
+                    <h3 class="text-green-600">🎉 {% trans "All Presentations Completed!" %}</h3>
+                    <p class="text-gray-500">{% trans "Ready to move to Phase 3: Speed Dating" %}</p>
                     {% endif %}
                 </div>
                 {% endif %}
@@ -67,7 +68,7 @@
                 <!-- Presentation Queue -->
                 <div class="mt-8">
                     <div class="w-full">
-                        <h3 class="mb-3">Presentation Queue</h3>
+                        <h3 class="mb-3">{% trans "Presentation Queue" %}</h3>
                         <ul class="queue-list">
                             {% for presentation in presentations %}
                             <li class="queue-item {{ presentation.status }}">
@@ -75,11 +76,11 @@
                                 <span class="queue-name">{{ presentation.user.crushprofile.display_name }}</span>
                                 <span class="status-badge {{ presentation.status }}">
                                     {% if presentation.status == 'presenting' %}
-                                        🔴 PRESENTING
+                                        🔴 {% trans "PRESENTING" %}
                                     {% elif presentation.status == 'completed' %}
-                                        ✓ DONE
+                                        ✓ {% trans "DONE" %}
                                     {% else %}
-                                        Waiting
+                                        {% trans "Waiting" %}
                                     {% endif %}
                                 </span>
                             </li>

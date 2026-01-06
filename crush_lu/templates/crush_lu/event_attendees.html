@@ -1,5 +1,6 @@
 {% extends 'crush_lu/base.html' %}
 {% load static %}
+{% load i18n %}
 
 {% block title %}Who Did You Connect With? - {{ event.title }}{% endblock %}
 
@@ -7,11 +8,11 @@
 <div class="max-w-4xl mx-auto">
     <!-- Header -->
     <div class="text-center mb-10">
-        <h1 class="text-3xl md:text-4xl font-bold mb-3">Who did you connect with? 💕</h1>
+        <h1 class="text-3xl md:text-4xl font-bold mb-3">{% trans "Who did you connect with?" %} 💕</h1>
         <p class="text-xl text-gray-500">{{ event.title }}</p>
         <p class="text-gray-500 flex items-center justify-center gap-2 mt-2">
             {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
-            {{ event.date_time|date:"F d, Y" }} at {{ event.date_time|date:"g:i A" }}
+            {% blocktrans with date=event.date_time|date:"F d, Y" time=event.date_time|date:"g:i A" %}{{ date }} at {{ time }}{% endblocktrans %}
         </p>
     </div>
 
@@ -19,11 +20,10 @@
     <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-6">
         <h5 class="font-semibold mb-2 flex items-center gap-2">
             {% include "shared/icons/information-circle.html" with class="w-5 h-5" %}
-            How It Works
+            {% trans "How It Works" %}
         </h5>
         <p class="mb-0">
-            Select people you'd like to stay in touch with. If they also select you (mutual interest!),
-            a Crush Coach will help facilitate your introduction and guide you through sharing contact information.
+            {% trans "Select people you'd like to stay in touch with. If they also select you (mutual interest!), a Crush Coach will help facilitate your introduction and guide you through sharing contact information." %}
         </p>
     </div>
 
@@ -86,8 +86,8 @@
             <div class="mb-6">
                 <span class="text-7xl">😔</span>
             </div>
-            <h4 class="text-xl font-semibold mb-2">No other attendees yet</h4>
-            <p class="text-gray-500">Check back after the event when other attendees are marked as attended.</p>
+            <h4 class="text-xl font-semibold mb-2">{% trans "No other attendees yet" %}</h4>
+            <p class="text-gray-500">{% trans "Check back after the event when other attendees are marked as attended." %}</p>
         </div>
     {% endif %}
 
@@ -95,7 +95,7 @@
     <div class="text-center mt-10">
         <a href="{% url 'crush_lu:dashboard' %}" class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
             {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
-            Back to Dashboard
+            {% trans "Back to Dashboard" %}
         </a>
     </div>
 </div>

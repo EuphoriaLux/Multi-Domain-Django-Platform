@@ -1,21 +1,22 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}Error{% endblock %}
+{% block title %}{% trans "Error" %}{% endblock %}
 
 {% block content %}
 <div class="container mt-5">
     <div class="row">
         <div class="col-md-8 offset-md-2">
             <div class="alert alert-danger">
-                <h4 class="alert-heading">An Error Occurred</h4>
+                <h4 class="alert-heading">{% trans "An Error Occurred" %}</h4>
                 <p>{{ error_message }}</p>
                 <hr>
                 <p class="mb-0">
-                    Please try again later. If the problem persists, contact support with the following error details:
+                    {% trans "Please try again later. If the problem persists, contact support with the following error details:" %}
                 </p>
                 <pre><code>{{ error_message }}</code></pre>
             </div>
-            <a href="{% url 'entreprinder:home' %}" class="btn btn-primary">Return to Home</a>
+            <a href="{% url 'entreprinder:home' %}" class="btn btn-primary">{% trans "Return to Home" %}</a>
         </div>
     </div>
 </div>

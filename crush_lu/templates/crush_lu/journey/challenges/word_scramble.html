@@ -1,5 +1,5 @@
 {% extends "crush_lu/journey/journey_base.html" %}
-{% load static %}
+{% load static i18n %}
 
 {% block extra_journey_css %}
 <style>
@@ -203,17 +203,17 @@
     <!-- Back Button -->
     <div class="mb-4">
         <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Back to Chapter
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Chapter" %}
         </a>
     </div>
 
     <div class="challenge-card">
         <div class="challenge-type-badge">
-            {% include "shared/icons/arrows-right-left.html" with class="w-5 h-5" %} Word Scramble Challenge
+            {% include "shared/icons/arrows-right-left.html" with class="w-5 h-5" %} {% trans "Word Scramble Challenge" %}
         </div>
 
         <div class="points-display">
-            💎 <span id="pointsValue">{{ challenge.points_awarded }}</span> Points
+            💎 <span id="pointsValue">{{ challenge.points_awarded }}</span> {% trans "Points" %}
         </div>
 
         <div class="word-instruction">
@@ -225,18 +225,18 @@
             {{ challenge.options.scrambled }}
         </div>
 
-        <button class="shuffle-btn" id="shuffleBtn" title="Shuffle letters">
-            {% include "shared/icons/arrows-right-left.html" with class="w-5 h-5" %} Shuffle
+        <button class="shuffle-btn" id="shuffleBtn" title="{% trans "Shuffle letters" %}">
+            {% include "shared/icons/arrows-right-left.html" with class="w-5 h-5" %} {% trans "Shuffle" %}
         </button>
 
         {% if existing_attempt %}
         <!-- Already Completed -->
         <div class="message-box success active">
-            <h3>{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Already Completed!</h3>
-            <p>You already unscrambled this word and earned <strong>{{ existing_attempt.points_earned }} points</strong>.</p>
+            <h3>{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} {% trans "Already Completed!" %}</h3>
+            <p>{% blocktrans with points=existing_attempt.points_earned %}You already unscrambled this word and earned <strong>{{ points }} points</strong>.{% endblocktrans %}</p>
             <div class="mt-3">
                 <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
-                    Continue to Next Challenge {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+                    {% trans "Continue to Next Challenge" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
                 </a>
             </div>
         </div>
@@ -247,12 +247,12 @@
                 type="text"
                 id="answerInput"
                 class="answer-input"
-                placeholder="Type the unscrambled word..."
+                placeholder="{% trans "Type the unscrambled word..." %}"
                 autocomplete="off"
             >
 
             <button id="submitBtn" class="submit-btn">
-                Submit Answer {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}
+                {% trans "Submit Answer" %} {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}
             </button>
         </div>
 
@@ -260,7 +260,7 @@
         {% if challenge.hint_1 or challenge.hint_2 or challenge.hint_3 %}
         <div class="hint-section">
             <div class="text-center mb-3" style="opacity: 0.8;">
-                {% include "shared/icons/information-circle.html" with class="w-5 h-5" %} Need help? Use hints (costs points)
+                {% include "shared/icons/information-circle.html" with class="w-5 h-5" %} {% trans "Need help? Use hints (costs points)" %}
             </div>
             <div class="text-center">
                 {% if challenge.hint_1 %}

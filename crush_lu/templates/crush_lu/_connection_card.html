@@ -1,3 +1,4 @@
+{% load i18n %}
 <div class="bg-white rounded-xl shadow-sm p-4">
     <div class="flex items-center gap-4">
         <!-- Profile Photo -->
@@ -26,7 +27,7 @@
             {% if connection.status == 'accepted' %}
                 <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-blue-500 text-white rounded-full">
                     {% include "shared/icons/clock.html" with class="w-3 h-3" %}
-                    Assigned to Coach
+                    {% trans "Assigned to Coach" %}
                     {% if connection.assigned_coach %}
                         ({{ connection.assigned_coach.user.first_name }})
                     {% endif %}
@@ -34,17 +35,17 @@
             {% elif connection.status == 'coach_reviewing' %}
                 <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-purple-500 text-white rounded-full">
                     {% include "shared/icons/user.html" with class="w-3 h-3" %}
-                    Coach Reviewing
+                    {% trans "Coach Reviewing" %}
                 </span>
             {% elif connection.status == 'coach_approved' %}
                 <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-yellow-500 text-gray-900 rounded-full">
                     {% include "shared/icons/check-circle.html" with class="w-3 h-3" %}
-                    Pending Your Consent
+                    {% trans "Pending Your Consent" %}
                 </span>
             {% elif connection.status == 'shared' %}
                 <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-green-500 text-white rounded-full">
                     {% include "shared/icons/check-circle.html" with class="w-3 h-3" %}
-                    Contacts Shared!
+                    {% trans "Contacts Shared!" %}
                 </span>
             {% endif %}
         </div>
@@ -53,7 +54,7 @@
         <div class="shrink-0">
             <a href="{% url 'crush_lu:connection_detail' connection.id %}"
                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-purple-500 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors">
-                <span>View Details</span>
+                <span>{% trans "View Details" %}</span>
                 {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
             </a>
         </div>

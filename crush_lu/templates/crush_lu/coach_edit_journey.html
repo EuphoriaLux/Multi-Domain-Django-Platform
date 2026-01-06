@@ -1,7 +1,8 @@
 {% extends "crush_lu/base.html" %}
 {% load static %}
+{% load i18n %}
 
-{% block title %}Edit Journey - {{ journey.journey_name }}{% endblock %}
+{% block title %}{% trans "Edit Journey" %} - {{ journey.journey_name }}{% endblock %}
 
 {% block content %}
 <div class="max-w-5xl mx-auto px-4 py-8">
@@ -11,8 +12,7 @@
             {% include "shared/icons/pencil-square.html" with class="w-5 h-5" %} {{ journey.journey_name }}
         </h2>
         <p class="text-gray-500 mt-1">
-            For: <strong>{{ journey.special_experience.first_name }} {{ journey.special_experience.last_name }}</strong> |
-            {{ journey.total_chapters }} Chapters | ~{{ journey.estimated_duration_minutes }} minutes
+            {% blocktrans with first_name=journey.special_experience.first_name last_name=journey.special_experience.last_name chapters=journey.total_chapters minutes=journey.estimated_duration_minutes %}For: <strong>{{ first_name }} {{ last_name }}</strong> | {{ chapters }} Chapters | ~{{ minutes }} minutes{% endblocktrans %}
         </p>
     </div>
 
@@ -21,7 +21,7 @@
         <!-- Chapter Header -->
         <div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-5">
             <h3 class="text-lg font-semibold flex items-center gap-2 mb-1">
-                {% include "shared/icons/book-open.html" with class="w-5 h-5" %} Chapter {{ chapter.chapter_number }}: {{ chapter.title }}
+                {% include "shared/icons/book-open.html" with class="w-5 h-5" %} {% blocktrans with chapter=chapter.chapter_number title=chapter.title %}Chapter {{ chapter }}: {{ title }}{% endblocktrans %}
             </h3>
             <p class="text-white/75">{{ chapter.theme }}</p>
         </div>
@@ -29,7 +29,7 @@
         <div class="p-6">
             <!-- Story Introduction -->
             <div class="mb-6">
-                <h5 class="font-semibold text-gray-700 mb-2">Story Introduction</h5>
+                <h5 class="font-semibold text-gray-700 mb-2">{% trans "Story Introduction" %}</h5>
                 <p class="text-gray-500">{{ chapter.story_introduction }}</p>
             </div>
 
@@ -37,7 +37,7 @@
             {% if chapter.challenges.all %}
             <div class="mb-6">
                 <h5 class="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    {% include "shared/icons/puzzle-piece.html" with class="w-5 h-5" %} Challenges ({{ chapter.challenges.count }})
+                    {% include "shared/icons/puzzle-piece.html" with class="w-5 h-5" %} {% blocktrans count counter=chapter.challenges.count %}Challenges ({{ counter }}){% plural %}Challenges ({{ counter }}){% endblocktrans %}
                 </h5>
 
                 {% for challenge in chapter.challenges.all %}
@@ -51,22 +51,22 @@
                                 {{ challenge.get_challenge_type_display }}
                             </h6>
                             <p class="text-gray-600 mb-3">
-                                <strong>Question:</strong> {{ challenge.question|truncatewords:20 }}
+                                <strong>{% trans "Question:" %}</strong> {{ challenge.question|truncatewords:20 }}
                             </p>
 
                             <div class="flex flex-wrap gap-2">
                                 <span class="inline-flex items-center gap-1 px-3 py-1 text-sm font-semibold bg-purple-600 text-white rounded-full">
-                                    {% include "shared/icons/trophy.html" with class="w-5 h-5" %} {{ challenge.points_awarded }} pts
+                                    {% include "shared/icons/trophy.html" with class="w-5 h-5" %} {% blocktrans with points=challenge.points_awarded %}{{ points }} pts{% endblocktrans %}
                                 </span>
 
                                 {# Mode indicator: Quiz vs Questionnaire #}
                                 {% if chapter.chapter_number in '245'|make_list or challenge.challenge_type == 'open_text' or challenge.challenge_type == 'would_you_rather' or not challenge.correct_answer %}
                                 <span class="inline-flex items-center gap-1 px-3 py-1 text-sm font-semibold bg-blue-500 text-white rounded-full">
-                                    {% include "shared/icons/chat-bubble-left-ellipsis.html" with class="w-5 h-5" %} Questionnaire Mode
+                                    {% include "shared/icons/chat-bubble-left-ellipsis.html" with class="w-5 h-5" %} {% trans "Questionnaire Mode" %}
                                 </span>
                                 {% else %}
                                 <span class="inline-flex items-center gap-1 px-3 py-1 text-sm font-semibold bg-green-500 text-white rounded-full">
-                                    {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Quiz Mode
+                                    {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} {% trans "Quiz Mode" %}
                                 </span>
                                 {% endif %}
 
@@ -76,7 +76,7 @@
                                     {% if challenge.hint_1 %}1{% endif %}
                                     {% if challenge.hint_2 %} 2{% endif %}
                                     {% if challenge.hint_3 %} 3{% endif %}
-                                    Hints
+                                    {% trans "Hints" %}
                                 </span>
                                 {% endif %}
                             </div>
@@ -84,7 +84,7 @@
                         <div class="flex-shrink-0">
                             <a href="{% url 'crush_lu:coach_edit_challenge' challenge.id %}"
                                class="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-full transition-all hover:-translate-y-0.5">
-                                {% include "shared/icons/pencil.html" with class="w-5 h-5" %} Edit
+                                {% include "shared/icons/pencil.html" with class="w-5 h-5" %} {% trans "Edit" %}
                             </a>
                         </div>
                     </div>
@@ -92,14 +92,14 @@
                 {% endfor %}
             </div>
             {% else %}
-            <p class="text-gray-400 mb-6">No challenges in this chapter yet.</p>
+            <p class="text-gray-400 mb-6">{% trans "No challenges in this chapter yet." %}</p>
             {% endif %}
 
             <!-- Rewards Section -->
             {% if chapter.rewards.all %}
             <div class="mb-6">
                 <h5 class="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    {% include "shared/icons/gift.html" with class="w-5 h-5" %} Rewards ({{ chapter.rewards.count }})
+                    {% include "shared/icons/gift.html" with class="w-5 h-5" %} {% blocktrans count counter=chapter.rewards.count %}Rewards ({{ counter }}){% plural %}Rewards ({{ counter }}){% endblocktrans %}
                 </h5>
                 {% for reward in chapter.rewards.all %}
                 <div class="p-3 border-l-4 border-pink-400 bg-orange-50 rounded-r-lg mb-2 flex items-center gap-3">
@@ -123,7 +123,7 @@
 
             <!-- Completion Message -->
             <div>
-                <h6 class="font-semibold text-gray-700 mb-2">Completion Message</h6>
+                <h6 class="font-semibold text-gray-700 mb-2">{% trans "Completion Message" %}</h6>
                 <p class="text-gray-500 italic">"{{ chapter.completion_message }}"</p>
             </div>
         </div>
@@ -134,11 +134,11 @@
     <div class="flex flex-wrap gap-3 mt-8">
         <a href="{% url 'crush_lu:coach_journey_dashboard' %}"
            class="inline-flex items-center gap-2 px-5 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg transition-colors">
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Back to Journeys
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Journeys" %}
         </a>
         <a href="{% url 'crush_admin:crush_lu_journeyconfiguration_change' journey.id %}"
            class="inline-flex items-center gap-2 px-5 py-3 border border-purple-500 text-purple-600 hover:bg-purple-50 font-semibold rounded-lg transition-colors">
-            {% include "shared/icons/cog-6-tooth.html" with class="w-5 h-5" %} Advanced Settings
+            {% include "shared/icons/cog-6-tooth.html" with class="w-5 h-5" %} {% trans "Advanced Settings" %}
         </a>
     </div>
 </div>

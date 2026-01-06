@@ -1,15 +1,16 @@
 {% extends 'crush_lu/base.html' %}
+{% load i18n %}
 
-{% block title %}Coach Sessions - Crush.lu{% endblock %}
+{% block title %}{% trans "Coach Sessions" %} - Crush.lu{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto">
     <a href="{% url 'crush_lu:coach_dashboard' %}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors mb-4">
         {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
-        Back to Dashboard
+        {% trans "Back to Dashboard" %}
     </a>
 
-    <h2 class="text-2xl font-bold mb-6">Coach Sessions</h2>
+    <h2 class="text-2xl font-bold mb-6">{% trans "Coach Sessions" %}</h2>
 
     <div class="bg-white rounded-xl shadow-sm">
         <div class="p-6">
@@ -25,20 +26,20 @@
                                     </p>
                                     {% if session.scheduled_at %}
                                         <p class="text-gray-500 text-sm mb-1">
-                                            Scheduled: {{ session.scheduled_at|date:"M j, Y g:i A" }}
+                                            {% blocktrans with scheduled_at=session.scheduled_at|date:"M j, Y g:i A" %}Scheduled: {{ scheduled_at }}{% endblocktrans %}
                                         </p>
                                     {% endif %}
                                     {% if session.completed_at %}
                                         <p class="text-green-600 text-sm flex items-center gap-1">
                                             {% include "shared/icons/check-circle.html" with class="w-4 h-4" %}
-                                            Completed: {{ session.completed_at|date:"M j, Y g:i A" }}
+                                            {% blocktrans with completed_at=session.completed_at|date:"M j, Y g:i A" %}Completed: {{ completed_at }}{% endblocktrans %}
                                         </p>
                                     {% endif %}
                                 </div>
                             </div>
                             {% if session.notes %}
                                 <div class="mt-3 text-sm text-gray-600">
-                                    <strong>Notes:</strong> {{ session.notes|truncatewords:30 }}
+                                    <strong>{% trans "Notes:" %}</strong> {{ session.notes|truncatewords:30 }}
                                 </div>
                             {% endif %}
                         </div>
@@ -46,7 +47,7 @@
                 </div>
             {% else %}
                 <p class="text-gray-500 text-center py-12">
-                    No coaching sessions recorded yet.
+                    {% trans "No coaching sessions recorded yet." %}
                 </p>
             {% endif %}
         </div>

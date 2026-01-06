@@ -1,5 +1,6 @@
+{% load i18n %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ LANGUAGE_CODE|default:'en' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -93,22 +94,22 @@
         </div>
         <div class="footer">
             <p>
-                <strong>Crush.lu</strong> - Privacy-First Dating in Luxembourg<br>
+                <strong>Crush.lu</strong> - {% trans "Privacy-First Dating in Luxembourg" %}<br>
                 <a href="{{ home_url|default:'https://crush.lu' }}">crush.lu</a> |
-                <a href="{{ about_url|default:'https://crush.lu/about/' }}">About</a> |
-                <a href="{{ events_url|default:'https://crush.lu/events/' }}">Events</a>
+                <a href="{{ about_url|default:'https://crush.lu/about/' }}">{% trans "About" %}</a> |
+                <a href="{{ events_url|default:'https://crush.lu/events/' }}">{% trans "Events" %}</a>
             </p>
             <p style="font-size: 12px; color: #999;">
                 {% block footer_message %}
-                You're receiving this because you have an account on Crush.lu.<br>
+                {% trans "You're receiving this because you have an account on Crush.lu." %}<br>
                 {% endblock %}
-                If you have questions, contact us at support@crush.lu
+                {% trans "If you have questions, contact us at" %} support@crush.lu
             </p>
             {% block unsubscribe %}
             {% if unsubscribe_url %}
             <p style="font-size: 11px; color: #aaa; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
-                <a href="{{ unsubscribe_url }}" style="color: #999;">Unsubscribe</a> |
-                <a href="{{ settings_url|default:'https://crush.lu/account/settings/' }}" style="color: #999;">Manage email preferences</a>
+                <a href="{{ unsubscribe_url }}" style="color: #999;">{% trans "Unsubscribe" %}</a> |
+                <a href="{{ settings_url|default:'https://crush.lu/account/settings/' }}" style="color: #999;">{% trans "Manage email preferences" %}</a>
             </p>
             {% endif %}
             {% endblock %}

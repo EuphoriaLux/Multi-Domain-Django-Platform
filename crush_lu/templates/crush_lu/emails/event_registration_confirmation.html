@@ -1,22 +1,23 @@
 {% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
 
-{% block title %}Event Registration Confirmed - Crush.lu{% endblock %}
+{% block title %}{% trans "Event Registration Confirmed" %} - Crush.lu{% endblock %}
 
-{% block header_title %}You're Registered! 🎉{% endblock %}
+{% block header_title %}{% trans "You're Registered!" %} 🎉{% endblock %}
 
 {% block content %}
-<h2>See you there, {{ registration.user.first_name }}!</h2>
+<h2>{% blocktrans with first_name=registration.user.first_name %}See you there, {{ first_name }}!{% endblocktrans %}</h2>
 
-<p>Your registration for <strong>{{ event.title }}</strong> is confirmed!</p>
+<p>{% blocktrans with title=event.title %}Your registration for <strong>{{ title }}</strong> is confirmed!{% endblocktrans %}</p>
 
 <div class="info-box">
-    <strong>Event Details:</strong>
+    <strong>{% trans "Event Details:" %}</strong>
     <ul style="margin: 10px 0;">
-        <li><strong>Date:</strong> {{ event.date_time|date:"l, F j, Y" }}</li>
-        <li><strong>Time:</strong> {{ event.date_time|date:"g:i A" }}</li>
-        <li><strong>Location:</strong> {{ event.location }}</li>
+        <li><strong>{% trans "Date:" %}</strong> {{ event.date_time|date:"l, F j, Y" }}</li>
+        <li><strong>{% trans "Time:" %}</strong> {{ event.date_time|date:"g:i A" }}</li>
+        <li><strong>{% trans "Location:" %}</strong> {{ event.location }}</li>
         {% if event.registration_fee > 0 %}
-        <li><strong>Fee:</strong> €{{ event.registration_fee }}</li>
+        <li><strong>{% trans "Fee:" %}</strong> €{{ event.registration_fee }}</li>
         {% endif %}
     </ul>
 </div>
@@ -25,31 +26,31 @@
 
 {% if registration.dietary_restrictions %}
 <div class="info-box">
-    <strong>Your Dietary Restrictions:</strong>
+    <strong>{% trans "Your Dietary Restrictions:" %}</strong>
     <p>{{ registration.dietary_restrictions }}</p>
 </div>
 {% endif %}
 
-<a href="{{ event_url }}" class="button">View Event Details</a>
+<a href="{{ event_url }}" class="button">{% trans "View Event Details" %}</a>
 
-<p><strong>What to bring:</strong></p>
+<p><strong>{% trans "What to bring:" %}</strong></p>
 <ul>
-    <li>Valid ID (for age verification)</li>
-    <li>An open mind and positive attitude</li>
-    <li>Your best self!</li>
+    <li>{% trans "Valid ID (for age verification)" %}</li>
+    <li>{% trans "An open mind and positive attitude" %}</li>
+    <li>{% trans "Your best self!" %}</li>
 </ul>
 
-<p><strong>Important:</strong></p>
+<p><strong>{% trans "Important:" %}</strong></p>
 <ul>
-    <li>Arrive 10-15 minutes early</li>
-    <li>Registration closes {{ event.registration_deadline|date:"F j, Y" }}</li>
-    <li>Respect everyone's privacy and boundaries</li>
+    <li>{% trans "Arrive 10-15 minutes early" %}</li>
+    <li>{% blocktrans with deadline=event.registration_deadline|date:"F j, Y" %}Registration closes {{ deadline }}{% endblocktrans %}</li>
+    <li>{% trans "Respect everyone's privacy and boundaries" %}</li>
 </ul>
 
-<p>Can't make it? <a href="{{ cancel_url }}" style="color: #9B59B6;">Cancel your registration</a> so someone on the waitlist can attend.</p>
+<p>{% trans "Can't make it?" %} <a href="{{ cancel_url }}" style="color: #9B59B6;">{% trans "Cancel your registration" %}</a> {% trans "so someone on the waitlist can attend." %}</p>
 
 <p>
-    See you soon!<br>
-    <strong>The Crush.lu Team</strong>
+    {% trans "See you soon!" %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
 </p>
 {% endblock %}

@@ -1,9 +1,10 @@
+{% load i18n %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Road Trip Discovery - 90 Minutes to Connection</title>
+    <title>{% trans "Road Trip Discovery - 90 Minutes to Connection" %}</title>
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -209,28 +210,27 @@
                 <div class="text-center mb-6">
                     <div class="text-6xl mb-4 emoji-pulse">🚗💕</div>
                     <h1 class="text-3xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent mb-2">
-                        Road Trip Discovery
+                        {% trans "Road Trip Discovery" %}
                     </h1>
-                    <p class="text-gray-600">90 minutes to reconnection</p>
+                    <p class="text-gray-600">{% trans "90 minutes to reconnection" %}</p>
                 </div>
 
                 <div class="space-y-4 mb-6">
                     <div class="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-4">
                         <p class="text-sm text-gray-700">
-                            <span class="font-semibold">Hey Maxi!</span> 16 years after that party where we first met,
-                            we're finally on this journey together. This game is designed for our drive to Euskirchen Therme.
+                            {% trans "Hey Maxi! 16 years after that party where we first met, we're finally on this journey together. This game is designed for our drive to Euskirchen Therme." %}
                         </p>
                     </div>
 
                     <div class="flex items-center justify-between text-sm text-gray-600">
-                        <span>⏱️ 90 minutes</span>
-                        <span>❓ 25 questions</span>
-                        <span>🎯 5 phases</span>
+                        <span>⏱️ {% trans "90 minutes" %}</span>
+                        <span>❓ {% trans "25 questions" %}</span>
+                        <span>🎯 {% trans "5 phases" %}</span>
                     </div>
                 </div>
 
                 <button id="startButton" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold py-4 rounded-xl hover:shadow-lg transition-all duration-300">
-                    Let's Begin This Journey
+                    {% trans "Let's Begin This Journey" %}
                 </button>
             </div>
         </div>
@@ -249,7 +249,7 @@
                 </div>
 
                 <button id="startPhaseButton" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold py-4 rounded-xl">
-                    Start Phase
+                    {% trans "Start Phase" %}
                 </button>
             </div>
         </div>
@@ -259,12 +259,12 @@
             <div class="bg-white rounded-3xl p-8 card-shadow slide-up">
                 <div class="text-center mb-6">
                     <div class="text-6xl mb-4 emoji-pulse">🎵</div>
-                    <h2 id="musicTitle" class="text-2xl font-bold mb-2">Choose Your Soundtrack</h2>
-                    <p id="musicSubtitle" class="text-gray-600">Music selection subtitle</p>
+                    <h2 id="musicTitle" class="text-2xl font-bold mb-2">{% trans "Choose Your Soundtrack" %}</h2>
+                    <p id="musicSubtitle" class="text-gray-600">{% trans "Music selection subtitle" %}</p>
                 </div>
 
                 <div id="musicDescription" class="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-4 mb-6">
-                    <p class="text-sm text-gray-700">Music description</p>
+                    <p class="text-sm text-gray-700">{% trans "Music description" %}</p>
                 </div>
 
                 <!-- Genre Options -->
@@ -274,8 +274,8 @@
 
                 <!-- Maxi's Response Teaser -->
                 <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 mb-6">
-                    <p class="text-xs text-gray-500 mb-1">Maxi's picks:</p>
-                    <p id="musicResponseTeaser" class="text-sm text-gray-700 italic">His music choices...</p>
+                    <p class="text-xs text-gray-500 mb-1">{% trans "Maxi's picks:" %}</p>
+                    <p id="musicResponseTeaser" class="text-sm text-gray-700 italic">{% trans "His music choices..." %}</p>
                 </div>
 
                 <!-- Music Player Container (shown after song selection) -->
@@ -288,8 +288,8 @@
             <!-- Progress Bar -->
             <div class="mb-6">
                 <div class="flex justify-between text-xs text-gray-600 mb-2">
-                    <span id="phaseIndicator">Phase 1: Then & Now</span>
-                    <span id="questionCounter">Question 1/5</span>
+                    <span id="phaseIndicator">{% trans "Phase 1: Then & Now" %}</span>
+                    <span id="questionCounter">{% trans "Question 1/5" %}</span>
                 </div>
                 <div class="bg-gray-200 rounded-full h-2 overflow-hidden">
                     <div id="progressBar" class="h-full bg-gradient-to-r from-pink-500 to-purple-600 transition-all duration-500 rounded-full"></div>
@@ -299,7 +299,7 @@
             <!-- Question Card -->
             <div class="bg-white rounded-3xl p-6 card-shadow slide-up">
                 <div id="questionText" class="text-lg font-medium text-gray-800 mb-6">
-                    Question will appear here
+                    {% trans "Question will appear here" %}
                 </div>
 
                 <!-- Answer Options -->
@@ -311,13 +311,13 @@
                 <div id="responseSection" class="hidden">
                     <div class="border-t pt-4 mt-4">
                         <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 response-reveal">
-                            <p class="text-xs text-gray-500 mb-1">His response:</p>
+                            <p class="text-xs text-gray-500 mb-1">{% trans "His response:" %}</p>
                             <p id="maleResponse" class="text-sm text-gray-700 italic"></p>
                         </div>
                     </div>
 
                     <button id="continueButton" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold py-3 rounded-xl mt-4">
-                        Continue
+                        {% trans "Continue" %}
                     </button>
                 </div>
             </div>
@@ -328,8 +328,8 @@
             <div class="bg-white rounded-3xl p-8 card-shadow slide-up">
                 <div class="text-center mb-6">
                     <div class="text-6xl mb-4 emoji-pulse">✨</div>
-                    <h2 class="text-2xl font-bold mb-2">Phase Complete!</h2>
-                    <p id="phaseScore" class="text-gray-600">Your connection score so far</p>
+                    <h2 class="text-2xl font-bold mb-2">{% trans "Phase Complete!" %}</h2>
+                    <p id="phaseScore" class="text-gray-600">{% trans "Your connection score so far" %}</p>
                 </div>
 
                 <div id="phaseStats" class="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-4 mb-6">
@@ -337,7 +337,7 @@
                 </div>
 
                 <button id="nextPhaseButton" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold py-4 rounded-xl">
-                    Continue to Next Phase
+                    {% trans "Continue to Next Phase" %}
                 </button>
             </div>
         </div>
@@ -348,12 +348,12 @@
                 <div class="text-center mb-6">
                     <div id="finalEmoji" class="text-7xl mb-4 emoji-pulse">💕</div>
                     <h2 class="text-3xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent mb-2">
-                        Journey Complete
+                        {% trans "Journey Complete" %}
                     </h2>
                     <div class="text-4xl font-bold text-gray-800 mt-4">
                         <span id="finalPercentage">0</span>%
                     </div>
-                    <p class="text-gray-600 mt-2">Compatibility Score</p>
+                    <p class="text-gray-600 mt-2">{% trans "Compatibility Score" %}</p>
                 </div>
 
                 <div id="finalMessage" class="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-6 mb-6">
@@ -365,7 +365,7 @@
                 </div>
 
                 <button id="restartButton" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold py-4 rounded-xl">
-                    Play Again
+                    {% trans "Play Again" %}
                 </button>
             </div>
         </div>

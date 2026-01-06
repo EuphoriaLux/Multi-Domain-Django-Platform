@@ -1,7 +1,7 @@
 {% extends 'crush_lu/base.html' %}
-{% load analytics %}
+{% load analytics i18n %}
 
-{% block title %}Profile Submitted - Crush.lu{% endblock %}
+{% block title %}{% trans "Profile Submitted - Crush.lu" %}{% endblock %}
 
 {% block content %}
 {# Track profile submission status view in Application Insights #}
@@ -12,80 +12,79 @@
             <div class="p-10">
                 {% if submission.status == 'pending' or submission.status == 'under_review' %}
                     <div class="text-8xl">⏳</div>
-                    <h2 class="mt-6 mb-4 text-3xl font-bold text-gray-900">Profile Under Review</h2>
+                    <h2 class="mt-6 mb-4 text-3xl font-bold text-gray-900">{% trans "Profile Under Review" %}</h2>
                     <p class="text-xl text-gray-600 mb-6">
-                        Your profile is currently being reviewed by our Crush Coaches.
+                        {% trans "Your profile is currently being reviewed by our Crush Coaches." %}
                     </p>
 
                     <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 text-left mb-4">
-                        <h5 class="text-lg font-semibold mb-2">{% include "shared/icons/clock.html" with class="w-5 h-5" %} Current Status: {{ submission.get_status_display }}</h5>
-                        <p class="mb-2"><strong>Submitted:</strong> {{ submission.submitted_at|timesince }} ago</p>
+                        <h5 class="text-lg font-semibold mb-2">{% include "shared/icons/clock.html" with class="w-5 h-5" %} {% trans "Current Status:" %} {{ submission.get_status_display }}</h5>
+                        <p class="mb-2"><strong>{% trans "Submitted:" %}</strong> {% blocktrans with time=submission.submitted_at|timesince %}{{ time }} ago{% endblocktrans %}</p>
                         {% if submission.coach %}
-                            <p class="mb-0"><strong>Assigned Coach:</strong> {{ submission.coach.user.get_full_name }}</p>
+                            <p class="mb-0"><strong>{% trans "Assigned Coach:" %}</strong> {{ submission.coach.user.get_full_name }}</p>
                         {% endif %}
                     </div>
 
                     <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 text-left mb-4">
-                        <h5 class="text-lg font-semibold mb-2">What happens next?</h5>
+                        <h5 class="text-lg font-semibold mb-2">{% trans "What happens next?" %}</h5>
                         <ol class="mb-0 list-decimal ml-5">
-                            <li>Your assigned Crush Coach will review your profile</li>
-                            <li>You'll receive feedback within 24-48 hours</li>
-                            <li>Once approved, you can register for events!</li>
+                            <li>{% trans "Your assigned Crush Coach will review your profile" %}</li>
+                            <li>{% trans "You'll receive feedback within 24-48 hours" %}</li>
+                            <li>{% trans "Once approved, you can register for events!" %}</li>
                         </ol>
                     </div>
 
                     <div class="bg-gray-50 border border-gray-200 text-gray-700 rounded-lg p-4 text-left mb-4">
                         <p class="mb-0">
-                            {% include "shared/icons/information-circle.html" with class="w-5 h-5" %} <strong>Note:</strong> You cannot edit your profile while it's under review.
-                            If you need to make changes, please wait for the review to complete.
+                            {% include "shared/icons/information-circle.html" with class="w-5 h-5" %} <strong>{% trans "Note:" %}</strong> {% trans "You cannot edit your profile while it's under review. If you need to make changes, please wait for the review to complete." %}
                         </p>
                     </div>
 
                 {% elif submission.status == 'approved' %}
                     <div class="text-8xl">✅</div>
-                    <h2 class="mt-6 mb-4 text-3xl font-bold text-gray-900">Profile Approved!</h2>
+                    <h2 class="mt-6 mb-4 text-3xl font-bold text-gray-900">{% trans "Profile Approved!" %}</h2>
                     <p class="text-xl text-green-600 mb-6">
-                        Congratulations! Your profile has been approved by our coaches.
+                        {% trans "Congratulations! Your profile has been approved by our coaches." %}
                     </p>
 
                     <div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4 text-left mb-4">
                         <p class="mb-0">
-                            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} You can now register for events and start making connections!
+                            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} {% trans "You can now register for events and start making connections!" %}
                         </p>
                     </div>
 
                 {% elif submission.status == 'rejected' %}
                     <div class="text-8xl">❌</div>
-                    <h2 class="mt-6 mb-4 text-3xl font-bold text-gray-900">Profile Needs Updates</h2>
+                    <h2 class="mt-6 mb-4 text-3xl font-bold text-gray-900">{% trans "Profile Needs Updates" %}</h2>
                     <p class="text-xl text-red-600 mb-6">
-                        Your profile needs some updates before it can be approved.
+                        {% trans "Your profile needs some updates before it can be approved." %}
                     </p>
 
                     {% if submission.feedback_to_user %}
                     <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 text-left mb-4">
-                        <h5 class="text-lg font-semibold mb-2">{% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5" %} Coach Feedback:</h5>
+                        <h5 class="text-lg font-semibold mb-2">{% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5" %} {% trans "Coach Feedback:" %}</h5>
                         <p class="mb-0">{{ submission.feedback_to_user|linebreaks }}</p>
                     </div>
                     {% endif %}
 
                     <div class="flex flex-col gap-2 mb-4">
                         <a href="{% url 'crush_lu:edit_profile' %}" class="btn-crush-primary text-lg px-6 py-3 rounded-lg inline-flex items-center justify-center">
-                            {% include "shared/icons/pencil.html" with class="w-5 h-5" %} Update Your Profile
+                            {% include "shared/icons/pencil.html" with class="w-5 h-5" %} {% trans "Update Your Profile" %}
                         </a>
                     </div>
 
                 {% else %}
                     <div class="text-8xl">✅</div>
-                    <h2 class="mt-6 mb-4 text-3xl font-bold text-gray-900">Profile Submitted Successfully!</h2>
+                    <h2 class="mt-6 mb-4 text-3xl font-bold text-gray-900">{% trans "Profile Submitted Successfully!" %}</h2>
                     <p class="text-xl text-gray-600 mb-6">
-                        Your profile has been submitted for review by our Crush Coaches.
+                        {% trans "Your profile has been submitted for review by our Crush Coaches." %}
                     </p>
                 {% endif %}
 
                 {% if submission.coach and submission.status != 'rejected' %}
                 <div class="bg-white border border-gray-200 rounded-lg shadow-sm mb-4">
                     <div class="p-4">
-                        <h6 class="text-sm font-semibold text-gray-700 mb-1">Your Crush Coach</h6>
+                        <h6 class="text-sm font-semibold text-gray-700 mb-1">{% trans "Your Crush Coach" %}</h6>
                         <p class="mb-0">
                             <strong class="text-gray-900">{{ submission.coach.user.get_full_name }}</strong><br>
                             <small class="text-gray-500">{{ submission.coach.specializations }}</small>
@@ -96,15 +95,15 @@
 
                 <div class="flex flex-col gap-2">
                     <a href="{% url 'crush_lu:dashboard' %}" class="btn-crush-primary text-lg px-6 py-3 rounded-lg inline-flex items-center justify-center">
-                        Go to Dashboard
+                        {% trans "Go to Dashboard" %}
                     </a>
                     {% if submission.status == 'approved' %}
                         <a href="{% url 'crush_lu:event_list' %}" class="border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg px-6 py-3 inline-flex items-center justify-center transition-colors">
-                            Browse Events
+                            {% trans "Browse Events" %}
                         </a>
                     {% else %}
                         <a href="{% url 'crush_lu:event_list' %}" class="border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg px-6 py-3 inline-flex items-center justify-center transition-colors">
-                            Browse Events (while you wait)
+                            {% trans "Browse Events (while you wait)" %}
                         </a>
                     {% endif %}
                 </div>

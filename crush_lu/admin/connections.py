@@ -9,11 +9,12 @@ Includes:
 from django.contrib import admin
 
 from crush_lu.models import EventConnection, ConnectionMessage
+from .filters import MutualConnectionFilter, HasMessagesFilter
 
 
 class EventConnectionAdmin(admin.ModelAdmin):
     list_display = ('requester', 'recipient', 'event', 'status', 'is_mutual', 'assigned_coach', 'requested_at')
-    list_filter = ('status', 'requested_at', 'coach_approved_at')
+    list_filter = ('status', MutualConnectionFilter, HasMessagesFilter, 'requested_at', 'coach_approved_at')
     search_fields = ('requester__username', 'recipient__username', 'event__title')
     readonly_fields = ('requested_at', 'responded_at', 'coach_approved_at', 'shared_at', 'is_mutual')
     fieldsets = (
@@ -33,6 +34,11 @@ class EventConnectionAdmin(admin.ModelAdmin):
             'fields': ('requested_at', 'responded_at', 'coach_approved_at', 'shared_at')
         }),
     )
+
+    def get_queryset(self, request):
+        """Optimize queries with select_related for user and event FKs"""
+        qs = super().get_queryset(request)
+        return qs.select_related('requester', 'recipient', 'event', 'assigned_coach__user')
 
     def is_mutual(self, obj):
         return obj.is_mutual
@@ -56,3 +62,8 @@ class ConnectionMessageAdmin(admin.ModelAdmin):
             'fields': ('sent_at', 'read_at')
         }),
     )
+
+    def get_queryset(self, request):
+        """Optimize queries with select_related for connection and sender FKs"""
+        qs = super().get_queryset(request)
+        return qs.select_related('connection__requester', 'connection__recipient', 'connection__event', 'sender')

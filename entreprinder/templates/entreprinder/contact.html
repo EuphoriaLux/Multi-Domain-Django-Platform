@@ -1,41 +1,42 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}Contact Entreprinder{% endblock %}
+{% block title %}{% trans "Contact Entreprinder" %}{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-lg-8 mx-auto">
-        <h1 class="mb-4">Contact Us</h1>
-        <p class="lead">We'd love to hear from you! Get in touch with the Entreprinder team.</p>
+        <h1 class="mb-4">{% trans "Contact Us" %}</h1>
+        <p class="lead">{% trans "We'd love to hear from you! Get in touch with the Entreprinder team." %}</p>
 
         <form class="mt-5">
             <div class="mb-3">
-                <label for="name" class="form-label">Name</label>
+                <label for="name" class="form-label">{% trans "Name" %}</label>
                 <input type="text" class="form-control" id="name" required>
             </div>
             <div class="mb-3">
-                <label for="email" class="form-label">Email address</label>
+                <label for="email" class="form-label">{% trans "Email address" %}</label>
                 <input type="email" class="form-control" id="email" required>
             </div>
             <div class="mb-3">
-                <label for="subject" class="form-label">Subject</label>
+                <label for="subject" class="form-label">{% trans "Subject" %}</label>
                 <input type="text" class="form-control" id="subject" required>
             </div>
             <div class="mb-3">
-                <label for="message" class="form-label">Message</label>
+                <label for="message" class="form-label">{% trans "Message" %}</label>
                 <textarea class="form-control" id="message" rows="5" required></textarea>
             </div>
-            <button type="submit" class="btn btn-primary">Send Message</button>
+            <button type="submit" class="btn btn-primary">{% trans "Send Message" %}</button>
         </form>
 
         <div class="mt-5">
-            <h2 class="mb-3">Other Ways to Reach Us</h2>
-            <p><strong>Email:</strong> tom@power-up.lu</p>
-            <p><strong>Phone:</strong> +352 691 93 07 06</p>
+            <h2 class="mb-3">{% trans "Other Ways to Reach Us" %}</h2>
+            <p><strong>{% trans "Email:" %}</strong> tom@power-up.lu</p>
+            <p><strong>{% trans "Phone:" %}</strong> +352 691 93 07 06</p>
         </div>
 
         <div class="mt-5">
-            <h2 class="mb-3">Follow Us</h2>
+            <h2 class="mb-3">{% trans "Follow Us" %}</h2>
             <a href="#" class="me-3"><i class="fab fa-facebook fa-2x"></i></a>
             <a href="#" class="me-3"><i class="fab fa-twitter fa-2x"></i></a>
             <a href="#" class="me-3"><i class="fab fa-linkedin fa-2x"></i></a>

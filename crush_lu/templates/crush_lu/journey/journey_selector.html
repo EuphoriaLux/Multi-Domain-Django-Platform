@@ -1,7 +1,7 @@
 {% extends "crush_lu/base.html" %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Your Special Journeys - Crush.lu{% endblock %}
+{% block title %}{% trans "Your Special Journeys" %} - Crush.lu{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -234,12 +234,12 @@
 {% block content %}
 <div class="journey-selector-container">
     <a href="{% url 'crush_lu:special_welcome' %}" class="back-link">
-        {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Back to Welcome
+        {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Welcome" %}
     </a>
 
     <div class="selector-header">
-        <h1>Your Special Journeys</h1>
-        <p>Choose your adventure, {{ special_experience.first_name }}</p>
+        <h1>{% trans "Your Special Journeys" %}</h1>
+        <p>{% blocktrans with name=special_experience.first_name %}Choose your adventure, {{ name }}{% endblocktrans %}</p>
     </div>
 
     <div class="journey-cards">
@@ -252,7 +252,7 @@
 
             <div class="journey-progress">
                 <div class="progress-label">
-                    <span>Progress</span>
+                    <span>{% trans "Progress" %}</span>
                     <span>{{ item.completion_percentage }}%</span>
                 </div>
                 <div class="progress-bar-container">
@@ -262,20 +262,20 @@
             </div>
 
             {% if item.is_completed %}
-                <span class="journey-status status-completed">Completed</span>
+                <span class="journey-status status-completed">{% trans "Completed" %}</span>
             {% elif item.completion_percentage > 0 %}
-                <span class="journey-status status-in-progress">In Progress</span>
+                <span class="journey-status status-in-progress">{% trans "In Progress" %}</span>
             {% else %}
-                <span class="journey-status status-new">New Adventure</span>
+                <span class="journey-status status-new">{% trans "New Adventure" %}</span>
             {% endif %}
 
             <span class="enter-btn">
                 {% if item.is_completed %}
-                    View Again
+                    {% trans "View Again" %}
                 {% elif item.completion_percentage > 0 %}
-                    Continue
+                    {% trans "Continue" %}
                 {% else %}
-                    Begin Journey
+                    {% trans "Begin Journey" %}
                 {% endif %}
             </span>
         </a>

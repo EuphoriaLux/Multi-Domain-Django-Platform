@@ -1,33 +1,34 @@
 {% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
 
-{% block title %}Registration Cancelled - Crush.lu{% endblock %}
+{% block title %}{% trans "Registration Cancelled" %} - Crush.lu{% endblock %}
 
-{% block header_title %}Registration Cancelled{% endblock %}
+{% block header_title %}{% trans "Registration Cancelled" %}{% endblock %}
 
 {% block content %}
-<h2>Hey {{ user.first_name }},</h2>
+<h2>{% blocktrans with first_name=user.first_name %}Hey {{ first_name }},{% endblocktrans %}</h2>
 
-<p>Your registration for <strong>{{ event.title }}</strong> has been cancelled.</p>
+<p>{% blocktrans with title=event.title %}Your registration for <strong>{{ title }}</strong> has been cancelled.{% endblocktrans %}</p>
 
 <div class="info-box">
-    <strong>Event Details:</strong>
+    <strong>{% trans "Event Details:" %}</strong>
     <ul style="margin: 10px 0;">
-        <li><strong>Event:</strong> {{ event.title }}</li>
-        <li><strong>Date:</strong> {{ event.date_time|date:"l, F j, Y" }}</li>
-        <li><strong>Time:</strong> {{ event.date_time|date:"g:i A" }}</li>
+        <li><strong>{% trans "Event:" %}</strong> {{ event.title }}</li>
+        <li><strong>{% trans "Date:" %}</strong> {{ event.date_time|date:"l, F j, Y" }}</li>
+        <li><strong>{% trans "Time:" %}</strong> {{ event.date_time|date:"g:i A" }}</li>
     </ul>
 </div>
 
-<p>If you paid a registration fee, it will be refunded within 5-7 business days.</p>
+<p>{% trans "If you paid a registration fee, it will be refunded within 5-7 business days." %}</p>
 
-<p>We hope to see you at a future event!</p>
+<p>{% trans "We hope to see you at a future event!" %}</p>
 
-<a href="{{ events_url }}" class="button">Browse Upcoming Events</a>
+<a href="{{ events_url }}" class="button">{% trans "Browse Upcoming Events" %}</a>
 
-<p>Changed your mind? You can re-register if spots are still available.</p>
+<p>{% trans "Changed your mind? You can re-register if spots are still available." %}</p>
 
 <p>
-    Best,<br>
-    <strong>The Crush.lu Team</strong>
+    {% trans "Best," %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
 </p>
 {% endblock %}

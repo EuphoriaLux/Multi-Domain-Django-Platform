@@ -152,6 +152,24 @@ class CrushLuAdminSite(admin.AdminSite):
             'emailpreference': {'order': 3, 'icon': '📧', 'group': 'Notifications'},
             'useractivity': {'order': 4, 'icon': '📊', 'group': 'Notifications'},
             'profilereminder': {'order': 5, 'icon': '📬', 'group': 'Notifications'},
+
+            # ═══════════════════════════════════════════════════════════════════
+            # GROUP 8: Wallet & Passes (Apple/Google Wallet integration)
+            # ═══════════════════════════════════════════════════════════════════
+            'walletpassproxy': {'order': 1, 'icon': '💳', 'group': 'Wallet & Passes'},
+            'passkitdeviceregistration': {'order': 2, 'icon': '📲', 'group': 'Wallet & Passes'},
+
+            # ═══════════════════════════════════════════════════════════════════
+            # GROUP 9: Growth & Referrals (Marketing and acquisition)
+            # ═══════════════════════════════════════════════════════════════════
+            'referralcode': {'order': 1, 'icon': '🎟️', 'group': 'Growth & Referrals'},
+            'referralattribution': {'order': 2, 'icon': '🔗', 'group': 'Growth & Referrals'},
+
+            # ═══════════════════════════════════════════════════════════════════
+            # GROUP 10: Technical & Debug (Developer tools)
+            # ═══════════════════════════════════════════════════════════════════
+            'pwadeviceinstallation': {'order': 1, 'icon': '📱', 'group': 'Technical & Debug'},
+            'oauthstate': {'order': 2, 'icon': '🔐', 'group': 'Technical & Debug'},
         }
 
         # Create grouped app list - transform single crush_lu app into multiple sections
@@ -193,15 +211,27 @@ class CrushLuAdminSite(admin.AdminSite):
                         groups[group_name].append(model)
 
                 # Create separate "app" entry for each group
-                # Order determines sidebar display order - most used groups first
+                # Order determines sidebar display order - organized by frequency of use
                 group_order = [
-                    ('👥 Users & Profiles', 'Users & Profiles'),
-                    ('🎉 Events & Meetups', 'Events & Meetups'),
-                    ('🗳️ Activity Voting', 'Activity Voting'),
-                    ('💕 Connections', 'Connections'),
-                    ('✨ Special Journey', 'Special Journey'),
-                    ('🎄 Advent Calendar', 'Advent Calendar'),
-                    ('🔔 Notifications', 'Notifications'),
+                    # === DAILY USE (Coach Core Workflow) ===
+                    ('👥 Users & Profiles', 'Users & Profiles'),       # Profile reviews, coach assignments
+                    ('🎉 Events & Meetups', 'Events & Meetups'),       # Event management, registrations
+                    ('💕 Connections', 'Connections'),                 # Post-event connections, messages
+                    ('🔔 Notifications', 'Notifications'),             # Push notifications, email prefs
+
+                    # === WEEKLY USE (Features & Growth) ===
+                    ('✨ Special Journey', 'Special Journey'),         # VIP journey creation & monitoring
+                    ('📈 Growth & Referrals', 'Growth & Referrals'),   # Referral tracking, marketing
+
+                    # === EVENT-SPECIFIC (During Events Only) ===
+                    ('🗳️ Activity Voting', 'Activity Voting'),         # Live event voting sessions
+
+                    # === SEASONAL / OCCASIONAL ===
+                    ('🎄 Advent Calendar', 'Advent Calendar'),         # December only
+                    ('💳 Wallet & Passes', 'Wallet & Passes'),         # Apple/Google Wallet
+
+                    # === ADMIN / DEBUGGING ===
+                    ('🔧 Technical & Debug', 'Technical & Debug'),     # PWA, OAuth debugging
                 ]
 
                 for display_name, group_key in group_order:

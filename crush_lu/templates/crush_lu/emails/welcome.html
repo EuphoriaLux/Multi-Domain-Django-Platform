@@ -1,8 +1,10 @@
+{% load i18n %}
 <!DOCTYPE html>
-<html>
+<html lang="{{ LANGUAGE_CODE|default:'en' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% trans "Welcome to Crush.lu" %}</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -68,49 +70,49 @@
 </head>
 <body>
     <div class="header">
-        <h1>🎉 Welcome to Crush.lu!</h1>
+        <h1>🎉 {% trans "Welcome to Crush.lu!" %}</h1>
     </div>
 
     <div class="content">
-        <p>Hi {{ first_name }},</p>
+        <p>{% blocktrans with first_name=first_name %}Hi {{ first_name }},{% endblocktrans %}</p>
 
-        <p><strong>Congratulations on taking the first step toward meaningful connections!</strong> 🌟</p>
+        <p><strong>{% trans "Congratulations on taking the first step toward meaningful connections!" %}</strong> 🌟</p>
 
-        <p>Your Crush.lu account has been successfully created. Now let's build your profile so you can start meeting amazing people at our events.</p>
+        <p>{% trans "Your Crush.lu account has been successfully created. Now let's build your profile so you can start meeting amazing people at our events." %}</p>
 
         <div class="steps">
-            <h3 style="margin-top: 0; color: #9B59B6;">Complete Your Profile (4 Simple Steps):</h3>
-            <div class="step"><strong>Basic Info:</strong> Tell us about yourself (age, location, etc.)</div>
-            <div class="step"><strong>About You:</strong> Share your bio and interests</div>
-            <div class="step"><strong>Photos:</strong> Add up to 3 photos</div>
-            <div class="step"><strong>Review & Submit:</strong> Double-check everything and submit!</div>
+            <h3 style="margin-top: 0; color: #9B59B6;">{% trans "Complete Your Profile (4 Simple Steps):" %}</h3>
+            <div class="step"><strong>{% trans "Basic Info:" %}</strong> {% trans "Tell us about yourself (age, location, etc.)" %}</div>
+            <div class="step"><strong>{% trans "About You:" %}</strong> {% trans "Share your bio and interests" %}</div>
+            <div class="step"><strong>{% trans "Photos:" %}</strong> {% trans "Add up to 3 photos" %}</div>
+            <div class="step"><strong>{% trans "Review & Submit:" %}</strong> {% trans "Double-check everything and submit!" %}</div>
         </div>
 
-        <p><strong>What happens next?</strong></p>
+        <p><strong>{% trans "What happens next?" %}</strong></p>
         <ul>
-            <li>📝 Complete your profile (takes 5-10 minutes)</li>
-            <li>📞 A coach may contact you for a quick screening call</li>
-            <li>✅ Once approved, you can register for events!</li>
-            <li>💕 Meet people in real life at our speed dating & social events</li>
+            <li>📝 {% trans "Complete your profile (takes 5-10 minutes)" %}</li>
+            <li>📞 {% trans "A coach may contact you for a quick screening call" %}</li>
+            <li>✅ {% trans "Once approved, you can register for events!" %}</li>
+            <li>💕 {% trans "Meet people in real life at our speed dating & social events" %}</li>
         </ul>
 
         <div style="text-align: center;">
-            <a href="{{ profile_url }}" class="button">Complete Your Profile Now</a>
+            <a href="{{ profile_url }}" class="button">{% trans "Complete Your Profile Now" %}</a>
         </div>
 
-        <p style="margin-top: 30px;"><strong>Need help?</strong> Reply to this email or check out our <a href="{{ how_it_works_url|default:'https://crush.lu/how-it-works/' }}" style="color: #9B59B6;">How It Works</a> page.</p>
+        <p style="margin-top: 30px;"><strong>{% trans "Need help?" %}</strong> {% trans "Reply to this email or check out our" %} <a href="{{ how_it_works_url|default:'https://crush.lu/how-it-works/' }}" style="color: #9B59B6;">{% trans "How It Works" %}</a> {% trans "page." %}</p>
 
-        <p>We're excited to have you in the Crush.lu community!</p>
+        <p>{% trans "We're excited to have you in the Crush.lu community!" %}</p>
 
         <p style="margin-top: 30px;">
-            Warmly,<br>
-            <strong>The Crush.lu Team</strong> 💜
+            {% trans "Warmly," %}<br>
+            <strong>{% trans "The Crush.lu Team" %}</strong> 💜
         </p>
     </div>
 
     <div class="footer">
-        <p>This email was sent to {{ user.email }} because you created a Crush.lu account.</p>
-        <p>© {{ "now"|date:"Y" }} Crush.lu - Privacy-focused dating in Luxembourg</p>
+        <p>{% blocktrans with email=user.email %}This email was sent to {{ email }} because you created a Crush.lu account.{% endblocktrans %}</p>
+        <p>© {{ "now"|date:"Y" }} Crush.lu - {% trans "Privacy-focused dating in Luxembourg" %}</p>
     </div>
 </body>
 </html>

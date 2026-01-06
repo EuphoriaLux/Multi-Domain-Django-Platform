@@ -1,3 +1,4 @@
+{% load i18n %}
 {% if action == 'accept' %}
 <div id="connection-{{ connection.id }}" class="bg-green-50 rounded-xl shadow-sm border-l-4 border-green-500 p-4">
     <div class="flex items-center">
@@ -5,16 +6,16 @@
             {% include "shared/icons/check-circle.html" with class="w-10 h-10 text-green-500" %}
         </div>
         <div class="flex-grow">
-            <h5 class="font-semibold text-green-800 mb-1">Connection Accepted!</h5>
+            <h5 class="font-semibold text-green-800 mb-1">{% trans "Connection Accepted!" %}</h5>
             <p class="text-green-700 text-sm">
-                A coach will help facilitate your introduction with {{ connection.requester.first_name }}.
+                {% blocktrans with name=connection.requester.first_name %}A coach will help facilitate your introduction with {{ name }}.{% endblocktrans %}
             </p>
         </div>
         <div class="ml-4">
             <a href="{% url 'crush_lu:connection_detail' connection.id %}"
                class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-semibold bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors">
                 {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
-                View Details
+                {% trans "View Details" %}
             </a>
         </div>
     </div>
@@ -28,7 +29,7 @@
      x-transition:leave-start="opacity-100 transform scale-100"
      x-transition:leave-end="opacity-0 transform scale-95">
     <div class="flex items-center justify-center text-gray-500 py-2">
-        <p class="m-0">Connection request declined</p>
+        <p class="m-0">{% trans "Connection request declined" %}</p>
     </div>
 </div>
 {% endif %}
