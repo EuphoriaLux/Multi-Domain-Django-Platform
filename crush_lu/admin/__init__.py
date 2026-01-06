@@ -20,6 +20,8 @@ Modules:
 - referrals.py: Referral code admins
 - wallet.py: Wallet pass management (Apple & Google)
 - pwa_devices.py: PWA device installation tracking (admin-only)
+- oauth.py: OAuth state debugging (for Android PWA issues)
+- passkit.py: Apple PassKit device registration tracking
 """
 
 from django.contrib import admin
@@ -127,6 +129,10 @@ from .wallet import (
 
 from .pwa_devices import PWADeviceInstallationAdmin
 
+from .oauth import OAuthStateAdmin
+
+from .passkit import PasskitDeviceRegistrationAdmin
+
 # Import all models for registration
 from crush_lu.models import (
     SpecialUserExperience,
@@ -167,6 +173,8 @@ from crush_lu.models import (
     ReferralCode,
     ReferralAttribution,
     PWADeviceInstallation,
+    OAuthState,
+    PasskitDeviceRegistration,
 )
 
 
@@ -237,6 +245,12 @@ crush_admin_site.register(WalletPassProxy, WalletPassAdmin)
 
 # PWA Device Installation Tracking (Admin-only analytics)
 crush_admin_site.register(PWADeviceInstallation, PWADeviceInstallationAdmin)
+
+# OAuth State (Debugging cross-browser auth issues)
+crush_admin_site.register(OAuthState, OAuthStateAdmin)
+
+# PassKit Device Registration (Apple Wallet device tracking)
+crush_admin_site.register(PasskitDeviceRegistration, PasskitDeviceRegistrationAdmin)
 
 # NOTE: User is NOT registered with crush_admin_site to hide "Authentication and Authorization" section
 # Users can still be viewed/edited via the "👤 User" links in CrushProfile and CrushCoach admin pages
@@ -338,4 +352,10 @@ __all__ = [
 
     # PWA Devices
     'PWADeviceInstallationAdmin',
+
+    # OAuth State (debugging)
+    'OAuthStateAdmin',
+
+    # PassKit Device Registration
+    'PasskitDeviceRegistrationAdmin',
 ]
