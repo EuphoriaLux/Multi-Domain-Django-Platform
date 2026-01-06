@@ -819,6 +819,279 @@
         </p>
     </div>
 
+    <!-- PWA Analytics Section -->
+    <h2 class="section-header">📱 PWA Analytics</h2>
+    <div class="dashboard-grid">
+        <div class="metric-card purple">
+            <div class="icon-large">📲</div>
+            <div class="metric-label">Total Installations</div>
+            <div class="metric-value">{{ pwa_metrics.total_installations }}</div>
+            <div class="metric-subtitle">{{ pwa_metrics.unique_users }} unique users</div>
+        </div>
+
+        <div class="metric-card green">
+            <div class="icon-large">✅</div>
+            <div class="metric-label">Active (7 Days)</div>
+            <div class="metric-value">{{ pwa_metrics.active_7d }}</div>
+            <div class="metric-subtitle">Recently active</div>
+        </div>
+
+        <div class="metric-card orange">
+            <div class="icon-large">📴</div>
+            <div class="metric-label">Likely Uninstalled</div>
+            <div class="metric-value">{{ pwa_metrics.inactive_7d }}</div>
+            <div class="metric-subtitle">No activity 7+ days</div>
+        </div>
+
+        <div class="metric-card blue">
+            <div class="icon-large">📈</div>
+            <div class="metric-label">New This Month</div>
+            <div class="metric-value">{{ pwa_metrics.new_this_month }}</div>
+            <div class="metric-subtitle">Last 30 days</div>
+        </div>
+    </div>
+
+    <!-- Platform & Browser Distribution -->
+    <div class="dashboard-grid">
+        <div class="table-container">
+            <h3 style="margin-top: 0;">📊 Platform Distribution</h3>
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>Platform</th>
+                        <th>Count</th>
+                        <th>%</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in pwa_metrics.os_distribution %}
+                    <tr>
+                        <td>
+                            {% if item.os_type == 'ios' %}🍎 iOS
+                            {% elif item.os_type == 'android' %}🤖 Android
+                            {% elif item.os_type == 'windows' %}🪟 Windows
+                            {% elif item.os_type == 'macos' %}🍏 macOS
+                            {% elif item.os_type == 'linux' %}🐧 Linux
+                            {% elif item.os_type == 'chromeos' %}💻 ChromeOS
+                            {% else %}❓ {{ item.os_type|title }}
+                            {% endif %}
+                        </td>
+                        <td>{{ item.count }}</td>
+                        <td>{% if pwa_metrics.total_installations > 0 %}{% widthratio item.count pwa_metrics.total_installations 100 %}%{% else %}0%{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" style="text-align: center; color: var(--text-muted);">No PWA installations yet</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="table-container">
+            <h3 style="margin-top: 0;">🌐 Browser Distribution</h3>
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>Browser</th>
+                        <th>Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in pwa_metrics.browser_distribution %}
+                    <tr>
+                        <td>
+                            {% if item.browser == 'Chrome' %}🟢 Chrome
+                            {% elif item.browser == 'Safari' %}🔵 Safari
+                            {% elif item.browser == 'Edge' %}🔷 Edge
+                            {% elif item.browser == 'Firefox' %}🦊 Firefox
+                            {% elif item.browser == 'Samsung Internet' %}🟣 Samsung
+                            {% else %}{{ item.browser|default:"Unknown" }}
+                            {% endif %}
+                        </td>
+                        <td>{{ item.count }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="2" style="text-align: center; color: var(--text-muted);">No data</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Recent Installations & Inactive Devices -->
+    <div class="dashboard-grid">
+        <div class="table-container">
+            <h3 style="margin-top: 0;">🆕 Recent Installations</h3>
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Device</th>
+                        <th>Installed</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for device in pwa_metrics.recent_installations %}
+                    <tr>
+                        <td>{{ device.user.first_name|default:device.user.username }}</td>
+                        <td>{{ device.device_category }}</td>
+                        <td>{{ device.installed_at|timesince }} ago</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" style="text-align: center; color: var(--text-muted);">No installations yet</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="table-container">
+            <h3 style="margin-top: 0; color: #ffc107;">⚠️ Likely Uninstalled (7+ days inactive)</h3>
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Device</th>
+                        <th>Last Active</th>
+                        <th>Days</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for device in pwa_metrics.inactive_devices %}
+                    <tr>
+                        <td>{{ device.user.first_name|default:device.user.username }}</td>
+                        <td>{{ device.device_category }}</td>
+                        <td>{{ device.last_used_at|date:"M d, Y" }}</td>
+                        <td style="color: #dc3545; font-weight: bold;">{{ device.days_since_last_use }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: #28a745;">✅ No inactive devices - all PWA users are active!</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <p style="margin-bottom: 30px;">
+        <a href="{% url 'crush_admin:crush_lu_pwadeviceinstallation_changelist' %}" class="quick-action-btn" style="display: inline-block;">
+            View All PWA Devices
+        </a>
+    </p>
+
+    <!-- OAuth State Section (Technical/Debugging) -->
+    {% if oauth_metrics.total_states > 0 %}
+    <h2 class="section-header">🔐 OAuth State (Debugging)</h2>
+    <div class="dashboard-grid">
+        <div class="metric-card blue">
+            <div class="icon-large">🔄</div>
+            <div class="metric-label">Active States</div>
+            <div class="metric-value">{{ oauth_metrics.active_states }}</div>
+            <div class="metric-subtitle">Unused, not expired</div>
+        </div>
+
+        <div class="metric-card green">
+            <div class="icon-large">✅</div>
+            <div class="metric-label">Completed Auth</div>
+            <div class="metric-value">{{ oauth_metrics.completed_auth }}</div>
+            <div class="metric-subtitle">Successful authentications</div>
+        </div>
+
+        <div class="metric-card orange">
+            <div class="icon-large">⏰</div>
+            <div class="metric-label">Expired States</div>
+            <div class="metric-value">{{ oauth_metrics.expired_states }}</div>
+            <div class="metric-subtitle">Should be cleaned up</div>
+        </div>
+
+        <div class="metric-card purple">
+            <div class="icon-large">🕐</div>
+            <div class="metric-label">Recent (1h)</div>
+            <div class="metric-value">{{ oauth_metrics.recent_states }}</div>
+            <div class="metric-subtitle">Created in last hour</div>
+        </div>
+    </div>
+
+    {% if oauth_metrics.provider_distribution %}
+    <div class="table-container">
+        <h3 style="margin-top: 0;">OAuth Provider Distribution</h3>
+        <table class="stats-table">
+            <thead>
+                <tr>
+                    <th>Provider</th>
+                    <th>Count</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in oauth_metrics.provider_distribution %}
+                <tr>
+                    <td>
+                        {% if item.provider == 'facebook' %}📘 Facebook
+                        {% elif item.provider == 'google' %}🔵 Google
+                        {% elif item.provider == 'apple' %}🍎 Apple
+                        {% else %}{{ item.provider|title }}
+                        {% endif %}
+                    </td>
+                    <td>{{ item.count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <p style="margin-bottom: 30px;">
+        <a href="{% url 'crush_admin:crush_lu_oauthstate_changelist' %}" class="quick-action-btn" style="display: inline-block;">
+            View OAuth States
+        </a>
+    </p>
+    {% endif %}
+
+    <!-- PassKit Device Registration Section (Apple Wallet) -->
+    {% if passkit_metrics.total_registrations > 0 %}
+    <h2 class="section-header">🍎 Apple Wallet Devices</h2>
+    <div class="dashboard-grid">
+        <div class="metric-card purple">
+            <div class="icon-large">📲</div>
+            <div class="metric-label">Total Registrations</div>
+            <div class="metric-value">{{ passkit_metrics.total_registrations }}</div>
+            <div class="metric-subtitle">Device-pass pairings</div>
+        </div>
+
+        <div class="metric-card blue">
+            <div class="icon-large">📱</div>
+            <div class="metric-label">Unique Devices</div>
+            <div class="metric-value">{{ passkit_metrics.unique_devices }}</div>
+            <div class="metric-subtitle">Apple Wallet devices</div>
+        </div>
+
+        <div class="metric-card pink">
+            <div class="icon-large">🎫</div>
+            <div class="metric-label">Unique Passes</div>
+            <div class="metric-value">{{ passkit_metrics.unique_passes }}</div>
+            <div class="metric-subtitle">Installed passes</div>
+        </div>
+
+        <div class="metric-card green">
+            <div class="icon-large">🆕</div>
+            <div class="metric-label">New This Month</div>
+            <div class="metric-value">{{ passkit_metrics.recent_registrations }}</div>
+            <div class="metric-subtitle">Last 30 days</div>
+        </div>
+    </div>
+
+    <p style="margin-bottom: 30px;">
+        <a href="{% url 'crush_admin:crush_lu_passkitdeviceregistration_changelist' %}" class="quick-action-btn" style="display: inline-block;">
+            View PassKit Devices
+        </a>
+    </p>
+    {% endif %}
+
     <!-- Recent Activity Section -->
     <h2 class="section-header">📊 Recent Activity</h2>
 

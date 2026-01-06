@@ -13,7 +13,7 @@ from datetime import timedelta
 from .models import (
     CrushProfile, CrushCoach, ProfileSubmission, MeetupEvent, EventRegistration,
     EventConnection, JourneyProgress, SpecialUserExperience, CoachSession,
-    EmailPreference
+    EmailPreference, PWADeviceInstallation, OAuthState, PasskitDeviceRegistration
 )
 
 
@@ -251,6 +251,74 @@ def crush_admin_dashboard(request):
     }
 
     # ============================================================================
+    # PWA ANALYTICS
+    # ============================================================================
+
+    pwa_week_ago = timezone.now() - timedelta(days=7)
+    pwa_month_ago = timezone.now() - timedelta(days=30)
+
+    pwa_total = PWADeviceInstallation.objects.count()
+    pwa_metrics = {
+        'total_installations': pwa_total,
+        'unique_users': PWADeviceInstallation.objects.values('user').distinct().count(),
+        'active_7d': PWADeviceInstallation.objects.filter(last_used_at__gte=pwa_week_ago).count(),
+        'inactive_7d': PWADeviceInstallation.objects.filter(last_used_at__lt=pwa_week_ago).count() if pwa_total > 0 else 0,
+        'new_this_month': PWADeviceInstallation.objects.filter(installed_at__gte=pwa_month_ago).count(),
+        'os_distribution': list(PWADeviceInstallation.objects.values('os_type')
+            .annotate(count=Count('id')).order_by('-count')),
+        'form_factor_distribution': list(PWADeviceInstallation.objects.values('form_factor')
+            .annotate(count=Count('id')).order_by('-count')),
+        'browser_distribution': list(PWADeviceInstallation.objects.values('browser')
+            .annotate(count=Count('id')).order_by('-count')[:5]),
+        'recent_installations': PWADeviceInstallation.objects.select_related('user')
+            .order_by('-installed_at')[:10],
+        'inactive_devices': PWADeviceInstallation.objects.filter(last_used_at__lt=pwa_week_ago)
+            .select_related('user').order_by('last_used_at')[:10] if pwa_total > 0 else [],
+    }
+
+    # ============================================================================
+    # OAUTH STATE METRICS (for debugging Android PWA issues)
+    # ============================================================================
+
+    oauth_hour_ago = timezone.now() - timedelta(hours=1)
+
+    oauth_metrics = {
+        'total_states': OAuthState.objects.count(),
+        'active_states': OAuthState.objects.filter(
+            used=False,
+            expires_at__gt=timezone.now()
+        ).count(),
+        'used_states': OAuthState.objects.filter(used=True).count(),
+        'expired_states': OAuthState.objects.filter(
+            used=False,
+            expires_at__lt=timezone.now()
+        ).count(),
+        'completed_auth': OAuthState.objects.filter(auth_completed=True).count(),
+        'recent_states': OAuthState.objects.filter(created_at__gte=oauth_hour_ago).count(),
+        'provider_distribution': list(OAuthState.objects.exclude(provider='')
+            .values('provider').annotate(count=Count('id')).order_by('-count')),
+    }
+
+    # ============================================================================
+    # PASSKIT DEVICE METRICS (Apple Wallet registrations)
+    # ============================================================================
+
+    passkit_metrics = {
+        'total_registrations': PasskitDeviceRegistration.objects.count(),
+        'unique_devices': PasskitDeviceRegistration.objects.values(
+            'device_library_identifier'
+        ).distinct().count(),
+        'unique_passes': PasskitDeviceRegistration.objects.values(
+            'serial_number'
+        ).distinct().count(),
+        'recent_registrations': PasskitDeviceRegistration.objects.filter(
+            created_at__gte=pwa_month_ago
+        ).count(),
+        'pass_types': list(PasskitDeviceRegistration.objects.values('pass_type_identifier')
+            .annotate(count=Count('id')).order_by('-count')),
+    }
+
+    # ============================================================================
     # PENDING ACTIONS (Coach Workflow Quick Links)
     # ============================================================================
 
@@ -383,6 +451,15 @@ def crush_admin_dashboard(request):
         'marketing_opt_in_rate': round(marketing_opt_in_rate, 1),
         'email_active_users': email_active_users,
         'email_category_stats': email_category_stats,
+
+        # PWA Analytics
+        'pwa_metrics': pwa_metrics,
+
+        # OAuth State Metrics (debugging)
+        'oauth_metrics': oauth_metrics,
+
+        # PassKit Device Metrics (Apple Wallet)
+        'passkit_metrics': passkit_metrics,
 
         # Recent activity
         'recent_submissions': recent_submissions,
