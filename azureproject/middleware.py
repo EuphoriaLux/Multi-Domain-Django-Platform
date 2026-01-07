@@ -11,6 +11,7 @@ This module contains middleware for:
 """
 import logging
 from django.core.cache import cache
+from django.db import IntegrityError
 from django.utils import translation
 from django.http import HttpResponse, HttpResponseForbidden
 from django.contrib.sites.models import Site
@@ -24,6 +25,23 @@ from .domains import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_cache_set(key, value, timeout=300):
+    """
+    Safely set a cache value, handling race conditions with DatabaseCache.
+
+    When using Django's DatabaseCache backend, concurrent requests trying to
+    cache the same key can cause IntegrityError (duplicate key). This helper
+    catches that exception since it's benign - another request already cached
+    the value.
+    """
+    try:
+        cache.set(key, value, timeout)
+    except IntegrityError:
+        # Race condition: another request already cached this key
+        # This is fine - the value is cached, just not by us
+        pass
 
 
 class LoginPostDebugMiddleware:
@@ -212,7 +230,7 @@ class SafeCurrentSiteMiddleware:
         try:
             # Try exact domain match first
             site = Site.objects.get(domain__iexact=host)
-            cache.set(cache_key, site, 300)  # Cache for 5 minutes
+            _safe_cache_set(cache_key, site, 300)  # Cache for 5 minutes
             return site
         except Site.DoesNotExist:
             pass
@@ -227,7 +245,7 @@ class SafeCurrentSiteMiddleware:
             )
             if created:
                 logger.info(f"SafeCurrentSiteMiddleware: Auto-created Site for {host}")
-            cache.set(cache_key, site, 300)  # Cache for 5 minutes
+            _safe_cache_set(cache_key, site, 300)  # Cache for 5 minutes
             return site
 
         # For Azure hostnames, dev hosts, and unknown hosts - use default
@@ -246,7 +264,7 @@ class SafeCurrentSiteMiddleware:
 
         try:
             site = Site.objects.get(pk=1)
-            cache.set(cache_key, site, 300)  # Cache for 5 minutes
+            _safe_cache_set(cache_key, site, 300)  # Cache for 5 minutes
             return site
         except Site.DoesNotExist:
             # Create default site
@@ -255,7 +273,7 @@ class SafeCurrentSiteMiddleware:
                 defaults={'domain': 'entreprinder.lu', 'name': 'Entreprinder'}
             )
             logger.info("SafeCurrentSiteMiddleware: Created default Site (pk=1)")
-            cache.set(cache_key, site, 300)  # Cache for 5 minutes
+            _safe_cache_set(cache_key, site, 300)  # Cache for 5 minutes
             return site
 
 

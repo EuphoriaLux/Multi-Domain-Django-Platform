@@ -111,9 +111,9 @@ class CoachDashboardTests(SiteTestMixin, TestCase):
 
         response = self.client.get(reverse('crush_lu:coach_dashboard'))
 
-        # Currently inactive coaches can access the dashboard
-        # TODO: Consider restricting access for inactive coaches in the view
-        self.assertEqual(response.status_code, 200)
+        # Inactive coaches are redirected to user dashboard with error message
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('dashboard', response.url)
 
     def test_unauthenticated_redirects_to_login(self):
         """Test unauthenticated user is redirected to login."""

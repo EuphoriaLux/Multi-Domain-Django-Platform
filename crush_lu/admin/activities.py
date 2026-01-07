@@ -13,6 +13,7 @@ Includes:
 
 from django.contrib import admin
 from django.contrib import messages as django_messages
+from django.utils.translation import gettext_lazy as _
 
 from crush_lu.models import (
     GlobalActivityOption, EventActivityOption, EventActivityVote,
@@ -53,7 +54,7 @@ class GlobalActivityOptionAdmin(admin.ModelAdmin):
             'speed_dating_twist': '💕 Phase 3: Speed Dating Twist',
         }
         return phase_map.get(obj.activity_type, obj.activity_type)
-    get_activity_phase.short_description = 'Event Phase'
+    get_activity_phase.short_description = _('Event Phase')
 
 
 class EventActivityOptionAdmin(admin.ModelAdmin):
@@ -81,7 +82,7 @@ class EventActivityOptionAdmin(admin.ModelAdmin):
             'speed_dating_twist': '💕 Phase 3: Speed Dating Twist',
         }
         return phase_map.get(obj.activity_type, obj.activity_type)
-    get_activity_phase.short_description = 'Event Phase'
+    get_activity_phase.short_description = _('Event Phase')
 
 
 class EventActivityVoteAdmin(admin.ModelAdmin):
@@ -120,23 +121,23 @@ class EventVotingSessionAdmin(admin.ModelAdmin):
         }),
     )
 
-    @admin.action(description='Start voting for selected sessions')
+    @admin.action(description=_('Start voting for selected sessions'))
     def start_voting_session(self, request, queryset):
         """Manually start voting sessions"""
         updated = 0
         for session in queryset:
             session.start_voting()
             updated += 1
-        django_messages.success(request, f"Started voting for {updated} session(s)")
+        django_messages.success(request, _("Started voting for %(count)d session(s)") % {'count': updated})
 
-    @admin.action(description='End voting and calculate winners')
+    @admin.action(description=_('End voting and calculate winners'))
     def end_voting_session(self, request, queryset):
         """Manually end voting sessions and calculate winners"""
         updated = 0
         for session in queryset:
             session.end_voting()
             updated += 1
-        django_messages.success(request, f"Ended voting and calculated winners for {updated} session(s)")
+        django_messages.success(request, _("Ended voting and calculated winners for %(count)d session(s)") % {'count': updated})
 
 
 class PresentationQueueAdmin(admin.ModelAdmin):

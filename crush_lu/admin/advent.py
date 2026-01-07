@@ -15,6 +15,7 @@ Includes:
 from django.contrib import admin
 from django.contrib import messages as django_messages
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
 
 from crush_lu.models import (
     AdventCalendar, AdventDoor, AdventDoorContent, AdventProgress, QRCodeToken,
@@ -121,7 +122,7 @@ class AdventCalendarAdmin(admin.ModelAdmin):
             return f"{obj.journey.special_experience.first_name} {obj.journey.special_experience.last_name}"
         except Exception:
             return "N/A"
-    get_user_name.short_description = 'For User'
+    get_user_name.short_description = _('For User')
 
     def get_door_count(self, obj):
         """Count doors created for this calendar"""
@@ -130,20 +131,20 @@ class AdventCalendarAdmin(admin.ModelAdmin):
             return f"✅ {count}/24"
         else:
             return f"⚠️ {count}/24"
-    get_door_count.short_description = '🚪 Doors'
+    get_door_count.short_description = _('Doors')
 
     def get_progress_count(self, obj):
         """Count users with progress on this calendar"""
         return obj.user_progress.count()
-    get_progress_count.short_description = '👥 Users'
+    get_progress_count.short_description = _('Users')
 
     def is_december_active(self, obj):
         """Check if currently December"""
         return obj.is_december()
     is_december_active.boolean = True
-    is_december_active.short_description = '🎄 December Active'
+    is_december_active.short_description = _('December Active')
 
-    @admin.action(description='🚪 Create 24 default doors')
+    @admin.action(description=_('Create 24 default doors'))
     def create_default_doors(self, request, queryset):
         """Create 24 default doors for selected calendars"""
         for calendar in queryset:
@@ -161,7 +162,7 @@ class AdventCalendarAdmin(admin.ModelAdmin):
                     )
                     created += 1
 
-            django_messages.success(request, f"Created {created} doors for '{calendar.calendar_title}'")
+            django_messages.success(request, _("Created %(count)d doors for '%(title)s'") % {'count': created, 'title': calendar.calendar_title})
 
 
 class AdventDoorAdmin(admin.ModelAdmin):
@@ -211,7 +212,7 @@ class AdventDoorAdmin(admin.ModelAdmin):
 
     def get_door_display(self, obj):
         return f"Door {obj.door_number}"
-    get_door_display.short_description = 'Door #'
+    get_door_display.short_description = _('Door #')
     get_door_display.admin_order_field = 'door_number'
 
     def get_challenge_type_display(self, obj):
@@ -219,7 +220,7 @@ class AdventDoorAdmin(admin.ModelAdmin):
         if obj.content_type == 'challenge' and obj.challenge_type:
             return obj.get_challenge_type_display()
         return '—'
-    get_challenge_type_display.short_description = '🎯 Challenge Type'
+    get_challenge_type_display.short_description = _('Challenge Type')
 
     def has_content(self, obj):
         """Check if door has content configured"""
@@ -228,13 +229,13 @@ class AdventDoorAdmin(admin.ModelAdmin):
         except AdventDoorContent.DoesNotExist:
             return False
     has_content.boolean = True
-    has_content.short_description = '📦 Has Content'
+    has_content.short_description = _('Has Content')
 
     def has_qr_tokens(self, obj):
         """Check if QR tokens exist for this door"""
         return obj.qr_tokens.exists()
     has_qr_tokens.boolean = True
-    has_qr_tokens.short_description = '📱 Has QR Tokens'
+    has_qr_tokens.short_description = _('Has QR Tokens')
 
 
 class AdventDoorContentAdmin(admin.ModelAdmin):
@@ -298,11 +299,11 @@ class AdventDoorContentAdmin(admin.ModelAdmin):
 
     def get_door_display(self, obj):
         return f"Door {obj.door.door_number}"
-    get_door_display.short_description = 'Door #'
+    get_door_display.short_description = _('Door #')
 
     def get_calendar(self, obj):
         return obj.door.calendar.calendar_title
-    get_calendar.short_description = 'Calendar'
+    get_calendar.short_description = _('Calendar')
 
     def get_content_type(self, obj):
         """Display content type with challenge type if applicable"""
@@ -310,28 +311,28 @@ class AdventDoorContentAdmin(admin.ModelAdmin):
         if obj.door.content_type == 'challenge' and obj.door.challenge_type:
             return f"{content_type} ({obj.door.get_challenge_type_display()})"
         return content_type
-    get_content_type.short_description = 'Type'
+    get_content_type.short_description = _('Type')
 
     def has_title(self, obj):
         return bool(obj.title)
     has_title.boolean = True
-    has_title.short_description = '📝 Title'
+    has_title.short_description = _('Title')
 
     def has_challenge(self, obj):
         """Check if challenge content is configured"""
         return bool(obj.challenge_question)
     has_challenge.boolean = True
-    has_challenge.short_description = '🎯 Challenge'
+    has_challenge.short_description = _('Challenge')
 
     def has_bonus(self, obj):
         return bool(obj.bonus_content or obj.bonus_photo or obj.bonus_title)
     has_bonus.boolean = True
-    has_bonus.short_description = '🎁 Bonus'
+    has_bonus.short_description = _('Bonus')
 
     def has_media(self, obj):
         return bool(obj.photo or obj.video_file or obj.audio_file)
     has_media.boolean = True
-    has_media.short_description = '🎬 Media'
+    has_media.short_description = _('Media')
 
 
 class AdventProgressAdmin(admin.ModelAdmin):
@@ -364,12 +365,12 @@ class AdventProgressAdmin(admin.ModelAdmin):
     def get_doors_opened(self, obj):
         count = len(obj.doors_opened or [])
         return f"{count}/24"
-    get_doors_opened.short_description = '🚪 Doors Opened'
+    get_doors_opened.short_description = _('Doors Opened')
 
     def get_qr_scans(self, obj):
         count = len(obj.qr_scans or [])
         return f"{count} scans"
-    get_qr_scans.short_description = '📱 QR Scans'
+    get_qr_scans.short_description = _('QR Scans')
 
 
 class QRCodeTokenAdmin(admin.ModelAdmin):
@@ -408,17 +409,17 @@ class QRCodeTokenAdmin(admin.ModelAdmin):
 
     def get_door_display(self, obj):
         return f"Door {obj.door.door_number}"
-    get_door_display.short_description = 'Door'
+    get_door_display.short_description = _('Door')
 
     def get_token_short(self, obj):
         """Display shortened token for list view"""
         return f"{str(obj.token)[:8]}..."
-    get_token_short.short_description = 'Token'
+    get_token_short.short_description = _('Token')
 
     def is_valid_display(self, obj):
         return obj.is_valid()
     is_valid_display.boolean = True
-    is_valid_display.short_description = '✅ Valid'
+    is_valid_display.short_description = _('Valid')
 
     def get_qr_url(self, obj):
         """Display the URL that should be encoded in the QR code"""
@@ -432,9 +433,9 @@ class QRCodeTokenAdmin(admin.ModelAdmin):
                 url
             )
         return "N/A"
-    get_qr_url.short_description = 'QR URL'
+    get_qr_url.short_description = _('QR URL')
 
-    @admin.action(description='🔄 Regenerate tokens (creates new UUIDs)')
+    @admin.action(description=_('Regenerate tokens (creates new UUIDs)'))
     def regenerate_tokens(self, request, queryset):
         """Regenerate tokens for selected entries"""
         import uuid
@@ -445,9 +446,9 @@ class QRCodeTokenAdmin(admin.ModelAdmin):
                 token.save()
                 count += 1
 
-        django_messages.success(request, f"Regenerated {count} token(s). Used tokens were skipped.")
+        django_messages.success(request, _("Regenerated %(count)d token(s). Used tokens were skipped.") % {'count': count})
 
-    @admin.action(description='📱 Generate tokens for all doors (selected users)')
+    @admin.action(description=_('Generate tokens for all doors (selected users)'))
     def generate_tokens_for_all_doors(self, request, queryset):
         """Generate QR tokens for all 24 doors for selected user-calendar combinations"""
         import uuid
@@ -468,4 +469,4 @@ class QRCodeTokenAdmin(admin.ModelAdmin):
                     )
                     created += 1
 
-        django_messages.success(request, f"Generated {created} new QR token(s)")
+        django_messages.success(request, _("Generated %(count)d new QR token(s)") % {'count': created})

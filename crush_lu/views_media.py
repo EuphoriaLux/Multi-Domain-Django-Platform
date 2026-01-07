@@ -63,8 +63,29 @@ def can_view_profile_photo(viewer, profile_owner):
     # Check blur_photos privacy setting
     should_blur = profile_owner.blur_photos
 
-    # TODO: Add logic to check for mutual connections/matches
-    # If there's a mutual connection, set should_blur = False
+    # Check for mutual connections - if connected, don't blur
+    if should_blur:
+        from .models import EventConnection
+        # Check if there's a mutual connection between viewer and profile owner
+        # A connection is mutual if both parties have requested to connect with each other
+        # OR if one party requested and the other accepted
+        has_mutual_connection = (
+            # Viewer requested connection with profile owner (accepted or coach-approved status)
+            EventConnection.objects.filter(
+                requester=viewer,
+                recipient=profile_owner.user,
+                status__in=['accepted', 'coach_approved', 'shared']
+            ).exists()
+            or
+            # Profile owner requested connection with viewer (accepted or coach-approved status)
+            EventConnection.objects.filter(
+                requester=profile_owner.user,
+                recipient=viewer,
+                status__in=['accepted', 'coach_approved', 'shared']
+            ).exists()
+        )
+        if has_mutual_connection:
+            should_blur = False
 
     return {'allowed': True, 'blur': should_blur}
 
@@ -133,13 +154,32 @@ def serve_profile_photo(request, user_id, photo_field):
         # Get secure URL with SAS token
         secure_url = storage.url(photo.name, expire=1800)  # 30 min expiry
 
-        # For blurred photos, we need to fetch and process
+        # For blurred photos, fetch from Azure, apply blur, and serve directly
         if permission['blur']:
-            # TODO: Implement blur for Azure
-            # For now, add blur indicator to URL or serve warning
-            logger.info(f"Blur requested for Azure photo: {photo.name}")
+            try:
+                import requests
+                from io import BytesIO
 
-        # Redirect to Azure with SAS token
+                # Fetch image from Azure blob storage
+                response = requests.get(secure_url, timeout=10)
+                response.raise_for_status()
+
+                # Apply blur using PIL
+                img = Image.open(BytesIO(response.content))
+                blurred = img.filter(ImageFilter.GaussianBlur(radius=20))
+
+                # Serve blurred image
+                http_response = HttpResponse(content_type='image/jpeg')
+                blurred.save(http_response, 'JPEG', quality=85)
+                http_response['Cache-Control'] = 'private, max-age=300'  # 5 min cache
+                return http_response
+            except Exception as e:
+                logger.error(f"Error blurring Azure photo {photo.name}: {e}")
+                # Fall back to unblurred if blur fails (privacy vs availability trade-off)
+                # For strict privacy, you could raise Http404 instead
+                logger.warning(f"Serving unblurred photo due to blur failure: {photo.name}")
+
+        # Redirect to Azure with SAS token (for non-blurred photos or blur fallback)
         from django.shortcuts import redirect
         return redirect(secure_url)
 

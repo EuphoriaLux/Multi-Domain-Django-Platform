@@ -8,6 +8,7 @@ import uuid
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 # Import the callable storage function from profiles (ensures consistent migration state)
 from crush_lu.models.profiles import get_crush_photo_storage
@@ -26,44 +27,44 @@ class AdventCalendar(models.Model):
         'JourneyConfiguration',
         on_delete=models.CASCADE,
         related_name='advent_calendar',
-        help_text="The journey configuration for this advent calendar"
+        help_text=_("The journey configuration for this advent calendar")
     )
     year = models.PositiveIntegerField(
         default=2024,
-        help_text="Year for this advent calendar (e.g., 2024)"
+        help_text=_("Year for this advent calendar (e.g., 2024)")
     )
     start_date = models.DateField(
-        help_text="Start date (usually December 1)"
+        help_text=_("Start date (usually December 1)")
     )
     end_date = models.DateField(
-        help_text="End date (usually December 24)"
+        help_text=_("End date (usually December 24)")
     )
     allow_catch_up = models.BooleanField(
         default=True,
-        help_text="Allow users to open past doors (accumulating access)"
+        help_text=_("Allow users to open past doors (accumulating access)")
     )
     timezone_name = models.CharField(
         max_length=50,
         default='Europe/Luxembourg',
-        help_text="Timezone for date calculations"
+        help_text=_("Timezone for date calculations")
     )
 
     # Customization
     calendar_title = models.CharField(
         max_length=200,
         default="Your Advent Calendar",
-        help_text="Title displayed on the calendar"
+        help_text=_("Title displayed on the calendar")
     )
     calendar_description = models.TextField(
         blank=True,
-        help_text="Description shown on the calendar page"
+        help_text=_("Description shown on the calendar page")
     )
     background_image = models.ImageField(
         upload_to='advent_backgrounds/',
         blank=True,
         null=True,
         storage=crush_photo_storage,
-        help_text="Custom background image for the calendar"
+        help_text=_("Custom background image for the calendar")
     )
 
     # Timestamps
@@ -71,8 +72,8 @@ class AdventCalendar(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Advent Calendar"
-        verbose_name_plural = "🎄 1. Advent Calendars"
+        verbose_name = _("Advent Calendar")
+        verbose_name_plural = _("🎄 1. Advent Calendars")
 
     def __str__(self):
         return f"{self.calendar_title} ({self.year}) - {self.journey.special_experience}"
@@ -185,10 +186,10 @@ class AdventDoor(models.Model):
         related_name='advent_door',
         null=True,
         blank=True,
-        help_text="Optional link to a JourneyChapter for challenge content"
+        help_text=_("Optional link to a JourneyChapter for challenge content")
     )
     door_number = models.PositiveIntegerField(
-        help_text="Door number (1-24)"
+        help_text=_("Door number (1-24)")
     )
     content_type = models.CharField(
         max_length=20,
@@ -202,7 +203,7 @@ class AdventDoor(models.Model):
         choices=CHALLENGE_TYPES,
         blank=True,
         null=True,
-        help_text="Type of challenge (only used when content_type is 'challenge')"
+        help_text=_("Type of challenge (only used when content_type is 'challenge')")
     )
 
     # QR Code settings (configurable per door)
@@ -210,24 +211,24 @@ class AdventDoor(models.Model):
         max_length=10,
         choices=QR_MODES,
         default='none',
-        help_text="How QR codes work for this door"
+        help_text=_("How QR codes work for this door")
     )
 
     # Visual customization
     door_color = models.CharField(
         max_length=7,
         default='#C41E3A',
-        help_text="Hex color for the door (e.g., #C41E3A for Christmas red)"
+        help_text=_("Hex color for the door (e.g., #C41E3A for Christmas red)")
     )
     door_icon = models.CharField(
         max_length=50,
         blank=True,
-        help_text="Emoji or icon class for the door (e.g., 🎁, 🎄, ⭐)"
+        help_text=_("Emoji or icon class for the door (e.g., 🎁, 🎄, ⭐)")
     )
     teaser_text = models.CharField(
         max_length=200,
         blank=True,
-        help_text="Short teaser text shown on the closed door"
+        help_text=_("Short teaser text shown on the closed door")
     )
 
     # Timestamps
@@ -237,8 +238,8 @@ class AdventDoor(models.Model):
     class Meta:
         ordering = ['door_number']
         unique_together = ('calendar', 'door_number')
-        verbose_name = "Advent Door"
-        verbose_name_plural = "🚪 2. Advent Doors"
+        verbose_name = _("Advent Door")
+        verbose_name_plural = _("🚪 2. Advent Doors")
 
     def __str__(self):
         return f"Door {self.door_number}: {self.get_content_type_display()}"
@@ -271,11 +272,11 @@ class AdventDoorContent(models.Model):
     # Main content
     title = models.CharField(
         max_length=200,
-        help_text="Title shown when door is opened"
+        help_text=_("Title shown when door is opened")
     )
     message = models.TextField(
         blank=True,
-        help_text="Main text content (poem, letter, description, etc.)"
+        help_text=_("Main text content (poem, letter, description, etc.)")
     )
 
     # =========================================================================
@@ -284,57 +285,57 @@ class AdventDoorContent(models.Model):
     # =========================================================================
     challenge_question = models.TextField(
         blank=True,
-        help_text="The question/prompt/instructions for the challenge"
+        help_text=_("The question/prompt/instructions for the challenge")
     )
     challenge_options = models.JSONField(
         default=dict,
         blank=True,
-        help_text='JSON data for options/choices: {"A": "option1", "B": "option2"}'
+        help_text=_('JSON data for options/choices: {"A": "option1", "B": "option2"}')
     )
     challenge_correct_answer = models.TextField(
         blank=True,
-        help_text="The correct answer. Leave blank for questionnaire mode (all answers accepted)."
+        help_text=_("The correct answer. Leave blank for questionnaire mode (all answers accepted).")
     )
     challenge_alternative_answers = models.JSONField(
         default=list,
         blank=True,
-        help_text='Alternative acceptable answers: ["answer1", "answer2"]'
+        help_text=_('Alternative acceptable answers: ["answer1", "answer2"]')
     )
 
     # Hints system (matching Wonderland)
     hint_1 = models.TextField(
         blank=True,
-        help_text="First hint (easiest)"
+        help_text=_("First hint (easiest)")
     )
     hint_1_cost = models.IntegerField(
         default=20,
-        help_text="Points deducted for using hint 1"
+        help_text=_("Points deducted for using hint 1")
     )
     hint_2 = models.TextField(
         blank=True,
-        help_text="Second hint (medium)"
+        help_text=_("Second hint (medium)")
     )
     hint_2_cost = models.IntegerField(
         default=50,
-        help_text="Points deducted for using hint 2"
+        help_text=_("Points deducted for using hint 2")
     )
     hint_3 = models.TextField(
         blank=True,
-        help_text="Third hint (biggest reveal)"
+        help_text=_("Third hint (biggest reveal)")
     )
     hint_3_cost = models.IntegerField(
         default=80,
-        help_text="Points deducted for using hint 3"
+        help_text=_("Points deducted for using hint 3")
     )
 
     # Challenge scoring
     points_awarded = models.IntegerField(
         default=100,
-        help_text="Points for correct answer (before hint deductions)"
+        help_text=_("Points for correct answer (before hint deductions)")
     )
     success_message = models.TextField(
         blank=True,
-        help_text="Personal message shown when user answers correctly"
+        help_text=_("Personal message shown when user answers correctly")
     )
 
     # =========================================================================
@@ -345,21 +346,21 @@ class AdventDoorContent(models.Model):
         blank=True,
         null=True,
         storage=crush_photo_storage,
-        help_text="Main photo for this door"
+        help_text=_("Main photo for this door")
     )
     video_file = models.FileField(
         upload_to='advent_doors/video/',
         blank=True,
         null=True,
         storage=crush_photo_storage,
-        help_text="Video message"
+        help_text=_("Video message")
     )
     audio_file = models.FileField(
         upload_to='advent_doors/audio/',
         blank=True,
         null=True,
         storage=crush_photo_storage,
-        help_text="Audio message"
+        help_text=_("Audio message")
     )
 
     # =========================================================================
@@ -368,18 +369,18 @@ class AdventDoorContent(models.Model):
     bonus_title = models.CharField(
         max_length=200,
         blank=True,
-        help_text="Title for bonus content unlocked via QR"
+        help_text=_("Title for bonus content unlocked via QR")
     )
     bonus_content = models.TextField(
         blank=True,
-        help_text="Bonus text content unlocked via QR code"
+        help_text=_("Bonus text content unlocked via QR code")
     )
     bonus_photo = models.ImageField(
         upload_to='advent_doors/bonus/',
         blank=True,
         null=True,
         storage=crush_photo_storage,
-        help_text="Bonus photo unlocked via QR code"
+        help_text=_("Bonus photo unlocked via QR code")
     )
 
     # =========================================================================
@@ -388,12 +389,12 @@ class AdventDoorContent(models.Model):
     gift_hint = models.CharField(
         max_length=500,
         blank=True,
-        help_text="Hint about the physical gift"
+        help_text=_("Hint about the physical gift")
     )
     gift_location_clue = models.CharField(
         max_length=500,
         blank=True,
-        help_text="Clue about where to find the gift"
+        help_text=_("Clue about where to find the gift")
     )
 
     # Timestamps
@@ -401,8 +402,8 @@ class AdventDoorContent(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Door Content"
-        verbose_name_plural = "📝 3. Door Contents"
+        verbose_name = _("Door Content")
+        verbose_name_plural = _("📝 3. Door Contents")
 
     def __str__(self):
         return f"Content for Door {self.door.door_number}: {self.title}"
@@ -476,23 +477,23 @@ class AdventProgress(models.Model):
     # Progress tracking
     doors_opened = models.JSONField(
         default=list,
-        help_text="List of door numbers that have been opened [1, 2, 3, ...]"
+        help_text=_("List of door numbers that have been opened [1, 2, 3, ...]")
     )
     qr_scans = models.JSONField(
         default=list,
-        help_text="List of door numbers where QR was scanned [1, 5, 12, ...]"
+        help_text=_("List of door numbers where QR was scanned [1, 5, 12, ...]")
     )
 
     # Last activity
     last_door_opened = models.PositiveIntegerField(
         null=True,
         blank=True,
-        help_text="Last door number opened"
+        help_text=_("Last door number opened")
     )
     last_opened_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text="When the last door was opened"
+        help_text=_("When the last door was opened")
     )
 
     # Timestamps
@@ -501,8 +502,8 @@ class AdventProgress(models.Model):
 
     class Meta:
         unique_together = ('user', 'calendar')
-        verbose_name = "Advent Progress"
-        verbose_name_plural = "📊 4. Advent Progress"
+        verbose_name = _("Advent Progress")
+        verbose_name_plural = _("📊 4. Advent Progress")
 
     def __str__(self):
         opened = len(self.doors_opened) if self.doors_opened else 0
@@ -587,25 +588,25 @@ class QRCodeToken(models.Model):
     token = models.UUIDField(
         default=uuid.uuid4,
         unique=True,
-        help_text="Unique token for QR code"
+        help_text=_("Unique token for QR code")
     )
 
     # Usage tracking
     is_used = models.BooleanField(
         default=False,
-        help_text="Has this token been redeemed?"
+        help_text=_("Has this token been redeemed?")
     )
     used_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text="When the token was redeemed"
+        help_text=_("When the token was redeemed")
     )
 
     # Optional expiration
     expires_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text="Optional expiration time for this token"
+        help_text=_("Optional expiration time for this token")
     )
 
     # Timestamps
@@ -613,8 +614,8 @@ class QRCodeToken(models.Model):
 
     class Meta:
         unique_together = ('door', 'user')
-        verbose_name = "QR Code Token"
-        verbose_name_plural = "🔑 5. QR Code Tokens"
+        verbose_name = _("QR Code Token")
+        verbose_name_plural = _("🔑 5. QR Code Tokens")
 
     def __str__(self):
         status = "✅ Used" if self.is_used else "⏳ Pending"

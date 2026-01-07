@@ -8,6 +8,7 @@ Provides a customized admin interface with:
 """
 
 from django.contrib import admin
+from django.core.exceptions import ObjectDoesNotExist
 from django.urls import reverse
 
 
@@ -37,7 +38,7 @@ class CrushLuAdminSite(admin.AdminSite):
             # Grant access to active coaches even if they're not staff
             if coach.is_active:
                 return True
-        except:
+        except (AttributeError, ObjectDoesNotExist):
             pass
 
         # Fallback to default staff check
@@ -74,7 +75,7 @@ class CrushLuAdminSite(admin.AdminSite):
             coach = request.user.crushcoach
             extra_context['is_coach'] = True
             extra_context['coach_name'] = request.user.get_full_name() or request.user.username
-        except:
+        except (AttributeError, ObjectDoesNotExist):
             extra_context['is_coach'] = False
 
         return super().index(request, extra_context)

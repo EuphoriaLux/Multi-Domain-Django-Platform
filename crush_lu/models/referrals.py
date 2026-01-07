@@ -3,6 +3,7 @@ from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.crypto import get_random_string
+from django.utils.translation import gettext_lazy as _
 
 from .profiles import CrushProfile
 
@@ -25,8 +26,8 @@ class ReferralCode(models.Model):
     last_used_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        verbose_name = "Referral Code"
-        verbose_name_plural = "🧲 Referral Codes"
+        verbose_name = _("Referral Code")
+        verbose_name_plural = _("Referral Codes")
 
     def __str__(self):
         return f"{self.code} ({self.referrer.user.email})"
@@ -96,21 +97,21 @@ class ReferralAttribution(models.Model):
     # Reward tracking
     reward_applied = models.BooleanField(
         default=False,
-        help_text="Whether the referral reward has been applied to the referrer"
+        help_text=_("Whether the referral reward has been applied to the referrer")
     )
     reward_applied_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text="When the reward was applied"
+        help_text=_("When the reward was applied")
     )
     reward_points = models.PositiveIntegerField(
         default=0,
-        help_text="Points awarded for this referral"
+        help_text=_("Points awarded for this referral")
     )
 
     class Meta:
-        verbose_name = "Referral Attribution"
-        verbose_name_plural = "🧲 Referral Attributions"
+        verbose_name = _("Referral Attribution")
+        verbose_name_plural = _("Referral Attributions")
         indexes = [
             models.Index(fields=['status', 'created_at']),
             models.Index(fields=['session_key']),
