@@ -8,6 +8,7 @@ Extends the Journey system to provide a 24-door December experience.
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -41,21 +42,21 @@ def advent_calendar_view(request):
         ).first()
 
         if not special_experience:
-            messages.warning(request, 'No special experience found for your account.')
+            messages.warning(request, _('No special experience found for your account.'))
             return redirect('crush_lu:home')
 
         # Get the advent calendar journey
         journey = special_experience.advent_calendar_journey
 
         if not journey or not journey.is_active:
-            messages.info(request, 'No Advent Calendar is currently available for you.')
+            messages.info(request, _('No Advent Calendar is currently available for you.'))
             return redirect('crush_lu:home')
 
         # Get the advent calendar configuration
         try:
             calendar = journey.advent_calendar
         except AdventCalendar.DoesNotExist:
-            messages.warning(request, 'Your Advent Calendar is being prepared.')
+            messages.warning(request, _('Your Advent Calendar is being prepared.'))
             return redirect('crush_lu:home')
 
         # Check if it's December
@@ -120,7 +121,7 @@ def advent_calendar_view(request):
 
     except Exception as e:
         logger.error(f"Error loading advent calendar: {e}", exc_info=True)
-        messages.error(request, 'An error occurred loading your Advent Calendar.')
+        messages.error(request, _('An error occurred loading your Advent Calendar.'))
         return redirect('crush_lu:home')
 
 
@@ -134,7 +135,7 @@ def advent_door_view(request, door_number):
     try:
         # Validate door number
         if door_number < 1 or door_number > 24:
-            messages.error(request, 'Invalid door number.')
+            messages.error(request, _('Invalid door number.'))
             return redirect('crush_lu:advent_calendar')
 
         # Get user's special experience
@@ -145,13 +146,13 @@ def advent_door_view(request, door_number):
         ).first()
 
         if not special_experience:
-            messages.warning(request, 'No special experience found.')
+            messages.warning(request, _('No special experience found.'))
             return redirect('crush_lu:home')
 
         # Get the advent calendar
         journey = special_experience.advent_calendar_journey
         if not journey:
-            messages.warning(request, 'No Advent Calendar found.')
+            messages.warning(request, _('No Advent Calendar found.'))
             return redirect('crush_lu:home')
 
         calendar = journey.advent_calendar
@@ -160,9 +161,9 @@ def advent_door_view(request, door_number):
         if not calendar.is_door_available(door_number):
             current_day = calendar.get_current_day()
             if current_day is None:
-                messages.info(request, 'The Advent Calendar is only available in December.')
+                messages.info(request, _('The Advent Calendar is only available in December.'))
             elif door_number > current_day:
-                messages.info(request, f'Door {door_number} will be available on December {door_number}.')
+                messages.info(request, _('Door %(door)s will be available on December %(day)s.') % {'door': door_number, 'day': door_number})
             return redirect('crush_lu:advent_calendar')
 
         # Get the door
@@ -176,7 +177,7 @@ def advent_door_view(request, door_number):
 
         # Check QR requirements
         if door.requires_qr_to_open() and not progress.has_scanned_qr(door_number):
-            messages.info(request, 'Scan the QR code on your physical gift to open this door!')
+            messages.info(request, _('Scan the QR code on your physical gift to open this door!'))
             return redirect('crush_lu:advent_calendar')
 
         # Mark door as opened
@@ -223,7 +224,7 @@ def advent_door_view(request, door_number):
 
     except Exception as e:
         logger.error(f"Error opening door {door_number}: {e}", exc_info=True)
-        messages.error(request, 'An error occurred opening this door.')
+        messages.error(request, _('An error occurred opening this door.'))
         return redirect('crush_lu:advent_calendar')
 
 
@@ -241,20 +242,20 @@ def scan_qr_code(request, token):
         qr_token = QRCodeToken.objects.filter(token=token).first()
 
         if not qr_token:
-            messages.error(request, 'Invalid QR code.')
+            messages.error(request, _('Invalid QR code.'))
             return redirect('crush_lu:advent_calendar')
 
         # Verify the token belongs to this user
         if qr_token.user != request.user:
-            messages.error(request, 'This QR code is not for you.')
+            messages.error(request, _('This QR code is not for you.'))
             return redirect('crush_lu:advent_calendar')
 
         # Check if token is valid (not used, not expired)
         if not qr_token.is_valid():
             if qr_token.is_used:
-                messages.info(request, 'This QR code has already been used.')
+                messages.info(request, _('This QR code has already been used.'))
             else:
-                messages.error(request, 'This QR code has expired.')
+                messages.error(request, _('This QR code has expired.'))
             return redirect('crush_lu:advent_door', door_number=qr_token.door.door_number)
 
         # Get the door's calendar
@@ -275,18 +276,18 @@ def scan_qr_code(request, token):
             logger.info(f"{request.user.username} scanned QR for door {door.door_number}")
 
             if door.requires_qr_to_open():
-                messages.success(request, f'Door {door.door_number} unlocked! Open it to see your gift.')
+                messages.success(request, _('Door %(door)s unlocked! Open it to see your gift.') % {'door': door.door_number})
             elif door.has_qr_bonus():
-                messages.success(request, 'Bonus content unlocked!')
+                messages.success(request, _('Bonus content unlocked!'))
 
             return redirect('crush_lu:advent_door', door_number=door.door_number)
         else:
-            messages.error(request, 'Could not process QR code. Please try again.')
+            messages.error(request, _('Could not process QR code. Please try again.'))
             return redirect('crush_lu:advent_calendar')
 
     except Exception as e:
         logger.error(f"Error scanning QR code: {e}", exc_info=True)
-        messages.error(request, 'An error occurred. Please try again.')
+        messages.error(request, _('An error occurred. Please try again.'))
         return redirect('crush_lu:advent_calendar')
 
 

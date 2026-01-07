@@ -610,11 +610,11 @@ def set_password(request):
 
     # Only allow if user has social account but no password
     if not has_social:
-        messages.info(request, 'This feature is only for users who signed up with Facebook.')
+        messages.info(request, _('This feature is only for users who signed up with Facebook.'))
         return redirect('crush_lu:account_settings')
 
     if has_password:
-        messages.info(request, 'You already have a password set. Use "Change Password" to update it.')
+        messages.info(request, _('You already have a password set. Use "Change Password" to update it.'))
         return redirect('crush_lu:account_settings')
 
     if request.method == 'POST':
@@ -654,7 +654,7 @@ def disconnect_social_account(request, social_account_id):
     try:
         social_account = SocialAccount.objects.get(id=social_account_id, user=request.user)
     except SocialAccount.DoesNotExist:
-        messages.error(request, 'Social account not found.')
+        messages.error(request, _('Social account not found.'))
         return redirect('crush_lu:account_settings')
 
     # Security check: ensure user has another login method
@@ -774,7 +774,7 @@ def signup(request):
                     logger.error(f"❌ Failed to send welcome email to {user.email}: {e}", exc_info=True)
                     # Don't block signup if email fails
 
-                messages.success(request, 'Account created! Check your email and complete your profile.')
+                messages.success(request, _('Account created! Check your email and complete your profile.'))
                 # Log the user in - set backend for multi-auth compatibility
                 user.backend = 'django.contrib.auth.backends.ModelBackend'
                 login(request, user)
@@ -890,7 +890,7 @@ def create_profile(request):
 
             except Exception as e:
                 logger.error(f"❌ Transaction failed for {request.user.email}: {e}", exc_info=True)
-                messages.error(request, 'An error occurred while submitting your profile. Please try again.')
+                messages.error(request, _('An error occurred while submitting your profile. Please try again.'))
                 # Re-render the form
                 from .social_photos import get_all_social_photos
                 context = {
@@ -962,7 +962,7 @@ def create_profile(request):
 
         # If profile is submitted, show status page instead of edit form
         if profile.completion_status == 'submitted':
-            messages.info(request, 'Your profile has been submitted. Check the status below.')
+            messages.info(request, _('Your profile has been submitted. Check the status below.'))
             return redirect('crush_lu:profile_submitted')
         elif profile.completion_status == 'not_started':
             # Fresh profile (auto-created on login) - show creation form
@@ -1078,11 +1078,11 @@ def edit_profile(request):
             submission = ProfileSubmission.objects.filter(profile=profile).latest('submitted_at')
             # If pending or under review, can't edit
             if submission.status in ['pending', 'under_review']:
-                messages.info(request, 'Your profile is currently under review. You\'ll be notified once it\'s approved.')
+                messages.info(request, _('Your profile is currently under review. You\'ll be notified once it\'s approved.'))
                 return redirect('crush_lu:profile_submitted')
             # If rejected or needs revision, redirect to create_profile with feedback context
             elif submission.status in ['rejected', 'revision']:
-                messages.warning(request, 'Your profile needs updates. Please review the coach feedback below.')
+                messages.warning(request, _('Your profile needs updates. Please review the coach feedback below.'))
                 return redirect('crush_lu:create_profile')
         except ProfileSubmission.DoesNotExist:
             pass
@@ -1090,7 +1090,7 @@ def edit_profile(request):
     # 3. Profile is incomplete (not submitted yet) → redirect to create_profile
     # This ensures the URL matches the wizard content being displayed
     if profile.completion_status in ['not_started', 'step1', 'step2', 'step3', 'completed']:
-        messages.info(request, 'Please complete your profile to continue.')
+        messages.info(request, _('Please complete your profile to continue.'))
         return redirect('crush_lu:create_profile')
 
     # 4. Default: Use multi-step form for any other edge cases
@@ -1175,7 +1175,7 @@ def profile_submitted(request):
         profile = CrushProfile.objects.get(user=request.user)
         submission = ProfileSubmission.objects.filter(profile=profile).latest('submitted_at')
     except (CrushProfile.DoesNotExist, ProfileSubmission.DoesNotExist):
-        messages.error(request, 'No profile submission found.')
+        messages.error(request, _('No profile submission found.'))
         return redirect('crush_lu:create_profile')
 
     context = {
@@ -1241,7 +1241,7 @@ def dashboard(request):
             'referral_url': referral_url,
         }
     except CrushProfile.DoesNotExist:
-        messages.warning(request, 'Please complete your profile first.')
+        messages.warning(request, _('Please complete your profile first.'))
         return redirect('crush_lu:create_profile')
 
     return render(request, 'crush_lu/dashboard.html', context)
@@ -1418,7 +1418,7 @@ def event_detail(request, event_id):
     # ACCESS CONTROL for private invitation events
     if event.is_private_invitation:
         if not request.user.is_authenticated:
-            messages.error(request, 'This is a private invitation-only event. Please log in.')
+            messages.error(request, _('This is a private invitation-only event. Please log in.'))
             return redirect('crush_lu:crush_login')
 
         # Check if user has approved external guest invitation OR is invited as existing user
@@ -1431,7 +1431,7 @@ def event_detail(request, event_id):
         is_invited_existing_user = event.invited_users.filter(id=request.user.id).exists()
 
         if not has_external_invitation and not is_invited_existing_user:
-            messages.error(request, 'You do not have access to this private event.')
+            messages.error(request, _('You do not have access to this private event.'))
             return redirect('crush_lu:event_list')
 
     # Check if user is registered
@@ -1466,7 +1466,7 @@ def event_register(request, event_id):
         ).first()
 
         if not is_invited_existing_user and not external_invitation:
-            messages.error(request, 'You do not have an approved invitation for this event.')
+            messages.error(request, _('You do not have an approved invitation for this event.'))
             return redirect('crush_lu:event_detail', event_id=event_id)
 
         # EXISTING USERS: No profile creation needed - use their existing profile
@@ -1513,10 +1513,10 @@ def event_register(request, event_id):
         try:
             profile = CrushProfile.objects.get(user=request.user)
             if not profile.is_approved:
-                messages.error(request, 'Your profile must be approved before registering for events.')
+                messages.error(request, _('Your profile must be approved before registering for events.'))
                 return redirect('crush_lu:event_detail', event_id=event_id)
         except CrushProfile.DoesNotExist:
-            messages.error(request, 'Please create a profile first.')
+            messages.error(request, _('Please create a profile first.'))
             return redirect('crush_lu:create_profile')
 
     # Check if already registered
@@ -1615,8 +1615,11 @@ def coach_dashboard(request):
     """Coach dashboard for reviewing profiles"""
     try:
         coach = CrushCoach.objects.get(user=request.user)
+        if not coach.is_active:
+            messages.error(request, _('Your coach account has been deactivated. Please contact an administrator.'))
+            return redirect('crush_lu:dashboard')
     except CrushCoach.DoesNotExist:
-        messages.error(request, 'You do not have coach access.')
+        messages.error(request, _('You do not have coach access.'))
         return redirect('crush_lu:dashboard')
 
     # Get pending submissions assigned to this coach
@@ -1653,7 +1656,7 @@ def coach_mark_review_call_complete(request, submission_id):
             return render(request, 'crush_lu/_htmx_error.html', {
                 'message': 'You do not have coach access.'
             })
-        messages.error(request, 'You do not have coach access.')
+        messages.error(request, _('You do not have coach access.'))
         return redirect('crush_lu:dashboard')
 
     submission = get_object_or_404(
@@ -1683,8 +1686,11 @@ def coach_review_profile(request, submission_id):
     """Review a profile submission"""
     try:
         coach = CrushCoach.objects.get(user=request.user)
+        if not coach.is_active:
+            messages.error(request, _('Your coach account has been deactivated.'))
+            return redirect('crush_lu:dashboard')
     except CrushCoach.DoesNotExist:
-        messages.error(request, 'You do not have coach access.')
+        messages.error(request, _('You do not have coach access.'))
         return redirect('crush_lu:dashboard')
 
     submission = get_object_or_404(
@@ -1703,7 +1709,7 @@ def coach_review_profile(request, submission_id):
             if submission.status == 'approved':
                 # REQUIRE screening call before approval
                 if not submission.review_call_completed:
-                    messages.error(request, '⚠️ You must complete a screening call before approving this profile.')
+                    messages.error(request, _('You must complete a screening call before approving this profile.'))
                     form = ProfileReviewForm(instance=submission)
                     context = {
                         'coach': coach,
@@ -1715,7 +1721,7 @@ def coach_review_profile(request, submission_id):
                 submission.profile.is_approved = True
                 submission.profile.approved_at = timezone.now()
                 submission.profile.save()
-                messages.success(request, 'Profile approved!')
+                messages.success(request, _('Profile approved!'))
 
                 # Send approval notification to user (push first, email fallback)
                 try:
@@ -1733,7 +1739,7 @@ def coach_review_profile(request, submission_id):
             elif submission.status == 'rejected':
                 submission.profile.is_approved = False
                 submission.profile.save()
-                messages.info(request, 'Profile rejected.')
+                messages.info(request, _('Profile rejected.'))
 
                 # Send rejection notification to user (push first, email fallback)
                 try:
@@ -1749,7 +1755,7 @@ def coach_review_profile(request, submission_id):
                     logger.error(f"Failed to send profile rejection notification: {e}")
 
             elif submission.status == 'revision':
-                messages.info(request, 'Revision requested.')
+                messages.info(request, _('Revision requested.'))
 
                 # Send revision request to user (push first, email fallback)
                 try:
@@ -1782,8 +1788,11 @@ def coach_sessions(request):
     """View and manage coach sessions"""
     try:
         coach = CrushCoach.objects.get(user=request.user)
+        if not coach.is_active:
+            messages.error(request, _('Your coach account has been deactivated.'))
+            return redirect('crush_lu:dashboard')
     except CrushCoach.DoesNotExist:
-        messages.error(request, 'You do not have coach access.')
+        messages.error(request, _('You do not have coach access.'))
         return redirect('crush_lu:dashboard')
 
     sessions = CoachSession.objects.filter(coach=coach).order_by('-created_at')
@@ -1800,15 +1809,18 @@ def coach_edit_profile(request):
     """Edit coach profile (bio, specializations, photo) - separate from dating profile"""
     try:
         coach = CrushCoach.objects.get(user=request.user)
+        if not coach.is_active:
+            messages.error(request, _('Your coach account has been deactivated.'))
+            return redirect('crush_lu:dashboard')
     except CrushCoach.DoesNotExist:
-        messages.error(request, 'You do not have a coach profile.')
+        messages.error(request, _('You do not have a coach profile.'))
         return redirect('crush_lu:dashboard')
 
     if request.method == 'POST':
         form = CrushCoachForm(request.POST, request.FILES, instance=coach)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Coach profile updated successfully!')
+            messages.success(request, _('Coach profile updated successfully!'))
             return redirect('crush_lu:coach_dashboard')
         else:
             for field, errors in form.errors.items():
@@ -1839,7 +1851,7 @@ def coach_journey_dashboard(request):
     try:
         coach = CrushCoach.objects.get(user=request.user, is_active=True)
     except CrushCoach.DoesNotExist:
-        messages.error(request, 'You do not have coach access.')
+        messages.error(request, _('You do not have coach access.'))
         return redirect('crush_lu:dashboard')
 
     from .models import JourneyConfiguration, JourneyProgress
@@ -1876,7 +1888,7 @@ def coach_edit_journey(request, journey_id):
     try:
         coach = CrushCoach.objects.get(user=request.user, is_active=True)
     except CrushCoach.DoesNotExist:
-        messages.error(request, 'You do not have coach access.')
+        messages.error(request, _('You do not have coach access.'))
         return redirect('crush_lu:dashboard')
 
     from .models import JourneyConfiguration
@@ -1900,7 +1912,7 @@ def coach_edit_challenge(request, challenge_id):
     try:
         coach = CrushCoach.objects.get(user=request.user, is_active=True)
     except CrushCoach.DoesNotExist:
-        messages.error(request, 'You do not have coach access.')
+        messages.error(request, _('You do not have coach access.'))
         return redirect('crush_lu:dashboard')
 
     from .models import JourneyChallenge, ChallengeAttempt
@@ -1925,7 +1937,7 @@ def coach_edit_challenge(request, challenge_id):
             challenge.hint_2_cost = int(request.POST.get('hint_2_cost', challenge.hint_2_cost))
             challenge.hint_3_cost = int(request.POST.get('hint_3_cost', challenge.hint_3_cost))
         except ValueError:
-            messages.error(request, 'Points must be valid numbers.')
+            messages.error(request, _('Points must be valid numbers.'))
             return redirect('crush_lu:coach_edit_challenge', challenge_id=challenge_id)
 
         challenge.save()
@@ -1954,7 +1966,7 @@ def coach_view_user_progress(request, progress_id):
     try:
         coach = CrushCoach.objects.get(user=request.user, is_active=True)
     except CrushCoach.DoesNotExist:
-        messages.error(request, 'You do not have coach access.')
+        messages.error(request, _('You do not have coach access.'))
         return redirect('crush_lu:dashboard')
 
     from .models import JourneyProgress, ChallengeAttempt, JourneyChapter, JourneyChallenge
@@ -2116,7 +2128,7 @@ def event_attendees(request, event_id):
     )
 
     if not user_registration.can_make_connections:
-        messages.error(request, 'You must attend this event before making connections.')
+        messages.error(request, _('You must attend this event before making connections.'))
         return redirect('crush_lu:event_detail', event_id=event_id)
 
     # Get other attendees (status='attended')
@@ -2188,7 +2200,7 @@ def request_connection(request, event_id, user_id):
     )
 
     if not requester_reg.can_make_connections:
-        messages.error(request, 'You must attend this event before making connections.')
+        messages.error(request, _('You must attend this event before making connections.'))
         return redirect('crush_lu:event_detail', event_id=event_id)
 
     # Verify recipient attended the event
@@ -2199,7 +2211,7 @@ def request_connection(request, event_id, user_id):
     )
 
     if not recipient_reg.can_make_connections:
-        messages.error(request, 'This person did not attend the event.')
+        messages.error(request, _('This person did not attend the event.'))
         return redirect('crush_lu:event_attendees', event_id=event_id)
 
     # Check if connection already exists
@@ -2209,7 +2221,7 @@ def request_connection(request, event_id, user_id):
     ).first()
 
     if existing:
-        messages.warning(request, 'Connection request already exists.')
+        messages.warning(request, _('Connection request already exists.'))
         return redirect('crush_lu:event_attendees', event_id=event_id)
 
     if request.method == 'POST':
@@ -2272,7 +2284,7 @@ def request_connection(request, event_id, user_id):
             except Exception as e:
                 logger.error(f"Failed to send connection request notification: {e}")
 
-            messages.success(request, 'Connection request sent!')
+            messages.success(request, _('Connection request sent!'))
 
         return redirect('crush_lu:event_attendees', event_id=event_id)
 
@@ -2441,14 +2453,14 @@ def respond_connection(request, connection_id, action):
                 return render(request, 'crush_lu/_htmx_error.html', {
                     'message': 'You must have attended this event to respond to connections.'
                 })
-            messages.error(request, 'You must have attended this event to respond to connections.')
+            messages.error(request, _('You must have attended this event to respond to connections.'))
             return redirect('crush_lu:my_connections')
     except EventRegistration.DoesNotExist:
         if request.headers.get('HX-Request'):
             return render(request, 'crush_lu/_htmx_error.html', {
                 'message': 'You are not registered for this event.'
             })
-        messages.error(request, 'You are not registered for this event.')
+        messages.error(request, _('You are not registered for this event.'))
         return redirect('crush_lu:my_connections')
 
     # Determine which template to use based on HX-Target
@@ -2492,7 +2504,7 @@ def respond_connection(request, connection_id, action):
                 'connection': connection,
                 'action': 'accept'
             })
-        messages.success(request, 'Connection accepted! A coach will help facilitate your introduction.')
+        messages.success(request, _('Connection accepted! A coach will help facilitate your introduction.'))
     elif action == 'decline':
         connection.status = 'declined'
         connection.save()
@@ -2511,13 +2523,13 @@ def respond_connection(request, connection_id, action):
                 'connection': connection,
                 'action': 'decline'
             })
-        messages.info(request, 'Connection request declined.')
+        messages.info(request, _('Connection request declined.'))
     else:
         if request.headers.get('HX-Request'):
             return render(request, 'crush_lu/_htmx_error.html', {
                 'message': 'Invalid action.'
             })
-        messages.error(request, 'Invalid action.')
+        messages.error(request, _('Invalid action.'))
 
     return redirect('crush_lu:my_connections')
 
@@ -2578,9 +2590,9 @@ def connection_detail(request, connection_id):
             if connection.can_share_contacts:
                 connection.status = 'shared'
                 connection.save()
-                messages.success(request, 'Contact information is now shared! 🎉')
+                messages.success(request, _('Contact information is now shared!'))
             else:
-                messages.success(request, 'Your consent has been recorded.')
+                messages.success(request, _('Your consent has been recorded.'))
 
             return redirect('crush_lu:connection_detail', connection_id=connection_id)
 
@@ -2617,11 +2629,11 @@ def connection_detail(request, connection_id):
                             'is_own_message': True,
                         })
 
-                    messages.success(request, 'Message sent!')
+                    messages.success(request, _('Message sent!'))
                 else:
-                    messages.error(request, 'You can only message accepted connections.')
+                    messages.error(request, _('You can only message accepted connections.'))
             else:
-                messages.error(request, 'Please enter a valid message (max 2000 characters).')
+                messages.error(request, _('Please enter a valid message (max 2000 characters).'))
 
             return redirect('crush_lu:connection_detail', connection_id=connection_id)
 
@@ -2658,7 +2670,7 @@ def event_voting_lobby(request, event_id):
 
     # Only confirmed or attended registrations can vote
     if user_registration.status not in ['confirmed', 'attended']:
-        messages.error(request, 'Only confirmed attendees can access event voting.')
+        messages.error(request, _('Only confirmed attendees can access event voting.'))
         return redirect('crush_lu:event_detail', event_id=event_id)
 
     # Get or create voting session
@@ -2699,7 +2711,7 @@ def event_activity_vote(request, event_id):
     )
 
     if user_registration.status not in ['confirmed', 'attended']:
-        messages.error(request, 'Only confirmed attendees can vote.')
+        messages.error(request, _('Only confirmed attendees can vote.'))
         return redirect('crush_lu:event_detail', event_id=event_id)
 
     # Get voting session
@@ -2707,7 +2719,7 @@ def event_activity_vote(request, event_id):
 
     # Check if voting is open
     if not voting_session.is_voting_open:
-        messages.warning(request, 'Voting is not currently open for this event.')
+        messages.warning(request, _('Voting is not currently open for this event.'))
         return redirect('crush_lu:event_voting_lobby', event_id=event_id)
 
     if request.method == 'POST':
@@ -2715,7 +2727,7 @@ def event_activity_vote(request, event_id):
         twist_option_id = request.POST.get('twist_option_id')
 
         if not presentation_option_id or not twist_option_id:
-            messages.error(request, 'Please vote on BOTH categories: Presentation Style AND Speed Dating Twist.')
+            messages.error(request, _('Please vote on BOTH categories: Presentation Style AND Speed Dating Twist.'))
         else:
             try:
                 from .models import GlobalActivityOption
@@ -2774,11 +2786,11 @@ def event_activity_vote(request, event_id):
                     voting_session.total_votes += 1
                     voting_session.save()
 
-                messages.success(request, 'Your votes have been recorded for both categories!')
+                messages.success(request, _('Your votes have been recorded for both categories!'))
                 return redirect('crush_lu:event_voting_results', event_id=event_id)
 
             except GlobalActivityOption.DoesNotExist:
-                messages.error(request, 'Invalid activity option selected.')
+                messages.error(request, _('Invalid activity option selected.'))
 
     # Get all GLOBAL activity options (not per-event anymore!)
     from .models import GlobalActivityOption
@@ -2830,7 +2842,7 @@ def event_voting_results(request, event_id):
     )
 
     if user_registration.status not in ['confirmed', 'attended']:
-        messages.error(request, 'Only confirmed attendees can view results.')
+        messages.error(request, _('Only confirmed attendees can view results.'))
         return redirect('crush_lu:event_detail', event_id=event_id)
 
     # Get voting session
@@ -2853,7 +2865,7 @@ def event_voting_results(request, event_id):
 
     # If voting ended and user hasn't voted, redirect back to voting with message
     if not voting_session.is_voting_open and not user_has_voted_both:
-        messages.warning(request, 'Voting has ended. You did not vote, but you can still participate in presentations!')
+        messages.warning(request, _('Voting has ended. You did not vote, but you can still participate in presentations!'))
         # Allow them to continue to presentations anyway
         return redirect('crush_lu:event_presentations', event_id=event_id)
 
@@ -2896,7 +2908,7 @@ def event_voting_results(request, event_id):
 
         if has_presentations:
             # Automatically redirect to presentations after 5 seconds
-            messages.success(request, 'Voting complete! Redirecting to presentations...')
+            messages.success(request, _('Voting complete! Redirecting to presentations...'))
             context = {
                 'event': event,
                 'voting_session': voting_session,
@@ -2932,7 +2944,7 @@ def event_presentations(request, event_id):
     )
 
     if user_registration.status not in ['confirmed', 'attended']:
-        messages.error(request, 'Only confirmed attendees can view presentations.')
+        messages.error(request, _('Only confirmed attendees can view presentations.'))
         return redirect('crush_lu:event_detail', event_id=event_id)
 
     # Get the current presenter (status='presenting')
@@ -3029,11 +3041,14 @@ def coach_presentation_control(request, event_id):
     """Coach control panel for managing presentation queue"""
     event = get_object_or_404(MeetupEvent, id=event_id)
 
-    # Verify user is a coach
+    # Verify user is an active coach
     try:
         coach = CrushCoach.objects.get(user=request.user)
+        if not coach.is_active:
+            messages.error(request, _('Your coach account has been deactivated.'))
+            return redirect('crush_lu:event_detail', event_id=event_id)
     except CrushCoach.DoesNotExist:
-        messages.error(request, 'Only coaches can access presentation controls.')
+        messages.error(request, _('Only coaches can access presentation controls.'))
         return redirect('crush_lu:event_detail', event_id=event_id)
 
     # Get all presentations
@@ -3073,9 +3088,11 @@ def coach_advance_presentation(request, event_id):
     """Advance to next presenter in the queue"""
     event = get_object_or_404(MeetupEvent, id=event_id)
 
-    # Verify user is a coach
+    # Verify user is an active coach
     try:
         coach = CrushCoach.objects.get(user=request.user)
+        if not coach.is_active:
+            return JsonResponse({'success': False, 'error': 'Your coach account has been deactivated.'}, status=403)
     except CrushCoach.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Only coaches can advance presentations.'}, status=403)
 
@@ -3128,7 +3145,7 @@ def my_presentation_scores(request, event_id):
     )
 
     if user_registration.status not in ['confirmed', 'attended']:
-        messages.error(request, 'Only confirmed attendees can view scores.')
+        messages.error(request, _('Only confirmed attendees can view scores.'))
         return redirect('crush_lu:event_detail', event_id=event_id)
 
     # Check if all presentations are completed
@@ -3138,7 +3155,7 @@ def my_presentation_scores(request, event_id):
     all_completed = total_presentations > 0 and completed_presentations == total_presentations
 
     if not all_completed:
-        messages.warning(request, 'Scores will be available after all presentations are completed.')
+        messages.warning(request, _('Scores will be available after all presentations are completed.'))
         return redirect('crush_lu:event_presentations', event_id=event_id)
 
     # Get ratings received by this user
@@ -3307,7 +3324,7 @@ def invitation_landing(request, code):
 
     # Check if already accepted
     if invitation.status == 'accepted':
-        messages.info(request, 'You have already accepted this invitation. Please log in to continue.')
+        messages.info(request, _('You have already accepted this invitation. Please log in to continue.'))
         return redirect('crush_lu:crush_login')
 
     # Show invitation details
@@ -3327,12 +3344,12 @@ def invitation_accept(request, code):
 
     # Check if already accepted
     if invitation.status == 'accepted':
-        messages.info(request, 'This invitation has already been accepted.')
+        messages.info(request, _('This invitation has already been accepted.'))
         return redirect('crush_lu:crush_login')
 
     # Check expiration
     if invitation.is_expired:
-        messages.error(request, 'This invitation has expired.')
+        messages.error(request, _('This invitation has expired.'))
         return redirect('crush_lu:invitation_landing', code=code)
 
     if request.method == 'POST':
@@ -3372,7 +3389,7 @@ def invitation_accept(request, code):
 
         except Exception as e:
             logger.error(f"Error creating guest account: {e}")
-            messages.error(request, 'An error occurred while accepting your invitation. Please try again.')
+            messages.error(request, _('An error occurred while accepting your invitation. Please try again.'))
             return redirect('crush_lu:invitation_landing', code=code)
 
     context = {
@@ -3391,7 +3408,7 @@ def coach_manage_invitations(request, event_id):
     try:
         coach = CrushCoach.objects.get(user=request.user, is_active=True)
     except CrushCoach.DoesNotExist:
-        messages.error(request, 'Only coaches can manage invitations.')
+        messages.error(request, _('Only coaches can manage invitations.'))
         return redirect('crush_lu:event_detail', event_id=event_id)
 
     event = get_object_or_404(MeetupEvent, id=event_id, is_private_invitation=True)
@@ -3406,7 +3423,7 @@ def coach_manage_invitations(request, event_id):
             last_name = request.POST.get('last_name', '').strip()
 
             if not email or not first_name or not last_name:
-                messages.error(request, 'Please provide email, first name, and last name.')
+                messages.error(request, _('Please provide email, first name, and last name.'))
             else:
                 # Check if invitation already exists
                 existing = EventInvitation.objects.filter(
@@ -3425,10 +3442,13 @@ def coach_manage_invitations(request, event_id):
                         invited_by=request.user,
                     )
 
-                    # TODO: Send email invitation
-                    # send_event_invitation_email(invitation, request)
-
-                    messages.success(request, f'Invitation sent to {email}. Invitation code: {invitation.invitation_code}')
+                    # Send email invitation
+                    from .email_notifications import send_external_guest_invitation_email
+                    email_sent = send_external_guest_invitation_email(invitation, request)
+                    if email_sent:
+                        messages.success(request, f'Invitation sent to {email}.')
+                    else:
+                        messages.warning(request, f'Invitation created for {email}, but email could not be sent. Code: {invitation.invitation_code}')
                     logger.info(f"Invitation created for {email} to event {event.title}")
 
         elif action == 'approve_guest':
@@ -3439,13 +3459,16 @@ def coach_manage_invitations(request, event_id):
                 invitation.approved_at = timezone.now()
                 invitation.save()
 
-                # TODO: Send approval email with login instructions
-                # send_guest_approved_notification(invitation, request)
-
-                messages.success(request, f'Guest {invitation.guest_first_name} {invitation.guest_last_name} approved!')
+                # Send approval email with login instructions
+                from .email_notifications import send_invitation_approval_email
+                email_sent = send_invitation_approval_email(invitation, request)
+                if email_sent:
+                    messages.success(request, f'Guest {invitation.guest_first_name} {invitation.guest_last_name} approved and notified!')
+                else:
+                    messages.success(request, f'Guest {invitation.guest_first_name} {invitation.guest_last_name} approved! (Email notification could not be sent)')
                 logger.info(f"Guest approved: {invitation.guest_email} for event {event.title}")
             except EventInvitation.DoesNotExist:
-                messages.error(request, 'Invitation not found.')
+                messages.error(request, _('Invitation not found.'))
 
         elif action == 'reject_guest':
             invitation_id = request.POST.get('invitation_id')
@@ -3456,13 +3479,16 @@ def coach_manage_invitations(request, event_id):
                 invitation.approval_notes = notes
                 invitation.save()
 
-                # TODO: Send rejection email
-                # send_guest_rejected_notification(invitation, request)
-
-                messages.info(request, f'Guest {invitation.guest_first_name} {invitation.guest_last_name} rejected.')
+                # Send rejection email
+                from .email_notifications import send_invitation_rejection_email
+                email_sent = send_invitation_rejection_email(invitation, request)
+                if email_sent:
+                    messages.info(request, f'Guest {invitation.guest_first_name} {invitation.guest_last_name} rejected and notified.')
+                else:
+                    messages.info(request, f'Guest {invitation.guest_first_name} {invitation.guest_last_name} rejected. (Email notification could not be sent)')
                 logger.info(f"Guest rejected: {invitation.guest_email} for event {event.title}")
             except EventInvitation.DoesNotExist:
-                messages.error(request, 'Invitation not found.')
+                messages.error(request, _('Invitation not found.'))
 
     # Get all invitations for this event
     invitations = EventInvitation.objects.filter(event=event).order_by('-invitation_sent_at')
@@ -3499,7 +3525,7 @@ def special_welcome(request):
     """
     # Check if special experience is active in session
     if not request.session.get('special_experience_active'):
-        messages.warning(request, 'This page is not available.')
+        messages.warning(request, _('This page is not available.'))
         # Redirect to home instead of dashboard (special users don't need profiles)
         return redirect('crush_lu:home')
 
@@ -3518,7 +3544,7 @@ def special_welcome(request):
         request.session.pop('special_experience_active', None)
         request.session.pop('special_experience_id', None)
         request.session.pop('special_experience_data', None)
-        messages.warning(request, 'This special experience is no longer available.')
+        messages.warning(request, _('This special experience is no longer available.'))
         return redirect('crush_lu:home')
 
     # ============================================================================

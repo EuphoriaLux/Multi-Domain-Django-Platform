@@ -23,6 +23,7 @@ from datetime import timedelta
 
 from django.db import models
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 
 class OAuthState(models.Model):
@@ -46,44 +47,44 @@ class OAuthState(models.Model):
         max_length=64,
         unique=True,
         primary_key=True,
-        help_text="Unique state identifier passed through OAuth flow"
+        help_text=_("Unique state identifier passed through OAuth flow")
     )
     state_data = models.TextField(
-        help_text="JSON serialized state dictionary"
+        help_text=_("JSON serialized state dictionary")
     )
     created_at = models.DateTimeField(
         auto_now_add=True,
-        help_text="When the state was created"
+        help_text=_("When the state was created")
     )
     expires_at = models.DateTimeField(
-        help_text="When the state expires"
+        help_text=_("When the state expires")
     )
     used = models.BooleanField(
         default=False,
-        help_text="Whether the state has been consumed"
+        help_text=_("Whether the state has been consumed")
     )
     provider = models.CharField(
         max_length=50,
         blank=True,
         default='',
-        help_text="OAuth provider name"
+        help_text=_("OAuth provider name")
     )
     user_agent = models.TextField(
         blank=True,
         default='',
-        help_text="User agent of originating request"
+        help_text=_("User agent of originating request")
     )
     ip_address = models.GenericIPAddressField(
         null=True,
         blank=True,
-        help_text="IP address of originating request"
+        help_text=_("IP address of originating request")
     )
 
     # Popup mode flag (for desktop OAuth flow)
     # When popup=1 is passed, we store it here so it survives the OAuth redirect
     is_popup = models.BooleanField(
         default=False,
-        help_text="Whether this OAuth flow was initiated from a popup window"
+        help_text=_("Whether this OAuth flow was initiated from a popup window")
     )
 
     # OAuth completion result (for handling duplicate callbacks on Android PWA)
@@ -91,29 +92,29 @@ class OAuthState(models.Model):
     # duplicate requests can retrieve the auth info without needing session cookies
     auth_completed = models.BooleanField(
         default=False,
-        help_text="Whether OAuth completed successfully"
+        help_text=_("Whether OAuth completed successfully")
     )
     auth_user_id = models.IntegerField(
         null=True,
         blank=True,
-        help_text="Authenticated user ID (for duplicate request handling)"
+        help_text=_("Authenticated user ID (for duplicate request handling)")
     )
     auth_redirect_url = models.CharField(
         max_length=255,
         blank=True,
         default='',
-        help_text="Post-authentication redirect URL"
+        help_text=_("Post-authentication redirect URL")
     )
     last_callback_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text="Timestamp of last callback (for duplicate detection diagnostics)"
+        help_text=_("Timestamp of last callback (for duplicate detection diagnostics)")
     )
 
     class Meta:
         app_label = 'crush_lu'
-        verbose_name = 'OAuth State'
-        verbose_name_plural = 'OAuth States'
+        verbose_name = _('OAuth State')
+        verbose_name_plural = _('OAuth States')
         indexes = [
             models.Index(fields=['expires_at']),
             models.Index(fields=['used']),

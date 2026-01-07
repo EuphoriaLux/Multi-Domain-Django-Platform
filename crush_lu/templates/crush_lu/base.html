@@ -282,34 +282,34 @@
                                      class="dropdown-menu show">
                                     <a class="dropdown-item" href="{% url 'crush_lu:dashboard' %}?user_view=1">
                                         {% include "shared/icons/home.html" with class="w-4 h-4 inline mr-2" %}
-                                        My Dashboard
+                                        {% trans "My Dashboard" %}
                                     </a>
                                     {% if user.crushprofile %}
                                         {% if profile_is_approved %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}">
                                             {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
-                                            Edit Profile
+                                            {% trans "Edit Profile" %}
                                         </a>
                                         {% elif profile_completion_status in 'not_started,step1,step2,step3,completed' %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
                                             {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
-                                            Finish Profile
+                                            {% trans "Finish Profile" %}
                                         </a>
                                         {% else %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}">
                                             {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
-                                            Edit Profile
+                                            {% trans "Edit Profile" %}
                                         </a>
                                         {% endif %}
                                     {% endif %}
                                     <a class="dropdown-item" href="{% url 'crush_lu:account_settings' %}">
                                         {% include "shared/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
-                                        Account Settings
+                                        {% trans "Account Settings" %}
                                     </a>
                                     <div class="dropdown-divider"></div>
                                     <a class="dropdown-item text-red-600 hover:bg-red-50" href="{% url 'crush_lu:logout' %}">
                                         {% include "shared/icons/arrow-right-on-rectangle.html" with class="w-4 h-4 inline mr-2" %}
-                                        Logout
+                                        {% trans "Logout" %}
                                     </a>
                                 </div>
                             </div>
@@ -468,11 +468,11 @@
                         {% endif %}
                     {% else %}
                         {# GUEST NAVIGATION #}
-                        <a class="nav-link" href="{% url 'crush_lu:about' %}">About</a>
-                        <a class="nav-link" href="{% url 'crush_lu:how_it_works' %}">How It Works</a>
-                        <a class="nav-link" href="{% url 'crush_lu:event_list' %}">Events</a>
+                        <a class="nav-link" href="{% url 'crush_lu:about' %}">{% trans "About" %}</a>
+                        <a class="nav-link" href="{% url 'crush_lu:how_it_works' %}">{% trans "How It Works" %}</a>
+                        <a class="nav-link" href="{% url 'crush_lu:event_list' %}">{% trans "Events" %}</a>
                         <a class="inline-flex items-center bg-white text-gray-800 px-4 py-2 rounded-full font-semibold hover:bg-gray-100 transition-colors shadow-sm" href="{% url 'crush_lu:login' %}">
-                            Login / Join
+                            {% trans "Login / Join" %}
                         </a>
                     {% endif %}
 
@@ -620,12 +620,12 @@
                         {% endif %}
                     {% else %}
                         {# GUEST MOBILE NAVIGATION #}
-                        <a class="nav-link block" href="{% url 'crush_lu:about' %}">About</a>
-                        <a class="nav-link block" href="{% url 'crush_lu:how_it_works' %}">How It Works</a>
-                        <a class="nav-link block" href="{% url 'crush_lu:event_list' %}">Events</a>
+                        <a class="nav-link block" href="{% url 'crush_lu:about' %}">{% trans "About" %}</a>
+                        <a class="nav-link block" href="{% url 'crush_lu:how_it_works' %}">{% trans "How It Works" %}</a>
+                        <a class="nav-link block" href="{% url 'crush_lu:event_list' %}">{% trans "Events" %}</a>
                         <div class="border-t border-white/20 my-2"></div>
                         <a class="block bg-white text-gray-800 px-4 py-2 rounded-full font-semibold text-center hover:bg-gray-100 transition-colors shadow-sm" href="{% url 'crush_lu:login' %}">
-                            Login / Join
+                            {% trans "Login / Join" %}
                         </a>
                     {% endif %}
 
@@ -636,6 +636,9 @@
             </div>
         </div>
     </nav>
+
+    <!-- PWA Install Banner (hidden by default, shown by JavaScript) -->
+    {% include "crush_lu/partials/pwa_install_banner.html" %}
 
     <!-- Global Profile Status Banners -->
     {% if user.is_authenticated and profile_completion_status and profile_completion_status != 'submitted' %}

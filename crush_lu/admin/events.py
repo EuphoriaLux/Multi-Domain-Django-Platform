@@ -12,6 +12,7 @@ from django.contrib import admin
 from django.contrib import messages as django_messages
 from django.urls import reverse
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
 
 from crush_lu.models import (
     MeetupEvent, EventRegistration, EventInvitation,
@@ -138,7 +139,7 @@ class MeetupEventAdmin(admin.ModelAdmin):
     def get_registration_count(self, obj):
         """Total registrations (all statuses)"""
         return obj.eventregistration_set.count()
-    get_registration_count.short_description = '📝 Total Registrations'
+    get_registration_count.short_description = _('📝 Total Registrations')
 
     def get_invited_users_count(self, obj):
         """Count of directly invited existing users"""
@@ -146,17 +147,17 @@ class MeetupEventAdmin(admin.ModelAdmin):
         if count > 0:
             return f"👥 {count}"
         return "-"
-    get_invited_users_count.short_description = 'Invited Users'
+    get_invited_users_count.short_description = _('Invited Users')
 
     def get_confirmed_count(self, obj):
         """Confirmed registrations only"""
         return obj.get_confirmed_count()
-    get_confirmed_count.short_description = '✅ Confirmed'
+    get_confirmed_count.short_description = _('✅ Confirmed')
 
     def get_waitlist_count(self, obj):
         """Waitlisted registrations"""
         return obj.get_waitlist_count()
-    get_waitlist_count.short_description = '⏳ Waitlist'
+    get_waitlist_count.short_description = _('⏳ Waitlist')
 
     def get_spots_remaining(self, obj):
         """Calculate remaining spots"""
@@ -167,14 +168,14 @@ class MeetupEventAdmin(admin.ModelAdmin):
             return f"🟡 {remaining}/{obj.max_participants}"
         else:
             return f"🟢 {remaining}/{obj.max_participants}"
-    get_spots_remaining.short_description = 'Spots Available'
+    get_spots_remaining.short_description = _('Spots Available')
 
     def get_revenue(self, obj):
         """Calculate total revenue from confirmed payments"""
         confirmed = obj.eventregistration_set.filter(payment_confirmed=True).count()
         revenue = confirmed * obj.registration_fee
         return f"€{revenue:.2f} ({confirmed} paid)"
-    get_revenue.short_description = '💰 Revenue'
+    get_revenue.short_description = _('💰 Revenue')
 
     def get_voting_status(self, obj):
         """Display Phase 1 voting status"""
@@ -188,7 +189,7 @@ class MeetupEventAdmin(admin.ModelAdmin):
                 return "⏸️ Not Started"
         except EventVotingSession.DoesNotExist:
             return "❌ No Voting Session"
-    get_voting_status.short_description = '🗳️ Phase 1: Voting'
+    get_voting_status.short_description = _('🗳️ Phase 1: Voting')
 
     def get_presentation_status(self, obj):
         """Display Phase 2 presentation status"""
@@ -208,7 +209,7 @@ class MeetupEventAdmin(admin.ModelAdmin):
             return f"⏸️ Paused ({completed}/{total} done)"
         else:
             return f"⏳ Ready to Start (0/{total})"
-    get_presentation_status.short_description = '🎤 Phase 2: Presentations'
+    get_presentation_status.short_description = _('🎤 Phase 2: Presentations')
 
     def get_speed_dating_status(self, obj):
         """Display Phase 3 speed dating status"""
@@ -228,24 +229,24 @@ class MeetupEventAdmin(admin.ModelAdmin):
             return f"⏸️ Paused ({completed_pairs}/{total_pairs} rounds done)"
         else:
             return f"⏳ Ready to Start (0/{total_pairs} pairs)"
-    get_speed_dating_status.short_description = '💕 Phase 3: Speed Dating'
+    get_speed_dating_status.short_description = _('💕 Phase 3: Speed Dating')
 
-    @admin.action(description='✅ Publish selected events')
+    @admin.action(description=_('✅ Publish selected events'))
     def publish_events(self, request, queryset):
         updated = queryset.update(is_published=True)
-        django_messages.success(request, f"Published {updated} event(s)")
+        django_messages.success(request, _("Published {count} event(s)").format(count=updated))
 
-    @admin.action(description='❌ Unpublish selected events')
+    @admin.action(description=_('❌ Unpublish selected events'))
     def unpublish_events(self, request, queryset):
         updated = queryset.update(is_published=False)
-        django_messages.success(request, f"Unpublished {updated} event(s)")
+        django_messages.success(request, _("Unpublished {count} event(s)").format(count=updated))
 
-    @admin.action(description='🚫 Cancel selected events')
+    @admin.action(description=_('🚫 Cancel selected events'))
     def cancel_events(self, request, queryset):
         updated = queryset.update(is_cancelled=True)
-        django_messages.success(request, f"Cancelled {updated} event(s)")
+        django_messages.success(request, _("Cancelled {count} event(s)").format(count=updated))
 
-    @admin.action(description='🔔 Send reminders to confirmed attendees')
+    @admin.action(description=_('🔔 Send reminders to confirmed attendees'))
     def send_event_reminders(self, request, queryset):
         """Send push/email reminders to all confirmed registrations for selected events."""
         from crush_lu.notification_service import notify_event_reminder
@@ -280,11 +281,11 @@ class MeetupEventAdmin(admin.ModelAdmin):
                     total_failed += 1
 
         if total_sent > 0:
-            django_messages.success(request, f"Sent {total_sent} reminder(s) successfully")
+            django_messages.success(request, _("Sent {count} reminder(s) successfully").format(count=total_sent))
         if total_failed > 0:
-            django_messages.warning(request, f"Failed to send {total_failed} reminder(s)")
+            django_messages.warning(request, _("Failed to send {count} reminder(s)").format(count=total_failed))
         if total_sent == 0 and total_failed == 0:
-            django_messages.info(request, "No confirmed registrations to notify")
+            django_messages.info(request, _("No confirmed registrations to notify"))
 
 
 class EventRegistrationAdmin(admin.ModelAdmin):
@@ -372,14 +373,14 @@ class EventInvitationAdmin(admin.ModelAdmin):
     def get_guest_name(self, obj):
         """Display guest's full name"""
         return f"{obj.guest_first_name} {obj.guest_last_name}"
-    get_guest_name.short_description = 'Guest Name'
+    get_guest_name.short_description = _('Guest Name')
     get_guest_name.admin_order_field = 'guest_first_name'
 
     def has_special_user(self, obj):
         """Display if linked to Special User Experience"""
         return obj.special_user is not None
     has_special_user.boolean = True
-    has_special_user.short_description = '✨ VIP'
+    has_special_user.short_description = _('✨ VIP')
 
     def get_invitation_link(self, obj):
         """Display clickable invitation link"""
@@ -392,7 +393,7 @@ class EventInvitationAdmin(admin.ModelAdmin):
                 url, url
             )
         return "N/A"
-    get_invitation_link.short_description = 'Invitation Link'
+    get_invitation_link.short_description = _('Invitation Link')
 
     def get_status_display(self, obj):
         """Display comprehensive status with visual indicators"""
@@ -426,9 +427,9 @@ class EventInvitationAdmin(admin.ModelAdmin):
 
         status_html += '</div>'
         return format_html(status_html)
-    get_status_display.short_description = 'Complete Status'
+    get_status_display.short_description = _('Complete Status')
 
-    @admin.action(description='✅ Approve selected guests')
+    @admin.action(description=_('✅ Approve selected guests'))
     def approve_guests(self, request, queryset):
         """Approve guests to attend the event and send notification emails"""
         from django.utils import timezone
@@ -454,16 +455,16 @@ class EventInvitationAdmin(admin.ModelAdmin):
         if updated > 0:
             django_messages.success(
                 request,
-                f"Approved {updated} guest(s) to attend the event. "
-                f"Sent {emails_sent} email notification(s)."
+                _("Approved {updated} guest(s) to attend the event. "
+                  "Sent {emails_sent} email notification(s).").format(updated=updated, emails_sent=emails_sent)
             )
         else:
             django_messages.warning(
                 request,
-                "No pending invitations to approve. Only accepted invitations can be approved."
+                _("No pending invitations to approve. Only accepted invitations can be approved.")
             )
 
-    @admin.action(description='❌ Reject selected guests')
+    @admin.action(description=_('❌ Reject selected guests'))
     def reject_guests(self, request, queryset):
         """Reject guests from attending the event"""
         from django.utils import timezone
@@ -481,15 +482,15 @@ class EventInvitationAdmin(admin.ModelAdmin):
         if updated > 0:
             django_messages.success(
                 request,
-                f"Rejected {updated} guest(s). They will be notified."
+                _("Rejected {count} guest(s). They will be notified.").format(count=updated)
             )
         else:
             django_messages.warning(
                 request,
-                "No pending invitations to reject. Only accepted invitations can be rejected."
+                _("No pending invitations to reject. Only accepted invitations can be rejected.")
             )
 
-    @admin.action(description='📧 Resend invitation emails')
+    @admin.action(description=_('📧 Resend invitation emails'))
     def resend_invitations(self, request, queryset):
         """Resend invitation emails to guests who haven't accepted"""
         pending_invitations = queryset.filter(status='pending')
@@ -498,10 +499,10 @@ class EventInvitationAdmin(admin.ModelAdmin):
         if count > 0:
             django_messages.info(
                 request,
-                f"Would resend {count} invitation(s). Email sending not yet implemented."
+                _("Would resend {count} invitation(s). Email sending not yet implemented.").format(count=count)
             )
         else:
             django_messages.warning(
                 request,
-                "No pending invitations to resend. Only unaccepted invitations can be resent."
+                _("No pending invitations to resend. Only unaccepted invitations can be resent.")
             )

@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from .profiles import SpecialUserExperience, get_crush_photo_storage
 
 # Callable used by all file fields - Django calls this when needed
@@ -29,44 +30,44 @@ class JourneyConfiguration(models.Model):
         max_length=20,
         choices=JOURNEY_TYPES,
         default='wonderland',
-        help_text="Type of journey experience"
+        help_text=_("Type of journey experience")
     )
     is_active = models.BooleanField(default=True)
     journey_name = models.CharField(
         max_length=200,
         default="The Wonderland of You",
-        help_text="Name of this journey"
+        help_text=_("Name of this journey")
     )
 
     # Metadata
     total_chapters = models.IntegerField(
         default=6,
-        help_text="Total number of chapters in this journey"
+        help_text=_("Total number of chapters in this journey")
     )
     estimated_duration_minutes = models.IntegerField(
         default=90,
-        help_text="Estimated total time to complete"
+        help_text=_("Estimated total time to complete")
     )
 
     # Personalization data (for riddles/challenges)
     date_first_met = models.DateField(
         null=True,
         blank=True,
-        help_text="Date you first met (for Chapter 1 riddle)"
+        help_text=_("Date you first met (for Chapter 1 riddle)")
     )
     location_first_met = models.CharField(
         max_length=200,
         blank=True,
-        help_text="Where you first met"
+        help_text=_("Where you first met")
     )
 
     # Journey completion
     certificate_enabled = models.BooleanField(
         default=True,
-        help_text="Generate completion certificate"
+        help_text=_("Generate completion certificate")
     )
     final_message = models.TextField(
-        help_text="The big reveal message shown in final chapter",
+        help_text=_("The big reveal message shown in final chapter"),
         default="You've completed every challenge and discovered every secret..."
     )
 
@@ -75,8 +76,8 @@ class JourneyConfiguration(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Journey Configuration"
-        verbose_name_plural = "🗺️ 2. Journey Configurations"
+        verbose_name = _("Journey Configuration")
+        verbose_name_plural = _("🗺️ 2. Journey Configurations")
         unique_together = ('special_experience', 'journey_type')
 
     def __str__(self):
@@ -107,19 +108,19 @@ class JourneyChapter(models.Model):
         on_delete=models.CASCADE,
         related_name='chapters'
     )
-    chapter_number = models.IntegerField(help_text="1, 2, 3, etc.")
+    chapter_number = models.IntegerField(help_text=_("1, 2, 3, etc."))
 
     # Chapter metadata
     title = models.CharField(
         max_length=200,
-        help_text='e.g., "Down the Rabbit Hole"'
+        help_text=_('e.g., "Down the Rabbit Hole"')
     )
     theme = models.CharField(
         max_length=100,
-        help_text='e.g., "Mystery & Curiosity"'
+        help_text=_('e.g., "Mystery & Curiosity"')
     )
     story_introduction = models.TextField(
-        help_text="The story/narrative shown at chapter start"
+        help_text=_("The story/narrative shown at chapter start")
     )
 
     # Visual design
@@ -132,7 +133,7 @@ class JourneyChapter(models.Model):
     # Chapter settings
     estimated_duration = models.IntegerField(
         default=10,
-        help_text="Estimated minutes to complete"
+        help_text=_("Estimated minutes to complete")
     )
     difficulty = models.CharField(
         max_length=20,
@@ -143,19 +144,19 @@ class JourneyChapter(models.Model):
     # Unlock logic
     requires_previous_completion = models.BooleanField(
         default=True,
-        help_text="Must complete previous chapter first"
+        help_text=_("Must complete previous chapter first")
     )
 
     # Completion message
     completion_message = models.TextField(
-        help_text="Personal message shown after completing all challenges"
+        help_text=_("Personal message shown after completing all challenges")
     )
 
     class Meta:
         ordering = ['chapter_number']
         unique_together = ('journey', 'chapter_number')
-        verbose_name = "Journey Chapter"
-        verbose_name_plural = "📖 3. Journey Chapters"
+        verbose_name = _("Journey Chapter")
+        verbose_name_plural = _("📖 3. Journey Chapters")
 
     def __str__(self):
         return f"Chapter {self.chapter_number}: {self.title}"
@@ -185,7 +186,7 @@ class JourneyChallenge(models.Model):
         related_name='challenges'
     )
     challenge_order = models.IntegerField(
-        help_text="Order within chapter (1, 2, 3...)"
+        help_text=_("Order within chapter (1, 2, 3...)")
     )
     challenge_type = models.CharField(
         max_length=30,
@@ -194,19 +195,19 @@ class JourneyChallenge(models.Model):
 
     # Challenge content
     question = models.TextField(
-        help_text="The question/prompt/instructions"
+        help_text=_("The question/prompt/instructions")
     )
 
     # Flexible data storage for different challenge types
     options = models.JSONField(
         default=dict,
         blank=True,
-        help_text='JSON data for options, choices, etc. ({"A": "option1", "B": "option2"})'
+        help_text=_('JSON data for options, choices, etc. ({"A": "option1", "B": "option2"})')
     )
 
     correct_answer = models.TextField(
         blank=True,
-        help_text=(
+        help_text=_(
             "The correct answer for QUIZ mode. "
             "**LEAVE BLANK for QUESTIONNAIRE mode** (all answers accepted & saved for review). "
             "Chapters 2/4/5 and types 'open_text'/'would_you_rather' auto-detect questionnaire mode."
@@ -215,32 +216,32 @@ class JourneyChallenge(models.Model):
     alternative_answers = models.JSONField(
         default=list,
         blank=True,
-        help_text='Alternative acceptable answers ["answer1", "answer2"]'
+        help_text=_('Alternative acceptable answers ["answer1", "answer2"]')
     )
 
     # Hints system
     hint_1 = models.TextField(blank=True)
-    hint_1_cost = models.IntegerField(default=20, help_text="Points deducted for hint 1")
+    hint_1_cost = models.IntegerField(default=20, help_text=_("Points deducted for hint 1"))
     hint_2 = models.TextField(blank=True)
-    hint_2_cost = models.IntegerField(default=50, help_text="Points deducted for hint 2")
+    hint_2_cost = models.IntegerField(default=50, help_text=_("Points deducted for hint 2"))
     hint_3 = models.TextField(blank=True)
-    hint_3_cost = models.IntegerField(default=80, help_text="Points deducted for hint 3")
+    hint_3_cost = models.IntegerField(default=80, help_text=_("Points deducted for hint 3"))
 
     # Scoring
     points_awarded = models.IntegerField(
         default=100,
-        help_text="Points for correct answer (before hint deductions)"
+        help_text=_("Points for correct answer (before hint deductions)")
     )
 
     # Feedback
     success_message = models.TextField(
-        help_text="Personal message shown when user answers correctly"
+        help_text=_("Personal message shown when user answers correctly")
     )
 
     class Meta:
         ordering = ['challenge_order']
-        verbose_name = "Journey Challenge"
-        verbose_name_plural = "🎯 4. Journey Challenges"
+        verbose_name = _("Journey Challenge")
+        verbose_name_plural = _("🎯 4. Journey Challenges")
 
     def __str__(self):
         return f"{self.chapter.title} - Challenge {self.challenge_order} ({self.get_challenge_type_display()})"
@@ -274,7 +275,7 @@ class JourneyReward(models.Model):
     title = models.CharField(max_length=200)
     message = models.TextField(
         blank=True,
-        help_text="Text content (poem, letter, caption, etc.)"
+        help_text=_("Text content (poem, letter, caption, etc.)")
     )
 
     # Media uploads (use existing Crush.lu private storage)
@@ -300,12 +301,12 @@ class JourneyReward(models.Model):
     # For puzzles
     puzzle_pieces = models.IntegerField(
         default=16,
-        help_text="Number of jigsaw pieces (4x4=16, 5x4=20, 6x5=30)"
+        help_text=_("Number of jigsaw pieces (4x4=16, 5x4=20, 6x5=30)")
     )
 
     class Meta:
-        verbose_name = "Journey Reward"
-        verbose_name_plural = "🎁 5. Journey Rewards"
+        verbose_name = _("Journey Reward")
+        verbose_name_plural = _("🎁 5. Journey Rewards")
 
     def __str__(self):
         return f"{self.chapter.title} - {self.title}"
@@ -328,7 +329,7 @@ class JourneyProgress(models.Model):
     total_points = models.IntegerField(default=0)
     total_time_seconds = models.IntegerField(
         default=0,
-        help_text="Total time spent in journey"
+        help_text=_("Total time spent in journey")
     )
 
     # Completion
@@ -349,8 +350,8 @@ class JourneyProgress(models.Model):
 
     class Meta:
         unique_together = ('user', 'journey')
-        verbose_name = "Journey Progress"
-        verbose_name_plural = "📊 6. Journey Progress (User Tracking)"
+        verbose_name = _("Journey Progress")
+        verbose_name_plural = _("📊 6. Journey Progress (User Tracking)")
 
     def __str__(self):
         return f"{self.user.username} - {self.journey.journey_name} (Chapter {self.current_chapter})"
@@ -387,8 +388,8 @@ class ChapterProgress(models.Model):
 
     class Meta:
         unique_together = ('journey_progress', 'chapter')
-        verbose_name = "Chapter Progress"
-        verbose_name_plural = "📈 7. Chapter Progress (User Tracking)"
+        verbose_name = _("Chapter Progress")
+        verbose_name_plural = _("📈 7. Chapter Progress (User Tracking)")
 
     def __str__(self):
         status = "✅" if self.is_completed else "🔄"
@@ -411,7 +412,7 @@ class ChallengeAttempt(models.Model):
     is_correct = models.BooleanField(default=False)
     hints_used = models.JSONField(
         default=list,
-        help_text='List of hint numbers used [1, 2, 3]'
+        help_text=_('List of hint numbers used [1, 2, 3]')
     )
     points_earned = models.IntegerField(default=0)
 
@@ -420,8 +421,8 @@ class ChallengeAttempt(models.Model):
 
     class Meta:
         ordering = ['-attempted_at']
-        verbose_name = "Challenge Attempt"
-        verbose_name_plural = "🎮 8. Challenge Attempts (User Answers)"
+        verbose_name = _("Challenge Attempt")
+        verbose_name_plural = _("🎮 8. Challenge Attempts (User Answers)")
 
     def __str__(self):
         result = "✅" if self.is_correct else "❌"
@@ -442,7 +443,7 @@ class RewardProgress(models.Model):
     # Progress data (JSON for flexibility)
     unlocked_pieces = models.JSONField(
         default=list,
-        help_text='List of unlocked piece indices [0, 1, 5, 7, ...]'
+        help_text=_('List of unlocked piece indices [0, 1, 5, 7, ...]')
     )
     points_spent = models.IntegerField(default=0)
     is_completed = models.BooleanField(default=False)
@@ -453,8 +454,8 @@ class RewardProgress(models.Model):
 
     class Meta:
         unique_together = ('journey_progress', 'reward')
-        verbose_name = "Reward Progress"
-        verbose_name_plural = "🏆 9. Reward Progress (Puzzle Tracking)"
+        verbose_name = _("Reward Progress")
+        verbose_name_plural = _("🏆 9. Reward Progress (Puzzle Tracking)")
 
     def __str__(self):
         completion = "✅" if self.is_completed else f"{len(self.unlocked_pieces)}/16"

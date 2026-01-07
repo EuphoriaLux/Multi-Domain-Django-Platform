@@ -234,9 +234,9 @@ class CoachAccessTests(SiteTestMixin, TestCase):
         url = reverse('crush_lu:coach_dashboard')
         response = self.client.get(url)
 
-        # Currently inactive coaches can access the dashboard
-        # TODO: Consider restricting access for inactive coaches in the view
-        self.assertEqual(response.status_code, 200)
+        # Inactive coaches are redirected to user dashboard with error message
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('dashboard', response.url)
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)

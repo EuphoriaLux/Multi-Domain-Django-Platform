@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from datetime import timedelta
 import uuid
 from .profiles import SpecialUserExperience
@@ -36,7 +37,7 @@ class MeetupEvent(models.Model):
         max_digits=6,
         decimal_places=2,
         default=0.00,
-        help_text="Event fee in EUR"
+        help_text=_("Event fee in EUR")
     )
 
     # Status
@@ -46,23 +47,23 @@ class MeetupEvent(models.Model):
     # Private Invitation Event Settings
     is_private_invitation = models.BooleanField(
         default=False,
-        help_text="Private invitation-only event (visible only to invited guests)"
+        help_text=_("Private invitation-only event (visible only to invited guests)")
     )
     invitation_code = models.CharField(
         max_length=100,
         unique=True,
         blank=True,
         null=True,
-        help_text="Unique code for this private event"
+        help_text=_("Unique code for this private event")
     )
     invitation_expires_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text="When invitations for this event expire"
+        help_text=_("When invitations for this event expire")
     )
     max_invited_guests = models.PositiveIntegerField(
         default=20,
-        help_text="Maximum invited guests for private event"
+        help_text=_("Maximum invited guests for private event")
     )
 
     # Invited Existing Users (for private events)
@@ -70,7 +71,7 @@ class MeetupEvent(models.Model):
         User,
         blank=True,
         related_name='invited_to_events',
-        help_text="Existing users invited to this private event (no external invitation needed)"
+        help_text=_("Existing users invited to this private event (no external invitation needed)")
     )
 
     # Metadata
@@ -181,9 +182,9 @@ class EventInvitation(models.Model):
     ]
 
     event = models.ForeignKey(MeetupEvent, on_delete=models.CASCADE, related_name='invitations')
-    guest_email = models.EmailField(help_text="Guest's email address")
-    guest_first_name = models.CharField(max_length=100, help_text="Guest's first name")
-    guest_last_name = models.CharField(max_length=100, help_text="Guest's last name")
+    guest_email = models.EmailField(help_text=_("Guest's email address"))
+    guest_first_name = models.CharField(max_length=100, help_text=_("Guest's first name"))
+    guest_last_name = models.CharField(max_length=100, help_text=_("Guest's last name"))
 
     # Link to Special User Experience (optional - for VIP treatment)
     special_user = models.ForeignKey(
@@ -192,7 +193,7 @@ class EventInvitation(models.Model):
         null=True,
         blank=True,
         related_name='event_invitations',
-        help_text="Link this invitation to a Special User for VIP treatment (auto-fills from name/email match)"
+        help_text=_("Link this invitation to a Special User for VIP treatment (auto-fills from name/email match)")
     )
 
     # Invitation details
@@ -200,14 +201,14 @@ class EventInvitation(models.Model):
         default=uuid.uuid4,
         unique=True,
         editable=False,
-        help_text="Unique invitation code (UUID)"
+        help_text=_("Unique invitation code (UUID)")
     )
     invited_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
         null=True,
         related_name='invitations_sent',
-        help_text="Coach/admin who sent the invitation"
+        help_text=_("Coach/admin who sent the invitation")
     )
 
     # Status tracking
@@ -215,13 +216,13 @@ class EventInvitation(models.Model):
         max_length=20,
         choices=STATUS_CHOICES,
         default='pending',
-        help_text="Invitation status"
+        help_text=_("Invitation status")
     )
     approval_status = models.CharField(
         max_length=20,
         choices=APPROVAL_CHOICES,
         default='pending_approval',
-        help_text="Approval status (coach must approve before attendance)"
+        help_text=_("Approval status (coach must approve before attendance)")
     )
 
     # Created user after acceptance
@@ -231,7 +232,7 @@ class EventInvitation(models.Model):
         null=True,
         blank=True,
         related_name='received_invitation',
-        help_text="User account created when invitation was accepted"
+        help_text=_("User account created when invitation was accepted")
     )
 
     # Timestamps
@@ -242,17 +243,17 @@ class EventInvitation(models.Model):
     # Admin notes
     approval_notes = models.TextField(
         blank=True,
-        help_text="Internal notes about approval/rejection"
+        help_text=_("Internal notes about approval/rejection")
     )
     coach_notes = models.TextField(
         blank=True,
-        help_text="Coach notes about the guest"
+        help_text=_("Coach notes about the guest")
     )
 
     class Meta:
         ordering = ['-invitation_sent_at']
-        verbose_name = "Event Invitation"
-        verbose_name_plural = "Event Invitations"
+        verbose_name = _("Event Invitation")
+        verbose_name_plural = _("Event Invitations")
 
     def __str__(self):
         return f"{self.guest_first_name} {self.guest_last_name} → {self.event.title} ({self.get_status_display()})"
@@ -290,17 +291,17 @@ class GlobalActivityOption(models.Model):
     activity_variant = models.CharField(
         max_length=20,
         unique=True,
-        help_text="Unique identifier (e.g., 'music', 'spicy_questions')"
+        help_text=_("Unique identifier (e.g., 'music', 'spicy_questions')")
     )
     display_name = models.CharField(max_length=200)
     description = models.TextField()
     is_active = models.BooleanField(
         default=True,
-        help_text="Inactive options won't appear in voting"
+        help_text=_("Inactive options won't appear in voting")
     )
     sort_order = models.PositiveIntegerField(
         default=0,
-        help_text="Display order in voting UI"
+        help_text=_("Display order in voting UI")
     )
 
     # Metadata
@@ -309,8 +310,8 @@ class GlobalActivityOption(models.Model):
 
     class Meta:
         ordering = ['activity_type', 'sort_order', 'display_name']
-        verbose_name = 'Global Activity Option'
-        verbose_name_plural = 'Global Activity Options'
+        verbose_name = _('Global Activity Option')
+        verbose_name_plural = _('Global Activity Options')
 
     def __str__(self):
         return f"{self.get_activity_type_display()}: {self.display_name}"
@@ -341,13 +342,13 @@ class EventActivityOption(models.Model):
         max_length=20,
         choices=ACTIVITY_VARIANT_CHOICES,
         blank=True,
-        help_text="Sub-option for the activity"
+        help_text=_("Sub-option for the activity")
     )
     display_name = models.CharField(
         max_length=200,
-        help_text="e.g., 'Speed Dating - Random Order'"
+        help_text=_("e.g., 'Speed Dating - Random Order'")
     )
-    description = models.TextField(help_text="Explanation of what this activity entails")
+    description = models.TextField(help_text=_("Explanation of what this activity entails"))
     vote_count = models.PositiveIntegerField(default=0)
     is_winner = models.BooleanField(default=False)
 
@@ -391,7 +392,7 @@ class PresentationQueue(models.Model):
 
     event = models.ForeignKey(MeetupEvent, on_delete=models.CASCADE, related_name='presentation_queue')
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    presentation_order = models.PositiveIntegerField(help_text="Order in queue (1, 2, 3...)")
+    presentation_order = models.PositiveIntegerField(help_text=_("Order in queue (1, 2, 3...)"))
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='waiting')
 
     # Timing
@@ -421,8 +422,8 @@ class EventVotingSession(models.Model):
     """Manages voting session state for each event"""
 
     event = models.OneToOneField(MeetupEvent, on_delete=models.CASCADE, related_name='voting_session')
-    voting_start_time = models.DateTimeField(help_text="Event start time + 15 minutes")
-    voting_end_time = models.DateTimeField(help_text="Voting start time + 30 minutes")
+    voting_start_time = models.DateTimeField(help_text=_("Event start time + 15 minutes"))
+    voting_end_time = models.DateTimeField(help_text=_("Voting start time + 30 minutes"))
     is_active = models.BooleanField(default=False)
     total_votes = models.PositiveIntegerField(default=0)
 
@@ -554,7 +555,7 @@ class PresentationRating(models.Model):
     presenter = models.ForeignKey(User, on_delete=models.CASCADE, related_name='presentations_received')
     rater = models.ForeignKey(User, on_delete=models.CASCADE, related_name='presentations_given')
     rating = models.PositiveSmallIntegerField(
-        help_text="Rating from 1-5 stars",
+        help_text=_("Rating from 1-5 stars"),
         choices=[(i, f"{i} Star{'s' if i > 1 else ''}") for i in range(1, 6)]
     )
 
@@ -602,14 +603,14 @@ class SpeedDatingPair(models.Model):
     event = models.ForeignKey(MeetupEvent, on_delete=models.CASCADE, related_name='speed_dating_pairs')
     user1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='speed_dating_as_user1')
     user2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='speed_dating_as_user2')
-    round_number = models.PositiveIntegerField(help_text="Which speed dating round (1, 2, 3...)")
+    round_number = models.PositiveIntegerField(help_text=_("Which speed dating round (1, 2, 3...)"))
     mutual_rating_score = models.FloatField(
-        help_text="Combined rating score from Phase 2",
+        help_text=_("Combined rating score from Phase 2"),
         default=0
     )
     is_top_match = models.BooleanField(
         default=False,
-        help_text="True if this is user's #1 rated match (gets extended time)"
+        help_text=_("True if this is user's #1 rated match (gets extended time)")
     )
 
     # Timing

@@ -10,6 +10,7 @@ from django.contrib import messages as django_messages
 from django.db.models import Q
 from django.urls import reverse
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
 
 from crush_lu.models import CrushProfile
 
@@ -111,12 +112,12 @@ class WalletPassAdmin(admin.ModelAdmin):
             profile_url,
             obj.user.get_full_name() or obj.user.username
         )
-    get_user_link.short_description = 'User'
+    get_user_link.short_description = _('User')
     get_user_link.admin_order_field = 'user__first_name'
 
     def get_email(self, obj):
         return obj.user.email
-    get_email.short_description = 'Email'
+    get_email.short_description = _('Email')
     get_email.admin_order_field = 'user__email'
 
     def get_tier_badge(self, obj):
@@ -135,7 +136,7 @@ class WalletPassAdmin(admin.ModelAdmin):
             '{} {}</span>',
             config['bg'], config['color'], config['emoji'], tier.capitalize()
         )
-    get_tier_badge.short_description = 'Tier'
+    get_tier_badge.short_description = _('Tier')
     get_tier_badge.admin_order_field = 'membership_tier'
 
     def get_apple_pass_status(self, obj):
@@ -146,7 +147,7 @@ class WalletPassAdmin(admin.ModelAdmin):
                 obj.apple_pass_serial[:20] + '...' if len(obj.apple_pass_serial) > 20 else obj.apple_pass_serial
             )
         return format_html('<span style="color: #999;">—</span>')
-    get_apple_pass_status.short_description = 'Apple'
+    get_apple_pass_status.short_description = _('Apple')
 
     def get_google_pass_status(self, obj):
         """Display Google Wallet pass status"""
@@ -156,7 +157,7 @@ class WalletPassAdmin(admin.ModelAdmin):
                 obj.google_wallet_object_id[:30] + '...' if len(obj.google_wallet_object_id) > 30 else obj.google_wallet_object_id
             )
         return format_html('<span style="color: #999;">—</span>')
-    get_google_pass_status.short_description = 'Google'
+    get_google_pass_status.short_description = _('Google')
 
     def get_next_event_display(self, obj):
         """Display next event info"""
@@ -169,7 +170,7 @@ class WalletPassAdmin(admin.ModelAdmin):
                 next_event.get('title', '')[:25] + '...' if len(next_event.get('title', '')) > 25 else next_event.get('title', '')
             )
         return format_html('<span style="color: #999;">No events</span>')
-    get_next_event_display.short_description = 'Next Event'
+    get_next_event_display.short_description = _('Next Event')
 
     def get_actions_buttons(self, obj):
         """Display quick action buttons"""
@@ -191,7 +192,7 @@ class WalletPassAdmin(admin.ModelAdmin):
             return format_html('<span style="color: #999; font-size: 11px;">No pass</span>')
 
         return format_html(' | '.join(buttons))
-    get_actions_buttons.short_description = 'Actions'
+    get_actions_buttons.short_description = _('Actions')
 
     def get_wallet_summary(self, obj):
         """Display comprehensive wallet summary"""
@@ -266,7 +267,7 @@ class WalletPassAdmin(admin.ModelAdmin):
             member_since=pass_data.get('member_since', 'N/A'),
             has_photo='Yes' if pass_data.get('photo_url') else 'No',
         )
-    get_wallet_summary.short_description = 'Wallet Pass Preview'
+    get_wallet_summary.short_description = _('Wallet Pass Preview')
 
     fieldsets = (
         ('Wallet Pass Preview', {
@@ -286,7 +287,7 @@ class WalletPassAdmin(admin.ModelAdmin):
         }),
     )
 
-    @admin.action(description='🔄 Update Google Wallet passes')
+    @admin.action(description=_('🔄 Update Google Wallet passes'))
     def update_google_wallet_passes(self, request, queryset):
         """Update Google Wallet passes for selected profiles"""
         from crush_lu.wallet.google_api import update_google_wallet_pass
@@ -310,13 +311,13 @@ class WalletPassAdmin(admin.ModelAdmin):
                 failed += 1
 
         if updated > 0:
-            django_messages.success(request, f'🤖 Updated {updated} Google Wallet pass(es)')
+            django_messages.success(request, _('🤖 Updated %(count)d Google Wallet pass(es)') % {'count': updated})
         if failed > 0:
-            django_messages.warning(request, f'❌ Failed to update {failed} pass(es)')
+            django_messages.warning(request, _('❌ Failed to update %(count)d pass(es)') % {'count': failed})
         if skipped > 0:
-            django_messages.info(request, f'⏭️ Skipped {skipped} profile(s) without Google Wallet')
+            django_messages.info(request, _('⏭️ Skipped %(count)d profile(s) without Google Wallet') % {'count': skipped})
 
-    @admin.action(description='🔄 Update Apple Wallet passes (trigger refresh)')
+    @admin.action(description=_('🔄 Update Apple Wallet passes (trigger refresh)'))
     def update_apple_wallet_passes(self, request, queryset):
         """Trigger Apple Wallet pass refresh for selected profiles"""
         from crush_lu.signals import _trigger_apple_pass_refresh
@@ -336,11 +337,11 @@ class WalletPassAdmin(admin.ModelAdmin):
                 pass  # Apple refresh is best-effort
 
         if updated > 0:
-            django_messages.success(request, f'🍎 Triggered refresh for {updated} Apple Wallet pass(es)')
+            django_messages.success(request, _('🍎 Triggered refresh for %(count)d Apple Wallet pass(es)') % {'count': updated})
         if skipped > 0:
-            django_messages.info(request, f'⏭️ Skipped {skipped} profile(s) without Apple Wallet')
+            django_messages.info(request, _('⏭️ Skipped %(count)d profile(s) without Apple Wallet') % {'count': skipped})
 
-    @admin.action(description='🔄 Update ALL wallet passes (Apple + Google)')
+    @admin.action(description=_('🔄 Update ALL wallet passes (Apple + Google)'))
     def update_all_wallet_passes(self, request, queryset):
         """Update both Apple and Google wallet passes"""
         from crush_lu.signals import trigger_wallet_pass_updates
@@ -360,9 +361,9 @@ class WalletPassAdmin(admin.ModelAdmin):
                 pass
 
         if updated > 0:
-            django_messages.success(request, f'🔄 Updated {updated} wallet pass(es)')
+            django_messages.success(request, _('🔄 Updated %(count)d wallet pass(es)') % {'count': updated})
         if skipped > 0:
-            django_messages.info(request, f'⏭️ Skipped {skipped} profile(s) without any wallet pass')
+            django_messages.info(request, _('⏭️ Skipped %(count)d profile(s) without any wallet pass') % {'count': skipped})
 
     def changelist_view(self, request, extra_context=None):
         """Add statistics to the changelist view"""

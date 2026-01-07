@@ -15,6 +15,7 @@ Includes:
 
 from django.contrib import admin
 from django.contrib import messages as django_messages
+from django.utils.translation import gettext_lazy as _
 
 from crush_lu.models import (
     JourneyConfiguration, JourneyChapter, JourneyChallenge,
@@ -109,30 +110,30 @@ class JourneyConfigurationAdmin(admin.ModelAdmin):
     def get_user_name(self, obj):
         """Display the target user's name"""
         return f"{obj.special_experience.first_name} {obj.special_experience.last_name}"
-    get_user_name.short_description = 'For User'
+    get_user_name.short_description = _('For User')
     get_user_name.admin_order_field = 'special_experience__first_name'
 
-    @admin.action(description='✅ Activate selected journeys')
+    @admin.action(description=_('✅ Activate selected journeys'))
     def activate_journeys(self, request, queryset):
         updated = queryset.update(is_active=True)
-        django_messages.success(request, f"Activated {updated} journey(s)")
+        django_messages.success(request, _("Activated {count} journey(s)").format(count=updated))
 
-    @admin.action(description='❌ Deactivate selected journeys')
+    @admin.action(description=_('❌ Deactivate selected journeys'))
     def deactivate_journeys(self, request, queryset):
         updated = queryset.update(is_active=False)
-        django_messages.success(request, f"Deactivated {updated} journey(s)")
+        django_messages.success(request, _("Deactivated {count} journey(s)").format(count=updated))
 
-    @admin.action(description='📋 Duplicate journey (create copy)')
+    @admin.action(description=_('📋 Duplicate journey (create copy)'))
     def duplicate_journey(self, request, queryset):
         """Clone a journey for reuse with another user"""
         if queryset.count() != 1:
-            django_messages.error(request, "Please select exactly one journey to duplicate")
+            django_messages.error(request, _("Please select exactly one journey to duplicate"))
             return
 
         original = queryset.first()
         django_messages.info(
             request,
-            f"Duplication feature coming soon! Would create a copy of '{original.journey_name}'"
+            _("Duplication feature coming soon! Would create a copy of '{name}'").format(name=original.journey_name)
         )
 
 
@@ -175,16 +176,16 @@ class JourneyChapterAdmin(admin.ModelAdmin):
 
     def get_chapter_display(self, obj):
         return f"Chapter {obj.chapter_number}"
-    get_chapter_display.short_description = 'Chapter #'
+    get_chapter_display.short_description = _('Chapter #')
     get_chapter_display.admin_order_field = 'chapter_number'
 
     def get_challenge_count(self, obj):
         return obj.challenges.count()
-    get_challenge_count.short_description = '🎯 Challenges'
+    get_challenge_count.short_description = _('🎯 Challenges')
 
     def get_reward_count(self, obj):
         return obj.rewards.count()
-    get_reward_count.short_description = '🎁 Rewards'
+    get_reward_count.short_description = _('🎁 Rewards')
 
 
 class JourneyChallengeAdmin(admin.ModelAdmin):
@@ -229,16 +230,16 @@ class JourneyChallengeAdmin(admin.ModelAdmin):
 
     def get_chapter_display(self, obj):
         return f"Ch{obj.chapter.chapter_number}: {obj.chapter.title}"
-    get_chapter_display.short_description = 'Chapter'
+    get_chapter_display.short_description = _('Chapter')
 
     def get_question_preview(self, obj):
         return obj.question[:50] + '...' if len(obj.question) > 50 else obj.question
-    get_question_preview.short_description = 'Question Preview'
+    get_question_preview.short_description = _('Question Preview')
 
     def has_hints(self, obj):
         return bool(obj.hint_1 or obj.hint_2 or obj.hint_3)
     has_hints.boolean = True
-    has_hints.short_description = 'Has Hints?'
+    has_hints.short_description = _('Has Hints?')
 
 
 class JourneyRewardAdmin(admin.ModelAdmin):
@@ -275,22 +276,22 @@ class JourneyRewardAdmin(admin.ModelAdmin):
 
     def get_chapter_display(self, obj):
         return f"Ch{obj.chapter.chapter_number}: {obj.chapter.title}"
-    get_chapter_display.short_description = 'Chapter'
+    get_chapter_display.short_description = _('Chapter')
 
     def has_photo(self, obj):
         return bool(obj.photo)
     has_photo.boolean = True
-    has_photo.short_description = '📷 Photo'
+    has_photo.short_description = _('📷 Photo')
 
     def has_audio(self, obj):
         return bool(obj.audio_file)
     has_audio.boolean = True
-    has_audio.short_description = '🎵 Audio'
+    has_audio.short_description = _('🎵 Audio')
 
     def has_video(self, obj):
         return bool(obj.video_file)
     has_video.boolean = True
-    has_video.short_description = '🎬 Video'
+    has_video.short_description = _('🎬 Video')
 
 
 class JourneyProgressAdmin(admin.ModelAdmin):
@@ -342,7 +343,7 @@ class JourneyProgressAdmin(admin.ModelAdmin):
 
     def get_journey_name(self, obj):
         return obj.journey.journey_name
-    get_journey_name.short_description = 'Journey'
+    get_journey_name.short_description = _('Journey')
 
     def get_completion_pct(self, obj):
         pct = obj.completion_percentage
@@ -354,7 +355,7 @@ class JourneyProgressAdmin(admin.ModelAdmin):
             return f"🟡 {pct}%"
         else:
             return f"🔴 {pct}%"
-    get_completion_pct.short_description = 'Completion'
+    get_completion_pct.short_description = _('Completion')
 
     def get_time_spent(self, obj):
         """Convert seconds to human-readable format"""
@@ -364,7 +365,7 @@ class JourneyProgressAdmin(admin.ModelAdmin):
         if hours > 0:
             return f"{hours}h {minutes}m"
         return f"{minutes}m"
-    get_time_spent.short_description = 'Time Spent'
+    get_time_spent.short_description = _('Time Spent')
 
 
 class ChapterProgressAdmin(admin.ModelAdmin):
@@ -401,18 +402,18 @@ class ChapterProgressAdmin(admin.ModelAdmin):
 
     def get_user(self, obj):
         return obj.journey_progress.user.username
-    get_user.short_description = 'User'
+    get_user.short_description = _('User')
 
     def get_chapter_display(self, obj):
         return f"Ch{obj.chapter.chapter_number}: {obj.chapter.title}"
-    get_chapter_display.short_description = 'Chapter'
+    get_chapter_display.short_description = _('Chapter')
 
     def get_time_spent(self, obj):
         """Convert seconds to human-readable format"""
         seconds = obj.time_spent_seconds
         minutes = seconds // 60
         return f"{minutes}m {seconds % 60}s"
-    get_time_spent.short_description = 'Duration'
+    get_time_spent.short_description = _('Duration')
 
 
 class ChallengeAttemptAdmin(admin.ModelAdmin):
@@ -455,19 +456,19 @@ class ChallengeAttemptAdmin(admin.ModelAdmin):
 
     def get_user(self, obj):
         return obj.chapter_progress.journey_progress.user.username
-    get_user.short_description = 'User'
+    get_user.short_description = _('User')
 
     def get_chapter(self, obj):
         return f"Ch.{obj.challenge.chapter.chapter_number}"
-    get_chapter.short_description = 'Chapter'
+    get_chapter.short_description = _('Chapter')
 
     def get_challenge_display(self, obj):
         return f"{obj.challenge.get_challenge_type_display()}"
-    get_challenge_display.short_description = 'Challenge Type'
+    get_challenge_display.short_description = _('Challenge Type')
 
     def get_hints_count(self, obj):
         return len(obj.hints_used) if obj.hints_used else 0
-    get_hints_count.short_description = '💡 Hints Used'
+    get_hints_count.short_description = _('💡 Hints Used')
 
     def export_chapter2_responses(self, request, queryset):
         """Export Chapter 2 questionnaire responses as CSV"""
@@ -483,7 +484,7 @@ class ChallengeAttemptAdmin(admin.ModelAdmin):
         if not chapter2_attempts.exists():
             self.message_user(
                 request,
-                "No Chapter 2 responses found in selected items.",
+                _("No Chapter 2 responses found in selected items."),
                 level=django_messages.WARNING
             )
             return
@@ -509,13 +510,13 @@ class ChallengeAttemptAdmin(admin.ModelAdmin):
 
         self.message_user(
             request,
-            f"Exported {chapter2_attempts.count()} Chapter 2 responses.",
+            _("Exported {count} Chapter 2 responses.").format(count=chapter2_attempts.count()),
             level=django_messages.SUCCESS
         )
 
         return response
 
-    export_chapter2_responses.short_description = "📊 Export Chapter 2 Questionnaire Responses (CSV)"
+    export_chapter2_responses.short_description = _("📊 Export Chapter 2 Questionnaire Responses (CSV)")
 
 
 class RewardProgressAdmin(admin.ModelAdmin):
@@ -537,14 +538,14 @@ class RewardProgressAdmin(admin.ModelAdmin):
 
     def get_user(self, obj):
         return obj.journey_progress.user.username
-    get_user.short_description = 'User'
+    get_user.short_description = _('User')
 
     def get_reward(self, obj):
         return f"{obj.reward.title} (Ch{obj.reward.chapter.chapter_number})"
-    get_reward.short_description = 'Reward'
+    get_reward.short_description = _('Reward')
 
     def get_pieces_unlocked(self, obj):
         total = 16  # Standard jigsaw puzzle size
         unlocked = len(obj.unlocked_pieces)
         return f"{unlocked}/{total}"
-    get_pieces_unlocked.short_description = 'Progress'
+    get_pieces_unlocked.short_description = _('Progress')
