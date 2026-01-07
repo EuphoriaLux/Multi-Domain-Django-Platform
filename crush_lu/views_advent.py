@@ -170,7 +170,7 @@ def advent_door_view(request, door_number):
         door = get_object_or_404(AdventDoor, calendar=calendar, door_number=door_number)
 
         # Get user progress
-        progress, _ = AdventProgress.objects.get_or_create(
+        progress, _created = AdventProgress.objects.get_or_create(
             user=request.user,
             calendar=calendar
         )
@@ -263,7 +263,7 @@ def scan_qr_code(request, token):
         calendar = door.calendar
 
         # Get or create progress
-        progress, _ = AdventProgress.objects.get_or_create(
+        progress, _created = AdventProgress.objects.get_or_create(
             user=request.user,
             calendar=calendar
         )
@@ -351,7 +351,7 @@ def get_advent_status(request):
             return JsonResponse({'success': False, 'error': 'No calendar found'}, status=404)
 
         calendar = journey.advent_calendar
-        progress, _ = AdventProgress.objects.get_or_create(
+        progress, _created = AdventProgress.objects.get_or_create(
             user=request.user,
             calendar=calendar
         )
@@ -411,7 +411,7 @@ def open_door_api(request):
         # Get door and check QR requirements
         door = get_object_or_404(AdventDoor, calendar=calendar, door_number=door_number)
 
-        progress, _ = AdventProgress.objects.get_or_create(
+        progress, _created = AdventProgress.objects.get_or_create(
             user=request.user,
             calendar=calendar
         )
