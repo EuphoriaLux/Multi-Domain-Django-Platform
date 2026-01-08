@@ -314,96 +314,151 @@
                                 </div>
                             </div>
                         {% else %}
-                            {# DATING USER NAVIGATION #}
-                            <a class="nav-link" href="{% url 'crush_lu:dashboard' %}">
-                                {% include "shared/icons/home.html" with class="w-4 h-4" %}
-                                <span>Dashboard</span>
-                                {% if profile_needs_action %}
-                                    <span class="badge badge-warning" title="Profile needs revision">!</span>
+                            {# DATING USER NAVIGATION - varies by profile status #}
+
+                            {% if profile_is_approved %}
+                                {# APPROVED USER: Full navigation #}
+                                <a class="nav-link" href="{% url 'crush_lu:dashboard' %}">
+                                    {% include "shared/icons/home.html" with class="w-4 h-4" %}
+                                    <span>{% trans "Dashboard" %}</span>
+                                </a>
+                                {% if has_special_journey %}
+                                <a class="nav-link special-journey" href="{% url 'crush_lu:journey_map' %}">
+                                    {% include "shared/icons/star.html" with class="w-4 h-4 text-yellow-400" %}
+                                    <span>{% trans "Special Journey" %}</span>
+                                    {% if not journey_started %}
+                                        <span class="badge badge-warning">{% trans "New!" %}</span>
+                                    {% endif %}
+                                </a>
                                 {% endif %}
-                            </a>
-                            {% if has_special_journey %}
-                            <a class="nav-link special-journey" href="{% url 'crush_lu:journey_map' %}">
-                                {% include "shared/icons/star.html" with class="w-4 h-4 text-yellow-400" %}
-                                <span>Special Journey</span>
-                                {% if not journey_started %}
-                                    <span class="badge badge-warning">New!</span>
+
+                                <!-- Events Dropdown -->
+                                <div class="dropdown" @click.away="closeEvents">
+                                    <button type="button" @click="toggleEvents" class="nav-link" aria-haspopup="true" x-bind:aria-expanded="eventsAriaExpanded">
+                                        {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
+                                        <span>{% trans "Events" %}</span>
+                                        {% if upcoming_events_count > 0 %}
+                                            <span class="badge badge-info">{{ upcoming_events_count }}</span>
+                                        {% endif %}
+                                        {% include "shared/icons/chevron-down.html" with class="w-3 h-3" %}
+                                    </button>
+                                    <div x-show="eventsOpen"
+                                         x-transition:enter="transition ease-out duration-100"
+                                         x-transition:enter-start="opacity-0 scale-95"
+                                         x-transition:enter-end="opacity-100 scale-100"
+                                         x-transition:leave="transition ease-in duration-75"
+                                         x-transition:leave-start="opacity-100 scale-100"
+                                         x-transition:leave-end="opacity-0 scale-95"
+                                         x-cloak
+                                         class="dropdown-menu show">
+                                        <div class="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">{% trans "Upcoming Events" %}</div>
+                                        {% if upcoming_events %}
+                                            {% for registration in upcoming_events %}
+                                                <a class="dropdown-item" href="{% url 'crush_lu:event_detail' registration.event.id %}">
+                                                    <div class="flex justify-between items-start">
+                                                        <div>
+                                                            <strong>{{ registration.event.title|truncatewords:4 }}</strong>
+                                                            <br>
+                                                            <small class="text-gray-500">
+                                                                {{ registration.event.date_time|date:"M d, g:i A" }}
+                                                            </small>
+                                                        </div>
+                                                        {% if registration.status == 'waitlist' %}
+                                                            <span class="badge badge-secondary ml-2">{% trans "Waitlist" %}</span>
+                                                        {% else %}
+                                                            <span class="badge badge-success ml-2">✓</span>
+                                                        {% endif %}
+                                                    </div>
+                                                </a>
+                                            {% endfor %}
+                                            <div class="dropdown-divider"></div>
+                                        {% else %}
+                                            <span class="block px-4 py-2 text-gray-500">{% trans "No upcoming events" %}</span>
+                                            <div class="dropdown-divider"></div>
+                                        {% endif %}
+                                        <a class="dropdown-item" href="{% url 'crush_lu:event_list' %}">
+                                            {% include "shared/icons/magnifying-glass.html" with class="w-4 h-4 inline mr-2" %}
+                                            {% trans "Browse All Events" %}
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <a class="nav-link" href="{% url 'crush_lu:my_connections' %}">
+                                    {% include "shared/icons/users.html" with class="w-4 h-4" %}
+                                    <span>{% trans "Connections" %}</span>
+                                    {% if pending_requests_count > 0 %}
+                                        <span class="badge badge-danger">{{ pending_requests_count }}</span>
+                                    {% endif %}
+                                </a>
+
+                            {% elif profile_status == 'pending' %}
+                                {# PENDING REVIEW: Show status + browse events #}
+                                <a class="nav-link" href="{% url 'crush_lu:dashboard' %}">
+                                    {% include "shared/icons/clock.html" with class="w-4 h-4" %}
+                                    <span>{% trans "Under Review" %}</span>
+                                    <span class="badge badge-info">⏳</span>
+                                </a>
+                                {% if assigned_coach_name %}
+                                <span class="text-white/60 text-xs hidden lg:inline">
+                                    {{ assigned_coach_name }} {% trans "is reviewing" %}
+                                </span>
                                 {% endif %}
-                            </a>
+                                {% if has_special_journey %}
+                                <a class="nav-link special-journey" href="{% url 'crush_lu:journey_map' %}">
+                                    {% include "shared/icons/star.html" with class="w-4 h-4 text-yellow-400" %}
+                                    <span>{% trans "Special Journey" %}</span>
+                                </a>
+                                {% endif %}
+                                <a class="nav-link" href="{% url 'crush_lu:event_list' %}">
+                                    {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
+                                    <span>{% trans "Browse Events" %}</span>
+                                </a>
+
+                            {% elif profile_status == 'revision' %}
+                                {# REVISION NEEDED: Fix profile + locked features #}
+                                <a class="nav-link text-orange-400 hover:text-orange-300" href="{% url 'crush_lu:edit_profile' %}">
+                                    {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4" %}
+                                    <span>{% trans "Fix Profile" %}</span>
+                                    <span class="badge badge-warning">!</span>
+                                </a>
+                                {% if has_special_journey %}
+                                <a class="nav-link special-journey" href="{% url 'crush_lu:journey_map' %}">
+                                    {% include "shared/icons/star.html" with class="w-4 h-4 text-yellow-400" %}
+                                    <span>{% trans "Special Journey" %}</span>
+                                </a>
+                                {% endif %}
+                                {% include "crush_lu/partials/nav_locked_item.html" with label=_("Events") tooltip=_("Complete profile to register") %}
+                                {% include "crush_lu/partials/nav_locked_item.html" with label=_("Connections") tooltip=_("Connect after events") %}
+
+                            {% else %}
+                                {# PROFILE INCOMPLETE: Progress dropdown + locked features #}
+                                {% include "crush_lu/partials/nav_progress_dropdown.html" %}
+                                {% if has_special_journey %}
+                                <a class="nav-link special-journey" href="{% url 'crush_lu:journey_map' %}">
+                                    {% include "shared/icons/star.html" with class="w-4 h-4 text-yellow-400" %}
+                                    <span>{% trans "Special Journey" %}</span>
+                                    {% if not journey_started %}
+                                        <span class="badge badge-warning">{% trans "New!" %}</span>
+                                    {% endif %}
+                                </a>
+                                {% endif %}
+                                {% include "crush_lu/partials/nav_locked_item.html" with label=_("Events") tooltip=_("Complete profile to register") %}
+                                {% include "crush_lu/partials/nav_locked_item.html" with label=_("Connections") tooltip=_("Connect after events") %}
                             {% endif %}
 
-                            <!-- Events Dropdown -->
-                            <div class="dropdown" @click.away="closeEvents">
-                                <button type="button" @click="toggleEvents" class="nav-link" aria-haspopup="true" x-bind:aria-expanded="eventsAriaExpanded">
-                                    {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
-                                    <span>Events</span>
-                                    {% if upcoming_events_count > 0 %}
-                                        <span class="badge badge-info">{{ upcoming_events_count }}</span>
-                                    {% endif %}
-                                    {% include "shared/icons/chevron-down.html" with class="w-3 h-3" %}
-                                </button>
-                                <div x-show="eventsOpen"
-                                     x-transition:enter="transition ease-out duration-100"
-                                     x-transition:enter-start="opacity-0 scale-95"
-                                     x-transition:enter-end="opacity-100 scale-100"
-                                     x-transition:leave="transition ease-in duration-75"
-                                     x-transition:leave-start="opacity-100 scale-100"
-                                     x-transition:leave-end="opacity-0 scale-95"
-                                     x-cloak
-                                     class="dropdown-menu show">
-                                    <div class="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Upcoming Events</div>
-                                    {% if upcoming_events %}
-                                        {% for registration in upcoming_events %}
-                                            <a class="dropdown-item" href="{% url 'crush_lu:event_detail' registration.event.id %}">
-                                                <div class="flex justify-between items-start">
-                                                    <div>
-                                                        <strong>{{ registration.event.title|truncatewords:4 }}</strong>
-                                                        <br>
-                                                        <small class="text-gray-500">
-                                                            {{ registration.event.date_time|date:"M d, g:i A" }}
-                                                        </small>
-                                                    </div>
-                                                    {% if registration.status == 'waitlist' %}
-                                                        <span class="badge badge-secondary ml-2">Waitlist</span>
-                                                    {% else %}
-                                                        <span class="badge badge-success ml-2">✓</span>
-                                                    {% endif %}
-                                                </div>
-                                            </a>
-                                        {% endfor %}
-                                        <div class="dropdown-divider"></div>
-                                    {% else %}
-                                        <span class="block px-4 py-2 text-gray-500">No upcoming events</span>
-                                        <div class="dropdown-divider"></div>
-                                    {% endif %}
-                                    <a class="dropdown-item" href="{% url 'crush_lu:event_list' %}">
-                                        {% include "shared/icons/magnifying-glass.html" with class="w-4 h-4 inline mr-2" %}
-                                        Browse All Events
-                                    </a>
-                                </div>
-                            </div>
-
-                            <a class="nav-link" href="{% url 'crush_lu:my_connections' %}">
-                                {% include "shared/icons/users.html" with class="w-4 h-4" %}
-                                <span>Connections</span>
-                                {% if pending_requests_count > 0 %}
-                                    <span class="badge badge-danger">{{ pending_requests_count }}</span>
-                                {% endif %}
-                            </a>
-
-                            <!-- User Profile Dropdown -->
+                            <!-- User Profile Dropdown (always shown for authenticated users) -->
                             <div class="dropdown" @click.away="closeUserMenu">
                                 <button type="button" @click="toggleUserMenu" class="nav-link" aria-haspopup="true" x-bind:aria-expanded="userMenuAriaExpanded">
                                     {% include "shared/icons/user-circle.html" with class="w-4 h-4" %}
                                     <span>{{ user.first_name|default:user.username }}</span>
                                     {% if profile_status == 'pending' %}
-                                        <span class="badge badge-info" title="Profile pending review">⏳</span>
+                                        <span class="badge badge-info" title="{% trans 'Profile pending review' %}">⏳</span>
                                     {% elif profile_status == 'rejected' %}
-                                        <span class="badge badge-danger" title="Profile rejected">✗</span>
+                                        <span class="badge badge-danger" title="{% trans 'Profile rejected' %}">✗</span>
                                     {% elif profile_status == 'revision' %}
-                                        <span class="badge badge-warning" title="Profile needs revision">!</span>
+                                        <span class="badge badge-warning" title="{% trans 'Profile needs revision' %}">!</span>
                                     {% elif profile_is_approved %}
-                                        <span class="badge badge-success" title="Profile approved">✓</span>
+                                        <span class="badge badge-success" title="{% trans 'Profile approved' %}">✓</span>
                                     {% endif %}
                                     {% include "shared/icons/chevron-down.html" with class="w-3 h-3" %}
                                 </button>
@@ -418,50 +473,50 @@
                                      class="dropdown-menu show">
                                     {% if user.crushprofile %}
                                         <div class="px-4 py-2 text-xs font-semibold text-gray-500">
-                                            Profile Status:
+                                            {% trans "Profile Status:" %}
                                             {% if profile_status == 'pending' %}
-                                                <span class="text-blue-500">Pending Review</span>
+                                                <span class="text-blue-500">{% trans "Pending Review" %}</span>
                                             {% elif profile_status == 'rejected' %}
-                                                <span class="text-red-500">Rejected</span>
+                                                <span class="text-red-500">{% trans "Rejected" %}</span>
                                             {% elif profile_status == 'revision' %}
-                                                <span class="text-yellow-600">Needs Revision</span>
+                                                <span class="text-yellow-600">{% trans "Needs Revision" %}</span>
                                             {% elif profile_is_approved %}
-                                                <span class="text-green-500">Approved ✓</span>
+                                                <span class="text-green-500">{% trans "Approved" %} ✓</span>
                                             {% else %}
-                                                <span class="text-gray-500">Not Submitted</span>
+                                                <span class="text-gray-500">{% trans "Not Submitted" %}</span>
                                             {% endif %}
                                         </div>
                                         <div class="dropdown-divider"></div>
                                         {% if profile_is_approved %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}">
                                             {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
-                                            Edit Profile
+                                            {% trans "Edit Profile" %}
                                         </a>
                                         {% elif profile_completion_status in 'not_started,step1,step2,step3,completed' %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
                                             {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
-                                            Finish Profile
+                                            {% trans "Finish Profile" %}
                                         </a>
                                         {% else %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}">
                                             {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
-                                            Edit Profile
+                                            {% trans "Edit Profile" %}
                                         </a>
                                         {% endif %}
                                     {% else %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
                                             {% include "shared/icons/user-plus.html" with class="w-4 h-4 inline mr-2" %}
-                                            Create Profile
+                                            {% trans "Create Profile" %}
                                         </a>
                                     {% endif %}
                                     <a class="dropdown-item" href="{% url 'crush_lu:account_settings' %}">
                                         {% include "shared/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
-                                        Account Settings
+                                        {% trans "Account Settings" %}
                                     </a>
                                     <div class="dropdown-divider"></div>
                                     <a class="dropdown-item text-red-600 hover:bg-red-50" href="{% url 'crush_lu:logout' %}">
                                         {% include "shared/icons/arrow-right-on-rectangle.html" with class="w-4 h-4 inline mr-2" %}
-                                        Logout
+                                        {% trans "Logout" %}
                                     </a>
                                 </div>
                             </div>
@@ -556,66 +611,140 @@
                                 Logout
                             </a>
                         {% else %}
-                            {# DATING USER MOBILE NAVIGATION #}
-                            <a class="nav-link block" href="{% url 'crush_lu:dashboard' %}">
-                                {% include "shared/icons/home.html" with class="w-4 h-4 inline mr-2" %}
-                                Dashboard
-                                {% if profile_needs_action %}
+                            {# DATING USER MOBILE NAVIGATION - varies by profile status #}
+
+                            {% if profile_is_approved %}
+                                {# APPROVED USER: Full mobile navigation #}
+                                <a class="nav-link block" href="{% url 'crush_lu:dashboard' %}">
+                                    {% include "shared/icons/home.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Dashboard" %}
+                                </a>
+                                {% if has_special_journey %}
+                                <a class="nav-link block special-journey" href="{% url 'crush_lu:journey_map' %}">
+                                    {% include "shared/icons/star.html" with class="w-4 h-4 inline mr-2 text-yellow-400" %}
+                                    {% trans "Special Journey" %}
+                                    {% if not journey_started %}
+                                        <span class="badge badge-warning ml-1">{% trans "New!" %}</span>
+                                    {% endif %}
+                                </a>
+                                {% endif %}
+                                <a class="nav-link block" href="{% url 'crush_lu:event_list' %}">
+                                    {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Events" %}
+                                    {% if upcoming_events_count > 0 %}
+                                        <span class="badge badge-info ml-1">{{ upcoming_events_count }}</span>
+                                    {% endif %}
+                                </a>
+                                <a class="nav-link block" href="{% url 'crush_lu:my_connections' %}">
+                                    {% include "shared/icons/users.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Connections" %}
+                                    {% if pending_requests_count > 0 %}
+                                        <span class="badge badge-danger ml-1">{{ pending_requests_count }}</span>
+                                    {% endif %}
+                                </a>
+                                <div class="border-t border-white/20 my-2"></div>
+                                <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}">
+                                    {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Edit Profile" %}
+                                </a>
+
+                            {% elif profile_status == 'pending' %}
+                                {# PENDING REVIEW: Status + browse events #}
+                                <a class="nav-link block" href="{% url 'crush_lu:dashboard' %}">
+                                    {% include "shared/icons/clock.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Under Review" %}
+                                    <span class="badge badge-info ml-1">⏳</span>
+                                </a>
+                                {% if assigned_coach_name %}
+                                <span class="block text-white/60 text-sm px-4 py-1">
+                                    {{ assigned_coach_name }} {% trans "is reviewing your profile" %}
+                                </span>
+                                {% endif %}
+                                {% if has_special_journey %}
+                                <a class="nav-link block special-journey" href="{% url 'crush_lu:journey_map' %}">
+                                    {% include "shared/icons/star.html" with class="w-4 h-4 inline mr-2 text-yellow-400" %}
+                                    {% trans "Special Journey" %}
+                                </a>
+                                {% endif %}
+                                <a class="nav-link block" href="{% url 'crush_lu:event_list' %}">
+                                    {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Browse Events" %}
+                                </a>
+                                <div class="border-t border-white/20 my-2"></div>
+                                <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}">
+                                    {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Edit Profile" %}
+                                </a>
+
+                            {% elif profile_status == 'revision' %}
+                                {# REVISION NEEDED: Fix profile + locked features #}
+                                <a class="nav-link block text-orange-300" href="{% url 'crush_lu:edit_profile' %}">
+                                    {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Fix Profile" %}
                                     <span class="badge badge-warning ml-1">!</span>
-                                {% endif %}
-                            </a>
-                            {% if has_special_journey %}
-                            <a class="nav-link block special-journey" href="{% url 'crush_lu:journey_map' %}">
-                                {% include "shared/icons/star.html" with class="w-4 h-4 inline mr-2 text-yellow-400" %}
-                                Special Journey
-                            </a>
-                            {% endif %}
-                            <a class="nav-link block" href="{% url 'crush_lu:event_list' %}">
-                                {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
-                                Events
-                                {% if upcoming_events_count > 0 %}
-                                    <span class="badge badge-info ml-1">{{ upcoming_events_count }}</span>
-                                {% endif %}
-                            </a>
-                            <a class="nav-link block" href="{% url 'crush_lu:my_connections' %}">
-                                {% include "shared/icons/users.html" with class="w-4 h-4 inline mr-2" %}
-                                Connections
-                                {% if pending_requests_count > 0 %}
-                                    <span class="badge badge-danger ml-1">{{ pending_requests_count }}</span>
-                                {% endif %}
-                            </a>
-                            <div class="border-t border-white/20 my-2"></div>
-                            {% if user.crushprofile %}
-                                {% if profile_is_approved %}
-                                <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}">
-                                    {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
-                                    Edit Profile
                                 </a>
-                                {% elif profile_completion_status in 'not_started,step1,step2,step3,completed' %}
-                                <a class="nav-link block" href="{% url 'crush_lu:create_profile' %}">
-                                    {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
-                                    Finish Profile
-                                </a>
-                                {% else %}
-                                <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}">
-                                    {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
-                                    Edit Profile
+                                {% if has_special_journey %}
+                                <a class="nav-link block special-journey" href="{% url 'crush_lu:journey_map' %}">
+                                    {% include "shared/icons/star.html" with class="w-4 h-4 inline mr-2 text-yellow-400" %}
+                                    {% trans "Special Journey" %}
                                 </a>
                                 {% endif %}
+                                {# Locked items for mobile - shown as disabled text #}
+                                <span class="block text-white/40 px-4 py-2">
+                                    {% include "shared/icons/lock-closed.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Events" %} <span class="text-xs">({% trans "complete profile" %})</span>
+                                </span>
+                                <span class="block text-white/40 px-4 py-2">
+                                    {% include "shared/icons/lock-closed.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Connections" %} <span class="text-xs">({% trans "after events" %})</span>
+                                </span>
+
                             {% else %}
-                            <a class="nav-link block" href="{% url 'crush_lu:create_profile' %}">
-                                {% include "shared/icons/user-plus.html" with class="w-4 h-4 inline mr-2" %}
-                                Create Profile
-                            </a>
+                                {# PROFILE INCOMPLETE: Progress info + locked features #}
+                                <div class="px-4 py-3 bg-white/10 rounded-lg mb-2">
+                                    <div class="flex justify-between text-sm mb-2">
+                                        <span class="text-white/80">{% trans "Profile Progress" %}</span>
+                                        <span class="text-white font-medium">{{ profile_completion_step }}/4</span>
+                                    </div>
+                                    <div class="w-full bg-white/20 rounded-full h-2">
+                                        <div class="bg-gradient-to-r from-crush-purple to-crush-pink h-2 rounded-full"
+                                             style="width: {% widthratio profile_completion_step 4 100 %}%"></div>
+                                    </div>
+                                    <p class="text-white/60 text-xs mt-2">{% trans "Next:" %} {{ profile_step_label }}</p>
+                                </div>
+                                <a class="nav-link block bg-crush-pink/20 rounded-lg" href="{% url 'crush_lu:create_profile' %}">
+                                    {% include "shared/icons/arrow-right.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Continue Setup" %}
+                                </a>
+                                {% if has_special_journey %}
+                                <a class="nav-link block special-journey" href="{% url 'crush_lu:journey_map' %}">
+                                    {% include "shared/icons/star.html" with class="w-4 h-4 inline mr-2 text-yellow-400" %}
+                                    {% trans "Special Journey" %}
+                                    {% if not journey_started %}
+                                        <span class="badge badge-warning ml-1">{% trans "New!" %}</span>
+                                    {% endif %}
+                                </a>
+                                {% endif %}
+                                {# Locked items for mobile #}
+                                <span class="block text-white/40 px-4 py-2">
+                                    {% include "shared/icons/lock-closed.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Events" %} <span class="text-xs">({% trans "complete profile" %})</span>
+                                </span>
+                                <span class="block text-white/40 px-4 py-2">
+                                    {% include "shared/icons/lock-closed.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Connections" %} <span class="text-xs">({% trans "after events" %})</span>
+                                </span>
                             {% endif %}
+
+                            {# Common items for all authenticated dating users #}
                             <a class="nav-link block" href="{% url 'crush_lu:account_settings' %}">
                                 {% include "shared/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
-                                Account Settings
+                                {% trans "Account Settings" %}
                             </a>
                             <div class="border-t border-white/20 my-2"></div>
                             <a class="nav-link block text-red-200" href="{% url 'crush_lu:logout' %}">
                                 {% include "shared/icons/arrow-right-on-rectangle.html" with class="w-4 h-4 inline mr-2" %}
-                                Logout
+                                {% trans "Logout" %}
                             </a>
                         {% endif %}
                     {% else %}

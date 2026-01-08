@@ -5,10 +5,20 @@ These make variables available to all templates
 from django.db.models import Q
 from django.utils import timezone
 from django.conf import settings
+from django.utils.translation import gettext_lazy as _
 from .models import (
     EventConnection, CrushProfile, CrushCoach, SpecialUserExperience,
     JourneyProgress, ProfileSubmission, EventRegistration, MeetupEvent
 )
+
+# Profile completion step mapping for navbar progress indicator
+PROFILE_STEP_INFO = {
+    'not_started': (0, _('Get started')),
+    'step1': (1, _('Tell us about you')),
+    'step2': (2, _('Add photos')),
+    'step3': (3, _('Review & submit')),
+    'submitted': (4, _('Under review')),
+}
 
 
 def crush_user_context(request):
@@ -35,17 +45,31 @@ def crush_user_context(request):
         profile_submission = None
         profile = CrushProfile.objects.filter(user=request.user).first()
         if profile:
-            context['profile_completion_status'] = profile.completion_status
+            completion_status = profile.completion_status
+            context['profile_completion_status'] = completion_status
+
+            # Profile step info for navbar progress indicator
+            step_info = PROFILE_STEP_INFO.get(completion_status, (0, _('Get started')))
+            context['profile_completion_step'] = step_info[0]
+            context['profile_step_label'] = step_info[1]
 
             profile_submission = ProfileSubmission.objects.filter(
                 profile=profile
-            ).order_by('-submitted_at').first()
+            ).select_related('coach__user').order_by('-submitted_at').first()
 
             if profile_submission:
                 context['profile_submission'] = profile_submission
                 context['profile_status'] = profile_submission.status
                 context['profile_is_approved'] = profile.is_approved
                 context['profile_needs_action'] = profile_submission.status == 'revision'
+
+                # Coach name for pending review navbar display
+                if profile_submission.coach and profile_submission.status == 'pending':
+                    context['assigned_coach_name'] = profile_submission.coach.user.first_name
+        else:
+            # No profile yet - show step 0
+            context['profile_completion_step'] = 0
+            context['profile_step_label'] = _('Get started')
 
         # Upcoming events for user
         now = timezone.now()
