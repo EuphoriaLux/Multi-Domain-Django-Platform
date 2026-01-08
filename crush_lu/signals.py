@@ -10,7 +10,7 @@ from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth.models import User
 from django.conf import settings
 from django.utils import timezone
-from .models import MeetupEvent, EventActivityOption, CrushProfile, SpecialUserExperience, EmailPreference, EventRegistration
+from .models import MeetupEvent, EventActivityOption, CrushProfile, SpecialUserExperience, EmailPreference, EventRegistration, CrushCoach
 from .storage import initialize_user_storage
 import logging
 from datetime import datetime
@@ -1093,3 +1093,46 @@ def trigger_wallet_pass_update_on_registration_change(sender, instance, created,
             trigger_wallet_pass_updates(profile)
         except Exception as e:
             logger.error(f"Error triggering wallet update on registration change for user {instance.user_id}: {e}")
+
+
+# =============================================================================
+# COACH STAFF STATUS MANAGEMENT
+# =============================================================================
+
+@receiver(post_save, sender=CrushCoach)
+def manage_coach_staff_status(sender, instance, created, **kwargs):
+    """
+    Automatically manage staff status for Crush coaches.
+
+    When a CrushCoach record is created or updated:
+    - If coach is_active=True: Grant is_staff=True to allow admin panel access
+    - If coach is_active=False: Revoke is_staff=True (unless user is superuser)
+
+    This enables coaches to log into the admin panel via social login (Google, Microsoft)
+    without requiring manual staff status assignment.
+
+    Note: Superusers are never affected - their staff status is preserved.
+    """
+    user = instance.user
+
+    # Never modify superuser accounts
+    if user.is_superuser:
+        return
+
+    try:
+        if instance.is_active:
+            # Grant staff status to active coaches
+            if not user.is_staff:
+                user.is_staff = True
+                user.save(update_fields=['is_staff'])
+                logger.info(f"Granted staff status to coach: {user.email}")
+        else:
+            # Revoke staff status from inactive coaches
+            # Only revoke if they don't have other admin roles
+            if user.is_staff:
+                user.is_staff = False
+                user.save(update_fields=['is_staff'])
+                logger.info(f"Revoked staff status from inactive coach: {user.email}")
+
+    except Exception as e:
+        logger.error(f"Error managing staff status for coach {user.id}: {e}")

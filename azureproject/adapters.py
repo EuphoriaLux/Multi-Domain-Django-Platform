@@ -6,8 +6,11 @@ Routes authentication to appropriate handlers based on request domain.
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.core.exceptions import ImmediateHttpResponse
+from django.conf import settings
 from django.urls import reverse
 from django.shortcuts import render
+from django.http import HttpResponseForbidden
+import os
 import logging
 
 logger = logging.getLogger(__name__)
@@ -98,6 +101,32 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
                        f"displayName={extra.get('displayName')}, "
                        f"mail={extra.get('mail')}, "
                        f"userPrincipalName={extra.get('userPrincipalName')}")
+
+            # Tenant validation for ADMIN PANEL access only
+            # Consumers on crush.lu can use any Microsoft account
+            # But admin panel requires users from the enterprise tenant
+            next_url = request.session.get('next') or request.GET.get('next', '')
+            is_admin_login = '/admin/' in next_url or '/crush-admin/' in next_url
+
+            if is_admin_login:
+                allowed_tenant = os.environ.get('GRAPH_TENANT_ID')
+                if allowed_tenant:
+                    # Get tenant ID from token (stored in extra_data by allauth)
+                    user_tenant = extra.get('tid')  # Azure AD tenant ID claim
+                    logger.info(f"[OAUTH-ADAPTER] Admin login attempt: "
+                               f"user_tenant={user_tenant}, allowed_tenant={allowed_tenant}")
+
+                    if user_tenant and user_tenant != allowed_tenant:
+                        logger.warning(
+                            f"[OAUTH-ADAPTER] Admin Microsoft login rejected: "
+                            f"user tenant {user_tenant} != allowed tenant {allowed_tenant}"
+                        )
+                        raise ImmediateHttpResponse(
+                            HttpResponseForbidden(
+                                "Access denied. Your Microsoft account is not from the authorized organization. "
+                                "Only accounts from the organization tenant can access the admin panel."
+                            )
+                        )
 
         # Store the OAuth provider in session for PWA redirect handling
         if _is_crush_domain(request):

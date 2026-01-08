@@ -336,8 +336,8 @@ SOCIALACCOUNT_PROVIDERS = {
     },
     'microsoft': {
         # 'common' allows any Microsoft account (personal + work/school from any org)
-        # Use 'organizations' to restrict to work/school accounts only
-        # Use specific tenant ID to restrict to single organization
+        # This is needed for crush.lu consumers who may use personal accounts
+        # Admin panel access is restricted at the adapter level (see adapters.py)
         'TENANT': 'common',
         'SCOPE': ['User.Read', 'profile', 'email', 'openid'],
         # Trust Microsoft emails as verified (required for auto-linking)
