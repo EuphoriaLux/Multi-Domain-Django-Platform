@@ -6274,8 +6274,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\emails\profile_incomplete_final.html:45
 msgid "This is our final profile completion reminder. We won't send any more."
 msgstr ""
-"Dies(e/er/es) [AUTO] is our final profile completion reminder. We won't send "
-"any more."
+"Dies ist unsere letzte Erinnerung zur Profilvervollständigung. Wir werden "
+"keine weiteren senden."
 
 #: .\crush_lu\templates\crush_lu\emails\profile_rejected.html:4
 #: .\crush_lu\templates\crush_lu\emails\profile_rejected.html:6
@@ -6459,8 +6459,8 @@ msgid ""
 "Your Crush.lu account has been successfully created. Now let's build your "
 "profile so you can start meeting amazing people at our events."
 msgstr ""
-"Dein(e) [AUTO] Crush.lu account has been successfully created. Now let's "
-"build your profile so you can start meeting amazing people at our events."
+"Dein Crush.lu-Konto wurde erfolgreich erstellt. Lass uns jetzt dein Profil "
+"erstellen, damit du bei unseren Events tolle Menschen kennenlernen kannst."
 
 #: .\crush_lu\templates\crush_lu\emails\welcome.html:84
 msgid "Complete Your Profile (4 Simple Steps):"
@@ -6546,8 +6546,8 @@ msgstr "Herzlich,"
 msgid ""
 "This email was sent to %(email)s because you created a Crush.lu account."
 msgstr ""
-"Dies(e/er/es) [AUTO] email was sent to %(email)s because you created a Crush."
-"lu account."
+"Diese E-Mail wurde an %(email)s gesendet, weil du ein Crush.lu-Konto "
+"erstellt hast."
 
 #: .\crush_lu\templates\crush_lu\emails\welcome.html:115
 msgid "Privacy-focused dating in Luxembourg"
@@ -6580,7 +6580,7 @@ msgstr "Speed-Dating-Twist: <strong>%(twist)s</strong>"
 
 #: .\crush_lu\templates\crush_lu\event_activity_vote.html:119
 msgid "You can change your votes anytime before voting closes."
-msgstr "Du kannst [AUTO] change your votes anytime before voting closes."
+msgstr "Du kannst deine Stimmen jederzeit ändern, bevor die Abstimmung endet."
 
 #: .\crush_lu\templates\crush_lu\event_activity_vote.html:123
 msgid "⚠️ Incomplete!"
@@ -6588,7 +6588,7 @@ msgstr "⚠️ Unvollständig!"
 
 #: .\crush_lu\templates\crush_lu\event_activity_vote.html:123
 msgid "You must vote on BOTH categories to submit."
-msgstr "Du musst [AUTO] vote on BOTH categories to submit."
+msgstr "Du musst in BEIDEN Kategorien abstimmen, um abzusenden."
 
 #: .\crush_lu\templates\crush_lu\event_activity_vote.html:124
 msgid "✓ You've voted on Presentation Style."
@@ -6605,7 +6605,8 @@ msgstr "📋 Stimmen Sie über ZWEI Kategorien ab:"
 #: .\crush_lu\templates\crush_lu\event_activity_vote.html:135
 msgid "You must vote on both your presentation style AND speed dating twist!"
 msgstr ""
-"Du musst [AUTO] vote on both your presentation style AND speed dating twist!"
+"Du musst sowohl für deinen Präsentationsstil ALS AUCH für dein Speed-Dating-"
+"Twist abstimmen!"
 
 #: .\crush_lu\templates\crush_lu\event_activity_vote.html:140
 msgid "Category 1 of 2"
@@ -6655,11 +6656,11 @@ msgstr "Denke daran:"
 #: .\crush_lu\templates\crush_lu\event_activity_vote.html:197
 msgid "You can change your votes at any time before the voting period ends!"
 msgstr ""
-"Du kannst [AUTO] change your votes at any time before the voting period ends!"
+"Du kannst deine Stimmen jederzeit ändern, bevor der Abstimmungszeitraum endet!"
 
 #: .\crush_lu\templates\crush_lu\event_attendees.html:11
 msgid "Who did you connect with?"
-msgstr "Wer [AUTO] did you connect with?"
+msgstr "Mit wem hast du dich verbunden?"
 
 #: .\crush_lu\templates\crush_lu\event_attendees.html:15
 #: .\crush_lu\templates\crush_lu\event_cancel.html:15
@@ -6730,7 +6731,7 @@ msgstr "Max. Teilnehmer: %(max)s"
 #: .\crush_lu\templates\crush_lu\event_detail.html:129
 #, python-format
 msgid "<strong>Spots remaining: %(spots)s</strong>"
-msgstr "<strong>[AUTO] Spots remaining: %(spots)s</strong>"
+msgstr "<strong>Verbleibende Plätze: %(spots)s</strong>"
 
 #: .\crush_lu\templates\crush_lu\event_detail.html:133
 msgid "Price"
@@ -6767,8 +6768,8 @@ msgstr "Interaktive Aktivitätsabstimmung:"
 msgid ""
 "15 minutes after the event starts, you'll vote on which activity format to do"
 msgstr ""
-"15 [AUTO] minutes after the event starts, you'll vote on which activity "
-"format to do"
+"15 Minuten nach Eventbeginn stimmst du ab, welches Aktivitätsformat "
+"durchgeführt wird"
 
 #: .\crush_lu\templates\crush_lu\event_detail.html:158
 msgid "Choose from Speed Dating, 90-Second Presentations, or Mystery Event"
@@ -6938,7 +6939,7 @@ msgstr "Deine persönlichen Bewertungen ansehen"
 
 #: .\crush_lu\templates\crush_lu\event_presentations.html:247
 msgid "Your scores are completely private - only you can see them!"
-msgstr "Dein(e) [AUTO] scores are completely private - only you can see them!"
+msgstr "Deine Bewertungen sind vollständig privat - nur du kannst sie sehen!"
 
 #: .\crush_lu\templates\crush_lu\event_presentations.html:251
 msgid "Waiting for presentations to begin..."
@@ -6980,7 +6981,7 @@ msgstr "✓ Du hast bereits abgestimmt!"
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:32
 #, python-format
 msgid "Your choice: <strong>%(choice)s</strong>"
-msgstr "Dein(e) [AUTO] choice: <strong>%(choice)s</strong>"
+msgstr "Deine Wahl: <strong>%(choice)s</strong>"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:34
 msgid "View Results"
@@ -7046,7 +7047,7 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:93
 msgid "90 Second Presentations"
-msgstr "90 [AUTO] Second Presentations"
+msgstr "90-Sekunden-Präsentationen"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:95
 msgid ""
@@ -7080,7 +7081,7 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:113
 msgid "You have <strong>30 minutes</strong> to cast your vote"
-msgstr "Du hast [AUTO] <strong>30 minutes</strong> to cast your vote"
+msgstr "Du hast <strong>30 Minuten</strong> Zeit, um abzustimmen"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:114
 msgid "Choose your favorite activity format"
@@ -7145,7 +7146,7 @@ msgstr "Gewinner 🏆"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:93
 msgid "Your Vote ✓"
-msgstr "Dein(e) [AUTO] Vote ✓"
+msgstr "Deine Stimme ✓"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:106
 msgid "votes"
@@ -7433,8 +7434,8 @@ msgid ""
 "Your journey to meaningful connections starts here. No endless swiping, just "
 "real events with real people."
 msgstr ""
-"Dein(e) [AUTO] journey to meaningful connections starts here. No endless "
-"swiping, just real events with real people."
+"Deine Reise zu bedeutungsvollen Verbindungen beginnt hier. Kein endloses "
+"Wischen, nur echte Events mit echten Menschen."
 
 #: .\crush_lu\templates\crush_lu\how_it_works.html:384
 msgid "Simple Steps"
@@ -7597,7 +7598,7 @@ msgstr "Für außergewöhnlichen Mut und Engagement"
 
 #: .\crush_lu\templates\crush_lu\journey\certificate.html:276
 msgid "This certifies that"
-msgstr "Dies(e/er/es) [AUTO] certifies that"
+msgstr "Hiermit wird bestätigt, dass"
 
 #: .\crush_lu\templates\crush_lu\journey\certificate.html:283
 msgid "has successfully completed the journey through"
@@ -7737,15 +7738,15 @@ msgstr "💭 Sie wissen nicht, was Sie schreiben sollen? Halten:"
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\open_text.html:271
 msgid "What immediately comes to mind?"
-msgstr "Was [AUTO] immediately comes to mind?"
+msgstr "Was fällt dir sofort ein?"
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\open_text.html:272
 msgid "How does this question make you feel?"
-msgstr "Wie [AUTO] does this question make you feel?"
+msgstr "Wie fühlst du dich bei dieser Frage?"
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\open_text.html:273
 msgid "What would you want someone to know about your answer?"
-msgstr "Was [AUTO] would you want someone to know about your answer?"
+msgstr "Was möchtest du, dass jemand über deine Antwort weiß?"
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\open_text.html:282
 msgid "Start typing your thoughts here..."
@@ -7778,7 +7779,7 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\riddle.html:211
 msgid "Type your answer here..."
-msgstr "Dein(e) [AUTO] answer here... eingeben"
+msgstr "Gib hier deine Antwort ein..."
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\riddle.html:216
 #: .\crush_lu\templates\crush_lu\journey\challenges\word_scramble.html:255
@@ -7960,7 +7961,7 @@ msgstr "Zurück zur Karte"
 
 #: .\crush_lu\templates\crush_lu\journey\journey_map.html:586
 msgid "Your personalized adventure awaits"
-msgstr "Dein(e) [AUTO] personalized adventure awaits"
+msgstr "Dein persönliches Abenteuer wartet"
 
 #: .\crush_lu\templates\crush_lu\journey\journey_map.html:600
 msgid "Current Chapter"
@@ -8012,7 +8013,7 @@ msgstr "Zurück zum Willkommen"
 #: .\crush_lu\templates\crush_lu\journey\journey_selector.html:242
 #, python-format
 msgid "Choose your adventure, %(name)s"
-msgstr "Dein(e) [AUTO] adventure, %(name)s wählen"
+msgstr "Wähle dein Abenteuer, %(name)s"
 
 #: .\crush_lu\templates\crush_lu\journey\journey_selector.html:269
 msgid "New Adventure"
@@ -8249,7 +8250,7 @@ msgstr "Bereit beizutreten?"
 
 #: .\crush_lu\templates\crush_lu\membership.html:313
 msgid "Create your account and start earning rewards today."
-msgstr "Dein(e) [AUTO] account and start earning rewards today. erstellen"
+msgstr "Erstelle dein Konto und verdiene noch heute Belohnungen."
 
 #: .\crush_lu\templates\crush_lu\membership.html:315
 msgid "Sign Up Now"
@@ -8354,7 +8355,7 @@ msgstr "Schritt 4 von 4 – Überprüfen und absenden"
 
 #: .\crush_lu\templates\crush_lu\partials\profile_completion_banner.html:38
 msgid "Your journey begins here - just a few minutes to get started"
-msgstr "Dein(e) [AUTO] journey begins here - just a few minutes to get started"
+msgstr "Deine Reise beginnt hier - nur wenige Minuten zum Starten"
 
 #: .\crush_lu\templates\crush_lu\partials\profile_completion_banner.html:40
 msgid "Great start! Add a bit more about yourself"
@@ -8411,7 +8412,7 @@ msgstr "Zugewiesener Trainer:"
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:31
 msgid "Your assigned Crush Coach will review your profile"
-msgstr "Dein(e) [AUTO] assigned Crush Coach will review your profile"
+msgstr "Dein zugewiesener Crush Coach wird dein Profil überprüfen"
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:32
 msgid "You'll receive feedback within 24-48 hours"
@@ -8426,8 +8427,8 @@ msgid ""
 "You cannot edit your profile while it's under review. If you need to make "
 "changes, please wait for the review to complete."
 msgstr ""
-"Du kannst nicht Dein(e) [AUTO] profile while it's under review. If you need "
-"to make changes, please wait for the review to complete. bearbeiten"
+"Du kannst dein Profil nicht bearbeiten, während es überprüft wird. Wenn du "
+"Änderungen vornehmen möchtest, warte bitte, bis die Überprüfung abgeschlossen ist."
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:47
 msgid "Congratulations! Your profile has been approved by our coaches."
@@ -8480,7 +8481,7 @@ msgstr "Bei Crush.lu anmelden"
 
 #: .\crush_lu\templates\crush_lu\signup.html:17
 msgid "Create your account to start meeting new people"
-msgstr "Dein(e) [AUTO] account to start meeting new people erstellen"
+msgstr "Erstelle dein Konto, um neue Menschen kennenzulernen"
 
 #: .\crush_lu\templates\crush_lu\signup.html:35
 msgid "Sign up with Google"
@@ -9776,7 +9777,7 @@ msgstr ""
 #: .\entreprinder\templates\entreprinder\about.html:15
 #: .\power_up\templates\power_up\about.html:25
 msgid "Our Story"
-msgstr "Unser(e) [AUTO] Story"
+msgstr "Unsere Geschichte"
 
 #: .\entreprinder\templates\entreprinder\about.html:16
 msgid ""
@@ -9937,8 +9938,8 @@ msgid ""
 "Please try again later. If the problem persists, contact support with the "
 "following error details:"
 msgstr ""
-"Bitte [AUTO] try again later. If the problem persists, contact support with "
-"the following error details:"
+"Bitte versuche es später erneut. Wenn das Problem weiterhin besteht, "
+"kontaktiere den Support mit den folgenden Fehlerdetails:"
 
 #: .\entreprinder\templates\entreprinder\error.html:19
 msgid "Return to Home"
@@ -10065,7 +10066,7 @@ msgstr ""
 
 #: .\entreprinder\templates\entreprinder\road_trip_game.html:226
 msgid "90 minutes"
-msgstr "90 [AUTO] minutes"
+msgstr "90 Minuten"
 
 #: .\entreprinder\templates\entreprinder\road_trip_game.html:227
 msgid "25 questions"
@@ -10073,7 +10074,7 @@ msgstr "25 Fragen"
 
 #: .\entreprinder\templates\entreprinder\road_trip_game.html:228
 msgid "5 phases"
-msgstr "5 [AUTO] phases"
+msgstr "5 Phasen"
 
 #: .\entreprinder\templates\entreprinder\road_trip_game.html:233
 msgid "Let's Begin This Journey"
@@ -10563,7 +10564,7 @@ msgstr "Mit Sitz in Luxemburg"
 
 #: .\power_up\templates\power_up\about.html:64
 msgid "Our Values"
-msgstr "Unser(e) [AUTO] Values"
+msgstr "Unsere Werte"
 
 #: .\power_up\templates\power_up\about.html:67
 msgid "The principles that guide everything we build."
@@ -10686,7 +10687,7 @@ msgstr "An luxemburgischen Feiertagen geschlossen."
 
 #: .\power_up\templates\power_up\contact.html:95
 msgid "How Can We Help?"
-msgstr "Wie [AUTO] Can We Help?"
+msgstr "Wie können wir helfen?"
 
 #: .\power_up\templates\power_up\contact.html:102
 #: .\power_up\templates\power_up\investors.html:10
@@ -10802,7 +10803,7 @@ msgstr ""
 #: .\power_up\templates\power_up\partials\footer.html:50
 #: .\power_up\templates\power_up\platforms.html:10
 msgid "Our Platforms"
-msgstr "Unser(e) [AUTO] Platforms"
+msgstr "Unsere Plattformen"
 
 #: .\power_up\templates\power_up\home.html:92
 msgid ""
@@ -10833,7 +10834,7 @@ msgstr "Begleiten Sie uns beim Aufbau der digitalen Zukunft Luxemburgs."
 
 #: .\power_up\templates\power_up\investors.html:25
 msgid "Why Power-Up?"
-msgstr "Warum [AUTO] Power-Up?"
+msgstr "Warum Power-Up?"
 
 #: .\power_up\templates\power_up\investors.html:29
 msgid ""
@@ -11050,7 +11051,7 @@ msgstr ""
 
 #: .\power_up\views.py:47
 msgid "Our Platforms - Power-Up"
-msgstr "Unser(e) [AUTO] Platforms - Power-Up"
+msgstr "Unsere Plattformen - Power-Up"
 
 #: .\power_up\views.py:49
 msgid ""
