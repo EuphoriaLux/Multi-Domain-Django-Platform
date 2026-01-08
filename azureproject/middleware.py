@@ -221,30 +221,34 @@ class SafeCurrentSiteMiddleware:
         if host.startswith('169.254.'):
             return self._get_default_site()
 
-        # Check cache first
-        cache_key = f'site_by_domain:{host}'
+        # Normalize www domains to canonical (non-www) domain
+        # This avoids creating duplicate Site objects for www variants
+        canonical_host = host[4:] if host.startswith('www.') else host
+
+        # Check cache first (using canonical host)
+        cache_key = f'site_by_domain:{canonical_host}'
         site = cache.get(cache_key)
         if site is not None:
             return site
 
         try:
-            # Try exact domain match first
-            site = Site.objects.get(domain__iexact=host)
+            # Try exact domain match first (canonical)
+            site = Site.objects.get(domain__iexact=canonical_host)
             _safe_cache_set(cache_key, site, 300)  # Cache for 5 minutes
             return site
         except Site.DoesNotExist:
             pass
 
         # Check if this is a known domain from our config
-        config = get_domain_config(host)
+        config = get_domain_config(host)  # Use original host for config lookup (aliases)
         if config:
-            # Auto-create Site for known domains
+            # Auto-create Site for canonical domain only
             site, created = Site.objects.get_or_create(
-                domain=host,
-                defaults={'name': config.get('name', host.title())}
+                domain=canonical_host,
+                defaults={'name': config.get('name', canonical_host.title())}
             )
             if created:
-                logger.info(f"SafeCurrentSiteMiddleware: Auto-created Site for {host}")
+                logger.info(f"SafeCurrentSiteMiddleware: Auto-created Site for {canonical_host}")
             _safe_cache_set(cache_key, site, 300)  # Cache for 5 minutes
             return site
 
@@ -252,29 +256,52 @@ class SafeCurrentSiteMiddleware:
         return self._get_default_site()
 
     def _get_default_site(self):
-        """Get or create a default Site (ID=1).
+        """Get a default Site, falling back gracefully if pk=1 doesn't exist.
 
         Uses caching to avoid repeated database queries.
         Cache expires after 5 minutes to pick up any Site changes.
+
+        Fallback order:
+        1. Try Site pk=1 (Django's default SITE_ID)
+        2. Try any existing Site (first by pk)
+        3. Create a new Site with a unique domain as last resort
         """
-        cache_key = 'site_default_pk1'
+        cache_key = 'site_default'
         site = cache.get(cache_key)
         if site is not None:
             return site
 
+        # Try pk=1 first (Django's default SITE_ID)
         try:
             site = Site.objects.get(pk=1)
-            _safe_cache_set(cache_key, site, 300)  # Cache for 5 minutes
+            _safe_cache_set(cache_key, site, 300)
             return site
         except Site.DoesNotExist:
-            # Create default site
-            site, _ = Site.objects.get_or_create(
-                pk=1,
-                defaults={'domain': 'entreprinder.lu', 'name': 'Entreprinder'}
-            )
-            logger.info("SafeCurrentSiteMiddleware: Created default Site (pk=1)")
-            _safe_cache_set(cache_key, site, 300)  # Cache for 5 minutes
+            pass
+
+        # Fallback: get any existing site
+        site = Site.objects.order_by('pk').first()
+        if site:
+            logger.info(f"SafeCurrentSiteMiddleware: Using existing Site pk={site.pk} as default")
+            _safe_cache_set(cache_key, site, 300)
             return site
+
+        # Last resort: create a site with a guaranteed-unique domain
+        # Using a timestamp-based domain to avoid conflicts
+        import time
+        fallback_domain = f'default-{int(time.time())}.local'
+        try:
+            site = Site.objects.create(domain=fallback_domain, name='Default Site')
+            logger.warning(f"SafeCurrentSiteMiddleware: Created fallback Site with domain {fallback_domain}")
+            _safe_cache_set(cache_key, site, 300)
+            return site
+        except IntegrityError:
+            # Even this failed - return whatever exists
+            site = Site.objects.first()
+            if site:
+                _safe_cache_set(cache_key, site, 300)
+                return site
+            raise RuntimeError("Cannot create or find any Site object")
 
 
 class ForceAdminToEnglishMiddleware:
