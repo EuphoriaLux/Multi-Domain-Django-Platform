@@ -16,7 +16,7 @@ Multi-domain Django application serving 6 distinct platforms from a single codeb
 | [entreprinder.lu](https://entreprinder.lu) | Entrepreneur networking with Tinder-style matching | Full-featured |
 | [power-up.lu](https://power-up.lu) | Corporate/investor information site | Static |
 | [tableau.lu](https://tableau.lu) | AI Art e-commerce platform | Static |
-| delegation.crush.lu | Crush.lu delegation features | Subdomain |
+| [delegations.lu](https://delegations.lu) | Crush.lu delegation features | Full-featured |
 
 ## Tech Stack
 

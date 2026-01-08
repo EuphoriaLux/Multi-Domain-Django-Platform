@@ -22,9 +22,11 @@ def analytics_ids(request):
 
     Environment Variables:
         GA4_CRUSH_LU: Google Analytics 4 Measurement ID for crush.lu
+        GA4_DELEGATIONS: Google Analytics 4 Measurement ID for delegations.lu
         GA4_VINSDELUX: Google Analytics 4 Measurement ID for vinsdelux.com
         GA4_POWERUP: Google Analytics 4 Measurement ID for powerup.lu/entreprinder
         FB_PIXEL_CRUSH_LU: Facebook Pixel ID for crush.lu
+        FB_PIXEL_DELEGATIONS: Facebook Pixel ID for delegations.lu
         APPLICATIONINSIGHTS_CONNECTION_STRING: Azure App Insights connection string
 
     Returns:
@@ -41,10 +43,15 @@ def analytics_ids(request):
     }
 
     # Domain-specific analytics configuration
-    if 'crush.lu' in host or 'delegation.crush.lu' in host:
-        # Crush.lu and Crush Delegation
+    if 'crush.lu' in host:
+        # Crush.lu dating platform
         context['GOOGLE_ANALYTICS_GTAG_PROPERTY_ID'] = os.getenv('GA4_CRUSH_LU')
         context['FACEBOOK_PIXEL_ID'] = os.getenv('FB_PIXEL_CRUSH_LU')
+
+    elif 'delegations.lu' in host:
+        # Delegations.lu - separate domain with its own analytics
+        context['GOOGLE_ANALYTICS_GTAG_PROPERTY_ID'] = os.getenv('GA4_DELEGATIONS')
+        context['FACEBOOK_PIXEL_ID'] = os.getenv('FB_PIXEL_DELEGATIONS')
 
     elif 'vinsdelux.com' in host:
         # VinsDelux wine platform

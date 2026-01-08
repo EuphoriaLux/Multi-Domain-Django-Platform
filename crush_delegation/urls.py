@@ -2,7 +2,7 @@
 """
 URL configuration for the Crush Delegation app.
 
-This app handles delegation.crush.lu subdomain.
+This app handles delegations.lu domain.
 """
 from django.urls import path
 from . import views

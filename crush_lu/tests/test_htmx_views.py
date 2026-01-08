@@ -29,8 +29,8 @@ class SiteTestMixin:
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        # Create or update the Site object for tests
-        Site.objects.update_or_create(
+        # Create or get the Site object for tests (get_or_create avoids unique constraint issues)
+        Site.objects.get_or_create(
             id=1,
             defaults={'domain': 'testserver', 'name': 'Test Server'}
         )

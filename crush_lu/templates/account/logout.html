@@ -1,6 +1,6 @@
 {# Domain-aware logout template router #}
 {# Routes to appropriate logout template based on the request domain #}
-{% if 'delegation.crush.lu' in request.get_host %}
+{% if 'delegations.lu' in request.get_host %}
 {% include "account/logout_delegation.html" %}
 {% elif 'crush.lu' in request.get_host or request.get_host == 'localhost' or '127.0.0.1' in request.get_host %}
 {% include "account/logout_crush.html" %}

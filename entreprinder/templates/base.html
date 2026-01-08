@@ -118,17 +118,24 @@
                                 </ul>
                             </li>
                         {% else %}
-                            <!-- Replacing Login/Sign Up with LinkedIn Login Button -->
-
-
-                            <li class="nav-item">
-                                <!-- Or standard OpenID Connect -->
-                                <a href="{% provider_login_url 'openid_connect' %}" class="linkedin-login-button">
-                                    {% trans "Sign in with LinkedIn" %}
-                                </a>
-                            </li>
-
-
+                            <!-- LinkedIn Login Button - only shown if provider is configured -->
+                            {% get_providers as socialaccount_providers %}
+                            {% for provider in socialaccount_providers %}
+                                {% if provider.id == 'openid_connect' %}
+                                    <li class="nav-item">
+                                        <a href="{% provider_login_url 'openid_connect' %}" class="linkedin-login-button">
+                                            {% trans "Sign in with LinkedIn" %}
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            {% empty %}
+                                <!-- No social providers configured - show standard login -->
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'account_login' %}">
+                                        <i class="fas fa-sign-in-alt me-1"></i>{% trans "Login" %}
+                                    </a>
+                                </li>
+                            {% endfor %}
                         {% endif %}
                         <li class="nav-item">
                             <form action="{% url 'set_language' %}" method="post" class="d-flex align-items-center">

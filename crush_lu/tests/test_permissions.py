@@ -29,7 +29,7 @@ class SiteTestMixin:
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        Site.objects.update_or_create(
+        Site.objects.get_or_create(
             id=1,
             defaults={'domain': 'testserver', 'name': 'Test Server'}
         )

@@ -196,7 +196,7 @@ def create_crush_profile_on_login(sender, request, user, **kwargs):
     even if they don't complete the full profile creation form.
 
     This does NOT create profiles for logins on other domains (powerup.lu,
-    vinsdelux.com, delegation.crush.lu).
+    vinsdelux.com, delegations.lu).
     """
     if not request:
         return

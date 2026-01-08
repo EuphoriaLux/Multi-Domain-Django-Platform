@@ -53,7 +53,7 @@ ADMIN_PLATFORMS = [
     {
         'name': 'Delegation',
         'icon': '',
-        'domain': 'delegation.crush.lu',
+        'domain': 'delegations.lu',
         'path': '/delegation-admin/',
         'key': 'delegation',
         'description': 'Company access management',
@@ -66,7 +66,7 @@ DEV_DOMAIN_PATHS = {
     'entreprinder.lu': '/entreprinder-admin/',
     'vinsdelux.com': '/vinsdelux-admin/',
     'power-up.lu': '/power-admin/',
-    'delegation.crush.lu': '/delegation-admin/',
+    'delegations.lu': '/delegation-admin/',
 }
 
 
