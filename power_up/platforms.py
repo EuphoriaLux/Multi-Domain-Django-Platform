@@ -108,4 +108,24 @@ PLATFORMS = [
             _("Accessible art pricing"),
         ],
     },
+    {
+        "slug": "delegations-lu",
+        "name": "Delegations.lu",
+        "tagline": _("Delegating people made simple"),
+        "description": _(
+            "A national platform supporting companies and workers in managing "
+            "delegation assignments. Get guidance, coordination, and administrative "
+            "clarity for cross-border and national delegation processes."
+        ),
+        "url": "https://delegations.lu",
+        "icon": "clipboard",
+        "status": "live",
+        "launched": "2025",
+        "highlights": [
+            _("Delegation coordination"),
+            _("Compliance guidance"),
+            _("Employee helppoint"),
+            _("Cross-border support"),
+        ],
+    },
 ]
