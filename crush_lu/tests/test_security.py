@@ -31,7 +31,7 @@ class SiteTestCase(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         _clear_site_cache()
-        Site.objects.update_or_create(
+        Site.objects.get_or_create(
             id=1,
             defaults={'domain': 'testserver', 'name': 'Test'}
         )
