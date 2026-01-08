@@ -887,8 +887,8 @@
             integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
             crossorigin="anonymous"></script>
 
-    <!-- Alpine.js CSP Components (SYNC load - must run BEFORE Alpine.js initializes) -->
-    <script src="{% static 'crush_lu/js/alpine-components.js' %}"></script>
+    <!-- Alpine.js CSP Components (defer maintains order - runs BEFORE Alpine.js) -->
+    <script defer src="{% static 'crush_lu/js/alpine-components.js' %}"></script>
 
     <!-- Alpine.js CSP Build (CSP-compliant, no unsafe-eval required) -->
     <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/csp@3.13.3/dist/cdn.min.js"
