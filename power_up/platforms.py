@@ -88,4 +88,24 @@ PLATFORMS = [
             _("Automated daily sync"),
         ],
     },
+    {
+        "slug": "tableau-lu",
+        "name": "Tableau.lu",
+        "tagline": _("AI-generated art e-commerce"),
+        "description": _(
+            "Discover unique artwork created by artificial intelligence. "
+            "Each piece is one of a kind, designed to evoke emotion and "
+            "transform your space with museum-quality prints."
+        ),
+        "url": "https://tableau.lu",
+        "icon": "palette",
+        "status": "live",
+        "launched": "2025",
+        "highlights": [
+            _("Unique AI-generated artwork"),
+            _("Museum-quality prints"),
+            _("One-of-a-kind pieces"),
+            _("Accessible art pricing"),
+        ],
+    },
 ]
