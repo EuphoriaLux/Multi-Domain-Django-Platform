@@ -66,9 +66,9 @@ def _is_crush_domain(request):
 
 
 def _is_delegation_domain(request):
-    """Check if request is from delegation.crush.lu."""
+    """Check if request is from delegations.lu."""
     domain = _get_domain(request)
-    return domain == 'delegation.crush.lu'
+    return domain == 'delegations.lu'
 
 
 class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):

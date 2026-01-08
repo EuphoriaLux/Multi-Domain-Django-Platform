@@ -1,7 +1,7 @@
 """
 Allauth adapters for Crush Delegation.
 
-Customizes Microsoft authentication behavior for delegation.crush.lu domain.
+Customizes Microsoft authentication behavior for delegations.lu domain.
 """
 from django.shortcuts import redirect
 from django.contrib import messages
@@ -14,16 +14,16 @@ logger = logging.getLogger(__name__)
 
 class DelegationSocialAccountAdapter(DefaultSocialAccountAdapter):
     """
-    Domain-aware social account adapter for delegation.crush.lu.
+    Domain-aware social account adapter for delegations.lu.
     Handles Microsoft OAuth with role-based access control.
     """
 
     def _is_delegation_domain(self, request):
-        """Check if current request is from delegation.crush.lu domain"""
+        """Check if current request is from delegations.lu domain"""
         if not request:
             return False
         host = request.get_host().split(':')[0].lower()
-        return host in ['delegation.crush.lu', 'localhost', '127.0.0.1']
+        return host in ['delegations.lu', 'localhost', '127.0.0.1']
 
     def is_auto_signup_allowed(self, request, sociallogin):
         """
@@ -68,16 +68,16 @@ class DelegationSocialAccountAdapter(DefaultSocialAccountAdapter):
 
 class DelegationAccountAdapter(DefaultAccountAdapter):
     """
-    Domain-aware account adapter for delegation.crush.lu.
+    Domain-aware account adapter for delegations.lu.
     Routes users based on profile status.
     """
 
     def _is_delegation_domain(self, request):
-        """Check if current request is from delegation.crush.lu domain"""
+        """Check if current request is from delegations.lu domain"""
         if not request:
             return False
         host = request.get_host().split(':')[0].lower()
-        return host in ['delegation.crush.lu', 'localhost', '127.0.0.1']
+        return host in ['delegations.lu', 'localhost', '127.0.0.1']
 
     def get_login_redirect_url(self, request):
         """

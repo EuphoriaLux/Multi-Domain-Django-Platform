@@ -35,7 +35,7 @@ CONSUMER_DOMAINS = [
 
 
 def _is_delegation_domain(request):
-    """Check if current request is from delegation.crush.lu domain"""
+    """Check if current request is from delegations.lu domain"""
     if not request:
         return False
     try:
@@ -43,7 +43,7 @@ def _is_delegation_domain(request):
     except KeyError:
         # During tests, the request may not have SERVER_NAME set
         return False
-    return host in ['delegation.crush.lu', 'localhost', '127.0.0.1']
+    return host in ['delegations.lu', 'localhost', '127.0.0.1']
 
 
 def _is_consumer_email(email):

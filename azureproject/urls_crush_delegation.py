@@ -1,8 +1,8 @@
 # azureproject/urls_crush_delegation.py
 """
-URL configuration for delegation.crush.lu subdomain.
+URL configuration for delegations.lu domain.
 
-This is the URL config used when requests come from delegation.crush.lu.
+This is the URL config used when requests come from delegations.lu.
 """
 from django.contrib import admin
 from django.urls import path, include

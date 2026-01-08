@@ -41,7 +41,7 @@ def analytics_ids(request):
     }
 
     # Domain-specific analytics configuration
-    if 'crush.lu' in host or 'delegation.crush.lu' in host:
+    if 'crush.lu' in host or 'delegations.lu' in host:
         # Crush.lu and Crush Delegation
         context['GOOGLE_ANALYTICS_GTAG_PROPERTY_ID'] = os.getenv('GA4_CRUSH_LU')
         context['FACEBOOK_PIXEL_ID'] = os.getenv('FB_PIXEL_CRUSH_LU')

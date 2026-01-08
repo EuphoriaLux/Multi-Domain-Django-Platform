@@ -12,11 +12,11 @@ To test a different site locally, change DEV_DEFAULT:
 """
 
 DOMAINS = {
-    'delegation.crush.lu': {
+    'delegations.lu': {
         'urlconf': 'azureproject.urls_crush_delegation',
-        'name': 'Crush Delegation',
+        'name': 'Delegations.lu',
         'app': 'crush_delegation',
-        'aliases': [],
+        'aliases': ['www.delegations.lu'],
     },
     'crush.lu': {
         'urlconf': 'azureproject.urls_crush',
@@ -63,7 +63,7 @@ DEV_DOMAIN_MAPPINGS = {
     'vinsdelux.localhost': 'vinsdelux.com',
     'entreprinder.localhost': 'entreprinder.lu',
     'tableau.localhost': 'tableau.lu',
-    'delegation.localhost': 'delegation.crush.lu',
+    'delegation.localhost': 'delegations.lu',
 }
 
 # Production fallback (used for unknown domains and Azure hostnames)
