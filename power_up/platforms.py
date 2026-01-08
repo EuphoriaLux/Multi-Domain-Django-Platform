@@ -88,4 +88,44 @@ PLATFORMS = [
             _("Automated daily sync"),
         ],
     },
+    {
+        "slug": "tableau-lu",
+        "name": "Tableau.lu",
+        "tagline": _("AI-generated art e-commerce"),
+        "description": _(
+            "Discover unique artwork created by artificial intelligence. "
+            "Each piece is one of a kind, designed to evoke emotion and "
+            "transform your space with museum-quality prints."
+        ),
+        "url": "https://tableau.lu",
+        "icon": "palette",
+        "status": "live",
+        "launched": "2025",
+        "highlights": [
+            _("Unique AI-generated artwork"),
+            _("Museum-quality prints"),
+            _("One-of-a-kind pieces"),
+            _("Accessible art pricing"),
+        ],
+    },
+    {
+        "slug": "delegations-lu",
+        "name": "Delegations.lu",
+        "tagline": _("Delegating people made simple"),
+        "description": _(
+            "A national platform supporting companies and workers in managing "
+            "delegation assignments. Get guidance, coordination, and administrative "
+            "clarity for cross-border and national delegation processes."
+        ),
+        "url": "https://delegations.lu",
+        "icon": "clipboard",
+        "status": "live",
+        "launched": "2025",
+        "highlights": [
+            _("Delegation coordination"),
+            _("Compliance guidance"),
+            _("Employee helppoint"),
+            _("Cross-border support"),
+        ],
+    },
 ]
