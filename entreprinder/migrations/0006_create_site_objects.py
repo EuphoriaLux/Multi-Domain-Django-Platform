@@ -26,13 +26,24 @@ def create_sites(apps, schema_editor):
         (11, 'entreprinder-lunet.azurewebsites.net', 'Entreprinder (Azure)'),
     ]
 
-    # Update the default site (id=1) to be crush.lu
-    # Using filter().update() is safer than get() as it doesn't raise DoesNotExist
-    Site.objects.filter(id=1).update(domain='crush.lu', name='Crush.lu')
+    # Handle crush.lu site (should be id=1 for SITE_ID setting)
+    # Check if crush.lu already exists at any ID
+    existing_crush = Site.objects.filter(domain='crush.lu').first()
 
-    # If no site with id=1 existed (shouldn't happen but be safe), create it
-    if not Site.objects.filter(id=1).exists():
-        Site.objects.create(id=1, domain='crush.lu', name='Crush.lu')
+    if existing_crush:
+        # crush.lu already exists - ensure it's at id=1 or leave it alone
+        if existing_crush.id != 1:
+            # Delete the default site at id=1 if it exists and isn't crush.lu
+            Site.objects.filter(id=1).exclude(domain='crush.lu').delete()
+            # Update existing crush.lu to have correct name
+            existing_crush.name = 'Crush.lu'
+            existing_crush.save()
+    else:
+        # crush.lu doesn't exist - update or create at id=1
+        if Site.objects.filter(id=1).exists():
+            Site.objects.filter(id=1).update(domain='crush.lu', name='Crush.lu')
+        else:
+            Site.objects.create(id=1, domain='crush.lu', name='Crush.lu')
 
     # Create all other sites with explicit IDs to avoid PostgreSQL sequence conflicts
     for site_id, domain, name in other_domains:
