@@ -252,29 +252,52 @@ class SafeCurrentSiteMiddleware:
         return self._get_default_site()
 
     def _get_default_site(self):
-        """Get or create a default Site (ID=1).
+        """Get a default Site, falling back gracefully if pk=1 doesn't exist.
 
         Uses caching to avoid repeated database queries.
         Cache expires after 5 minutes to pick up any Site changes.
+
+        Fallback order:
+        1. Try Site pk=1 (Django's default SITE_ID)
+        2. Try any existing Site (first by pk)
+        3. Create a new Site with a unique domain as last resort
         """
-        cache_key = 'site_default_pk1'
+        cache_key = 'site_default'
         site = cache.get(cache_key)
         if site is not None:
             return site
 
+        # Try pk=1 first (Django's default SITE_ID)
         try:
             site = Site.objects.get(pk=1)
-            _safe_cache_set(cache_key, site, 300)  # Cache for 5 minutes
+            _safe_cache_set(cache_key, site, 300)
             return site
         except Site.DoesNotExist:
-            # Create default site
-            site, _ = Site.objects.get_or_create(
-                pk=1,
-                defaults={'domain': 'entreprinder.lu', 'name': 'Entreprinder'}
-            )
-            logger.info("SafeCurrentSiteMiddleware: Created default Site (pk=1)")
-            _safe_cache_set(cache_key, site, 300)  # Cache for 5 minutes
+            pass
+
+        # Fallback: get any existing site
+        site = Site.objects.order_by('pk').first()
+        if site:
+            logger.info(f"SafeCurrentSiteMiddleware: Using existing Site pk={site.pk} as default")
+            _safe_cache_set(cache_key, site, 300)
             return site
+
+        # Last resort: create a site with a guaranteed-unique domain
+        # Using a timestamp-based domain to avoid conflicts
+        import time
+        fallback_domain = f'default-{int(time.time())}.local'
+        try:
+            site = Site.objects.create(domain=fallback_domain, name='Default Site')
+            logger.warning(f"SafeCurrentSiteMiddleware: Created fallback Site with domain {fallback_domain}")
+            _safe_cache_set(cache_key, site, 300)
+            return site
+        except IntegrityError:
+            # Even this failed - return whatever exists
+            site = Site.objects.first()
+            if site:
+                _safe_cache_set(cache_key, site, 300)
+                return site
+            raise RuntimeError("Cannot create or find any Site object")
 
 
 class ForceAdminToEnglishMiddleware:
