@@ -308,7 +308,8 @@ def appinsights_head(context):
     connectionString: "{connection_string}",
     enableAutoRouteTracking: true,
     enableCorsCorrelation: true,
-    autoTrackPageVisitTime: true
+    autoTrackPageVisitTime: true,
+    disablePageUnloadEvents: true
   }}
 }});
 </script>'''
