@@ -60,6 +60,24 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // Profile progress dropdown for incomplete profiles in navbar
+    Alpine.data('profileProgress', function() {
+        return {
+            isOpen: false,
+
+            // CSP-compatible computed getters
+            get isClosed() { return !this.isOpen; },
+            get ariaExpanded() { return this.isOpen ? 'true' : 'false'; },
+
+            toggle: function() {
+                this.isOpen = !this.isOpen;
+            },
+            close: function() {
+                this.isOpen = false;
+            }
+        };
+    });
+
     // Dismissible alert/message component
     Alpine.data('dismissible', function() {
         return {

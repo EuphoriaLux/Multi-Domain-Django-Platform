@@ -1,0 +1,47 @@
+{% load i18n %}
+{# Profile completion progress dropdown for navbar #}
+<div x-data="profileProgress" class="dropdown" @click.away="close">
+    <button type="button" @click="toggle" class="nav-link" aria-haspopup="true" x-bind:aria-expanded="ariaExpanded">
+        {% include "shared/icons/user-plus.html" with class="w-4 h-4" %}
+        <span>{% trans "Complete Profile" %}</span>
+        <span class="ml-1 bg-crush-pink text-white text-xs rounded-full px-2 py-0.5 font-medium">
+            {{ profile_completion_step }}/4
+        </span>
+        {% include "shared/icons/chevron-down.html" with class="w-3 h-3 ml-1" %}
+    </button>
+    <div x-show="isOpen"
+         x-transition:enter="transition ease-out duration-100"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-75"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95"
+         x-cloak
+         class="dropdown-menu show">
+        {# Progress bar #}
+        <div class="px-4 py-3">
+            <div class="flex justify-between text-xs text-gray-500 mb-1">
+                <span>{% trans "Progress" %}</span>
+                <span>{{ profile_completion_step }}/4 {% trans "steps" %}</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-gradient-to-r from-crush-purple to-crush-pink h-2 rounded-full transition-all duration-300"
+                     style="width: {% widthratio profile_completion_step 4 100 %}%"></div>
+            </div>
+        </div>
+        <div class="dropdown-divider"></div>
+        {# Next step info #}
+        <div class="px-4 py-2">
+            <p class="text-sm text-gray-600">
+                {% trans "Next:" %} <span class="font-medium text-crush-purple">{{ profile_step_label }}</span>
+            </p>
+        </div>
+        <div class="dropdown-divider"></div>
+        {# CTA Button #}
+        <a href="{% url 'crush_lu:create_profile' %}"
+           class="dropdown-item text-crush-purple font-semibold hover:bg-crush-purple/10">
+            {% include "shared/icons/arrow-right.html" with class="w-4 h-4 inline mr-2" %}
+            {% trans "Continue Setup" %}
+        </a>
+    </div>
+</div>
