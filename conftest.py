@@ -105,9 +105,41 @@ def django_db_modify_db_settings():
     pass
 
 
+@pytest.fixture(scope='session', autouse=True)
+def setup_site_for_live_server(django_db_setup, django_db_blocker):
+    """
+    Create Site objects at session start for live_server tests.
+
+    This must run before any live_server tests start to ensure the
+    Site exists in the database when Django's allauth tries to look it up.
+
+    Note: django_db_setup is required to ensure migrations run before
+    we try to access the Site model.
+    """
+    with django_db_blocker.unblock():
+        from django.contrib.sites.models import Site
+
+        # Delete any existing localhost Site that might conflict
+        Site.objects.filter(domain='localhost').exclude(id=1).delete()
+
+        # Create/update sites that live_server might use
+        Site.objects.update_or_create(
+            id=1,
+            defaults={'domain': 'localhost', 'name': 'localhost'}
+        )
+        Site.objects.update_or_create(
+            domain='testserver',
+            defaults={'name': 'Test Server'}
+        )
+        Site.objects.update_or_create(
+            domain='127.0.0.1',
+            defaults={'name': 'Live Server'}
+        )
+
+
 @pytest.fixture(autouse=True)
 def setup_site(db):
-    """Create a Site object for Django allauth to work properly in tests."""
+    """Create Site objects for non-live_server tests."""
     from django.contrib.sites.models import Site
     Site.objects.get_or_create(
         id=1,
@@ -116,6 +148,10 @@ def setup_site(db):
     Site.objects.update_or_create(
         domain='testserver',
         defaults={'name': 'Test Server'}
+    )
+    Site.objects.update_or_create(
+        domain='127.0.0.1',
+        defaults={'name': 'Live Server'}
     )
 
 
@@ -420,3 +456,158 @@ def mock_azure_storage(mocker):
     mock_instance.save.return_value = 'mocked/path/to/file.jpg'
     mock_instance.url.return_value = 'https://mock.blob.core.windows.net/test/file.jpg'
     return mock_instance
+
+
+# =============================================================================
+# JOURNEY GIFT E2E TESTING FIXTURES
+# =============================================================================
+
+@pytest.fixture
+def sender_user(transactional_db):
+    """Create an authenticated user who will create journey gifts."""
+    from allauth.account.models import EmailAddress
+
+    user = User.objects.create_user(
+        username='sender@example.com',
+        email='sender@example.com',
+        password='sender123',
+        first_name='Alice',
+        last_name='Sender'
+    )
+    # Create EmailAddress for Allauth (required for email login)
+    EmailAddress.objects.create(
+        user=user,
+        email=user.email,
+        verified=True,
+        primary=True
+    )
+    return user
+
+
+@pytest.fixture
+def recipient_user(transactional_db):
+    """Create a user who will claim a journey gift."""
+    from allauth.account.models import EmailAddress
+
+    user = User.objects.create_user(
+        username='recipient@example.com',
+        email='recipient@example.com',
+        password='recipient123',
+        first_name='Bob',
+        last_name='Recipient'
+    )
+    # Create EmailAddress for Allauth (required for email login)
+    EmailAddress.objects.create(
+        user=user,
+        email=user.email,
+        verified=True,
+        primary=True
+    )
+    return user
+
+
+@pytest.fixture
+def pending_gift(transactional_db, sender_user):
+    """Create a pending JourneyGift ready to be claimed."""
+    from crush_lu.models import JourneyGift
+    from datetime import date
+
+    gift = JourneyGift.objects.create(
+        sender=sender_user,
+        recipient_name='My Special Person',
+        date_first_met=date(2024, 2, 14),
+        location_first_met='Luxembourg City',
+        sender_message='A journey created with love!'
+    )
+    return gift
+
+
+@pytest.fixture
+def expired_gift(transactional_db, sender_user):
+    """Create an expired JourneyGift."""
+    from crush_lu.models import JourneyGift
+    from datetime import date
+    from django.utils import timezone
+    from datetime import timedelta
+
+    gift = JourneyGift.objects.create(
+        sender=sender_user,
+        recipient_name='Expired Person',
+        date_first_met=date(2024, 1, 1),
+        location_first_met='Old Location',
+        expires_at=timezone.now() - timedelta(days=1)  # Already expired
+    )
+    return gift
+
+
+@pytest.fixture
+def claimed_gift(transactional_db, sender_user, recipient_user):
+    """Create a JourneyGift that has already been claimed."""
+    from crush_lu.models import JourneyGift
+    from datetime import date
+    from django.utils import timezone
+
+    gift = JourneyGift.objects.create(
+        sender=sender_user,
+        recipient_name='Already Claimed',
+        date_first_met=date(2024, 3, 15),
+        location_first_met='Claimed Location',
+        status=JourneyGift.Status.CLAIMED,
+        claimed_by=recipient_user,
+        claimed_at=timezone.now()
+    )
+    return gift
+
+
+@pytest.fixture
+def authenticated_sender_page(page: Page, live_server_url, sender_user, transactional_db):
+    """Playwright page logged in as the gift sender."""
+    # Note: transactional_db commits data so live_server can see it
+    # Ensure Site exists for live_server
+    from django.contrib.sites.models import Site
+    Site.objects.get_or_create(id=1, defaults={'domain': 'localhost', 'name': 'localhost'})
+    Site.objects.get_or_create(domain='127.0.0.1', defaults={'name': 'Live Server'})
+
+    page.goto(f"{live_server_url}/accounts/login/")
+    # Wait for login form to be ready
+    page.wait_for_selector('input[name="login"]', timeout=10000)
+
+    # Dismiss cookie banner if present (blocks clicks on other elements)
+    cookie_decline = page.locator('button:has-text("Decline All")')
+    if cookie_decline.count() > 0:
+        cookie_decline.click()
+        page.wait_for_timeout(500)  # Wait for banner to disappear
+
+    page.fill('input[name="login"]', sender_user.email)
+    page.fill('input[name="password"]', 'sender123')
+    # Click the Login button (use text selector to avoid navbar button)
+    page.click('button:has-text("Login")')
+    page.wait_for_load_state('networkidle')
+    return page
+
+
+@pytest.fixture
+def authenticated_recipient_page(page: Page, live_server_url, recipient_user, transactional_db):
+    """Playwright page logged in as the gift recipient."""
+    # Note: transactional_db commits data so live_server can see it
+    # Ensure Site exists for live_server
+    from django.contrib.sites.models import Site
+    Site.objects.get_or_create(id=1, defaults={'domain': 'localhost', 'name': 'localhost'})
+    Site.objects.get_or_create(domain='127.0.0.1', defaults={'name': 'Live Server'})
+
+    page.goto(f"{live_server_url}/accounts/login/")
+    # Wait for login form to be ready
+    page.wait_for_selector('input[name="login"]', timeout=10000)
+
+    # Dismiss cookie banner if present (blocks clicks on other elements)
+    cookie_decline = page.locator('button:has-text("Decline All")')
+    if cookie_decline.count() > 0:
+        cookie_decline.click()
+        page.wait_for_timeout(500)  # Wait for banner to disappear
+
+    page.fill('input[name="login"]', recipient_user.email)
+    page.fill('input[name="password"]', 'recipient123')
+    # Click the Login button (use text selector to avoid navbar button)
+    page.click('button:has-text("Login")')
+    page.wait_for_load_state('networkidle')
+    return page

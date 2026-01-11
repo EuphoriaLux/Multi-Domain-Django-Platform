@@ -91,7 +91,7 @@ def _get_or_create_profile(user):
 
 def home(request):
     """
-    Landing page for Crush Delegation subdomain.
+    Landing page for delegations.lu domain.
     Shows Microsoft login button for unauthenticated users.
     Redirects authenticated users to appropriate page based on status.
     """

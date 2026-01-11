@@ -1,12 +1,12 @@
 {# Domain-aware login template router #}
 {# Routes to appropriate login template based on the request domain #}
-{% if 'crush.lu' in request.get_host or request.get_host == 'localhost' or '127.0.0.1' in request.get_host %}
-{% include "account/login_crush.html" %}
-{% elif 'powerup.lu' in request.get_host or 'azurewebsites.net' in request.get_host %}
+{# NOTE: This template is in crush_lu app, so default should be Crush to avoid cross-app dependencies #}
+{% if 'powerup.lu' in request.get_host or 'azurewebsites.net' in request.get_host %}
 {% include "account/login_powerup.html" %}
 {% elif 'vinsdelux.com' in request.get_host %}
 {% include "account/login_powerup.html" %}
 {% else %}
-{# Default fallback to PowerUP template #}
-{% include "account/login_powerup.html" %}
+{# Default to Crush template - handles crush.lu, localhost, 127.0.0.1, and any unknown hosts #}
+{# This avoids errors when entreprinder namespace isn't available #}
+{% include "account/login_crush.html" %}
 {% endif %}

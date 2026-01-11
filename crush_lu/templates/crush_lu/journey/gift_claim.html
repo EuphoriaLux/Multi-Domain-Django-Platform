@@ -1,0 +1,138 @@
+{% extends "crush_lu/journey/gift_base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Claim Your Journey" %} - Crush.lu{% endblock %}
+
+{% block extra_gift_css %}
+<style>
+    .claim-hero {
+        text-align: center;
+        margin: 30px 0;
+    }
+
+    .claim-from {
+        font-size: 1.1rem;
+    }
+
+    .claim-recipient {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-top: 10px;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .claim-message {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        padding: 20px;
+        margin: 20px 0;
+        font-style: italic;
+        text-align: center;
+    }
+
+    .claim-message-label {
+        margin-bottom: 10px;
+        opacity: 0.7;
+        font-size: 0.9rem;
+    }
+
+    .claim-info {
+        margin: 30px 0;
+        text-align: center;
+    }
+
+    .claim-info p {
+        font-size: 1rem;
+        opacity: 0.9;
+        line-height: 1.6;
+    }
+
+    .claim-form {
+        text-align: center;
+        margin-top: 30px;
+    }
+
+    .claim-form .btn-gift {
+        font-size: 1.1rem;
+        padding: 16px 32px;
+    }
+
+    .claim-hint {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 0.85rem;
+        opacity: 0.6;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 600px) {
+        .claim-hero {
+            margin: 20px 0;
+        }
+
+        .claim-from {
+            font-size: 1rem;
+        }
+
+        .claim-recipient {
+            font-size: 1.3rem;
+        }
+
+        .claim-message {
+            padding: 15px;
+        }
+
+        .claim-info p {
+            font-size: 0.95rem;
+        }
+
+        .claim-form .btn-gift {
+            width: 100%;
+            font-size: 1rem;
+            padding: 14px 24px;
+        }
+
+        .claim-hint {
+            font-size: 0.8rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block gift_content %}
+<div class="gift-card">
+    <h1 class="gift-title">{% trans "Claim Your Wonderland Journey" %}</h1>
+
+    <div class="claim-hero">
+        <p class="claim-from">
+            <strong>{{ gift.sender.first_name }}</strong> {% trans "created this journey for" %}
+        </p>
+        <p class="claim-recipient">{{ gift.recipient_name }}</p>
+    </div>
+
+    {% if gift.sender_message %}
+    <div class="claim-message">
+        <p class="claim-message-label">{% trans "A message for you:" %}</p>
+        <p>"{{ gift.sender_message }}"</p>
+    </div>
+    {% endif %}
+
+    <div class="claim-info">
+        <p>{% trans "Ready to begin your adventure? Once you claim this gift, your personalized 6-chapter Wonderland journey will be created." %}</p>
+    </div>
+
+    <form method="post" class="claim-form">
+        {% csrf_token %}
+        <button type="submit" class="btn-gift btn-gift-primary">
+            {% trans "Claim Your Journey" %}
+        </button>
+    </form>
+
+    <p class="claim-hint">
+        {% trans "By claiming this gift, you'll unlock 6 chapters of puzzles, secrets, and messages." %}
+    </p>
+</div>
+{% endblock %}

@@ -2472,4 +2472,146 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // ==========================================================================
+    // JOURNEY GIFT COMPONENTS
+    // ==========================================================================
+
+    // Gift Sharing Component for success page
+    // Handles copy to clipboard, WhatsApp, email, and native share
+    Alpine.data('giftShare', function() {
+        return {
+            giftUrl: '',
+            giftCode: '',
+            recipientName: '',
+            copied: false,
+            hasNativeShare: false,
+
+            // Computed getters for CSP compatibility
+            get copyButtonText() {
+                return this.copied ? 'Copied!' : 'Copy Link';
+            },
+            get copyButtonClass() {
+                return this.copied ? 'share-btn share-btn-copy copied' : 'share-btn share-btn-copy';
+            },
+            get showNativeShare() {
+                return this.hasNativeShare;
+            },
+            get hideNativeShare() {
+                return !this.hasNativeShare;
+            },
+
+            init: function() {
+                // Read data from attributes
+                this.giftUrl = this.$el.getAttribute('data-gift-url') || '';
+                this.giftCode = this.$el.getAttribute('data-gift-code') || '';
+                this.recipientName = this.$el.getAttribute('data-recipient') || '';
+
+                // Check for native share API support
+                this.hasNativeShare = typeof navigator.share === 'function';
+            },
+
+            copyLink: function() {
+                var self = this;
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(this.giftUrl).then(function() {
+                        self.copied = true;
+                        setTimeout(function() {
+                            self.copied = false;
+                        }, 2000);
+                    }).catch(function(err) {
+                        console.error('Failed to copy:', err);
+                        self.fallbackCopy();
+                    });
+                } else {
+                    self.fallbackCopy();
+                }
+            },
+
+            fallbackCopy: function() {
+                var self = this;
+                // Fallback for older browsers
+                var textArea = document.createElement('textarea');
+                textArea.value = this.giftUrl;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-9999px';
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    self.copied = true;
+                    setTimeout(function() {
+                        self.copied = false;
+                    }, 2000);
+                } catch (err) {
+                    console.error('Fallback copy failed:', err);
+                }
+                document.body.removeChild(textArea);
+            },
+
+            shareWhatsApp: function() {
+                var text = 'I created a magical Wonderland journey just for you! ' +
+                           'Scan the QR code or click here to begin: ' + this.giftUrl;
+                var url = 'https://wa.me/?text=' + encodeURIComponent(text);
+                window.open(url, '_blank');
+            },
+
+            shareEmail: function() {
+                var subject = 'A Magical Journey Awaits You!';
+                var body = 'Hi ' + this.recipientName + ',\n\n' +
+                          'I created a special "Wonderland of You" journey just for you!\n\n' +
+                          'Click here to begin your adventure:\n' + this.giftUrl + '\n\n' +
+                          'Or use gift code: ' + this.giftCode;
+                var mailto = 'mailto:?subject=' + encodeURIComponent(subject) +
+                            '&body=' + encodeURIComponent(body);
+                window.location.href = mailto;
+            },
+
+            shareNative: function() {
+                var self = this;
+                if (navigator.share) {
+                    navigator.share({
+                        title: 'A Magical Journey Awaits!',
+                        text: 'I created a special Wonderland journey for ' + self.recipientName + '!',
+                        url: self.giftUrl
+                    }).catch(function(err) {
+                        console.log('Share cancelled or failed:', err);
+                    });
+                }
+            }
+        };
+    });
+
+    // Gift Landing Page Component
+    // Handles animated chapter reveal
+    Alpine.data('giftLanding', function() {
+        return {
+            chaptersVisible: false,
+            animationComplete: false,
+
+            // Computed getters for CSP compatibility
+            get chaptersReady() {
+                return this.chaptersVisible;
+            },
+            get chaptersHidden() {
+                return !this.chaptersVisible;
+            },
+            get animationDone() {
+                return this.animationComplete;
+            },
+
+            init: function() {
+                var self = this;
+                // Delay chapter reveal for dramatic effect
+                setTimeout(function() {
+                    self.chaptersVisible = true;
+                }, 800);
+
+                // Mark animation complete after all chapters animate in
+                setTimeout(function() {
+                    self.animationComplete = true;
+                }, 2500);
+            }
+        };
+    });
+
 });

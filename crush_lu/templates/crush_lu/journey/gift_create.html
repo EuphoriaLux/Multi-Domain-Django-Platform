@@ -1,0 +1,171 @@
+{% extends "crush_lu/journey/gift_base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Create a Journey Gift" %} - Crush.lu{% endblock %}
+
+{% block extra_gift_css %}
+<style>
+    .create-form {
+        margin-top: 10px;
+    }
+
+    .create-form .form-group {
+        margin-bottom: 20px;
+    }
+
+    .create-form .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--journey-light);
+    }
+
+    .create-form .gift-input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        font-size: 1rem;
+        transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .create-form .gift-input:focus {
+        outline: none;
+        border-color: var(--journey-primary);
+        box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.3);
+    }
+
+    .create-form .gift-input::placeholder {
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    .create-form textarea.gift-input {
+        min-height: 120px;
+        resize: vertical;
+    }
+
+    .create-form .help-text {
+        font-size: 0.85rem;
+        opacity: 0.7;
+        margin-top: 6px;
+    }
+
+    .create-form .error-text {
+        font-size: 0.85rem;
+        color: #e74c3c;
+        margin-top: 6px;
+    }
+
+    .create-form .gift-input.is-invalid {
+        border-color: #e74c3c;
+    }
+
+    .form-submit {
+        text-align: center;
+        margin-top: 30px;
+    }
+
+    .form-submit .btn-gift {
+        min-width: 200px;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 600px) {
+        .create-form .form-group {
+            margin-bottom: 16px;
+        }
+
+        .create-form .gift-input {
+            font-size: 16px; /* Prevents iOS zoom on focus */
+            padding: 14px 16px;
+        }
+
+        .create-form textarea.gift-input {
+            min-height: 100px;
+        }
+
+        .form-submit {
+            margin-top: 25px;
+        }
+
+        .form-submit .btn-gift {
+            width: 100%;
+            min-width: auto;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block gift_content %}
+<div class="gift-card">
+    <h1 class="gift-title">{% trans "Create a Wonderland Journey" %}</h1>
+    <p class="gift-subtitle">{% trans "Create a magical experience for someone special" %}</p>
+
+    <form method="post" novalidate class="create-form">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="id_recipient_name">{{ form.recipient_name.label }}</label>
+            {{ form.recipient_name }}
+            {% if form.recipient_name.help_text %}
+            <p class="help-text">{{ form.recipient_name.help_text }}</p>
+            {% endif %}
+            {% if form.recipient_name.errors %}
+            <p class="error-text">{{ form.recipient_name.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="id_date_first_met">{{ form.date_first_met.label }}</label>
+            {{ form.date_first_met }}
+            {% if form.date_first_met.help_text %}
+            <p class="help-text">{{ form.date_first_met.help_text }}</p>
+            {% endif %}
+            {% if form.date_first_met.errors %}
+            <p class="error-text">{{ form.date_first_met.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="id_location_first_met">{{ form.location_first_met.label }}</label>
+            {{ form.location_first_met }}
+            {% if form.location_first_met.help_text %}
+            <p class="help-text">{{ form.location_first_met.help_text }}</p>
+            {% endif %}
+            {% if form.location_first_met.errors %}
+            <p class="error-text">{{ form.location_first_met.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="id_sender_message">{{ form.sender_message.label }}</label>
+            {{ form.sender_message }}
+            {% if form.sender_message.help_text %}
+            <p class="help-text">{{ form.sender_message.help_text }}</p>
+            {% endif %}
+            {% if form.sender_message.errors %}
+            <p class="error-text">{{ form.sender_message.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="id_recipient_email">{{ form.recipient_email.label }}</label>
+            {{ form.recipient_email }}
+            {% if form.recipient_email.help_text %}
+            <p class="help-text">{{ form.recipient_email.help_text }}</p>
+            {% endif %}
+            {% if form.recipient_email.errors %}
+            <p class="error-text">{{ form.recipient_email.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div class="form-submit">
+            <button type="submit" class="btn-gift btn-gift-primary">
+                {% trans "Create Gift" %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -23,13 +23,12 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
     Configure who gets the special journey and customize their experience.
     """
     list_display = (
-        'first_name', 'last_name', 'is_active',
-        'custom_welcome_title', 'animation_style',
-        'auto_approve_profile', 'vip_badge',
-        'get_journeys_status', 'trigger_count', 'last_triggered_at'
+        'first_name', 'last_name', 'get_linked_user_display', 'is_active',
+        'get_journeys_status', 'get_source_display',
+        'trigger_count', 'last_triggered_at'
     )
     list_filter = ('is_active', 'animation_style', 'auto_approve_profile', 'vip_badge', 'skip_waitlist')
-    search_fields = ('first_name', 'last_name', 'custom_welcome_title', 'custom_welcome_message')
+    search_fields = ('first_name', 'last_name', 'custom_welcome_title', 'custom_welcome_message', 'linked_user__username', 'linked_user__email')
     readonly_fields = ('created_at', 'updated_at', 'last_triggered_at', 'trigger_count', 'get_journey_status')
     actions = ['activate_experiences', 'deactivate_experiences', 'generate_wonderland_journey', 'generate_advent_calendar']
 
@@ -296,8 +295,8 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('👤 User Matching', {
-            'fields': ('first_name', 'last_name', 'is_active'),
-            'description': 'User must match BOTH first name AND last name (case-insensitive)'
+            'fields': ('first_name', 'last_name', 'linked_user', 'is_active'),
+            'description': 'Match by linked_user (gift system) OR first+last name (legacy). linked_user takes priority.'
         }),
         ('🎨 Custom Welcome Experience', {
             'fields': (
@@ -334,6 +333,33 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
             'classes': ('collapse',),
         }),
     )
+
+    def get_linked_user_display(self, obj):
+        """Display the linked user if set"""
+        if obj.linked_user:
+            return format_html(
+                '<a href="/admin/auth/user/{}/change/" style="color: #9B59B6;">'
+                '<strong>{}</strong></a>',
+                obj.linked_user.id,
+                obj.linked_user.email or obj.linked_user.username
+            )
+        return format_html('<span style="color: #999;">Name match</span>')
+    get_linked_user_display.short_description = 'Linked User'
+    get_linked_user_display.admin_order_field = 'linked_user'
+
+    def get_source_display(self, obj):
+        """Display where this experience came from"""
+        # Check if this experience was created from a gift
+        from crush_lu.models import JourneyGift
+        gift = JourneyGift.objects.filter(special_experience=obj).first()
+        if gift:
+            return format_html(
+                '<span style="background: #FF6B9D; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">'
+                '🎁 Gift from {}</span>',
+                gift.sender.first_name
+            )
+        return format_html('<span style="background: #666; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">📋 Manual</span>')
+    get_source_display.short_description = 'Source'
 
     def get_journeys_status(self, obj):
         """Display which journey types exist for this user"""

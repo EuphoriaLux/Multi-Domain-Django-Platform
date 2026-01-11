@@ -8,11 +8,10 @@
  * @returns {string} CSRF token value
  */
 function getCsrfToken() {
-    const cookieValue = document.cookie
+    const cookie = document.cookie
         .split('; ')
-        .find(row => row.startsWith('csrftoken='))
-        ?.split('=')[1];
-    return cookieValue || '';
+        .find(row => row.startsWith('csrftoken='));
+    return cookie ? cookie.split('=')[1] : '';
 }
 
 /**

@@ -196,7 +196,7 @@ class PWAUpdater {
     update() {
         console.log('[PWAUpdater] User requested update');
 
-        if (this.registration?.waiting) {
+        if (this.registration && this.registration.waiting) {
             // Tell the waiting service worker to activate
             this.registration.waiting.postMessage({ type: 'SKIP_WAITING' });
         }

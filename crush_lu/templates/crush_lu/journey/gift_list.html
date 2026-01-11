@@ -1,0 +1,241 @@
+{% extends "crush_lu/journey/gift_base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Your Sent Gifts" %} - Crush.lu{% endblock %}
+
+{% block extra_gift_css %}
+<style>
+    .gifts-list {
+        margin-top: 30px;
+    }
+
+    .gift-item {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: background 0.3s ease;
+    }
+
+    .gift-item:hover {
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .gift-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .gift-item-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .gift-item-recipient {
+        font-size: 1.1rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+
+    .gift-item-code {
+        font-size: 0.85rem;
+        opacity: 0.7;
+        font-family: monospace;
+        word-break: break-all;
+    }
+
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .status-pending {
+        background: rgba(241, 196, 15, 0.3);
+        color: #f1c40f;
+    }
+
+    .status-claimed {
+        background: rgba(46, 204, 113, 0.3);
+        color: #2ecc71;
+    }
+
+    .status-completed {
+        background: rgba(155, 89, 182, 0.3);
+        color: #9B59B6;
+    }
+
+    .status-expired {
+        background: rgba(231, 76, 60, 0.3);
+        color: #e74c3c;
+    }
+
+    .gift-item-dates {
+        margin-top: 15px;
+        font-size: 0.9rem;
+        opacity: 0.8;
+    }
+
+    .gift-item-dates p {
+        margin: 0 0 5px 0;
+    }
+
+    .gift-item-actions {
+        margin-top: 15px;
+    }
+
+    .gift-item-actions .btn-gift {
+        font-size: 0.9rem;
+        padding: 8px 16px;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        opacity: 0.8;
+    }
+
+    .empty-state p {
+        font-size: 1.1rem;
+        margin-bottom: 20px;
+    }
+
+    .list-footer {
+        text-align: center;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 600px) {
+        .gifts-list {
+            margin-top: 20px;
+        }
+
+        .gift-item {
+            padding: 15px;
+            margin-bottom: 12px;
+        }
+
+        .gift-item-header {
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .gift-item-recipient {
+            font-size: 1rem;
+        }
+
+        .gift-item-code {
+            font-size: 0.8rem;
+        }
+
+        .status-badge {
+            align-self: flex-start;
+        }
+
+        .gift-item-dates {
+            margin-top: 12px;
+            font-size: 0.85rem;
+        }
+
+        .gift-item-actions {
+            margin-top: 12px;
+        }
+
+        .gift-item-actions .btn-gift {
+            width: 100%;
+            text-align: center;
+        }
+
+        .empty-state {
+            padding: 30px 15px;
+        }
+
+        .empty-state p {
+            font-size: 1rem;
+        }
+
+        .list-footer {
+            margin-top: 25px;
+            padding-top: 15px;
+        }
+
+        .list-footer .btn-gift {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block gift_content %}
+<div class="gift-card">
+    <h1 class="gift-title">{% trans "Your Sent Gifts" %}</h1>
+    <p class="gift-subtitle">{% trans "Track the journeys you've created for others" %}</p>
+
+    {% if gifts %}
+    <div class="gifts-list">
+        {% for gift in gifts %}
+        <div class="gift-item">
+            <div class="gift-item-header">
+                <div class="gift-item-info">
+                    <p class="gift-item-recipient">
+                        {% trans "For:" %} {{ gift.recipient_name }}
+                    </p>
+                    <p class="gift-item-code">{{ gift.gift_code }}</p>
+                </div>
+                <div>
+                    {% if gift.status == 'pending' %}
+                    <span class="status-badge status-pending">{% trans "Pending" %}</span>
+                    {% elif gift.status == 'claimed' %}
+                    <span class="status-badge status-claimed">{% trans "Claimed" %}</span>
+                    {% elif gift.status == 'completed' %}
+                    <span class="status-badge status-completed">{% trans "Completed" %}</span>
+                    {% elif gift.status == 'expired' %}
+                    <span class="status-badge status-expired">{% trans "Expired" %}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="gift-item-dates">
+                <p>{% trans "Created:" %} {{ gift.created_at|date:"M d, Y" }}</p>
+                {% if gift.claimed_at %}
+                <p>{% trans "Claimed:" %} {{ gift.claimed_at|date:"M d, Y" }}</p>
+                {% endif %}
+            </div>
+
+            {% if gift.status == 'pending' %}
+            <div class="gift-item-actions">
+                <a href="{% url 'crush_lu:gift_success' gift_code=gift.gift_code %}" class="btn-gift btn-gift-secondary">
+                    {% trans "View QR Code" %}
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>{% trans "You haven't created any gifts yet." %}</p>
+        <a href="{% url 'crush_lu:gift_create' %}" class="btn-gift btn-gift-primary">
+            {% trans "Create Your First Gift" %}
+        </a>
+    </div>
+    {% endif %}
+
+    {% if gifts %}
+    <div class="list-footer">
+        <a href="{% url 'crush_lu:gift_create' %}" class="btn-gift btn-gift-primary">
+            {% trans "Create Another Gift" %}
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

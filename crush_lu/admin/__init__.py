@@ -86,6 +86,7 @@ from .journey import (
     ChapterProgressAdmin,
     ChallengeAttemptAdmin,
     RewardProgressAdmin,
+    JourneyGiftAdmin,
 )
 
 from .advent import (
@@ -160,6 +161,7 @@ from crush_lu.models import (
     ChapterProgress,
     ChallengeAttempt,
     RewardProgress,
+    JourneyGift,
     AdventCalendar,
     AdventDoor,
     AdventDoorContent,
@@ -218,6 +220,7 @@ crush_admin_site.register(JourneyProgress, JourneyProgressAdmin)
 crush_admin_site.register(ChapterProgress, ChapterProgressAdmin)
 crush_admin_site.register(ChallengeAttempt, ChallengeAttemptAdmin)
 crush_admin_site.register(RewardProgress, RewardProgressAdmin)
+crush_admin_site.register(JourneyGift, JourneyGiftAdmin)
 
 # Advent Calendar System
 crush_admin_site.register(AdventCalendar, AdventCalendarAdmin)
@@ -316,6 +319,7 @@ __all__ = [
     'ChapterProgressAdmin',
     'ChallengeAttemptAdmin',
     'RewardProgressAdmin',
+    'JourneyGiftAdmin',
 
     # Advent
     'AdventDoorContentInline',

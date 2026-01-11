@@ -791,7 +791,7 @@ class ImmersiveFeatures {
         container.innerHTML = this.galleryImages.map((image, index) => `
             <div class="gallery-thumbnail ${index === this.currentImageIndex ? 'active' : ''}" 
                  data-index="${index}"
-                 onclick="window.immersiveFeatures?.showGalleryImage(${index})">
+                 onclick="window.immersiveFeatures && window.immersiveFeatures.showGalleryImage(${index})">
                 <img src="${image.src}" alt="${image.title}">
             </div>
         `).join('');

@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
 from django.utils.translation import gettext_lazy as _
 from allauth.account.forms import SignupForm
-from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, EventRegistration
+from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, EventRegistration, JourneyGift
 from PIL import Image
 import os
 
@@ -508,3 +508,84 @@ class CrushSetPasswordForm(forms.Form):
         self.user.set_password(password)
         self.user.save()
         return self.user
+
+
+class JourneyGiftForm(forms.ModelForm):
+    """
+    Form for creating a Journey Gift to share with someone.
+
+    The sender provides personalization details for the Wonderland journey.
+    """
+    recipient_name = forms.CharField(
+        max_length=100,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'placeholder': _('e.g., My Crush, Marie, Sunshine'),
+            'class': 'gift-input gift-input-lg'
+        }),
+        label=_('Name/Nickname for the Journey'),
+        help_text=_('This name will be used throughout the journey story. Use any name or nickname you like.')
+    )
+
+    date_first_met = forms.DateField(
+        required=True,
+        widget=forms.DateInput(
+            attrs={
+                'type': 'date',
+                'class': 'gift-input gift-input-lg'
+            },
+            format='%Y-%m-%d'
+        ),
+        input_formats=['%Y-%m-%d'],
+        label=_('When did you first meet?'),
+        help_text=_('This date will be featured in the journey story.')
+    )
+
+    location_first_met = forms.CharField(
+        max_length=200,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'placeholder': _('e.g., Cafe de Paris, Luxembourg City'),
+            'class': 'gift-input gift-input-lg'
+        }),
+        label=_('Where did you first meet?'),
+        help_text=_('This location will be featured in the journey story.')
+    )
+
+    sender_message = forms.CharField(
+        required=False,
+        max_length=500,
+        widget=forms.Textarea(attrs={
+            'rows': 3,
+            'placeholder': _('Optional: Add a personal note that will be shown when they scan the QR code...'),
+            'class': 'gift-input'
+        }),
+        label=_('Personal Message (Optional)'),
+        help_text=_('This message will be displayed on the gift landing page.')
+    )
+
+    recipient_email = forms.EmailField(
+        required=False,
+        widget=forms.EmailInput(attrs={
+            'placeholder': _('Optional: their@email.com'),
+            'class': 'gift-input'
+        }),
+        label=_('Recipient Email (Optional)'),
+        help_text=_('We can send them a notification when you create the gift.')
+    )
+
+    class Meta:
+        model = JourneyGift
+        fields = ['recipient_name', 'date_first_met', 'location_first_met', 'sender_message', 'recipient_email']
+
+    def clean_date_first_met(self):
+        """Validate that the date is not in the future"""
+        date_met = self.cleaned_data.get('date_first_met')
+        if date_met:
+            from django.utils import timezone
+            today = timezone.now().date()
+
+            if date_met > today:
+                raise forms.ValidationError(_("The date you first met cannot be in the future"))
+
+        return date_met

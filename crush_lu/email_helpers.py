@@ -836,6 +836,82 @@ def get_users_needing_reminder(reminder_type):
     return users.distinct()
 
 
+# =============================================================================
+# JOURNEY GIFT EMAIL NOTIFICATIONS
+# =============================================================================
+
+def send_journey_gift_notification(gift, request):
+    """
+    Send notification email to gift recipient when a journey gift is created.
+
+    The email includes the QR code, gift details, and a direct claim link.
+    Only sends if recipient_email is provided on the gift.
+
+    Args:
+        gift: JourneyGift instance
+        request: Django request object for domain detection
+
+    Returns:
+        int: Number of emails sent (1 on success, 0 if no email or failure)
+    """
+    if not gift.recipient_email:
+        logger.info(f"No recipient email for gift {gift.gift_code}, skipping notification")
+        return 0
+
+    # Get sender name
+    sender_name = gift.sender.first_name or gift.sender.username
+
+    subject = f"{sender_name} has created a magical journey for you!"
+
+    # Build claim URL - gift landing page
+    protocol = 'https' if request.is_secure() else 'http'
+    domain = request.get_host()
+    claim_url = f"{protocol}://{domain}/en/journey/gift/{gift.gift_code}/"
+
+    # Get QR code URL (may be None if not generated yet)
+    qr_code_url = None
+    if gift.qr_code_image:
+        try:
+            qr_code_url = gift.qr_code_image.url
+            # Make absolute URL if needed
+            if qr_code_url and not qr_code_url.startswith('http'):
+                qr_code_url = f"{protocol}://{domain}{qr_code_url}"
+        except Exception as e:
+            logger.warning(f"Could not get QR code URL for gift {gift.gift_code}: {e}")
+
+    context = {
+        'recipient_name': gift.recipient_name,
+        'sender_name': sender_name,
+        'sender_message': gift.sender_message,
+        'claim_url': claim_url,
+        'qr_code_url': qr_code_url,
+        'gift_code': gift.gift_code,
+        'home_url': f'{protocol}://{domain}/en/',
+        'about_url': f'{protocol}://{domain}/en/about/',
+        'events_url': f'{protocol}://{domain}/en/events/',
+    }
+
+    html_message = render_to_string('crush_lu/emails/journey_gift_notification.html', context)
+    plain_message = strip_tags(html_message)
+
+    try:
+        return send_domain_email(
+            subject=subject,
+            message=plain_message,
+            html_message=html_message,
+            recipient_list=[gift.recipient_email],
+            request=request,
+            fail_silently=False,
+        )
+    except Exception as e:
+        logger.error(f"Failed to send gift notification email to {gift.recipient_email}: {e}", exc_info=True)
+        return 0
+
+
+# =============================================================================
+# PROFILE COMPLETION REMINDER EMAILS
+# =============================================================================
+
 def send_profile_incomplete_reminder(user, reminder_type, request=None):
     """
     Send a profile completion reminder email.

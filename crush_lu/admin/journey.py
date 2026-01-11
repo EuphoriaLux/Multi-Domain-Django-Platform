@@ -20,6 +20,7 @@ from django.utils.translation import gettext_lazy as _
 from crush_lu.models import (
     JourneyConfiguration, JourneyChapter, JourneyChallenge,
     JourneyReward, JourneyProgress, ChapterProgress, ChallengeAttempt, RewardProgress,
+    JourneyGift,
 )
 
 
@@ -549,3 +550,62 @@ class RewardProgressAdmin(admin.ModelAdmin):
         unlocked = len(obj.unlocked_pieces)
         return f"{unlocked}/{total}"
     get_pieces_unlocked.short_description = _('Progress')
+
+
+class JourneyGiftAdmin(admin.ModelAdmin):
+    """
+    🎁 JOURNEY GIFTS - Shareable Journey Experiences
+
+    Track gifts sent by users to non-users via QR codes.
+    Each gift creates a personalized Wonderland journey when claimed.
+    """
+    list_display = (
+        'gift_code', 'get_sender', 'recipient_name', 'status',
+        'get_claimed_by', 'created_at', 'claimed_at'
+    )
+    list_filter = ('status', 'created_at', 'claimed_at')
+    search_fields = (
+        'gift_code', 'sender__username', 'sender__email',
+        'recipient_name', 'recipient_email', 'claimed_by__username'
+    )
+    readonly_fields = ('gift_code', 'created_at', 'claimed_at', 'qr_code_image')
+    ordering = ['-created_at']
+    actions = ['mark_as_expired']
+
+    fieldsets = (
+        ('🎁 Gift Information', {
+            'fields': ('gift_code', 'status', 'qr_code_image')
+        }),
+        ('👤 Sender', {
+            'fields': ('sender', 'sender_message')
+        }),
+        ('💝 Recipient & Personalization', {
+            'fields': ('recipient_name', 'recipient_email', 'date_first_met', 'location_first_met')
+        }),
+        ('✅ Claim Status', {
+            'fields': ('claimed_by', 'claimed_at', 'journey', 'special_experience'),
+            'classes': ('collapse',)
+        }),
+        ('🗓️ Timestamps', {
+            'fields': ('created_at', 'expires_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_sender(self, obj):
+        return f"{obj.sender.first_name} {obj.sender.last_name}"
+    get_sender.short_description = _('Sender')
+    get_sender.admin_order_field = 'sender__first_name'
+
+    def get_claimed_by(self, obj):
+        if obj.claimed_by:
+            return f"{obj.claimed_by.first_name} {obj.claimed_by.last_name}"
+        return "-"
+    get_claimed_by.short_description = _('Claimed By')
+
+    @admin.action(description=_('⏰ Mark selected gifts as expired'))
+    def mark_as_expired(self, request, queryset):
+        updated = queryset.filter(status=JourneyGift.Status.PENDING).update(
+            status=JourneyGift.Status.EXPIRED
+        )
+        django_messages.success(request, _("Marked {count} gift(s) as expired").format(count=updated))

@@ -214,9 +214,9 @@ def create_crush_profile_on_login(sender, request, user, **kwargs):
         logger.debug(f"Skipping CrushProfile creation for non-Crush domain login: {host}")
         return
 
-    # Skip delegation subdomain - they have their own profile system
-    if 'delegation' in host:
-        logger.debug(f"Skipping CrushProfile creation for delegation subdomain: {host}")
+    # Skip delegations.lu domain - they have their own profile system
+    if 'delegations.lu' in host:
+        logger.debug(f"Skipping CrushProfile creation for delegations.lu domain: {host}")
         return
 
     preferred_language = 'en'
