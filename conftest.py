@@ -106,15 +106,22 @@ def django_db_modify_db_settings():
 
 
 @pytest.fixture(scope='session', autouse=True)
-def setup_site_for_live_server(django_db_blocker):
+def setup_site_for_live_server(django_db_setup, django_db_blocker):
     """
     Create Site objects at session start for live_server tests.
 
     This must run before any live_server tests start to ensure the
     Site exists in the database when Django's allauth tries to look it up.
+
+    Note: django_db_setup is required to ensure migrations run before
+    we try to access the Site model.
     """
     with django_db_blocker.unblock():
         from django.contrib.sites.models import Site
+
+        # Delete any existing localhost Site that might conflict
+        Site.objects.filter(domain='localhost').exclude(id=1).delete()
+
         # Create/update sites that live_server might use
         Site.objects.update_or_create(
             id=1,

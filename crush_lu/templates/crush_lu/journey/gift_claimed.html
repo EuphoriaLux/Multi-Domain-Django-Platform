@@ -3,18 +3,63 @@
 
 {% block title %}{% trans "Gift Already Claimed" %} - Crush.lu{% endblock %}
 
+{% block extra_gift_css %}
+<style>
+    .status-card {
+        text-align: center;
+    }
+
+    .status-icon {
+        font-size: 4rem;
+        margin-bottom: 20px;
+        display: block;
+    }
+
+    .status-message {
+        margin: 30px 0;
+        font-size: 1.1rem;
+        opacity: 0.8;
+        line-height: 1.6;
+    }
+
+    .status-action {
+        margin-top: 30px;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 600px) {
+        .status-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+
+        .status-message {
+            margin: 20px 0;
+            font-size: 1rem;
+        }
+
+        .status-action {
+            margin-top: 25px;
+        }
+
+        .status-action .btn-gift {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block gift_content %}
-<div class="gift-card" style="text-align: center;">
-    <div style="font-size: 4rem; margin-bottom: 20px;">
-    </div>
+<div class="gift-card status-card">
+    <span class="status-icon">✅</span>
 
     <h1 class="gift-title">{% trans "This Gift Has Been Claimed" %}</h1>
 
-    <p style="margin: 30px 0; font-size: 1.1rem; opacity: 0.8;">
+    <p class="status-message">
         {% trans "This journey gift has already been claimed by someone. Each gift can only be used once." %}
     </p>
 
-    <div style="margin-top: 30px;">
+    <div class="status-action">
         <a href="{% url 'crush_lu:home' %}" class="btn-gift btn-gift-primary">
             {% trans "Visit Crush.lu" %}
         </a>

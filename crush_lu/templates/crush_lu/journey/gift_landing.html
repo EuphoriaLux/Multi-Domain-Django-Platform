@@ -193,7 +193,7 @@
     }
 
     .feature-desc {
-        font-size: 0.75rem;
+        font-size: 0.85rem;
         opacity: 0.7;
         line-height: 1.4;
     }
@@ -210,6 +210,8 @@
         padding: 20px 5px;
         scrollbar-width: none;
         -ms-overflow-style: none;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
     }
 
     .chapter-preview-container::-webkit-scrollbar {
@@ -219,6 +221,7 @@
     .chapter-node {
         flex-shrink: 0;
         width: 140px;
+        scroll-snap-align: center;
         background: rgba(255, 255, 255, 0.05);
         border: 2px solid rgba(255, 255, 255, 0.15);
         border-radius: 15px;
@@ -415,6 +418,60 @@
             padding: 16px 30px;
             font-size: 1.1rem;
             width: 100%;
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+        }
+
+        .message-card {
+            padding: 20px 15px;
+        }
+
+        .message-text {
+            font-size: 1rem;
+            padding-left: 15px;
+        }
+
+        .chapter-node {
+            width: 110px;
+            padding: 15px 8px;
+        }
+
+        .chapter-title {
+            font-size: 0.75rem;
+        }
+
+        .outcome-item {
+            padding: 12px;
+        }
+
+        .outcome-icon {
+            font-size: 1.5rem;
+        }
+
+        .outcome-text {
+            font-size: 0.8rem;
+        }
+    }
+
+    /* Accessibility - Reduced Motion */
+    @media (prefers-reduced-motion: reduce) {
+        .floating-hearts {
+            display: none;
+        }
+
+        .heart,
+        .hero-icon,
+        .chapter-node,
+        .hero-title {
+            animation: none !important;
+        }
+
+        .feature-card,
+        .outcome-item,
+        .cta-primary {
+            transition: none !important;
         }
     }
 </style>

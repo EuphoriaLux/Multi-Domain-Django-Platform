@@ -521,7 +521,7 @@ class JourneyGiftForm(forms.ModelForm):
         required=True,
         widget=forms.TextInput(attrs={
             'placeholder': _('e.g., My Crush, Marie, Sunshine'),
-            'class': 'form-control form-control-lg'
+            'class': 'gift-input gift-input-lg'
         }),
         label=_('Name/Nickname for the Journey'),
         help_text=_('This name will be used throughout the journey story. Use any name or nickname you like.')
@@ -532,7 +532,7 @@ class JourneyGiftForm(forms.ModelForm):
         widget=forms.DateInput(
             attrs={
                 'type': 'date',
-                'class': 'form-control form-control-lg'
+                'class': 'gift-input gift-input-lg'
             },
             format='%Y-%m-%d'
         ),
@@ -546,7 +546,7 @@ class JourneyGiftForm(forms.ModelForm):
         required=True,
         widget=forms.TextInput(attrs={
             'placeholder': _('e.g., Cafe de Paris, Luxembourg City'),
-            'class': 'form-control form-control-lg'
+            'class': 'gift-input gift-input-lg'
         }),
         label=_('Where did you first meet?'),
         help_text=_('This location will be featured in the journey story.')
@@ -558,7 +558,7 @@ class JourneyGiftForm(forms.ModelForm):
         widget=forms.Textarea(attrs={
             'rows': 3,
             'placeholder': _('Optional: Add a personal note that will be shown when they scan the QR code...'),
-            'class': 'form-control'
+            'class': 'gift-input'
         }),
         label=_('Personal Message (Optional)'),
         help_text=_('This message will be displayed on the gift landing page.')
@@ -568,7 +568,7 @@ class JourneyGiftForm(forms.ModelForm):
         required=False,
         widget=forms.EmailInput(attrs={
             'placeholder': _('Optional: their@email.com'),
-            'class': 'form-control'
+            'class': 'gift-input'
         }),
         label=_('Recipient Email (Optional)'),
         help_text=_('We can send them a notification when you create the gift.')
