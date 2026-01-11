@@ -1,0 +1,572 @@
+{% extends "crush_lu/journey/gift_base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "A Magical Journey Awaits" %} - Crush.lu{% endblock %}
+
+{% block og_title %}{{ gift.sender.first_name }} {% trans "has created a journey for you" %}{% endblock %}
+{% block og_description %}{% trans "Someone special has created a magical Wonderland journey just for you. Discover puzzles, secrets, and heartfelt messages." %}{% endblock %}
+
+{% block extra_gift_css %}
+<style>
+    /* Floating Hearts Animation */
+    .floating-hearts {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        overflow: hidden;
+        z-index: 0;
+    }
+
+    .heart {
+        position: absolute;
+        bottom: -50px;
+        animation: floatUp linear infinite;
+        opacity: 0.3;
+        font-size: 24px;
+    }
+
+    @keyframes floatUp {
+        0% {
+            transform: translateY(0) rotate(0deg);
+            opacity: 0;
+        }
+        10% {
+            opacity: 0.3;
+        }
+        90% {
+            opacity: 0.3;
+        }
+        100% {
+            transform: translateY(-100vh) rotate(360deg);
+            opacity: 0;
+        }
+    }
+
+    /* Hero Section */
+    .landing-hero {
+        text-align: center;
+        padding: 20px 0 40px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .hero-icon {
+        font-size: 80px;
+        margin-bottom: 20px;
+        display: inline-block;
+        animation: pulse-romantic 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-romantic {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+    }
+
+    .hero-title {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 15px;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary), var(--journey-primary));
+        background-size: 200% 200%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: shimmer 4s ease infinite;
+    }
+
+    @keyframes shimmer {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+    }
+
+    .hero-from {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin-bottom: 10px;
+    }
+
+    .hero-recipient {
+        font-size: 1.8rem;
+        font-weight: bold;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .hero-cta {
+        margin-top: 25px;
+    }
+
+    .hero-login {
+        margin-top: 15px;
+        font-size: 0.9rem;
+        opacity: 0.8;
+    }
+
+    .hero-login a {
+        color: var(--journey-secondary);
+        text-decoration: underline;
+    }
+
+    /* Message Card */
+    .message-card {
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 25px;
+        margin: 30px 0;
+        border-left: 4px solid var(--journey-secondary);
+        position: relative;
+    }
+
+    .message-card::before {
+        content: '"';
+        position: absolute;
+        top: 10px;
+        left: 15px;
+        font-size: 3rem;
+        opacity: 0.2;
+        font-family: Georgia, serif;
+        line-height: 1;
+    }
+
+    .message-label {
+        font-size: 0.85rem;
+        opacity: 0.7;
+        margin-bottom: 10px;
+    }
+
+    .message-text {
+        font-size: 1.1rem;
+        font-style: italic;
+        line-height: 1.6;
+        padding-left: 20px;
+    }
+
+    /* What Is Section */
+    .what-is-section {
+        margin: 40px 0;
+    }
+
+    .section-title {
+        font-size: 1.4rem;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 25px;
+        color: var(--journey-light);
+    }
+
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+    }
+
+    .feature-card {
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 15px;
+        padding: 20px 15px;
+        text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .feature-card:hover {
+        transform: translateY(-5px);
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(155, 89, 182, 0.3);
+    }
+
+    .feature-icon {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+    }
+
+    .feature-title {
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-bottom: 5px;
+    }
+
+    .feature-desc {
+        font-size: 0.75rem;
+        opacity: 0.7;
+        line-height: 1.4;
+    }
+
+    /* Chapter Preview */
+    .chapter-preview-section {
+        margin: 40px 0;
+    }
+
+    .chapter-preview-container {
+        display: flex;
+        gap: 15px;
+        overflow-x: auto;
+        padding: 20px 5px;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .chapter-preview-container::-webkit-scrollbar {
+        display: none;
+    }
+
+    .chapter-node {
+        flex-shrink: 0;
+        width: 140px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 2px solid rgba(255, 255, 255, 0.15);
+        border-radius: 15px;
+        padding: 20px 10px;
+        text-align: center;
+        opacity: 0;
+        transform: translateY(30px);
+        animation: chapterReveal 0.5s ease-out forwards;
+    }
+
+    @keyframes chapterReveal {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .chapter-node:nth-child(1) { animation-delay: 0.8s; }
+    .chapter-node:nth-child(2) { animation-delay: 1.0s; }
+    .chapter-node:nth-child(3) { animation-delay: 1.2s; }
+    .chapter-node:nth-child(4) { animation-delay: 1.4s; }
+    .chapter-node:nth-child(5) { animation-delay: 1.6s; }
+    .chapter-node:nth-child(6) { animation-delay: 1.8s; }
+
+    .chapter-node:first-child {
+        border-color: var(--journey-secondary);
+        box-shadow: 0 0 20px rgba(255, 107, 157, 0.3);
+    }
+
+    .chapter-node:first-child .lock-container {
+        animation: pulse-romantic 2s ease-in-out infinite;
+    }
+
+    .lock-container {
+        width: 50px;
+        height: 50px;
+        margin: 0 auto 12px;
+        background: rgba(155, 89, 182, 0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+
+    .chapter-number {
+        font-size: 0.7rem;
+        opacity: 0.6;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 5px;
+    }
+
+    .chapter-title {
+        font-size: 0.8rem;
+        font-weight: 600;
+        line-height: 1.3;
+        min-height: 2.6em;
+    }
+
+    .chapter-theme {
+        font-size: 0.65rem;
+        opacity: 0.5;
+        margin-top: 8px;
+        font-style: italic;
+    }
+
+    /* Outcome Section */
+    .outcome-section {
+        margin: 40px 0;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 20px;
+        padding: 25px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .outcome-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-top: 20px;
+    }
+
+    .outcome-item {
+        background: rgba(155, 89, 182, 0.15);
+        border-radius: 12px;
+        padding: 15px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .outcome-item:hover {
+        background: rgba(155, 89, 182, 0.25);
+        transform: scale(1.02);
+    }
+
+    .outcome-icon {
+        font-size: 1.8rem;
+        margin-bottom: 8px;
+    }
+
+    .outcome-text {
+        font-size: 0.85rem;
+        line-height: 1.4;
+    }
+
+    /* CTA Section */
+    .cta-section {
+        text-align: center;
+        margin-top: 40px;
+        padding-top: 30px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .cta-primary {
+        display: inline-block;
+        padding: 18px 40px;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        color: white;
+        text-decoration: none;
+        border-radius: 50px;
+        font-size: 1.2rem;
+        font-weight: 600;
+        box-shadow: 0 5px 25px rgba(155, 89, 182, 0.4);
+        transition: all 0.3s ease;
+    }
+
+    .cta-primary:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 30px rgba(155, 89, 182, 0.5);
+    }
+
+    .cta-secondary {
+        margin-top: 20px;
+        font-size: 0.9rem;
+    }
+
+    .cta-secondary a {
+        color: var(--journey-secondary);
+        text-decoration: none;
+    }
+
+    .cta-secondary a:hover {
+        text-decoration: underline;
+    }
+
+    .cta-hint {
+        margin-top: 15px;
+        font-size: 0.8rem;
+        opacity: 0.6;
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+        .hero-title {
+            font-size: 1.6rem;
+        }
+
+        .hero-recipient {
+            font-size: 1.4rem;
+        }
+
+        .features-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .feature-card {
+            display: flex;
+            align-items: center;
+            text-align: left;
+            gap: 15px;
+            padding: 15px;
+        }
+
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 0;
+        }
+
+        .feature-content {
+            flex: 1;
+        }
+
+        .chapter-node {
+            width: 120px;
+        }
+
+        .outcome-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .cta-primary {
+            padding: 16px 30px;
+            font-size: 1.1rem;
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block gift_content %}
+<!-- Floating Hearts Background -->
+<div class="floating-hearts" aria-hidden="true">
+    <span class="heart" style="left: 5%; animation-duration: 8s; animation-delay: 0s;">💕</span>
+    <span class="heart" style="left: 15%; animation-duration: 10s; animation-delay: 1s;">💗</span>
+    <span class="heart" style="left: 25%; animation-duration: 7s; animation-delay: 2s;">💕</span>
+    <span class="heart" style="left: 35%; animation-duration: 9s; animation-delay: 0.5s;">💗</span>
+    <span class="heart" style="left: 45%; animation-duration: 11s; animation-delay: 3s;">💕</span>
+    <span class="heart" style="left: 55%; animation-duration: 8s; animation-delay: 1.5s;">💗</span>
+    <span class="heart" style="left: 65%; animation-duration: 10s; animation-delay: 2.5s;">💕</span>
+    <span class="heart" style="left: 75%; animation-duration: 7s; animation-delay: 0s;">💗</span>
+    <span class="heart" style="left: 85%; animation-duration: 9s; animation-delay: 4s;">💕</span>
+    <span class="heart" style="left: 95%; animation-duration: 12s; animation-delay: 1s;">💗</span>
+</div>
+
+<div class="gift-card">
+    <!-- Hero Section -->
+    <div class="landing-hero">
+        <div class="hero-icon">✨</div>
+        <h1 class="hero-title">{% trans "A Magical Journey Awaits..." %}</h1>
+        <p class="hero-from">
+            <strong>{{ gift.sender.first_name }}</strong> {% trans "has created a Wonderland journey for" %}
+        </p>
+        <p class="hero-recipient">{{ gift.recipient_name }}</p>
+        <div class="hero-cta">
+            <a href="{% url 'account_signup' %}?next={% url 'crush_lu:gift_claim' gift_code=gift.gift_code %}" class="cta-primary">
+                {% trans "Begin Your Adventure" %}
+            </a>
+            <p class="hero-login">
+                {% trans "Already have an account?" %}
+                <a href="{% url 'account_login' %}?next={% url 'crush_lu:gift_claim' gift_code=gift.gift_code %}">{% trans "Sign in" %}</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Sender Message -->
+    {% if gift.sender_message %}
+    <div class="message-card">
+        <p class="message-label">{% trans "A message for you:" %}</p>
+        <p class="message-text">"{{ gift.sender_message }}"</p>
+    </div>
+    {% endif %}
+
+    <!-- What Is Section -->
+    <div class="what-is-section">
+        <h2 class="section-title">{% trans "What is the Wonderland of You?" %}</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🧩</div>
+                <div class="feature-content">
+                    <div class="feature-title">{% trans "6 Magical Chapters" %}</div>
+                    <div class="feature-desc">{% trans "Puzzles, riddles, and surprises" %}</div>
+                </div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💝</div>
+                <div class="feature-content">
+                    <div class="feature-title">{% trans "Unlock Secrets" %}</div>
+                    <div class="feature-desc">{% trans "Hidden messages and rewards" %}</div>
+                </div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📜</div>
+                <div class="feature-content">
+                    <div class="feature-title">{% trans "Your Story" %}</div>
+                    <div class="feature-desc">{% trans "A personalized journey ending" %}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chapter Preview -->
+    <div class="chapter-preview-section">
+        <h2 class="section-title">{% trans "Your Journey Awaits" %}</h2>
+        <div class="chapter-preview-container">
+            <div class="chapter-node">
+                <div class="lock-container">🔒</div>
+                <div class="chapter-number">{% trans "Chapter 1" %}</div>
+                <div class="chapter-title">{% trans "Down the Rabbit Hole" %}</div>
+                <div class="chapter-theme">{% trans "Mystery" %}</div>
+            </div>
+            <div class="chapter-node">
+                <div class="lock-container">🔒</div>
+                <div class="chapter-number">{% trans "Chapter 2" %}</div>
+                <div class="chapter-title">{% trans "The Garden of Rare Flowers" %}</div>
+                <div class="chapter-theme">{% trans "Discovery" %}</div>
+            </div>
+            <div class="chapter-node">
+                <div class="lock-container">🔒</div>
+                <div class="chapter-number">{% trans "Chapter 3" %}</div>
+                <div class="chapter-title">{% trans "The Gallery of Moments" %}</div>
+                <div class="chapter-theme">{% trans "Memories" %}</div>
+            </div>
+            <div class="chapter-node">
+                <div class="lock-container">🔒</div>
+                <div class="chapter-number">{% trans "Chapter 4" %}</div>
+                <div class="chapter-title">{% trans "The Carnival of Courage" %}</div>
+                <div class="chapter-theme">{% trans "Adventure" %}</div>
+            </div>
+            <div class="chapter-node">
+                <div class="lock-container">🔒</div>
+                <div class="chapter-number">{% trans "Chapter 5" %}</div>
+                <div class="chapter-title">{% trans "The Starlit Observatory" %}</div>
+                <div class="chapter-theme">{% trans "Dreams" %}</div>
+            </div>
+            <div class="chapter-node">
+                <div class="lock-container">🔒</div>
+                <div class="chapter-number">{% trans "Chapter 6" %}</div>
+                <div class="chapter-title">{% trans "The Door to Tomorrow" %}</div>
+                <div class="chapter-theme">{% trans "Future" %}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Outcome Preview -->
+    <div class="outcome-section">
+        <h2 class="section-title">{% trans "What awaits at the end?" %}</h2>
+        <div class="outcome-grid">
+            <div class="outcome-item">
+                <div class="outcome-icon">📜</div>
+                <div class="outcome-text">{% trans "Unlock heartfelt poems" %}</div>
+            </div>
+            <div class="outcome-item">
+                <div class="outcome-icon">📷</div>
+                <div class="outcome-text">{% trans "Reveal hidden photos" %}</div>
+            </div>
+            <div class="outcome-item">
+                <div class="outcome-icon">💌</div>
+                <div class="outcome-text">{% trans "Discover personal messages" %}</div>
+            </div>
+            <div class="outcome-item">
+                <div class="outcome-icon">🏆</div>
+                <div class="outcome-text">{% trans "Earn your Journey Certificate" %}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CTA Section -->
+    <div class="cta-section">
+        <a href="{% url 'account_signup' %}?next={% url 'crush_lu:gift_claim' gift_code=gift.gift_code %}" class="cta-primary">
+            {% trans "Begin Your Adventure" %}
+        </a>
+        <p class="cta-secondary">
+            {% trans "Already have an account?" %}
+            <a href="{% url 'account_login' %}?next={% url 'crush_lu:gift_claim' gift_code=gift.gift_code %}">{% trans "Sign in" %}</a>
+        </p>
+        <p class="cta-hint">{% trans "Free to join, takes only 2 minutes" %}</p>
+    </div>
+</div>
+{% endblock %}

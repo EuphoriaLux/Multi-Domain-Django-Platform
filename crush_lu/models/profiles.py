@@ -101,6 +101,14 @@ class SpecialUserExperience(models.Model):
         max_length=150,
         help_text=_("Last name to match (case-insensitive)")
     )
+    linked_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='special_experiences',
+        help_text=_("Direct link to user (bypasses name matching). Used for gifted journeys.")
+    )
     is_active = models.BooleanField(
         default=True,
         help_text=_("Enable/disable this special experience")
@@ -171,15 +179,40 @@ class SpecialUserExperience(models.Model):
     class Meta:
         verbose_name = _("Special User Experience")
         verbose_name_plural = _("Special User Experiences")
-        unique_together = ['first_name', 'last_name']
+        constraints = [
+            # For legacy name-matching: unique (first_name, last_name) when no linked_user
+            models.UniqueConstraint(
+                fields=['first_name', 'last_name'],
+                condition=models.Q(linked_user__isnull=True),
+                name='unique_name_when_no_linked_user'
+            ),
+            # Each user can only have one directly-linked special experience
+            models.UniqueConstraint(
+                fields=['linked_user'],
+                condition=models.Q(linked_user__isnull=False),
+                name='unique_linked_user'
+            ),
+        ]
 
     def __str__(self):
         return f"Special Experience for {self.first_name} {self.last_name}"
 
     def matches_user(self, user):
-        """Check if this special experience matches the given user"""
+        """Check if this special experience matches the given user.
+
+        Matches if:
+        - linked_user is set and matches the user (direct link from gifts), OR
+        - first_name and last_name match (legacy name-based matching)
+        """
+        if not self.is_active:
+            return False
+
+        # Direct link takes priority (used for gifted journeys)
+        if self.linked_user_id and self.linked_user_id == user.id:
+            return True
+
+        # Fallback to name matching (legacy behavior)
         return (
-            self.is_active and
             user.first_name.lower() == self.first_name.lower() and
             user.last_name.lower() == self.last_name.lower()
         )

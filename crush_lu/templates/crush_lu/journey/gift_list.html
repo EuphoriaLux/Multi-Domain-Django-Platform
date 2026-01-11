@@ -1,0 +1,79 @@
+{% extends "crush_lu/journey/gift_base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Your Sent Gifts" %} - Crush.lu{% endblock %}
+
+{% block gift_content %}
+<div class="gift-card">
+    <h1 class="gift-title">{% trans "Your Sent Gifts" %}</h1>
+    <p class="gift-subtitle">{% trans "Track the journeys you've created for others" %}</p>
+
+    {% if gifts %}
+    <div style="margin-top: 30px;">
+        {% for gift in gifts %}
+        <div style="background: rgba(255,255,255,0.05); border-radius: 15px; padding: 20px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <p style="font-size: 1.1rem; font-weight: bold; margin-bottom: 5px;">
+                        {% trans "For:" %} {{ gift.recipient_name }}
+                    </p>
+                    <p style="font-size: 0.85rem; opacity: 0.7; font-family: monospace;">
+                        {{ gift.gift_code }}
+                    </p>
+                </div>
+                <div style="text-align: right;">
+                    {% if gift.status == 'pending' %}
+                    <span style="background: rgba(241, 196, 15, 0.3); color: #f1c40f; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem;">
+                        {% trans "Pending" %}
+                    </span>
+                    {% elif gift.status == 'claimed' %}
+                    <span style="background: rgba(46, 204, 113, 0.3); color: #2ecc71; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem;">
+                        {% trans "Claimed" %}
+                    </span>
+                    {% elif gift.status == 'completed' %}
+                    <span style="background: rgba(155, 89, 182, 0.3); color: #9B59B6; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem;">
+                        {% trans "Completed" %}
+                    </span>
+                    {% elif gift.status == 'expired' %}
+                    <span style="background: rgba(231, 76, 60, 0.3); color: #e74c3c; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem;">
+                        {% trans "Expired" %}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div style="margin-top: 15px; font-size: 0.9rem; opacity: 0.8;">
+                <p>{% trans "Created:" %} {{ gift.created_at|date:"M d, Y" }}</p>
+                {% if gift.claimed_at %}
+                <p>{% trans "Claimed:" %} {{ gift.claimed_at|date:"M d, Y" }}</p>
+                {% endif %}
+            </div>
+
+            {% if gift.status == 'pending' %}
+            <div style="margin-top: 15px;">
+                <a href="{% url 'crush_lu:gift_success' gift_code=gift.gift_code %}" class="btn-gift btn-gift-secondary" style="font-size: 0.9rem; padding: 8px 16px;">
+                    {% trans "View QR Code" %}
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 40px 20px; opacity: 0.7;">
+        <p style="font-size: 1.1rem; margin-bottom: 20px;">{% trans "You haven't created any gifts yet." %}</p>
+        <a href="{% url 'crush_lu:gift_create' %}" class="btn-gift btn-gift-primary">
+            {% trans "Create Your First Gift" %}
+        </a>
+    </div>
+    {% endif %}
+
+    {% if gifts %}
+    <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.2);">
+        <a href="{% url 'crush_lu:gift_create' %}" class="btn-gift btn-gift-primary">
+            {% trans "Create Another Gift" %}
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

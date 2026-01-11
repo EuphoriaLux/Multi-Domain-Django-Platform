@@ -199,6 +199,10 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         if _is_delegation_domain(request):
             return '/dashboard/'
         elif _is_crush_domain(request):
+            # Check for pending gift to claim (highest priority)
+            pending_gift_code = request.session.get('pending_gift_code')
+            if pending_gift_code:
+                return f'/journey/gift/{pending_gift_code}/claim/'
             # CRITICAL FIX: Always redirect to oauth_landing for Crush.lu
             # This returns 200 OK with JavaScript-delayed redirect to fix
             # Android PWA cookie timing issue (302 fires before cookie commit)
@@ -313,6 +317,11 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
             return '/dashboard/'
 
         elif _is_crush_domain(request):
+            # Check for pending gift to claim (highest priority)
+            pending_gift_code = request.session.get('pending_gift_code')
+            if pending_gift_code:
+                return f'/journey/gift/{pending_gift_code}/claim/'
+
             # Check for special user experience (set by user_logged_in signal)
             # This must be checked FIRST as it takes priority over other redirects
             if request.session.get('special_experience_active'):
@@ -337,6 +346,10 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
         if _is_delegation_domain(request):
             return '/dashboard/'
         elif _is_crush_domain(request):
+            # Check for pending gift to claim (highest priority)
+            pending_gift_code = request.session.get('pending_gift_code')
+            if pending_gift_code:
+                return f'/journey/gift/{pending_gift_code}/claim/'
             return '/create-profile/'
         else:
             return '/profile/'

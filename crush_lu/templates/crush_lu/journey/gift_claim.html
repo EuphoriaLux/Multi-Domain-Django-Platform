@@ -1,0 +1,43 @@
+{% extends "crush_lu/journey/gift_base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Claim Your Journey" %} - Crush.lu{% endblock %}
+
+{% block gift_content %}
+<div class="gift-card">
+    <h1 class="gift-title">{% trans "Claim Your Wonderland Journey" %}</h1>
+
+    <div style="text-align: center; margin: 30px 0;">
+        <p style="font-size: 1.1rem;">
+            <strong>{{ gift.sender.first_name }}</strong> {% trans "created this journey for" %}
+        </p>
+        <p style="font-size: 1.5rem; font-weight: bold; margin-top: 10px; background: linear-gradient(135deg, #9B59B6, #FF6B9D); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+            {{ gift.recipient_name }}
+        </p>
+    </div>
+
+    {% if gift.sender_message %}
+    <div style="background: rgba(255,255,255,0.1); border-radius: 10px; padding: 20px; margin: 20px 0; font-style: italic; text-align: center;">
+        <p style="margin-bottom: 10px; opacity: 0.7; font-size: 0.9rem;">{% trans "A message for you:" %}</p>
+        <p>"{{ gift.sender_message }}"</p>
+    </div>
+    {% endif %}
+
+    <div style="margin: 30px 0; text-align: center;">
+        <p style="font-size: 1rem; opacity: 0.9;">
+            {% trans "Ready to begin your adventure? Once you claim this gift, your personalized 6-chapter Wonderland journey will be created." %}
+        </p>
+    </div>
+
+    <form method="post" style="text-align: center; margin-top: 30px;">
+        {% csrf_token %}
+        <button type="submit" class="btn-gift btn-gift-primary" style="font-size: 1.1rem; padding: 16px 32px;">
+            {% trans "Claim Your Journey" %}
+        </button>
+    </form>
+
+    <p style="text-align: center; margin-top: 20px; font-size: 0.85rem; opacity: 0.6;">
+        {% trans "By claiming this gift, you'll unlock 6 chapters of puzzles, secrets, and messages." %}
+    </p>
+</div>
+{% endblock %}

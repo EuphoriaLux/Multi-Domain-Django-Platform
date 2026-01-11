@@ -1,0 +1,76 @@
+{% extends "crush_lu/journey/gift_base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Create a Journey Gift" %} - Crush.lu{% endblock %}
+
+{% block gift_content %}
+<div class="gift-card">
+    <h1 class="gift-title">{% trans "Create a Wonderland Journey" %}</h1>
+    <p class="gift-subtitle">{% trans "Create a magical experience for someone special" %}</p>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="id_recipient_name">{{ form.recipient_name.label }}</label>
+            {{ form.recipient_name }}
+            {% if form.recipient_name.help_text %}
+            <p class="help-text">{{ form.recipient_name.help_text }}</p>
+            {% endif %}
+            {% if form.recipient_name.errors %}
+            <p class="help-text" style="color: #e74c3c;">{{ form.recipient_name.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="id_date_first_met">{{ form.date_first_met.label }}</label>
+            {{ form.date_first_met }}
+            {% if form.date_first_met.help_text %}
+            <p class="help-text">{{ form.date_first_met.help_text }}</p>
+            {% endif %}
+            {% if form.date_first_met.errors %}
+            <p class="help-text" style="color: #e74c3c;">{{ form.date_first_met.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="id_location_first_met">{{ form.location_first_met.label }}</label>
+            {{ form.location_first_met }}
+            {% if form.location_first_met.help_text %}
+            <p class="help-text">{{ form.location_first_met.help_text }}</p>
+            {% endif %}
+            {% if form.location_first_met.errors %}
+            <p class="help-text" style="color: #e74c3c;">{{ form.location_first_met.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="id_sender_message">{{ form.sender_message.label }}</label>
+            {{ form.sender_message }}
+            {% if form.sender_message.help_text %}
+            <p class="help-text">{{ form.sender_message.help_text }}</p>
+            {% endif %}
+            {% if form.sender_message.errors %}
+            <p class="help-text" style="color: #e74c3c;">{{ form.sender_message.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="id_recipient_email">{{ form.recipient_email.label }}</label>
+            {{ form.recipient_email }}
+            {% if form.recipient_email.help_text %}
+            <p class="help-text">{{ form.recipient_email.help_text }}</p>
+            {% endif %}
+            {% if form.recipient_email.errors %}
+            <p class="help-text" style="color: #e74c3c;">{{ form.recipient_email.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <button type="submit" class="btn-gift btn-gift-primary">
+                {% trans "Create Gift" %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

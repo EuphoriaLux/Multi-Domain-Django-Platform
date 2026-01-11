@@ -88,6 +88,7 @@ from . import api_journey
 from . import api_push
 from . import api_coach_push
 from . import views_advent
+from . import views_journey_gift
 
 app_name = 'crush_lu'
 
@@ -252,6 +253,13 @@ urlpatterns = [
     path('journey/chapter/<int:chapter_number>/challenge/<int:challenge_id>/', views_journey.challenge_view, name='challenge_view'),
     path('journey/reward/<int:reward_id>/', views_journey.reward_view, name='reward_view'),
     path('journey/certificate/', views_journey.certificate_view, name='certificate_view'),
+
+    # Journey Gift System
+    path('journey/gift/create/', views_journey_gift.gift_create, name='gift_create'),
+    path('journey/gift/success/<str:gift_code>/', views_journey_gift.gift_success, name='gift_success'),
+    path('journey/gift/<str:gift_code>/', views_journey_gift.gift_landing, name='gift_landing'),
+    path('journey/gift/<str:gift_code>/claim/', views_journey_gift.gift_claim, name='gift_claim'),
+    path('journey/gifts/', views_journey_gift.gift_list, name='gift_list'),
 
     # Journey API Endpoints (these use {% url %} template tags so can stay in i18n_patterns)
     path('api/journey/submit-challenge/', api_journey.submit_challenge, name='api_submit_challenge'),

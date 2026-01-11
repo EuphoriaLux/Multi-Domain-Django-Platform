@@ -1,0 +1,23 @@
+{% extends "crush_lu/journey/gift_base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Gift Expired" %} - Crush.lu{% endblock %}
+
+{% block gift_content %}
+<div class="gift-card" style="text-align: center;">
+    <div style="font-size: 4rem; margin-bottom: 20px;">
+    </div>
+
+    <h1 class="gift-title">{% trans "This Gift Has Expired" %}</h1>
+
+    <p style="margin: 30px 0; font-size: 1.1rem; opacity: 0.8;">
+        {% trans "Sorry, this journey gift is no longer available. The gift has expired before it could be claimed." %}
+    </p>
+
+    <div style="margin-top: 30px;">
+        <a href="{% url 'crush_lu:home' %}" class="btn-gift btn-gift-primary">
+            {% trans "Visit Crush.lu" %}
+        </a>
+    </div>
+</div>
+{% endblock %}

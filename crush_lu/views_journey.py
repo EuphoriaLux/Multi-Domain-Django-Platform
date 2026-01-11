@@ -29,11 +29,13 @@ def journey_selector(request):
 
     from .models import SpecialUserExperience
 
-    # Find special experience for this user
+    # Find special experience for this user (direct link OR name match)
     special_experience = SpecialUserExperience.objects.filter(
-        Q(first_name__iexact=request.user.first_name) &
-        Q(last_name__iexact=request.user.last_name) &
-        Q(is_active=True)
+        Q(is_active=True) &
+        (
+            Q(linked_user=request.user) |  # Direct link (from gifts)
+            (Q(first_name__iexact=request.user.first_name) & Q(last_name__iexact=request.user.last_name))  # Name match (legacy)
+        )
     ).first()
 
     if not special_experience:
@@ -125,11 +127,13 @@ def journey_map_wonderland(request):
         # Get the user's special experience journey
         from .models import SpecialUserExperience
 
-        # Try to find special experience for this user
+        # Try to find special experience for this user (direct link OR name match)
         special_experience = SpecialUserExperience.objects.filter(
-            Q(first_name__iexact=request.user.first_name) &
-            Q(last_name__iexact=request.user.last_name) &
-            Q(is_active=True)
+            Q(is_active=True) &
+            (
+                Q(linked_user=request.user) |  # Direct link (from gifts)
+                (Q(first_name__iexact=request.user.first_name) & Q(last_name__iexact=request.user.last_name))  # Name match (legacy)
+            )
         ).first()
 
         logger.info(f"Special experience found: {special_experience is not None}")

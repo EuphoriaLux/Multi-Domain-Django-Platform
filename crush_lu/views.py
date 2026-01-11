@@ -778,6 +778,12 @@ def signup(request):
                 # Log the user in - set backend for multi-auth compatibility
                 user.backend = 'django.contrib.auth.backends.ModelBackend'
                 login(request, user)
+
+                # Check if there's a pending gift to claim
+                pending_gift_code = request.session.get('pending_gift_code')
+                if pending_gift_code:
+                    return redirect('crush_lu:gift_claim', gift_code=pending_gift_code)
+
                 return redirect('crush_lu:create_profile')
 
             except Exception as e:

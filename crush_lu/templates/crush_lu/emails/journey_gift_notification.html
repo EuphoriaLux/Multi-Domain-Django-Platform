@@ -1,0 +1,87 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "A Magical Gift Awaits" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% trans "A Gift Just for You" %}{% endblock %}
+
+{% block content %}
+<div style="text-align: center; margin-bottom: 20px;">
+    <span style="font-size: 48px;">🎁</span>
+</div>
+
+<p style="font-size: 18px; text-align: center; color: #333;">
+    {% trans "Hi" %} <strong>{{ recipient_name }}</strong>!
+</p>
+
+<p style="font-size: 16px; text-align: center; color: #555; line-height: 1.8;">
+    <strong>{{ sender_name }}</strong> {% trans "has created a magical" %}
+    <span style="color: #9B59B6; font-weight: 600;">"Wonderland of You"</span>
+    {% trans "journey especially for you!" %}
+</p>
+
+{% if sender_message %}
+<div style="background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(255, 107, 157, 0.1)); border-radius: 12px; padding: 20px; margin: 25px 0; border-left: 4px solid #9B59B6;">
+    <p style="font-size: 14px; color: #777; margin: 0 0 10px 0;">
+        {% trans "A message from" %} {{ sender_name }}:
+    </p>
+    <p style="font-size: 16px; color: #333; font-style: italic; margin: 0; line-height: 1.6;">
+        "{{ sender_message }}"
+    </p>
+</div>
+{% endif %}
+
+{% if qr_code_url %}
+<div style="text-align: center; margin: 30px 0;">
+    <div style="display: inline-block; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+        <img src="{{ qr_code_url }}" alt="{% trans 'QR Code' %}" style="max-width: 180px; height: auto; display: block;">
+    </div>
+    <p style="font-size: 12px; color: #999; margin-top: 10px;">
+        {% trans "Scan to begin your adventure" %}
+    </p>
+</div>
+{% endif %}
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ claim_url }}" class="button" style="font-size: 18px; padding: 15px 40px; border-radius: 50px;">
+        {% trans "Begin Your Adventure" %}
+    </a>
+</div>
+
+<div style="background: #f8f9fa; border-radius: 12px; padding: 25px; margin: 30px 0;">
+    <h3 style="color: #9B59B6; margin: 0 0 15px 0; font-size: 16px;">
+        {% trans "What is the Wonderland of You?" %}
+    </h3>
+    <p style="font-size: 14px; color: #666; margin: 0; line-height: 1.7;">
+        {% trans "It's a magical journey through 6 enchanting chapters filled with puzzles, riddles, and heartfelt surprises. Each chapter unlocks secrets and reveals messages from someone who cares about you deeply." %}
+    </p>
+    <div style="margin-top: 20px; display: flex; justify-content: space-around; text-align: center;">
+        <div style="flex: 1;">
+            <span style="font-size: 24px;">🧩</span>
+            <p style="font-size: 12px; color: #777; margin: 5px 0 0 0;">{% trans "Puzzles" %}</p>
+        </div>
+        <div style="flex: 1;">
+            <span style="font-size: 24px;">💝</span>
+            <p style="font-size: 12px; color: #777; margin: 5px 0 0 0;">{% trans "Secrets" %}</p>
+        </div>
+        <div style="flex: 1;">
+            <span style="font-size: 24px;">📜</span>
+            <p style="font-size: 12px; color: #777; margin: 5px 0 0 0;">{% trans "Rewards" %}</p>
+        </div>
+    </div>
+</div>
+
+<div style="text-align: center; margin: 20px 0;">
+    <p style="font-size: 13px; color: #999;">
+        {% trans "Gift Code:" %} <code style="background: #f0f0f0; padding: 3px 8px; border-radius: 4px; font-family: monospace;">{{ gift_code }}</code>
+    </p>
+</div>
+{% endblock %}
+
+{% block footer_message %}
+{% trans "You're receiving this because someone special created a journey for you on Crush.lu." %}<br>
+{% endblock %}
+
+{% block unsubscribe %}
+{# No unsubscribe for gift notifications - they're one-time only #}
+{% endblock %}

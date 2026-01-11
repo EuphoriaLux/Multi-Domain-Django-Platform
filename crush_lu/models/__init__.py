@@ -2,6 +2,7 @@ from .profiles import *
 from .events import *
 from .connections import *
 from .journey import *
+from .journey_gift import *
 from .advent import *
 from .oauth_state import *
 from .referrals import *

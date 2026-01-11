@@ -1,0 +1,265 @@
+{% extends "crush_lu/journey/gift_base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Gift Created!" %} - Crush.lu{% endblock %}
+
+{% block extra_gift_css %}
+<style>
+    .sharing-suite {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin: 25px 0;
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .sharing-suite h3 {
+        grid-column: span 2;
+        text-align: center;
+        margin: 0 0 15px 0;
+        font-size: 1rem;
+        opacity: 0.9;
+        color: var(--journey-light);
+    }
+
+    .share-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 14px 16px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.08);
+        color: white;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        font-size: 0.9rem;
+    }
+
+    .share-btn:hover {
+        background: rgba(255, 255, 255, 0.15);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .share-btn-copy:hover {
+        border-color: var(--journey-primary);
+        box-shadow: 0 0 15px rgba(155, 89, 182, 0.3);
+    }
+
+    .share-btn-copy[data-copied="true"] {
+        background: rgba(46, 204, 113, 0.2);
+        border-color: #2ecc71;
+    }
+
+    .share-btn-download:hover {
+        border-color: var(--journey-secondary);
+        box-shadow: 0 0 15px rgba(255, 107, 157, 0.3);
+    }
+
+    .share-btn-whatsapp:hover {
+        border-color: #25D366;
+        background: rgba(37, 211, 102, 0.2);
+    }
+
+    .share-btn-email:hover {
+        border-color: #4285f4;
+        background: rgba(66, 133, 244, 0.2);
+    }
+
+    .share-btn-native {
+        grid-column: span 2;
+    }
+
+    .share-icon {
+        font-size: 1.2rem;
+    }
+
+    .gift-code-box {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 15px;
+        margin: 20px 0;
+        text-align: center;
+    }
+
+    .gift-code-box .label {
+        font-size: 0.85rem;
+        opacity: 0.7;
+        margin: 0 0 5px 0;
+    }
+
+    .gift-code-box .code {
+        font-size: 1.4rem;
+        font-weight: bold;
+        font-family: monospace;
+        letter-spacing: 3px;
+        margin: 0;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .direct-link-box {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+        padding: 12px 15px;
+        margin: 20px 0;
+    }
+
+    .direct-link-box .label {
+        font-size: 0.8rem;
+        opacity: 0.6;
+        margin: 0 0 5px 0;
+    }
+
+    .direct-link-box .link {
+        word-break: break-all;
+        font-family: monospace;
+        font-size: 0.8rem;
+        margin: 0;
+        opacity: 0.8;
+    }
+
+    .success-icon {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    .success-icon span {
+        font-size: 64px;
+        display: inline-block;
+        animation: bounceIn 0.6s ease-out;
+    }
+
+    @keyframes bounceIn {
+        0% { transform: scale(0); opacity: 0; }
+        50% { transform: scale(1.2); }
+        100% { transform: scale(1); opacity: 1; }
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 25px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .hint-text {
+        text-align: center;
+        font-size: 0.85rem;
+        opacity: 0.6;
+        margin-top: 20px;
+        line-height: 1.5;
+    }
+
+    @media (max-width: 480px) {
+        .sharing-suite {
+            grid-template-columns: 1fr;
+        }
+        .share-btn-native {
+            grid-column: span 1;
+        }
+        .action-buttons {
+            flex-direction: column;
+        }
+        .action-buttons .btn-gift {
+            width: 100%;
+            text-align: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block gift_content %}
+<div class="gift-card" x-data="giftShare"
+     data-gift-url="{{ gift.get_qr_url }}"
+     data-gift-code="{{ gift.gift_code }}"
+     data-recipient="{{ gift.recipient_name }}">
+
+    <div class="success-icon">
+        <span>🎁</span>
+    </div>
+
+    <h1 class="gift-title">{% trans "Your Gift is Ready!" %}</h1>
+    <p class="gift-subtitle">{% trans "Share this magical journey with" %} <strong>{{ gift.recipient_name }}</strong></p>
+
+    {% if gift.qr_code_image %}
+    <div class="qr-container">
+        <img src="{{ gift.qr_code_image.url }}" alt="{% trans 'Gift QR Code' %}" id="qr-image">
+    </div>
+    {% endif %}
+
+    <div class="gift-code-box">
+        <p class="label">{% trans "Gift Code" %}</p>
+        <p class="code">{{ gift.gift_code }}</p>
+    </div>
+
+    <!-- Sharing Suite -->
+    <div class="sharing-suite">
+        <h3>{% trans "Share Your Gift" %}</h3>
+
+        <!-- Copy Link -->
+        <button type="button" class="share-btn share-btn-copy" x-bind:data-copied="copied" @click="copyLink">
+            <span class="share-icon">📋</span>
+            <span x-text="copyButtonText">{% trans "Copy Link" %}</span>
+        </button>
+
+        <!-- Download QR -->
+        {% if gift.qr_code_image %}
+        <a href="{{ gift.qr_code_image.url }}" download="{{ gift.gift_code }}.png" class="share-btn share-btn-download">
+            <span class="share-icon">📥</span>
+            <span>{% trans "Download QR" %}</span>
+        </a>
+        {% endif %}
+
+        <!-- WhatsApp Share -->
+        <button type="button" class="share-btn share-btn-whatsapp" @click="shareWhatsApp">
+            <span class="share-icon">💬</span>
+            <span>{% trans "WhatsApp" %}</span>
+        </button>
+
+        <!-- Email Share -->
+        <button type="button" class="share-btn share-btn-email" @click="shareEmail">
+            <span class="share-icon">📧</span>
+            <span>{% trans "Email" %}</span>
+        </button>
+
+        <!-- Native Share (mobile only) -->
+        <button type="button" class="share-btn share-btn-native"
+                x-show="showNativeShare"
+                @click="shareNative">
+            <span class="share-icon">🔗</span>
+            <span>{% trans "More Options..." %}</span>
+        </button>
+    </div>
+
+    <div class="direct-link-box">
+        <p class="label">{% trans "Direct Link" %}</p>
+        <p class="link">{{ gift.get_qr_url }}</p>
+    </div>
+
+    <div class="action-buttons">
+        <a href="{% url 'crush_lu:gift_create' %}" class="btn-gift btn-gift-primary">
+            {% trans "Create Another Gift" %}
+        </a>
+        <a href="{% url 'crush_lu:gift_list' %}" class="btn-gift btn-gift-secondary">
+            {% trans "View All Gifts" %}
+        </a>
+    </div>
+
+    <p class="hint-text">
+        {% trans "When they scan the QR code or click the link, they'll see your personalized message and can begin their Wonderland journey!" %}
+    </p>
+</div>
+{% endblock %}
