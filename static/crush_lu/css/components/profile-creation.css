@@ -1069,6 +1069,23 @@
 }
 
 /* ===================
+   Phone Verification Button Animation
+   Draws attention to the verify button
+   =================== */
+@keyframes pulse-subtle {
+    0%, 100% {
+        box-shadow: 0 10px 15px -3px rgba(147, 51, 234, 0.3), 0 4px 6px -4px rgba(147, 51, 234, 0.3);
+    }
+    50% {
+        box-shadow: 0 10px 20px -3px rgba(147, 51, 234, 0.5), 0 4px 10px -4px rgba(236, 72, 153, 0.4);
+    }
+}
+
+.animate-pulse-subtle {
+    animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+/* ===================
    Reduced Motion Support
    Respects user's system preferences for reduced motion
    =================== */
@@ -1083,7 +1100,8 @@
     .privacy-toggle-label,
     .char-counter-bar-fill,
     .progress-step,
-    .progress-line {
+    .progress-line,
+    .animate-pulse-subtle {
         animation: none !important;
         transition: none !important;
     }
