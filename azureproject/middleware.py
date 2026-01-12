@@ -16,6 +16,14 @@ from django.utils import translation
 from django.http import HttpResponse, HttpResponseForbidden
 from django.contrib.sites.models import Site
 
+# Import psycopg2 UniqueViolation for catching raw database exceptions
+# that may not be wrapped by Django in race conditions
+try:
+    from psycopg2.errors import UniqueViolation
+except ImportError:
+    # psycopg2 not installed (e.g., using sqlite in development)
+    UniqueViolation = None
+
 from .domains import (
     DOMAINS,
     DEV_HOSTS,
@@ -35,10 +43,19 @@ def _safe_cache_set(key, value, timeout=300):
     cache the same key can cause IntegrityError (duplicate key). This helper
     catches that exception since it's benign - another request already cached
     the value.
+
+    We catch both Django's IntegrityError and psycopg2's UniqueViolation because
+    in some edge cases with the DatabaseCache backend, the raw psycopg2 exception
+    can propagate through before Django wraps it.
     """
+    # Build tuple of exceptions to catch
+    exceptions_to_catch = (IntegrityError,)
+    if UniqueViolation is not None:
+        exceptions_to_catch = (IntegrityError, UniqueViolation)
+
     try:
         cache.set(key, value, timeout)
-    except IntegrityError:
+    except exceptions_to_catch:
         # Race condition: another request already cached this key
         # This is fine - the value is cached, just not by us
         pass

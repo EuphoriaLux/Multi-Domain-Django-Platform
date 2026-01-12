@@ -179,16 +179,28 @@
                                 x-show="notVerified"
                                 @click="startVerification"
                                 x-bind:disabled="cannotVerify"
-                                class="px-4 py-3 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2">
+                                class="px-5 py-3 bg-gradient-to-r from-purple-600 to-pink-500 text-white font-semibold rounded-lg hover:from-purple-700 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105 disabled:hover:scale-100"
+                                x-bind:class="cannotVerify ? '' : 'animate-pulse-subtle'">
                             {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}
-                            <span class="hidden sm:inline">{% trans "Verify" %}</span>
+                            <span>{% trans "Verify" %}</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
                         </button>
                         <!-- Change phone number button removed - users must contact support to change verified phone -->
                     </div>
 
-                    <p class="text-sm text-gray-500 mt-2">
-                        {% include "shared/icons/information-circle.html" with class="w-5 h-5" %}
-                        {% trans "You must verify your phone number before continuing." %}
+                    <p class="text-sm mt-2" x-bind:class="notVerified ? 'text-purple-600 font-medium' : 'text-gray-500'">
+                        <span x-show="notVerified" class="inline-flex items-center gap-1">
+                            <svg class="w-4 h-4 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                            </svg>
+                            {% trans "Enter your number and click the Verify button to receive an SMS code" %}
+                        </span>
+                        <span x-show="verified" x-cloak class="inline-flex items-center gap-1">
+                            {% include "shared/icons/information-circle.html" with class="w-4 h-4" %}
+                            {% trans "Your phone number is verified" %}
+                        </span>
                     </p>
 
                     {% if form.phone_number.errors %}
