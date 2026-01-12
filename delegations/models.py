@@ -1,5 +1,5 @@
 """
-Models for Crush Delegation - Staff management and event coordination platform.
+Models for Delegations.lu - Staff management and event coordination platform.
 
 Multi-company architecture supporting:
 - Company isolation (each company sees only their data)
@@ -66,7 +66,7 @@ class Company(models.Model):
 
 class DelegationProfile(models.Model):
     """
-    User profile for the Crush Delegation platform.
+    User profile for the Delegations.lu platform.
 
     Links users to their company and tracks access control status.
     """

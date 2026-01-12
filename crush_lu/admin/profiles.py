@@ -26,7 +26,9 @@ from crush_lu.models import (
 )
 from .filters import (
     ReviewTimeFilter, SubmissionWorkflowFilter, CoachAssignmentFilter,
-    PhoneVerificationFilter, AgeRangeFilter, LastLoginFilter
+    PhoneVerificationFilter, AgeRangeFilter, LastLoginFilter,
+    DaysSinceSignupFilter, DaysPendingApprovalFilter,
+    ProfileCompletenessFilter, EventParticipationFilter,
 )
 
 
@@ -56,7 +58,7 @@ class CrushCoachAdmin(admin.ModelAdmin):
     def get_user_link(self, obj):
         """Display username with dual navigation links to Coach profile and User record"""
         coach_url = reverse('crush_admin:crush_lu_crushcoach_change', args=[obj.pk])
-        user_url = reverse('admin:auth_user_change', args=[obj.user.pk])
+        user_url = reverse('crush_admin:auth_user_change', args=[obj.user.pk])
         status = '🟢' if obj.is_active else '🔴'
 
         return format_html(
@@ -135,10 +137,11 @@ class CrushProfileAdmin(admin.ModelAdmin):
     list_display = ('get_user_link', 'get_email', 'age', 'gender', 'location', 'get_language_display', 'phone_verified_icon', 'completion_status', 'get_assigned_coach', 'get_referral_code', 'get_referral_count', 'is_approved', 'is_active', 'created_at', 'is_coach')
     list_filter = (
         'is_approved', 'is_active', PhoneVerificationFilter, AgeRangeFilter, LastLoginFilter,
+        DaysSinceSignupFilter, ProfileCompletenessFilter, EventParticipationFilter,
         'gender', 'completion_status', CoachAssignmentFilter, 'preferred_language', 'looking_for', 'created_at'
     )
     search_fields = ('user__username', 'user__email', 'location', 'bio', 'phone_number')
-    ordering = ['-is_approved', '-is_active', '-created_at']
+    ordering = ['-created_at']  # Most recent profiles first
     readonly_fields = (
         'get_quick_status_summary',
         'get_user_account_info',
@@ -255,7 +258,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
     def get_user_link(self, obj):
         """Display username with dual navigation links to Profile and User"""
         profile_url = reverse('crush_admin:crush_lu_crushprofile_change', args=[obj.pk])
-        user_url = reverse('admin:auth_user_change', args=[obj.user.pk])
+        user_url = reverse('crush_admin:auth_user_change', args=[obj.user.pk])
         status = '✅' if obj.is_approved else '⏳'
 
         return format_html(
@@ -445,7 +448,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
     def get_user_account_info(self, obj):
         """Display comprehensive User account information as HTML block"""
         user = obj.user
-        user_url = reverse('admin:auth_user_change', args=[user.pk])
+        user_url = reverse('crush_admin:auth_user_change', args=[user.pk])
 
         date_joined = user.date_joined.strftime('%Y-%m-%d %H:%M') if user.date_joined else 'N/A'
         last_login = user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else 'Never'
@@ -766,7 +769,7 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         'get_profile_link', 'get_user_email', 'get_workflow_status',
         'coach', 'get_pending_time', 'status', 'review_call_completed', 'submitted_at'
     )
-    list_filter = ('status', ReviewTimeFilter, SubmissionWorkflowFilter, 'review_call_completed', 'coach', 'submitted_at')
+    list_filter = ('status', ReviewTimeFilter, SubmissionWorkflowFilter, DaysPendingApprovalFilter, 'review_call_completed', 'coach', 'submitted_at')
     search_fields = ('profile__user__username', 'profile__user__email', 'coach__user__username', 'coach_notes', 'feedback_to_user')
     readonly_fields = ('submitted_at', 'get_profile_details')
     # Quick inline editing for common workflow actions
@@ -777,6 +780,7 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         'bulk_request_revision',
         'bulk_assign_coach',
         'bulk_mark_call_completed',
+        'export_submissions_csv',
     ]
     fieldsets = (
         ('Profile Summary', {
@@ -1009,6 +1013,49 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         now = timezone.now()
         updated = queryset.update(review_call_completed=True, review_call_date=now)
         django_messages.success(request, f"Marked {updated} screening call(s) as completed")
+
+    @admin.action(description=_('Export selected submissions to CSV'))
+    def export_submissions_csv(self, request, queryset):
+        """Export selected profile submissions to CSV with review details"""
+        import csv
+        from django.http import HttpResponse
+        from datetime import datetime
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="profile_submissions_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow([
+            'Profile Name', 'Email', 'Status', 'Coach', 'Call Completed',
+            'Days Pending', 'Submitted At', 'Reviewed At', 'Coach Notes', 'Feedback'
+        ])
+
+        for submission in queryset.select_related('profile__user', 'coach__user'):
+            profile = submission.profile
+            user = profile.user
+            coach_name = submission.coach.user.get_full_name() if submission.coach else 'Unassigned'
+
+            # Calculate days pending
+            if submission.status == 'pending':
+                days_pending = (timezone.now() - submission.submitted_at).days
+            else:
+                days_pending = '-'
+
+            writer.writerow([
+                user.get_full_name() or user.username,
+                user.email,
+                submission.get_status_display(),
+                coach_name,
+                'Yes' if submission.review_call_completed else 'No',
+                days_pending,
+                submission.submitted_at.strftime('%Y-%m-%d %H:%M') if submission.submitted_at else '',
+                submission.reviewed_at.strftime('%Y-%m-%d %H:%M') if submission.reviewed_at else '',
+                submission.coach_notes or '',
+                submission.feedback_to_user or '',
+            ])
+
+        django_messages.success(request, f"Exported {queryset.count()} submission(s) to CSV.")
+        return response
 
 
 class CoachSessionAdmin(admin.ModelAdmin):

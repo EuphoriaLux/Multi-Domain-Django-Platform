@@ -1,4 +1,4 @@
-"""Custom template tags for Crush Delegation app."""
+"""Custom template tags for Delegations.lu app."""
 
 from django import template
 

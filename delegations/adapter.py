@@ -1,5 +1,5 @@
 """
-Allauth adapters for Crush Delegation.
+Allauth adapters for Delegations.lu.
 
 Customizes Microsoft authentication behavior for delegations.lu domain.
 """
