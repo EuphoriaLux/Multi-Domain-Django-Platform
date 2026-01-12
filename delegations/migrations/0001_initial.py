@@ -54,7 +54,7 @@ class Migration(migrations.Migration):
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('approved_at', models.DateTimeField(blank=True, null=True)),
                 ('last_login_at', models.DateTimeField(blank=True, null=True)),
-                ('company', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='profiles', to='crush_delegation.company')),
+                ('company', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='profiles', to='delegations.company')),
                 ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='delegation_profile', to=settings.AUTH_USER_MODEL)),
             ],
             options={
@@ -71,7 +71,7 @@ class Migration(migrations.Migration):
                 ('ip_address', models.GenericIPAddressField(blank=True, null=True)),
                 ('user_agent', models.TextField(blank=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('profile', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='access_logs', to='crush_delegation.delegationprofile')),
+                ('profile', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='access_logs', to='delegations.delegationprofile')),
             ],
             options={
                 'verbose_name': 'Access Log',
