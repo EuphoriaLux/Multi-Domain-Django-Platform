@@ -304,3 +304,168 @@ class HasMessagesFilter(admin.SimpleListFilter):
                 message_count=Count('messages')
             ).filter(message_count=0)
         return queryset
+
+
+# ============================================================================
+# NEW QUICK WIN FILTERS (Coach Workflow Improvements)
+# ============================================================================
+
+
+class DaysSinceSignupFilter(admin.SimpleListFilter):
+    """Filter profiles by account age (time since creation)"""
+    title = 'Account Age'
+    parameter_name = 'signup_age'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('new', '🆕 New (< 7 days)'),
+            ('recent', '📅 Recent (7-30 days)'),
+            ('established', '📆 Established (> 30 days)'),
+        )
+
+    def queryset(self, request, queryset):
+        now = timezone.now()
+        if self.value() == 'new':
+            cutoff = now - timedelta(days=7)
+            return queryset.filter(created_at__gte=cutoff)
+        elif self.value() == 'recent':
+            cutoff_start = now - timedelta(days=30)
+            cutoff_end = now - timedelta(days=7)
+            return queryset.filter(
+                created_at__gte=cutoff_start,
+                created_at__lt=cutoff_end
+            )
+        elif self.value() == 'established':
+            cutoff = now - timedelta(days=30)
+            return queryset.filter(created_at__lt=cutoff)
+        return queryset
+
+
+class DaysPendingApprovalFilter(admin.SimpleListFilter):
+    """Filter submissions by how long they've been waiting for approval"""
+    title = 'Days Pending'
+    parameter_name = 'days_pending'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('fresh', '🟢 Fresh (< 1 day)'),
+            ('waiting', '🟡 Waiting (1-3 days)'),
+            ('overdue', '🟠 Overdue (3-7 days)'),
+            ('critical', '🔴 Critical (> 7 days)'),
+        )
+
+    def queryset(self, request, queryset):
+        now = timezone.now()
+        # Only filter pending submissions
+        pending_qs = queryset.filter(status='pending')
+
+        if self.value() == 'fresh':
+            cutoff = now - timedelta(days=1)
+            return pending_qs.filter(submitted_at__gte=cutoff)
+        elif self.value() == 'waiting':
+            cutoff_start = now - timedelta(days=3)
+            cutoff_end = now - timedelta(days=1)
+            return pending_qs.filter(
+                submitted_at__gte=cutoff_start,
+                submitted_at__lt=cutoff_end
+            )
+        elif self.value() == 'overdue':
+            cutoff_start = now - timedelta(days=7)
+            cutoff_end = now - timedelta(days=3)
+            return pending_qs.filter(
+                submitted_at__gte=cutoff_start,
+                submitted_at__lt=cutoff_end
+            )
+        elif self.value() == 'critical':
+            cutoff = now - timedelta(days=7)
+            return pending_qs.filter(submitted_at__lt=cutoff)
+        return queryset
+
+
+class ProfileCompletenessFilter(admin.SimpleListFilter):
+    """Filter profiles by completeness (photos, bio, interests)"""
+    title = 'Profile Completeness'
+    parameter_name = 'completeness'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('complete', '✅ Complete'),
+            ('missing_photos', '📷 Missing Photos'),
+            ('missing_bio', '📝 Missing Bio'),
+            ('missing_interests', '❤️ Missing Interests'),
+            ('incomplete', '⚠️ Multiple Missing'),
+        )
+
+    def queryset(self, request, queryset):
+        from django.db.models import Q
+
+        if self.value() == 'complete':
+            # Has at least one photo, has bio, has interests
+            return queryset.filter(
+                photo_1__isnull=False
+            ).exclude(
+                photo_1=''
+            ).exclude(
+                Q(bio__isnull=True) | Q(bio='')
+            ).exclude(
+                Q(interests__isnull=True) | Q(interests='')
+            )
+        elif self.value() == 'missing_photos':
+            # No photos at all
+            return queryset.filter(
+                Q(photo_1__isnull=True) | Q(photo_1='')
+            )
+        elif self.value() == 'missing_bio':
+            return queryset.filter(
+                Q(bio__isnull=True) | Q(bio='')
+            )
+        elif self.value() == 'missing_interests':
+            return queryset.filter(
+                Q(interests__isnull=True) | Q(interests='')
+            )
+        elif self.value() == 'incomplete':
+            # Missing 2+ of: photo, bio, interests
+            no_photo = Q(photo_1__isnull=True) | Q(photo_1='')
+            no_bio = Q(bio__isnull=True) | Q(bio='')
+            no_interests = Q(interests__isnull=True) | Q(interests='')
+            # At least 2 conditions true
+            return queryset.filter(
+                (no_photo & no_bio) |
+                (no_photo & no_interests) |
+                (no_bio & no_interests)
+            )
+        return queryset
+
+
+class EventParticipationFilter(admin.SimpleListFilter):
+    """Filter profiles by event attendance history"""
+    title = 'Event Participation'
+    parameter_name = 'event_participation'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('none', '🚫 No Events'),
+            ('one', '1️⃣ One Event'),
+            ('multiple', '🌟 Multiple Events (2+)'),
+            ('active', '🔥 Very Active (5+)'),
+        )
+
+    def queryset(self, request, queryset):
+        from django.db.models import Count
+
+        annotated = queryset.annotate(
+            event_count=Count(
+                'user__eventregistration',
+                filter=models.Q(user__eventregistration__status='confirmed')
+            )
+        )
+
+        if self.value() == 'none':
+            return annotated.filter(event_count=0)
+        elif self.value() == 'one':
+            return annotated.filter(event_count=1)
+        elif self.value() == 'multiple':
+            return annotated.filter(event_count__gte=2)
+        elif self.value() == 'active':
+            return annotated.filter(event_count__gte=5)
+        return queryset

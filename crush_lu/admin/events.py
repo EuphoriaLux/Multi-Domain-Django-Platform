@@ -94,7 +94,7 @@ class MeetupEventAdmin(admin.ModelAdmin):
         'get_voting_status', 'get_presentation_status', 'get_speed_dating_status'
     )
     inlines = [EventRegistrationInline, EventInvitationInline, EventVotingSessionInline, PresentationQueueInline, SpeedDatingPairInline]
-    actions = ['publish_events', 'unpublish_events', 'cancel_events', 'send_event_reminders']
+    actions = ['publish_events', 'unpublish_events', 'cancel_events', 'send_event_reminders', 'export_attendees_csv']
     filter_horizontal = ('invited_users',)
 
     fieldsets = (
@@ -287,6 +287,50 @@ class MeetupEventAdmin(admin.ModelAdmin):
         if total_sent == 0 and total_failed == 0:
             django_messages.info(request, _("No confirmed registrations to notify"))
 
+    @admin.action(description=_('📋 Export attendees to CSV'))
+    def export_attendees_csv(self, request, queryset):
+        """Export confirmed attendees for selected events to CSV"""
+        import csv
+        from django.http import HttpResponse
+        from datetime import datetime
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="event_attendees_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow([
+            'Event', 'Event Date', 'Name', 'Email', 'Phone', 'Status',
+            'Payment Confirmed', 'Dietary Restrictions', 'Special Requests',
+            'Registered At'
+        ])
+
+        for event in queryset:
+            registrations = event.eventregistration_set.filter(
+                status__in=['confirmed', 'attended']
+            ).select_related('user__crushprofile')
+
+            for reg in registrations:
+                user = reg.user
+                profile = getattr(user, 'crushprofile', None)
+                phone = profile.phone_number if profile else ''
+
+                writer.writerow([
+                    event.title,
+                    event.date_time.strftime('%Y-%m-%d %H:%M') if event.date_time else '',
+                    user.get_full_name() or user.username,
+                    user.email,
+                    phone,
+                    reg.get_status_display(),
+                    'Yes' if reg.payment_confirmed else 'No',
+                    reg.dietary_restrictions or '',
+                    reg.special_requests or '',
+                    reg.registered_at.strftime('%Y-%m-%d %H:%M') if reg.registered_at else '',
+                ])
+
+        total_events = queryset.count()
+        django_messages.success(request, f"Exported attendees from {total_events} event(s) to CSV.")
+        return response
+
 
 class EventRegistrationAdmin(admin.ModelAdmin):
     list_display = ('user', 'event', 'status', 'payment_confirmed', 'registered_at')
@@ -295,6 +339,7 @@ class EventRegistrationAdmin(admin.ModelAdmin):
     readonly_fields = ('registered_at', 'updated_at')
     # Quick inline editing for registration management
     list_editable = ('status', 'payment_confirmed')
+    actions = ['export_registrations_csv', 'confirm_registrations', 'move_to_waitlist']
     fieldsets = (
         ('Registration Details', {
             'fields': ('event', 'user', 'status')
@@ -309,6 +354,57 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             'fields': ('registered_at', 'updated_at')
         }),
     )
+
+    @admin.action(description=_('📋 Export selected registrations to CSV'))
+    def export_registrations_csv(self, request, queryset):
+        """Export selected registrations to CSV"""
+        import csv
+        from django.http import HttpResponse
+        from datetime import datetime
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="registrations_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow([
+            'Event', 'Event Date', 'Name', 'Email', 'Phone', 'Status',
+            'Payment Confirmed', 'Payment Date', 'Dietary Restrictions',
+            'Special Requests', 'Registered At'
+        ])
+
+        for reg in queryset.select_related('user__crushprofile', 'event'):
+            user = reg.user
+            profile = getattr(user, 'crushprofile', None)
+            phone = profile.phone_number if profile else ''
+
+            writer.writerow([
+                reg.event.title,
+                reg.event.date_time.strftime('%Y-%m-%d %H:%M') if reg.event.date_time else '',
+                user.get_full_name() or user.username,
+                user.email,
+                phone,
+                reg.get_status_display(),
+                'Yes' if reg.payment_confirmed else 'No',
+                reg.payment_date.strftime('%Y-%m-%d') if reg.payment_date else '',
+                reg.dietary_restrictions or '',
+                reg.special_requests or '',
+                reg.registered_at.strftime('%Y-%m-%d %H:%M') if reg.registered_at else '',
+            ])
+
+        django_messages.success(request, f"Exported {queryset.count()} registration(s) to CSV.")
+        return response
+
+    @admin.action(description=_('✅ Confirm selected registrations'))
+    def confirm_registrations(self, request, queryset):
+        """Confirm selected registrations"""
+        updated = queryset.update(status='confirmed')
+        django_messages.success(request, f"Confirmed {updated} registration(s).")
+
+    @admin.action(description=_('⏳ Move to waitlist'))
+    def move_to_waitlist(self, request, queryset):
+        """Move selected registrations to waitlist"""
+        updated = queryset.update(status='waitlist')
+        django_messages.success(request, f"Moved {updated} registration(s) to waitlist.")
 
 
 class EventInvitationAdmin(admin.ModelAdmin):

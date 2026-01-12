@@ -94,6 +94,7 @@ class CrushLuAdminSite(admin.AdminSite):
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 1: Users & Profiles (Core user management)
             # ═══════════════════════════════════════════════════════════════════
+            'user': {'order': 0, 'icon': '🔑', 'group': 'Users & Profiles'},  # Django User accounts
             'crushprofile': {'order': 1, 'icon': '👤', 'group': 'Users & Profiles'},
             'profilesubmission': {'order': 2, 'icon': '📝', 'group': 'Users & Profiles'},
             'crushcoach': {'order': 3, 'icon': '🎓', 'group': 'Users & Profiles'},
@@ -176,10 +177,33 @@ class CrushLuAdminSite(admin.AdminSite):
         # Create grouped app list - transform single crush_lu app into multiple sections
         new_app_list = []
 
+        # First, collect User model from auth app to merge into Users & Profiles group
+        auth_user_model = None
+        for app in app_list:
+            if app['app_label'] == 'auth':
+                for model in app['models']:
+                    if model['object_name'].lower() == 'user':
+                        auth_user_model = model
+                        break
+                break
+
         for app in app_list:
             if app['app_label'] == 'crush_lu':
                 # Group models by category
                 groups = {}
+
+                # Add User model from auth app to the groups if found
+                if auth_user_model:
+                    config = custom_order.get('user')
+                    if config:
+                        auth_user_model['_order'] = config['order']
+                        group_name = config['group']
+                        icon = config['icon']
+                        if not auth_user_model['name'].startswith(icon):
+                            auth_user_model['name'] = f"{icon} {auth_user_model['name']}"
+                        if group_name not in groups:
+                            groups[group_name] = []
+                        groups[group_name].append(auth_user_model)
 
                 for model in app['models']:
                     model_name = model['object_name'].lower()
@@ -248,6 +272,9 @@ class CrushLuAdminSite(admin.AdminSite):
                             'has_module_perms': True,
                             'models': groups[group_key],
                         })
+            elif app['app_label'] == 'auth':
+                # Skip auth app - User model is merged into Users & Profiles group
+                continue
             else:
                 # Keep other apps as-is
                 new_app_list.append(app)

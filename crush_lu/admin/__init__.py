@@ -34,6 +34,10 @@ from .filters import (
     ReviewTimeFilter,
     CoachAssignmentFilter,
     SubmissionWorkflowFilter,
+    DaysSinceSignupFilter,
+    DaysPendingApprovalFilter,
+    ProfileCompletenessFilter,
+    EventParticipationFilter,
 )
 
 from .special import SpecialUserExperienceAdmin
@@ -255,8 +259,10 @@ crush_admin_site.register(OAuthState, OAuthStateAdmin)
 # PassKit Device Registration (Apple Wallet device tracking)
 crush_admin_site.register(PasskitDeviceRegistration, PasskitDeviceRegistrationAdmin)
 
-# NOTE: User is NOT registered with crush_admin_site to hide "Authentication and Authorization" section
-# Users can still be viewed/edited via the "👤 User" links in CrushProfile and CrushCoach admin pages
+# Register User model with crush_admin_site for proper navigation
+# This allows coaches to navigate to User records while staying within /crush-admin/
+from django.contrib.auth.models import User
+crush_admin_site.register(User, CrushUserAdmin)
 
 
 # ============================================================================
@@ -271,6 +277,10 @@ __all__ = [
     'ReviewTimeFilter',
     'CoachAssignmentFilter',
     'SubmissionWorkflowFilter',
+    'DaysSinceSignupFilter',
+    'DaysPendingApprovalFilter',
+    'ProfileCompletenessFilter',
+    'EventParticipationFilter',
 
     # Special
     'SpecialUserExperienceAdmin',
