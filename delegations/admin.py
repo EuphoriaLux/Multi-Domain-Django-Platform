@@ -1,5 +1,5 @@
 """
-Django Admin configuration for Crush Delegation app.
+Django Admin configuration for Delegations.lu app.
 
 Provides admin interfaces for managing companies, user profiles, and access logs.
 """
@@ -11,12 +11,12 @@ from .models import Company, DelegationProfile, AccessLog
 
 
 # ============================================================================
-# CUSTOM ADMIN SITE - Crush Delegation Management
+# CUSTOM ADMIN SITE - Delegations.lu Management
 # ============================================================================
 
-class CrushDelegationAdminSite(admin.AdminSite):
-    site_header = '👥 Crush Delegation Management'
-    site_title = 'Crush Delegation Admin'
+class DelegationsAdminSite(admin.AdminSite):
+    site_header = '👥 Delegations.lu Management'
+    site_title = 'Delegations.lu Admin'
     index_title = 'Company & Employee Access Management'
 
     def get_app_list(self, request, app_label=None):
@@ -37,7 +37,7 @@ class CrushDelegationAdminSite(admin.AdminSite):
         new_app_list = []
 
         for app in app_list:
-            if app['app_label'] == 'crush_delegation':
+            if app['app_label'] == 'delegations':
                 # Group models by category
                 groups = {}
 
@@ -79,7 +79,7 @@ class CrushDelegationAdminSite(admin.AdminSite):
                     if group_key in groups and groups[group_key]:
                         new_app_list.append({
                             'name': f"{group_icons.get(group_key, '')} {group_key}",
-                            'app_label': f'crush_delegation_{group_key.lower()}',
+                            'app_label': f'delegations_{group_key.lower()}',
                             'app_url': app['app_url'],
                             'has_module_perms': app['has_module_perms'],
                             'models': groups[group_key],
@@ -91,7 +91,7 @@ class CrushDelegationAdminSite(admin.AdminSite):
 
 
 # Instantiate the custom admin site
-crush_delegation_admin_site = CrushDelegationAdminSite(name='crush_delegation_admin')
+delegations_admin_site = DelegationsAdminSite(name='delegations_admin')
 
 
 class CompanyAdmin(admin.ModelAdmin):
@@ -294,9 +294,9 @@ class AccessLogAdmin(admin.ModelAdmin):
 
 
 # ============================================================================
-# REGISTER MODELS TO CUSTOM CRUSH DELEGATION ADMIN SITE
+# REGISTER MODELS TO CUSTOM DELEGATIONS ADMIN SITE
 # ============================================================================
 
-crush_delegation_admin_site.register(Company, CompanyAdmin)
-crush_delegation_admin_site.register(DelegationProfile, DelegationProfileAdmin)
-crush_delegation_admin_site.register(AccessLog, AccessLogAdmin)
+delegations_admin_site.register(Company, CompanyAdmin)
+delegations_admin_site.register(DelegationProfile, DelegationProfileAdmin)
+delegations_admin_site.register(AccessLog, AccessLogAdmin)

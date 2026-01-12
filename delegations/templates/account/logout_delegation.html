@@ -1,7 +1,7 @@
-{% extends 'crush_delegation/base.html' %}
+{% extends 'delegations/base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Sign Out" %} - Crush Delegation{% endblock %}
+{% block title %}{% trans "Sign Out" %} - Delegations.lu{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
@@ -21,7 +21,7 @@
                     {% endif %}
                     <div class="d-grid gap-2">
                         <button type="submit" class="btn btn-primary">{% trans 'Sign Out' %}</button>
-                        <a href="{% url 'crush_delegation:home' %}" class="btn btn-outline-secondary">{% trans 'Cancel' %}</a>
+                        <a href="{% url 'delegations:home' %}" class="btn btn-outline-secondary">{% trans 'Cancel' %}</a>
                     </div>
                 </form>
             </div>

@@ -1,11 +1,11 @@
 from django.apps import AppConfig
 
 
-class CrushDelegationConfig(AppConfig):
+class DelegationsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'crush_delegation'
-    verbose_name = 'Crush Delegation'
+    name = 'delegations'
+    verbose_name = 'Delegations.lu'
 
     def ready(self):
         """Import signal handlers when the app is ready"""
-        import crush_delegation.signals  # noqa
+        import delegations.signals  # noqa

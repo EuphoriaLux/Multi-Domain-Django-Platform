@@ -1,5 +1,5 @@
 """
-Signal handlers for Crush Delegation app.
+Signal handlers for Delegations.lu app.
 
 Handles Microsoft OAuth profile creation, company matching, and photo download.
 """

@@ -1,7 +1,7 @@
 {% extends "admin/base.html" %}
 {% load i18n %}
 
-{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Crush Delegation Management') }}{% endblock %}
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Delegations.lu Management') }}{% endblock %}
 
 {% block extrastyle %}
 {{ block.super }}
@@ -26,7 +26,7 @@
 {% endblock %}
 
 {% block branding %}
-<div id="site-name"><a href="{% url 'crush_delegation_admin:index' %}">{{ site_header|default:_('Crush Delegation Management') }}</a></div>
+<div id="site-name"><a href="{% url 'delegations_admin:index' %}">{{ site_header|default:_('Delegations.lu Management') }}</a></div>
 {% if user.is_anonymous %}
   {% include "admin/color_theme_toggle.html" %}
 {% endif %}

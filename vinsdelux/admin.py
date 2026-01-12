@@ -167,10 +167,10 @@ class CrushCoachInline(admin.StackedInline):
 
 class DelegationProfileInline(admin.StackedInline):
     """Show DelegationProfile if exists"""
-    from crush_delegation.models import DelegationProfile
+    from delegations.models import DelegationProfile
     model = DelegationProfile
     can_delete = False
-    verbose_name_plural = 'Crush Delegation Profile'
+    verbose_name_plural = 'Delegations.lu Profile'
     fields = ('company', 'job_title', 'department', 'role', 'status', 'manually_approved', 'manually_blocked')
     readonly_fields = ('company', 'job_title', 'department')
     extra = 0

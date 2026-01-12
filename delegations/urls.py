@@ -1,13 +1,13 @@
-# crush_delegation/urls.py
+# delegations/urls.py
 """
-URL configuration for the Crush Delegation app.
+URL configuration for the Delegations.lu app.
 
 This app handles delegations.lu domain.
 """
 from django.urls import path
 from . import views
 
-app_name = 'crush_delegation'
+app_name = 'delegations'
 
 urlpatterns = [
     # Public

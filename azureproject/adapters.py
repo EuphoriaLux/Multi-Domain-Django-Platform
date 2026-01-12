@@ -301,7 +301,7 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
         """Redirect to appropriate dashboard after login based on domain."""
         if _is_delegation_domain(request):
             # Delegation domain: route based on profile status
-            from crush_delegation.models import DelegationProfile
+            from delegations.models import DelegationProfile
             try:
                 profile = request.user.delegation_profile
                 if profile.is_approved:

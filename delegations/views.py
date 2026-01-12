@@ -1,5 +1,5 @@
 """
-Views for Crush Delegation app.
+Views for Delegations.lu app.
 
 Handles user dashboard, profile management, and access control pages.
 """
@@ -99,15 +99,15 @@ def home(request):
         profile, created = _get_or_create_profile(request.user)
         if profile:
             if profile.is_approved:
-                return redirect('crush_delegation:dashboard')
+                return redirect('delegations:dashboard')
             elif profile.status == 'pending':
-                return redirect('crush_delegation:pending_approval')
+                return redirect('delegations:pending_approval')
             elif profile.status == 'no_company':
-                return redirect('crush_delegation:no_company')
+                return redirect('delegations:no_company')
             elif profile.status == 'rejected':
-                return redirect('crush_delegation:access_denied')
+                return redirect('delegations:access_denied')
 
-    return render(request, 'crush_delegation/home.html')
+    return render(request, 'delegations/home.html')
 
 
 @login_required
@@ -120,7 +120,7 @@ def dashboard(request):
 
     if not profile:
         messages.warning(request, 'Please sign in with Microsoft to access this platform.')
-        return redirect('crush_delegation:home')
+        return redirect('delegations:home')
 
     if created:
         messages.info(request, 'Your profile has been created.')
@@ -128,17 +128,17 @@ def dashboard(request):
     # Check access
     if not profile.is_approved:
         if profile.status == 'pending':
-            return redirect('crush_delegation:pending_approval')
+            return redirect('delegations:pending_approval')
         elif profile.status == 'no_company':
-            return redirect('crush_delegation:no_company')
+            return redirect('delegations:no_company')
         elif profile.status == 'rejected' or profile.manually_blocked:
-            return redirect('crush_delegation:access_denied')
+            return redirect('delegations:access_denied')
 
     context = {
         'profile': profile,
         'company': profile.company,
     }
-    return render(request, 'crush_delegation/dashboard.html', context)
+    return render(request, 'delegations/dashboard.html', context)
 
 
 @login_required
@@ -150,17 +150,17 @@ def profile_view(request):
 
     if not profile:
         messages.warning(request, 'Your profile is being set up. Please wait.')
-        return redirect('crush_delegation:home')
+        return redirect('delegations:home')
 
     # Only approved users can view profile
     if not profile.is_approved:
-        return redirect('crush_delegation:dashboard')
+        return redirect('delegations:dashboard')
 
     context = {
         'profile': profile,
         'user': request.user,
     }
-    return render(request, 'crush_delegation/profile.html', context)
+    return render(request, 'delegations/profile.html', context)
 
 
 @login_required
@@ -171,20 +171,20 @@ def pending_approval(request):
     profile, _ = _get_or_create_profile(request.user)
 
     if not profile:
-        return redirect('crush_delegation:home')
+        return redirect('delegations:home')
 
     # If already approved, redirect to dashboard
     if profile.is_approved:
-        return redirect('crush_delegation:dashboard')
+        return redirect('delegations:dashboard')
 
     # If rejected, show access denied
     if profile.status == 'rejected' or profile.manually_blocked:
-        return redirect('crush_delegation:access_denied')
+        return redirect('delegations:access_denied')
 
     context = {
         'profile': profile,
     }
-    return render(request, 'crush_delegation/pending_approval.html', context)
+    return render(request, 'delegations/pending_approval.html', context)
 
 
 @login_required
@@ -195,24 +195,24 @@ def no_company(request):
     profile, _ = _get_or_create_profile(request.user)
 
     if not profile:
-        return redirect('crush_delegation:home')
+        return redirect('delegations:home')
 
     # If approved, redirect to dashboard
     if profile.is_approved:
-        return redirect('crush_delegation:dashboard')
+        return redirect('delegations:dashboard')
 
     # If they have a company now, check other status
     if profile.company:
         if profile.status == 'pending':
-            return redirect('crush_delegation:pending_approval')
+            return redirect('delegations:pending_approval')
         elif profile.status == 'rejected':
-            return redirect('crush_delegation:access_denied')
+            return redirect('delegations:access_denied')
 
     context = {
         'profile': profile,
         'user_email': request.user.email,
     }
-    return render(request, 'crush_delegation/no_company.html', context)
+    return render(request, 'delegations/no_company.html', context)
 
 
 @login_required
@@ -223,14 +223,14 @@ def access_denied(request):
     profile, _ = _get_or_create_profile(request.user)
 
     if not profile:
-        return redirect('crush_delegation:home')
+        return redirect('delegations:home')
 
     # If approved, redirect to dashboard
     if profile.is_approved:
-        return redirect('crush_delegation:dashboard')
+        return redirect('delegations:dashboard')
 
     context = {
         'profile': profile,
         'reason': profile.rejection_reason or 'Your account does not have access to this platform.',
     }
-    return render(request, 'crush_delegation/access_denied.html', context)
+    return render(request, 'delegations/access_denied.html', context)

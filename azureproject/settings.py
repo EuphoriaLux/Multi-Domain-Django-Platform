@@ -64,7 +64,7 @@ INSTALLED_APPS = [
     # Order matters: crush_lu before entreprinder so its account/ templates take priority
     'core',  # Shared templates (cookie_banner, etc.) across all domains
     'crush_lu',  # Must be before entreprinder for account/ template override on crush.lu
-    'crush_delegation',
+    'delegations',
     'vinsdelux',
     'entreprinder',  # Includes merged: matching, finops, vibe_coding
     'power_up',  # Corporate/investor site for power-up.lu

@@ -178,7 +178,7 @@ class DelegationProfile(models.Model):
         """Return profile photo URL or default placeholder"""
         if self.profile_photo:
             return self.profile_photo.url
-        return '/static/crush_delegation/images/default-avatar.svg'
+        return '/static/delegations/images/default-avatar.svg'
 
     def approve(self, role='worker'):
         """Approve the user with given role"""

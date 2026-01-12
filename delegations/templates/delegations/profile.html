@@ -1,6 +1,6 @@
-{% extends "crush_delegation/base.html" %}
+{% extends "delegations/base.html" %}
 
-{% block title %}Profile - Crush Delegation{% endblock %}
+{% block title %}Profile - Delegations.lu{% endblock %}
 
 {% block content %}
 <div class="container py-5">
@@ -125,7 +125,7 @@
 
             <!-- Actions -->
             <div class="d-flex justify-content-between">
-                <a href="{% url 'crush_delegation:dashboard' %}" class="btn btn-outline-secondary">
+                <a href="{% url 'delegations:dashboard' %}" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
                 </a>
                 <a href="{% url 'account_logout' %}" class="btn btn-outline-danger">
