@@ -47,7 +47,7 @@ qrcode[pil]==8.2  # QR code generation for Journey Gifts
 heroicons[django]==2.13.0
 
 # Push Notifications
-py-vapid==1.9.2
+py-vapid==1.9.4
 pywebpush==2.1.2
 
 # Azure Application Insights - using auto-instrumentation instead of SDK
