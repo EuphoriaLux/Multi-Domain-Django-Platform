@@ -186,3 +186,6 @@ nul
 
 # Local development documentation (personal notes)
 LOCAL_DEV_SETUP.md
+
+# Claude Code temporary files
+tmpclaude-*
