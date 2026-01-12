@@ -41,7 +41,7 @@ python-dotenv==1.2.1  # Updated from 1.0.1
 whitenoise==6.11.0  # Updated from 6.7.0 (bug fixes)
 requests==2.32.5
 httpx[http2]==0.28.1
-qrcode[pil]==8.0  # QR code generation for Journey Gifts
+qrcode[pil]==8.2  # QR code generation for Journey Gifts
 
 # Icons (Heroicons - official Tailwind icon library)
 heroicons[django]==2.13.0
