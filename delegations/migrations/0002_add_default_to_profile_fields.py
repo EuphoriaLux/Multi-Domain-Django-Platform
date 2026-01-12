@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_delegation', '0001_initial'),
+        ('delegations', '0001_initial'),
     ]
 
     operations = [

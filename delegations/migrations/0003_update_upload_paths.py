@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_delegation', '0002_add_default_to_profile_fields'),
+        ('delegations', '0002_add_default_to_profile_fields'),
     ]
 
     operations = [
