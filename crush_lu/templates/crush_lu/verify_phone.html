@@ -1,7 +1,7 @@
 {% extends 'crush_lu/base.html' %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Verify Your Phone - Crush.lu{% endblock %}
+{% block title %}{% trans "Verify Your Phone" %} - Crush.lu{% endblock %}
 
 {% block extra_css %}
 <!-- intl-tel-input CSS -->
@@ -10,10 +10,8 @@
       crossorigin="anonymous">
 <!-- Custom intl-tel-input styling for Crush.lu -->
 <link rel="stylesheet" href="{% static 'crush_lu/css/components/intl-tel-input.css' %}">
-<!-- Inline override to ensure padding is applied (backup for cache issues) -->
 <style>
-    /* Force padding-left to prevent dial code overlap - inline for highest priority
-       Uses CSS variable from intl-tel-input.css for consistency */
+    /* Force padding-left to prevent dial code overlap */
     .iti input[type="tel"],
     .iti input.iti__tel-input,
     .phone-input-wrapper .iti input {
@@ -23,120 +21,206 @@
 {% endblock %}
 
 {% block content %}
-<div class="py-10">
+<div class="py-10"
+     x-data="standalonePhoneVerification"
+     data-phone-input-id="phone_number"
+     data-current-phone="{{ current_phone }}"
+     data-next-url="{{ next_url }}">
     <div class="flex justify-center">
         <div class="w-full max-w-md">
             <div class="bg-white rounded-xl shadow-lg">
                 <div class="p-6">
+                    <!-- Header -->
                     <div class="text-center mb-6">
                         <div class="mb-4">
-                            {% include "shared/icons/phone.html" with class="w-10 h-10 text-purple-600" %}
+                            <div class="w-16 h-16 mx-auto bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                                {% include "shared/icons/phone.html" with class="w-8 h-8 text-white" %}
+                            </div>
                         </div>
-                        <h2 class="text-xl font-semibold text-gray-900">Verify Your Phone Number</h2>
+                        <h2 class="text-xl font-semibold text-gray-900">{% trans "Verify Your Phone Number" %}</h2>
                         <p class="text-gray-500 mt-2">
-                            We'll send a verification code via SMS to confirm your phone number.
+                            {% trans "We'll send a verification code via SMS to confirm your phone number." %}
                         </p>
                     </div>
 
-                    <!-- Phone Input Section -->
-                    <div id="phone-input-section">
+                    <!-- Step 1: Phone Input -->
+                    <div x-show="isPhoneStep" x-cloak>
                         <div class="mb-4">
-                            <label for="phone_number" class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                            <label for="phone_number" class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Phone Number" %}
+                            </label>
                             <div class="phone-input-wrapper">
                                 <input type="tel"
                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                                        id="phone_number"
                                        name="phone_number"
-                                       value="{{ current_phone }}"
                                        required>
-                                <!-- Real-time validation icons -->
-                                <span class="phone-valid-icon">{% include "shared/icons/check-circle.html" with class="w-5 h-5" %}</span>
-                                <span class="phone-error-icon">{% include "shared/icons/exclamation-circle.html" with class="w-5 h-5" %}</span>
                             </div>
-                            <p class="text-sm text-gray-500 mt-1" id="phone-helper-text">
-                                Select your country and enter your phone number
+                            <p class="text-sm text-gray-500 mt-1">
+                                {% trans "Select your country and enter your phone number" %}
                             </p>
-                            <!-- Validation feedback message -->
-                            <p class="text-sm text-red-600 mt-1 hidden" id="phone-validation-feedback"></p>
                         </div>
 
-                        <button type="button" id="send-code-btn" class="btn-crush-primary w-full py-3">
-                            {% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %}Send Verification Code
+                        <button type="button"
+                                @click="sendCode"
+                                x-bind:disabled="isLoading"
+                                class="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2">
+                            <template x-if="isNotLoading">
+                                <span class="flex items-center gap-2">
+                                    {% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %}
+                                    {% trans "Send Verification Code" %}
+                                </span>
+                            </template>
+                            <template x-if="isLoading">
+                                <span class="flex items-center gap-2">
+                                    <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    {% trans "Sending..." %}
+                                </span>
+                            </template>
                         </button>
                     </div>
 
-                    <!-- OTP Input Section (hidden initially) -->
-                    <div id="otp-section" style="display: none;">
-                        <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-4">
-                            {% include "shared/icons/information-circle.html" with class="w-5 h-5" %}
-                            A 6-digit code has been sent to <strong id="display-phone"></strong>
+                    <!-- Step 2: OTP Input -->
+                    <div x-show="isOtpStep" x-cloak>
+                        <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-4 flex items-start gap-2">
+                            {% include "shared/icons/information-circle.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
+                            <span>{% trans "A 6-digit code has been sent to" %} <strong x-text="displayPhone"></strong></span>
                         </div>
 
                         <div class="mb-4">
-                            <label for="otp-code" class="block text-sm font-medium text-gray-700 mb-1">Verification Code</label>
-                            <input type="text"
-                                   class="w-full px-4 py-4 border border-gray-300 rounded-lg text-center text-2xl tracking-[0.5em] focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                                   id="otp-code"
-                                   maxlength="6"
-                                   pattern="[0-9]{6}"
-                                   placeholder="000000"
-                                   autocomplete="one-time-code"
-                                   inputmode="numeric">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Verification Code" %}
+                            </label>
+                            <div class="flex justify-center gap-2">
+                                <input type="text" id="otp-0" maxlength="1" inputmode="numeric"
+                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                                       x-model="otp0"
+                                       @input="handleOtpInput(0, $event)"
+                                       @keydown="handleOtpKeydown(0, $event)">
+                                <input type="text" id="otp-1" maxlength="1" inputmode="numeric"
+                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                                       x-model="otp1"
+                                       @input="handleOtpInput(1, $event)"
+                                       @keydown="handleOtpKeydown(1, $event)">
+                                <input type="text" id="otp-2" maxlength="1" inputmode="numeric"
+                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                                       x-model="otp2"
+                                       @input="handleOtpInput(2, $event)"
+                                       @keydown="handleOtpKeydown(2, $event)">
+                                <input type="text" id="otp-3" maxlength="1" inputmode="numeric"
+                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                                       x-model="otp3"
+                                       @input="handleOtpInput(3, $event)"
+                                       @keydown="handleOtpKeydown(3, $event)">
+                                <input type="text" id="otp-4" maxlength="1" inputmode="numeric"
+                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                                       x-model="otp4"
+                                       @input="handleOtpInput(4, $event)"
+                                       @keydown="handleOtpKeydown(4, $event)">
+                                <input type="text" id="otp-5" maxlength="1" inputmode="numeric"
+                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                                       x-model="otp5"
+                                       @input="handleOtpInput(5, $event)"
+                                       @keydown="handleOtpKeydown(5, $event)">
+                            </div>
                         </div>
 
-                        <button type="button" id="verify-code-btn" class="btn-crush-primary w-full py-3 mb-4">
-                            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}Verify Code
+                        <button type="button"
+                                @click="verifyCode"
+                                x-bind:disabled="isLoading"
+                                class="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 mb-4">
+                            <template x-if="isNotLoading">
+                                <span class="flex items-center gap-2">
+                                    {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                                    {% trans "Verify Code" %}
+                                </span>
+                            </template>
+                            <template x-if="isLoading">
+                                <span class="flex items-center gap-2">
+                                    <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    {% trans "Verifying..." %}
+                                </span>
+                            </template>
                         </button>
 
-                        <div class="text-center">
-                            <button type="button" id="resend-code-btn" class="text-purple-600 hover:text-purple-800 disabled:text-gray-400" disabled>
-                                Resend code in <span id="resend-timer">60</span>s
+                        <div class="text-center space-y-3">
+                            <button type="button"
+                                    @click="resendCode"
+                                    x-bind:disabled="cannotResend"
+                                    class="text-purple-600 hover:text-purple-800 disabled:text-gray-400 disabled:cursor-not-allowed">
+                                <span x-show="cannotResend">{% trans "Resend code in" %} <span x-text="resendCountdown"></span>s</span>
+                                <span x-show="canResend" class="flex items-center justify-center gap-1">
+                                    {% include "shared/icons/arrow-path.html" with class="w-4 h-4" %}
+                                    {% trans "Resend Code" %}
+                                </span>
                             </button>
-                        </div>
 
-                        <div class="text-center mt-3">
-                            <button type="button" id="change-phone-btn" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm">
-                                {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}Change Phone Number
-                            </button>
+                            <div>
+                                <button type="button"
+                                        @click="changePhone"
+                                        class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm inline-flex items-center gap-1">
+                                    {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
+                                    {% trans "Change Phone Number" %}
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Success Section (hidden initially) -->
-                    <div id="success-section" style="display: none;">
+                    <!-- Step 3: Success -->
+                    <div x-show="isSuccessStep" x-cloak>
                         <div class="text-center">
                             <div class="mb-4">
-                                {% include "shared/icons/check-circle.html" with class="w-10 h-10 text-green-500" %}
+                                <div class="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center">
+                                    {% include "shared/icons/check-circle.html" with class="w-10 h-10 text-green-500" %}
+                                </div>
                             </div>
-                            <h4 class="text-xl font-semibold text-green-600">Phone Verified!</h4>
-                            <p class="text-gray-500 mt-2" id="verified-phone-display"></p>
+                            <h3 class="text-xl font-semibold text-green-600 mb-2">{% trans "Phone Verified!" %}</h3>
+                            <p class="text-gray-500 mb-4">
+                                {% trans "Your number" %} <strong x-text="verifiedPhone"></strong> {% trans "has been verified." %}
+                            </p>
                             {% if next_url %}
-                            <a href="{{ next_url }}" class="btn-crush-primary inline-flex items-center px-6 py-3 mt-4" id="continue-btn">
-                                {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}Continue
+                            <a href="{{ next_url }}" class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200">
+                                {% trans "Continue" %}
+                                {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
                             </a>
                             {% else %}
-                            <a href="{% url 'crush_lu:dashboard' %}" class="btn-crush-primary inline-flex items-center px-6 py-3 mt-4">
-                                {% include "shared/icons/home.html" with class="w-5 h-5" %}Back to Dashboard
+                            <a href="{% url 'crush_lu:dashboard' %}" class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200">
+                                {% include "shared/icons/home.html" with class="w-5 h-5" %}
+                                {% trans "Back to Dashboard" %}
                             </a>
                             {% endif %}
                         </div>
                     </div>
 
                     <!-- Error Display -->
-                    <div id="error-display" class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 mt-4 hidden"></div>
+                    <div x-show="hasError" x-cloak
+                         class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 mt-4 flex items-start gap-2">
+                        {% include "shared/icons/exclamation-circle.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
+                        <span x-text="error"></span>
+                    </div>
 
                     <!-- reCAPTCHA container (invisible) -->
                     <div id="recaptcha-container"></div>
                 </div>
             </div>
 
+            <!-- Back Link -->
             <div class="text-center mt-6">
                 {% if next_url %}
-                <a href="{{ next_url }}" class="text-gray-500 hover:text-gray-700">
-                    {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}Back
+                <a href="{{ next_url }}" class="text-gray-500 hover:text-gray-700 inline-flex items-center gap-1">
+                    {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
+                    {% trans "Back" %}
                 </a>
                 {% else %}
-                <a href="{% url 'crush_lu:dashboard' %}" class="text-gray-500 hover:text-gray-700">
-                    {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}Back to Dashboard
+                <a href="{% url 'crush_lu:dashboard' %}" class="text-gray-500 hover:text-gray-700 inline-flex items-center gap-1">
+                    {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
+                    {% trans "Back to Dashboard" %}
                 </a>
                 {% endif %}
             </div>
@@ -150,10 +234,10 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
-<!-- intl-tel-input JS (only core library, utils loaded via loadUtils option) -->
+<!-- intl-tel-input JS -->
 <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/intlTelInput.min.js"></script>
 
-<!-- Firebase Configuration from Django settings (via environment variables) -->
+<!-- Firebase Configuration -->
 <script nonce="{{ request.csp_nonce }}">
     window.FIREBASE_API_KEY = "{{ firebase_api_key }}";
     window.FIREBASE_AUTH_DOMAIN = "{{ firebase_auth_domain }}";
@@ -163,312 +247,20 @@
 
 <!-- Phone Verification Module -->
 <script src="{% static 'crush_lu/js/phone-verification.js' %}"></script>
+
 <script nonce="{{ request.csp_nonce }}">
+// Initialize PhoneVerification instance for Alpine component to use
 document.addEventListener('DOMContentLoaded', function() {
-    // UI Elements
-    const phoneInputSection = document.getElementById('phone-input-section');
-    const otpSection = document.getElementById('otp-section');
-    const successSection = document.getElementById('success-section');
-    const errorDisplay = document.getElementById('error-display');
-
-    const phoneInput = document.getElementById('phone_number');
-    const sendCodeBtn = document.getElementById('send-code-btn');
-    const otpInput = document.getElementById('otp-code');
-    const verifyCodeBtn = document.getElementById('verify-code-btn');
-    const resendCodeBtn = document.getElementById('resend-code-btn');
-    const changePhoneBtn = document.getElementById('change-phone-btn');
-    const displayPhone = document.getElementById('display-phone');
-    const resendTimer = document.getElementById('resend-timer');
-    const verifiedPhoneDisplay = document.getElementById('verified-phone-display');
-
-    let resendCountdown = null;
-    let iti = null;
-
-    // Store the pre-filled value before initializing intl-tel-input
-    const prefilledValue = phoneInput ? phoneInput.value : '';
-
-    // UI elements for validation feedback
-    const phoneWrapper = document.querySelector('.phone-input-wrapper');
-    const phoneHelperText = document.getElementById('phone-helper-text');
-    const phoneValidationFeedback = document.getElementById('phone-validation-feedback');
-
-    // Initialize intl-tel-input with utilsScript for placeholder support
-    if (typeof window.intlTelInput === 'function' && phoneInput) {
-        // Clear the input COMPLETELY before initializing
-        // This prevents the library from seeing any existing value during init
-        phoneInput.value = '';
-        phoneInput.setAttribute('value', '');
-
-        try {
-            iti = window.intlTelInput(phoneInput, {
-                // Use static default to avoid geoIpLookup race conditions
-                initialCountry: "lu",
-                preferredCountries: ["lu", "de", "fr", "be"],
-                // Allowed countries - add more as needed based on your user base
-                onlyCountries: ["lu", "de", "fr", "be", "nl", "ch", "at", "it", "es", "pt", "gb", "ie", "us", "ca", "se", "dz"],
-                separateDialCode: true,
-                nationalMode: false,
-                formatOnDisplay: true,
-                autoPlaceholder: "aggressive",
-                // Load utils script for placeholder and validation support (v18 syntax)
-                utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/utils.js"
-            });
-
-            // Store iti instance globally for PhoneVerification to access
-            window.itiInstance = iti;
-
-        // When utils load, set the pre-filled number properly using the library's API
-        iti.promise.then(function() {
-            console.log('intl-tel-input utils loaded');
-
-            // CRITICAL: Force padding-left via JS to prevent overlap
-            // This runs AFTER the library initializes, overriding any inline styles
-            // Matches --intl-tel-input-padding CSS variable in intl-tel-input.css
-            phoneInput.style.setProperty('padding-left', '110px', 'important');
-
-            // If there was a pre-filled value, set it using the library's setNumber method
-            if (prefilledValue) {
-                // Normalize the number - ensure it has country code for proper parsing
-                let numberToSet = prefilledValue.trim().replace(/\s/g, '');
-
-                // Handle different storage formats:
-                // 1. E.164 format (+352621163882) - already correct, from verified phones
-                // 2. National format (621163882) - legacy data, assume Luxembourg
-                // 3. With leading zeros (00352621163882) - normalize to E.164
-                if (numberToSet.startsWith('+')) {
-                    // Already E.164 format - use as-is
-                    console.log('Phone already in E.164 format');
-                } else if (numberToSet.startsWith('00')) {
-                    // International format with 00 prefix (e.g., 00352...)
-                    numberToSet = '+' + numberToSet.slice(2);
-                } else {
-                    // National format without country code - assume Luxembourg
-                    // Remove any leading zeros first
-                    numberToSet = numberToSet.replace(/^0+/, '');
-                    numberToSet = '+352' + numberToSet;
-                    console.log('Assumed Luxembourg for national format');
-                }
-
-                console.log('Setting number (E.164 format):', numberToSet);
-
-                // setNumber expects E.164 format and will properly display just the national part
-                // when separateDialCode is true (it separates +352 into the dial code display)
-                iti.setNumber(numberToSet);
-
-                console.log('Number set. Display value:', phoneInput.value);
-                console.log('Full number via getNumber():', iti.getNumber());
-            }
-
-            // Log placeholder status
-            console.log('Placeholder:', phoneInput.placeholder);
-        });
-
-        // Listen for country change to ensure placeholder is updated
-        phoneInput.addEventListener('countrychange', function() {
-            console.log('Country changed, placeholder should update');
-            // Re-validate when country changes
-            validatePhoneRealtime();
-        });
-
-        // REAL-TIME VALIDATION FEEDBACK (cool feature #2!)
-        // Validates as user types and shows visual feedback
-        phoneInput.addEventListener('input', validatePhoneRealtime);
-        phoneInput.addEventListener('blur', validatePhoneRealtime);
-
-        function validatePhoneRealtime() {
-            // Only validate if there's input
-            const inputValue = phoneInput.value.trim();
-            if (!inputValue) {
-                // Reset to neutral state
-                phoneWrapper.classList.remove('is-valid', 'is-invalid');
-                phoneInput.classList.remove('is-valid', 'is-invalid');
-                phoneValidationFeedback.style.display = 'none';
-                phoneHelperText.style.display = 'block';
-                return;
-            }
-
-            if (iti.isValidNumber()) {
-                // Valid number - show green checkmark
-                phoneWrapper.classList.add('is-valid');
-                phoneWrapper.classList.remove('is-invalid');
-                phoneInput.classList.add('is-valid');
-                phoneInput.classList.remove('is-invalid');
-                phoneValidationFeedback.style.display = 'none';
-                phoneHelperText.innerHTML = '<span class="text-green-600"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg> Valid phone number</span>';
-                console.log('Phone valid:', iti.getNumber());
-            } else {
-                // Invalid number - show red warning with specific error
-                const errorCode = iti.getValidationError();
-                const errorMessages = {
-                    0: 'Invalid phone number format',
-                    1: 'Invalid country code',
-                    2: 'Phone number is too short',
-                    3: 'Phone number is too long',
-                    4: 'Invalid phone number'
-                };
-                const errorMsg = errorMessages[errorCode] || 'Please check the phone number';
-
-                phoneWrapper.classList.add('is-invalid');
-                phoneWrapper.classList.remove('is-valid');
-                phoneInput.classList.add('is-invalid');
-                phoneInput.classList.remove('is-valid');
-                phoneValidationFeedback.textContent = errorMsg;
-                phoneValidationFeedback.style.display = 'block';
-                phoneHelperText.style.display = 'none';
-            }
-        }
-        } catch (err) {
-            console.error('intl-tel-input: Initialization error', err);
-        }
-    }
-
-    // Initialize PhoneVerification with intl-tel-input support
-    const phoneVerification = new PhoneVerification({
+    window.phoneVerification = new PhoneVerification({
         phoneInputId: 'phone_number',
-        verifyButtonId: 'send-code-btn',
         recaptchaContainerId: 'recaptcha-container',
         csrfToken: '{{ csrf_token }}',
-        useIntlTelInput: true,
         onVerified: function(phoneNumber) {
-            // Show success state
-            phoneInputSection.style.display = 'none';
-            otpSection.style.display = 'none';
-            successSection.style.display = 'block';
-            verifiedPhoneDisplay.textContent = 'Your number ' + phoneNumber + ' has been verified.';
-            hideError();
-        },
-        onCodeSent: function(phone) {
-            // Show OTP section
-            phoneInputSection.style.display = 'none';
-            otpSection.style.display = 'block';
-            displayPhone.textContent = phone;
-            otpInput.focus();
-            startResendTimer();
-            hideError();
+            window.dispatchEvent(new CustomEvent('phone-verified', { detail: phoneNumber }));
         },
         onError: function(error) {
-            showError(error);
-        },
-        onStateChange: function(state) {
-            // Update button states based on verification state
-            if (state === 'sending') {
-                sendCodeBtn.disabled = true;
-                sendCodeBtn.innerHTML = '<svg class="w-5 h-5 inline-block mr-2 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Sending...';
-            } else if (state === 'code_sent') {
-                sendCodeBtn.disabled = false;
-                sendCodeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" /></svg> Send Verification Code';
-            } else if (state === 'verifying') {
-                verifyCodeBtn.disabled = true;
-                verifyCodeBtn.innerHTML = '<svg class="w-5 h-5 inline-block mr-2 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Verifying...';
-            } else if (state === 'error') {
-                sendCodeBtn.disabled = false;
-                sendCodeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" /></svg> Send Verification Code';
-                verifyCodeBtn.disabled = false;
-                verifyCodeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg> Verify Code';
-            }
+            console.error('Phone verification error:', error);
         }
-    });
-
-    // Send code button
-    sendCodeBtn.addEventListener('click', async function() {
-        hideError();
-
-        // Validate phone number using intl-tel-input
-        if (iti && !iti.isValidNumber()) {
-            const errorCode = iti.getValidationError();
-            const errorMessages = {
-                0: 'Invalid phone number',
-                1: 'Invalid country code',
-                2: 'Phone number is too short',
-                3: 'Phone number is too long',
-                4: 'Invalid phone number'
-            };
-            showError(errorMessages[errorCode] || 'Please enter a valid phone number');
-            return;
-        }
-
-        // Get full international number from intl-tel-input
-        const phoneNumber = iti ? iti.getNumber() : phoneInput.value;
-        await phoneVerification.sendVerificationCode(phoneNumber);
-    });
-
-    // Verify code button
-    verifyCodeBtn.addEventListener('click', async function() {
-        hideError();
-        const code = otpInput.value.trim();
-        if (code.length !== 6) {
-            showError('Please enter the 6-digit code');
-            return;
-        }
-        await phoneVerification.verifyCode(code);
-    });
-
-    // Allow Enter key to submit OTP
-    otpInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            verifyCodeBtn.click();
-        }
-    });
-
-    // Resend code button
-    resendCodeBtn.addEventListener('click', async function() {
-        hideError();
-        const phoneNumber = iti ? iti.getNumber() : phoneInput.value;
-        await phoneVerification.sendVerificationCode(phoneNumber);
-    });
-
-    // Change phone number button
-    changePhoneBtn.addEventListener('click', function() {
-        phoneVerification.reset();
-        otpSection.style.display = 'none';
-        phoneInputSection.style.display = 'block';
-        otpInput.value = '';
-        hideError();
-        if (resendCountdown) {
-            clearInterval(resendCountdown);
-            resendCountdown = null;
-        }
-    });
-
-    // Resend timer
-    function startResendTimer() {
-        let seconds = 60;
-        resendCodeBtn.disabled = true;
-        resendTimer.textContent = seconds;
-        resendCodeBtn.innerHTML = 'Resend code in <span id="resend-timer">' + seconds + '</span>s';
-
-        if (resendCountdown) {
-            clearInterval(resendCountdown);
-        }
-
-        resendCountdown = setInterval(function() {
-            seconds--;
-            const timerSpan = document.getElementById('resend-timer');
-            if (timerSpan) {
-                timerSpan.textContent = seconds;
-            }
-            if (seconds <= 0) {
-                clearInterval(resendCountdown);
-                resendCountdown = null;
-                resendCodeBtn.disabled = false;
-                resendCodeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg> Resend Code';
-            }
-        }, 1000);
-    }
-
-    // Error display helpers
-    function showError(message) {
-        errorDisplay.textContent = message;
-        errorDisplay.style.display = 'block';
-    }
-
-    function hideError() {
-        errorDisplay.style.display = 'none';
-    }
-
-    // Only allow digits in OTP input
-    otpInput.addEventListener('input', function() {
-        this.value = this.value.replace(/\D/g, '').slice(0, 6);
     });
 });
 </script>

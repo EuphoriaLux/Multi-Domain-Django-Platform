@@ -2405,6 +2405,293 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // Standalone phone verification page component
+    // Used on /verify-phone/ page for existing users
+    // Full-page 3-step flow: phone input → OTP → success
+    Alpine.data('standalonePhoneVerification', function() {
+        return {
+            // State
+            step: 'phone', // 'phone', 'otp', 'success'
+            phoneNumber: '',
+            displayPhone: '',
+            verifiedPhone: '',
+            error: '',
+            isLoading: false,
+            iti: null,
+            phoneInputId: '',
+            nextUrl: '',
+
+            // OTP fields (CSP-compatible individual properties)
+            otp0: '', otp1: '', otp2: '', otp3: '', otp4: '', otp5: '',
+
+            // Resend timer
+            resendCountdown: 0,
+            resendTimer: null,
+
+            // Computed getters for CSP compatibility
+            get isPhoneStep() { return this.step === 'phone'; },
+            get isOtpStep() { return this.step === 'otp'; },
+            get isSuccessStep() { return this.step === 'success'; },
+            get hasError() { return this.error !== ''; },
+            get isNotLoading() { return !this.isLoading; },
+            get canResend() { return this.resendCountdown <= 0; },
+            get cannotResend() { return this.resendCountdown > 0; },
+            get otpCode() {
+                return this.otp0 + this.otp1 + this.otp2 + this.otp3 + this.otp4 + this.otp5;
+            },
+            get isOtpComplete() { return this.otpCode.length === 6; },
+
+            init: function() {
+                var self = this;
+
+                // Read config from data attributes
+                this.phoneInputId = this.$el.getAttribute('data-phone-input-id') || 'phone_number';
+                this.nextUrl = this.$el.getAttribute('data-next-url') || '';
+                var currentPhone = this.$el.getAttribute('data-current-phone') || '';
+
+                // Initialize intl-tel-input after DOM is ready
+                this.$nextTick(function() {
+                    self.initIntlTelInput(currentPhone);
+                });
+
+                // Listen for phone verification success
+                window.addEventListener('phone-verified', function(e) {
+                    self.verifiedPhone = e.detail;
+                    self.step = 'success';
+                    self.isLoading = false;
+                    self.error = '';
+                });
+            },
+
+            initIntlTelInput: function(currentPhone) {
+                var self = this;
+                var phoneInput = document.getElementById(this.phoneInputId);
+
+                if (!phoneInput || typeof window.intlTelInput !== 'function') {
+                    return;
+                }
+
+                // Clear input before init
+                phoneInput.value = '';
+
+                try {
+                    this.iti = window.intlTelInput(phoneInput, {
+                        initialCountry: "lu",
+                        preferredCountries: ["lu", "de", "fr", "be"],
+                        onlyCountries: ["lu", "de", "fr", "be", "nl", "ch", "at", "it", "es", "pt", "gb", "ie", "us", "ca", "se", "dz"],
+                        separateDialCode: true,
+                        nationalMode: false,
+                        formatOnDisplay: true,
+                        autoPlaceholder: "aggressive",
+                        utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/utils.js"
+                    });
+
+                    window.itiInstance = this.iti;
+
+                    // Set pre-filled value after utils load
+                    this.iti.promise.then(function() {
+                        phoneInput.style.setProperty('padding-left', '110px', 'important');
+
+                        if (currentPhone) {
+                            var num = currentPhone.trim().replace(/\s/g, '');
+                            if (!num.startsWith('+')) {
+                                if (num.startsWith('00')) {
+                                    num = '+' + num.slice(2);
+                                } else {
+                                    num = '+352' + num.replace(/^0+/, '');
+                                }
+                            }
+                            self.iti.setNumber(num);
+                        }
+                    });
+                } catch (err) {
+                    console.error('intl-tel-input init error:', err);
+                }
+            },
+
+            sendCode: function() {
+                var self = this;
+                this.error = '';
+
+                // Validate phone
+                if (this.iti && !this.iti.isValidNumber()) {
+                    var errorCode = this.iti.getValidationError();
+                    var errorMessages = {
+                        0: 'Invalid phone number format',
+                        1: 'Invalid country code',
+                        2: 'Phone number is too short',
+                        3: 'Phone number is too long',
+                        4: 'Invalid phone number'
+                    };
+                    this.error = errorMessages[errorCode] || 'Please enter a valid phone number';
+                    return;
+                }
+
+                var phoneNumber = this.iti ? this.iti.getNumber() : document.getElementById(this.phoneInputId).value;
+                this.displayPhone = phoneNumber;
+                this.isLoading = true;
+
+                if (window.phoneVerification) {
+                    window.phoneVerification.sendVerificationCode(phoneNumber).then(function(result) {
+                        self.isLoading = false;
+                        if (result.success) {
+                            self.step = 'otp';
+                            self.startResendTimer();
+                            self.$nextTick(function() {
+                                var firstInput = document.getElementById('otp-0');
+                                if (firstInput) firstInput.focus();
+                            });
+                        } else {
+                            self.error = result.error || 'Failed to send code';
+                        }
+                    });
+                }
+            },
+
+            verifyCode: function() {
+                var self = this;
+                var code = this.otpCode;
+
+                if (code.length !== 6) {
+                    this.error = 'Please enter the 6-digit code';
+                    return;
+                }
+
+                this.isLoading = true;
+                this.error = '';
+
+                if (window.phoneVerification) {
+                    window.phoneVerification.verifyCode(code).then(function(result) {
+                        if (result.success) {
+                            self.verifiedPhone = result.phone_number;
+                            self.step = 'success';
+                        } else {
+                            self.error = result.error || 'Invalid code';
+                            self.clearOtp();
+                        }
+                        self.isLoading = false;
+                    });
+                }
+            },
+
+            resendCode: function() {
+                if (this.resendCountdown > 0) return;
+
+                var self = this;
+                this.isLoading = true;
+                this.error = '';
+
+                if (window.phoneVerification) {
+                    window.phoneVerification.sendVerificationCode(this.displayPhone).then(function(result) {
+                        self.isLoading = false;
+                        if (result.success) {
+                            self.startResendTimer();
+                        } else {
+                            self.error = result.error || 'Failed to resend code';
+                        }
+                    });
+                }
+            },
+
+            changePhone: function() {
+                this.step = 'phone';
+                this.clearOtp();
+                this.error = '';
+                if (this.resendTimer) {
+                    clearInterval(this.resendTimer);
+                    this.resendTimer = null;
+                }
+                this.resendCountdown = 0;
+
+                if (window.phoneVerification) {
+                    window.phoneVerification.reset();
+                }
+            },
+
+            clearOtp: function() {
+                this.otp0 = '';
+                this.otp1 = '';
+                this.otp2 = '';
+                this.otp3 = '';
+                this.otp4 = '';
+                this.otp5 = '';
+            },
+
+            // OTP input handlers (CSP-compatible)
+            handleOtpInput: function(index, event) {
+                var value = event.target.value.replace(/\D/g, '');
+                if (value.length > 1) {
+                    // Handle paste
+                    this.handleOtpPaste(value);
+                    return;
+                }
+
+                // Set the value
+                this['otp' + index] = value;
+
+                // Auto-advance to next field
+                if (value && index < 5) {
+                    var nextInput = document.getElementById('otp-' + (index + 1));
+                    if (nextInput) nextInput.focus();
+                }
+
+                // Auto-submit when complete
+                if (this.otpCode.length === 6) {
+                    this.verifyCode();
+                }
+            },
+
+            handleOtpKeydown: function(index, event) {
+                // Handle backspace - go to previous field
+                if (event.key === 'Backspace' && !this['otp' + index] && index > 0) {
+                    var prevInput = document.getElementById('otp-' + (index - 1));
+                    if (prevInput) {
+                        prevInput.focus();
+                        this['otp' + (index - 1)] = '';
+                    }
+                }
+            },
+
+            handleOtpPaste: function(pastedValue) {
+                var digits = pastedValue.replace(/\D/g, '').slice(0, 6);
+                for (var i = 0; i < 6; i++) {
+                    this['otp' + i] = digits[i] || '';
+                }
+                // Focus last filled or first empty
+                var focusIndex = Math.min(digits.length, 5);
+                var focusInput = document.getElementById('otp-' + focusIndex);
+                if (focusInput) focusInput.focus();
+
+                // Auto-submit if complete
+                if (digits.length === 6) {
+                    this.verifyCode();
+                }
+            },
+
+            startResendTimer: function() {
+                var self = this;
+                this.resendCountdown = 60;
+                if (this.resendTimer) clearInterval(this.resendTimer);
+                this.resendTimer = setInterval(function() {
+                    self.resendCountdown--;
+                    if (self.resendCountdown <= 0) {
+                        clearInterval(self.resendTimer);
+                        self.resendTimer = null;
+                    }
+                }, 1000);
+            },
+
+            destroy: function() {
+                if (this.resendTimer) {
+                    clearInterval(this.resendTimer);
+                }
+                if (this.iti) {
+                    this.iti.destroy();
+                }
+            }
+        };
+    });
+
     // PWA Install Button component for membership page
     // CSP-compatible with computed getters
     Alpine.data('pwaInstallButton', function() {
