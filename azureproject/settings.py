@@ -52,6 +52,7 @@ CSRF_TRUSTED_ORIGINS = getattr(globals(), 'CSRF_TRUSTED_ORIGINS', []) + [
 # Application definition
 
 INSTALLED_APPS = [
+    'modeltranslation',  # MUST be before admin for translation tabs in admin
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -457,6 +458,12 @@ LANGUAGES = [
     ('de', _('German')),
     ('fr', _('French')),
 ]
+
+# django-modeltranslation settings
+# Automatically returns correct language field based on request.LANGUAGE_CODE
+MODELTRANSLATION_DEFAULT_LANGUAGE = 'en'
+MODELTRANSLATION_LANGUAGES = ('en', 'de', 'fr')
+MODELTRANSLATION_FALLBACK_LANGUAGES = ('en',)  # Fallback to English if translation missing
 
 USE_TZ = True
 

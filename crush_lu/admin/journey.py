@@ -11,11 +11,15 @@ Includes:
 - ChallengeAttemptAdmin
 - RewardProgressAdmin
 - Journey inlines
+
+Uses django-modeltranslation for multi-language support (EN/DE/FR).
+TranslationAdmin provides tabbed interface for managing translations.
 """
 
 from django.contrib import admin
 from django.contrib import messages as django_messages
 from django.utils.translation import gettext_lazy as _
+from modeltranslation.admin import TranslationAdmin, TranslationTabularInline, TranslationStackedInline
 
 from crush_lu.models import (
     JourneyConfiguration, JourneyChapter, JourneyChallenge,
@@ -24,8 +28,8 @@ from crush_lu.models import (
 )
 
 
-# Inline Admins for nested management
-class JourneyChallengeInline(admin.TabularInline):
+# Inline Admins for nested management (with translation support)
+class JourneyChallengeInline(TranslationTabularInline):
     model = JourneyChallenge
     extra = 0
     fields = ('challenge_order', 'challenge_type', 'question', 'points_awarded')
@@ -33,14 +37,14 @@ class JourneyChallengeInline(admin.TabularInline):
     ordering = ['challenge_order']
 
 
-class JourneyRewardInline(admin.StackedInline):
+class JourneyRewardInline(TranslationStackedInline):
     model = JourneyReward
     extra = 0
     fields = ('reward_type', 'title', 'photo', 'audio_file', 'video_file')
     show_change_link = True
 
 
-class JourneyChapterInline(admin.TabularInline):
+class JourneyChapterInline(TranslationTabularInline):
     model = JourneyChapter
     extra = 0
     fields = ('chapter_number', 'title', 'theme', 'background_theme', 'difficulty')
@@ -65,12 +69,13 @@ class ChallengeAttemptInline(admin.TabularInline):
     ordering = ['-attempted_at']
 
 
-class JourneyConfigurationAdmin(admin.ModelAdmin):
+class JourneyConfigurationAdmin(TranslationAdmin):
     """
     🗺️ JOURNEY CONFIGURATION - Create the Journey Structure
 
     Start here to create a new personalized journey experience.
     Define chapters, challenges, and rewards for a specific user.
+    Uses django-modeltranslation for tabbed EN/DE/FR translation interface.
     """
     list_display = (
         'journey_name', 'get_user_name', 'journey_type', 'is_active',
@@ -89,7 +94,7 @@ class JourneyConfigurationAdmin(admin.ModelAdmin):
     fieldsets = (
         ('🎯 Journey Basics', {
             'fields': ('special_experience', 'journey_type', 'is_active', 'journey_name'),
-            'description': 'Link this journey to a Special User Experience. Select "Advent Calendar" for December experiences.'
+            'description': 'Link this journey to a Special User Experience. Translations managed via tabs above.'
         }),
         ('📊 Journey Metadata', {
             'fields': ('total_chapters', 'estimated_duration_minutes')
@@ -138,11 +143,12 @@ class JourneyConfigurationAdmin(admin.ModelAdmin):
         )
 
 
-class JourneyChapterAdmin(admin.ModelAdmin):
+class JourneyChapterAdmin(TranslationAdmin):
     """
     📖 JOURNEY CHAPTERS - Structure the Journey
 
     Each chapter represents a section of the journey with multiple challenges.
+    Uses django-modeltranslation for tabbed EN/DE/FR translation interface.
     """
     list_display = (
         'get_chapter_display', 'journey', 'title', 'theme',
@@ -189,12 +195,13 @@ class JourneyChapterAdmin(admin.ModelAdmin):
     get_reward_count.short_description = _('🎁 Rewards')
 
 
-class JourneyChallengeAdmin(admin.ModelAdmin):
+class JourneyChallengeAdmin(TranslationAdmin):
     """
     🎯 JOURNEY CHALLENGES - Add Interactive Activities
 
     Create riddles, quizzes, word scrambles, and more.
     Questionnaire mode (blank correct_answer) saves all responses for analysis.
+    Uses django-modeltranslation for tabbed EN/DE/FR translation interface.
     """
     list_display = (
         'get_chapter_display', 'challenge_order', 'challenge_type',
@@ -243,12 +250,13 @@ class JourneyChallengeAdmin(admin.ModelAdmin):
     has_hints.short_description = _('Has Hints?')
 
 
-class JourneyRewardAdmin(admin.ModelAdmin):
+class JourneyRewardAdmin(TranslationAdmin):
     """
     🎁 JOURNEY REWARDS - Special Surprises & Media
 
     Upload photos, videos, audio messages, and letters as rewards.
     Photo reveals use jigsaw puzzles that cost points to unlock.
+    Uses django-modeltranslation for tabbed EN/DE/FR translation interface.
     """
     list_display = (
         'get_chapter_display', 'title', 'reward_type',

@@ -1,0 +1,445 @@
+{% extends "crush_lu/journey/journey_base.html" %}
+{% load static i18n %}
+
+{% block extra_journey_css %}
+<style>
+    .reward-container {
+        max-width: 900px;
+        margin: 60px auto;
+    }
+
+    /* Enhanced Back Button */
+    .nav-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 32px;
+        border-radius: 30px;
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.3), rgba(255, 107, 157, 0.3));
+        color: white;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1.05rem;
+        transition: all 0.3s ease;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .nav-btn:hover {
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.5), rgba(255, 107, 157, 0.5));
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(155, 89, 182, 0.4);
+        color: white;
+        text-decoration: none;
+        border-color: rgba(255, 255, 255, 0.5);
+    }
+
+    .nav-btn i {
+        transition: transform 0.3s ease;
+    }
+
+    .nav-btn:hover i {
+        transform: translateX(-3px);
+    }
+
+    .reward-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(20px);
+        border-radius: 25px;
+        padding: 50px;
+        border: 2px solid rgba(255, 215, 0, 0.3);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .reward-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(
+            45deg,
+            transparent,
+            rgba(255, 215, 0, 0.1),
+            transparent
+        );
+        animation: shimmer 3s infinite;
+    }
+
+    @keyframes shimmer {
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .reward-content {
+        position: relative;
+        z-index: 1;
+    }
+
+    .reward-icon {
+        text-align: center;
+        font-size: 4rem;
+        margin-bottom: 20px;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-10px);
+        }
+    }
+
+    .reward-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-align: center;
+        background: linear-gradient(135deg, #FFD700, #FFA500);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 30px;
+    }
+
+    /* Photo Slideshow Styles */
+    .slideshow-container {
+        position: relative;
+        max-width: 700px;
+        margin: 0 auto 30px;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 15px 50px rgba(0, 0, 0, 0.4);
+    }
+
+    .slideshow-photo {
+        width: 100%;
+        height: auto;
+        display: block;
+        animation: photo-reveal 1.5s ease-out;
+    }
+
+    @keyframes photo-reveal {
+        0% {
+            opacity: 0;
+            transform: scale(1.1);
+            filter: blur(10px);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1);
+            filter: blur(0);
+        }
+    }
+
+    .photo-frame {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border: 4px solid rgba(255, 215, 0, 0.5);
+        border-radius: 20px;
+        pointer-events: none;
+        box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .photo-caption {
+        font-size: 1.2rem;
+        line-height: 1.8;
+        text-align: center;
+        padding: 30px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 15px;
+        margin-top: 20px;
+        font-style: italic;
+        color: #f8f9fa;
+        white-space: pre-line;
+    }
+
+    .continue-btn {
+        display: block;
+        width: fit-content;
+        margin: 40px auto 0;
+        padding: 15px 40px;
+        border-radius: 25px;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        color: white;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+        text-align: center;
+    }
+
+    .continue-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(155, 89, 182, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+
+    .download-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 25px;
+        border-radius: 20px;
+        background: rgba(255, 215, 0, 0.2);
+        color: #FFD700;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        border: 2px solid rgba(255, 215, 0, 0.4);
+        margin-top: 20px;
+    }
+
+    .download-btn:hover {
+        background: rgba(255, 215, 0, 0.3);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
+        color: #FFD700;
+        text-decoration: none;
+    }
+
+    /* Heart particles */
+    .heart-particle {
+        position: absolute;
+        font-size: 1.5rem;
+        opacity: 0;
+        animation: float-up 4s infinite;
+        pointer-events: none;
+    }
+
+    @keyframes float-up {
+        0% {
+            opacity: 0;
+            transform: translateY(0) scale(0);
+        }
+        20% {
+            opacity: 1;
+            transform: translateY(-20px) scale(1);
+        }
+        100% {
+            opacity: 0;
+            transform: translateY(-150px) scale(0.5);
+        }
+    }
+
+    /* Sparkle Animation */
+    .sparkle {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: white;
+        border-radius: 50%;
+        animation: sparkle 2s infinite;
+    }
+
+    @keyframes sparkle {
+        0%, 100% {
+            opacity: 0;
+            transform: scale(0);
+        }
+        50% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .reward-card {
+            padding: 30px 20px;
+        }
+
+        .reward-title {
+            font-size: 2rem;
+        }
+
+        .slideshow-container {
+            border-radius: 15px;
+        }
+
+        .photo-caption {
+            font-size: 1rem;
+            padding: 20px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block journey_content %}
+<div class="reward-container animate-fade-in">
+    <!-- Back Button -->
+    <div class="text-center mb-4">
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Chapter" %}
+        </a>
+    </div>
+
+    <div class="reward-card">
+        <!-- Sparkles -->
+        <div class="sparkle" style="top: 10%; left: 20%; animation-delay: 0s;"></div>
+        <div class="sparkle" style="top: 30%; right: 15%; animation-delay: 0.5s;"></div>
+        <div class="sparkle" style="bottom: 20%; left: 30%; animation-delay: 1s;"></div>
+        <div class="sparkle" style="top: 60%; right: 25%; animation-delay: 1.5s;"></div>
+
+        <div class="reward-content">
+            <div class="reward-icon">
+                📸
+            </div>
+
+            <h1 class="reward-title">{{ reward.title }}</h1>
+
+            {% if reward.photo %}
+            <div class="slideshow-container">
+                <img src="{{ reward.photo.url }}" alt="{{ reward.title }}" class="slideshow-photo">
+                <div class="photo-frame"></div>
+            </div>
+
+            <div class="text-center">
+                <a href="#" id="downloadBtn" class="download-btn">
+                    {% include "shared/icons/arrow-down-tray.html" with class="w-5 h-5" %} {% trans "Download Photo" %}
+                </a>
+            </div>
+            {% else %}
+            <div class="slideshow-container" style="background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary)); padding: 100px; text-align: center;">
+                <div style="font-size: 5rem;">📷</div>
+                <p style="margin-top: 20px; font-size: 1.2rem;">{% trans "A special memory awaits..." %}</p>
+            </div>
+            {% endif %}
+
+            {% if reward.message %}
+            <div class="photo-caption">
+                {{ reward.message }}
+            </div>
+            {% endif %}
+
+            <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="continue-btn">
+                {% trans "Continue Your Journey" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+            </a>
+        </div>
+    </div>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', () => {
+    const card = document.querySelector('.reward-card');
+
+    // Create sparkles
+    const sparkleCount = 15;
+    for (let i = 0; i < sparkleCount; i++) {
+        const sparkle = document.createElement('div');
+        sparkle.className = 'sparkle';
+        sparkle.style.top = Math.random() * 100 + '%';
+        sparkle.style.left = Math.random() * 100 + '%';
+        sparkle.style.animationDelay = Math.random() * 2 + 's';
+        card.appendChild(sparkle);
+    }
+
+    // Create floating hearts
+    const hearts = ['💜', '💖', '✨', '💫'];
+    const heartCount = 10;
+    for (let i = 0; i < heartCount; i++) {
+        const heart = document.createElement('div');
+        heart.className = 'heart-particle';
+        heart.textContent = hearts[Math.floor(Math.random() * hearts.length)];
+        heart.style.left = Math.random() * 100 + '%';
+        heart.style.bottom = '0';
+        heart.style.animationDelay = Math.random() * 4 + 's';
+        card.appendChild(heart);
+    }
+
+    // Download functionality
+    const downloadBtn = document.getElementById('downloadBtn');
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+
+            {% if reward.photo %}
+            const photoUrl = '{{ reward.photo.url|safe }}';
+
+            try {
+                const response = await fetch(photoUrl);
+                const blob = await response.blob();
+
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'special-memory.jpg';
+                document.body.appendChild(a);
+                a.click();
+
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                showNotification('Photo downloaded successfully!', 'success');
+            } catch (error) {
+                console.error('Download error:', error);
+                showNotification('Download failed. Please try right-clicking the image.', 'error');
+            }
+            {% endif %}
+        });
+    }
+
+    function showNotification(message, type) {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'success' ? '#28a745' : '#dc3545'};
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-weight: bold;
+            z-index: 99999;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        `;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
+});
+</script>
+
+<style>
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+}
+</style>
+{% endblock %}
