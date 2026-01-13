@@ -57,13 +57,8 @@ class Command(BaseCommand):
         else:
             self.stdout.write(self.style.SUCCESS('\nAll translations updated successfully!'))
 
-    def get_content(self, lang, key):
-        """Get content from JOURNEY_CONTENT for a specific language."""
-        return JOURNEY_CONTENT.get(lang, {}).get(key, '')
-
     def get_chapter_content(self, lang, chapter_num):
         """Get chapter content for a specific language and chapter number."""
-        # Structure uses chapter_1, chapter_2, etc. as keys
         chapter_key = f'chapter_{chapter_num}'
         return JOURNEY_CONTENT.get(lang, {}).get(chapter_key, {})
 
@@ -121,8 +116,9 @@ class Command(BaseCommand):
         story_fr = content_fr.get('story_introduction', '')
 
         try:
-            if date_met:
+            if date_met and '{date_met}' in story_de:
                 story_de = story_de.format(date_met=date_met.strftime('%d. %B %Y'))
+            if date_met and '{date_met}' in story_fr:
                 story_fr = story_fr.format(date_met=date_met.strftime('%d %B %Y'))
             if '{location_met}' in story_de:
                 story_de = story_de.format(location_met=location_met)
@@ -146,53 +142,173 @@ class Command(BaseCommand):
                 setattr(chapter, field, value)
             chapter.save()
 
-        # Update challenges
+        # Update challenges based on chapter number
+        self.update_chapter_challenges(chapter, chapter_num, content_de, content_fr, dry_run)
+
+        # Update rewards
+        self.update_chapter_rewards(chapter, content_de, content_fr, first_name, dry_run)
+
+    def update_chapter_challenges(self, chapter, chapter_num, content_de, content_fr, dry_run):
+        """Update challenges based on chapter-specific structure."""
+        challenges = list(chapter.challenges.all().order_by('challenge_order'))
+
+        if not challenges:
+            return
+
+        if chapter_num == 1:
+            # Chapter 1: riddle + word_scramble from 'challenges' array
+            self._update_from_challenges_array(challenges, content_de, content_fr, dry_run)
+
+        elif chapter_num == 2:
+            # Chapter 2: 4 multiple_choice from 'challenges' array
+            self._update_from_challenges_array(challenges, content_de, content_fr, dry_run)
+
+        elif chapter_num == 3:
+            # Chapter 3: timeline_sort + multiple_choice
+            # Challenge 0: timeline_sort
+            if len(challenges) > 0:
+                self._update_challenge_fields(
+                    challenges[0],
+                    question_de=content_de.get('timeline_question', ''),
+                    question_fr=content_fr.get('timeline_question', ''),
+                    success_de=content_de.get('timeline_success', ''),
+                    success_fr=content_fr.get('timeline_success', ''),
+                    dry_run=dry_run
+                )
+            # Challenge 1: moment multiple_choice
+            if len(challenges) > 1:
+                self._update_challenge_fields(
+                    challenges[1],
+                    question_de=content_de.get('moment_question', ''),
+                    question_fr=content_fr.get('moment_question', ''),
+                    success_de=content_de.get('moment_success', ''),
+                    success_fr=content_fr.get('moment_success', ''),
+                    dry_run=dry_run
+                )
+
+        elif chapter_num == 4:
+            # Chapter 4: 3 would_you_rather + 1 open_text
+            wyr_de = content_de.get('would_you_rather', [])
+            wyr_fr = content_fr.get('would_you_rather', [])
+            wyr_success_de = content_de.get('wyr_success', '')
+            wyr_success_fr = content_fr.get('wyr_success', '')
+
+            for idx, challenge in enumerate(challenges):
+                if challenge.challenge_type == 'would_you_rather' and idx < len(wyr_de):
+                    self._update_challenge_fields(
+                        challenge,
+                        question_de=wyr_de[idx].get('question', ''),
+                        question_fr=wyr_fr[idx].get('question', '') if idx < len(wyr_fr) else '',
+                        success_de=wyr_success_de,
+                        success_fr=wyr_success_fr,
+                        dry_run=dry_run
+                    )
+                elif challenge.challenge_type == 'open_text':
+                    self._update_challenge_fields(
+                        challenge,
+                        question_de=content_de.get('open_question', ''),
+                        question_fr=content_fr.get('open_question', ''),
+                        success_de=content_de.get('open_success', ''),
+                        success_fr=content_fr.get('open_success', ''),
+                        dry_run=dry_run
+                    )
+
+        elif chapter_num == 5:
+            # Chapter 5: dream multiple_choice + future open_text
+            for challenge in challenges:
+                if challenge.challenge_type == 'multiple_choice':
+                    self._update_challenge_fields(
+                        challenge,
+                        question_de=content_de.get('dream_question', ''),
+                        question_fr=content_fr.get('dream_question', ''),
+                        success_de=content_de.get('dream_success', ''),
+                        success_fr=content_fr.get('dream_success', ''),
+                        dry_run=dry_run
+                    )
+                elif challenge.challenge_type == 'open_text':
+                    self._update_challenge_fields(
+                        challenge,
+                        question_de=content_de.get('future_question', ''),
+                        question_fr=content_fr.get('future_question', ''),
+                        success_de=content_de.get('future_success', ''),
+                        success_fr=content_fr.get('future_success', ''),
+                        dry_run=dry_run
+                    )
+
+        elif chapter_num == 6:
+            # Chapter 6: 3 riddles from 'riddles' array
+            riddles_de = content_de.get('riddles', [])
+            riddles_fr = content_fr.get('riddles', [])
+
+            for idx, challenge in enumerate(challenges):
+                if idx < len(riddles_de):
+                    self._update_challenge_fields(
+                        challenge,
+                        question_de=riddles_de[idx].get('question', ''),
+                        question_fr=riddles_fr[idx].get('question', '') if idx < len(riddles_fr) else '',
+                        success_de=riddles_de[idx].get('success', ''),
+                        success_fr=riddles_fr[idx].get('success', '') if idx < len(riddles_fr) else '',
+                        dry_run=dry_run
+                    )
+
+        self.stdout.write(f'    Updated {len(challenges)} challenge(s)')
+
+    def _update_from_challenges_array(self, challenges, content_de, content_fr, dry_run):
+        """Update challenges from a standard 'challenges' array."""
         challenges_de = content_de.get('challenges', [])
         challenges_fr = content_fr.get('challenges', [])
 
-        for idx, challenge in enumerate(chapter.challenges.all().order_by('challenge_order')):
-            self.update_challenge(challenge, idx, challenges_de, challenges_fr, dry_run)
+        for idx, challenge in enumerate(challenges):
+            ch_de = challenges_de[idx] if idx < len(challenges_de) else {}
+            ch_fr = challenges_fr[idx] if idx < len(challenges_fr) else {}
 
-        # Update rewards
-        rewards_de = content_de.get('rewards', [])
-        rewards_fr = content_fr.get('rewards', [])
+            self._update_challenge_fields(
+                challenge,
+                question_de=ch_de.get('question', ''),
+                question_fr=ch_fr.get('question', ''),
+                success_de=ch_de.get('success_message', ''),
+                success_fr=ch_fr.get('success_message', ''),
+                hint_1_de=ch_de.get('hint_1', ''),
+                hint_1_fr=ch_fr.get('hint_1', ''),
+                hint_2_de=ch_de.get('hint_2', ''),
+                hint_2_fr=ch_fr.get('hint_2', ''),
+                hint_3_de=ch_de.get('hint_3', ''),
+                hint_3_fr=ch_fr.get('hint_3', ''),
+                dry_run=dry_run
+            )
 
-        for idx, reward in enumerate(chapter.rewards.all()):
-            self.update_reward(reward, idx, rewards_de, rewards_fr, first_name, dry_run)
-
-    def update_challenge(self, challenge, idx, challenges_de, challenges_fr, dry_run):
-        """Update challenge with DE/FR translations."""
-        challenge_de = challenges_de[idx] if idx < len(challenges_de) else {}
-        challenge_fr = challenges_fr[idx] if idx < len(challenges_fr) else {}
-
-        if not challenge_de and not challenge_fr:
-            return
-
-        updates = {
-            'question_de': challenge_de.get('question', ''),
-            'question_fr': challenge_fr.get('question', ''),
-            'success_message_de': challenge_de.get('success_message', ''),
-            'success_message_fr': challenge_fr.get('success_message', ''),
-            'hint_1_de': challenge_de.get('hint_1', ''),
-            'hint_1_fr': challenge_fr.get('hint_1', ''),
-            'hint_2_de': challenge_de.get('hint_2', ''),
-            'hint_2_fr': challenge_fr.get('hint_2', ''),
-            'hint_3_de': challenge_de.get('hint_3', ''),
-            'hint_3_fr': challenge_fr.get('hint_3', ''),
+    def _update_challenge_fields(self, challenge, dry_run, **kwargs):
+        """Update a single challenge with the given field values."""
+        field_mapping = {
+            'question_de': 'question_de',
+            'question_fr': 'question_fr',
+            'success_de': 'success_message_de',
+            'success_fr': 'success_message_fr',
+            'hint_1_de': 'hint_1_de',
+            'hint_1_fr': 'hint_1_fr',
+            'hint_2_de': 'hint_2_de',
+            'hint_2_fr': 'hint_2_fr',
+            'hint_3_de': 'hint_3_de',
+            'hint_3_fr': 'hint_3_fr',
         }
 
         if not dry_run:
-            for field, value in updates.items():
-                if value:  # Only update if we have a value
-                    setattr(challenge, field, value)
+            for arg_name, field_name in field_mapping.items():
+                value = kwargs.get(arg_name, '')
+                if value:
+                    setattr(challenge, field_name, value)
             challenge.save()
 
-    def update_reward(self, reward, idx, rewards_de, rewards_fr, first_name, dry_run):
-        """Update reward with DE/FR translations."""
-        reward_de = rewards_de[idx] if idx < len(rewards_de) else {}
-        reward_fr = rewards_fr[idx] if idx < len(rewards_fr) else {}
+    def update_chapter_rewards(self, chapter, content_de, content_fr, first_name, dry_run):
+        """Update rewards with DE/FR translations."""
+        reward_de = content_de.get('reward', {})
+        reward_fr = content_fr.get('reward', {})
 
         if not reward_de and not reward_fr:
+            return
+
+        rewards = list(chapter.rewards.all())
+        if not rewards:
             return
 
         # Handle message formatting with first_name
@@ -207,15 +323,12 @@ class Command(BaseCommand):
         except (KeyError, ValueError):
             pass
 
-        updates = {
-            'title_de': reward_de.get('title', ''),
-            'title_fr': reward_fr.get('title', ''),
-            'message_de': message_de,
-            'message_fr': message_fr,
-        }
-
         if not dry_run:
-            for field, value in updates.items():
-                if value:  # Only update if we have a value
-                    setattr(reward, field, value)
-            reward.save()
+            for reward in rewards:
+                reward.title_de = reward_de.get('title', '')
+                reward.title_fr = reward_fr.get('title', '')
+                reward.message_de = message_de
+                reward.message_fr = message_fr
+                reward.save()
+
+        self.stdout.write(f'    Updated {len(rewards)} reward(s)')
