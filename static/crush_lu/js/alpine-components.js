@@ -2038,6 +2038,8 @@ document.addEventListener('alpine:init', function() {
             get notVerified() { return !this.verified; },
             get cannotVerify() { return !this.canVerify; },
             get verifiedValue() { return this.verified ? 'true' : 'false'; },
+            get verifyButtonPulseClass() { return this.canVerify ? 'animate-pulse-subtle' : ''; },
+            get phoneHintClass() { return !this.verified ? 'text-purple-600 font-medium' : 'text-gray-500'; },
 
             init: function() {
                 var self = this;
