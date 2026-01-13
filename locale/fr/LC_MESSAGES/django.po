@@ -5909,10 +5909,7 @@ msgstr "2. Crée ton compte Crush.lu (rapide et facile !)"
 
 #: .\crush_lu\templates\crush_lu\emails\external_guest_invitation.html:157
 msgid "3. Your profile will be reviewed by our team"
-msgstr ""
-"3. Ton profil sera examiné par notre équipeVotre profil est en cours de "
-"révision par notre Crush CoachVotre vie privée compte. Tous les profils sont "
-"examinés par nos Crush Coaches."
+msgstr "3. Ton profil sera examiné par notre équipe"
 
 #: .\crush_lu\templates\crush_lu\emails\external_guest_invitation.html:158
 msgid "4. Once approved, you can register for the event"
@@ -9125,9 +9122,7 @@ msgstr "Profil en cours d'examen"
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:17
 msgid "Your profile is currently being reviewed by our Crush Coaches."
-msgstr ""
-"Votre profil est en cours de révision par notre Crush CoachVotre vie privée "
-"compte. Tous les profils sont examinés par nos Crush Coaches."
+msgstr "Votre profil est en cours de révision par nos Crush Coaches."
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:21
 msgid "Current Status:"
@@ -9191,9 +9186,7 @@ msgstr "Profil mis à jour avec succès !"
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:80
 msgid "Your profile has been submitted for review by our Crush Coaches."
-msgstr ""
-"Votre profil est en cours de révision par notre Crush CoachVotre vie privée "
-"compte. Tous les profils sont examinés par nos Crush Coaches."
+msgstr "Votre profil a été soumis pour révision par nos Crush Coaches."
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:87
 msgid "Your Crush Coach"

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -38,6 +39,9 @@ class JourneyConfiguration(models.Model):
         default="The Wonderland of You",
         help_text=_("Name of this journey")
     )
+    # NOTE: Language field removed - now using django-modeltranslation
+    # which creates journey_name_en, journey_name_de, journey_name_fr columns
+    # and automatically serves correct language based on request.LANGUAGE_CODE
 
     # Metadata
     total_chapters = models.IntegerField(

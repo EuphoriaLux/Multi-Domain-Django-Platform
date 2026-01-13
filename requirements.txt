@@ -56,6 +56,9 @@ pywebpush==2.2.0
 # Cookie Consent (GDPR/ePrivacy)
 django-cookie-consent==0.9.0
 
+# Internationalization - Model Field Translations
+django-modeltranslation==0.19.4
+
 # Testing
 pytest==9.0.2
 pytest-django==4.11.1

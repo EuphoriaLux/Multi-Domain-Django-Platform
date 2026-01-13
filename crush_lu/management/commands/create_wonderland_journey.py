@@ -2,21 +2,24 @@
 Management command to create the complete "Wonderland of You" journey structure.
 Based on the detailed 6-chapter design specification.
 
+Uses django-modeltranslation to populate all language fields (EN, DE, FR) at once.
+Content automatically switches based on URL language prefix (/en/, /de/, /fr/).
+
 Usage:
     python manage.py create_wonderland_journey --first-name Marie --last-name Dupont
 """
 
 from django.core.management.base import BaseCommand
-from django.utils import timezone
 from crush_lu.models import (
     SpecialUserExperience, JourneyConfiguration, JourneyChapter,
     JourneyChallenge, JourneyReward
 )
+from crush_lu.journey_translations import JOURNEY_CONTENT
 from datetime import date
 
 
 class Command(BaseCommand):
-    help = 'Creates the complete "Wonderland of You" journey for a special user'
+    help = 'Creates the complete "Wonderland of You" journey for a special user (all languages)'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -40,9 +43,55 @@ class Command(BaseCommand):
         parser.add_argument(
             '--location-met',
             type=str,
-            default='Café de Paris',
+            default='Cafe de Paris',
             help='Location where you first met'
         )
+
+    def get_text(self, lang, key, fallback_to_en=True, **kwargs):
+        """
+        Get content for specified language with optional fallback to English.
+
+        Args:
+            lang: Language code ('en', 'de', 'fr')
+            key: Dot-separated key path (e.g., 'chapter_1.title')
+            fallback_to_en: If True, falls back to English if key not found
+            **kwargs: Format arguments for string interpolation
+        """
+        content = JOURNEY_CONTENT.get(lang, JOURNEY_CONTENT['en'])
+
+        # Navigate nested keys
+        keys = key.split('.')
+        value = content
+
+        for k in keys:
+            if isinstance(value, dict) and k in value:
+                value = value[k]
+            elif fallback_to_en:
+                # Fall back to English
+                value = JOURNEY_CONTENT['en']
+                for k2 in keys:
+                    if isinstance(value, dict) and k2 in value:
+                        value = value[k2]
+                    else:
+                        return ""
+                break
+            else:
+                return ""
+
+        # Format the string if kwargs provided
+        if isinstance(value, str) and kwargs:
+            try:
+                value = value.format(**kwargs)
+            except KeyError:
+                pass
+
+        return value if isinstance(value, str) else ""
+
+    def get_chapter_content(self, lang, chapter_num):
+        """Get content for a specific chapter."""
+        content = JOURNEY_CONTENT.get(lang, JOURNEY_CONTENT['en'])
+        chapter_key = f'chapter_{chapter_num}'
+        return content.get(chapter_key, JOURNEY_CONTENT['en'].get(chapter_key, {}))
 
     def handle(self, *args, **options):
         first_name = options['first_name']
@@ -54,17 +103,26 @@ class Command(BaseCommand):
         date_met = date.fromisoformat(date_met_str)
 
         self.stdout.write(self.style.SUCCESS(
-            f'\nCreating "The Wonderland of You" journey for {first_name} {last_name}...\n'
+            f'\nCreating "The Wonderland of You" journey for {first_name} {last_name}...'
         ))
+        self.stdout.write(f'Populating all languages: EN, DE, FR\n')
 
-        # 1. Get or create Special User Experience
+        # 1. Get or create Special User Experience (with all language fields)
         special_exp, created = SpecialUserExperience.objects.get_or_create(
             first_name=first_name,
             last_name=last_name,
             defaults={
                 'is_active': True,
-                'custom_welcome_title': f'Welcome to Your Wonderland, {first_name}',
-                'custom_welcome_message': 'Something magical awaits you...',
+                # English
+                'custom_welcome_title_en': self.get_text('en', 'welcome_title', first_name=first_name),
+                'custom_welcome_message_en': self.get_text('en', 'welcome_message'),
+                # German
+                'custom_welcome_title_de': self.get_text('de', 'welcome_title', first_name=first_name),
+                'custom_welcome_message_de': self.get_text('de', 'welcome_message'),
+                # French
+                'custom_welcome_title_fr': self.get_text('fr', 'welcome_title', first_name=first_name),
+                'custom_welcome_message_fr': self.get_text('fr', 'welcome_message'),
+                # Other fields
                 'custom_theme_color': '#9B59B6',
                 'animation_style': 'roses',
                 'vip_badge': True,
@@ -77,24 +135,36 @@ class Command(BaseCommand):
             self.stdout.write(f'[OK] Created Special User Experience for {first_name}')
         else:
             self.stdout.write(f'[OK] Found existing Special User Experience for {first_name}')
+            # Update language fields
+            special_exp.custom_welcome_title_en = self.get_text('en', 'welcome_title', first_name=first_name)
+            special_exp.custom_welcome_message_en = self.get_text('en', 'welcome_message')
+            special_exp.custom_welcome_title_de = self.get_text('de', 'welcome_title', first_name=first_name)
+            special_exp.custom_welcome_message_de = self.get_text('de', 'welcome_message')
+            special_exp.custom_welcome_title_fr = self.get_text('fr', 'welcome_title', first_name=first_name)
+            special_exp.custom_welcome_message_fr = self.get_text('fr', 'welcome_message')
+            special_exp.save()
 
-        # 2. Create Journey Configuration
+        # 2. Create Journey Configuration (all languages in one record)
         journey, created = JourneyConfiguration.objects.get_or_create(
             special_experience=special_exp,
+            journey_type='wonderland',
             defaults={
                 'is_active': True,
-                'journey_name': 'The Wonderland of You',
+                # English
+                'journey_name_en': self.get_text('en', 'journey_name'),
+                'final_message_en': self.get_text('en', 'final_message'),
+                # German
+                'journey_name_de': self.get_text('de', 'journey_name'),
+                'final_message_de': self.get_text('de', 'final_message'),
+                # French
+                'journey_name_fr': self.get_text('fr', 'journey_name'),
+                'final_message_fr': self.get_text('fr', 'final_message'),
+                # Other fields
                 'total_chapters': 6,
                 'estimated_duration_minutes': 90,
                 'date_first_met': date_met,
                 'location_first_met': location_met,
                 'certificate_enabled': True,
-                'final_message': (
-                    f"You've completed every challenge and discovered every secret. "
-                    f"But there's one thing I haven't said clearly enough: "
-                    f"You're extraordinary, and I'd be honored if you'd let me prove it to you, "
-                    f"one real moment at a time."
-                ),
             }
         )
 
@@ -102,17 +172,24 @@ class Command(BaseCommand):
             self.stdout.write(f'[OK] Created Journey Configuration')
         else:
             self.stdout.write(f'[WARN] Journey already exists - updating...')
+            journey.journey_name_en = self.get_text('en', 'journey_name')
+            journey.final_message_en = self.get_text('en', 'final_message')
+            journey.journey_name_de = self.get_text('de', 'journey_name')
+            journey.final_message_de = self.get_text('de', 'final_message')
+            journey.journey_name_fr = self.get_text('fr', 'journey_name')
+            journey.final_message_fr = self.get_text('fr', 'final_message')
             journey.date_first_met = date_met
             journey.location_first_met = location_met
             journey.save()
 
-        # 3. Create all 6 chapters
+        # 3. Create all 6 chapters with all language content
         self.create_all_chapters(journey, date_met, location_met, first_name)
 
         self.stdout.write(self.style.SUCCESS(
             f'\nJourney creation complete!\n'
+            f'Languages populated: EN, DE, FR\n'
             f'Total: 6 chapters with challenges and rewards\n'
-            f'Ready to use in admin or when {first_name} logs in!\n'
+            f'Ready to use - language switches automatically based on URL!\n'
         ))
 
     def create_all_chapters(self, journey, date_met, location_met, first_name):
@@ -138,250 +215,279 @@ class Command(BaseCommand):
 
     def create_chapter_1(self, journey, date_met):
         """Chapter 1: Down the Rabbit Hole - Mystery & Curiosity"""
-        self.stdout.write('Creating Chapter 1: Down the Rabbit Hole...')
+        self.stdout.write(f'Creating Chapter 1: Down the Rabbit Hole...')
+
+        # Get content for all languages
+        content_en = self.get_chapter_content('en', 1)
+        content_de = self.get_chapter_content('de', 1)
+        content_fr = self.get_chapter_content('fr', 1)
 
         chapter, _ = JourneyChapter.objects.get_or_create(
             journey=journey,
             chapter_number=1,
             defaults={
-                'title': 'Down the Rabbit Hole',
-                'theme': 'Mystery & Curiosity',
+                # English
+                'title_en': content_en.get('title', ''),
+                'theme_en': content_en.get('theme', ''),
+                'story_introduction_en': content_en.get('story_introduction', '').format(
+                    date_met=date_met.strftime('%B %d, %Y')
+                ),
+                'completion_message_en': content_en.get('completion_message', ''),
+                # German
+                'title_de': content_de.get('title', ''),
+                'theme_de': content_de.get('theme', ''),
+                'story_introduction_de': content_de.get('story_introduction', '').format(
+                    date_met=date_met.strftime('%d. %B %Y')
+                ),
+                'completion_message_de': content_de.get('completion_message', ''),
+                # French
+                'title_fr': content_fr.get('title', ''),
+                'theme_fr': content_fr.get('theme', ''),
+                'story_introduction_fr': content_fr.get('story_introduction', '').format(
+                    date_met=date_met.strftime('%d %B %Y')
+                ),
+                'completion_message_fr': content_fr.get('completion_message', ''),
+                # Other fields
                 'background_theme': 'wonderland_night',
                 'difficulty': 'easy',
                 'estimated_duration': 10,
                 'requires_previous_completion': False,
-                'story_introduction': (
-                    f"Once upon a time, in a world full of ordinary connections, something "
-                    f"extraordinary happened. On {date_met.strftime('%B %d, %Y')}, a doorway "
-                    f"opened to a wonderland I never knew existed. But this wonderland isn't about "
-                    f"talking cats or mad hatters - it's about discovering someone who makes every "
-                    f"moment feel like magic. Are you ready to follow the white rabbit and see where "
-                    f"this journey leads? Your first challenge awaits..."
-                ),
-                'completion_message': (
-                    "You found the door! Just like that day when I first saw you, something clicked. "
-                    "I didn't know it then, but that smile of yours would become my favorite sight "
-                    "in the world. Let's continue deeper into our wonderland..."
-                ),
             }
         )
 
         # Challenge 1A: The First Door (Riddle)
-        JourneyChallenge.objects.get_or_create(
-            chapter=chapter,
-            challenge_order=1,
-            defaults={
-                'challenge_type': 'riddle',
-                'question': (
-                    "I am the moment when two paths crossed,\n"
-                    "When a stranger's smile made the world feel lost.\n"
-                    f"I happened on a {date_met.strftime('%B')} day so bright,\n"
-                    "What date marks this moment of pure light?"
-                ),
-                'correct_answer': date_met.strftime('%m/%d/%Y'),
-                'alternative_answers': [
-                    date_met.strftime('%d/%m/%Y'),
-                    date_met.strftime('%Y-%m-%d'),
-                    date_met.strftime('%B %d, %Y'),
-                    date_met.strftime('%b %d %Y'),
-                ],
-                'hint_1': f"Think back to the season when leaves were {self.get_season(date_met)}...",
-                'hint_1_cost': 20,
-                'hint_2': f"It was in the month of {date_met.strftime('%B')}...",
-                'hint_2_cost': 50,
-                'hint_3': f"The day was the {date_met.day}th...",
-                'hint_3_cost': 80,
-                'points_awarded': 100,
-                'success_message': (
-                    f"Yes! {date_met.strftime('%B %d, %Y')} - that date is etched in my memory. "
-                    "The day everything changed."
-                ),
-            }
-        )
+        challenges_en = content_en.get('challenges', [])
+        challenges_de = content_de.get('challenges', [])
+        challenges_fr = content_fr.get('challenges', [])
+
+        if challenges_en:
+            riddle_en = challenges_en[0]
+            riddle_de = challenges_de[0] if challenges_de else riddle_en
+            riddle_fr = challenges_fr[0] if challenges_fr else riddle_en
+
+            season_en = self.get_text('en', f'seasons.{self.get_season_key(date_met)}')
+            season_de = self.get_text('de', f'seasons.{self.get_season_key(date_met)}')
+            season_fr = self.get_text('fr', f'seasons.{self.get_season_key(date_met)}')
+
+            JourneyChallenge.objects.get_or_create(
+                chapter=chapter,
+                challenge_order=1,
+                defaults={
+                    'challenge_type': 'riddle',
+                    # English
+                    'question_en': riddle_en.get('question', '').format(month=date_met.strftime('%B')),
+                    'hint_1_en': riddle_en.get('hint_1', '').format(season=season_en),
+                    'hint_2_en': riddle_en.get('hint_2', '').format(month=date_met.strftime('%B')),
+                    'hint_3_en': riddle_en.get('hint_3', '').format(day=date_met.day),
+                    'success_message_en': riddle_en.get('success_message', '').format(
+                        date_met=date_met.strftime('%B %d, %Y')
+                    ),
+                    # German
+                    'question_de': riddle_de.get('question', '').format(month=self.get_german_month(date_met.month)),
+                    'hint_1_de': riddle_de.get('hint_1', '').format(season=season_de),
+                    'hint_2_de': riddle_de.get('hint_2', '').format(month=self.get_german_month(date_met.month)),
+                    'hint_3_de': riddle_de.get('hint_3', '').format(day=date_met.day),
+                    'success_message_de': riddle_de.get('success_message', '').format(
+                        date_met=date_met.strftime('%d. %B %Y')
+                    ),
+                    # French
+                    'question_fr': riddle_fr.get('question', '').format(month=self.get_french_month(date_met.month)),
+                    'hint_1_fr': riddle_fr.get('hint_1', '').format(season=season_fr),
+                    'hint_2_fr': riddle_fr.get('hint_2', '').format(month=self.get_french_month(date_met.month)),
+                    'hint_3_fr': riddle_fr.get('hint_3', '').format(day=date_met.day),
+                    'success_message_fr': riddle_fr.get('success_message', '').format(
+                        date_met=date_met.strftime('%d %B %Y')
+                    ),
+                    # Other fields
+                    'correct_answer': date_met.strftime('%m/%d/%Y'),
+                    'alternative_answers': [
+                        date_met.strftime('%d/%m/%Y'),
+                        date_met.strftime('%Y-%m-%d'),
+                        date_met.strftime('%B %d, %Y'),
+                    ],
+                    'hint_1_cost': 20,
+                    'hint_2_cost': 50,
+                    'hint_3_cost': 80,
+                    'points_awarded': 100,
+                }
+            )
 
         # Challenge 1B: Word Scramble
-        JourneyChallenge.objects.get_or_create(
-            chapter=chapter,
-            challenge_order=2,
-            defaults={
-                'challenge_type': 'word_scramble',
-                'question': 'Unscramble these letters to reveal what captured my attention:',
-                'options': {'scrambled': 'TFSIR PELIMS'},
-                'correct_answer': 'FIRST SMILE',
-                'alternative_answers': ['first smile', 'FIRSTSMILE', 'firstsmile'],
-                'points_awarded': 50,
-                'success_message': 'Exactly! Your smile was the first thing that caught my eye.',
-            }
-        )
+        if len(challenges_en) > 1:
+            scramble_en = challenges_en[1]
+            scramble_de = challenges_de[1] if len(challenges_de) > 1 else scramble_en
+            scramble_fr = challenges_fr[1] if len(challenges_fr) > 1 else scramble_en
+
+            JourneyChallenge.objects.get_or_create(
+                chapter=chapter,
+                challenge_order=2,
+                defaults={
+                    'challenge_type': 'word_scramble',
+                    # English
+                    'question_en': scramble_en.get('question', ''),
+                    'success_message_en': scramble_en.get('success_message', ''),
+                    # German
+                    'question_de': scramble_de.get('question', ''),
+                    'success_message_de': scramble_de.get('success_message', ''),
+                    # French
+                    'question_fr': scramble_fr.get('question', ''),
+                    'success_message_fr': scramble_fr.get('success_message', ''),
+                    # Other fields
+                    'options': {'scrambled': scramble_en.get('scrambled', 'TFSIR PELIMS')},
+                    'correct_answer': scramble_en.get('answer', 'FIRST SMILE'),
+                    'alternative_answers': ['first smile', 'FIRSTSMILE', 'firstsmile'],
+                    'points_awarded': 50,
+                }
+            )
 
         # Reward: Photo Puzzle
+        reward_en = content_en.get('reward', {})
+        reward_de = content_de.get('reward', {})
+        reward_fr = content_fr.get('reward', {})
+
         JourneyReward.objects.get_or_create(
             chapter=chapter,
             defaults={
-                'reward_type': 'photo_reveal',
-                'title': 'The Smile That Started It All',
-                'message': 'This is the moment that changed everything... 💫',
+                'reward_type': reward_en.get('type', 'photo_reveal'),
+                'title_en': reward_en.get('title', ''),
+                'message_en': reward_en.get('message', ''),
+                'title_de': reward_de.get('title', ''),
+                'message_de': reward_de.get('message', ''),
+                'title_fr': reward_fr.get('title', ''),
+                'message_fr': reward_fr.get('message', ''),
                 'puzzle_pieces': 16,
             }
         )
 
     def create_chapter_2(self, journey, first_name):
         """Chapter 2: Garden of Rare Flowers - Appreciation & Uniqueness"""
-        self.stdout.write('Creating Chapter 2: Garden of Rare Flowers...')
+        self.stdout.write(f'Creating Chapter 2: Garden of Rare Flowers...')
+
+        content_en = self.get_chapter_content('en', 2)
+        content_de = self.get_chapter_content('de', 2)
+        content_fr = self.get_chapter_content('fr', 2)
 
         chapter, _ = JourneyChapter.objects.get_or_create(
             journey=journey,
             chapter_number=2,
             defaults={
-                'title': 'The Garden of Rare Flowers',
-                'theme': 'Appreciation & Uniqueness',
+                'title_en': content_en.get('title', ''),
+                'theme_en': content_en.get('theme', ''),
+                'story_introduction_en': content_en.get('story_introduction', ''),
+                'completion_message_en': content_en.get('completion_message', ''),
+                'title_de': content_de.get('title', ''),
+                'theme_de': content_de.get('theme', ''),
+                'story_introduction_de': content_de.get('story_introduction', ''),
+                'completion_message_de': content_de.get('completion_message', ''),
+                'title_fr': content_fr.get('title', ''),
+                'theme_fr': content_fr.get('theme', ''),
+                'story_introduction_fr': content_fr.get('story_introduction', ''),
+                'completion_message_fr': content_fr.get('completion_message', ''),
                 'background_theme': 'enchanted_garden',
                 'difficulty': 'easy',
                 'estimated_duration': 15,
                 'requires_previous_completion': True,
-                'story_introduction': (
-                    "In every garden, there are common flowers - beautiful, but familiar. "
-                    "And then there are rare blooms that make you stop and stare, wondering how "
-                    "something so extraordinary exists. You, my dear, are the rarest flower in the garden. "
-                    "This chapter celebrates all the little things that make you... YOU."
-                ),
-                'completion_message': (
-                    "You see? Every petal in this garden represents something about you that I've noticed, "
-                    "remembered, and treasured. While others might see a flower, I see the entire ecosystem "
-                    "of beauty that is YOU. And I'm just getting started..."
-                ),
             }
         )
 
-        # Challenge 2A: Multiple choice questions (5 questions)
-        questions = [
-            {
-                'question': "What's your secret superpower that most people don't see?",
-                'options': {
-                    'A': 'Making people laugh even on their worst days',
-                    'B': 'Finding beauty in the smallest moments',
-                    'C': 'Staying calm when everything is chaos',
-                    'D': 'Remembering tiny details about people',
-                },
-                'answer': 'B',
-                'message': "Yes! I noticed this about you from the very beginning. It's one of the things that makes you extraordinary.",
-            },
-            {
-                'question': "If your laugh was a sound in nature, what would it be?",
-                'options': {
-                    'A': 'Wind chimes on a gentle breeze',
-                    'B': 'A babbling brook over smooth stones',
-                    'C': 'Birds singing at sunrise',
-                    'D': 'Ocean waves on a peaceful shore',
-                },
-                'answer': 'C',
-                'message': "Your laugh brightens everything around you, just like birds at sunrise. I could listen to it for hours.",
-            },
-            {
-                'question': "What do you value most in a connection with someone?",
-                'options': {
-                    'A': 'Honest conversations, even about hard things',
-                    'B': 'Comfortable silence and just being together',
-                    'C': 'Shared adventures and creating memories',
-                    'D': 'Deep understanding without words',
-                },
-                'answer': 'A',
-                'message': "I felt this from you from the start. That's when I knew you were different...",
-            },
-            {
-                'question': "If you could give your younger self one piece of advice, it would be...",
-                'options': {
-                    'A': 'Trust your gut - it knows more than you think',
-                    'B': 'The hard times are making you stronger',
-                    'C': "Don't change for anyone - you're perfect as you are",
-                    'D': "Everything happens exactly when it's supposed to",
-                },
-                'answer': 'D',
-                'message': "Knowing you, I think you'd say this. And I'm grateful for every step that led you to this moment...",
-            },
-        ]
+        # Multiple choice challenges
+        challenges_en = content_en.get('challenges', [])
+        challenges_de = content_de.get('challenges', [])
+        challenges_fr = content_fr.get('challenges', [])
 
-        for i, q in enumerate(questions, start=1):
+        for i, q_en in enumerate(challenges_en, start=1):
+            q_de = challenges_de[i - 1] if i <= len(challenges_de) else q_en
+            q_fr = challenges_fr[i - 1] if i <= len(challenges_fr) else q_en
+
             JourneyChallenge.objects.get_or_create(
                 chapter=chapter,
                 challenge_order=i,
                 defaults={
                     'challenge_type': 'multiple_choice',
-                    'question': q['question'],
-                    'options': q['options'],
-                    'correct_answer': q['answer'],
+                    'question_en': q_en.get('question', ''),
+                    'success_message_en': q_en.get('success_message', ''),
+                    'question_de': q_de.get('question', ''),
+                    'success_message_de': q_de.get('success_message', ''),
+                    'question_fr': q_fr.get('question', ''),
+                    'success_message_fr': q_fr.get('success_message', ''),
+                    'options': q_en.get('options', {}),
+                    'correct_answer': '',  # Questionnaire mode - all answers accepted
                     'points_awarded': 80,
-                    'success_message': q['message'],
                 }
             )
 
         # Reward: Poem
+        reward_en = content_en.get('reward', {})
+        reward_de = content_de.get('reward', {})
+        reward_fr = content_fr.get('reward', {})
+
         JourneyReward.objects.get_or_create(
             chapter=chapter,
             defaults={
-                'reward_type': 'poem',
-                'title': 'A Garden of One',
-                'message': (
-                    "In a garden of billions of souls,\n"
-                    "Yours blooms in colors I've never seen.\n"
-                    "Not because you try to stand out,\n"
-                    "But because authenticity is your sunlight,\n"
-                    "Kindness is your rain,\n"
-                    "And genuine beauty grows from within.\n\n"
-                    "I could spend lifetimes studying your petals,\n"
-                    "And still discover new shades of wonderful."
-                ),
+                'reward_type': reward_en.get('type', 'poem'),
+                'title_en': reward_en.get('title', ''),
+                'message_en': reward_en.get('message', ''),
+                'title_de': reward_de.get('title', ''),
+                'message_de': reward_de.get('message', ''),
+                'title_fr': reward_fr.get('title', ''),
+                'message_fr': reward_fr.get('message', ''),
             }
         )
 
     def create_chapter_3(self, journey, location_met):
         """Chapter 3: Gallery of Moments - Shared Memories"""
-        self.stdout.write('Creating Chapter 3: Gallery of Moments...')
+        self.stdout.write(f'Creating Chapter 3: Gallery of Moments...')
+
+        content_en = self.get_chapter_content('en', 3)
+        content_de = self.get_chapter_content('de', 3)
+        content_fr = self.get_chapter_content('fr', 3)
 
         chapter, _ = JourneyChapter.objects.get_or_create(
             journey=journey,
             chapter_number=3,
             defaults={
-                'title': 'The Gallery of Moments',
-                'theme': 'Shared Memories',
+                'title_en': content_en.get('title', ''),
+                'theme_en': content_en.get('theme', ''),
+                'story_introduction_en': content_en.get('story_introduction', ''),
+                'completion_message_en': content_en.get('completion_message', ''),
+                'title_de': content_de.get('title', ''),
+                'theme_de': content_de.get('theme', ''),
+                'story_introduction_de': content_de.get('story_introduction', ''),
+                'completion_message_de': content_de.get('completion_message', ''),
+                'title_fr': content_fr.get('title', ''),
+                'theme_fr': content_fr.get('theme', ''),
+                'story_introduction_fr': content_fr.get('story_introduction', ''),
+                'completion_message_fr': content_fr.get('completion_message', ''),
                 'background_theme': 'art_gallery',
                 'difficulty': 'medium',
                 'estimated_duration': 20,
                 'requires_previous_completion': True,
-                'story_introduction': (
-                    "Time is funny - it's made of millions of moments, but only a few make us truly feel alive. "
-                    "This gallery holds the moments with you that painted color into my black-and-white world. "
-                    "Each frame is a memory I've locked away in my heart. Can you help me remember them too?"
-                ),
-                'completion_message': (
-                    "Every photo in this gallery, every memory we've built - they're not just moments in time. "
-                    "They're proof that some connections are worth remembering, worth treasuring, worth everything. "
-                    "And we're still creating new moments for future galleries..."
-                ),
             }
         )
 
         # Challenge 3A: Timeline sorting
+        events_en = content_en.get('timeline_events', [])
+        events_de = content_de.get('timeline_events', [])
+        events_fr = content_fr.get('timeline_events', [])
+
+        formatted_events_en = [e.format(location_met=location_met) for e in events_en]
+        formatted_events_de = [e.format(location_met=location_met) for e in events_de]
+        formatted_events_fr = [e.format(location_met=location_met) for e in events_fr]
+
         JourneyChallenge.objects.get_or_create(
             chapter=chapter,
             challenge_order=1,
             defaults={
                 'challenge_type': 'timeline_sort',
-                'question': 'Arrange these moments in the order they happened:',
-                'options': {
-                    'events': [
-                        f"The day we first met at {location_met}",
-                        "That conversation that lasted until midnight",
-                        "When you shared something personal with me",
-                        "The moment I realized you were special",
-                        "Today - as you journey through this wonderland",
-                    ]
-                },
-                'correct_answer': '0,1,2,3,4',  # Correct order indices
+                'question_en': content_en.get('timeline_question', ''),
+                'success_message_en': content_en.get('timeline_success', ''),
+                'question_de': content_de.get('timeline_question', ''),
+                'success_message_de': content_de.get('timeline_success', ''),
+                'question_fr': content_fr.get('timeline_question', ''),
+                'success_message_fr': content_fr.get('timeline_success', ''),
+                'options': {'events': formatted_events_en},
+                'correct_answer': '0,1,2,3,4',
                 'points_awarded': 300,
-                'success_message': (
-                    "Perfect! You remember our timeline just as I do. Every moment matters."
-                ),
             }
         )
 
@@ -391,144 +497,159 @@ class Command(BaseCommand):
             challenge_order=2,
             defaults={
                 'challenge_type': 'multiple_choice',
-                'question': (
-                    "There was one moment when 'interesting person' became 'someone I can't stop thinking about.' "
-                    "What was I thinking in that moment?"
-                ),
-                'options': {
-                    'A': 'I want to know everything about this person',
-                    'B': 'I hope this isn\'t the last time we talk',
-                    'C': 'I\'ve never met anyone like this before',
-                    'D': 'I need to see that smile again',
-                },
-                'correct_answer': 'C',
+                'question_en': content_en.get('moment_question', ''),
+                'success_message_en': content_en.get('moment_success', ''),
+                'question_de': content_de.get('moment_question', ''),
+                'success_message_de': content_de.get('moment_success', ''),
+                'question_fr': content_fr.get('moment_question', ''),
+                'success_message_fr': content_fr.get('moment_success', ''),
+                'options': content_en.get('moment_options', {}),
+                'correct_answer': content_en.get('moment_answer', 'C'),
                 'points_awarded': 200,
-                'success_message': (
-                    "Yes. In that exact moment, something shifted. You became less of a 'what if' "
-                    "and more of a 'I hope so'..."
-                ),
             }
         )
 
         # Reward: Photo slideshow
+        reward_en = content_en.get('reward', {})
+        reward_de = content_de.get('reward', {})
+        reward_fr = content_fr.get('reward', {})
+
         JourneyReward.objects.get_or_create(
             chapter=chapter,
             defaults={
-                'reward_type': 'photo_slideshow',
-                'title': 'Moments in Time',
-                'message': 'A collection of moments that make time stop...',
+                'reward_type': reward_en.get('type', 'photo_slideshow'),
+                'title_en': reward_en.get('title', ''),
+                'message_en': reward_en.get('message', ''),
+                'title_de': reward_de.get('title', ''),
+                'message_de': reward_de.get('message', ''),
+                'title_fr': reward_fr.get('title', ''),
+                'message_fr': reward_fr.get('message', ''),
             }
         )
 
     def create_chapter_4(self, journey):
         """Chapter 4: Carnival of Courage - Vulnerability & Truth"""
-        self.stdout.write('Creating Chapter 4: Carnival of Courage...')
+        self.stdout.write(f'Creating Chapter 4: Carnival of Courage...')
+
+        content_en = self.get_chapter_content('en', 4)
+        content_de = self.get_chapter_content('de', 4)
+        content_fr = self.get_chapter_content('fr', 4)
 
         chapter, _ = JourneyChapter.objects.get_or_create(
             journey=journey,
             chapter_number=4,
             defaults={
-                'title': 'The Carnival of Courage',
-                'theme': 'Vulnerability & Truth',
+                'title_en': content_en.get('title', ''),
+                'theme_en': content_en.get('theme', ''),
+                'story_introduction_en': content_en.get('story_introduction', ''),
+                'completion_message_en': content_en.get('completion_message', ''),
+                'title_de': content_de.get('title', ''),
+                'theme_de': content_de.get('theme', ''),
+                'story_introduction_de': content_de.get('story_introduction', ''),
+                'completion_message_de': content_de.get('completion_message', ''),
+                'title_fr': content_fr.get('title', ''),
+                'theme_fr': content_fr.get('theme', ''),
+                'story_introduction_fr': content_fr.get('story_introduction', ''),
+                'completion_message_fr': content_fr.get('completion_message', ''),
                 'background_theme': 'carnival',
                 'difficulty': 'medium',
                 'estimated_duration': 15,
                 'requires_previous_completion': True,
-                'story_introduction': (
-                    "The bravest thing anyone can do is be honest - with themselves and with others. "
-                    "In this carnival of life, we wear many masks. But with you, I want to take mine off. "
-                    "This chapter is about truth, vulnerability, and the courage to say what matters. "
-                    "Will you step up to the challenge?"
-                ),
-                'completion_message': (
-                    "You made it through the Carnival of Courage. Here's my truth: "
-                    "I'm taking my mask off. The question is... what happens next?"
-                ),
             }
         )
 
-        # Challenge 4A: Would You Rather questions
-        wyr_questions = [
-            {
-                'question': 'Would you rather know the truth even if it hurts, or live in comfortable uncertainty?',
-                'options': {'A': 'Know the truth', 'B': 'Comfortable uncertainty'},
-                'answer': 'A',
-            },
-            {
-                'question': 'Would you rather regret trying, or regret never knowing?',
-                'options': {'A': 'Regret trying', 'B': 'Regret never knowing'},
-                'answer': 'B',
-            },
-            {
-                'question': 'Would you rather have one real connection, or a hundred superficial ones?',
-                'options': {'A': 'One real connection', 'B': 'Hundred superficial'},
-                'answer': 'A',
-            },
-        ]
+        # Would You Rather questions
+        wyr_en = content_en.get('would_you_rather', [])
+        wyr_de = content_de.get('would_you_rather', [])
+        wyr_fr = content_fr.get('would_you_rather', [])
+        wyr_success_en = content_en.get('wyr_success', '')
+        wyr_success_de = content_de.get('wyr_success', '')
+        wyr_success_fr = content_fr.get('wyr_success', '')
 
-        for i, q in enumerate(wyr_questions, start=1):
+        for i, q_en in enumerate(wyr_en, start=1):
+            q_de = wyr_de[i - 1] if i <= len(wyr_de) else q_en
+            q_fr = wyr_fr[i - 1] if i <= len(wyr_fr) else q_en
+
             JourneyChallenge.objects.get_or_create(
                 chapter=chapter,
                 challenge_order=i,
                 defaults={
                     'challenge_type': 'would_you_rather',
-                    'question': q['question'],
-                    'options': q['options'],
-                    'correct_answer': q['answer'],
+                    'question_en': q_en.get('question', ''),
+                    'success_message_en': wyr_success_en,
+                    'question_de': q_de.get('question', ''),
+                    'success_message_de': wyr_success_de,
+                    'question_fr': q_fr.get('question', ''),
+                    'success_message_fr': wyr_success_fr,
+                    'options': q_en.get('options', {}),
+                    'correct_answer': '',  # Questionnaire mode
                     'points_awarded': 100,
-                    'success_message': 'Your answer tells me so much about who you are.',
                 }
             )
 
-        # Challenge 4B: Open text reflection
+        # Open text reflection
         JourneyChallenge.objects.get_or_create(
             chapter=chapter,
-            challenge_order=4,
+            challenge_order=len(wyr_en) + 1,
             defaults={
                 'challenge_type': 'open_text',
-                'question': 'What do you think makes someone worth taking a risk for?',
-                'correct_answer': 'ANY',  # Any answer is accepted
+                'question_en': content_en.get('open_question', ''),
+                'success_message_en': content_en.get('open_success', ''),
+                'question_de': content_de.get('open_question', ''),
+                'success_message_de': content_de.get('open_success', ''),
+                'question_fr': content_fr.get('open_question', ''),
+                'success_message_fr': content_fr.get('open_success', ''),
+                'correct_answer': '',  # Questionnaire mode
                 'points_awarded': 200,
-                'success_message': 'Thank you for being honest. Your words mean everything.',
             }
         )
 
-        # Reward: Voice/video message
+        # Reward: Voice message
+        reward_en = content_en.get('reward', {})
+        reward_de = content_de.get('reward', {})
+        reward_fr = content_fr.get('reward', {})
+
         JourneyReward.objects.get_or_create(
             chapter=chapter,
             defaults={
-                'reward_type': 'voice_message',
-                'title': 'A Message from the Heart',
-                'message': 'I need to tell you something I\'ve been thinking about...',
+                'reward_type': reward_en.get('type', 'voice_message'),
+                'title_en': reward_en.get('title', ''),
+                'message_en': reward_en.get('message', ''),
+                'title_de': reward_de.get('title', ''),
+                'message_de': reward_de.get('message', ''),
+                'title_fr': reward_fr.get('title', ''),
+                'message_fr': reward_fr.get('message', ''),
             }
         )
 
     def create_chapter_5(self, journey, first_name):
         """Chapter 5: Starlit Observatory - Dreams & Future"""
-        self.stdout.write('Creating Chapter 5: Starlit Observatory...')
+        self.stdout.write(f'Creating Chapter 5: Starlit Observatory...')
+
+        content_en = self.get_chapter_content('en', 5)
+        content_de = self.get_chapter_content('de', 5)
+        content_fr = self.get_chapter_content('fr', 5)
 
         chapter, _ = JourneyChapter.objects.get_or_create(
             journey=journey,
             chapter_number=5,
             defaults={
-                'title': 'The Starlit Observatory',
-                'theme': 'Dreams & Future',
+                'title_en': content_en.get('title', ''),
+                'theme_en': content_en.get('theme', ''),
+                'story_introduction_en': content_en.get('story_introduction', ''),
+                'completion_message_en': content_en.get('completion_message', ''),
+                'title_de': content_de.get('title', ''),
+                'theme_de': content_de.get('theme', ''),
+                'story_introduction_de': content_de.get('story_introduction', ''),
+                'completion_message_de': content_de.get('completion_message', ''),
+                'title_fr': content_fr.get('title', ''),
+                'theme_fr': content_fr.get('theme', ''),
+                'story_introduction_fr': content_fr.get('story_introduction', ''),
+                'completion_message_fr': content_fr.get('completion_message', ''),
                 'background_theme': 'starlit_sky',
                 'difficulty': 'medium',
                 'estimated_duration': 20,
                 'requires_previous_completion': True,
-                'story_introduction': (
-                    "They say we're all made of stardust. If that's true, then some stars must be meant "
-                    "to orbit together. This observatory isn't just for looking at distant galaxies - "
-                    "it's for dreaming about futures, possibilities, and 'what if's. "
-                    "Let's gaze at the stars and wonder... what could we create together?"
-                ),
-                'completion_message': (
-                    "Looking at stars makes me think about infinity, about possibilities, about futures unwritten. "
-                    "And here's what I know: whatever the future holds, I want you in it. "
-                    "Not as a distant star I admire from afar, but as someone who's part of my constellation. "
-                    "Someone whose light makes my sky brighter. Someone worth wishing on."
-                ),
             }
         )
 
@@ -538,16 +659,15 @@ class Command(BaseCommand):
             challenge_order=1,
             defaults={
                 'challenge_type': 'multiple_choice',
-                'question': 'If we could do anything together, I\'d want to...',
-                'options': {
-                    'A': 'Travel somewhere we\'ve never been',
-                    'B': 'Learn something new together',
-                    'C': 'Create something beautiful',
-                    'D': 'Build quiet moments of peace',
-                },
-                'correct_answer': 'ANY',
+                'question_en': content_en.get('dream_question', ''),
+                'success_message_en': content_en.get('dream_success', ''),
+                'question_de': content_de.get('dream_question', ''),
+                'success_message_de': content_de.get('dream_success', ''),
+                'question_fr': content_fr.get('dream_question', ''),
+                'success_message_fr': content_fr.get('dream_success', ''),
+                'options': content_en.get('dream_options', {}),
+                'correct_answer': '',  # Questionnaire mode
                 'points_awarded': 150,
-                'success_message': 'I love that idea. Let\'s make it happen.',
             }
         )
 
@@ -557,113 +677,119 @@ class Command(BaseCommand):
             challenge_order=2,
             defaults={
                 'challenge_type': 'open_text',
-                'question': 'Complete this sentence: "In 5 years, I hope we\'re..."',
-                'correct_answer': 'ANY',
+                'question_en': content_en.get('future_question', ''),
+                'success_message_en': content_en.get('future_success', ''),
+                'question_de': content_de.get('future_question', ''),
+                'success_message_de': content_de.get('future_success', ''),
+                'question_fr': content_fr.get('future_question', ''),
+                'success_message_fr': content_fr.get('future_success', ''),
+                'correct_answer': '',  # Questionnaire mode
                 'points_awarded': 200,
-                'success_message': 'That future sounds beautiful. Let\'s build it together.',
             }
         )
 
         # Reward: Future Letter
+        reward_en = content_en.get('reward', {})
+        reward_de = content_de.get('reward', {})
+        reward_fr = content_fr.get('reward', {})
+
         JourneyReward.objects.get_or_create(
             chapter=chapter,
             defaults={
-                'reward_type': 'future_letter',
-                'title': 'A Letter to the Future',
-                'message': (
-                    f"Dear Future {first_name},\n\n"
-                    f"If you're reading this, then we've completed this journey. "
-                    f"I don't know what happens next - that's still being written. "
-                    f"But I want Future You to know what Present Me is thinking right now...\n\n"
-                    f"Whatever happens, I want you to know that creating this for you - "
-                    f"every puzzle, every message, every detail - was worth it. Because YOU are worth it.\n\n"
-                    f"With all the stardust in my heart"
-                ),
+                'reward_type': reward_en.get('type', 'future_letter'),
+                'title_en': reward_en.get('title', ''),
+                'message_en': reward_en.get('message', '').format(first_name=first_name),
+                'title_de': reward_de.get('title', ''),
+                'message_de': reward_de.get('message', '').format(first_name=first_name),
+                'title_fr': reward_fr.get('title', ''),
+                'message_fr': reward_fr.get('message', '').format(first_name=first_name),
             }
         )
 
     def create_chapter_6(self, journey, first_name):
         """Chapter 6: Door to Tomorrow - The Reveal & Next Step"""
-        self.stdout.write('Creating Chapter 6: Door to Tomorrow...')
+        self.stdout.write(f'Creating Chapter 6: Door to Tomorrow...')
+
+        content_en = self.get_chapter_content('en', 6)
+        content_de = self.get_chapter_content('de', 6)
+        content_fr = self.get_chapter_content('fr', 6)
 
         chapter, _ = JourneyChapter.objects.get_or_create(
             journey=journey,
             chapter_number=6,
             defaults={
-                'title': 'The Door to Tomorrow',
-                'theme': 'The Reveal & Next Step',
+                'title_en': content_en.get('title', ''),
+                'theme_en': content_en.get('theme', ''),
+                'story_introduction_en': content_en.get('story_introduction', ''),
+                'completion_message_en': content_en.get('completion_message', '').format(first_name=first_name),
+                'title_de': content_de.get('title', ''),
+                'theme_de': content_de.get('theme', ''),
+                'story_introduction_de': content_de.get('story_introduction', ''),
+                'completion_message_de': content_de.get('completion_message', '').format(first_name=first_name),
+                'title_fr': content_fr.get('title', ''),
+                'theme_fr': content_fr.get('theme', ''),
+                'story_introduction_fr': content_fr.get('story_introduction', ''),
+                'completion_message_fr': content_fr.get('completion_message', '').format(first_name=first_name),
                 'background_theme': 'magical_door',
                 'difficulty': 'easy',
                 'estimated_duration': 15,
                 'requires_previous_completion': True,
-                'story_introduction': (
-                    "Every journey needs an ending. But some endings are really beginnings in disguise. "
-                    "You've solved every puzzle, unlocked every secret, and made it to the final door. "
-                    "Behind this door is the truth about why I created this entire wonderland for you. "
-                    "Are you ready?"
-                ),
-                'completion_message': (
-                    f"{first_name}, you've journeyed through riddles, puzzles, memories, and dreams. "
-                    "You've unlocked every chapter, discovered every secret. "
-                    "This isn't the end of our story. It's the beginning of the next chapter. "
-                    "And I'm hoping - really hoping - that you'll write it with me."
-                ),
             }
         )
 
-        # Challenge 6A: Final riddle (3 parts)
-        JourneyChallenge.objects.get_or_create(
-            chapter=chapter,
-            challenge_order=1,
-            defaults={
-                'challenge_type': 'riddle',
-                'question': "I am the reason your name echoes in my mind before sleep. What am I?",
-                'correct_answer': 'feelings',
-                'alternative_answers': ['love', 'thoughts', 'emotions', 'affection'],
-                'points_awarded': 200,
-                'success_message': 'Yes... feelings. That\'s where this all begins.',
-            }
-        )
+        # Final riddles
+        riddles_en = content_en.get('riddles', [])
+        riddles_de = content_de.get('riddles', [])
+        riddles_fr = content_fr.get('riddles', [])
 
-        JourneyChallenge.objects.get_or_create(
-            chapter=chapter,
-            challenge_order=2,
-            defaults={
-                'challenge_type': 'riddle',
-                'question': "I am what I hope we can build together. What am I?",
-                'correct_answer': 'future',
-                'alternative_answers': ['connection', 'us', 'relationship', 'life together'],
-                'points_awarded': 200,
-                'success_message': 'Yes... our future. Something beautiful we create together.',
-            }
-        )
+        for i, riddle_en in enumerate(riddles_en, start=1):
+            riddle_de = riddles_de[i - 1] if i <= len(riddles_de) else riddle_en
+            riddle_fr = riddles_fr[i - 1] if i <= len(riddles_fr) else riddle_en
+            points = 200 if i < 3 else 100
 
-        JourneyChallenge.objects.get_or_create(
-            chapter=chapter,
-            challenge_order=3,
-            defaults={
-                'challenge_type': 'riddle',
-                'question': "I am what I'm asking you to give this. What am I?",
-                'correct_answer': 'chance',
-                'alternative_answers': ['time', 'heart', 'opportunity', 'try'],
-                'points_awarded': 100,
-                'success_message': (
-                    'Yes... a chance. Feelings for our future, if you\'ll give it a chance. '
-                    'That\'s all I\'m asking.'
-                ),
-            }
-        )
+            JourneyChallenge.objects.get_or_create(
+                chapter=chapter,
+                challenge_order=i,
+                defaults={
+                    'challenge_type': 'riddle',
+                    'question_en': riddle_en.get('question', ''),
+                    'success_message_en': riddle_en.get('success', ''),
+                    'question_de': riddle_de.get('question', ''),
+                    'success_message_de': riddle_de.get('success', ''),
+                    'question_fr': riddle_fr.get('question', ''),
+                    'success_message_fr': riddle_fr.get('success', ''),
+                    'correct_answer': riddle_en.get('answer', ''),
+                    'alternative_answers': riddle_en.get('alternatives', []),
+                    'points_awarded': points,
+                }
+            )
 
-        # No reward here - the certificate IS the reward
-
-    def get_season(self, date_obj):
-        """Determine the season based on month"""
+    def get_season_key(self, date_obj):
+        """Determine the season key based on month"""
         month = date_obj.month
         if month in [3, 4, 5]:
-            return 'blooming'
+            return 'spring'
         elif month in [6, 7, 8]:
-            return 'shining'
+            return 'summer'
         elif month in [9, 10, 11]:
-            return 'falling'
+            return 'autumn'
         else:
-            return 'sparkling'
+            return 'winter'
+
+    def get_german_month(self, month_num):
+        """Get German month name"""
+        months = {
+            1: 'Januar', 2: 'Februar', 3: 'Marz', 4: 'April',
+            5: 'Mai', 6: 'Juni', 7: 'Juli', 8: 'August',
+            9: 'September', 10: 'Oktober', 11: 'November', 12: 'Dezember'
+        }
+        return months.get(month_num, '')
+
+    def get_french_month(self, month_num):
+        """Get French month name"""
+        months = {
+            1: 'janvier', 2: 'fevrier', 3: 'mars', 4: 'avril',
+            5: 'mai', 6: 'juin', 7: 'juillet', 8: 'aout',
+            9: 'septembre', 10: 'octobre', 11: 'novembre', 12: 'decembre'
+        }
+        return months.get(month_num, '')
