@@ -16,14 +16,6 @@ from django.utils import translation
 from django.http import HttpResponse, HttpResponseForbidden
 from django.contrib.sites.models import Site
 
-# Import psycopg2 UniqueViolation for catching raw database exceptions
-# that may not be wrapped by Django in race conditions
-try:
-    from psycopg2.errors import UniqueViolation
-except ImportError:
-    # psycopg2 not installed (e.g., using sqlite in development)
-    UniqueViolation = None
-
 from .domains import (
     DOMAINS,
     DEV_HOSTS,
@@ -44,21 +36,33 @@ def _safe_cache_set(key, value, timeout=300):
     catches that exception since it's benign - another request already cached
     the value.
 
-    We catch both Django's IntegrityError and psycopg2's UniqueViolation because
-    in some edge cases with the DatabaseCache backend, the raw psycopg2 exception
-    can propagate through before Django wraps it.
+    We use a broad exception catch with error message inspection because:
+    1. Django's IntegrityError doesn't always wrap psycopg2's UniqueViolation
+    2. The raw psycopg2 exception can propagate in edge cases (connection pooling,
+       transaction states, etc.)
+    3. Different database backends may raise different exception types
     """
-    # Build tuple of exceptions to catch
-    exceptions_to_catch = (IntegrityError,)
-    if UniqueViolation is not None:
-        exceptions_to_catch = (IntegrityError, UniqueViolation)
-
     try:
         cache.set(key, value, timeout)
-    except exceptions_to_catch:
-        # Race condition: another request already cached this key
-        # This is fine - the value is cached, just not by us
-        pass
+    except Exception as e:
+        # Check if this is a duplicate key error (race condition)
+        error_name = type(e).__name__.lower()
+        error_str = str(e).lower()
+
+        is_duplicate_key = (
+            'integrity' in error_name or
+            'unique' in error_name or
+            'duplicate' in error_str or
+            'already exists' in error_str
+        )
+
+        if is_duplicate_key:
+            # Race condition: another request already cached this key
+            # This is fine - the value is cached, just not by us
+            logger.debug(f"Cache race condition for key {key}: {type(e).__name__}")
+        else:
+            # Re-raise unexpected exceptions
+            raise
 
 
 class LoginPostDebugMiddleware:
