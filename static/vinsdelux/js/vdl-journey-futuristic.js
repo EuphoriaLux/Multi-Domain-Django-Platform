@@ -194,14 +194,19 @@ class FuturisticJourney {
     
     // Resize Observer for responsive handling
     if ('ResizeObserver' in window) {
+      let resizeRAF;
       this.resizeObserver = new ResizeObserver(entries => {
-        for (let entry of entries) {
-          if (entry.target === this.elements.section) {
-            this.handleSectionResize(entry);
+        // Debounce using requestAnimationFrame to prevent loop
+        if (resizeRAF) window.cancelAnimationFrame(resizeRAF);
+        resizeRAF = window.requestAnimationFrame(() => {
+          for (let entry of entries) {
+            if (entry.target === this.elements.section) {
+              this.handleSectionResize(entry);
+            }
           }
-        }
+        });
       });
-      
+
       if (this.elements.section) {
         this.resizeObserver.observe(this.elements.section);
       }
