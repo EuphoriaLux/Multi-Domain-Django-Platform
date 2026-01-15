@@ -324,6 +324,9 @@ LOGGING = {
         'pii_masking': {
             '()': 'azureproject.logging_utils.PIIMaskingFilter',
         },
+        'suppress_cache_errors': {
+            '()': 'azureproject.telemetry_config.SuppressedExceptionFilter',
+        },
     },
     'handlers': {
         # Console handler - ERROR only to avoid Gunicorn worker duplicates
@@ -357,6 +360,7 @@ LOGGING = {
             'handlers': ['console'],
             'level': 'ERROR',
             'propagate': False,
+            'filters': ['suppress_cache_errors'],  # Suppress cache race condition errors
         },
 
         # =================================================================
@@ -428,6 +432,15 @@ import logging
 if 'WEBSITE_HOSTNAME' in os.environ:
     logging.getLogger('azure').setLevel(logging.ERROR)
     logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.ERROR)
+
+# =============================================================================
+# OPENTELEMETRY EXCEPTION FILTERING
+# =============================================================================
+# Configure OpenTelemetry to suppress benign exceptions (like cache race conditions)
+# from being sent to Application Insights. This reduces noise while keeping
+# legitimate errors visible.
+from azureproject.telemetry_config import configure_exception_filtering
+configure_exception_filtering()
 
 # =============================================================================
 # CONTENT SECURITY POLICY (CSP) SETTINGS - Production
