@@ -1,0 +1,131 @@
+{% extends "arborist/base.html" %}
+{% load i18n %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="bg-green-800 text-white py-16">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4">
+                {% trans "Ökologische Maßnahmen" %}
+            </h1>
+            <p class="text-xl">
+                {% trans "Naturnahe Baumpflege für mehr Biodiversität in Luxemburg." %}
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- Main Content -->
+<section class="py-16">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-3xl font-bold mb-6 text-green-800">
+                {% trans "Baumpflege im Einklang mit der Natur" %}
+            </h2>
+
+            <p class="text-lg text-gray-700 mb-8">
+                {% trans "Bäume sind wichtige Lebensräume für viele Tierarten. Bei meiner Arbeit achte ich darauf, ökologische Strukturen zu erhalten und zu fördern - für eine lebendige Natur in Luxemburg." %}
+            </p>
+
+            <div class="grid md:grid-cols-2 gap-8 mb-12">
+                <div class="card">
+                    <div class="text-3xl mb-3">&#128038;</div>
+                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Habitatbäume" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "Identifizierung und Schutz von Bäumen mit besonderen Strukturen wie Höhlen, Spalten oder Totholz als Lebensraum für Vögel, Fledermäuse und Insekten." %}
+                    </p>
+                </div>
+
+                <div class="card">
+                    <div class="text-3xl mb-3">&#127795;</div>
+                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Totholzmanagement" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "Gezieltes Belassen von stehendem und liegendem Totholz, wo es sicher ist. Totholz ist Lebensraum für hunderte Arten." %}
+                    </p>
+                </div>
+
+                <div class="card">
+                    <div class="text-3xl mb-3">&#128037;</div>
+                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Nisthilfen" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "Installation von Nistkästen für Vögel, Fledermauskästen und Insektenhotels. Fachgerechte Anbringung und Beratung zur Pflege." %}
+                    </p>
+                </div>
+
+                <div class="card">
+                    <div class="text-3xl mb-3">&#127807;</div>
+                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Artenschutz bei Baumarbeiten" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "Vorabkontrolle auf geschützte Arten vor Baumpflegemaßnahmen. Einhaltung der Brutzeiten und Schutzvorschriften." %}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Why Ecology Matters -->
+            <div class="bg-green-50 rounded-xl p-8 mb-12">
+                <h3 class="text-2xl font-bold mb-4 text-green-800">
+                    {% trans "Warum ökologische Baumpflege?" %}
+                </h3>
+                <p class="text-gray-700 mb-4">
+                    {% trans "Bäume sind mehr als nur Holz - sie sind komplexe Ökosysteme:" %}
+                </p>
+                <ul class="space-y-3">
+                    <li class="flex gap-3">
+                        <span class="text-green-600 font-bold">&#8226;</span>
+                        <span>{% trans "Eine alte Eiche kann über 1.000 Tierarten beherbergen" %}</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="text-green-600 font-bold">&#8226;</span>
+                        <span>{% trans "Spechthöhlen werden von über 60 Folgenutzer-Arten genutzt" %}</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="text-green-600 font-bold">&#8226;</span>
+                        <span>{% trans "Totholz ist Lebensgrundlage für 25% aller Waldarten" %}</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="text-green-600 font-bold">&#8226;</span>
+                        <span>{% trans "Bäume kühlen ihre Umgebung und filtern die Luft" %}</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Services for Nature -->
+            <div class="mb-12">
+                <h3 class="text-2xl font-bold mb-4 text-green-800">
+                    {% trans "Leistungen für mehr Natur" %}
+                </h3>
+                <div class="space-y-4">
+                    <div class="border-l-4 border-green-600 pl-4">
+                        <h4 class="font-semibold">{% trans "Streuobstwiesen-Pflege" %}</h4>
+                        <p class="text-gray-600">{% trans "Erhaltung alter Obstsorten und ihrer einzigartigen Lebensräume." %}</p>
+                    </div>
+                    <div class="border-l-4 border-green-600 pl-4">
+                        <h4 class="font-semibold">{% trans "Kopfbaumpflege" %}</h4>
+                        <p class="text-gray-600">{% trans "Traditionelle Schnittform mit hohem ökologischem Wert." %}</p>
+                    </div>
+                    <div class="border-l-4 border-green-600 pl-4">
+                        <h4 class="font-semibold">{% trans "Ökologische Beratung" %}</h4>
+                        <p class="text-gray-600">{% trans "Tipps für naturnahe Gartengestaltung mit heimischen Bäumen." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="py-12 bg-green-800 text-white">
+    <div class="container mx-auto px-4 text-center">
+        <h2 class="text-2xl font-bold mb-4">
+            {% trans "Naturnahe Baumpflege interessiert Sie?" %}
+        </h2>
+        <p class="mb-6">
+            {% trans "Lassen Sie uns gemeinsam Lebensräume erhalten." %}
+        </p>
+        <a href="{% url 'arborist:contact' %}" class="btn" style="background: #fff; color: #2d5016;">
+            {% trans "Kontakt aufnehmen" %}
+        </a>
+    </div>
+</section>
+{% endblock %}

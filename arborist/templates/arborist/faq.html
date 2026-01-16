@@ -1,0 +1,166 @@
+{% extends "arborist/base.html" %}
+{% load i18n %}
+
+{% block extra_head %}
+<!-- FAQ Page Structured Data -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+        {% for item in faq_items %}
+        {
+            "@type": "Question",
+            "name": "{{ item.question }}",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{{ item.answer }}"
+            }
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<section class="bg-green-800 text-white py-16">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto text-center">
+            <h1 class="text-4xl font-bold mb-4">
+                {% trans "Häufige Fragen" %}
+            </h1>
+            <p class="text-xl">
+                {% trans "Antworten auf die wichtigsten Fragen zur Baumpflege." %}
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- FAQ List -->
+<section class="py-16">
+    <div class="container mx-auto px-4">
+        <div class="max-w-3xl mx-auto">
+            <div class="space-y-6">
+                {% for item in faq_items %}
+                <div class="card">
+                    <h2 class="text-xl font-semibold mb-3 text-green-800">
+                        {{ item.question }}
+                    </h2>
+                    <p class="text-gray-700">
+                        {{ item.answer }}
+                    </p>
+                </div>
+                {% empty %}
+                <!-- Fallback content if faq_items is not passed -->
+                <div class="card">
+                    <h2 class="text-xl font-semibold mb-3 text-green-800">
+                        {% trans "Was kostet eine Baumkontrolle?" %}
+                    </h2>
+                    <p class="text-gray-700">
+                        {% trans "Die Kosten für eine Baumkontrolle hängen von der Anzahl der Bäume und dem Aufwand ab. Kontaktieren Sie mich für ein individuelles Angebot." %}
+                    </p>
+                </div>
+                <div class="card">
+                    <h2 class="text-xl font-semibold mb-3 text-green-800">
+                        {% trans "Wann ist die beste Zeit für Obstbaumschnitt?" %}
+                    </h2>
+                    <p class="text-gray-700">
+                        {% trans "Der beste Zeitpunkt für den Obstbaumschnitt ist je nach Obstart verschieden. Kernobst (Apfel, Birne) wird meist im Winter geschnitten, Steinobst (Kirsche, Pflaume) nach der Ernte im Sommer." %}
+                    </p>
+                </div>
+                <div class="card">
+                    <h2 class="text-xl font-semibold mb-3 text-green-800">
+                        {% trans "Arbeiten Sie auch mit Seilklettertechnik?" %}
+                    </h2>
+                    <p class="text-gray-700">
+                        {% trans "Ja, ich bin SKT-B zertifiziert und arbeite mit professioneller Seilklettertechnik. Dies ermöglicht baumschonende Pflege auch ohne schwere Maschinen." %}
+                    </p>
+                </div>
+                <div class="card">
+                    <h2 class="text-xl font-semibold mb-3 text-green-800">
+                        {% trans "In welchen Regionen sind Sie tätig?" %}
+                    </h2>
+                    <p class="text-gray-700">
+                        {% trans "Ich bin in ganz Luxemburg tätig, mit Schwerpunkt auf dem Zentrum und Süden des Landes." %}
+                    </p>
+                </div>
+                <div class="card">
+                    <h2 class="text-xl font-semibold mb-3 text-green-800">
+                        {% trans "Bieten Sie auch Notfalldienst an?" %}
+                    </h2>
+                    <p class="text-gray-700">
+                        {% trans "Ja, bei Sturmschäden oder anderen Notfällen bin ich auch kurzfristig erreichbar. Kontaktieren Sie mich telefonisch für dringende Anfragen." %}
+                    </p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Additional Questions -->
+<section class="py-16 bg-gray-50">
+    <div class="container mx-auto px-4">
+        <div class="max-w-3xl mx-auto">
+            <h2 class="text-2xl font-bold mb-8 text-center text-green-800">
+                {% trans "Weitere häufige Fragen" %}
+            </h2>
+
+            <div class="space-y-6">
+                <div class="card">
+                    <h3 class="text-lg font-semibold mb-2 text-green-800">
+                        {% trans "Brauche ich eine Genehmigung für Baumfällung?" %}
+                    </h3>
+                    <p class="text-gray-700">
+                        {% trans "In vielen Gemeinden Luxemburgs sind Baumfällungen genehmigungspflichtig. Ich berate Sie gerne zu den lokalen Vorschriften und helfe bei der Antragstellung." %}
+                    </p>
+                </div>
+
+                <div class="card">
+                    <h3 class="text-lg font-semibold mb-2 text-green-800">
+                        {% trans "Was ist der Unterschied zwischen Baumpflege und Baumkontrolle?" %}
+                    </h3>
+                    <p class="text-gray-700">
+                        {% trans "Baumkontrolle ist die systematische Untersuchung eines Baumes auf Schäden und Verkehrssicherheit. Baumpflege umfasst aktive Maßnahmen wie Schnitt, Totholzentfernung und Kronenkorrektur." %}
+                    </p>
+                </div>
+
+                <div class="card">
+                    <h3 class="text-lg font-semibold mb-2 text-green-800">
+                        {% trans "Wie oft sollte ein Baum kontrolliert werden?" %}
+                    </h3>
+                    <p class="text-gray-700">
+                        {% trans "Bei Bäumen an verkehrsreichen Standorten empfiehlt die FLL eine jährliche Kontrolle. Bei weniger frequentierten Standorten kann ein längeres Intervall ausreichen." %}
+                    </p>
+                </div>
+
+                <div class="card">
+                    <h3 class="text-lg font-semibold mb-2 text-green-800">
+                        {% trans "Entsorgen Sie das Schnittgut?" %}
+                    </h3>
+                    <p class="text-gray-700">
+                        {% trans "Ja, auf Wunsch entsorge ich das Schnittgut fachgerecht. Alternativ kann es auch vor Ort verbleiben, z.B. als Häckselgut für Ihre Beete." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="py-16 bg-green-800 text-white">
+    <div class="container mx-auto px-4 text-center">
+        <h2 class="text-3xl font-bold mb-4">
+            {% trans "Weitere Fragen?" %}
+        </h2>
+        <p class="text-xl mb-8">
+            {% trans "Kontaktieren Sie mich - ich beantworte gerne alle Ihre Fragen zur Baumpflege." %}
+        </p>
+        <a href="{% url 'arborist:contact' %}" class="btn" style="background: #fff; color: #2d5016;">
+            {% trans "Kontakt aufnehmen" %}
+        </a>
+    </div>
+</section>
+{% endblock %}

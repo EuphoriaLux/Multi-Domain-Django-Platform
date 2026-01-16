@@ -7,103 +7,150 @@
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto text-center">
             <h1 class="text-4xl font-bold mb-4">
-                {% trans "Contact Us" %}
+                {% trans "Kontakt" %}
             </h1>
             <p class="text-xl">
-                {% trans "Get in touch for a free consultation and quote." %}
+                {% trans "Nehmen Sie Kontakt auf für eine kostenlose Beratung." %}
             </p>
         </div>
     </div>
 </section>
 
-<!-- Contact Info -->
+<!-- Contact Options -->
 <section class="py-16">
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto">
-            <div class="grid md:grid-cols-2 gap-8">
-                <!-- Contact Details -->
-                <div>
-                    <h2 class="text-2xl font-bold mb-6 text-green-800">
-                        {% trans "Get in Touch" %}
-                    </h2>
-                    <div class="space-y-4">
-                        <div class="flex gap-4">
-                            <div class="text-2xl">📍</div>
-                            <div>
-                                <h3 class="font-semibold">{% trans "Address" %}</h3>
-                                <p class="text-gray-600">Luxembourg</p>
-                            </div>
-                        </div>
-                        <div class="flex gap-4">
-                            <div class="text-2xl">📞</div>
-                            <div>
-                                <h3 class="font-semibold">{% trans "Phone" %}</h3>
-                                <p class="text-gray-600">+352 XXX XXX XXX</p>
-                            </div>
-                        </div>
-                        <div class="flex gap-4">
-                            <div class="text-2xl">📧</div>
-                            <div>
-                                <h3 class="font-semibold">{% trans "Email" %}</h3>
-                                <p class="text-gray-600">info@arborist.lu</p>
-                            </div>
-                        </div>
-                        <div class="flex gap-4">
-                            <div class="text-2xl">🕐</div>
-                            <div>
-                                <h3 class="font-semibold">{% trans "Hours" %}</h3>
-                                <p class="text-gray-600">{% trans "Monday - Friday: 8:00 - 18:00" %}</p>
-                                <p class="text-gray-600">{% trans "Saturday: 9:00 - 14:00" %}</p>
-                            </div>
-                        </div>
-                    </div>
+            <div class="grid md:grid-cols-3 gap-8 mb-12">
+                <!-- Phone -->
+                <div class="card text-center">
+                    <div class="text-4xl mb-4">&#128222;</div>
+                    <h3 class="text-xl font-semibold mb-2 text-green-800">{% trans "Telefon" %}</h3>
+                    <p class="text-gray-600 mb-4">{% trans "Rufen Sie mich direkt an" %}</p>
+                    <a href="tel:+352621981363" class="text-green-600 font-semibold hover:underline">
+                        +352 621 981 363
+                    </a>
                 </div>
 
-                <!-- Quick Info -->
-                <div class="card bg-green-50">
-                    <h2 class="text-2xl font-bold mb-6 text-green-800">
-                        {% trans "Free Consultation" %}
-                    </h2>
-                    <p class="text-gray-700 mb-6">
-                        {% trans "We offer free on-site consultations for all tree care projects. Our experts will assess your needs and provide a detailed quote with no obligation." %}
-                    </p>
-                    <div class="space-y-3">
-                        <div class="flex gap-2">
-                            <span class="text-green-600">✓</span>
-                            <span>{% trans "No obligation quote" %}</span>
+                <!-- WhatsApp -->
+                <div class="card text-center">
+                    <div class="text-4xl mb-4">&#128172;</div>
+                    <h3 class="text-xl font-semibold mb-2 text-green-800">{% trans "WhatsApp" %}</h3>
+                    <p class="text-gray-600 mb-4">{% trans "Schreiben Sie mir per WhatsApp" %}</p>
+                    <a href="https://wa.me/352621981363?text=Hallo%2C%20ich%20interessiere%20mich%20f%C3%BCr%20Ihre%20Baumpflege-Dienste."
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="inline-block bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                       style="background: #16a34a; color: #fff; padding: 0.5rem 1rem; border-radius: 0.5rem; display: inline-block;">
+                        {% trans "WhatsApp öffnen" %}
+                    </a>
+                </div>
+
+                <!-- Email -->
+                <div class="card text-center">
+                    <div class="text-4xl mb-4">&#9993;</div>
+                    <h3 class="text-xl font-semibold mb-2 text-green-800">{% trans "E-Mail" %}</h3>
+                    <p class="text-gray-600 mb-4">{% trans "Schreiben Sie mir eine E-Mail" %}</p>
+                    <a href="mailto:info@arborist.lu" class="text-green-600 font-semibold hover:underline">
+                        info@arborist.lu
+                    </a>
+                </div>
+            </div>
+
+            <!-- Contact Form -->
+            <div class="card">
+                <h2 class="text-2xl font-bold mb-6 text-green-800">
+                    {% trans "Anfrage senden" %}
+                </h2>
+                <form action="#" method="post" class="space-y-6">
+                    {% csrf_token %}
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
+                                {% trans "Name" %} *
+                            </label>
+                            <input type="text" id="name" name="name" required
+                                   style="border: 1px solid #d1d5db; padding: 0.5rem 1rem; border-radius: 0.5rem; width: 100%;">
                         </div>
-                        <div class="flex gap-2">
-                            <span class="text-green-600">✓</span>
-                            <span>{% trans "Expert assessment" %}</span>
-                        </div>
-                        <div class="flex gap-2">
-                            <span class="text-green-600">✓</span>
-                            <span>{% trans "Flexible scheduling" %}</span>
-                        </div>
-                        <div class="flex gap-2">
-                            <span class="text-green-600">✓</span>
-                            <span>{% trans "Written recommendations" %}</span>
+                        <div>
+                            <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">
+                                {% trans "Telefon" %}
+                            </label>
+                            <input type="tel" id="phone" name="phone"
+                                   style="border: 1px solid #d1d5db; padding: 0.5rem 1rem; border-radius: 0.5rem; width: 100%;">
                         </div>
                     </div>
-                </div>
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
+                            {% trans "E-Mail" %} *
+                        </label>
+                        <input type="email" id="email" name="email" required
+                               style="border: 1px solid #d1d5db; padding: 0.5rem 1rem; border-radius: 0.5rem; width: 100%;">
+                    </div>
+                    <div>
+                        <label for="service" class="block text-sm font-medium text-gray-700 mb-1">
+                            {% trans "Interesse an" %}
+                        </label>
+                        <select id="service" name="service"
+                                style="border: 1px solid #d1d5db; padding: 0.5rem 1rem; border-radius: 0.5rem; width: 100%; background: #fff;">
+                            <option value="">{% trans "Bitte auswählen" %}</option>
+                            <option value="obstbaumpflege">{% trans "Obstbaumpflege" %}</option>
+                            <option value="baumpflege">{% trans "Baumpflege" %}</option>
+                            <option value="baumkontrolle">{% trans "Baumkontrolle" %}</option>
+                            <option value="oekologie">{% trans "Ökologische Maßnahmen" %}</option>
+                            <option value="beratung">{% trans "Allgemeine Beratung" %}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="message" class="block text-sm font-medium text-gray-700 mb-1">
+                            {% trans "Ihre Nachricht" %} *
+                        </label>
+                        <textarea id="message" name="message" rows="5" required
+                                  placeholder="{% trans 'Beschreiben Sie kurz Ihr Anliegen...' %}"
+                                  style="border: 1px solid #d1d5db; padding: 0.5rem 1rem; border-radius: 0.5rem; width: 100%; resize: vertical;"></textarea>
+                    </div>
+                    <div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">
+                            {% trans "Nachricht senden" %}
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-500">
+                        {% trans "* Pflichtfelder. Ich melde mich schnellstmöglich bei Ihnen." %}
+                    </p>
+                </form>
             </div>
         </div>
     </div>
 </section>
 
-<!-- Service Areas -->
+<!-- Service Area Info -->
 <section class="py-16 bg-gray-50">
     <div class="container mx-auto px-4">
-        <div class="max-w-4xl mx-auto text-center">
-            <h2 class="text-2xl font-bold mb-6 text-green-800">
-                {% trans "Service Areas" %}
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-2xl font-bold mb-6 text-green-800 text-center">
+                {% trans "Einsatzgebiet & Erreichbarkeit" %}
             </h2>
-            <p class="text-gray-600 mb-4">
-                {% trans "We provide tree care services throughout Luxembourg, including:" %}
-            </p>
-            <p class="text-gray-700">
-                Luxembourg City • Esch-sur-Alzette • Differdange • Dudelange • Ettelbruck • Diekirch • Wiltz • Echternach
-            </p>
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="bg-white rounded-xl p-6">
+                    <h3 class="font-semibold mb-4 text-green-800">{% trans "Einsatzgebiete" %}</h3>
+                    <ul class="space-y-2 text-gray-600">
+                        <li>&#8594; {% trans "Luxemburg-Stadt und Umgebung" %}</li>
+                        <li>&#8594; {% trans "Süd-Luxemburg (Esch, Dudelange, Differdange)" %}</li>
+                        <li>&#8594; {% trans "Zentrum (Mersch, Steinfort)" %}</li>
+                        <li>&#8594; {% trans "Norden (Ettelbruck, Diekirch)" %}</li>
+                    </ul>
+                </div>
+                <div class="bg-white rounded-xl p-6">
+                    <h3 class="font-semibold mb-4 text-green-800">{% trans "Erreichbarkeit" %}</h3>
+                    <ul class="space-y-2 text-gray-600">
+                        <li>&#128197; {% trans "Montag - Freitag: 8:00 - 18:00" %}</li>
+                        <li>&#128197; {% trans "Samstag: Nach Vereinbarung" %}</li>
+                        <li>&#127760; {% trans "Sprachen: DE, FR, LU" %}</li>
+                    </ul>
+                    <p class="mt-4 text-sm text-gray-500">
+                        {% trans "Kostenlose Vor-Ort-Beratung in ganz Luxemburg." %}
+                    </p>
+                </div>
+            </div>
         </div>
     </div>
 </section>

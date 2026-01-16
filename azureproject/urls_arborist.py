@@ -7,18 +7,26 @@ Supports internationalization with language-prefixed URLs (/en/, /de/, /fr/).
 """
 
 from django.contrib import admin
+from django.contrib.sitemaps.views import sitemap
 from django.urls import path, include
 from django.conf.urls.i18n import i18n_patterns
 
 from arborist.admin import arborist_admin_site
+from arborist.sitemaps import ArboristStaticViewSitemap
 from .views_seo import robots_txt_arborist
 from .urls_shared import base_patterns
 
 
+# Sitemap configuration
+sitemaps = {
+    "static": ArboristStaticViewSitemap,
+}
+
 # Language-neutral patterns (no /en/, /de/, /fr/ prefix)
 urlpatterns = base_patterns + [
-    # SEO - robots.txt
+    # SEO - robots.txt and sitemap
     path("robots.txt", robots_txt_arborist, name="robots_txt"),
+    path("sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="sitemap"),
 
     # Arborist custom admin panel (language-neutral)
     path("arborist-admin/", arborist_admin_site.urls),
