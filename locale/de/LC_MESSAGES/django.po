@@ -21,10 +21,8 @@ msgstr ""
 #: .\arborist\templates\arborist\partials\footer.html:91
 #: .\arborist\templates\arborist\partials\navigation.html:212
 #: .\arborist\templates\arborist\partials\navigation.html:262
-#, fuzzy
-#| msgid "Remich"
 msgid "Über mich"
-msgstr "Remich"
+msgstr ""
 
 #: .\arborist\templates\arborist\about.html:13
 msgid "Tom Aakrann - Ihr Baumwart in Luxemburg"
@@ -57,16 +55,12 @@ msgstr ""
 #: .\arborist\templates\arborist\about.html:43
 #: .\arborist\templates\arborist\home.html:47
 #: .\arborist\templates\arborist\partials\footer.html:119
-#, fuzzy
-#| msgid "Luxembourg"
 msgid "Luxemburg"
-msgstr "Luxemburg"
+msgstr ""
 
 #: .\arborist\templates\arborist\about.html:56
-#, fuzzy
-#| msgid "Quality Rating"
 msgid "Qualifikationen"
-msgstr "Qualitätsbewertung"
+msgstr ""
 
 #: .\arborist\templates\arborist\about.html:64
 msgid "FLL-Zertifizierter Baumkontrolleur"
@@ -123,10 +117,8 @@ msgid "Meine Philosophie"
 msgstr ""
 
 #: .\arborist\templates\arborist\about.html:129
-#, fuzzy
-#| msgid "%% Qualité"
 msgid "Qualität"
-msgstr "%% Qualität"
+msgstr ""
 
 #: .\arborist\templates\arborist\about.html:131
 msgid ""
@@ -168,16 +160,12 @@ msgid "Deutsch"
 msgstr "Deutsch"
 
 #: .\arborist\templates\arborist\about.html:170
-#, fuzzy
-#| msgid "Français"
 msgid "Französisch"
-msgstr "Französisch"
+msgstr ""
 
 #: .\arborist\templates\arborist\about.html:174
-#, fuzzy
-#| msgid "Luxembourg"
 msgid "Luxemburgisch"
-msgstr "Luxemburg"
+msgstr ""
 
 #: .\arborist\templates\arborist\about.html:185
 msgid "Lassen Sie uns Ihre Bäume gemeinsam pflegen"
@@ -237,10 +225,8 @@ msgstr ""
 #: .\arborist\templates\arborist\partials\footer.html:115
 #: .\arborist\templates\arborist\partials\navigation.html:221
 #: .\arborist\templates\arborist\partials\navigation.html:275
-#, fuzzy
-#| msgid "Contact"
 msgid "Kontakt"
-msgstr "Kontakt"
+msgstr ""
 
 #: .\arborist\templates\arborist\contact.html:13
 msgid "Nehmen Sie Kontakt auf für eine kostenlose Beratung."
@@ -353,10 +339,8 @@ msgid "Erreichbarkeit"
 msgstr ""
 
 #: .\arborist\templates\arborist\contact.html:145
-#, fuzzy
-#| msgid "Monday - Friday: 9:00 - 18:00 CET"
 msgid "Montag - Freitag: 8:00 - 18:00"
-msgstr "Montag – Freitag: 9:00 – 18:00 Uhr MEZ"
+msgstr ""
 
 #: .\arborist\templates\arborist\contact.html:146
 msgid "Samstag: Nach Vereinbarung"
@@ -622,10 +606,8 @@ msgid "Kenntnis der luxemburgischen Baumarten, Regelungen und Gegebenheiten."
 msgstr ""
 
 #: .\arborist\templates\arborist\home.html:141
-#, fuzzy
-#| msgid "Premium Service"
 msgid "Persönlicher Service"
-msgstr "Premium-Service"
+msgstr ""
 
 #: .\arborist\templates\arborist\home.html:142
 msgid "Ein Ansprechpartner von der Beratung bis zur Ausführung."
@@ -649,10 +631,8 @@ msgid "Ich bin in ganz Luxemburg tätig, mit Schwerpunkt auf:"
 msgstr ""
 
 #: .\arborist\templates\arborist\home.html:168
-#, fuzzy
-#| msgid "Luxembourg"
 msgid "Luxemburg-Stadt"
-msgstr "Luxemburg"
+msgstr ""
 
 #: .\arborist\templates\arborist\home.html:169 .\crush_lu\forms.py:144
 #: .\crush_lu\templates\crush_lu\create_profile.html:343
@@ -660,16 +640,12 @@ msgid "Esch-sur-Alzette"
 msgstr "Esch-sur-Alzette"
 
 #: .\arborist\templates\arborist\home.html:170
-#, fuzzy
-#| msgid "Redange"
 msgid "Differdange"
-msgstr "Redingen"
+msgstr ""
 
 #: .\arborist\templates\arborist\home.html:171
-#, fuzzy
-#| msgid "Redange"
 msgid "Dudelange"
-msgstr "Redingen"
+msgstr ""
 
 #: .\arborist\templates\arborist\home.html:172
 msgid "Ettelbruck"
@@ -720,10 +696,8 @@ msgid "Technik"
 msgstr ""
 
 #: .\arborist\templates\arborist\partials\footer.html:86
-#, fuzzy
-#| msgid "Plot Information"
 msgid "Information"
-msgstr "Parzelleninformationen"
+msgstr ""
 
 #: .\arborist\templates\arborist\partials\footer.html:101
 #: .\arborist\templates\arborist\partials\navigation.html:218
@@ -750,10 +724,8 @@ msgid "Per WhatsApp kontaktieren"
 msgstr ""
 
 #: .\arborist\templates\arborist\services.html:10
-#, fuzzy
-#| msgid "FinOps Hub - Services"
 msgid "Our Services"
-msgstr "FinOps Hub - Dienste"
+msgstr ""
 
 #: .\arborist\templates\arborist\services.html:13
 msgid ""
@@ -761,10 +733,8 @@ msgid ""
 msgstr ""
 
 #: .\arborist\templates\arborist\services.html:27
-#, fuzzy
-#| msgid "Winter Pruning"
 msgid "Tree Pruning"
-msgstr "Winterschnitt"
+msgstr ""
 
 #: .\arborist\templates\arborist\services.html:29
 msgid ""
@@ -822,20 +792,16 @@ msgid "Disease diagnosis"
 msgstr ""
 
 #: .\arborist\templates\arborist\services.html:84
-#, fuzzy
-#| msgid "Test Notification"
 msgid "Pest identification"
-msgstr "Testbenachrichtigung"
+msgstr ""
 
 #: .\arborist\templates\arborist\services.html:88
 msgid "Risk assessment"
 msgstr ""
 
 #: .\arborist\templates\arborist\services.html:96
-#, fuzzy
-#| msgid "Population"
 msgid "Consultation"
-msgstr "Bevölkerung"
+msgstr ""
 
 #: .\arborist\templates\arborist\services.html:98
 msgid ""
@@ -844,36 +810,28 @@ msgid ""
 msgstr ""
 
 #: .\arborist\templates\arborist\services.html:103
-#, fuzzy
-#| msgid "Skip to vineyard selection"
 msgid "Species selection"
-msgstr "Zur Weinbergauswahl springen"
+msgstr ""
 
 #: .\arborist\templates\arborist\services.html:107
-#, fuzzy
-#| msgid "Dating Guidance"
 msgid "Planting guidance"
-msgstr "Dating-Beratung"
+msgstr ""
 
 #: .\arborist\templates\arborist\services.html:111
 msgid "Maintenance planning"
 msgstr ""
 
 #: .\arborist\templates\arborist\services.html:124
-#, fuzzy
-#| msgid "Meet Our Producers"
 msgid "Need Our Services?"
-msgstr "Unsere Produzenten kennenlernen"
+msgstr ""
 
 #: .\arborist\templates\arborist\services.html:127
 msgid "Contact us for a free quote on any of our services."
 msgstr ""
 
 #: .\arborist\templates\arborist\services.html:130
-#, fuzzy
-#| msgid "Request Sent"
 msgid "Request a Quote"
-msgstr "Anfrage gesendet"
+msgstr ""
 
 #: .\arborist\templates\arborist\services\baumkontrolle.html:13
 msgid "FLL-zertifizierte Baumkontrolle für Verkehrssicherheit in Luxemburg."
@@ -929,10 +887,8 @@ msgid ""
 msgstr ""
 
 #: .\arborist\templates\arborist\services\baumkontrolle.html:67
-#, fuzzy
-#| msgid "Heritage documentation"
 msgid "Gutachten & Dokumentation"
-msgstr "Erbe-Dokumentation"
+msgstr ""
 
 #: .\arborist\templates\arborist\services\baumkontrolle.html:69
 msgid ""
@@ -961,10 +917,8 @@ msgid "Systematische Untersuchung jedes Baumes nach FLL-Schema."
 msgstr ""
 
 #: .\arborist\templates\arborist\services\baumkontrolle.html:97
-#, fuzzy
-#| msgid "Fermentation"
 msgid "Dokumentation"
-msgstr "Gärung"
+msgstr ""
 
 #: .\arborist\templates\arborist\services\baumkontrolle.html:98
 msgid "Erstellung eines detaillierten Kontrollprotokolls mit Fotos."
