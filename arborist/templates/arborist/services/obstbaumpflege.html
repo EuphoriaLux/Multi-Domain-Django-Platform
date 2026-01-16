@@ -1,0 +1,120 @@
+{% extends "arborist/base.html" %}
+{% load i18n %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="bg-green-800 text-white py-16">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4">
+                {% trans "Obstbaumpflege" %}
+            </h1>
+            <p class="text-xl">
+                {% trans "Professionelle Pflege für gesunde und ertragreiche Obstbäume in Luxemburg." %}
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- Main Content -->
+<section class="py-16">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-3xl font-bold mb-6 text-green-800">
+                {% trans "Meine Leistungen für Ihre Obstbäume" %}
+            </h2>
+
+            <div class="grid md:grid-cols-2 gap-8 mb-12">
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Erziehungsschnitt" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "Der Erziehungsschnitt formt junge Obstbäume zu einer stabilen Kronenstruktur. Er legt das Fundament für einen gesunden, tragfähigen Baum." %}
+                    </p>
+                </div>
+
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Erhaltungsschnitt" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "Der regelmäßige Erhaltungsschnitt hält Ihren Obstbaum in Balance. Fruchtholz wird erneuert, die Krone bleibt licht und vital." %}
+                    </p>
+                </div>
+
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Verjüngungsschnitt" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "Alte, vernachlässigte Obstbäume können durch fachgerechten Verjüngungsschnitt neues Leben bekommen und wieder reichlich tragen." %}
+                    </p>
+                </div>
+
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Sommerschnitt" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "Der Sommerschnitt bremst übermäßiges Wachstum und verbessert die Fruchtqualität. Besonders wichtig bei Steinobst." %}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Benefits -->
+            <div class="bg-green-50 rounded-xl p-8 mb-12">
+                <h3 class="text-2xl font-bold mb-4 text-green-800">
+                    {% trans "Vorteile professioneller Obstbaumpflege" %}
+                </h3>
+                <ul class="space-y-3">
+                    <li class="flex gap-3">
+                        <span class="text-green-600 font-bold">+</span>
+                        <span>{% trans "Höhere Erträge durch optimale Kronenstruktur" %}</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="text-green-600 font-bold">+</span>
+                        <span>{% trans "Bessere Fruchtqualität durch mehr Licht und Luft" %}</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="text-green-600 font-bold">+</span>
+                        <span>{% trans "Weniger Krankheiten durch gute Durchlüftung" %}</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="text-green-600 font-bold">+</span>
+                        <span>{% trans "Längere Lebensdauer Ihrer Obstbäume" %}</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="text-green-600 font-bold">+</span>
+                        <span>{% trans "Sichere Ernte ohne überhängende Äste" %}</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Timing -->
+            <div class="mb-12">
+                <h3 class="text-2xl font-bold mb-4 text-green-800">
+                    {% trans "Der richtige Zeitpunkt" %}
+                </h3>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="border-l-4 border-green-600 pl-4">
+                        <h4 class="font-semibold text-lg">{% trans "Kernobst (Apfel, Birne)" %}</h4>
+                        <p class="text-gray-600">{% trans "Winterschnitt von November bis März, wenn der Baum ruht." %}</p>
+                    </div>
+                    <div class="border-l-4 border-green-600 pl-4">
+                        <h4 class="font-semibold text-lg">{% trans "Steinobst (Kirsche, Pflaume)" %}</h4>
+                        <p class="text-gray-600">{% trans "Sommerschnitt nach der Ernte für beste Wundheilung." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="py-12 bg-green-800 text-white">
+    <div class="container mx-auto px-4 text-center">
+        <h2 class="text-2xl font-bold mb-4">
+            {% trans "Interesse an professioneller Obstbaumpflege?" %}
+        </h2>
+        <p class="mb-6">
+            {% trans "Kontaktieren Sie mich für eine kostenlose Beratung." %}
+        </p>
+        <a href="{% url 'arborist:contact' %}" class="btn" style="background: #fff; color: #2d5016;">
+            {% trans "Kontakt aufnehmen" %}
+        </a>
+    </div>
+</section>
+{% endblock %}

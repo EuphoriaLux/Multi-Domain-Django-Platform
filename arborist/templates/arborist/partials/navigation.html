@@ -4,27 +4,70 @@
         <div style="display: flex; justify-content: space-between; align-items: center; height: 4rem;">
             <!-- Logo -->
             <div>
-                <a href="{% url 'arborist:home' %}" style="display: flex; align-items: center; font-size: 1.5rem; font-weight: bold; color: #2d5016; text-decoration: none;">
-                    🌳 Arborist
+                <a href="{% url 'arborist:home' %}" style="display: flex; align-items: center; font-size: 1.25rem; font-weight: bold; color: #2d5016; text-decoration: none;">
+                    &#127795; {% trans "Baumwart" %}
                 </a>
             </div>
 
             <!-- Desktop Navigation -->
-            <div class="arborist-desktop-nav" style="display: flex; align-items: center; gap: 2rem;">
+            <div class="arborist-desktop-nav" style="display: flex; align-items: center; gap: 1.5rem;">
+                <!-- Services Dropdown -->
+                <div class="arborist-nav-dropdown" style="position: relative;">
+                    <button type="button" class="arborist-nav-trigger"
+                            style="color: #4b5563; font-weight: 500; display: flex; align-items: center; gap: 0.25rem; background: transparent; border: none; cursor: pointer; font-size: 1rem;">
+                        {% trans "Leistungen" %}
+                        <svg style="width: 0.75rem; height: 0.75rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div class="arborist-nav-menu" style="position: absolute; left: 0; margin-top: 0.5rem; width: 12rem; background: #fff; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,.1); padding: 0.5rem 0; z-index: 100; visibility: hidden; opacity: 0; transition: visibility 0.15s, opacity 0.15s;">
+                        <a href="{% url 'arborist:obstbaumpflege' %}" style="display: block; padding: 0.5rem 1rem; color: #374151; text-decoration: none;"
+                           onmouseover="this.style.background='#f0fdf4'; this.style.color='#2d5016';"
+                           onmouseout="this.style.background='transparent'; this.style.color='#374151';">
+                            {% trans "Obstbaumpflege" %}
+                        </a>
+                        <a href="{% url 'arborist:baumpflege' %}" style="display: block; padding: 0.5rem 1rem; color: #374151; text-decoration: none;"
+                           onmouseover="this.style.background='#f0fdf4'; this.style.color='#2d5016';"
+                           onmouseout="this.style.background='transparent'; this.style.color='#374151';">
+                            {% trans "Baumpflege" %}
+                        </a>
+                        <a href="{% url 'arborist:baumkontrolle' %}" style="display: block; padding: 0.5rem 1rem; color: #374151; text-decoration: none;"
+                           onmouseover="this.style.background='#f0fdf4'; this.style.color='#2d5016';"
+                           onmouseout="this.style.background='transparent'; this.style.color='#374151';">
+                            {% trans "Baumkontrolle" %}
+                        </a>
+                        <a href="{% url 'arborist:oekologie' %}" style="display: block; padding: 0.5rem 1rem; color: #374151; text-decoration: none;"
+                           onmouseover="this.style.background='#f0fdf4'; this.style.color='#2d5016';"
+                           onmouseout="this.style.background='transparent'; this.style.color='#374151';">
+                            {% trans "Ökologie" %}
+                        </a>
+                        <a href="{% url 'arborist:technik' %}" style="display: block; padding: 0.5rem 1rem; color: #374151; text-decoration: none;"
+                           onmouseover="this.style.background='#f0fdf4'; this.style.color='#2d5016';"
+                           onmouseout="this.style.background='transparent'; this.style.color='#374151';">
+                            {% trans "Technik" %}
+                        </a>
+                    </div>
+                </div>
+
                 <a href="{% url 'arborist:about' %}"
                    style="color: #4b5563; font-weight: 500; text-decoration: none;"
                    onmouseover="this.style.color='#2d5016'" onmouseout="this.style.color='#4b5563'">
-                    {% trans "About" %}
+                    {% trans "Über mich" %}
                 </a>
-                <a href="{% url 'arborist:services' %}"
+                <a href="{% url 'arborist:gallery' %}"
                    style="color: #4b5563; font-weight: 500; text-decoration: none;"
                    onmouseover="this.style.color='#2d5016'" onmouseout="this.style.color='#4b5563'">
-                    {% trans "Services" %}
+                    {% trans "Galerie" %}
+                </a>
+                <a href="{% url 'arborist:faq' %}"
+                   style="color: #4b5563; font-weight: 500; text-decoration: none;"
+                   onmouseover="this.style.color='#2d5016'" onmouseout="this.style.color='#4b5563'">
+                    {% trans "FAQ" %}
                 </a>
                 <a href="{% url 'arborist:contact' %}"
                    style="display: inline-block; padding: 0.5rem 1rem; background: #2d5016; color: #fff; border-radius: 0.5rem; font-weight: 600; text-decoration: none;"
                    onmouseover="this.style.background='#3d6b1f'" onmouseout="this.style.background='#2d5016'">
-                    {% trans "Contact" %}
+                    {% trans "Kontakt" %}
                 </a>
                 <!-- Language Switcher -->
                 {% include "arborist/partials/language_switcher.html" %}
@@ -43,19 +86,46 @@
 
         <!-- Mobile Navigation -->
         <div id="arborist-mobile-nav" class="arborist-mobile-nav" style="display: none; padding-bottom: 1rem;">
-            <div style="display: flex; flex-direction: column; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
-                <a href="{% url 'arborist:about' %}" style="color: #4b5563; font-weight: 500; padding: 0.5rem 0; text-decoration: none;">
-                    {% trans "About" %}
+            <div style="display: flex; flex-direction: column; gap: 0.5rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
+                <!-- Services -->
+                <p style="color: #9ca3af; font-size: 0.75rem; text-transform: uppercase; padding: 0.5rem 0; margin: 0;">{% trans "Leistungen" %}</p>
+                <a href="{% url 'arborist:obstbaumpflege' %}" style="color: #4b5563; padding: 0.5rem 0; text-decoration: none; padding-left: 1rem;">
+                    {% trans "Obstbaumpflege" %}
                 </a>
-                <a href="{% url 'arborist:services' %}" style="color: #4b5563; font-weight: 500; padding: 0.5rem 0; text-decoration: none;">
-                    {% trans "Services" %}
+                <a href="{% url 'arborist:baumpflege' %}" style="color: #4b5563; padding: 0.5rem 0; text-decoration: none; padding-left: 1rem;">
+                    {% trans "Baumpflege" %}
                 </a>
+                <a href="{% url 'arborist:baumkontrolle' %}" style="color: #4b5563; padding: 0.5rem 0; text-decoration: none; padding-left: 1rem;">
+                    {% trans "Baumkontrolle" %}
+                </a>
+                <a href="{% url 'arborist:oekologie' %}" style="color: #4b5563; padding: 0.5rem 0; text-decoration: none; padding-left: 1rem;">
+                    {% trans "Ökologie" %}
+                </a>
+                <a href="{% url 'arborist:technik' %}" style="color: #4b5563; padding: 0.5rem 0; text-decoration: none; padding-left: 1rem;">
+                    {% trans "Technik" %}
+                </a>
+
+                <!-- Other Links -->
+                <div style="border-top: 1px solid #e5e7eb; margin-top: 0.5rem; padding-top: 0.5rem;">
+                    <a href="{% url 'arborist:about' %}" style="color: #4b5563; font-weight: 500; padding: 0.5rem 0; text-decoration: none; display: block;">
+                        {% trans "Über mich" %}
+                    </a>
+                    <a href="{% url 'arborist:gallery' %}" style="color: #4b5563; font-weight: 500; padding: 0.5rem 0; text-decoration: none; display: block;">
+                        {% trans "Galerie" %}
+                    </a>
+                    <a href="{% url 'arborist:faq' %}" style="color: #4b5563; font-weight: 500; padding: 0.5rem 0; text-decoration: none; display: block;">
+                        {% trans "FAQ" %}
+                    </a>
+                </div>
+
+                <!-- Contact Button -->
                 <a href="{% url 'arborist:contact' %}"
-                   style="display: block; padding: 0.75rem 1rem; background: #2d5016; color: #fff; border-radius: 0.5rem; font-weight: 600; text-decoration: none; text-align: center;">
-                    {% trans "Contact" %}
+                   style="display: block; padding: 0.75rem 1rem; background: #2d5016; color: #fff; border-radius: 0.5rem; font-weight: 600; text-decoration: none; text-align: center; margin-top: 0.5rem;">
+                    {% trans "Kontakt" %}
                 </a>
+
                 <!-- Mobile Language Switcher -->
-                <div style="padding-top: 0.5rem; border-top: 1px solid #e5e7eb;">
+                <div style="padding-top: 0.5rem; border-top: 1px solid #e5e7eb; margin-top: 0.5rem;">
                     {% include "arborist/partials/language_switcher.html" with mobile=True %}
                 </div>
             </div>
@@ -83,5 +153,15 @@
         .arborist-mobile-nav {
             display: none !important;
         }
+    }
+
+    /* Services dropdown */
+    .arborist-nav-dropdown:hover .arborist-nav-menu,
+    .arborist-nav-dropdown:focus-within .arborist-nav-menu {
+        visibility: visible;
+        opacity: 1;
+    }
+    .arborist-nav-trigger:hover {
+        color: #2d5016;
     }
 </style>

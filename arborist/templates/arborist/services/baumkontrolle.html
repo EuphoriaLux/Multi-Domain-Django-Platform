@@ -1,0 +1,165 @@
+{% extends "arborist/base.html" %}
+{% load i18n %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="bg-green-800 text-white py-16">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4">
+                {% trans "Baumkontrolle" %}
+            </h1>
+            <p class="text-xl">
+                {% trans "FLL-zertifizierte Baumkontrolle für Verkehrssicherheit in Luxemburg." %}
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- Certification Badge -->
+<section class="py-8 bg-green-50">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto flex items-center justify-center gap-4">
+            <div class="text-4xl">&#128203;</div>
+            <div>
+                <p class="font-bold text-green-800">{% trans "FLL-zertifizierter Baumkontrolleur" %}</p>
+                <p class="text-gray-600">{% trans "Forschungsgesellschaft Landschaftsentwicklung Landschaftsbau e.V." %}</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Main Content -->
+<section class="py-16">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-3xl font-bold mb-6 text-green-800">
+                {% trans "Warum Baumkontrolle wichtig ist" %}
+            </h2>
+
+            <p class="text-lg text-gray-700 mb-8">
+                {% trans "Als Baumeigentümer tragen Sie die Verkehrssicherungspflicht. Regelmäßige Baumkontrollen schützen Sie vor Haftungsansprüchen und sorgen für die Sicherheit von Menschen und Eigentum." %}
+            </p>
+
+            <div class="grid md:grid-cols-2 gap-8 mb-12">
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Visuelle Baumkontrolle" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "Systematische Begutachtung des Baumes vom Boden aus. Erfassung von Vitalität, Statik und Verkehrssicherheit nach FLL-Richtlinien." %}
+                    </p>
+                </div>
+
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Eingehende Untersuchung" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "Bei Auffälligkeiten: Detaillierte Untersuchung mit Klettertechnik, Schallmessung oder anderen Methoden zur genauen Diagnose." %}
+                    </p>
+                </div>
+
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Baumkataster" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "Systematische Erfassung und Dokumentation Ihres Baumbestandes. Digitale Verwaltung mit Kontrollintervallen und Maßnahmenplanung." %}
+                    </p>
+                </div>
+
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Gutachten & Dokumentation" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "Schriftliche Dokumentation aller Befunde mit Handlungsempfehlungen. Rechtssichere Nachweise für Ihre Unterlagen." %}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Process -->
+            <div class="bg-green-50 rounded-xl p-8 mb-12">
+                <h3 class="text-2xl font-bold mb-6 text-green-800">
+                    {% trans "Ablauf einer Baumkontrolle" %}
+                </h3>
+                <div class="space-y-6">
+                    <div class="flex gap-4">
+                        <div class="bg-green-800 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold flex-shrink-0">1</div>
+                        <div>
+                            <h4 class="font-semibold">{% trans "Terminvereinbarung" %}</h4>
+                            <p class="text-gray-600">{% trans "Wir besprechen Umfang und Zielsetzung der Kontrolle." %}</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="bg-green-800 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold flex-shrink-0">2</div>
+                        <div>
+                            <h4 class="font-semibold">{% trans "Vor-Ort-Begehung" %}</h4>
+                            <p class="text-gray-600">{% trans "Systematische Untersuchung jedes Baumes nach FLL-Schema." %}</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="bg-green-800 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold flex-shrink-0">3</div>
+                        <div>
+                            <h4 class="font-semibold">{% trans "Dokumentation" %}</h4>
+                            <p class="text-gray-600">{% trans "Erstellung eines detaillierten Kontrollprotokolls mit Fotos." %}</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="bg-green-800 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold flex-shrink-0">4</div>
+                        <div>
+                            <h4 class="font-semibold">{% trans "Handlungsempfehlungen" %}</h4>
+                            <p class="text-gray-600">{% trans "Konkrete Maßnahmen mit Prioritäten und Zeitrahmen." %}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- For Whom -->
+            <div class="mb-12">
+                <h3 class="text-2xl font-bold mb-4 text-green-800">
+                    {% trans "Für wen ist Baumkontrolle wichtig?" %}
+                </h3>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div class="flex gap-3 items-start">
+                        <span class="text-green-600 font-bold text-xl">&#8594;</span>
+                        <div>
+                            <p class="font-semibold">{% trans "Kommunen & Gemeinden" %}</p>
+                            <p class="text-gray-600 text-sm">{% trans "Straßenbäume, Parks, Schulhöfe" %}</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-3 items-start">
+                        <span class="text-green-600 font-bold text-xl">&#8594;</span>
+                        <div>
+                            <p class="font-semibold">{% trans "Unternehmen" %}</p>
+                            <p class="text-gray-600 text-sm">{% trans "Firmengelände, Parkplätze" %}</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-3 items-start">
+                        <span class="text-green-600 font-bold text-xl">&#8594;</span>
+                        <div>
+                            <p class="font-semibold">{% trans "Hausverwaltungen" %}</p>
+                            <p class="text-gray-600 text-sm">{% trans "Wohnanlagen, Innenhöfe" %}</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-3 items-start">
+                        <span class="text-green-600 font-bold text-xl">&#8594;</span>
+                        <div>
+                            <p class="font-semibold">{% trans "Privatpersonen" %}</p>
+                            <p class="text-gray-600 text-sm">{% trans "Gartenbäume an öffentlichen Wegen" %}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="py-12 bg-green-800 text-white">
+    <div class="container mx-auto px-4 text-center">
+        <h2 class="text-2xl font-bold mb-4">
+            {% trans "Baumkontrolle beauftragen" %}
+        </h2>
+        <p class="mb-6">
+            {% trans "Erfüllen Sie Ihre Verkehrssicherungspflicht mit professioneller Dokumentation." %}
+        </p>
+        <a href="{% url 'arborist:contact' %}" class="btn" style="background: #fff; color: #2d5016;">
+            {% trans "Angebot anfordern" %}
+        </a>
+    </div>
+</section>
+{% endblock %}

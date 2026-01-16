@@ -1,0 +1,180 @@
+{% extends "arborist/base.html" %}
+{% load i18n %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="bg-green-800 text-white py-16">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4">
+                {% trans "Technik & Methoden" %}
+            </h1>
+            <p class="text-xl">
+                {% trans "Moderne Ausrüstung und bewährte Techniken für sichere Baumpflege." %}
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- Certification Badge -->
+<section class="py-8 bg-green-50">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto flex items-center justify-center gap-4">
+            <div class="text-4xl">&#9889;</div>
+            <div>
+                <p class="font-bold text-green-800">{% trans "SKT-B zertifiziert" %}</p>
+                <p class="text-gray-600">{% trans "Seilklettertechnik B - Arbeiten mit Motorsäge" %}</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Main Content -->
+<section class="py-16">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-3xl font-bold mb-6 text-green-800">
+                {% trans "Seilklettertechnik (SKT)" %}
+            </h2>
+
+            <p class="text-lg text-gray-700 mb-8">
+                {% trans "Die Seilklettertechnik ist die modernste und schonendste Methode der Baumpflege. Als SKT-B zertifizierter Kletterer arbeite ich sicher und effizient in jeder Baumkrone." %}
+            </p>
+
+            <div class="grid md:grid-cols-2 gap-8 mb-12">
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Vorteile der Seilklettertechnik" %}</h3>
+                    <ul class="space-y-2 text-gray-600">
+                        <li class="flex gap-2">
+                            <span class="text-green-600">&#10003;</span>
+                            <span>{% trans "Zugang auch in schwierigem Gelände" %}</span>
+                        </li>
+                        <li class="flex gap-2">
+                            <span class="text-green-600">&#10003;</span>
+                            <span>{% trans "Keine Schäden an Rasen oder Wegen" %}</span>
+                        </li>
+                        <li class="flex gap-2">
+                            <span class="text-green-600">&#10003;</span>
+                            <span>{% trans "Präzise Arbeit an jedem Ast" %}</span>
+                        </li>
+                        <li class="flex gap-2">
+                            <span class="text-green-600">&#10003;</span>
+                            <span>{% trans "Umweltfreundlich und leise" %}</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Einsatzbereiche" %}</h3>
+                    <ul class="space-y-2 text-gray-600">
+                        <li class="flex gap-2">
+                            <span class="text-green-600">&#8594;</span>
+                            <span>{% trans "Kronenpflege in Gärten" %}</span>
+                        </li>
+                        <li class="flex gap-2">
+                            <span class="text-green-600">&#8594;</span>
+                            <span>{% trans "Totholzentfernung" %}</span>
+                        </li>
+                        <li class="flex gap-2">
+                            <span class="text-green-600">&#8594;</span>
+                            <span>{% trans "Baumfällung in Stücken" %}</span>
+                        </li>
+                        <li class="flex gap-2">
+                            <span class="text-green-600">&#8594;</span>
+                            <span>{% trans "Eingehende Baumkontrolle" %}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Equipment -->
+            <div class="bg-green-50 rounded-xl p-8 mb-12">
+                <h3 class="text-2xl font-bold mb-6 text-green-800">
+                    {% trans "Professionelle Ausrüstung" %}
+                </h3>
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div class="text-center">
+                        <div class="text-4xl mb-2">&#9875;</div>
+                        <h4 class="font-semibold">{% trans "Kletterausrüstung" %}</h4>
+                        <p class="text-gray-600 text-sm">{% trans "Geprüfte Seile, Gurte und Karabiner nach EN-Norm" %}</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-4xl mb-2">&#128296;</div>
+                        <h4 class="font-semibold">{% trans "Schneidwerkzeuge" %}</h4>
+                        <p class="text-gray-600 text-sm">{% trans "Profi-Sägen und -Scheren für saubere Schnitte" %}</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-4xl mb-2">&#9879;</div>
+                        <h4 class="font-semibold">{% trans "Sicherheit" %}</h4>
+                        <p class="text-gray-600 text-sm">{% trans "Helm, Schnittschutz, Absturzsicherung" %}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alternative Methods -->
+            <div class="mb-12">
+                <h3 class="text-2xl font-bold mb-4 text-green-800">
+                    {% trans "Weitere Arbeitsmethoden" %}
+                </h3>
+                <div class="space-y-4">
+                    <div class="border-l-4 border-green-600 pl-4">
+                        <h4 class="font-semibold">{% trans "Hubarbeitsbühne" %}</h4>
+                        <p class="text-gray-600">{% trans "Bei guter Zufahrt und großen Baumbeständen. Schnelles Arbeiten in der Höhe." %}</p>
+                    </div>
+                    <div class="border-l-4 border-green-600 pl-4">
+                        <h4 class="font-semibold">{% trans "Bodentechnik" %}</h4>
+                        <p class="text-gray-600">{% trans "Arbeiten vom Boden mit Teleskopwerkzeugen bei kleineren Bäumen." %}</p>
+                    </div>
+                    <div class="border-l-4 border-green-600 pl-4">
+                        <h4 class="font-semibold">{% trans "Seilzugtechnik" %}</h4>
+                        <p class="text-gray-600">{% trans "Kontrolliertes Ablassen von Ästen in sensiblen Bereichen." %}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Safety -->
+            <div class="bg-gray-50 rounded-xl p-8">
+                <h3 class="text-2xl font-bold mb-4 text-green-800">
+                    {% trans "Sicherheit hat Priorität" %}
+                </h3>
+                <p class="text-gray-700 mb-4">
+                    {% trans "Jeder Einsatz wird sorgfältig geplant:" %}
+                </p>
+                <ul class="space-y-2">
+                    <li class="flex gap-3">
+                        <span class="text-green-600 font-bold">1.</span>
+                        <span>{% trans "Gefährdungsbeurteilung vor Arbeitsbeginn" %}</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="text-green-600 font-bold">2.</span>
+                        <span>{% trans "Absperrung des Arbeitsbereichs" %}</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="text-green-600 font-bold">3.</span>
+                        <span>{% trans "Regelmäßige Ausrüstungskontrolle" %}</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="text-green-600 font-bold">4.</span>
+                        <span>{% trans "Vollständig versichert" %}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="py-12 bg-green-800 text-white">
+    <div class="container mx-auto px-4 text-center">
+        <h2 class="text-2xl font-bold mb-4">
+            {% trans "Fragen zu Technik oder Ablauf?" %}
+        </h2>
+        <p class="mb-6">
+            {% trans "Ich erkläre Ihnen gerne, wie ich an Ihren Bäumen arbeite." %}
+        </p>
+        <a href="{% url 'arborist:contact' %}" class="btn" style="background: #fff; color: #2d5016;">
+            {% trans "Kontakt aufnehmen" %}
+        </a>
+    </div>
+</section>
+{% endblock %}

@@ -7,65 +7,171 @@
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto text-center">
             <h1 class="text-4xl font-bold mb-4">
-                {% trans "About Us" %}
+                {% trans "Über mich" %}
             </h1>
             <p class="text-xl">
-                {% trans "Dedicated to preserving and caring for Luxembourg's trees." %}
+                {% trans "Tom Aakrann - Ihr Baumwart in Luxemburg" %}
             </p>
         </div>
     </div>
 </section>
 
-<!-- Our Story -->
+<!-- Introduction -->
 <section class="py-16">
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto">
-            <h2 class="text-3xl font-bold mb-8 text-green-800">
-                {% trans "Our Story" %}
-            </h2>
-            <div class="text-gray-700 space-y-4">
-                <p class="text-lg">
-                    {% trans "Arborist was founded with a simple mission: to provide professional, reliable tree care services to the people of Luxembourg." %}
-                </p>
-                <p class="text-lg">
-                    {% trans "Our team of certified arborists brings years of experience and a deep passion for trees. We understand that trees are valuable assets to any property, providing beauty, shade, and environmental benefits." %}
-                </p>
-                <p class="text-lg">
-                    {% trans "Whether you need routine maintenance, emergency tree removal, or expert consultation, we're here to help with professionalism and care." %}
-                </p>
+            <div class="grid md:grid-cols-2 gap-12 items-center">
+                <div>
+                    <h2 class="text-3xl font-bold mb-6 text-green-800">
+                        {% trans "Leidenschaft für Bäume" %}
+                    </h2>
+                    <div class="text-gray-700 space-y-4">
+                        <p class="text-lg">
+                            {% trans "Mein Name ist Tom Aakrann und Bäume sind meine Leidenschaft. Als zertifizierter Baumpfleger und Baumkontrolleur verbinde ich fundiertes Fachwissen mit praktischer Erfahrung." %}
+                        </p>
+                        <p class="text-lg">
+                            {% trans "Jeder Baum erzählt eine Geschichte und verdient fachkundige Pflege. Ob jahrhundertealte Eiche oder junger Obstbaum - ich behandle jeden Baum mit dem Respekt und der Sorgfalt, die er verdient." %}
+                        </p>
+                    </div>
+                </div>
+                <div class="bg-green-50 rounded-xl p-8 text-center">
+                    <div class="text-6xl mb-4">&#127795;</div>
+                    <p class="text-green-800 font-semibold text-lg">
+                        {% trans "Baumwart Tom Aakrann" %}
+                    </p>
+                    <p class="text-gray-600">
+                        {% trans "Luxemburg" %}
+                    </p>
+                </div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- Values -->
+<!-- Qualifications -->
 <section class="py-16 bg-gray-50">
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto">
             <h2 class="text-3xl font-bold mb-8 text-center text-green-800">
-                {% trans "Our Values" %}
+                {% trans "Qualifikationen" %}
+            </h2>
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="card">
+                    <div class="flex items-start gap-4">
+                        <div class="text-3xl">&#128203;</div>
+                        <div>
+                            <h3 class="text-xl font-semibold mb-2 text-green-800">
+                                {% trans "FLL-Zertifizierter Baumkontrolleur" %}
+                            </h3>
+                            <p class="text-gray-600">
+                                {% trans "Ausbildung nach den Richtlinien der Forschungsgesellschaft Landschaftsentwicklung Landschaftsbau (FLL) zur visuellen Baumkontrolle und Verkehrssicherheitsprüfung." %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="flex items-start gap-4">
+                        <div class="text-3xl">&#9875;</div>
+                        <div>
+                            <h3 class="text-xl font-semibold mb-2 text-green-800">
+                                {% trans "SKT-B Seilklettertechnik" %}
+                            </h3>
+                            <p class="text-gray-600">
+                                {% trans "Zertifiziert für Seilklettertechnik B - Arbeiten mit Motorsäge in der Baumkrone. Sichere und schonende Baumpflege in jeder Höhe." %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="flex items-start gap-4">
+                        <div class="text-3xl">&#127807;</div>
+                        <div>
+                            <h3 class="text-xl font-semibold mb-2 text-green-800">
+                                {% trans "Fachgerechte Baumpflege" %}
+                            </h3>
+                            <p class="text-gray-600">
+                                {% trans "Arbeit nach den anerkannten Richtlinien der ZTV-Baumpflege. Qualitätsstandard für professionelle Baumpflegemaßnahmen." %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="flex items-start gap-4">
+                        <div class="text-3xl">&#127793;</div>
+                        <div>
+                            <h3 class="text-xl font-semibold mb-2 text-green-800">
+                                {% trans "Obstbaumpflege" %}
+                            </h3>
+                            <p class="text-gray-600">
+                                {% trans "Spezialisierung auf die Pflege von Obstbäumen. Erziehungsschnitt, Erhaltungsschnitt und Verjüngung für maximalen Ertrag." %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Philosophy -->
+<section class="py-16">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-3xl font-bold mb-8 text-center text-green-800">
+                {% trans "Meine Philosophie" %}
             </h2>
             <div class="grid md:grid-cols-3 gap-8">
                 <div class="text-center">
-                    <div class="text-4xl mb-4">🌱</div>
-                    <h3 class="text-xl font-semibold mb-2">{% trans "Sustainability" %}</h3>
+                    <div class="text-4xl mb-4">&#128170;</div>
+                    <h3 class="text-xl font-semibold mb-2">{% trans "Qualität" %}</h3>
                     <p class="text-gray-600">
-                        {% trans "We prioritize tree preservation and environmentally responsible practices." %}
+                        {% trans "Fachgerechte Arbeit nach anerkannten Standards. Keine Kompromisse bei der Baumpflege." %}
                     </p>
                 </div>
                 <div class="text-center">
-                    <div class="text-4xl mb-4">⚡</div>
-                    <h3 class="text-xl font-semibold mb-2">{% trans "Excellence" %}</h3>
+                    <div class="text-4xl mb-4">&#127807;</div>
+                    <h3 class="text-xl font-semibold mb-2">{% trans "Nachhaltigkeit" %}</h3>
                     <p class="text-gray-600">
-                        {% trans "We maintain the highest standards of professionalism and quality." %}
+                        {% trans "Baumerhaltung vor Baumfällung. Ökologische Aspekte fließen in jede Entscheidung ein." %}
                     </p>
                 </div>
                 <div class="text-center">
-                    <div class="text-4xl mb-4">🤝</div>
-                    <h3 class="text-xl font-semibold mb-2">{% trans "Trust" %}</h3>
+                    <div class="text-4xl mb-4">&#129309;</div>
+                    <h3 class="text-xl font-semibold mb-2">{% trans "Vertrauen" %}</h3>
                     <p class="text-gray-600">
-                        {% trans "We build lasting relationships through honesty and reliability." %}
+                        {% trans "Ehrliche Beratung und transparente Preise. Persönlicher Service von Anfang bis Ende." %}
                     </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Languages -->
+<section class="py-16 bg-green-50">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto text-center">
+            <h2 class="text-3xl font-bold mb-6 text-green-800">
+                {% trans "Sprachen" %}
+            </h2>
+            <p class="text-lg text-gray-700 mb-6">
+                {% trans "Ich berate Sie gerne in Ihrer Sprache:" %}
+            </p>
+            <div class="flex flex-wrap justify-center gap-6">
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">&#127465;&#127466;</span>
+                    <span class="font-semibold">{% trans "Deutsch" %}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">&#127467;&#127479;</span>
+                    <span class="font-semibold">{% trans "Französisch" %}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">&#127473;&#127482;</span>
+                    <span class="font-semibold">{% trans "Luxemburgisch" %}</span>
                 </div>
             </div>
         </div>
@@ -76,13 +182,13 @@
 <section class="py-16 bg-green-800 text-white">
     <div class="container mx-auto px-4 text-center">
         <h2 class="text-3xl font-bold mb-4">
-            {% trans "Let's Work Together" %}
+            {% trans "Lassen Sie uns Ihre Bäume gemeinsam pflegen" %}
         </h2>
         <p class="text-xl mb-8">
-            {% trans "Contact us to discuss your tree care needs." %}
+            {% trans "Kontaktieren Sie mich für eine kostenlose Beratung." %}
         </p>
         <a href="{% url 'arborist:contact' %}" class="btn" style="background: #fff; color: #2d5016;">
-            {% trans "Get in Touch" %}
+            {% trans "Kontakt aufnehmen" %}
         </a>
     </div>
 </section>

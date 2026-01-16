@@ -1,0 +1,142 @@
+{% extends "arborist/base.html" %}
+{% load i18n %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="bg-green-800 text-white py-16">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4">
+                {% trans "Baumpflege" %}
+            </h1>
+            <p class="text-xl">
+                {% trans "Fachgerechte Pflege für gesunde und sichere Bäume in Luxemburg." %}
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- Main Content -->
+<section class="py-16">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-3xl font-bold mb-6 text-green-800">
+                {% trans "Professionelle Baumpflege nach ZTV-Baumpflege" %}
+            </h2>
+
+            <p class="text-lg text-gray-700 mb-8">
+                {% trans "Bäume sind lebende Organismen, die fachkundige Pflege verdienen. Als zertifizierter Baumpfleger arbeite ich nach den anerkannten Richtlinien der ZTV-Baumpflege und sorge für die Gesundheit und Sicherheit Ihrer Bäume." %}
+            </p>
+
+            <div class="grid md:grid-cols-2 gap-8 mb-12">
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Kronenpflege" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "Entfernung von Totholz, sich kreuzenden Ästen und Wasserschossen. Die natürliche Kronenform bleibt erhalten." %}
+                    </p>
+                </div>
+
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Kroneneinkürzung" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "Fachgerechte Reduzierung der Kronengröße bei zu groß gewordenen Bäumen. Erhalt der natürlichen Wuchsform." %}
+                    </p>
+                </div>
+
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Lichtraumprofilschnitt" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "Freischneiden von Verkehrswegen, Gebäuden und Leitungen. Für sichere Durchfahrtshöhen und freie Sicht." %}
+                    </p>
+                </div>
+
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Totholzentfernung" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "Abgestorbene Äste werden fachgerecht entfernt, um Gefahren zu minimieren und den Baum zu entlasten." %}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Methods -->
+            <div class="bg-green-50 rounded-xl p-8 mb-12">
+                <h3 class="text-2xl font-bold mb-4 text-green-800">
+                    {% trans "Schonende Arbeitsmethoden" %}
+                </h3>
+                <p class="text-gray-700 mb-4">
+                    {% trans "Ich arbeite überwiegend mit Seilklettertechnik (SKT-B). Diese Methode ist besonders schonend für Baum und Umgebung:" %}
+                </p>
+                <ul class="space-y-3">
+                    <li class="flex gap-3">
+                        <span class="text-green-600 font-bold">+</span>
+                        <span>{% trans "Keine schweren Maschinen auf Ihrem Grundstück" %}</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="text-green-600 font-bold">+</span>
+                        <span>{% trans "Zugang auch an schwer erreichbaren Stellen" %}</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="text-green-600 font-bold">+</span>
+                        <span>{% trans "Minimale Bodenverdichtung" %}</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="text-green-600 font-bold">+</span>
+                        <span>{% trans "Präzise Arbeit direkt am Ast" %}</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Common Trees -->
+            <div class="mb-12">
+                <h3 class="text-2xl font-bold mb-4 text-green-800">
+                    {% trans "Erfahrung mit allen Baumarten" %}
+                </h3>
+                <p class="text-gray-700 mb-4">
+                    {% trans "Ob einheimische oder exotische Bäume - jede Art hat ihre Besonderheiten:" %}
+                </p>
+                <div class="grid md:grid-cols-3 gap-4">
+                    <div class="text-center p-4 bg-gray-50 rounded-lg">
+                        <span class="text-3xl">🌳</span>
+                        <p class="font-semibold mt-2">{% trans "Eiche" %}</p>
+                    </div>
+                    <div class="text-center p-4 bg-gray-50 rounded-lg">
+                        <span class="text-3xl">🌲</span>
+                        <p class="font-semibold mt-2">{% trans "Buche" %}</p>
+                    </div>
+                    <div class="text-center p-4 bg-gray-50 rounded-lg">
+                        <span class="text-3xl">🌿</span>
+                        <p class="font-semibold mt-2">{% trans "Linde" %}</p>
+                    </div>
+                    <div class="text-center p-4 bg-gray-50 rounded-lg">
+                        <span class="text-3xl">🍁</span>
+                        <p class="font-semibold mt-2">{% trans "Ahorn" %}</p>
+                    </div>
+                    <div class="text-center p-4 bg-gray-50 rounded-lg">
+                        <span class="text-3xl">🌰</span>
+                        <p class="font-semibold mt-2">{% trans "Kastanie" %}</p>
+                    </div>
+                    <div class="text-center p-4 bg-gray-50 rounded-lg">
+                        <span class="text-3xl">🌴</span>
+                        <p class="font-semibold mt-2">{% trans "Nadelbäume" %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="py-12 bg-green-800 text-white">
+    <div class="container mx-auto px-4 text-center">
+        <h2 class="text-2xl font-bold mb-4">
+            {% trans "Brauchen Ihre Bäume Pflege?" %}
+        </h2>
+        <p class="mb-6">
+            {% trans "Ich berate Sie gerne vor Ort - kostenlos und unverbindlich." %}
+        </p>
+        <a href="{% url 'arborist:contact' %}" class="btn" style="background: #fff; color: #2d5016;">
+            {% trans "Beratung anfragen" %}
+        </a>
+    </div>
+</section>
+{% endblock %}
