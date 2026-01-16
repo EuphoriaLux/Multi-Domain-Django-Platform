@@ -12,6 +12,12 @@ To test a different site locally, change DEV_DEFAULT:
 """
 
 DOMAINS = {
+    'arborist.lu': {
+        'urlconf': 'azureproject.urls_arborist',
+        'name': 'Arborist',
+        'app': 'arborist',
+        'aliases': ['www.arborist.lu'],
+    },
     'delegations.lu': {
         'urlconf': 'azureproject.urls_delegations',
         'name': 'Delegations.lu',
@@ -57,6 +63,7 @@ DEV_DEFAULT = 'crush.lu'  # Change this to test different sites locally
 
 # Local development domain mappings (avoids HSTS issues with real domains)
 DEV_DOMAIN_MAPPINGS = {
+    'arborist.localhost': 'arborist.lu',
     'crush.localhost': 'crush.lu',
     'power-up.localhost': 'power-up.lu',
     'powerup.localhost': 'power-up.lu',
