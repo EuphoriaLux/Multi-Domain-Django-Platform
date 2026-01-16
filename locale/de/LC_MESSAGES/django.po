@@ -2,12 +2,12 @@
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-11 23:49+0100\n"
+"POT-Creation-Date: 2026-01-16 19:12+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,15 +17,1611 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: .\azureproject\settings.py:456 .\crush_lu\models\profiles.py:389
+#: .\arborist\templates\arborist\about.html:10
+#: .\arborist\templates\arborist\partials\footer.html:91
+#: .\arborist\templates\arborist\partials\navigation.html:212
+#: .\arborist\templates\arborist\partials\navigation.html:262
+#, fuzzy
+#| msgid "Remich"
+msgid "Über mich"
+msgstr "Remich"
+
+#: .\arborist\templates\arborist\about.html:13
+msgid "Tom Aakrann - Ihr Baumwart in Luxemburg"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:26
+msgid "Leidenschaft für Bäume"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:30
+msgid ""
+"Mein Name ist Tom Aakrann und Bäume sind meine Leidenschaft. Als "
+"zertifizierter Baumpfleger und Baumkontrolleur verbinde ich fundiertes "
+"Fachwissen mit praktischer Erfahrung."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:33
+msgid ""
+"Jeder Baum erzählt eine Geschichte und verdient fachkundige Pflege. Ob "
+"jahrhundertealte Eiche oder junger Obstbaum - ich behandle jeden Baum mit "
+"dem Respekt und der Sorgfalt, die er verdient."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:40
+#: .\arborist\templates\arborist\home.html:10
+#: .\arborist\templates\arborist\partials\footer.html:142
+msgid "Baumwart Tom Aakrann"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:43
+#: .\arborist\templates\arborist\home.html:47
+#: .\arborist\templates\arborist\partials\footer.html:119
+#, fuzzy
+#| msgid "Luxembourg"
+msgid "Luxemburg"
+msgstr "Luxemburg"
+
+#: .\arborist\templates\arborist\about.html:56
+#, fuzzy
+#| msgid "Quality Rating"
+msgid "Qualifikationen"
+msgstr "Qualitätsbewertung"
+
+#: .\arborist\templates\arborist\about.html:64
+msgid "FLL-Zertifizierter Baumkontrolleur"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:67
+msgid ""
+"Ausbildung nach den Richtlinien der Forschungsgesellschaft "
+"Landschaftsentwicklung Landschaftsbau (FLL) zur visuellen Baumkontrolle und "
+"Verkehrssicherheitsprüfung."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:78
+msgid "SKT-B Seilklettertechnik"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:81
+msgid ""
+"Zertifiziert für Seilklettertechnik B - Arbeiten mit Motorsäge in der "
+"Baumkrone. Sichere und schonende Baumpflege in jeder Höhe."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:92
+msgid "Fachgerechte Baumpflege"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:95
+msgid ""
+"Arbeit nach den anerkannten Richtlinien der ZTV-Baumpflege. "
+"Qualitätsstandard für professionelle Baumpflegemaßnahmen."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:106
+#: .\arborist\templates\arborist\base.html:181
+#: .\arborist\templates\arborist\contact.html:96
+#: .\arborist\templates\arborist\gallery.html:37
+#: .\arborist\templates\arborist\home.html:69
+#: .\arborist\templates\arborist\partials\footer.html:57
+#: .\arborist\templates\arborist\partials\navigation.html:203
+#: .\arborist\templates\arborist\partials\navigation.html:244
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:10
+#: .\arborist\views.py:46
+msgid "Obstbaumpflege"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:109
+msgid ""
+"Spezialisierung auf die Pflege von Obstbäumen. Erziehungsschnitt, "
+"Erhaltungsschnitt und Verjüngung für maximalen Ertrag."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:124
+msgid "Meine Philosophie"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:129
+#, fuzzy
+#| msgid "%% Qualité"
+msgid "Qualität"
+msgstr "%% Qualität"
+
+#: .\arborist\templates\arborist\about.html:131
+msgid ""
+"Fachgerechte Arbeit nach anerkannten Standards. Keine Kompromisse bei der "
+"Baumpflege."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:136
+msgid "Nachhaltigkeit"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:138
+msgid ""
+"Baumerhaltung vor Baumfällung. Ökologische Aspekte fließen in jede "
+"Entscheidung ein."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:143
+msgid "Vertrauen"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:145
+msgid ""
+"Ehrliche Beratung und transparente Preise. Persönlicher Service von Anfang "
+"bis Ende."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:158
+msgid "Sprachen"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:161
+msgid "Ich berate Sie gerne in Ihrer Sprache:"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:166
+#: .\crush_lu\models\profiles.py:390
+msgid "Deutsch"
+msgstr "Deutsch"
+
+#: .\arborist\templates\arborist\about.html:170
+#, fuzzy
+#| msgid "Français"
+msgid "Französisch"
+msgstr "Französisch"
+
+#: .\arborist\templates\arborist\about.html:174
+#, fuzzy
+#| msgid "Luxembourg"
+msgid "Luxemburgisch"
+msgstr "Luxemburg"
+
+#: .\arborist\templates\arborist\about.html:185
+msgid "Lassen Sie uns Ihre Bäume gemeinsam pflegen"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:188
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:113
+msgid "Kontaktieren Sie mich für eine kostenlose Beratung."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:191
+#: .\arborist\templates\arborist\faq.html:162
+#: .\arborist\templates\arborist\gallery.html:130
+#: .\arborist\templates\arborist\home.html:190
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:116
+#: .\arborist\templates\arborist\services\oekologie.html:127
+#: .\arborist\templates\arborist\services\technik.html:176
+msgid "Kontakt aufnehmen"
+msgstr ""
+
+#: .\arborist\templates\arborist\base.html:145
+msgid ""
+"Professionelle Baumpflege in Luxemburg. FLL-zertifizierter Baumkontrolleur, "
+"SKT-B Seilkletterer. Obstbaumpflege, Baumpflege, Baumkontrolle."
+msgstr ""
+
+#: .\arborist\templates\arborist\base.html:175
+msgid "Baumpflege-Leistungen"
+msgstr ""
+
+#: .\arborist\templates\arborist\base.html:189
+#: .\arborist\templates\arborist\contact.html:97
+#: .\arborist\templates\arborist\gallery.html:64
+#: .\arborist\templates\arborist\home.html:78
+#: .\arborist\templates\arborist\partials\footer.html:62
+#: .\arborist\templates\arborist\partials\navigation.html:204
+#: .\arborist\templates\arborist\partials\navigation.html:247
+#: .\arborist\templates\arborist\services\baumpflege.html:10
+#: .\arborist\views.py:61
+msgid "Baumpflege"
+msgstr ""
+
+#: .\arborist\templates\arborist\base.html:197
+#: .\arborist\templates\arborist\contact.html:98
+#: .\arborist\templates\arborist\home.html:23
+#: .\arborist\templates\arborist\home.html:87
+#: .\arborist\templates\arborist\partials\footer.html:67
+#: .\arborist\templates\arborist\partials\navigation.html:205
+#: .\arborist\templates\arborist\partials\navigation.html:250
+#: .\arborist\templates\arborist\services\baumkontrolle.html:10
+#: .\arborist\views.py:76
+msgid "Baumkontrolle"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:10
+#: .\arborist\templates\arborist\partials\footer.html:106
+#: .\arborist\templates\arborist\partials\footer.html:115
+#: .\arborist\templates\arborist\partials\navigation.html:221
+#: .\arborist\templates\arborist\partials\navigation.html:275
+#, fuzzy
+#| msgid "Contact"
+msgid "Kontakt"
+msgstr "Kontakt"
+
+#: .\arborist\templates\arborist\contact.html:13
+msgid "Nehmen Sie Kontakt auf für eine kostenlose Beratung."
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:27
+#: .\arborist\templates\arborist\contact.html:76
+#: .\arborist\templates\arborist\partials\footer.html:43
+msgid "Telefon"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:28
+msgid "Rufen Sie mich direkt an"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:37
+#: .\crush_lu\templates\crush_lu\journey\gift_success.html:284
+msgid "WhatsApp"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:38
+msgid "Schreiben Sie mir per WhatsApp"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:44
+#: .\arborist\templates\arborist\partials\whatsapp_button.html:8
+msgid "WhatsApp öffnen"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:51
+#: .\arborist\templates\arborist\contact.html:84
+msgid "E-Mail"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:52
+msgid "Schreiben Sie mir eine E-Mail"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:62
+msgid "Anfrage senden"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:69
+#: .\crush_lu\templates\crush_lu\account_settings.html:25
+#: .\entreprinder\templates\entreprinder\contact.html:14
+msgid "Name"
+msgstr "Name"
+
+#: .\arborist\templates\arborist\contact.html:91
+msgid "Interesse an"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:95
+msgid "Bitte auswählen"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:99
+#: .\arborist\templates\arborist\home.html:98
+#: .\arborist\templates\arborist\services\oekologie.html:10
+#: .\arborist\views.py:91
+msgid "Ökologische Maßnahmen"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:100
+msgid "Allgemeine Beratung"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:105
+msgid "Ihre Nachricht"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:108
+msgid "Beschreiben Sie kurz Ihr Anliegen..."
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:113
+msgid "Nachricht senden"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:117
+msgid "* Pflichtfelder. Ich melde mich schnellstmöglich bei Ihnen."
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:130
+msgid "Einsatzgebiet & Erreichbarkeit"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:134
+msgid "Einsatzgebiete"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:136
+msgid "Luxemburg-Stadt und Umgebung"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:137
+msgid "Süd-Luxemburg (Esch, Dudelange, Differdange)"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:138
+msgid "Zentrum (Mersch, Steinfort)"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:139
+msgid "Norden (Ettelbruck, Diekirch)"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:143
+msgid "Erreichbarkeit"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:145
+#, fuzzy
+#| msgid "Monday - Friday: 9:00 - 18:00 CET"
+msgid "Montag - Freitag: 8:00 - 18:00"
+msgstr "Montag – Freitag: 9:00 – 18:00 Uhr MEZ"
+
+#: .\arborist\templates\arborist\contact.html:146
+msgid "Samstag: Nach Vereinbarung"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:147
+msgid "Sprachen: DE, FR, LU"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:150
+msgid "Kostenlose Vor-Ort-Beratung in ganz Luxemburg."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:32
+msgid "Häufige Fragen"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:35
+msgid "Antworten auf die wichtigsten Fragen zur Baumpflege."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:59 .\arborist\views.py:167
+msgid "Was kostet eine Baumkontrolle?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:62 .\arborist\views.py:169
+msgid ""
+"Die Kosten für eine Baumkontrolle hängen von der Anzahl der Bäume und dem "
+"Aufwand ab. Kontaktieren Sie mich für ein individuelles Angebot."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:67 .\arborist\views.py:174
+msgid "Wann ist die beste Zeit für Obstbaumschnitt?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:70 .\arborist\views.py:176
+msgid ""
+"Der beste Zeitpunkt für den Obstbaumschnitt ist je nach Obstart verschieden. "
+"Kernobst (Apfel, Birne) wird meist im Winter geschnitten, Steinobst "
+"(Kirsche, Pflaume) nach der Ernte im Sommer."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:75 .\arborist\views.py:182
+msgid "Arbeiten Sie auch mit Seilklettertechnik?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:78 .\arborist\views.py:184
+msgid ""
+"Ja, ich bin SKT-B zertifiziert und arbeite mit professioneller "
+"Seilklettertechnik. Dies ermöglicht baumschonende Pflege auch ohne schwere "
+"Maschinen."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:83 .\arborist\views.py:190
+msgid "In welchen Regionen sind Sie tätig?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:86 .\arborist\views.py:192
+msgid ""
+"Ich bin in ganz Luxemburg tätig, mit Schwerpunkt auf dem Zentrum und Süden "
+"des Landes."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:91 .\arborist\views.py:197
+msgid "Bieten Sie auch Notfalldienst an?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:94 .\arborist\views.py:199
+msgid ""
+"Ja, bei Sturmschäden oder anderen Notfällen bin ich auch kurzfristig "
+"erreichbar. Kontaktieren Sie mich telefonisch für dringende Anfragen."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:108
+msgid "Weitere häufige Fragen"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:114
+msgid "Brauche ich eine Genehmigung für Baumfällung?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:117
+msgid ""
+"In vielen Gemeinden Luxemburgs sind Baumfällungen genehmigungspflichtig. Ich "
+"berate Sie gerne zu den lokalen Vorschriften und helfe bei der "
+"Antragstellung."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:123
+msgid "Was ist der Unterschied zwischen Baumpflege und Baumkontrolle?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:126
+msgid ""
+"Baumkontrolle ist die systematische Untersuchung eines Baumes auf Schäden "
+"und Verkehrssicherheit. Baumpflege umfasst aktive Maßnahmen wie Schnitt, "
+"Totholzentfernung und Kronenkorrektur."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:132
+msgid "Wie oft sollte ein Baum kontrolliert werden?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:135
+msgid ""
+"Bei Bäumen an verkehrsreichen Standorten empfiehlt die FLL eine jährliche "
+"Kontrolle. Bei weniger frequentierten Standorten kann ein längeres Intervall "
+"ausreichen."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:141
+msgid "Entsorgen Sie das Schnittgut?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:144
+msgid ""
+"Ja, auf Wunsch entsorge ich das Schnittgut fachgerecht. Alternativ kann es "
+"auch vor Ort verbleiben, z.B. als Häckselgut für Ihre Beete."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:156
+msgid "Weitere Fragen?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:159
+msgid ""
+"Kontaktieren Sie mich - ich beantworte gerne alle Ihre Fragen zur Baumpflege."
+msgstr ""
+
+#: .\arborist\templates\arborist\gallery.html:10
+#: .\arborist\templates\arborist\partials\footer.html:96
+#: .\arborist\templates\arborist\partials\navigation.html:215
+#: .\arborist\templates\arborist\partials\navigation.html:265
+msgid "Galerie"
+msgstr ""
+
+#: .\arborist\templates\arborist\gallery.html:13
+msgid "Einblicke in meine Arbeit als Baumwart in Luxemburg."
+msgstr ""
+
+#: .\arborist\templates\arborist\gallery.html:24
+msgid ""
+"Hier finden Sie Beispiele meiner Baumpflege-Projekte. Die Bilder zeigen "
+"verschiedene Arbeiten von Obstbaumpflege bis zur Kronenpflege großer Bäume."
+msgstr ""
+
+#: .\arborist\templates\arborist\gallery.html:43
+#: .\arborist\templates\arborist\gallery.html:49
+#: .\arborist\templates\arborist\gallery.html:55
+#: .\arborist\templates\arborist\gallery.html:70
+#: .\arborist\templates\arborist\gallery.html:76
+#: .\arborist\templates\arborist\gallery.html:82
+#: .\arborist\templates\arborist\gallery.html:97
+#: .\arborist\templates\arborist\gallery.html:103
+#: .\arborist\templates\arborist\gallery.html:109
+msgid "Foto folgt"
+msgstr ""
+
+#: .\arborist\templates\arborist\gallery.html:91
+#: .\arborist\templates\arborist\home.html:43
+msgid "Seilklettertechnik"
+msgstr ""
+
+#: .\arborist\templates\arborist\gallery.html:124
+msgid "Mehr Fotos folgen bald!"
+msgstr ""
+
+#: .\arborist\templates\arborist\gallery.html:127
+msgid ""
+"Die Galerie wird regelmäßig mit neuen Projektfotos aktualisiert. Haben Sie "
+"Interesse an meiner Arbeit? Kontaktieren Sie mich für eine Vor-Ort-Beratung."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:13
+#: .\arborist\templates\arborist\partials\footer.html:145
+msgid "Professionelle Baumpflege in Luxemburg"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:16
+msgid "FLL-zertifizierter Baumkontrolleur | SKT-B Seilklettertechnik"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:20
+#: .\arborist\templates\arborist\home.html:183
+msgid "Kostenlose Beratung"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:37
+msgid "FLL zertifiziert"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:38
+msgid "Baumkontrolleur"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:42
+msgid "SKT-B"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:48
+#: .\arborist\templates\arborist\partials\footer.html:132
+msgid "DE | FR | LU"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:59
+msgid "Meine Leistungen"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:62
+msgid ""
+"Von der fachgerechten Obstbaumpflege bis zur zertifizierten Baumkontrolle - "
+"kompetente Baumpflege aus einer Hand."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:71
+msgid ""
+"Erziehungsschnitt, Erhaltungsschnitt, Verjüngung - für gesunde und "
+"ertragreiche Obstbäume."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:80
+msgid ""
+"Kronenpflege, Totholzentfernung, Einkürzung - fachgerecht nach ZTV-"
+"Baumpflege."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:89
+msgid "FLL-zertifizierte Kontrolle, Baumkataster, Verkehrssicherheitsprüfung."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:100
+msgid ""
+"Habitatbäume, Totholzmanagement, Nisthilfen - Baumpflege für Biodiversität."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:107
+#: .\arborist\templates\arborist\services\technik.html:10
+msgid "Technik & Methoden"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:109
+msgid "Seilklettertechnik SKT-B, Hubarbeitsbühne, moderne Ausrüstung."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:121
+msgid "Warum Baumwart?"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:127
+msgid "Zertifizierte Qualifikation"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:128
+msgid "FLL-Baumkontrolleur und SKT-B Seilkletterer mit fundierter Ausbildung."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:134
+msgid "Lokale Expertise"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:135
+msgid "Kenntnis der luxemburgischen Baumarten, Regelungen und Gegebenheiten."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:141
+#, fuzzy
+#| msgid "Premium Service"
+msgid "Persönlicher Service"
+msgstr "Premium-Service"
+
+#: .\arborist\templates\arborist\home.html:142
+msgid "Ein Ansprechpartner von der Beratung bis zur Ausführung."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:148
+#: .\arborist\templates\arborist\services\technik.html:158
+msgid "Vollständig versichert"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:149
+msgid "Haftpflichtversicherung für Ihre Sicherheit und Ihr Eigentum."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:162
+msgid "Einsatzgebiet"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:165
+msgid "Ich bin in ganz Luxemburg tätig, mit Schwerpunkt auf:"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:168
+#, fuzzy
+#| msgid "Luxembourg"
+msgid "Luxemburg-Stadt"
+msgstr "Luxemburg"
+
+#: .\arborist\templates\arborist\home.html:169 .\crush_lu\forms.py:144
+#: .\crush_lu\templates\crush_lu\create_profile.html:343
+msgid "Esch-sur-Alzette"
+msgstr "Esch-sur-Alzette"
+
+#: .\arborist\templates\arborist\home.html:170
+#, fuzzy
+#| msgid "Redange"
+msgid "Differdange"
+msgstr "Redingen"
+
+#: .\arborist\templates\arborist\home.html:171
+#, fuzzy
+#| msgid "Redange"
+msgid "Dudelange"
+msgstr "Redingen"
+
+#: .\arborist\templates\arborist\home.html:172
+msgid "Ettelbruck"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:173
+msgid "und Umgebung"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:186
+msgid ""
+"Haben Sie Fragen zu Ihren Bäumen? Ich berate Sie gerne vor Ort - "
+"unverbindlich und kostenlos."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:193
+msgid "Anrufen"
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\footer.html:30
+#: .\arborist\templates\arborist\partials\navigation.html:188
+msgid "Baumwart"
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\footer.html:33
+msgid ""
+"Tom Aakrann - Professionelle Baumpflege in Luxemburg. FLL-zertifizierter "
+"Baumkontrolleur, SKT-B Seilkletterer."
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\footer.html:52
+#: .\arborist\templates\arborist\partials\navigation.html:197
+#: .\arborist\templates\arborist\partials\navigation.html:242
+msgid "Leistungen"
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\footer.html:72
+#: .\arborist\templates\arborist\partials\navigation.html:206
+#: .\arborist\templates\arborist\partials\navigation.html:253
+msgid "Ökologie"
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\footer.html:77
+#: .\arborist\templates\arborist\partials\navigation.html:207
+#: .\arborist\templates\arborist\partials\navigation.html:256
+#: .\arborist\views.py:106
+msgid "Technik"
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\footer.html:86
+#, fuzzy
+#| msgid "Plot Information"
+msgid "Information"
+msgstr "Parzelleninformationen"
+
+#: .\arborist\templates\arborist\partials\footer.html:101
+#: .\arborist\templates\arborist\partials\navigation.html:218
+#: .\arborist\templates\arborist\partials\navigation.html:268
+msgid "FAQ"
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\footer.html:142
+msgid "Alle Rechte vorbehalten."
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\language_switcher.html:29
+#: .\crush_lu\templates\crush_lu\partials\language_switcher.html:38
+#: .\power_up\templates\power_up\partials\language_switcher.html:30
+msgid "Go"
+msgstr "Los"
+
+#: .\arborist\templates\arborist\partials\whatsapp_button.html:3
+msgid "Hallo, ich interessiere mich für Ihre Baumpflege-Dienste."
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\whatsapp_button.html:7
+msgid "Per WhatsApp kontaktieren"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:10
+#, fuzzy
+#| msgid "FinOps Hub - Services"
+msgid "Our Services"
+msgstr "FinOps Hub - Dienste"
+
+#: .\arborist\templates\arborist\services.html:13
+msgid ""
+"Comprehensive tree care solutions for residential and commercial properties."
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:27
+#, fuzzy
+#| msgid "Winter Pruning"
+msgid "Tree Pruning"
+msgstr "Winterschnitt"
+
+#: .\arborist\templates\arborist\services.html:29
+msgid ""
+"Professional pruning services to maintain tree health, improve appearance, "
+"and ensure safety. Our certified arborists use proper techniques to promote "
+"healthy growth."
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:34
+msgid "Crown thinning and shaping"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:38
+msgid "Dead wood removal"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:42
+msgid "Clearance pruning"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:50
+msgid "Tree Removal"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:52
+msgid ""
+"Safe and efficient removal of hazardous, dead, or unwanted trees. We handle "
+"complex removals in tight spaces with minimal impact to surrounding areas."
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:57
+msgid "Hazardous tree removal"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:61
+msgid "Stump grinding"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:65
+msgid "Emergency services"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:73
+msgid "Health Assessment"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:75
+msgid ""
+"Comprehensive tree health evaluations to identify diseases, pests, and "
+"structural issues. We provide detailed reports and treatment recommendations."
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:80
+msgid "Disease diagnosis"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:84
+#, fuzzy
+#| msgid "Test Notification"
+msgid "Pest identification"
+msgstr "Testbenachrichtigung"
+
+#: .\arborist\templates\arborist\services.html:88
+msgid "Risk assessment"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:96
+#, fuzzy
+#| msgid "Population"
+msgid "Consultation"
+msgstr "Bevölkerung"
+
+#: .\arborist\templates\arborist\services.html:98
+msgid ""
+"Expert advice on tree selection, planting, and long-term care. We help you "
+"make informed decisions about your landscape."
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:103
+#, fuzzy
+#| msgid "Skip to vineyard selection"
+msgid "Species selection"
+msgstr "Zur Weinbergauswahl springen"
+
+#: .\arborist\templates\arborist\services.html:107
+#, fuzzy
+#| msgid "Dating Guidance"
+msgid "Planting guidance"
+msgstr "Dating-Beratung"
+
+#: .\arborist\templates\arborist\services.html:111
+msgid "Maintenance planning"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:124
+#, fuzzy
+#| msgid "Meet Our Producers"
+msgid "Need Our Services?"
+msgstr "Unsere Produzenten kennenlernen"
+
+#: .\arborist\templates\arborist\services.html:127
+msgid "Contact us for a free quote on any of our services."
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:130
+#, fuzzy
+#| msgid "Request Sent"
+msgid "Request a Quote"
+msgstr "Anfrage gesendet"
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:13
+msgid "FLL-zertifizierte Baumkontrolle für Verkehrssicherheit in Luxemburg."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:25
+msgid "FLL-zertifizierter Baumkontrolleur"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:26
+msgid "Forschungsgesellschaft Landschaftsentwicklung Landschaftsbau e.V."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:37
+msgid "Warum Baumkontrolle wichtig ist"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:41
+msgid ""
+"Als Baumeigentümer tragen Sie die Verkehrssicherungspflicht. Regelmäßige "
+"Baumkontrollen schützen Sie vor Haftungsansprüchen und sorgen für die "
+"Sicherheit von Menschen und Eigentum."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:46
+msgid "Visuelle Baumkontrolle"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:48
+msgid ""
+"Systematische Begutachtung des Baumes vom Boden aus. Erfassung von "
+"Vitalität, Statik und Verkehrssicherheit nach FLL-Richtlinien."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:53
+msgid "Eingehende Untersuchung"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:55
+msgid ""
+"Bei Auffälligkeiten: Detaillierte Untersuchung mit Klettertechnik, "
+"Schallmessung oder anderen Methoden zur genauen Diagnose."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:60
+msgid "Baumkataster"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:62
+msgid ""
+"Systematische Erfassung und Dokumentation Ihres Baumbestandes. Digitale "
+"Verwaltung mit Kontrollintervallen und Maßnahmenplanung."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:67
+#, fuzzy
+#| msgid "Heritage documentation"
+msgid "Gutachten & Dokumentation"
+msgstr "Erbe-Dokumentation"
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:69
+msgid ""
+"Schriftliche Dokumentation aller Befunde mit Handlungsempfehlungen. "
+"Rechtssichere Nachweise für Ihre Unterlagen."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:77
+msgid "Ablauf einer Baumkontrolle"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:83
+msgid "Terminvereinbarung"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:84
+msgid "Wir besprechen Umfang und Zielsetzung der Kontrolle."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:90
+msgid "Vor-Ort-Begehung"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:91
+msgid "Systematische Untersuchung jedes Baumes nach FLL-Schema."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:97
+#, fuzzy
+#| msgid "Fermentation"
+msgid "Dokumentation"
+msgstr "Gärung"
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:98
+msgid "Erstellung eines detaillierten Kontrollprotokolls mit Fotos."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:104
+msgid "Handlungsempfehlungen"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:105
+msgid "Konkrete Maßnahmen mit Prioritäten und Zeitrahmen."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:114
+msgid "Für wen ist Baumkontrolle wichtig?"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:120
+msgid "Kommunen & Gemeinden"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:121
+msgid "Straßenbäume, Parks, Schulhöfe"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:127
+msgid "Unternehmen"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:128
+msgid "Firmengelände, Parkplätze"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:134
+msgid "Hausverwaltungen"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:135
+msgid "Wohnanlagen, Innenhöfe"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:141
+msgid "Privatpersonen"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:142
+msgid "Gartenbäume an öffentlichen Wegen"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:155
+msgid "Baumkontrolle beauftragen"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:158
+msgid ""
+"Erfüllen Sie Ihre Verkehrssicherungspflicht mit professioneller "
+"Dokumentation."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:161
+msgid "Angebot anfordern"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:13
+msgid "Fachgerechte Pflege für gesunde und sichere Bäume in Luxemburg."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:24
+msgid "Professionelle Baumpflege nach ZTV-Baumpflege"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:28
+msgid ""
+"Bäume sind lebende Organismen, die fachkundige Pflege verdienen. Als "
+"zertifizierter Baumpfleger arbeite ich nach den anerkannten Richtlinien der "
+"ZTV-Baumpflege und sorge für die Gesundheit und Sicherheit Ihrer Bäume."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:33
+msgid "Kronenpflege"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:35
+msgid ""
+"Entfernung von Totholz, sich kreuzenden Ästen und Wasserschossen. Die "
+"natürliche Kronenform bleibt erhalten."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:40
+msgid "Kroneneinkürzung"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:42
+msgid ""
+"Fachgerechte Reduzierung der Kronengröße bei zu groß gewordenen Bäumen. "
+"Erhalt der natürlichen Wuchsform."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:47
+msgid "Lichtraumprofilschnitt"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:49
+msgid ""
+"Freischneiden von Verkehrswegen, Gebäuden und Leitungen. Für sichere "
+"Durchfahrtshöhen und freie Sicht."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:54
+#: .\arborist\templates\arborist\services\technik.html:76
+msgid "Totholzentfernung"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:56
+msgid ""
+"Abgestorbene Äste werden fachgerecht entfernt, um Gefahren zu minimieren und "
+"den Baum zu entlasten."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:64
+msgid "Schonende Arbeitsmethoden"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:67
+msgid ""
+"Ich arbeite überwiegend mit Seilklettertechnik (SKT-B). Diese Methode ist "
+"besonders schonend für Baum und Umgebung:"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:72
+msgid "Keine schweren Maschinen auf Ihrem Grundstück"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:76
+msgid "Zugang auch an schwer erreichbaren Stellen"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:80
+msgid "Minimale Bodenverdichtung"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:84
+msgid "Präzise Arbeit direkt am Ast"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:92
+msgid "Erfahrung mit allen Baumarten"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:95
+msgid ""
+"Ob einheimische oder exotische Bäume - jede Art hat ihre Besonderheiten:"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:100
+msgid "Eiche"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:104
+msgid "Buche"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:108
+msgid "Linde"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:112
+msgid "Ahorn"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:116
+msgid "Kastanie"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:120
+msgid "Nadelbäume"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:132
+msgid "Brauchen Ihre Bäume Pflege?"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:135
+msgid "Ich berate Sie gerne vor Ort - kostenlos und unverbindlich."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:138
+msgid "Beratung anfragen"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:13
+msgid ""
+"Professionelle Pflege für gesunde und ertragreiche Obstbäume in Luxemburg."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:24
+msgid "Meine Leistungen für Ihre Obstbäume"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:29
+msgid "Erziehungsschnitt"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:31
+msgid ""
+"Der Erziehungsschnitt formt junge Obstbäume zu einer stabilen "
+"Kronenstruktur. Er legt das Fundament für einen gesunden, tragfähigen Baum."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:36
+msgid "Erhaltungsschnitt"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:38
+msgid ""
+"Der regelmäßige Erhaltungsschnitt hält Ihren Obstbaum in Balance. Fruchtholz "
+"wird erneuert, die Krone bleibt licht und vital."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:43
+msgid "Verjüngungsschnitt"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:45
+msgid ""
+"Alte, vernachlässigte Obstbäume können durch fachgerechten "
+"Verjüngungsschnitt neues Leben bekommen und wieder reichlich tragen."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:50
+msgid "Sommerschnitt"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:52
+msgid ""
+"Der Sommerschnitt bremst übermäßiges Wachstum und verbessert die "
+"Fruchtqualität. Besonders wichtig bei Steinobst."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:60
+msgid "Vorteile professioneller Obstbaumpflege"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:65
+msgid "Höhere Erträge durch optimale Kronenstruktur"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:69
+msgid "Bessere Fruchtqualität durch mehr Licht und Luft"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:73
+msgid "Weniger Krankheiten durch gute Durchlüftung"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:77
+msgid "Längere Lebensdauer Ihrer Obstbäume"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:81
+msgid "Sichere Ernte ohne überhängende Äste"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:89
+msgid "Der richtige Zeitpunkt"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:93
+msgid "Kernobst (Apfel, Birne)"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:94
+msgid "Winterschnitt von November bis März, wenn der Baum ruht."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:97
+msgid "Steinobst (Kirsche, Pflaume)"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:98
+msgid "Sommerschnitt nach der Ernte für beste Wundheilung."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:110
+msgid "Interesse an professioneller Obstbaumpflege?"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:13
+msgid "Naturnahe Baumpflege für mehr Biodiversität in Luxemburg."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:24
+msgid "Baumpflege im Einklang mit der Natur"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:28
+msgid ""
+"Bäume sind wichtige Lebensräume für viele Tierarten. Bei meiner Arbeit achte "
+"ich darauf, ökologische Strukturen zu erhalten und zu fördern - für eine "
+"lebendige Natur in Luxemburg."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:34
+msgid "Habitatbäume"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:36
+msgid ""
+"Identifizierung und Schutz von Bäumen mit besonderen Strukturen wie Höhlen, "
+"Spalten oder Totholz als Lebensraum für Vögel, Fledermäuse und Insekten."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:42
+msgid "Totholzmanagement"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:44
+msgid ""
+"Gezieltes Belassen von stehendem und liegendem Totholz, wo es sicher ist. "
+"Totholz ist Lebensraum für hunderte Arten."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:50
+msgid "Nisthilfen"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:52
+msgid ""
+"Installation von Nistkästen für Vögel, Fledermauskästen und Insektenhotels. "
+"Fachgerechte Anbringung und Beratung zur Pflege."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:58
+msgid "Artenschutz bei Baumarbeiten"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:60
+msgid ""
+"Vorabkontrolle auf geschützte Arten vor Baumpflegemaßnahmen. Einhaltung der "
+"Brutzeiten und Schutzvorschriften."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:68
+msgid "Warum ökologische Baumpflege?"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:71
+msgid "Bäume sind mehr als nur Holz - sie sind komplexe Ökosysteme:"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:76
+msgid "Eine alte Eiche kann über 1.000 Tierarten beherbergen"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:80
+msgid "Spechthöhlen werden von über 60 Folgenutzer-Arten genutzt"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:84
+#, python-format
+msgid "Totholz ist Lebensgrundlage für 25%% aller Waldarten"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:88
+msgid "Bäume kühlen ihre Umgebung und filtern die Luft"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:96
+msgid "Leistungen für mehr Natur"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:100
+msgid "Streuobstwiesen-Pflege"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:101
+msgid "Erhaltung alter Obstsorten und ihrer einzigartigen Lebensräume."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:104
+msgid "Kopfbaumpflege"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:105
+msgid "Traditionelle Schnittform mit hohem ökologischem Wert."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:108
+msgid "Ökologische Beratung"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:109
+msgid "Tipps für naturnahe Gartengestaltung mit heimischen Bäumen."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:121
+msgid "Naturnahe Baumpflege interessiert Sie?"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:124
+msgid "Lassen Sie uns gemeinsam Lebensräume erhalten."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:13
+msgid "Moderne Ausrüstung und bewährte Techniken für sichere Baumpflege."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:25
+msgid "SKT-B zertifiziert"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:26
+msgid "Seilklettertechnik B - Arbeiten mit Motorsäge"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:37
+msgid "Seilklettertechnik (SKT)"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:41
+msgid ""
+"Die Seilklettertechnik ist die modernste und schonendste Methode der "
+"Baumpflege. Als SKT-B zertifizierter Kletterer arbeite ich sicher und "
+"effizient in jeder Baumkrone."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:46
+msgid "Vorteile der Seilklettertechnik"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:50
+msgid "Zugang auch in schwierigem Gelände"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:54
+msgid "Keine Schäden an Rasen oder Wegen"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:58
+msgid "Präzise Arbeit an jedem Ast"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:62
+msgid "Umweltfreundlich und leise"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:68
+msgid "Einsatzbereiche"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:72
+msgid "Kronenpflege in Gärten"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:80
+msgid "Baumfällung in Stücken"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:84
+msgid "Eingehende Baumkontrolle"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:93
+msgid "Professionelle Ausrüstung"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:98
+msgid "Kletterausrüstung"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:99
+msgid "Geprüfte Seile, Gurte und Karabiner nach EN-Norm"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:103
+msgid "Schneidwerkzeuge"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:104
+msgid "Profi-Sägen und -Scheren für saubere Schnitte"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:108
+msgid "Sicherheit"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:109
+msgid "Helm, Schnittschutz, Absturzsicherung"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:117
+msgid "Weitere Arbeitsmethoden"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:121
+msgid "Hubarbeitsbühne"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:122
+msgid ""
+"Bei guter Zufahrt und großen Baumbeständen. Schnelles Arbeiten in der Höhe."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:125
+msgid "Bodentechnik"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:126
+msgid "Arbeiten vom Boden mit Teleskopwerkzeugen bei kleineren Bäumen."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:129
+msgid "Seilzugtechnik"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:130
+msgid "Kontrolliertes Ablassen von Ästen in sensiblen Bereichen."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:138
+msgid "Sicherheit hat Priorität"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:141
+msgid "Jeder Einsatz wird sorgfältig geplant:"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:146
+msgid "Gefährdungsbeurteilung vor Arbeitsbeginn"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:150
+msgid "Absperrung des Arbeitsbereichs"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:154
+msgid "Regelmäßige Ausrüstungskontrolle"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:170
+msgid "Fragen zu Technik oder Ablauf?"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:173
+msgid "Ich erkläre Ihnen gerne, wie ich an Ihren Bäumen arbeite."
+msgstr ""
+
+#: .\arborist\views.py:22
+msgid "Baumwart Tom Aakrann - Professionelle Baumpflege Luxemburg"
+msgstr ""
+
+#: .\arborist\views.py:24
+msgid ""
+"Zertifizierter Baumkontrolleur und Baumpfleger in Luxemburg. Obstbaumpflege, "
+"Baumpflege, Baumkontrolle nach FLL. Seilklettertechnik SKT-B."
+msgstr ""
+
+#: .\arborist\views.py:41
+msgid "Obstbaumpflege Luxemburg - Baumwart Tom Aakrann"
+msgstr ""
+
+#: .\arborist\views.py:43
+msgid ""
+"Professionelle Obstbaumpflege in Luxemburg. Obstbaumschnitt, "
+"Verjüngungsschnitt, Erziehungsschnitt. Für gesunde und ertragreiche "
+"Obstbäume."
+msgstr ""
+
+#: .\arborist\views.py:56
+msgid "Baumpflege Luxemburg - Baumwart Tom Aakrann"
+msgstr ""
+
+#: .\arborist\views.py:58
+msgid ""
+"Professionelle Baumpflege in Luxemburg. Kronenpflege, Totholzentfernung, "
+"Kroneneinkürzung. Seilklettertechnik SKT-B zertifiziert."
+msgstr ""
+
+#: .\arborist\views.py:71
+msgid "Baumkontrolle Luxemburg - FLL zertifiziert - Baumwart"
+msgstr ""
+
+#: .\arborist\views.py:73
+msgid ""
+"FLL-zertifizierte Baumkontrolle in Luxemburg. Visuelle Baumkontrolle, "
+"Baumkataster, Verkehrssicherheitsprüfung. Gutachten und Dokumentation."
+msgstr ""
+
+#: .\arborist\views.py:86
+msgid "Ökologische Maßnahmen - Baumwart Tom Aakrann"
+msgstr ""
+
+#: .\arborist\views.py:88
+msgid ""
+"Ökologische Baumpflege in Luxemburg. Habitatbäume, Totholzmanagement, "
+"Nisthilfen, Artenschutz. Naturnahe Baumpflege für Biodiversität."
+msgstr ""
+
+#: .\arborist\views.py:101
+msgid "Technik & Methoden - Baumwart Tom Aakrann"
+msgstr ""
+
+#: .\arborist\views.py:103
+msgid ""
+"Moderne Baumpflegetechnik in Luxemburg. Seilklettertechnik SKT-B, "
+"Hubarbeitsbühne, professionelle Ausrüstung für sichere Baumpflege."
+msgstr ""
+
+#: .\arborist\views.py:121
+msgid "Über uns - Baumwart Tom Aakrann"
+msgstr ""
+
+#: .\arborist\views.py:123
+msgid ""
+"Tom Aakrann - FLL-zertifizierter Baumkontrolleur und Baumpfleger in "
+"Luxemburg. Erfahrung, Qualifikationen und Leidenschaft für Bäume."
+msgstr ""
+
+#: .\arborist\views.py:134
+msgid "Kontakt - Baumwart Tom Aakrann"
+msgstr ""
+
+#: .\arborist\views.py:136
+msgid ""
+"Kontaktieren Sie Baumwart Tom Aakrann für Baumpflege in Luxemburg. "
+"Kostenlose Beratung, schnelle Antwort. Telefon, WhatsApp, E-Mail."
+msgstr ""
+
+#: .\arborist\views.py:152
+msgid "Galerie - Baumwart Tom Aakrann"
+msgstr ""
+
+#: .\arborist\views.py:154
+msgid ""
+"Fotos von Baumpflege-Projekten in Luxemburg. Vorher-Nachher Bilder von "
+"Obstbaumpflege, Kronenpflege und Baumfällung."
+msgstr ""
+
+#: .\arborist\views.py:206
+msgid "FAQ - Häufige Fragen - Baumwart Tom Aakrann"
+msgstr ""
+
+#: .\arborist\views.py:208
+msgid ""
+"Häufig gestellte Fragen zu Baumpflege in Luxemburg. Antworten zu Kosten, "
+"Zeitpunkt, Methoden und Leistungen."
+msgstr ""
+
+#: .\azureproject\settings.py:459 .\crush_lu\models\profiles.py:389
 msgid "English"
 msgstr "Englisch"
 
-#: .\azureproject\settings.py:457
+#: .\azureproject\settings.py:460
 msgid "German"
 msgstr "Deutsch"
 
-#: .\azureproject\settings.py:458
+#: .\azureproject\settings.py:461
 msgid "French"
 msgstr "Französisch"
 
@@ -146,7 +1742,6 @@ msgstr ""
 "erstellen und Ihnen relevante Werbung auf anderen Websites zu zeigen."
 
 #: .\core\templates\includes\cookie_banner.html:83
-#: .\crush_delegation\templates\account\logout_delegation.html:24
 #: .\crush_lu\templates\account\logout_crush.html:23
 #: .\crush_lu\templates\crush_lu\_event_registration_form.html:55
 #: .\crush_lu\templates\crush_lu\_request_connection_form.html:30
@@ -154,6 +1749,7 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\coach_edit_profile.html:127
 #: .\crush_lu\templates\crush_lu\coach_invitation_dashboard.html:169
 #: .\crush_lu\templates\crush_lu\event_register.html:78
+#: .\delegations\templates\account\logout_delegation.html:24
 #: .\entreprinder\templates\account\logout.html:20
 #: .\entreprinder\templates\account\logout_powerup.html:24
 msgid "Cancel"
@@ -163,33 +1759,6 @@ msgstr "Abbrechen"
 #: .\crush_lu\templates\crush_lu\account_settings.html:401
 msgid "Save Preferences"
 msgstr "Einstellungen speichern"
-
-#: .\crush_delegation\templates\account\logout_delegation.html:4
-#: .\crush_delegation\templates\account\logout_delegation.html:13
-#: .\crush_delegation\templates\account\logout_delegation.html:23
-#: .\crush_lu\templates\account\logout_crush.html:4
-#: .\crush_lu\templates\account\logout_crush.html:12
-#: .\crush_lu\templates\account\logout_crush.html:22
-#: .\entreprinder\templates\account\logout.html:4
-#: .\entreprinder\templates\account\logout.html:10
-#: .\entreprinder\templates\account\logout.html:19
-#: .\entreprinder\templates\account\logout_powerup.html:4
-#: .\entreprinder\templates\account\logout_powerup.html:13
-#: .\entreprinder\templates\account\logout_powerup.html:23
-msgid "Sign Out"
-msgstr "Abmelden"
-
-#: .\crush_delegation\templates\account\logout_delegation.html:14
-#: .\crush_lu\templates\account\logout_crush.html:13
-#: .\entreprinder\templates\account\logout.html:12
-#: .\entreprinder\templates\account\logout_powerup.html:14
-msgid "Are you sure you want to sign out?"
-msgstr "Sind Sie sicher, dass Sie sich abmelden möchten?"
-
-#: .\crush_delegation\templates\admin\base_site.html:4
-#: .\crush_delegation\templates\admin\base_site.html:29
-msgid "Crush Delegation Management"
-msgstr "Crush Delegationsverwaltung"
 
 #: .\crush_lu\admin\activities.py:57 .\crush_lu\admin\activities.py:85
 msgid "Event Phase"
@@ -213,7 +1782,7 @@ msgstr "Abstimmung beenden und Gewinner ermitteln"
 msgid "Ended voting and calculated winners for %(count)d session(s)"
 msgstr "Abstimmung beendet und Gewinner für %(count)d Sitzung(en) ermittelt"
 
-#: .\crush_lu\admin\advent.py:125 .\crush_lu\admin\journey.py:114
+#: .\crush_lu\admin\advent.py:125 .\crush_lu\admin\journey.py:119
 msgid "For User"
 msgstr "Für Benutzer"
 
@@ -242,7 +1811,7 @@ msgstr "%(count)d Türen für '%(title)s' erstellt"
 msgid "Door #"
 msgstr "Tür Nr."
 
-#: .\crush_lu\admin\advent.py:223 .\crush_lu\admin\journey.py:468
+#: .\crush_lu\admin\advent.py:223 .\crush_lu\admin\journey.py:476
 msgid "Challenge Type"
 msgstr "Challenge-Typ"
 
@@ -402,27 +1971,51 @@ msgstr "Senden von {count} Erinnerung(en) fehlgeschlagen"
 msgid "No confirmed registrations to notify"
 msgstr "Keine bestätigten Anmeldungen zu benachrichtigen"
 
-#: .\crush_lu\admin\events.py:376
+#: .\crush_lu\admin\events.py:290
+#, fuzzy
+#| msgid "Export selected profiles to CSV"
+msgid "📋 Export attendees to CSV"
+msgstr "Ausgewählte Profile als CSV exportieren"
+
+#: .\crush_lu\admin\events.py:358
+#, fuzzy
+#| msgid "Export selected profiles to CSV"
+msgid "📋 Export selected registrations to CSV"
+msgstr "Ausgewählte Profile als CSV exportieren"
+
+#: .\crush_lu\admin\events.py:397
+#, fuzzy
+#| msgid "Confirm Registration"
+msgid "✅ Confirm selected registrations"
+msgstr "Anmeldung bestätigen"
+
+#: .\crush_lu\admin\events.py:403
+#, fuzzy
+#| msgid "⏳ Waitlist"
+msgid "⏳ Move to waitlist"
+msgstr "⏳ Warteliste"
+
+#: .\crush_lu\admin\events.py:472
 msgid "Guest Name"
 msgstr "Gastname"
 
-#: .\crush_lu\admin\events.py:383
+#: .\crush_lu\admin\events.py:479
 msgid "✨ VIP"
 msgstr "✨ VIP"
 
-#: .\crush_lu\admin\events.py:396
+#: .\crush_lu\admin\events.py:492
 msgid "Invitation Link"
 msgstr "Einladungslink"
 
-#: .\crush_lu\admin\events.py:430
+#: .\crush_lu\admin\events.py:526
 msgid "Complete Status"
 msgstr "Status vollständig"
 
-#: .\crush_lu\admin\events.py:432
+#: .\crush_lu\admin\events.py:528
 msgid "✅ Approve selected guests"
 msgstr "✅ Ausgewählte Gäste genehmigen"
 
-#: .\crush_lu\admin\events.py:458
+#: .\crush_lu\admin\events.py:554
 #, python-brace-format
 msgid ""
 "Approved {updated} guest(s) to attend the event. Sent {emails_sent} email "
@@ -431,178 +2024,178 @@ msgstr ""
 "{updated} Gast/Gäste für die Veranstaltung genehmigt. {emails_sent} E-Mail-"
 "Benachrichtigung(en) gesendet."
 
-#: .\crush_lu\admin\events.py:464
+#: .\crush_lu\admin\events.py:560
 msgid ""
 "No pending invitations to approve. Only accepted invitations can be approved."
 msgstr ""
 "Keine ausstehenden Einladungen zu genehmigen. Nur akzeptierte Einladungen "
 "können genehmigt werden."
 
-#: .\crush_lu\admin\events.py:467
+#: .\crush_lu\admin\events.py:563
 msgid "❌ Reject selected guests"
 msgstr "❌ Ausgewählte Gäste ablehnen"
 
-#: .\crush_lu\admin\events.py:485
+#: .\crush_lu\admin\events.py:581
 #, python-brace-format
 msgid "Rejected {count} guest(s). They will be notified."
 msgstr "{count} Gast/Gäste abgelehnt. Sie werden benachrichtigt."
 
-#: .\crush_lu\admin\events.py:490
+#: .\crush_lu\admin\events.py:586
 msgid ""
 "No pending invitations to reject. Only accepted invitations can be rejected."
 msgstr ""
 "Keine ausstehenden Einladungen zum Ablehnen. Nur akzeptierte Einladungen "
 "können abgelehnt werden."
 
-#: .\crush_lu\admin\events.py:493
+#: .\crush_lu\admin\events.py:589
 msgid "📧 Resend invitation emails"
 msgstr "📧 Einladungs-E-Mails erneut senden"
 
-#: .\crush_lu\admin\events.py:502
+#: .\crush_lu\admin\events.py:598
 #, python-brace-format
 msgid "Would resend {count} invitation(s). Email sending not yet implemented."
 msgstr ""
 "Würde {count} Einladung(en) erneut senden. E-Mail-Versand noch nicht "
 "implementiert."
 
-#: .\crush_lu\admin\events.py:507
+#: .\crush_lu\admin\events.py:603
 msgid ""
 "No pending invitations to resend. Only unaccepted invitations can be resent."
 msgstr ""
 "Keine ausstehenden Einladungen zum erneuten Senden. Nur nicht akzeptierte "
 "Einladungen können erneut gesendet werden."
 
-#: .\crush_lu\admin\journey.py:117
+#: .\crush_lu\admin\journey.py:122
 msgid "✅ Activate selected journeys"
 msgstr "✅ Ausgewählte Reisen aktivieren"
 
-#: .\crush_lu\admin\journey.py:120
+#: .\crush_lu\admin\journey.py:125
 #, python-brace-format
 msgid "Activated {count} journey(s)"
 msgstr "{count} Reise(n) aktiviert"
 
-#: .\crush_lu\admin\journey.py:122
+#: .\crush_lu\admin\journey.py:127
 msgid "❌ Deactivate selected journeys"
 msgstr "❌ Ausgewählte Reisen deaktivieren"
 
-#: .\crush_lu\admin\journey.py:125
+#: .\crush_lu\admin\journey.py:130
 #, python-brace-format
 msgid "Deactivated {count} journey(s)"
 msgstr "{count} Reise(n) deaktiviert"
 
-#: .\crush_lu\admin\journey.py:127
+#: .\crush_lu\admin\journey.py:132
 msgid "📋 Duplicate journey (create copy)"
 msgstr "📋 Reise duplizieren (Kopie erstellen)"
 
-#: .\crush_lu\admin\journey.py:131
+#: .\crush_lu\admin\journey.py:136
 msgid "Please select exactly one journey to duplicate"
 msgstr "Bitte wählen Sie genau eine Reise zum Duplizieren aus"
 
-#: .\crush_lu\admin\journey.py:137
+#: .\crush_lu\admin\journey.py:142
 #, python-brace-format
 msgid "Duplication feature coming soon! Would create a copy of '{name}'"
 msgstr ""
 "Duplikationsfunktion kommt bald! Würde eine Kopie von '{name}' erstellen"
 
-#: .\crush_lu\admin\journey.py:180
+#: .\crush_lu\admin\journey.py:186
 msgid "Chapter #"
 msgstr "Kapitel Nr."
 
-#: .\crush_lu\admin\journey.py:185
+#: .\crush_lu\admin\journey.py:191
 msgid "🎯 Challenges"
 msgstr "🎯 Challenges"
 
-#: .\crush_lu\admin\journey.py:189
+#: .\crush_lu\admin\journey.py:195
 msgid "🎁 Rewards"
 msgstr "🎁 Belohnungen"
 
-#: .\crush_lu\admin\journey.py:234 .\crush_lu\admin\journey.py:280
-#: .\crush_lu\admin\journey.py:410 .\crush_lu\admin\journey.py:464
+#: .\crush_lu\admin\journey.py:241 .\crush_lu\admin\journey.py:288
+#: .\crush_lu\admin\journey.py:418 .\crush_lu\admin\journey.py:472
 msgid "Chapter"
 msgstr "Kapitel"
 
-#: .\crush_lu\admin\journey.py:238
+#: .\crush_lu\admin\journey.py:245
 msgid "Question Preview"
 msgstr "Fragenvorschau"
 
-#: .\crush_lu\admin\journey.py:243
+#: .\crush_lu\admin\journey.py:250
 msgid "Has Hints?"
 msgstr "Hat Hinweise?"
 
-#: .\crush_lu\admin\journey.py:285
+#: .\crush_lu\admin\journey.py:293
 msgid "📷 Photo"
 msgstr "📷 Foto"
 
-#: .\crush_lu\admin\journey.py:290
+#: .\crush_lu\admin\journey.py:298
 msgid "🎵 Audio"
 msgstr "🎵 Audio"
 
-#: .\crush_lu\admin\journey.py:295
+#: .\crush_lu\admin\journey.py:303
 msgid "🎬 Video"
 msgstr "🎬 Video"
 
-#: .\crush_lu\admin\journey.py:347
+#: .\crush_lu\admin\journey.py:355
 msgid "Journey"
 msgstr "Reise"
 
-#: .\crush_lu\admin\journey.py:359
+#: .\crush_lu\admin\journey.py:367
 #: .\crush_lu\templates\crush_lu\journey\journey_map.html:608
 msgid "Completion"
 msgstr "Abschluss"
 
-#: .\crush_lu\admin\journey.py:369
+#: .\crush_lu\admin\journey.py:377
 msgid "Time Spent"
 msgstr "Verbrachte Zeit"
 
-#: .\crush_lu\admin\journey.py:406 .\crush_lu\admin\journey.py:460
-#: .\crush_lu\admin\journey.py:542 .\crush_lu\admin\wallet.py:115
+#: .\crush_lu\admin\journey.py:414 .\crush_lu\admin\journey.py:468
+#: .\crush_lu\admin\journey.py:550 .\crush_lu\admin\wallet.py:115
 msgid "User"
 msgstr "Benutzer"
 
-#: .\crush_lu\admin\journey.py:417
+#: .\crush_lu\admin\journey.py:425
 msgid "Duration"
 msgstr "Dauer"
 
-#: .\crush_lu\admin\journey.py:472
+#: .\crush_lu\admin\journey.py:480
 msgid "💡 Hints Used"
 msgstr "💡 Verwendete Hinweise"
 
-#: .\crush_lu\admin\journey.py:488
+#: .\crush_lu\admin\journey.py:496
 msgid "No Chapter 2 responses found in selected items."
 msgstr "Keine Antworten aus Kapitel 2 in ausgewählten Elementen gefunden."
 
-#: .\crush_lu\admin\journey.py:514
+#: .\crush_lu\admin\journey.py:522
 #, python-brace-format
 msgid "Exported {count} Chapter 2 responses."
 msgstr "{count} Antworten aus Kapitel 2 exportiert."
 
-#: .\crush_lu\admin\journey.py:520
+#: .\crush_lu\admin\journey.py:528
 msgid "📊 Export Chapter 2 Questionnaire Responses (CSV)"
 msgstr "📊 Kapitel 2 Fragebogen-Antworten exportieren (CSV)"
 
-#: .\crush_lu\admin\journey.py:546
+#: .\crush_lu\admin\journey.py:554
 msgid "Reward"
 msgstr "Belohnung"
 
-#: .\crush_lu\admin\journey.py:552
+#: .\crush_lu\admin\journey.py:560
 #: .\crush_lu\templates\crush_lu\journey\journey_selector.html:255
 #: .\crush_lu\templates\crush_lu\partials\nav_progress_dropdown.html:24
 msgid "Progress"
 msgstr "Fortschritt"
 
-#: .\crush_lu\admin\journey.py:597
+#: .\crush_lu\admin\journey.py:605
 msgid "Sender"
 msgstr "Absender"
 
-#: .\crush_lu\admin\journey.py:604
+#: .\crush_lu\admin\journey.py:612
 msgid "Claimed By"
 msgstr "Eingelöst von"
 
-#: .\crush_lu\admin\journey.py:606
+#: .\crush_lu\admin\journey.py:614
 msgid "⏰ Mark selected gifts as expired"
 msgstr "⏰ Ausgewählte Geschenke als abgelaufen markieren"
 
-#: .\crush_lu\admin\journey.py:611
+#: .\crush_lu\admin\journey.py:619
 #, python-brace-format
 msgid "Marked {count} gift(s) as expired"
 msgstr "{count} Geschenk(e) als abgelaufen markiert"
@@ -624,18 +2217,18 @@ msgstr ""
 msgid "Your coach notifications are working correctly!"
 msgstr "Deine Coach-Benachrichtigungen funktionieren einwandfrei!"
 
-#: .\crush_lu\admin\profiles.py:45
+#: .\crush_lu\admin\profiles.py:47
 msgid "Upload a profile photo for this coach"
 msgstr "Laden Sie ein Profilfoto für diesen Coach hoch"
 
-#: .\crush_lu\admin\profiles.py:72 .\crush_lu\admin\profiles.py:271
+#: .\crush_lu\admin\profiles.py:74 .\crush_lu\admin\profiles.py:274
 msgid "User / Links"
 msgstr "Benutzer / Links"
 
-#: .\crush_lu\admin\profiles.py:78 .\crush_lu\admin\profiles.py:277
-#: .\crush_lu\admin\profiles.py:820 .\crush_lu\admin\wallet.py:120
+#: .\crush_lu\admin\profiles.py:80 .\crush_lu\admin\profiles.py:280
+#: .\crush_lu\admin\profiles.py:824 .\crush_lu\admin\wallet.py:120
 #: .\crush_lu\templates\crush_lu\account_settings.html:21
-#: .\crush_lu\templates\crush_lu\journey\gift_success.html:235
+#: .\crush_lu\templates\crush_lu\journey\gift_success.html:290
 #: .\crush_lu\templates\crush_lu\signup.html:99
 #: .\crush_lu\templates\socialaccount\signup_crush.html:35
 #: .\entreprinder\templates\socialaccount\signup_powerup.html:38
@@ -643,93 +2236,93 @@ msgstr "Benutzer / Links"
 msgid "Email"
 msgstr "E-Mail"
 
-#: .\crush_lu\admin\profiles.py:85
+#: .\crush_lu\admin\profiles.py:87
 msgid "Has Dating Profile"
 msgstr "Hat Dating-Profil"
 
-#: .\crush_lu\admin\profiles.py:95
-#: .\crush_lu\templates\crush_lu\create_profile.html:654
-#: .\crush_lu\templates\crush_lu\create_profile.html:681
-#: .\crush_lu\templates\crush_lu\create_profile.html:708
+#: .\crush_lu\admin\profiles.py:97
+#: .\crush_lu\templates\crush_lu\create_profile.html:666
+#: .\crush_lu\templates\crush_lu\create_profile.html:693
+#: .\crush_lu\templates\crush_lu\create_profile.html:720
 msgid "Photo"
 msgstr "Foto"
 
-#: .\crush_lu\admin\profiles.py:97
+#: .\crush_lu\admin\profiles.py:99
 msgid "Deactivate coach role (allows them to date)"
 msgstr "Coach-Rolle deaktivieren (erlaubt Dating)"
 
-#: .\crush_lu\admin\profiles.py:106
+#: .\crush_lu\admin\profiles.py:108
 msgid "Deactivate selected coaches"
 msgstr "Ausgewählte Coaches deaktivieren"
 
-#: .\crush_lu\admin\profiles.py:111
+#: .\crush_lu\admin\profiles.py:113
 msgid "Activate selected coaches"
 msgstr "Ausgewählte Coaches aktivieren"
 
-#: .\crush_lu\admin\profiles.py:160
+#: .\crush_lu\admin\profiles.py:163
 msgid "At-a-glance status overview"
 msgstr "Statusübersicht auf einen Blick"
 
-#: .\crush_lu\admin\profiles.py:164
+#: .\crush_lu\admin\profiles.py:167
 msgid "Django User account details with link to full user record"
 msgstr ""
 "Django-Benutzerkonto-Details mit Link zum vollständigen Benutzerdatensatz"
 
-#: .\crush_lu\admin\profiles.py:168
+#: .\crush_lu\admin\profiles.py:171
 msgid "Core profile information"
 msgstr "Kern-Profilinformationen"
 
-#: .\crush_lu\admin\profiles.py:172
+#: .\crush_lu\admin\profiles.py:175
 msgid "Phone verification via Firebase/Google Identity Platform SMS OTP"
 msgstr "Telefonverifizierung via Firebase/Google Identity Platform SMS OTP"
 
-#: .\crush_lu\admin\profiles.py:185
+#: .\crush_lu\admin\profiles.py:188
 msgid "View which coach is assigned to review this profile."
 msgstr "Sehen Sie, welcher Coach diesem Profil zur Überprüfung zugewiesen ist."
 
-#: .\crush_lu\admin\profiles.py:190
+#: .\crush_lu\admin\profiles.py:193
 msgid "Track which step of profile creation user completed"
 msgstr ""
 "Verfolgen Sie, welchen Schritt der Profilerstellung der Benutzer "
 "abgeschlossen hat"
 
-#: .\crush_lu\admin\profiles.py:201
+#: .\crush_lu\admin\profiles.py:204
 msgid "User event history and registrations"
 msgstr "Benutzer-Event-Verlauf und Anmeldungen"
 
-#: .\crush_lu\admin\profiles.py:205
+#: .\crush_lu\admin\profiles.py:208
 msgid "Connections sent and received from events"
 msgstr "Von Events gesendete und empfangene Verbindungen"
 
-#: .\crush_lu\admin\profiles.py:209
+#: .\crush_lu\admin\profiles.py:212
 msgid "Referral code and conversions for this profile"
 msgstr "Empfehlungscode und Konversionen für dieses Profil"
 
-#: .\crush_lu\admin\profiles.py:213
+#: .\crush_lu\admin\profiles.py:216
 msgid "Interactive journey experiences (Wonderland, etc.)"
 msgstr "Interaktive Reiseerlebnisse (Wonderland usw.)"
 
-#: .\crush_lu\admin\profiles.py:286 .\crush_lu\models\profiles.py:737
+#: .\crush_lu\admin\profiles.py:289 .\crush_lu\models\profiles.py:737
 msgid "Phone"
 msgstr "Telefon"
 
-#: .\crush_lu\admin\profiles.py:295
+#: .\crush_lu\admin\profiles.py:298
 msgid "Lang"
 msgstr "Sprache"
 
-#: .\crush_lu\admin\profiles.py:302
+#: .\crush_lu\admin\profiles.py:305
 msgid "Is Coach"
 msgstr "Ist Coach"
 
-#: .\crush_lu\admin\profiles.py:334
+#: .\crush_lu\admin\profiles.py:337
 msgid "Assigned Coach"
 msgstr "Zugewiesener Coach"
 
-#: .\crush_lu\admin\profiles.py:375
+#: .\crush_lu\admin\profiles.py:378
 msgid "Event Registrations"
 msgstr "Event-Anmeldungen"
 
-#: .\crush_lu\admin\profiles.py:426
+#: .\crush_lu\admin\profiles.py:429
 #: .\crush_lu\templates\crush_lu\base.html:388
 #: .\crush_lu\templates\crush_lu\base.html:431
 #: .\crush_lu\templates\crush_lu\base.html:446
@@ -740,97 +2333,103 @@ msgstr "Event-Anmeldungen"
 msgid "Connections"
 msgstr "Verbindungen"
 
-#: .\crush_lu\admin\profiles.py:431 .\crush_lu\models\referrals.py:29
+#: .\crush_lu\admin\profiles.py:434 .\crush_lu\models\referrals.py:29
 msgid "Referral Code"
 msgstr "Empfehlungscode"
 
-#: .\crush_lu\admin\profiles.py:443
+#: .\crush_lu\admin\profiles.py:446
 msgid "Referrals"
 msgstr "Empfehlungen"
 
-#: .\crush_lu\admin\profiles.py:491
+#: .\crush_lu\admin\profiles.py:494
 msgid "User Account Details"
 msgstr "Benutzerkonto-Details"
 
-#: .\crush_lu\admin\profiles.py:571 .\crush_lu\models\journey.py:353
+#: .\crush_lu\admin\profiles.py:574 .\crush_lu\models\journey.py:357
 msgid "Journey Progress"
 msgstr "Reise-Fortschritt"
 
-#: .\crush_lu\admin\profiles.py:613
+#: .\crush_lu\admin\profiles.py:616
 msgid "Status Summary"
 msgstr "Status-Zusammenfassung"
 
-#: .\crush_lu\admin\profiles.py:615
+#: .\crush_lu\admin\profiles.py:618
 msgid "Promote selected profiles to Crush Coach role"
 msgstr "Ausgewählte Profile zur Crush Coach-Rolle befördern"
 
-#: .\crush_lu\admin\profiles.py:653
+#: .\crush_lu\admin\profiles.py:656
 msgid "Approve selected profiles"
 msgstr "Ausgewählte Profile genehmigen"
 
-#: .\crush_lu\admin\profiles.py:658
+#: .\crush_lu\admin\profiles.py:661
 msgid "Deactivate selected profiles"
 msgstr "Ausgewählte Profile deaktivieren"
 
-#: .\crush_lu\admin\profiles.py:663
+#: .\crush_lu\admin\profiles.py:666
 msgid "Reset phone verification (allows re-verification)"
 msgstr "Telefonverifizierung zurücksetzen (ermöglicht erneute Verifizierung)"
 
-#: .\crush_lu\admin\profiles.py:681
+#: .\crush_lu\admin\profiles.py:684
 msgid "Export selected profiles to CSV"
 msgstr "Ausgewählte Profile als CSV exportieren"
 
-#: .\crush_lu\admin\profiles.py:718
+#: .\crush_lu\admin\profiles.py:721
 msgid "Send bulk email to selected users"
 msgstr "Massen-E-Mail an ausgewählte Benutzer senden"
 
-#: .\crush_lu\admin\profiles.py:784
+#: .\crush_lu\admin\profiles.py:788
 msgid "Quick overview of the profile being reviewed"
 msgstr "Schnellübersicht des zu überprüfenden Profils"
 
-#: .\crush_lu\admin\profiles.py:791 .\crush_lu\models\profiles.py:548
+#: .\crush_lu\admin\profiles.py:795 .\crush_lu\models\profiles.py:548
 msgid "Coach must complete screening call before approving profile"
 msgstr ""
 "Coach muss den Screening-Anruf abschließen, bevor das Profil genehmigt wird"
 
-#: .\crush_lu\admin\profiles.py:814
+#: .\crush_lu\admin\profiles.py:818
 msgid "Profile"
 msgstr "Profil"
 
-#: .\crush_lu\admin\profiles.py:865
+#: .\crush_lu\admin\profiles.py:869
 msgid "Workflow"
 msgstr "Arbeitsablauf"
 
-#: .\crush_lu\admin\profiles.py:891 .\crush_lu\models\journey_gift.py:39
+#: .\crush_lu\admin\profiles.py:895 .\crush_lu\models\journey_gift.py:39
 #: .\crush_lu\templates\crush_lu\coach_dashboard.html:114
 #: .\crush_lu\templates\crush_lu\coach_invitation_dashboard.html:110
-#: .\crush_lu\templates\crush_lu\journey\gift_list.html:27
+#: .\crush_lu\templates\crush_lu\journey\gift_list.html:196
 msgid "Pending"
 msgstr "Ausstehend"
 
-#: .\crush_lu\admin\profiles.py:926
+#: .\crush_lu\admin\profiles.py:930
 msgid "Profile Details"
 msgstr "Profildetails"
 
-#: .\crush_lu\admin\profiles.py:928
+#: .\crush_lu\admin\profiles.py:932
 msgid "Approve selected profiles (requires completed call)"
 msgstr "Ausgewählte Profile genehmigen (erfordert abgeschlossenen Anruf)"
 
-#: .\crush_lu\admin\profiles.py:958
+#: .\crush_lu\admin\profiles.py:962
 msgid "Reject selected profiles"
 msgstr "Ausgewählte Profile ablehnen"
 
-#: .\crush_lu\admin\profiles.py:965
+#: .\crush_lu\admin\profiles.py:969
 msgid "Request revision for selected profiles"
 msgstr "Überarbeitung für ausgewählte Profile anfordern"
 
-#: .\crush_lu\admin\profiles.py:972
+#: .\crush_lu\admin\profiles.py:976
 msgid "Auto-assign available coach"
 msgstr "Verfügbaren Coach automatisch zuweisen"
 
-#: .\crush_lu\admin\profiles.py:1006
+#: .\crush_lu\admin\profiles.py:1010
 msgid "Mark screening call as completed"
 msgstr "Screening-Anruf als abgeschlossen markieren"
+
+#: .\crush_lu\admin\profiles.py:1017
+#, fuzzy
+#| msgid "Export selected profiles to CSV"
+msgid "Export selected submissions to CSV"
+msgstr "Ausgewählte Profile als CSV exportieren"
 
 #: .\crush_lu\admin\wallet.py:139
 msgid "Tier"
@@ -972,7 +2571,7 @@ msgid "Required for coach screening and event coordination"
 msgstr "Erforderlich für Coach-Screening und Veranstaltungskoordination"
 
 #: .\crush_lu\forms.py:101
-#: .\crush_lu\templates\crush_lu\create_profile.html:215
+#: .\crush_lu\templates\crush_lu\create_profile.html:227
 msgid "Must be 18+ to join"
 msgstr "Sie müssen 18+ sein, um beizutreten"
 
@@ -1004,67 +2603,62 @@ msgid "Required"
 msgstr "Erforderlich"
 
 #: .\crush_lu\forms.py:138
-#: .\crush_lu\templates\crush_lu\create_profile.html:325
+#: .\crush_lu\templates\crush_lu\create_profile.html:337
 msgid "Select your region..."
 msgstr "Wählen Sie Ihre Region..."
 
 #: .\crush_lu\forms.py:140
-#: .\crush_lu\templates\crush_lu\create_profile.html:327
+#: .\crush_lu\templates\crush_lu\create_profile.html:339
 msgid "Capellen"
 msgstr "Capellen"
 
 #: .\crush_lu\forms.py:141
-#: .\crush_lu\templates\crush_lu\create_profile.html:328
+#: .\crush_lu\templates\crush_lu\create_profile.html:340
 msgid "Clervaux"
 msgstr "Clerf"
 
 #: .\crush_lu\forms.py:142
-#: .\crush_lu\templates\crush_lu\create_profile.html:329
+#: .\crush_lu\templates\crush_lu\create_profile.html:341
 msgid "Diekirch"
 msgstr "Diekirch"
 
 #: .\crush_lu\forms.py:143
-#: .\crush_lu\templates\crush_lu\create_profile.html:330
+#: .\crush_lu\templates\crush_lu\create_profile.html:342
 msgid "Echternach"
 msgstr "Echternach"
 
-#: .\crush_lu\forms.py:144
-#: .\crush_lu\templates\crush_lu\create_profile.html:331
-msgid "Esch-sur-Alzette"
-msgstr "Esch-sur-Alzette"
-
 #: .\crush_lu\forms.py:145
-#: .\crush_lu\templates\crush_lu\create_profile.html:332
+#: .\crush_lu\templates\crush_lu\create_profile.html:344
 msgid "Grevenmacher"
 msgstr "Grevenmacher"
 
 #: .\crush_lu\forms.py:146
-#: .\crush_lu\templates\crush_lu\create_profile.html:333
+#: .\crush_lu\templates\crush_lu\create_profile.html:345
 msgid "Luxembourg"
 msgstr "Luxemburg"
 
 #: .\crush_lu\forms.py:147
-#: .\crush_lu\templates\crush_lu\create_profile.html:334
+#: .\crush_lu\templates\crush_lu\create_profile.html:346
 msgid "Mersch"
 msgstr "Mersch"
 
 #: .\crush_lu\forms.py:148
-#: .\crush_lu\templates\crush_lu\create_profile.html:335
+#: .\crush_lu\templates\crush_lu\create_profile.html:347
 msgid "Redange"
 msgstr "Redingen"
 
 #: .\crush_lu\forms.py:149
-#: .\crush_lu\templates\crush_lu\create_profile.html:336
+#: .\crush_lu\templates\crush_lu\create_profile.html:348
 msgid "Remich"
 msgstr "Remich"
 
 #: .\crush_lu\forms.py:150
-#: .\crush_lu\templates\crush_lu\create_profile.html:337
+#: .\crush_lu\templates\crush_lu\create_profile.html:349
 msgid "Vianden"
 msgstr "Vianden"
 
 #: .\crush_lu\forms.py:151
-#: .\crush_lu\templates\crush_lu\create_profile.html:338
+#: .\crush_lu\templates\crush_lu\create_profile.html:350
 msgid "Wiltz"
 msgstr "Wiltz"
 
@@ -1074,13 +2668,13 @@ msgid "Belgium (Arlon area)"
 msgstr "Belgien (Raum Arlon)"
 
 #: .\crush_lu\forms.py:154
-#: .\crush_lu\templates\crush_lu\create_profile.html:342
+#: .\crush_lu\templates\crush_lu\create_profile.html:354
 #: .\crush_lu\templates\crush_lu\partials\canton_map_svg.html:66
 msgid "Germany (Trier/Saarland area)"
 msgstr "Deutschland (Raum Trier/Saarland)"
 
 #: .\crush_lu\forms.py:155
-#: .\crush_lu\templates\crush_lu\create_profile.html:343
+#: .\crush_lu\templates\crush_lu\create_profile.html:355
 #: .\crush_lu\templates\crush_lu\partials\canton_map_svg.html:75
 msgid "France (Thionville/Metz area)"
 msgstr "Frankreich (Raum Thionville/Metz)"
@@ -1410,11 +3004,11 @@ msgstr "Dritter Hinweis (größte Enthüllung)"
 msgid "Points deducted for using hint 3"
 msgstr "Punktabzug für Hinweis 3"
 
-#: .\crush_lu\models\advent.py:334 .\crush_lu\models\journey.py:233
+#: .\crush_lu\models\advent.py:334 .\crush_lu\models\journey.py:237
 msgid "Points for correct answer (before hint deductions)"
 msgstr "Punkte für richtige Antwort (vor Hinweisabzügen)"
 
-#: .\crush_lu\models\advent.py:338 .\crush_lu\models\journey.py:238
+#: .\crush_lu\models\advent.py:338 .\crush_lu\models\journey.py:242
 msgid "Personal message shown when user answers correctly"
 msgstr "Persönliche Nachricht bei richtiger Antwort"
 
@@ -1650,91 +3244,91 @@ msgid "True if this is user's #1 rated match (gets extended time)"
 msgstr ""
 "Wahr, wenn dies der am besten bewertete Match ist (erhält verlängerte Zeit)"
 
-#: .\crush_lu\models\journey.py:33
+#: .\crush_lu\models\journey.py:34
 msgid "Type of journey experience"
 msgstr "Art des Reiseerlebnisses"
 
-#: .\crush_lu\models\journey.py:39
+#: .\crush_lu\models\journey.py:40
 msgid "Name of this journey"
 msgstr "Name dieser Reise"
 
-#: .\crush_lu\models\journey.py:45
+#: .\crush_lu\models\journey.py:49
 msgid "Total number of chapters in this journey"
 msgstr "Gesamtzahl der Kapitel in dieser Reise"
 
-#: .\crush_lu\models\journey.py:49
+#: .\crush_lu\models\journey.py:53
 msgid "Estimated total time to complete"
 msgstr "Geschätzte Gesamtzeit bis zum Abschluss"
 
-#: .\crush_lu\models\journey.py:56
+#: .\crush_lu\models\journey.py:60
 msgid "Date you first met (for Chapter 1 riddle)"
 msgstr "Datum des ersten Treffens (für Kapitel 1 Rätsel)"
 
-#: .\crush_lu\models\journey.py:61
+#: .\crush_lu\models\journey.py:65
 msgid "Where you first met"
 msgstr "Wo Sie sich zum ersten Mal getroffen haben"
 
-#: .\crush_lu\models\journey.py:67
+#: .\crush_lu\models\journey.py:71
 msgid "Generate completion certificate"
 msgstr "Abschlusszertifikat generieren"
 
-#: .\crush_lu\models\journey.py:70
+#: .\crush_lu\models\journey.py:74
 msgid "The big reveal message shown in final chapter"
 msgstr "Die große Enthüllungsnachricht im letzten Kapitel"
 
-#: .\crush_lu\models\journey.py:79
+#: .\crush_lu\models\journey.py:83
 msgid "Journey Configuration"
 msgstr "Reisekonfiguration"
 
-#: .\crush_lu\models\journey.py:80
+#: .\crush_lu\models\journey.py:84
 msgid "🗺️ 2. Journey Configurations"
 msgstr "🗺️ 2. Reisekonfigurationen"
 
-#: .\crush_lu\models\journey.py:111
+#: .\crush_lu\models\journey.py:115
 msgid "1, 2, 3, etc."
 msgstr "1, 2, 3 usw."
 
-#: .\crush_lu\models\journey.py:116
+#: .\crush_lu\models\journey.py:120
 msgid "e.g., \"Down the Rabbit Hole\""
 msgstr "z.B. \"Den Kaninchenbau hinunter\""
 
-#: .\crush_lu\models\journey.py:120
+#: .\crush_lu\models\journey.py:124
 msgid "e.g., \"Mystery & Curiosity\""
 msgstr "z.B. \"Mysterium & Neugier\""
 
-#: .\crush_lu\models\journey.py:123
+#: .\crush_lu\models\journey.py:127
 msgid "The story/narrative shown at chapter start"
 msgstr "Die Geschichte/Erzählung am Kapitelanfang"
 
-#: .\crush_lu\models\journey.py:136
+#: .\crush_lu\models\journey.py:140
 msgid "Estimated minutes to complete"
 msgstr "Geschätzte Minuten bis zum Abschluss"
 
-#: .\crush_lu\models\journey.py:147
+#: .\crush_lu\models\journey.py:151
 msgid "Must complete previous chapter first"
 msgstr "Vorheriges Kapitel muss zuerst abgeschlossen werden"
 
-#: .\crush_lu\models\journey.py:152
+#: .\crush_lu\models\journey.py:156
 msgid "Personal message shown after completing all challenges"
 msgstr "Persönliche Nachricht nach Abschluss aller Challenges"
 
-#: .\crush_lu\models\journey.py:158
+#: .\crush_lu\models\journey.py:162
 msgid "Journey Chapter"
 msgstr "Reise-Kapitel"
 
-#: .\crush_lu\models\journey.py:159
+#: .\crush_lu\models\journey.py:163
 msgid "📖 3. Journey Chapters"
 msgstr "📖 3. Reise-Kapitel"
 
-#: .\crush_lu\models\journey.py:189
+#: .\crush_lu\models\journey.py:193
 msgid "Order within chapter (1, 2, 3...)"
 msgstr "Reihenfolge innerhalb des Kapitels (1, 2, 3...)"
 
-#: .\crush_lu\models\journey.py:198
+#: .\crush_lu\models\journey.py:202
 msgid "The question/prompt/instructions"
 msgstr "Die Frage/Aufforderung/Anweisungen"
 
-#: .\crush_lu\models\journey.py:205
+#: .\crush_lu\models\journey.py:209
 msgid ""
 "JSON data for options, choices, etc. ({\"A\": \"option1\", \"B\": "
 "\"option2\"})"
@@ -1742,7 +3336,7 @@ msgstr ""
 "JSON-Daten für Optionen, Auswahlmöglichkeiten usw. ({\"A\": \"Option1\", \"B"
 "\": \"Option2\"})"
 
-#: .\crush_lu\models\journey.py:211
+#: .\crush_lu\models\journey.py:215
 msgid ""
 "The correct answer for QUIZ mode. **LEAVE BLANK for QUESTIONNAIRE mode** "
 "(all answers accepted & saved for review). Chapters 2/4/5 and types "
@@ -1753,88 +3347,88 @@ msgstr ""
 "2/4/5 und Typen 'open_text'/'would_you_rather' erkennen automatisch den "
 "Fragebogen-Modus."
 
-#: .\crush_lu\models\journey.py:219
+#: .\crush_lu\models\journey.py:223
 msgid "Alternative acceptable answers [\"answer1\", \"answer2\"]"
 msgstr "Alternative akzeptable Antworten [\"Antwort1\", \"Antwort2\"]"
 
-#: .\crush_lu\models\journey.py:224
+#: .\crush_lu\models\journey.py:228
 msgid "Points deducted for hint 1"
 msgstr "Punktabzug für Hinweis 1"
 
-#: .\crush_lu\models\journey.py:226
+#: .\crush_lu\models\journey.py:230
 msgid "Points deducted for hint 2"
 msgstr "Punktabzug für Hinweis 2"
 
-#: .\crush_lu\models\journey.py:228
+#: .\crush_lu\models\journey.py:232
 msgid "Points deducted for hint 3"
 msgstr "Punktabzug für Hinweis 3"
 
-#: .\crush_lu\models\journey.py:243
+#: .\crush_lu\models\journey.py:247
 msgid "Journey Challenge"
 msgstr "Reise-Challenge"
 
-#: .\crush_lu\models\journey.py:244
+#: .\crush_lu\models\journey.py:248
 msgid "🎯 4. Journey Challenges"
 msgstr "🎯 4. Reise-Challenges"
 
-#: .\crush_lu\models\journey.py:278
+#: .\crush_lu\models\journey.py:282
 msgid "Text content (poem, letter, caption, etc.)"
 msgstr "Textinhalt (Gedicht, Brief, Bildunterschrift usw.)"
 
-#: .\crush_lu\models\journey.py:304
+#: .\crush_lu\models\journey.py:308
 msgid "Number of jigsaw pieces (4x4=16, 5x4=20, 6x5=30)"
 msgstr "Anzahl der Puzzleteile (4x4=16, 5x4=20, 6x5=30)"
 
-#: .\crush_lu\models\journey.py:308
+#: .\crush_lu\models\journey.py:312
 msgid "Journey Reward"
 msgstr "Reise-Belohnung"
 
-#: .\crush_lu\models\journey.py:309
+#: .\crush_lu\models\journey.py:313
 msgid "🎁 5. Journey Rewards"
 msgstr "🎁 5. Reise-Belohnungen"
 
-#: .\crush_lu\models\journey.py:332
+#: .\crush_lu\models\journey.py:336
 msgid "Total time spent in journey"
 msgstr "Gesamte verbrachte Zeit in der Reise"
 
-#: .\crush_lu\models\journey.py:354
+#: .\crush_lu\models\journey.py:358
 msgid "📊 6. Journey Progress (User Tracking)"
 msgstr "📊 6. Reise-Fortschritt (Benutzerverfolgung)"
 
-#: .\crush_lu\models\journey.py:391
+#: .\crush_lu\models\journey.py:395
 msgid "Chapter Progress"
 msgstr "Kapitel-Fortschritt"
 
-#: .\crush_lu\models\journey.py:392
+#: .\crush_lu\models\journey.py:396
 msgid "📈 7. Chapter Progress (User Tracking)"
 msgstr "📈 7. Kapitel-Fortschritt (Benutzerverfolgung)"
 
-#: .\crush_lu\models\journey.py:415
+#: .\crush_lu\models\journey.py:419
 msgid "List of hint numbers used [1, 2, 3]"
 msgstr "Liste der verwendeten Hinweisnummern [1, 2, 3]"
 
-#: .\crush_lu\models\journey.py:424
+#: .\crush_lu\models\journey.py:428
 msgid "Challenge Attempt"
 msgstr "Challenge-Versuch"
 
-#: .\crush_lu\models\journey.py:425
+#: .\crush_lu\models\journey.py:429
 msgid "🎮 8. Challenge Attempts (User Answers)"
 msgstr "🎮 8. Challenge-Versuche (Benutzerantworten)"
 
-#: .\crush_lu\models\journey.py:446
+#: .\crush_lu\models\journey.py:450
 msgid "List of unlocked piece indices [0, 1, 5, 7, ...]"
 msgstr "Liste der freigeschalteten Teileindizes [0, 1, 5, 7, ...]"
 
-#: .\crush_lu\models\journey.py:457
+#: .\crush_lu\models\journey.py:461
 msgid "Reward Progress"
 msgstr "Belohnungs-Fortschritt"
 
-#: .\crush_lu\models\journey.py:458
+#: .\crush_lu\models\journey.py:462
 msgid "🏆 9. Reward Progress (Puzzle Tracking)"
 msgstr "🏆 9. Belohnungs-Fortschritt (Puzzle-Verfolgung)"
 
 #: .\crush_lu\models\journey_gift.py:40
-#: .\crush_lu\templates\crush_lu\journey\gift_list.html:31
+#: .\crush_lu\templates\crush_lu\journey\gift_list.html:198
 msgid "Claimed"
 msgstr "Eingeloest"
 
@@ -1843,13 +3437,13 @@ msgstr "Eingeloest"
 #: .\crush_lu\templates\crush_lu\coach_journey_dashboard.html:81
 #: .\crush_lu\templates\crush_lu\coach_view_user_progress.html:453
 #: .\crush_lu\templates\crush_lu\journey\chapter_view.html:350
-#: .\crush_lu\templates\crush_lu\journey\gift_list.html:35
+#: .\crush_lu\templates\crush_lu\journey\gift_list.html:200
 #: .\crush_lu\templates\crush_lu\journey\journey_selector.html:265
 msgid "Completed"
 msgstr "Abgeschlossen"
 
 #: .\crush_lu\models\journey_gift.py:42
-#: .\crush_lu\templates\crush_lu\journey\gift_list.html:39
+#: .\crush_lu\templates\crush_lu\journey\gift_list.html:202
 msgid "Expired"
 msgstr "Abgelaufen"
 
@@ -2100,22 +3694,22 @@ msgid "Maximum number of profiles this coach can review simultaneously"
 msgstr "Maximale gleichzeitig zu überprüfende Profile"
 
 #: .\crush_lu\models\profiles.py:286
-#: .\crush_lu\templates\crush_lu\create_profile.html:247
+#: .\crush_lu\templates\crush_lu\create_profile.html:259
 msgid "Male"
 msgstr "Männlich"
 
 #: .\crush_lu\models\profiles.py:287
-#: .\crush_lu\templates\crush_lu\create_profile.html:257
+#: .\crush_lu\templates\crush_lu\create_profile.html:269
 msgid "Female"
 msgstr "Weiblich"
 
 #: .\crush_lu\models\profiles.py:288
-#: .\crush_lu\templates\crush_lu\create_profile.html:267
+#: .\crush_lu\templates\crush_lu\create_profile.html:279
 msgid "Non-binary"
 msgstr "Nicht-binär"
 
 #: .\crush_lu\models\profiles.py:289
-#: .\crush_lu\templates\crush_lu\create_profile.html:277
+#: .\crush_lu\templates\crush_lu\create_profile.html:289
 msgid "Other"
 msgstr "Andere"
 
@@ -2124,17 +3718,17 @@ msgid "Prefer not to say"
 msgstr "Keine Angabe"
 
 #: .\crush_lu\models\profiles.py:294
-#: .\crush_lu\templates\crush_lu\create_profile.html:528
+#: .\crush_lu\templates\crush_lu\create_profile.html:540
 msgid "New Friends"
 msgstr "Neue Freunde"
 
 #: .\crush_lu\models\profiles.py:295
-#: .\crush_lu\templates\crush_lu\create_profile.html:538
+#: .\crush_lu\templates\crush_lu\create_profile.html:550
 msgid "Dating"
 msgstr "Dating"
 
 #: .\crush_lu\models\profiles.py:296
-#: .\crush_lu\templates\crush_lu\create_profile.html:548
+#: .\crush_lu\templates\crush_lu\create_profile.html:560
 msgid "Both"
 msgstr "Beide"
 
@@ -2206,10 +3800,6 @@ msgstr "Genaues Alter anzeigen (wenn falsch, Altersbereich)"
 #: .\crush_lu\templates\crush_lu\how_it_works.html:476
 msgid "Blur photos until mutual interest"
 msgstr "Verwischen Sie Fotos, bis das gegenseitige Interesse besteht"
-
-#: .\crush_lu\models\profiles.py:390
-msgid "Deutsch"
-msgstr "Deutsch"
 
 #: .\crush_lu\models\profiles.py:391
 msgid "Français"
@@ -2691,6 +4281,28 @@ msgstr "Profilaktualisierung erforderlich"
 msgid "Your Crush Coach has some feedback: %(feedback)s..."
 msgstr "Dein Crush Coach hat Feedback: %(feedback)s..."
 
+#: .\crush_lu\templates\account\logout_crush.html:4
+#: .\crush_lu\templates\account\logout_crush.html:12
+#: .\crush_lu\templates\account\logout_crush.html:22
+#: .\delegations\templates\account\logout_delegation.html:4
+#: .\delegations\templates\account\logout_delegation.html:13
+#: .\delegations\templates\account\logout_delegation.html:23
+#: .\entreprinder\templates\account\logout.html:4
+#: .\entreprinder\templates\account\logout.html:10
+#: .\entreprinder\templates\account\logout.html:19
+#: .\entreprinder\templates\account\logout_powerup.html:4
+#: .\entreprinder\templates\account\logout_powerup.html:13
+#: .\entreprinder\templates\account\logout_powerup.html:23
+msgid "Sign Out"
+msgstr "Abmelden"
+
+#: .\crush_lu\templates\account\logout_crush.html:13
+#: .\delegations\templates\account\logout_delegation.html:14
+#: .\entreprinder\templates\account\logout.html:12
+#: .\entreprinder\templates\account\logout_powerup.html:14
+msgid "Are you sure you want to sign out?"
+msgstr "Sind Sie sicher, dass Sie sich abmelden möchten?"
+
 #: .\crush_lu\templates\admin\base_site.html:4
 #: .\crush_lu\templates\admin\base_site.html:29
 msgid "Crush.lu Coach Panel"
@@ -3072,11 +4684,6 @@ msgstr "Kontoeinstellungen"
 #: .\crush_lu\templates\crush_lu\account_settings.html:16
 msgid "Account Information"
 msgstr "Konto-Informationen"
-
-#: .\crush_lu\templates\crush_lu\account_settings.html:25
-#: .\entreprinder\templates\entreprinder\contact.html:14
-msgid "Name"
-msgstr "Name"
 
 #: .\crush_lu\templates\crush_lu\account_settings.html:29
 #: .\crush_lu\templates\crush_lu\membership.html:143
@@ -3528,6 +5135,8 @@ msgstr "Mein Konto löschen"
 #: .\crush_lu\templates\crush_lu\coach_review_profile.html:11
 #: .\crush_lu\templates\crush_lu\coach_sessions.html:10
 #: .\crush_lu\templates\crush_lu\event_attendees.html:98
+#: .\crush_lu\templates\crush_lu\verify_phone.html:195
+#: .\crush_lu\templates\crush_lu\verify_phone.html:223
 msgid "Back to Dashboard"
 msgstr "Zurück zum Dashboard"
 
@@ -4318,7 +5927,7 @@ msgid "Sent"
 msgstr "Gesendet"
 
 #: .\crush_lu\templates\crush_lu\coach_invitation_dashboard.html:248
-#: .\crush_lu\templates\crush_lu\journey\gift_success.html:215
+#: .\crush_lu\templates\crush_lu\journey\gift_success.html:270
 msgid "Copy Link"
 msgstr "Link kopieren"
 
@@ -4623,7 +6232,7 @@ msgid "Basic Info"
 msgstr "Grundinformationen"
 
 #: .\crush_lu\templates\crush_lu\create_profile.html:65
-#: .\crush_lu\templates\crush_lu\create_profile.html:417
+#: .\crush_lu\templates\crush_lu\create_profile.html:429
 msgid "About You"
 msgstr "Über dich"
 
@@ -4648,7 +6257,8 @@ msgid "Let's start with the essentials"
 msgstr "Let's start with the essentials"
 
 #: .\crush_lu\templates\crush_lu\create_profile.html:153
-#: .\crush_lu\templates\crush_lu\create_profile.html:839
+#: .\crush_lu\templates\crush_lu\create_profile.html:851
+#: .\crush_lu\templates\crush_lu\verify_phone.html:50
 msgid "Phone Number"
 msgstr "Telefonnummer"
 
@@ -4661,286 +6271,292 @@ msgstr "Verifizierung erforderlich"
 msgid "Verified"
 msgstr "Verifiziert"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:184
+#: .\crush_lu\templates\crush_lu\create_profile.html:185
 msgid "Verify"
 msgstr "Verifizieren"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:191
-msgid "You must verify your phone number before continuing."
+#: .\crush_lu\templates\crush_lu\create_profile.html:198
+msgid "Enter your number and click the Verify button to receive an SMS code"
 msgstr ""
-"Sie müssen Ihre Telefonnummer verifizieren, bevor Sie fortfahren.Bitte "
-"verifizieren Sie Ihre Telefonnummer, um alle Funktionen nutzen zu können."
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:212
-#: .\crush_lu\templates\crush_lu\create_profile.html:848
+#: .\crush_lu\templates\crush_lu\create_profile.html:202
+#, fuzzy
+#| msgid "Your phone number has been verified successfully."
+msgid "Your phone number is verified"
+msgstr "Ihre Telefonnummer wurde erfolgreich verifiziert."
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:224
+#: .\crush_lu\templates\crush_lu\create_profile.html:860
 msgid "Date of Birth"
 msgstr "Geburtsdatum"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:224
-#: .\crush_lu\templates\crush_lu\create_profile.html:857
+#: .\crush_lu\templates\crush_lu\create_profile.html:236
+#: .\crush_lu\templates\crush_lu\create_profile.html:869
 msgid "Gender"
 msgstr "Geschlecht"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:226
+#: .\crush_lu\templates\crush_lu\create_profile.html:238
 msgid "Select your gender"
 msgstr "Wählen Sie Ihr Geschlecht"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:290
+#: .\crush_lu\templates\crush_lu\create_profile.html:302
 msgid "Location in Luxembourg"
 msgstr "Standort in Luxemburg"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:292
+#: .\crush_lu\templates\crush_lu\create_profile.html:304
 msgid "Click the map or use the dropdown to select your region"
 msgstr ""
 "Klicken Sie auf die Karte oder verwenden Sie das Dropdown-Menü, um Ihre "
 "Region auszuwählen"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:297
+#: .\crush_lu\templates\crush_lu\create_profile.html:309
 msgid "Click the map to select your region"
 msgstr "Klicken Sie auf die Karte, um Ihre Region auszuwählen"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:321
+#: .\crush_lu\templates\crush_lu\create_profile.html:333
 msgid "Can't use the map? Select from list"
 msgstr "Sie können die Karte nicht verwenden? Aus Liste auswählen"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:326
+#: .\crush_lu\templates\crush_lu\create_profile.html:338
 msgid "Luxembourg Cantons"
 msgstr "Luxemburger Kantone"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:340
+#: .\crush_lu\templates\crush_lu\create_profile.html:352
 msgid "Border Regions"
 msgstr "Grenzregionen"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:341
+#: .\crush_lu\templates\crush_lu\create_profile.html:353
 msgid "Belgium (Arlon/Virton area)"
 msgstr "Belgien (Raum Arlon/Virton)"
-
-#: .\crush_lu\templates\crush_lu\create_profile.html:368
-#: .\crush_lu\templates\crush_lu\create_profile.html:584
-#: .\crush_lu\templates\crush_lu\create_profile.html:787
-#: .\crush_lu\templates\crush_lu\journey\journey_selector.html:276
-#: .\crush_lu\templates\crush_lu\partials\profile_completion_banner.html:27
-#: .\entreprinder\templates\entreprinder\road_trip_game.html:320
-msgid "Continue"
-msgstr "Weiter"
 
 #: .\crush_lu\templates\crush_lu\create_profile.html:380
 #: .\crush_lu\templates\crush_lu\create_profile.html:596
 #: .\crush_lu\templates\crush_lu\create_profile.html:799
+#: .\crush_lu\templates\crush_lu\journey\journey_selector.html:276
+#: .\crush_lu\templates\crush_lu\partials\profile_completion_banner.html:27
+#: .\crush_lu\templates\crush_lu\verify_phone.html:189
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:320
+msgid "Continue"
+msgstr "Weiter"
+
+#: .\crush_lu\templates\crush_lu\create_profile.html:392
+#: .\crush_lu\templates\crush_lu\create_profile.html:608
+#: .\crush_lu\templates\crush_lu\create_profile.html:811
 msgid "Saving..."
 msgstr "Sparen..."
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:405
+#: .\crush_lu\templates\crush_lu\create_profile.html:417
 msgid "Please verify your phone number to continue."
 msgstr ""
 "Bitte verifizieren Sie Ihre Telefonnummer, um fortzufahren.Bitte "
 "verifizieren Sie Ihre Telefonnummer, um alle Funktionen nutzen zu können."
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:418
+#: .\crush_lu\templates\crush_lu\create_profile.html:430
 msgid "Share what makes you unique (optional)"
 msgstr ""
 "Teilen Sie, was Sie einzigartig macht (optional)Teilen Sie mit, was Sie "
 "einzigartig macht! (Optional, max. 500 Zeichen)"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:424
+#: .\crush_lu\templates\crush_lu\create_profile.html:436
 #: .\entreprinder\templates\entreprinder\profile.html:51
 msgid "Bio"
 msgstr "Bio"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:425
-#: .\crush_lu\templates\crush_lu\create_profile.html:446
+#: .\crush_lu\templates\crush_lu\create_profile.html:437
+#: .\crush_lu\templates\crush_lu\create_profile.html:458
 msgid "Optional"
 msgstr "Optional"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:433
+#: .\crush_lu\templates\crush_lu\create_profile.html:445
 msgid "Tell us about yourself... What do you love? What makes you smile?"
 msgstr "Erzähl uns über dich... Was liebst du? Was bringt dich zum Lächeln?"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:435
-#: .\crush_lu\templates\crush_lu\create_profile.html:511
+#: .\crush_lu\templates\crush_lu\create_profile.html:447
+#: .\crush_lu\templates\crush_lu\create_profile.html:523
 msgid "characters"
 msgstr "Zeichen"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:445
+#: .\crush_lu\templates\crush_lu\create_profile.html:457
 msgid "Interest Categories"
 msgstr "Interessenkategorien"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:455
+#: .\crush_lu\templates\crush_lu\create_profile.html:467
 msgid "Sports & Fitness"
 msgstr "Sport & Fitness"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:464
+#: .\crush_lu\templates\crush_lu\create_profile.html:476
 msgid "Arts & Culture"
 msgstr "Kunst und Kultur"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:473
+#: .\crush_lu\templates\crush_lu\create_profile.html:485
 msgid "Food & Wine"
 msgstr "Essen & Wein"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:482
+#: .\crush_lu\templates\crush_lu\create_profile.html:494
 msgid "Outdoors"
 msgstr "Draußen"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:491
+#: .\crush_lu\templates\crush_lu\create_profile.html:503
 msgid "Business & Tech"
 msgstr "Wirtschaft und Technik"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:495
+#: .\crush_lu\templates\crush_lu\create_profile.html:507
 msgid "Select all that apply, or skip to continue"
 msgstr ""
 "Wählen Sie alles aus, was zutrifft, oder überspringen Sie den Abschnitt, um "
 "fortzufahren"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:501
+#: .\crush_lu\templates\crush_lu\create_profile.html:513
 msgid "Or write your own interests"
 msgstr "Oder schreiben Sie Ihre eigenen Interessen"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:509
+#: .\crush_lu\templates\crush_lu\create_profile.html:521
 msgid "e.g., hiking, photography, cooking..."
 msgstr "z.B. Wandern, Fotografieren, Kochen..."
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:518
+#: .\crush_lu\templates\crush_lu\create_profile.html:530
 #: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:34
 msgid "What are you looking for?"
 msgstr "Was suchst du?"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:520
+#: .\crush_lu\templates\crush_lu\create_profile.html:532
 msgid "Select what you are looking for"
 msgstr "Wählen Sie aus, was Sie suchen"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:558
+#: .\crush_lu\templates\crush_lu\create_profile.html:570
 msgid "Networking"
 msgstr "Vernetzung"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:576
-#: .\crush_lu\templates\crush_lu\create_profile.html:779
-#: .\crush_lu\templates\crush_lu\create_profile.html:929
+#: .\crush_lu\templates\crush_lu\create_profile.html:588
+#: .\crush_lu\templates\crush_lu\create_profile.html:791
+#: .\crush_lu\templates\crush_lu\create_profile.html:941
+#: .\crush_lu\templates\crush_lu\verify_phone.html:218
 msgid "Back"
 msgstr "Zurück"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:625
+#: .\crush_lu\templates\crush_lu\create_profile.html:637
 msgid "Add Photos"
 msgstr "Fotos hinzufügen"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:626
+#: .\crush_lu\templates\crush_lu\create_profile.html:638
 msgid "Upload at least one photo (optional but recommended)"
 msgstr "Laden Sie mindestens ein Foto hoch (optional, aber empfohlen)"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:727
+#: .\crush_lu\templates\crush_lu\create_profile.html:739
 msgid "Tip:"
 msgstr "Tipp:"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:727
+#: .\crush_lu\templates\crush_lu\create_profile.html:739
 msgid "Use clear photos where your face is visible. Avoid group photos!"
 msgstr ""
 "Verwenden Sie klare Fotos, auf denen Ihr Gesicht sichtbar ist. Vermeiden Sie "
 "Gruppenfotos!"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:737
+#: .\crush_lu\templates\crush_lu\create_profile.html:749
 msgid "Privacy Settings"
 msgstr "Datenschutzeinstellungen"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:745
+#: .\crush_lu\templates\crush_lu\create_profile.html:757
 msgid "Show my full name"
 msgstr "Meinen vollständigen Namen anzeigen"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:746
+#: .\crush_lu\templates\crush_lu\create_profile.html:758
 msgid "Otherwise only your first name will be shown"
 msgstr "Ansonsten wird nur Ihr Vorname angezeigt"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:754
+#: .\crush_lu\templates\crush_lu\create_profile.html:766
 msgid "Show my exact age"
 msgstr "Mein genaues Alter anzeigen"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:755
+#: .\crush_lu\templates\crush_lu\create_profile.html:767
 msgid "Otherwise show age range (e.g., 25-29)"
 msgstr "Ansonsten Altersspanne anzeigen (z. B. 25–29)"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:763
+#: .\crush_lu\templates\crush_lu\create_profile.html:775
 msgid "Blur my photos until mutual interest"
 msgstr "Verwische meine Fotos bis zum gegenseitigen Interesse"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:764
+#: .\crush_lu\templates\crush_lu\create_profile.html:776
 msgid "Photos will only be visible after you both connect"
 msgstr ""
 "Fotos werden erst sichtbar, nachdem Sie beide eine Verbindung hergestellt "
 "haben"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:828
+#: .\crush_lu\templates\crush_lu\create_profile.html:840
 msgid "Review & Submit"
 msgstr "Überprüfen und einreichen"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:829
+#: .\crush_lu\templates\crush_lu\create_profile.html:841
 msgid "Almost done! Review your information"
 msgstr "Fast fertig! Überprüfen Sie Ihre Informationen"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:840
-#: .\crush_lu\templates\crush_lu\create_profile.html:849
+#: .\crush_lu\templates\crush_lu\create_profile.html:852
+#: .\crush_lu\templates\crush_lu\create_profile.html:861
 #: .\crush_lu\templates\crush_lu\emails\coach_assignment.html:17
 #: .\crush_lu\templates\crush_lu\emails\coach_assignment.html:18
 msgid "Not provided"
 msgstr "Nicht angegeben"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:858
-#: .\crush_lu\templates\crush_lu\create_profile.html:867
+#: .\crush_lu\templates\crush_lu\create_profile.html:870
+#: .\crush_lu\templates\crush_lu\create_profile.html:879
 msgid "Not selected"
 msgstr "Nicht ausgewählt"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:866
+#: .\crush_lu\templates\crush_lu\create_profile.html:878
 #: .\crush_lu\templates\crush_lu\event_detail.html:116
 #: .\entreprinder\templates\entreprinder\profile.html:74
 #: .\power_up\templates\power_up\contact.html:62
 msgid "Location"
 msgstr "Standort"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:876
+#: .\crush_lu\templates\crush_lu\create_profile.html:888
 msgid "What Happens Next?"
 msgstr "Was passiert als Nächstes?"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:883
+#: .\crush_lu\templates\crush_lu\create_profile.html:895
 #: .\crush_lu\templates\crush_lu\emails\profile_submission_confirmation.html:4
 msgid "Profile Submitted"
 msgstr "Profil eingereicht"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:884
+#: .\crush_lu\templates\crush_lu\create_profile.html:896
 msgid "Your profile is sent to our Crush Coach team"
 msgstr "Dein Profil wird an unser Crush Coach Team gesendet"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:890
+#: .\crush_lu\templates\crush_lu\create_profile.html:902
 msgid "Coach Review"
 msgstr "Coach-Überprüfung"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:891
+#: .\crush_lu\templates\crush_lu\create_profile.html:903
 msgid "A coach will review your profile within 24-48 hours"
 msgstr "Ein Coach wird dein Profil innerhalb von 24-48 Stunden prüfen"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:897
+#: .\crush_lu\templates\crush_lu\create_profile.html:909
 msgid "Screening Call"
 msgstr "Screening-Anruf"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:898
+#: .\crush_lu\templates\crush_lu\create_profile.html:910
 msgid "Your coach will call you to discuss your profile and goals"
 msgstr ""
 "Dein Coach wird dich anrufen, um dein Profil und deine Ziele zu besprechen"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:904
+#: .\crush_lu\templates\crush_lu\create_profile.html:916
 #: .\crush_lu\templates\crush_lu\edit_profile.html:25
 #: .\crush_lu\templates\crush_lu\emails\profile_approved.html:4
 #: .\crush_lu\templates\crush_lu\membership.html:269
 msgid "Profile Approved"
 msgstr "Profil genehmigt"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:905
+#: .\crush_lu\templates\crush_lu\create_profile.html:917
 msgid "You can start attending events and making connections!"
 msgstr ""
 "Sie können an Events teilnehmen und Kontakte knüpfen!Entdecken Sie unsere "
 "kommenden Veranstaltungen und knüpfen Sie Kontakte!"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:917
+#: .\crush_lu\templates\crush_lu\create_profile.html:929
 msgid "Privacy First:"
 msgstr "Datenschutz zuerst:"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:917
+#: .\crush_lu\templates\crush_lu\create_profile.html:929
 msgid ""
 "Your phone number will only be used by your coach for screening. It won't be "
 "shared with other members without your consent."
@@ -4948,47 +6564,51 @@ msgstr ""
 "Deine Telefonnummer wird nur von deinem Coach für das Screening verwendet. "
 "Sie wird ohne deine Zustimmung nicht mit anderen Mitgliedern geteilt."
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:941
+#: .\crush_lu\templates\crush_lu\create_profile.html:953
 msgid "Submit Profile"
 msgstr "Profil einreichen"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:950
+#: .\crush_lu\templates\crush_lu\create_profile.html:962
 msgid "Submitting..."
 msgstr "Wird eingereicht..."
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:998
+#: .\crush_lu\templates\crush_lu\create_profile.html:1010
+#: .\crush_lu\templates\crush_lu\verify_phone.html:4
 msgid "Verify Your Phone"
 msgstr "Überprüfen Sie Ihr Telefon"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:1004
+#: .\crush_lu\templates\crush_lu\create_profile.html:1016
 msgid "Sending verification code..."
 msgstr "Verifizierungscode wird gesendet..."
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:1010
+#: .\crush_lu\templates\crush_lu\create_profile.html:1022
 msgid "We sent a 6-digit code to"
 msgstr "Wir haben einen 6-stelligen Code an gesendet"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:1043
+#: .\crush_lu\templates\crush_lu\create_profile.html:1055
+#: .\crush_lu\templates\crush_lu\verify_phone.html:138
 msgid "Verify Code"
 msgstr "Code verifizieren"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:1049
+#: .\crush_lu\templates\crush_lu\create_profile.html:1061
 msgid "Resend available in"
 msgstr "Erneut senden verfügbar in"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:1054
+#: .\crush_lu\templates\crush_lu\create_profile.html:1066
+#: .\crush_lu\templates\crush_lu\verify_phone.html:160
 msgid "Resend Code"
 msgstr "Code erneut senden"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:1062
+#: .\crush_lu\templates\crush_lu\create_profile.html:1074
 msgid "Verifying your code..."
 msgstr "Ihr Code wird verifiziert..."
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:1072
+#: .\crush_lu\templates\crush_lu\create_profile.html:1084
+#: .\crush_lu\templates\crush_lu\verify_phone.html:183
 msgid "Phone Verified!"
 msgstr "Telefon verifiziert!"
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:1073
+#: .\crush_lu\templates\crush_lu\create_profile.html:1085
 msgid "Your phone number has been verified successfully."
 msgstr "Ihre Telefonnummer wurde erfolgreich verifiziert."
 
@@ -6002,13 +7622,13 @@ msgid "Scan to begin your adventure"
 msgstr "Dein Abenteuer beginnen"
 
 #: .\crush_lu\templates\crush_lu\emails\journey_gift_notification.html:47
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:449
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:563
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:506
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:620
 msgid "Begin Your Adventure"
 msgstr "Dein Abenteuer beginnen"
 
 #: .\crush_lu\templates\crush_lu\emails\journey_gift_notification.html:53
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:468
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:525
 msgid "What is the Wonderland of You?"
 msgstr ""
 
@@ -7912,6 +9532,7 @@ msgstr "Reisekarte ansehen"
 #: .\crush_lu\templates\crush_lu\journey\challenges\would_you_rather.html:234
 #: .\crush_lu\templates\crush_lu\journey\rewards\future_letter.html:270
 #: .\crush_lu\templates\crush_lu\journey\rewards\photo_reveal.html:326
+#: .\crush_lu\templates\crush_lu\journey\rewards\photo_slideshow.html:287
 #: .\crush_lu\templates\crush_lu\journey\rewards\poem.html:167
 msgid "Back to Chapter"
 msgstr "Zurück zum Kapitel"
@@ -8210,24 +9831,24 @@ msgid "Return to Map"
 msgstr "Zurück zur Karte"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_claim.html:4
-#: .\crush_lu\templates\crush_lu\journey\gift_claim.html:35
+#: .\crush_lu\templates\crush_lu\journey\gift_claim.html:130
 msgid "Claim Your Journey"
 msgstr "Deine Reise einlösen"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_claim.html:8
+#: .\crush_lu\templates\crush_lu\journey\gift_claim.html:107
 msgid "Claim Your Wonderland Journey"
 msgstr "Deine Wonderland of You Reise einlösen"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_claim.html:12
+#: .\crush_lu\templates\crush_lu\journey\gift_claim.html:111
 msgid "created this journey for"
 msgstr "hat diese Reise erstellt für"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_claim.html:21
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:461
+#: .\crush_lu\templates\crush_lu\journey\gift_claim.html:118
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:518
 msgid "A message for you:"
 msgstr "Eine Nachricht für dich:"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_claim.html:28
+#: .\crush_lu\templates\crush_lu\journey\gift_claim.html:124
 msgid ""
 "Ready to begin your adventure? Once you claim this gift, your personalized 6-"
 "chapter Wonderland journey will be created."
@@ -8235,7 +9856,7 @@ msgstr ""
 "Bereit für dein Abenteuer? Sobald du dieses Geschenk einlöst, wird deine "
 "personalisierte 6-Kapitel Wonderland-Reise erstellt."
 
-#: .\crush_lu\templates\crush_lu\journey\gift_claim.html:40
+#: .\crush_lu\templates\crush_lu\journey\gift_claim.html:135
 msgid ""
 "By claiming this gift, you'll unlock 6 chapters of puzzles, secrets, and "
 "messages."
@@ -8247,11 +9868,11 @@ msgstr ""
 msgid "Gift Already Claimed"
 msgstr "Geschenk bereits eingelöst"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_claimed.html:11
+#: .\crush_lu\templates\crush_lu\journey\gift_claimed.html:56
 msgid "This Gift Has Been Claimed"
 msgstr "Dieses Geschenk wurde bereits eingelöst"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_claimed.html:14
+#: .\crush_lu\templates\crush_lu\journey\gift_claimed.html:59
 msgid ""
 "This journey gift has already been claimed by someone. Each gift can only be "
 "used once."
@@ -8259,8 +9880,8 @@ msgstr ""
 "Dieses Reise-Geschenk wurde bereits von jemand anderem eingelöst. Jedes "
 "Geschenk kann nur einmal verwendet werden."
 
-#: .\crush_lu\templates\crush_lu\journey\gift_claimed.html:19
-#: .\crush_lu\templates\crush_lu\journey\gift_expired.html:19
+#: .\crush_lu\templates\crush_lu\journey\gift_claimed.html:64
+#: .\crush_lu\templates\crush_lu\journey\gift_expired.html:64
 msgid "Visit Crush.lu"
 msgstr "Crush.lu besuchen"
 
@@ -8268,15 +9889,15 @@ msgstr "Crush.lu besuchen"
 msgid "Create a Journey Gift"
 msgstr "Ein Reise-Geschenk erstellen"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_create.html:8
+#: .\crush_lu\templates\crush_lu\journey\gift_create.html:103
 msgid "Create a Wonderland Journey"
 msgstr "Eine Wonderland of You Reise erstellen"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_create.html:9
+#: .\crush_lu\templates\crush_lu\journey\gift_create.html:104
 msgid "Create a magical experience for someone special"
 msgstr "Erschaffe ein magisches Erlebnis für jemand Besonderen"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_create.html:71
+#: .\crush_lu\templates\crush_lu\journey\gift_create.html:166
 msgid "Create Gift"
 msgstr "Geschenk erstellen"
 
@@ -8284,11 +9905,11 @@ msgstr "Geschenk erstellen"
 msgid "Gift Expired"
 msgstr "Geschenk abgelaufen"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_expired.html:11
+#: .\crush_lu\templates\crush_lu\journey\gift_expired.html:56
 msgid "This Gift Has Expired"
 msgstr "Dieses Geschenk ist abgelaufen"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_expired.html:14
+#: .\crush_lu\templates\crush_lu\journey\gift_expired.html:59
 msgid ""
 "Sorry, this journey gift is no longer available. The gift has expired before "
 "it could be claimed."
@@ -8312,225 +9933,225 @@ msgstr ""
 "Jemand Besonderes hat eine magische Wonderland-Reise nur für dich erstellt. "
 "Entdecke Rätsel, Geheimnisse und herzliche Nachrichten."
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:442
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:499
 #, fuzzy
 #| msgid "A Magical Journey Awaits"
 msgid "A Magical Journey Awaits..."
 msgstr "Eine magische Reise erwartet dich"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:444
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:501
 #, fuzzy
 #| msgid "has created a magical Wonderland journey for"
 msgid "has created a Wonderland journey for"
 msgstr "hat eine magische Wonderland-Reise erstellt für"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:452
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:566
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:509
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:623
 #: .\crush_lu\templates\crush_lu\signup.html:135
 #: .\entreprinder\templates\socialaccount\signup_powerup.html:66
 msgid "Already have an account?"
 msgstr "Haben Sie bereits ein Konto?"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:453
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:567
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:510
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:624
 msgid "Sign in"
 msgstr "Anmelden"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:473
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:530
 #, fuzzy
 #| msgid "Chapters"
 msgid "6 Magical Chapters"
 msgstr "Kapitel"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:474
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:531
 msgid "Puzzles, riddles, and surprises"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:480
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:537
 msgid "Unlock Secrets"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:481
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:538
 msgid "Hidden messages and rewards"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:487
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:544
 #, fuzzy
 #| msgid "Our Story"
 msgid "Your Story"
 msgstr "Unsere Geschichte"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:488
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:545
 #, fuzzy
 #| msgid "Personalize Your Wine"
 msgid "A personalized journey ending"
 msgstr "Personalisieren Sie Ihren Wein"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:496
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:553
 #, fuzzy
 #| msgid "Your Journey"
 msgid "Your Journey Awaits"
 msgstr "Ihre Reise"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:500
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:557
 #, fuzzy
 #| msgid "Chapter #"
 msgid "Chapter 1"
 msgstr "Kapitel Nr."
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:501
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:558
 #, fuzzy
 #| msgid "e.g., \"Down the Rabbit Hole\""
 msgid "Down the Rabbit Hole"
 msgstr "z.B. \"Den Kaninchenbau hinunter\""
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:502
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:559
 #, fuzzy
 #| msgid "Mystery Event"
 msgid "Mystery"
 msgstr "Mystery Event"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:506
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:563
 #, fuzzy
 #| msgid "Chapter #"
 msgid "Chapter 2"
 msgstr "Kapitel Nr."
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:507
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:564
 msgid "The Garden of Rare Flowers"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:508
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:565
 #, fuzzy
 #| msgid "Discover Plan"
 msgid "Discovery"
 msgstr "Plan entdecken"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:512
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:569
 #, fuzzy
 #| msgid "Chapter #"
 msgid "Chapter 3"
 msgstr "Kapitel Nr."
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:513
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:570
 msgid "The Gallery of Moments"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:514
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:571
 msgid "Memories"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:518
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:575
 #, fuzzy
 #| msgid "Chapter #"
 msgid "Chapter 4"
 msgstr "Kapitel Nr."
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:519
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:576
 msgid "The Carnival of Courage"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:520
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:577
 #, fuzzy
 #| msgid "New Adventure"
 msgid "Adventure"
 msgstr "Neues Abenteuer"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:524
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:581
 #, fuzzy
 #| msgid "Chapter #"
 msgid "Chapter 5"
 msgstr "Kapitel Nr."
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:525
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:582
 msgid "The Starlit Observatory"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:526
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:583
 msgid "Dreams"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:530
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:587
 #, fuzzy
 #| msgid "Chapter #"
 msgid "Chapter 6"
 msgstr "Kapitel Nr."
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:531
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:588
 msgid "The Door to Tomorrow"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:532
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:589
 #, fuzzy
 #| msgid "Digital Future"
 msgid "Future"
 msgstr "Digitale Zukunft"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:539
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:596
 msgid "What awaits at the end?"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:543
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:600
 msgid "Unlock heartfelt poems"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:547
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:604
 #, fuzzy
 #| msgid "Add photos"
 msgid "Reveal hidden photos"
 msgstr "Fotos hinzufügen"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:551
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:608
 #, fuzzy
 #| msgid "Optional personal message from sender"
 msgid "Discover personal messages"
 msgstr "Optionale persoenliche Nachricht vom Absender"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:555
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:612
 #, fuzzy
 #| msgid "View Your Certificate"
 msgid "Earn your Journey Certificate"
 msgstr "Dein Zertifikat ansehen"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:569
+#: .\crush_lu\templates\crush_lu\journey\gift_landing.html:626
 msgid "Free to join, takes only 2 minutes"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\gift_list.html:4
-#: .\crush_lu\templates\crush_lu\journey\gift_list.html:8
+#: .\crush_lu\templates\crush_lu\journey\gift_list.html:180
 msgid "Your Sent Gifts"
 msgstr "Deine gesendeten Geschenke"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_list.html:9
+#: .\crush_lu\templates\crush_lu\journey\gift_list.html:181
 msgid "Track the journeys you've created for others"
 msgstr "Verfolge die Reisen, die du für andere erstellt hast"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_list.html:18
+#: .\crush_lu\templates\crush_lu\journey\gift_list.html:190
 msgid "For:"
 msgstr "Für:"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_list.html:46
+#: .\crush_lu\templates\crush_lu\journey\gift_list.html:208
 msgid "Created:"
 msgstr "Erstellt:"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_list.html:48
+#: .\crush_lu\templates\crush_lu\journey\gift_list.html:210
 msgid "Claimed:"
 msgstr "Eingelöst:"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_list.html:55
+#: .\crush_lu\templates\crush_lu\journey\gift_list.html:217
 msgid "View QR Code"
 msgstr "QR-Code ansehen"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_list.html:64
+#: .\crush_lu\templates\crush_lu\journey\gift_list.html:226
 msgid "You haven't created any gifts yet."
 msgstr "Du hast noch keine Geschenke erstellt."
 
-#: .\crush_lu\templates\crush_lu\journey\gift_list.html:66
+#: .\crush_lu\templates\crush_lu\journey\gift_list.html:228
 msgid "Create Your First Gift"
 msgstr "Dein erstes Geschenk erstellen"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_list.html:74
-#: .\crush_lu\templates\crush_lu\journey\gift_success.html:254
+#: .\crush_lu\templates\crush_lu\journey\gift_list.html:236
+#: .\crush_lu\templates\crush_lu\journey\gift_success.html:309
 msgid "Create Another Gift"
 msgstr "Noch ein Geschenk erstellen"
 
@@ -8538,55 +10159,51 @@ msgstr "Noch ein Geschenk erstellen"
 msgid "Gift Created!"
 msgstr "Geschenk erstellt!"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_success.html:194
+#: .\crush_lu\templates\crush_lu\journey\gift_success.html:249
 msgid "Your Gift is Ready!"
 msgstr "Dein Geschenk ist bereit!"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_success.html:195
+#: .\crush_lu\templates\crush_lu\journey\gift_success.html:250
 #, fuzzy
 #| msgid "Share this QR code with"
 msgid "Share this magical journey with"
 msgstr "Teile diesen QR-Code mit"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_success.html:199
+#: .\crush_lu\templates\crush_lu\journey\gift_success.html:254
 msgid "Gift QR Code"
 msgstr "Geschenk QR-Code"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_success.html:204
+#: .\crush_lu\templates\crush_lu\journey\gift_success.html:259
 msgid "Gift Code"
 msgstr "Geschenk-Code"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_success.html:210
+#: .\crush_lu\templates\crush_lu\journey\gift_success.html:265
 #, fuzzy
 #| msgid "Share Your Experience"
 msgid "Share Your Gift"
 msgstr "Teilen Sie Ihre Erfahrung"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_success.html:222
+#: .\crush_lu\templates\crush_lu\journey\gift_success.html:277
 #, fuzzy
 #| msgid "Download QR Code"
 msgid "Download QR"
 msgstr "QR-Code herunterladen"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_success.html:229
-msgid "WhatsApp"
-msgstr ""
-
-#: .\crush_lu\templates\crush_lu\journey\gift_success.html:243
+#: .\crush_lu\templates\crush_lu\journey\gift_success.html:298
 #, fuzzy
 #| msgid "Mystery Option"
 msgid "More Options..."
 msgstr "Mystery-Option"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_success.html:248
+#: .\crush_lu\templates\crush_lu\journey\gift_success.html:303
 msgid "Direct Link"
 msgstr "Direktlink"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_success.html:257
+#: .\crush_lu\templates\crush_lu\journey\gift_success.html:312
 msgid "View All Gifts"
 msgstr "Alle Geschenke ansehen"
 
-#: .\crush_lu\templates\crush_lu\journey\gift_success.html:262
+#: .\crush_lu\templates\crush_lu\journey\gift_success.html:317
 #, fuzzy
 #| msgid ""
 #| "When they scan the QR code, they'll see your personalized message and can "
@@ -8693,6 +10310,7 @@ msgstr "Dein Browser unterstützt das Audio-Element nicht."
 
 #: .\crush_lu\templates\crush_lu\journey\rewards\future_letter.html:336
 #: .\crush_lu\templates\crush_lu\journey\rewards\photo_reveal.html:375
+#: .\crush_lu\templates\crush_lu\journey\rewards\photo_slideshow.html:330
 #: .\crush_lu\templates\crush_lu\journey\rewards\poem.html:207
 msgid "Continue Your Journey"
 msgstr "Reise fortsetzen"
@@ -8709,6 +10327,7 @@ msgid "🎉 Photo Revealed! 🎉"
 msgstr "🎉 Foto enthüllt! 🎉"
 
 #: .\crush_lu\templates\crush_lu\journey\rewards\photo_reveal.html:372
+#: .\crush_lu\templates\crush_lu\journey\rewards\photo_slideshow.html:313
 msgid "Download Photo"
 msgstr "Foto herunterladen"
 
@@ -8717,6 +10336,12 @@ msgid "💡 Tip: Download this special memory to keep forever!"
 msgstr ""
 "💡 Tipp: Laden Sie diese besondere Erinnerung herunter, um sie für immer zu "
 "behalten!"
+
+#: .\crush_lu\templates\crush_lu\journey\rewards\photo_slideshow.html:319
+#, fuzzy
+#| msgid "A Magical Journey Awaits"
+msgid "A special memory awaits..."
+msgstr "Eine magische Reise erwartet dich"
 
 #: .\crush_lu\templates\crush_lu\journey\rewards\poem.html:190
 msgid "With all my heart 💜"
@@ -8961,11 +10586,6 @@ msgstr "Luxemburger Kantone"
 msgid "Language"
 msgstr "Sprache"
 
-#: .\crush_lu\templates\crush_lu\partials\language_switcher.html:38
-#: .\power_up\templates\power_up\partials\language_switcher.html:30
-msgid "Go"
-msgstr "Los"
-
 #: .\crush_lu\templates\crush_lu\partials\nav_progress_dropdown.html:25
 msgid "steps"
 msgstr "Schritte"
@@ -9146,6 +10766,72 @@ msgstr "Ihr Passwort muss mindestens 8 Zeichen enthalten."
 #: .\crush_lu\templates\crush_lu\signup.html:129
 msgid "Create Account"
 msgstr "Konto erstellen"
+
+#: .\crush_lu\templates\crush_lu\verify_phone.html:40
+#, fuzzy
+#| msgid "Verify Your Phone"
+msgid "Verify Your Phone Number"
+msgstr "Überprüfen Sie Ihr Telefon"
+
+#: .\crush_lu\templates\crush_lu\verify_phone.html:42
+msgid "We'll send a verification code via SMS to confirm your phone number."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\verify_phone.html:60
+msgid "Select your country and enter your phone number"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\verify_phone.html:71
+#, fuzzy
+#| msgid "Sending verification code..."
+msgid "Send Verification Code"
+msgstr "Verifizierungscode wird gesendet..."
+
+#: .\crush_lu\templates\crush_lu\verify_phone.html:80
+#, fuzzy
+#| msgid "Saving..."
+msgid "Sending..."
+msgstr "Sparen..."
+
+#: .\crush_lu\templates\crush_lu\verify_phone.html:90
+msgid "A 6-digit code has been sent to"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\verify_phone.html:95
+#, fuzzy
+#| msgid "Verification Required"
+msgid "Verification Code"
+msgstr "Verifizierung erforderlich"
+
+#: .\crush_lu\templates\crush_lu\verify_phone.html:147
+#, fuzzy
+#| msgid "Verifying your code..."
+msgid "Verifying..."
+msgstr "Ihr Code wird verifiziert..."
+
+#: .\crush_lu\templates\crush_lu\verify_phone.html:157
+#, fuzzy
+#| msgid "Resend Code"
+msgid "Resend code in"
+msgstr "Code erneut senden"
+
+#: .\crush_lu\templates\crush_lu\verify_phone.html:169
+#, fuzzy
+#| msgid "Phone Number"
+msgid "Change Phone Number"
+msgstr "Telefonnummer"
+
+#: .\crush_lu\templates\crush_lu\verify_phone.html:185
+#, fuzzy
+#| msgid "Door number (1-24)"
+msgid "Your number"
+msgstr "Türnummer (1-24)"
+
+#: .\crush_lu\templates\crush_lu\verify_phone.html:185
+#, fuzzy
+#| msgid "Unverified"
+msgid "has been verified."
+msgstr "Nicht verifiziert"
 
 #: .\crush_lu\templates\crush_lu\voting_demo.html:4
 msgid "How Event Voting Works - Crush.lu"
@@ -10213,6 +11899,13 @@ msgid ""
 msgstr ""
 "Apple Wallet-Unterstützung ist bald verfügbar! Bitte nutzen Sie in der "
 "Zwischenzeit Google Wallet."
+
+#: .\delegations\templates\admin\base_site.html:4
+#: .\delegations\templates\admin\base_site.html:29
+#, fuzzy
+#| msgid "Crush Delegation Management"
+msgid "Delegations.lu Management"
+msgstr "Crush Delegationsverwaltung"
 
 #: .\entreprinder\finops\views.py:104 .\power_up\finops\views.py:104
 msgid "FinOps Hub - Cost Dashboard"
@@ -13937,6 +15630,11 @@ msgstr "Ungültiges Anfrageformat"
 #: .\vinsdelux\views.py:425
 msgid "An error occurred while processing your selection"
 msgstr "Bei der Verarbeitung Ihrer Auswahl ist ein Fehler aufgetreten"
+
+#~ msgid "You must verify your phone number before continuing."
+#~ msgstr ""
+#~ "Sie müssen Ihre Telefonnummer verifizieren, bevor Sie fortfahren.Bitte "
+#~ "verifizieren Sie Ihre Telefonnummer, um alle Funktionen nutzen zu können."
 
 #~ msgid "Install the Crush.lu app above to get your membership card"
 #~ msgstr ""
