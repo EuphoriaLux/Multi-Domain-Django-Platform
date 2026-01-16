@@ -23,7 +23,7 @@ msgstr ""
 #, fuzzy
 #| msgid "Remich"
 msgid "Über mich"
-msgstr "Remich"
+msgstr "À propos"
 
 #: .\arborist\templates\arborist\about.html:13
 msgid "Tom Aakrann - Ihr Baumwart in Luxemburg"
@@ -51,7 +51,7 @@ msgstr ""
 #: .\arborist\templates\arborist\home.html:10
 #: .\arborist\templates\arborist\partials\footer.html:142
 msgid "Baumwart Tom Aakrann"
-msgstr ""
+msgstr "Arboriste Tom Aakrann"
 
 #: .\arborist\templates\arborist\about.html:43
 #: .\arborist\templates\arborist\home.html:47
@@ -109,7 +109,7 @@ msgstr ""
 #: .\arborist\templates\arborist\services\obstbaumpflege.html:10
 #: .\arborist\views.py:46
 msgid "Obstbaumpflege"
-msgstr ""
+msgstr "Entretien des arbres fruitiers"
 
 #: .\arborist\templates\arborist\about.html:109
 msgid ""
@@ -217,7 +217,7 @@ msgstr ""
 #: .\arborist\templates\arborist\services\baumpflege.html:10
 #: .\arborist\views.py:61
 msgid "Baumpflege"
-msgstr ""
+msgstr "Entretien des arbres"
 
 #: .\arborist\templates\arborist\base.html:197
 #: .\arborist\templates\arborist\contact.html:98
@@ -229,7 +229,7 @@ msgstr ""
 #: .\arborist\templates\arborist\services\baumkontrolle.html:10
 #: .\arborist\views.py:76
 msgid "Baumkontrolle"
-msgstr ""
+msgstr "Contrôle des arbres"
 
 #: .\arborist\templates\arborist\contact.html:10
 #: .\arborist\templates\arborist\partials\footer.html:106
@@ -249,7 +249,7 @@ msgstr ""
 #: .\arborist\templates\arborist\contact.html:76
 #: .\arborist\templates\arborist\partials\footer.html:43
 msgid "Telefon"
-msgstr ""
+msgstr "Téléphone"
 
 #: .\arborist\templates\arborist\contact.html:28
 msgid "Rufen Sie mich direkt an"
@@ -258,7 +258,7 @@ msgstr ""
 #: .\arborist\templates\arborist\contact.html:37
 #: .\crush_lu\templates\crush_lu\journey\gift_success.html:284
 msgid "WhatsApp"
-msgstr ""
+msgstr "WhatsApp"
 
 #: .\arborist\templates\arborist\contact.html:38
 msgid "Schreiben Sie mir per WhatsApp"
@@ -272,7 +272,7 @@ msgstr ""
 #: .\arborist\templates\arborist\contact.html:51
 #: .\arborist\templates\arborist\contact.html:84
 msgid "E-Mail"
-msgstr ""
+msgstr "E-mail"
 
 #: .\arborist\templates\arborist\contact.html:52
 msgid "Schreiben Sie mir eine E-Mail"
@@ -280,7 +280,7 @@ msgstr ""
 
 #: .\arborist\templates\arborist\contact.html:62
 msgid "Anfrage senden"
-msgstr ""
+msgstr "Envoyer une demande"
 
 #: .\arborist\templates\arborist\contact.html:69
 #: .\crush_lu\templates\crush_lu\account_settings.html:25
@@ -309,7 +309,7 @@ msgstr ""
 
 #: .\arborist\templates\arborist\contact.html:105
 msgid "Ihre Nachricht"
-msgstr ""
+msgstr "Votre message"
 
 #: .\arborist\templates\arborist\contact.html:108
 msgid "Beschreiben Sie kurz Ihr Anliegen..."
@@ -317,7 +317,7 @@ msgstr ""
 
 #: .\arborist\templates\arborist\contact.html:113
 msgid "Nachricht senden"
-msgstr ""
+msgstr "Envoyer le message"
 
 #: .\arborist\templates\arborist\contact.html:117
 msgid "* Pflichtfelder. Ich melde mich schnellstmöglich bei Ihnen."
@@ -490,7 +490,7 @@ msgstr ""
 #: .\arborist\templates\arborist\partials\navigation.html:215
 #: .\arborist\templates\arborist\partials\navigation.html:265
 msgid "Galerie"
-msgstr ""
+msgstr "Galerie"
 
 #: .\arborist\templates\arborist\gallery.html:13
 msgid "Einblicke in meine Arbeit als Baumwart in Luxemburg."
@@ -532,16 +532,16 @@ msgstr ""
 #: .\arborist\templates\arborist\home.html:13
 #: .\arborist\templates\arborist\partials\footer.html:145
 msgid "Professionelle Baumpflege in Luxemburg"
-msgstr ""
+msgstr "Entretien professionnel des arbres au Luxembourg"
 
 #: .\arborist\templates\arborist\home.html:16
 msgid "FLL-zertifizierter Baumkontrolleur | SKT-B Seilklettertechnik"
-msgstr ""
+msgstr "Contrôleur d'arbres certifié FLL | Technique de grimpe SKT-B"
 
 #: .\arborist\templates\arborist\home.html:20
 #: .\arborist\templates\arborist\home.html:183
 msgid "Kostenlose Beratung"
-msgstr ""
+msgstr "Consultation gratuite"
 
 #: .\arborist\templates\arborist\home.html:37
 msgid "FLL zertifiziert"
@@ -562,7 +562,7 @@ msgstr ""
 
 #: .\arborist\templates\arborist\home.html:59
 msgid "Meine Leistungen"
-msgstr ""
+msgstr "Mes services"
 
 #: .\arborist\templates\arborist\home.html:62
 msgid ""
@@ -602,7 +602,7 @@ msgstr ""
 
 #: .\arborist\templates\arborist\home.html:121
 msgid "Warum Baumwart?"
-msgstr ""
+msgstr "Pourquoi un arboriste ?"
 
 #: .\arborist\templates\arborist\home.html:127
 msgid "Zertifizierte Qualifikation"
@@ -641,7 +641,7 @@ msgstr ""
 
 #: .\arborist\templates\arborist\home.html:162
 msgid "Einsatzgebiet"
-msgstr ""
+msgstr "Zone d'intervention"
 
 #: .\arborist\templates\arborist\home.html:165
 msgid "Ich bin in ganz Luxemburg tätig, mit Schwerpunkt auf:"
@@ -691,7 +691,7 @@ msgstr ""
 #: .\arborist\templates\arborist\partials\footer.html:30
 #: .\arborist\templates\arborist\partials\navigation.html:188
 msgid "Baumwart"
-msgstr ""
+msgstr "Arboriste"
 
 #: .\arborist\templates\arborist\partials\footer.html:33
 msgid ""
@@ -703,36 +703,36 @@ msgstr ""
 #: .\arborist\templates\arborist\partials\navigation.html:197
 #: .\arborist\templates\arborist\partials\navigation.html:242
 msgid "Leistungen"
-msgstr ""
+msgstr "Services"
 
 #: .\arborist\templates\arborist\partials\footer.html:72
 #: .\arborist\templates\arborist\partials\navigation.html:206
 #: .\arborist\templates\arborist\partials\navigation.html:253
 msgid "Ökologie"
-msgstr ""
+msgstr "Écologie"
 
 #: .\arborist\templates\arborist\partials\footer.html:77
 #: .\arborist\templates\arborist\partials\navigation.html:207
 #: .\arborist\templates\arborist\partials\navigation.html:256
 #: .\arborist\views.py:106
 msgid "Technik"
-msgstr ""
+msgstr "Technique"
 
 #: .\arborist\templates\arborist\partials\footer.html:86
 #, fuzzy
 #| msgid "Plot Information"
 msgid "Information"
-msgstr "Informations sur la parcelle"
+msgstr "Informations"
 
 #: .\arborist\templates\arborist\partials\footer.html:101
 #: .\arborist\templates\arborist\partials\navigation.html:218
 #: .\arborist\templates\arborist\partials\navigation.html:268
 msgid "FAQ"
-msgstr ""
+msgstr "FAQ"
 
 #: .\arborist\templates\arborist\partials\footer.html:142
 msgid "Alle Rechte vorbehalten."
-msgstr ""
+msgstr "Tous droits réservés."
 
 #: .\arborist\templates\arborist\partials\language_switcher.html:29
 #: .\crush_lu\templates\crush_lu\partials\language_switcher.html:38
