@@ -1,0 +1,89 @@
+{% extends "arborist/base.html" %}
+{% load i18n %}
+
+{% block content %}
+<!-- Header -->
+<section class="bg-green-800 text-white py-16">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto text-center">
+            <h1 class="text-4xl font-bold mb-4">
+                {% trans "About Us" %}
+            </h1>
+            <p class="text-xl">
+                {% trans "Dedicated to preserving and caring for Luxembourg's trees." %}
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- Our Story -->
+<section class="py-16">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-3xl font-bold mb-8 text-green-800">
+                {% trans "Our Story" %}
+            </h2>
+            <div class="text-gray-700 space-y-4">
+                <p class="text-lg">
+                    {% trans "Arborist was founded with a simple mission: to provide professional, reliable tree care services to the people of Luxembourg." %}
+                </p>
+                <p class="text-lg">
+                    {% trans "Our team of certified arborists brings years of experience and a deep passion for trees. We understand that trees are valuable assets to any property, providing beauty, shade, and environmental benefits." %}
+                </p>
+                <p class="text-lg">
+                    {% trans "Whether you need routine maintenance, emergency tree removal, or expert consultation, we're here to help with professionalism and care." %}
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Values -->
+<section class="py-16 bg-gray-50">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-3xl font-bold mb-8 text-center text-green-800">
+                {% trans "Our Values" %}
+            </h2>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="text-center">
+                    <div class="text-4xl mb-4">🌱</div>
+                    <h3 class="text-xl font-semibold mb-2">{% trans "Sustainability" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "We prioritize tree preservation and environmentally responsible practices." %}
+                    </p>
+                </div>
+                <div class="text-center">
+                    <div class="text-4xl mb-4">⚡</div>
+                    <h3 class="text-xl font-semibold mb-2">{% trans "Excellence" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "We maintain the highest standards of professionalism and quality." %}
+                    </p>
+                </div>
+                <div class="text-center">
+                    <div class="text-4xl mb-4">🤝</div>
+                    <h3 class="text-xl font-semibold mb-2">{% trans "Trust" %}</h3>
+                    <p class="text-gray-600">
+                        {% trans "We build lasting relationships through honesty and reliability." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="py-16 bg-green-800 text-white">
+    <div class="container mx-auto px-4 text-center">
+        <h2 class="text-3xl font-bold mb-4">
+            {% trans "Let's Work Together" %}
+        </h2>
+        <p class="text-xl mb-8">
+            {% trans "Contact us to discuss your tree care needs." %}
+        </p>
+        <a href="{% url 'arborist:contact' %}" class="btn" style="background: #fff; color: #2d5016;">
+            {% trans "Get in Touch" %}
+        </a>
+    </div>
+</section>
+{% endblock %}

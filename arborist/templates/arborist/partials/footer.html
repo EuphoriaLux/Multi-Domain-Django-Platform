@@ -1,0 +1,91 @@
+{% load i18n %}
+<footer class="bg-gray-900 text-white" style="background: #111827; color: #fff;">
+    <div class="container mx-auto px-4 py-12">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem;">
+            <!-- Brand -->
+            <div>
+                <div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem;">
+                    🌳 Arborist
+                </div>
+                <p style="color: #9ca3af; max-width: 20rem;">
+                    {% trans "Professional tree care services in Luxembourg. Expert arborists dedicated to preserving and maintaining your trees." %}
+                </p>
+            </div>
+
+            <!-- Navigation -->
+            <div>
+                <h3 style="font-size: 0.875rem; font-weight: 600; color: #d1d5db; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem;">
+                    {% trans "Company" %}
+                </h3>
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    <li style="margin-bottom: 0.75rem;">
+                        <a href="{% url 'arborist:about' %}" style="color: #9ca3af; transition: color 0.2s;"
+                           onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'">
+                            {% trans "About" %}
+                        </a>
+                    </li>
+                    <li style="margin-bottom: 0.75rem;">
+                        <a href="{% url 'arborist:services' %}" style="color: #9ca3af; transition: color 0.2s;"
+                           onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'">
+                            {% trans "Services" %}
+                        </a>
+                    </li>
+                    <li style="margin-bottom: 0.75rem;">
+                        <a href="{% url 'arborist:contact' %}" style="color: #9ca3af; transition: color 0.2s;"
+                           onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'">
+                            {% trans "Contact" %}
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Services -->
+            <div>
+                <h3 style="font-size: 0.875rem; font-weight: 600; color: #d1d5db; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem;">
+                    {% trans "Services" %}
+                </h3>
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    <li style="margin-bottom: 0.75rem; color: #9ca3af;">
+                        {% trans "Tree Pruning" %}
+                    </li>
+                    <li style="margin-bottom: 0.75rem; color: #9ca3af;">
+                        {% trans "Tree Removal" %}
+                    </li>
+                    <li style="margin-bottom: 0.75rem; color: #9ca3af;">
+                        {% trans "Health Assessment" %}
+                    </li>
+                    <li style="margin-bottom: 0.75rem; color: #9ca3af;">
+                        {% trans "Consultation" %}
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Contact -->
+            <div>
+                <h3 style="font-size: 0.875rem; font-weight: 600; color: #d1d5db; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem;">
+                    {% trans "Contact" %}
+                </h3>
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    <li style="margin-bottom: 0.75rem; color: #9ca3af;">
+                        📍 Luxembourg
+                    </li>
+                    <li style="margin-bottom: 0.75rem; color: #9ca3af;">
+                        📧 info@arborist.lu
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Bottom bar -->
+        <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #374151;">
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem;">
+                <p style="color: #9ca3af; font-size: 0.875rem;">
+                    &copy; {% now "Y" %} Arborist. {% trans "All rights reserved." %}
+                </p>
+                <p style="color: #6b7280; font-size: 0.875rem;">
+                    {% trans "Made in Luxembourg" %} 🇱🇺
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>

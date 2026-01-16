@@ -40,6 +40,7 @@ if 'CODESPACE_NAME' in os.environ:
 # Local development CSRF trusted origins (for .localhost domains)
 # These only apply locally - production uses real domains
 CSRF_TRUSTED_ORIGINS = getattr(globals(), 'CSRF_TRUSTED_ORIGINS', []) + [
+    'http://arborist.localhost:8000',
     'http://crush.localhost:8000',
     'http://power-up.localhost:8000',
     'http://powerup.localhost:8000',
@@ -70,6 +71,7 @@ INSTALLED_APPS = [
     'entreprinder',  # Includes merged: matching, finops, vibe_coding
     'power_up',  # Corporate/investor site for power-up.lu
     'tableau',  # AI Art e-commerce site for tableau.lu
+    'arborist',  # Tree care informational site for arborist.lu
     # Allauth apps
     'allauth',
     'allauth.account',

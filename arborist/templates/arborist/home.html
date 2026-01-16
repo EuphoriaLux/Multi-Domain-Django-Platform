@@ -1,0 +1,114 @@
+{% extends "arborist/base.html" %}
+{% load i18n %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="bg-green-800 text-white py-20">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto text-center">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4">
+                {% trans "Professional Tree Care Services" %}
+            </h1>
+            <p class="text-xl mb-8">
+                {% trans "Expert arborist services in Luxembourg. Pruning, removal, health assessment, and consultation." %}
+            </p>
+            <div class="flex justify-center gap-4">
+                <a href="{% url 'arborist:services' %}" class="btn btn-secondary">
+                    {% trans "Our Services" %}
+                </a>
+                <a href="{% url 'arborist:contact' %}" class="btn btn-primary" style="background: #fff; color: #2d5016;">
+                    {% trans "Get a Quote" %}
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Services Overview -->
+<section class="py-16 bg-gray-50">
+    <div class="container mx-auto px-4">
+        <h2 class="text-3xl font-bold text-center mb-8 text-green-800">
+            {% trans "What We Do" %}
+        </h2>
+        <div class="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <div class="card text-center">
+                <div class="text-4xl mb-4">🌳</div>
+                <h3 class="text-xl font-semibold mb-2 text-green-800">{% trans "Tree Pruning" %}</h3>
+                <p class="text-gray-600">
+                    {% trans "Professional pruning to maintain tree health, shape, and safety." %}
+                </p>
+            </div>
+            <div class="card text-center">
+                <div class="text-4xl mb-4">🪓</div>
+                <h3 class="text-xl font-semibold mb-2 text-green-800">{% trans "Tree Removal" %}</h3>
+                <p class="text-gray-600">
+                    {% trans "Safe and efficient removal of hazardous or unwanted trees." %}
+                </p>
+            </div>
+            <div class="card text-center">
+                <div class="text-4xl mb-4">🔍</div>
+                <h3 class="text-xl font-semibold mb-2 text-green-800">{% trans "Health Assessment" %}</h3>
+                <p class="text-gray-600">
+                    {% trans "Expert diagnosis and treatment plans for tree diseases." %}
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Why Choose Us -->
+<section class="py-16">
+    <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-3xl font-bold text-center mb-8 text-green-800">
+                {% trans "Why Choose Arborist?" %}
+            </h2>
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="flex gap-4">
+                    <div class="text-green-600 text-2xl">✓</div>
+                    <div>
+                        <h3 class="font-semibold text-lg">{% trans "Certified Professionals" %}</h3>
+                        <p class="text-gray-600">{% trans "Our team holds industry-recognized certifications." %}</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="text-green-600 text-2xl">✓</div>
+                    <div>
+                        <h3 class="font-semibold text-lg">{% trans "Fully Insured" %}</h3>
+                        <p class="text-gray-600">{% trans "Complete liability coverage for your peace of mind." %}</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="text-green-600 text-2xl">✓</div>
+                    <div>
+                        <h3 class="font-semibold text-lg">{% trans "Local Expertise" %}</h3>
+                        <p class="text-gray-600">{% trans "Deep knowledge of Luxembourg's native trees and regulations." %}</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="text-green-600 text-2xl">✓</div>
+                    <div>
+                        <h3 class="font-semibold text-lg">{% trans "Free Consultation" %}</h3>
+                        <p class="text-gray-600">{% trans "No-obligation assessment and quote for your project." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="py-16 bg-green-800 text-white">
+    <div class="container mx-auto px-4 text-center">
+        <h2 class="text-3xl font-bold mb-4">
+            {% trans "Ready to Get Started?" %}
+        </h2>
+        <p class="text-xl mb-8">
+            {% trans "Contact us today for a free consultation and quote." %}
+        </p>
+        <a href="{% url 'arborist:contact' %}" class="btn" style="background: #fff; color: #2d5016;">
+            {% trans "Contact Us" %}
+        </a>
+    </div>
+</section>
+{% endblock %}

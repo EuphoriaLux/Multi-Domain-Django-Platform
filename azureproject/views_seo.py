@@ -208,3 +208,34 @@ def robots_txt_tableau(request):
     ]
 
     return HttpResponse("\n".join(lines), content_type="text/plain")
+
+
+@require_GET
+@cache_page(60 * 60 * 24)  # Cache for 24 hours
+def robots_txt_arborist(request):
+    """
+    Generate robots.txt for Arborist informational site.
+
+    Simple static site - allow crawling of all public pages.
+    No auth, no API, no forms - just static content.
+    """
+    lines = [
+        "# Robots.txt for Arborist",
+        "# https://arborist.lu/robots.txt",
+        "",
+        "User-agent: *",
+        "",
+        "# Allow all public pages",
+        "Allow: /",
+        "",
+        "# Block health check endpoint",
+        "Disallow: /healthz/",
+        "",
+        "# Crawl delay (be nice to our server)",
+        "Crawl-delay: 1",
+        "",
+        "# No sitemap yet - static informational site",
+        "",
+    ]
+
+    return HttpResponse("\n".join(lines), content_type="text/plain")

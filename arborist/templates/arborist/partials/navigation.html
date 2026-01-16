@@ -1,0 +1,85 @@
+{% load i18n %}
+<header style="background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.1); position: sticky; top: 0; z-index: 50;">
+    <nav class="container mx-auto px-4">
+        <!-- Mobile menu checkbox - must be before all elements that use peer-checked -->
+        <input type="checkbox" id="mobile-menu-toggle" class="hidden" style="display: none;">
+
+        <div class="flex justify-between items-center h-16">
+            <!-- Logo -->
+            <div>
+                <a href="{% url 'arborist:home' %}" style="display: flex; align-items: center; font-size: 1.5rem; font-weight: bold; color: #2d5016;">
+                    🌳 Arborist
+                </a>
+            </div>
+
+            <!-- Desktop Navigation -->
+            <div class="hidden md:flex" style="display: none; align-items: center; gap: 2rem;">
+                <a href="{% url 'arborist:about' %}"
+                   style="color: #4b5563; font-weight: 500; transition: color 0.2s;"
+                   onmouseover="this.style.color='#2d5016'" onmouseout="this.style.color='#4b5563'">
+                    {% trans "About" %}
+                </a>
+                <a href="{% url 'arborist:services' %}"
+                   style="color: #4b5563; font-weight: 500; transition: color 0.2s;"
+                   onmouseover="this.style.color='#2d5016'" onmouseout="this.style.color='#4b5563'">
+                    {% trans "Services" %}
+                </a>
+                <a href="{% url 'arborist:contact' %}"
+                   class="btn btn-primary">
+                    {% trans "Contact" %}
+                </a>
+                <!-- Language Switcher -->
+                {% include "arborist/partials/language_switcher.html" %}
+            </div>
+
+            <!-- Mobile menu button -->
+            <div class="md:hidden" style="display: block;">
+                <label for="mobile-menu-toggle" style="cursor: pointer; padding: 0.5rem;">
+                    <svg style="height: 1.5rem; width: 1.5rem; color: #4b5563;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </label>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation -->
+        <div id="mobile-nav" class="md:hidden" style="display: none; padding-bottom: 1rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
+                <a href="{% url 'arborist:about' %}" style="color: #4b5563; font-weight: 500; padding: 0.5rem 0;">
+                    {% trans "About" %}
+                </a>
+                <a href="{% url 'arborist:services' %}" style="color: #4b5563; font-weight: 500; padding: 0.5rem 0;">
+                    {% trans "Services" %}
+                </a>
+                <a href="{% url 'arborist:contact' %}" class="btn btn-primary" style="text-align: center;">
+                    {% trans "Contact" %}
+                </a>
+                <!-- Mobile Language Switcher -->
+                <div style="padding-top: 0.5rem; border-top: 1px solid #e5e7eb;">
+                    {% include "arborist/partials/language_switcher.html" with mobile=True %}
+                </div>
+            </div>
+        </div>
+    </nav>
+</header>
+
+<script>
+    // Simple mobile menu toggle
+    document.getElementById('mobile-menu-toggle').addEventListener('change', function() {
+        document.getElementById('mobile-nav').style.display = this.checked ? 'block' : 'none';
+    });
+    // Show desktop nav on larger screens
+    if (window.innerWidth >= 768) {
+        document.querySelectorAll('.md\\:flex').forEach(el => el.style.display = 'flex');
+        document.querySelectorAll('.md\\:hidden').forEach(el => el.style.display = 'none');
+    }
+    window.addEventListener('resize', function() {
+        if (window.innerWidth >= 768) {
+            document.querySelectorAll('.md\\:flex').forEach(el => el.style.display = 'flex');
+            document.querySelectorAll('.md\\:hidden').forEach(el => el.style.display = 'none');
+        } else {
+            document.querySelectorAll('.md\\:flex').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.md\\:hidden').forEach(el => el.style.display = 'block');
+        }
+    });
+</script>
