@@ -120,9 +120,66 @@
     .arborist-lang-dropdown:focus-within .arborist-lang-arrow {
         transform: rotate(180deg);
     }
+    .arborist-lang-option {
+        width: 100%;
+        text-align: left;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        border: none;
+        cursor: pointer;
+        color: #374151;
+        background: transparent;
+        transition: background-color 0.15s, color 0.15s;
+    }
+    .arborist-lang-option:hover {
+        background: #f0fdf4;
+        color: #2d5016;
+    }
+    .arborist-lang-option.active {
+        color: #2d5016;
+        background: #f0fdf4;
+        font-weight: 600;
+    }
+
+    /* Nav links */
+    .arborist-nav-link {
+        color: #4b5563;
+        font-weight: 500;
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+    .arborist-nav-link:hover {
+        color: #2d5016;
+    }
+
+    /* Contact button */
+    .arborist-nav-btn {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        background: #2d5016;
+        color: #fff;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: background-color 0.2s;
+    }
+    .arborist-nav-btn:hover {
+        background: #3d6b1f;
+    }
+
+    /* Mobile menu - CSS-only toggle using checkbox */
+    #arborist-mobile-checkbox {
+        display: none;
+    }
+    #arborist-mobile-checkbox:checked ~ .arborist-mobile-nav {
+        display: block !important;
+    }
 </style>
 
 <header style="background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.1); position: sticky; top: 0; z-index: 50;">
+    <!-- Hidden checkbox for CSS-only mobile menu toggle -->
+    <input type="checkbox" id="arborist-mobile-checkbox" aria-hidden="true">
+
     <nav style="max-width: 1200px; margin: 0 auto; padding: 0 1rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; height: 4rem;">
             <!-- Logo -->
@@ -151,43 +208,35 @@
                     </div>
                 </div>
 
-                <a href="{% url 'arborist:about' %}"
-                   style="color: #4b5563; font-weight: 500; text-decoration: none;"
-                   onmouseover="this.style.color='#2d5016'" onmouseout="this.style.color='#4b5563'">
+                <a href="{% url 'arborist:about' %}" class="arborist-nav-link">
                     {% trans "Über mich" %}
                 </a>
-                <a href="{% url 'arborist:gallery' %}"
-                   style="color: #4b5563; font-weight: 500; text-decoration: none;"
-                   onmouseover="this.style.color='#2d5016'" onmouseout="this.style.color='#4b5563'">
+                <a href="{% url 'arborist:gallery' %}" class="arborist-nav-link">
                     {% trans "Galerie" %}
                 </a>
-                <a href="{% url 'arborist:faq' %}"
-                   style="color: #4b5563; font-weight: 500; text-decoration: none;"
-                   onmouseover="this.style.color='#2d5016'" onmouseout="this.style.color='#4b5563'">
+                <a href="{% url 'arborist:faq' %}" class="arborist-nav-link">
                     {% trans "FAQ" %}
                 </a>
-                <a href="{% url 'arborist:contact' %}"
-                   style="display: inline-block; padding: 0.5rem 1rem; background: #2d5016; color: #fff; border-radius: 0.5rem; font-weight: 600; text-decoration: none;"
-                   onmouseover="this.style.background='#3d6b1f'" onmouseout="this.style.background='#2d5016'">
+                <a href="{% url 'arborist:contact' %}" class="arborist-nav-btn">
                     {% trans "Kontakt" %}
                 </a>
                 <!-- Language Switcher -->
                 {% include "arborist/partials/language_switcher.html" %}
             </div>
 
-            <!-- Mobile menu button -->
+            <!-- Mobile menu button - label for hidden checkbox -->
             <div class="arborist-mobile-toggle" style="display: none;">
-                <button type="button" onclick="document.getElementById('arborist-mobile-nav').style.display = document.getElementById('arborist-mobile-nav').style.display === 'none' ? 'block' : 'none';"
-                        style="padding: 0.5rem; background: transparent; border: none; cursor: pointer;">
+                <label for="arborist-mobile-checkbox" style="padding: 0.5rem; cursor: pointer; display: block;">
                     <svg style="height: 1.5rem; width: 1.5rem; color: #4b5563;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
-                </button>
+                </label>
             </div>
         </div>
+    </nav>
 
-        <!-- Mobile Navigation -->
-        <div id="arborist-mobile-nav" class="arborist-mobile-nav" style="display: none; padding-bottom: 1rem;">
+    <!-- Mobile Navigation - outside nav for CSS sibling selector -->
+    <div class="arborist-mobile-nav" style="display: none; padding-bottom: 1rem; max-width: 1200px; margin: 0 auto; padding-left: 1rem; padding-right: 1rem;">
             <div style="display: flex; flex-direction: column; gap: 0.5rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
                 <!-- Services -->
                 <p style="color: #9ca3af; font-size: 0.75rem; text-transform: uppercase; padding: 0.5rem 0; margin: 0;">{% trans "Leistungen" %}</p>
@@ -231,6 +280,5 @@
                     {% include "arborist/partials/language_switcher.html" with mobile=True %}
                 </div>
             </div>
-        </div>
-    </nav>
+    </div>
 </header>

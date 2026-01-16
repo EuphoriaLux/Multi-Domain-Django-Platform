@@ -50,10 +50,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="language" value="{{ lang_code }}">
                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                <button type="submit"
-                        style="width: 100%; text-align: left; padding: 0.5rem 1rem; font-size: 0.875rem; border: none; cursor: pointer; {% if lang_code == CURRENT_LANGUAGE %}color: #2d5016; background: #f0fdf4; font-weight: 600;{% else %}color: #374151; background: transparent;{% endif %}"
-                        onmouseover="this.style.background='#f0fdf4'; this.style.color='#2d5016';"
-                        onmouseout="this.style.background='{% if lang_code == CURRENT_LANGUAGE %}#f0fdf4{% else %}transparent{% endif %}'; this.style.color='{% if lang_code == CURRENT_LANGUAGE %}#2d5016{% else %}#374151{% endif %}';">
+                <button type="submit" class="arborist-lang-option{% if lang_code == CURRENT_LANGUAGE %} active{% endif %}">
                     {{ lang_name }}
                 </button>
             </form>

@@ -1,4 +1,26 @@
 {% load i18n %}
+<style>
+    .arborist-footer-link {
+        color: #9ca3af;
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+    .arborist-footer-link:hover {
+        color: #fff;
+    }
+    .arborist-footer-social {
+        color: #9ca3af;
+        font-size: 1.5rem;
+        transition: color 0.2s;
+    }
+    .arborist-footer-social:hover {
+        color: #fff;
+    }
+    .arborist-footer-social.whatsapp:hover {
+        color: #25D366;
+    }
+</style>
+
 <footer class="bg-gray-900 text-white" style="background: #111827; color: #fff;">
     <div class="container mx-auto px-4 py-12">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem;">
@@ -12,21 +34,13 @@
                 </p>
                 <div style="display: flex; gap: 1rem;">
                     <a href="https://wa.me/352621981363" target="_blank" rel="noopener noreferrer"
-                       style="color: #9ca3af; font-size: 1.5rem;"
-                       onmouseover="this.style.color='#25D366'" onmouseout="this.style.color='#9ca3af'"
-                       title="WhatsApp">
+                       class="arborist-footer-social whatsapp" title="WhatsApp">
                         &#128172;
                     </a>
-                    <a href="mailto:info@arborist.lu"
-                       style="color: #9ca3af; font-size: 1.5rem;"
-                       onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'"
-                       title="E-Mail">
+                    <a href="mailto:info@arborist.lu" class="arborist-footer-social" title="E-Mail">
                         &#9993;
                     </a>
-                    <a href="tel:+352621981363"
-                       style="color: #9ca3af; font-size: 1.5rem;"
-                       onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'"
-                       title="{% trans 'Telefon' %}">
+                    <a href="tel:+352621981363" class="arborist-footer-social" title="{% trans 'Telefon' %}">
                         &#128222;
                     </a>
                 </div>
@@ -39,32 +53,27 @@
                 </h3>
                 <ul style="list-style: none; padding: 0; margin: 0;">
                     <li style="margin-bottom: 0.75rem;">
-                        <a href="{% url 'arborist:obstbaumpflege' %}" style="color: #9ca3af; transition: color 0.2s; text-decoration: none;"
-                           onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'">
+                        <a href="{% url 'arborist:obstbaumpflege' %}" class="arborist-footer-link">
                             {% trans "Obstbaumpflege" %}
                         </a>
                     </li>
                     <li style="margin-bottom: 0.75rem;">
-                        <a href="{% url 'arborist:baumpflege' %}" style="color: #9ca3af; transition: color 0.2s; text-decoration: none;"
-                           onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'">
+                        <a href="{% url 'arborist:baumpflege' %}" class="arborist-footer-link">
                             {% trans "Baumpflege" %}
                         </a>
                     </li>
                     <li style="margin-bottom: 0.75rem;">
-                        <a href="{% url 'arborist:baumkontrolle' %}" style="color: #9ca3af; transition: color 0.2s; text-decoration: none;"
-                           onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'">
+                        <a href="{% url 'arborist:baumkontrolle' %}" class="arborist-footer-link">
                             {% trans "Baumkontrolle" %}
                         </a>
                     </li>
                     <li style="margin-bottom: 0.75rem;">
-                        <a href="{% url 'arborist:oekologie' %}" style="color: #9ca3af; transition: color 0.2s; text-decoration: none;"
-                           onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'">
+                        <a href="{% url 'arborist:oekologie' %}" class="arborist-footer-link">
                             {% trans "Ökologie" %}
                         </a>
                     </li>
                     <li style="margin-bottom: 0.75rem;">
-                        <a href="{% url 'arborist:technik' %}" style="color: #9ca3af; transition: color 0.2s; text-decoration: none;"
-                           onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'">
+                        <a href="{% url 'arborist:technik' %}" class="arborist-footer-link">
                             {% trans "Technik" %}
                         </a>
                     </li>
@@ -78,26 +87,22 @@
                 </h3>
                 <ul style="list-style: none; padding: 0; margin: 0;">
                     <li style="margin-bottom: 0.75rem;">
-                        <a href="{% url 'arborist:about' %}" style="color: #9ca3af; transition: color 0.2s; text-decoration: none;"
-                           onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'">
+                        <a href="{% url 'arborist:about' %}" class="arborist-footer-link">
                             {% trans "Über mich" %}
                         </a>
                     </li>
                     <li style="margin-bottom: 0.75rem;">
-                        <a href="{% url 'arborist:gallery' %}" style="color: #9ca3af; transition: color 0.2s; text-decoration: none;"
-                           onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'">
+                        <a href="{% url 'arborist:gallery' %}" class="arborist-footer-link">
                             {% trans "Galerie" %}
                         </a>
                     </li>
                     <li style="margin-bottom: 0.75rem;">
-                        <a href="{% url 'arborist:faq' %}" style="color: #9ca3af; transition: color 0.2s; text-decoration: none;"
-                           onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'">
+                        <a href="{% url 'arborist:faq' %}" class="arborist-footer-link">
                             {% trans "FAQ" %}
                         </a>
                     </li>
                     <li style="margin-bottom: 0.75rem;">
-                        <a href="{% url 'arborist:contact' %}" style="color: #9ca3af; transition: color 0.2s; text-decoration: none;"
-                           onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'">
+                        <a href="{% url 'arborist:contact' %}" class="arborist-footer-link">
                             {% trans "Kontakt" %}
                         </a>
                     </li>
@@ -114,14 +119,12 @@
                         &#128205; {% trans "Luxemburg" %}
                     </li>
                     <li style="margin-bottom: 0.75rem;">
-                        <a href="mailto:info@arborist.lu" style="color: #9ca3af; text-decoration: none;"
-                           onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'">
+                        <a href="mailto:info@arborist.lu" class="arborist-footer-link">
                             &#9993; info@arborist.lu
                         </a>
                     </li>
                     <li style="margin-bottom: 0.75rem;">
-                        <a href="tel:+352621981363" style="color: #9ca3af; text-decoration: none;"
-                           onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'">
+                        <a href="tel:+352621981363" class="arborist-footer-link">
                             &#128222; +352 621 981 363
                         </a>
                     </li>
