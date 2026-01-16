@@ -1,31 +1,29 @@
 {% load i18n %}
 <header style="background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.1); position: sticky; top: 0; z-index: 50;">
-    <nav class="container mx-auto px-4">
-        <!-- Mobile menu checkbox - must be before all elements that use peer-checked -->
-        <input type="checkbox" id="mobile-menu-toggle" class="hidden" style="display: none;">
-
-        <div class="flex justify-between items-center h-16">
+    <nav style="max-width: 1200px; margin: 0 auto; padding: 0 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; height: 4rem;">
             <!-- Logo -->
             <div>
-                <a href="{% url 'arborist:home' %}" style="display: flex; align-items: center; font-size: 1.5rem; font-weight: bold; color: #2d5016;">
+                <a href="{% url 'arborist:home' %}" style="display: flex; align-items: center; font-size: 1.5rem; font-weight: bold; color: #2d5016; text-decoration: none;">
                     🌳 Arborist
                 </a>
             </div>
 
             <!-- Desktop Navigation -->
-            <div class="hidden md:flex" style="display: none; align-items: center; gap: 2rem;">
+            <div class="arborist-desktop-nav" style="display: flex; align-items: center; gap: 2rem;">
                 <a href="{% url 'arborist:about' %}"
-                   style="color: #4b5563; font-weight: 500; transition: color 0.2s;"
+                   style="color: #4b5563; font-weight: 500; text-decoration: none;"
                    onmouseover="this.style.color='#2d5016'" onmouseout="this.style.color='#4b5563'">
                     {% trans "About" %}
                 </a>
                 <a href="{% url 'arborist:services' %}"
-                   style="color: #4b5563; font-weight: 500; transition: color 0.2s;"
+                   style="color: #4b5563; font-weight: 500; text-decoration: none;"
                    onmouseover="this.style.color='#2d5016'" onmouseout="this.style.color='#4b5563'">
                     {% trans "Services" %}
                 </a>
                 <a href="{% url 'arborist:contact' %}"
-                   class="btn btn-primary">
+                   style="display: inline-block; padding: 0.5rem 1rem; background: #2d5016; color: #fff; border-radius: 0.5rem; font-weight: 600; text-decoration: none;"
+                   onmouseover="this.style.background='#3d6b1f'" onmouseout="this.style.background='#2d5016'">
                     {% trans "Contact" %}
                 </a>
                 <!-- Language Switcher -->
@@ -33,25 +31,27 @@
             </div>
 
             <!-- Mobile menu button -->
-            <div class="md:hidden" style="display: block;">
-                <label for="mobile-menu-toggle" style="cursor: pointer; padding: 0.5rem;">
+            <div class="arborist-mobile-toggle" style="display: none;">
+                <button type="button" onclick="document.getElementById('arborist-mobile-nav').style.display = document.getElementById('arborist-mobile-nav').style.display === 'none' ? 'block' : 'none';"
+                        style="padding: 0.5rem; background: transparent; border: none; cursor: pointer;">
                     <svg style="height: 1.5rem; width: 1.5rem; color: #4b5563;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
-                </label>
+                </button>
             </div>
         </div>
 
         <!-- Mobile Navigation -->
-        <div id="mobile-nav" class="md:hidden" style="display: none; padding-bottom: 1rem;">
+        <div id="arborist-mobile-nav" class="arborist-mobile-nav" style="display: none; padding-bottom: 1rem;">
             <div style="display: flex; flex-direction: column; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
-                <a href="{% url 'arborist:about' %}" style="color: #4b5563; font-weight: 500; padding: 0.5rem 0;">
+                <a href="{% url 'arborist:about' %}" style="color: #4b5563; font-weight: 500; padding: 0.5rem 0; text-decoration: none;">
                     {% trans "About" %}
                 </a>
-                <a href="{% url 'arborist:services' %}" style="color: #4b5563; font-weight: 500; padding: 0.5rem 0;">
+                <a href="{% url 'arborist:services' %}" style="color: #4b5563; font-weight: 500; padding: 0.5rem 0; text-decoration: none;">
                     {% trans "Services" %}
                 </a>
-                <a href="{% url 'arborist:contact' %}" class="btn btn-primary" style="text-align: center;">
+                <a href="{% url 'arborist:contact' %}"
+                   style="display: block; padding: 0.75rem 1rem; background: #2d5016; color: #fff; border-radius: 0.5rem; font-weight: 600; text-decoration: none; text-align: center;">
                     {% trans "Contact" %}
                 </a>
                 <!-- Mobile Language Switcher -->
@@ -63,23 +63,25 @@
     </nav>
 </header>
 
-<script>
-    // Simple mobile menu toggle
-    document.getElementById('mobile-menu-toggle').addEventListener('change', function() {
-        document.getElementById('mobile-nav').style.display = this.checked ? 'block' : 'none';
-    });
-    // Show desktop nav on larger screens
-    if (window.innerWidth >= 768) {
-        document.querySelectorAll('.md\\:flex').forEach(el => el.style.display = 'flex');
-        document.querySelectorAll('.md\\:hidden').forEach(el => el.style.display = 'none');
-    }
-    window.addEventListener('resize', function() {
-        if (window.innerWidth >= 768) {
-            document.querySelectorAll('.md\\:flex').forEach(el => el.style.display = 'flex');
-            document.querySelectorAll('.md\\:hidden').forEach(el => el.style.display = 'none');
-        } else {
-            document.querySelectorAll('.md\\:flex').forEach(el => el.style.display = 'none');
-            document.querySelectorAll('.md\\:hidden').forEach(el => el.style.display = 'block');
+<style>
+    /* Responsive navigation */
+    @media (max-width: 767px) {
+        .arborist-desktop-nav {
+            display: none !important;
         }
-    });
-</script>
+        .arborist-mobile-toggle {
+            display: block !important;
+        }
+    }
+    @media (min-width: 768px) {
+        .arborist-desktop-nav {
+            display: flex !important;
+        }
+        .arborist-mobile-toggle {
+            display: none !important;
+        }
+        .arborist-mobile-nav {
+            display: none !important;
+        }
+    }
+</style>
