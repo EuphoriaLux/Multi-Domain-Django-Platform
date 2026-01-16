@@ -1,4 +1,127 @@
 {% load i18n %}
+<style>
+    /* Arborist Navigation Styles - Must be before the HTML */
+    /* Responsive navigation */
+    @media (max-width: 767px) {
+        .arborist-desktop-nav {
+            display: none !important;
+        }
+        .arborist-mobile-toggle {
+            display: block !important;
+        }
+    }
+    @media (min-width: 768px) {
+        .arborist-desktop-nav {
+            display: flex !important;
+        }
+        .arborist-mobile-toggle {
+            display: none !important;
+        }
+        .arborist-mobile-nav {
+            display: none !important;
+        }
+    }
+
+    /* Services dropdown - CSS hover */
+    .arborist-nav-dropdown {
+        position: relative;
+    }
+    .arborist-nav-menu {
+        position: absolute;
+        left: 0;
+        top: 100%;
+        margin-top: 0.25rem;
+        width: 12rem;
+        background: #fff;
+        border-radius: 0.5rem;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,.15), 0 8px 10px -6px rgba(0,0,0,.1);
+        padding: 0.5rem 0;
+        z-index: 1000;
+        visibility: hidden;
+        opacity: 0;
+        transition: visibility 0.2s, opacity 0.2s;
+    }
+    .arborist-nav-dropdown:hover .arborist-nav-menu,
+    .arborist-nav-dropdown:focus-within .arborist-nav-menu {
+        visibility: visible;
+        opacity: 1;
+    }
+    .arborist-nav-trigger {
+        color: #4b5563;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 0.5rem 0;
+    }
+    .arborist-nav-trigger:hover {
+        color: #2d5016;
+    }
+    .arborist-nav-menu a {
+        display: block;
+        padding: 0.5rem 1rem;
+        color: #374151;
+        text-decoration: none;
+    }
+    .arborist-nav-menu a:hover {
+        background: #f0fdf4;
+        color: #2d5016;
+    }
+
+    /* Language dropdown */
+    .arborist-lang-dropdown {
+        position: relative;
+    }
+    .arborist-lang-menu {
+        position: absolute;
+        right: 0;
+        top: 100%;
+        margin-top: 0.25rem;
+        width: 8rem;
+        background: #fff;
+        border-radius: 0.5rem;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,.15), 0 8px 10px -6px rgba(0,0,0,.1);
+        padding: 0.25rem 0;
+        z-index: 1000;
+        visibility: hidden;
+        opacity: 0;
+        transition: visibility 0.2s, opacity 0.2s;
+    }
+    .arborist-lang-dropdown:hover .arborist-lang-menu,
+    .arborist-lang-dropdown:focus-within .arborist-lang-menu {
+        visibility: visible;
+        opacity: 1;
+    }
+    .arborist-lang-trigger {
+        color: #4b5563;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+    }
+    .arborist-lang-trigger:hover {
+        color: #2d5016;
+    }
+    .arborist-lang-arrow {
+        width: 0.75rem;
+        height: 0.75rem;
+        transition: transform 0.2s;
+    }
+    .arborist-lang-dropdown:hover .arborist-lang-arrow,
+    .arborist-lang-dropdown:focus-within .arborist-lang-arrow {
+        transform: rotate(180deg);
+    }
+</style>
+
 <header style="background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.1); position: sticky; top: 0; z-index: 50;">
     <nav style="max-width: 1200px; margin: 0 auto; padding: 0 1rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; height: 4rem;">
@@ -12,40 +135,19 @@
             <!-- Desktop Navigation -->
             <div class="arborist-desktop-nav" style="display: flex; align-items: center; gap: 1.5rem;">
                 <!-- Services Dropdown -->
-                <div class="arborist-nav-dropdown" style="position: relative;">
-                    <button type="button" class="arborist-nav-trigger"
-                            style="color: #4b5563; font-weight: 500; display: flex; align-items: center; gap: 0.25rem; background: transparent; border: none; cursor: pointer; font-size: 1rem;">
+                <div class="arborist-nav-dropdown">
+                    <button type="button" class="arborist-nav-trigger">
                         {% trans "Leistungen" %}
                         <svg style="width: 0.75rem; height: 0.75rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                         </svg>
                     </button>
-                    <div class="arborist-nav-menu" style="position: absolute; left: 0; margin-top: 0.5rem; width: 12rem; background: #fff; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,.1); padding: 0.5rem 0; z-index: 100; visibility: hidden; opacity: 0; transition: visibility 0.15s, opacity 0.15s;">
-                        <a href="{% url 'arborist:obstbaumpflege' %}" style="display: block; padding: 0.5rem 1rem; color: #374151; text-decoration: none;"
-                           onmouseover="this.style.background='#f0fdf4'; this.style.color='#2d5016';"
-                           onmouseout="this.style.background='transparent'; this.style.color='#374151';">
-                            {% trans "Obstbaumpflege" %}
-                        </a>
-                        <a href="{% url 'arborist:baumpflege' %}" style="display: block; padding: 0.5rem 1rem; color: #374151; text-decoration: none;"
-                           onmouseover="this.style.background='#f0fdf4'; this.style.color='#2d5016';"
-                           onmouseout="this.style.background='transparent'; this.style.color='#374151';">
-                            {% trans "Baumpflege" %}
-                        </a>
-                        <a href="{% url 'arborist:baumkontrolle' %}" style="display: block; padding: 0.5rem 1rem; color: #374151; text-decoration: none;"
-                           onmouseover="this.style.background='#f0fdf4'; this.style.color='#2d5016';"
-                           onmouseout="this.style.background='transparent'; this.style.color='#374151';">
-                            {% trans "Baumkontrolle" %}
-                        </a>
-                        <a href="{% url 'arborist:oekologie' %}" style="display: block; padding: 0.5rem 1rem; color: #374151; text-decoration: none;"
-                           onmouseover="this.style.background='#f0fdf4'; this.style.color='#2d5016';"
-                           onmouseout="this.style.background='transparent'; this.style.color='#374151';">
-                            {% trans "Ökologie" %}
-                        </a>
-                        <a href="{% url 'arborist:technik' %}" style="display: block; padding: 0.5rem 1rem; color: #374151; text-decoration: none;"
-                           onmouseover="this.style.background='#f0fdf4'; this.style.color='#2d5016';"
-                           onmouseout="this.style.background='transparent'; this.style.color='#374151';">
-                            {% trans "Technik" %}
-                        </a>
+                    <div class="arborist-nav-menu">
+                        <a href="{% url 'arborist:obstbaumpflege' %}">{% trans "Obstbaumpflege" %}</a>
+                        <a href="{% url 'arborist:baumpflege' %}">{% trans "Baumpflege" %}</a>
+                        <a href="{% url 'arborist:baumkontrolle' %}">{% trans "Baumkontrolle" %}</a>
+                        <a href="{% url 'arborist:oekologie' %}">{% trans "Ökologie" %}</a>
+                        <a href="{% url 'arborist:technik' %}">{% trans "Technik" %}</a>
                     </div>
                 </div>
 
@@ -132,36 +234,3 @@
         </div>
     </nav>
 </header>
-
-<style>
-    /* Responsive navigation */
-    @media (max-width: 767px) {
-        .arborist-desktop-nav {
-            display: none !important;
-        }
-        .arborist-mobile-toggle {
-            display: block !important;
-        }
-    }
-    @media (min-width: 768px) {
-        .arborist-desktop-nav {
-            display: flex !important;
-        }
-        .arborist-mobile-toggle {
-            display: none !important;
-        }
-        .arborist-mobile-nav {
-            display: none !important;
-        }
-    }
-
-    /* Services dropdown */
-    .arborist-nav-dropdown:hover .arborist-nav-menu,
-    .arborist-nav-dropdown:focus-within .arborist-nav-menu {
-        visibility: visible;
-        opacity: 1;
-    }
-    .arborist-nav-trigger:hover {
-        color: #2d5016;
-    }
-</style>

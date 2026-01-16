@@ -1,6 +1,5 @@
 {% load i18n %}
-{# CSS-Only Language Switcher for Arborist #}
-{# Uses CSS :focus-within for dropdown - no JavaScript required #}
+{# Language Switcher for Arborist - CSS styles are in navigation.html #}
 
 {% get_current_language as CURRENT_LANGUAGE %}
 {% get_available_languages as AVAILABLE_LANGUAGES %}
@@ -10,7 +9,7 @@
 <div style="padding: 0.5rem 0;">
     <form action="{% url 'set_language' %}" method="post" style="display: flex; align-items: center; gap: 0.5rem;">
         {% csrf_token %}
-        <input type="hidden" name="next" value="{{ request.path }}">
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
         <label for="language-mobile-arborist" style="color: #4b5563; font-size: 0.875rem; display: flex; align-items: center; gap: 0.25rem;">
             <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
@@ -34,26 +33,25 @@
 </div>
 {% else %}
 {# Desktop version - CSS-only dropdown using :hover #}
-<div class="arborist-lang-dropdown" style="position: relative;">
-    <button type="button" class="arborist-lang-trigger"
-            style="color: #4b5563; font-weight: 500; display: flex; align-items: center; gap: 0.25rem; padding: 0.5rem; border-radius: 0.5rem; background: transparent; border: none; cursor: pointer;">
+<div class="arborist-lang-dropdown">
+    <button type="button" class="arborist-lang-trigger">
         <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
         </svg>
         <span style="text-transform: uppercase; font-size: 0.75rem; font-weight: 500;">{{ CURRENT_LANGUAGE }}</span>
-        <svg class="arborist-lang-arrow" style="width: 0.75rem; height: 0.75rem; transition: transform 0.2s;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="arborist-lang-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
         </svg>
     </button>
 
-    <div class="arborist-lang-menu" style="position: absolute; right: 0; margin-top: 0.5rem; width: 8rem; background: #fff; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -2px rgba(0,0,0,.05); padding: 0.25rem 0; z-index: 100; visibility: hidden; opacity: 0; transition: visibility 0.15s, opacity 0.15s;">
+    <div class="arborist-lang-menu">
         {% for lang_code, lang_name in AVAILABLE_LANGUAGES %}
             <form action="{% url 'set_language' %}" method="post" style="display: block; margin: 0;">
                 {% csrf_token %}
                 <input type="hidden" name="language" value="{{ lang_code }}">
-                <input type="hidden" name="next" value="{{ request.path }}">
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
                 <button type="submit"
-                        style="width: 100%; text-align: left; padding: 0.5rem 1rem; font-size: 0.875rem; color: {% if lang_code == CURRENT_LANGUAGE %}#2d5016{% else %}#374151{% endif %}; background: {% if lang_code == CURRENT_LANGUAGE %}#f0fdf4{% else %}transparent{% endif %}; border: none; cursor: pointer; {% if lang_code == CURRENT_LANGUAGE %}font-weight: 600;{% endif %}"
+                        style="width: 100%; text-align: left; padding: 0.5rem 1rem; font-size: 0.875rem; border: none; cursor: pointer; {% if lang_code == CURRENT_LANGUAGE %}color: #2d5016; background: #f0fdf4; font-weight: 600;{% else %}color: #374151; background: transparent;{% endif %}"
                         onmouseover="this.style.background='#f0fdf4'; this.style.color='#2d5016';"
                         onmouseout="this.style.background='{% if lang_code == CURRENT_LANGUAGE %}#f0fdf4{% else %}transparent{% endif %}'; this.style.color='{% if lang_code == CURRENT_LANGUAGE %}#2d5016{% else %}#374151{% endif %}';">
                     {{ lang_name }}
@@ -62,19 +60,4 @@
         {% endfor %}
     </div>
 </div>
-
-<style>
-    .arborist-lang-dropdown:hover .arborist-lang-menu,
-    .arborist-lang-dropdown:focus-within .arborist-lang-menu {
-        visibility: visible;
-        opacity: 1;
-    }
-    .arborist-lang-dropdown:hover .arborist-lang-arrow,
-    .arborist-lang-dropdown:focus-within .arborist-lang-arrow {
-        transform: rotate(180deg);
-    }
-    .arborist-lang-trigger:hover {
-        color: #2d5016;
-    }
-</style>
 {% endif %}
