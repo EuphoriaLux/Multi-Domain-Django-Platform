@@ -185,7 +185,7 @@
             <!-- Logo -->
             <div>
                 <a href="{% url 'arborist:home' %}" style="display: flex; align-items: center; font-size: 1.25rem; font-weight: bold; color: #2d5016; text-decoration: none;">
-                    &#127795; {% trans "Baumwart" %}
+                    &#127795; {% trans "Arborist" %}
                 </a>
             </div>
 
@@ -194,31 +194,31 @@
                 <!-- Services Dropdown -->
                 <div class="arborist-nav-dropdown">
                     <button type="button" class="arborist-nav-trigger">
-                        {% trans "Leistungen" %}
+                        {% trans "Services" %}
                         <svg style="width: 0.75rem; height: 0.75rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                         </svg>
                     </button>
                     <div class="arborist-nav-menu">
-                        <a href="{% url 'arborist:obstbaumpflege' %}">{% trans "Obstbaumpflege" %}</a>
-                        <a href="{% url 'arborist:baumpflege' %}">{% trans "Baumpflege" %}</a>
-                        <a href="{% url 'arborist:baumkontrolle' %}">{% trans "Baumkontrolle" %}</a>
-                        <a href="{% url 'arborist:oekologie' %}">{% trans "Ökologie" %}</a>
-                        <a href="{% url 'arborist:technik' %}">{% trans "Technik" %}</a>
+                        <a href="{% url 'arborist:obstbaumpflege' %}">{% trans "Fruit Tree Care" %}</a>
+                        <a href="{% url 'arborist:baumpflege' %}">{% trans "Tree Care" %}</a>
+                        <a href="{% url 'arborist:baumkontrolle' %}">{% trans "Tree Inspection" %}</a>
+                        <a href="{% url 'arborist:oekologie' %}">{% trans "Ecology" %}</a>
+                        <a href="{% url 'arborist:technik' %}">{% trans "Techniques" %}</a>
                     </div>
                 </div>
 
                 <a href="{% url 'arborist:about' %}" class="arborist-nav-link">
-                    {% trans "Über mich" %}
+                    {% trans "About Me" %}
                 </a>
                 <a href="{% url 'arborist:gallery' %}" class="arborist-nav-link">
-                    {% trans "Galerie" %}
+                    {% trans "Gallery" %}
                 </a>
                 <a href="{% url 'arborist:faq' %}" class="arborist-nav-link">
                     {% trans "FAQ" %}
                 </a>
                 <a href="{% url 'arborist:contact' %}" class="arborist-nav-btn">
-                    {% trans "Kontakt" %}
+                    {% trans "Contact" %}
                 </a>
                 <!-- Language Switcher -->
                 {% include "arborist/partials/language_switcher.html" %}
@@ -239,30 +239,30 @@
     <div class="arborist-mobile-nav" style="display: none; padding-bottom: 1rem; max-width: 1200px; margin: 0 auto; padding-left: 1rem; padding-right: 1rem;">
             <div style="display: flex; flex-direction: column; gap: 0.5rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
                 <!-- Services -->
-                <p style="color: #9ca3af; font-size: 0.75rem; text-transform: uppercase; padding: 0.5rem 0; margin: 0;">{% trans "Leistungen" %}</p>
+                <p style="color: #9ca3af; font-size: 0.75rem; text-transform: uppercase; padding: 0.5rem 0; margin: 0;">{% trans "Services" %}</p>
                 <a href="{% url 'arborist:obstbaumpflege' %}" style="color: #4b5563; padding: 0.5rem 0; text-decoration: none; padding-left: 1rem;">
-                    {% trans "Obstbaumpflege" %}
+                    {% trans "Fruit Tree Care" %}
                 </a>
                 <a href="{% url 'arborist:baumpflege' %}" style="color: #4b5563; padding: 0.5rem 0; text-decoration: none; padding-left: 1rem;">
-                    {% trans "Baumpflege" %}
+                    {% trans "Tree Care" %}
                 </a>
                 <a href="{% url 'arborist:baumkontrolle' %}" style="color: #4b5563; padding: 0.5rem 0; text-decoration: none; padding-left: 1rem;">
-                    {% trans "Baumkontrolle" %}
+                    {% trans "Tree Inspection" %}
                 </a>
                 <a href="{% url 'arborist:oekologie' %}" style="color: #4b5563; padding: 0.5rem 0; text-decoration: none; padding-left: 1rem;">
-                    {% trans "Ökologie" %}
+                    {% trans "Ecology" %}
                 </a>
                 <a href="{% url 'arborist:technik' %}" style="color: #4b5563; padding: 0.5rem 0; text-decoration: none; padding-left: 1rem;">
-                    {% trans "Technik" %}
+                    {% trans "Techniques" %}
                 </a>
 
                 <!-- Other Links -->
                 <div style="border-top: 1px solid #e5e7eb; margin-top: 0.5rem; padding-top: 0.5rem;">
                     <a href="{% url 'arborist:about' %}" style="color: #4b5563; font-weight: 500; padding: 0.5rem 0; text-decoration: none; display: block;">
-                        {% trans "Über mich" %}
+                        {% trans "About Me" %}
                     </a>
                     <a href="{% url 'arborist:gallery' %}" style="color: #4b5563; font-weight: 500; padding: 0.5rem 0; text-decoration: none; display: block;">
-                        {% trans "Galerie" %}
+                        {% trans "Gallery" %}
                     </a>
                     <a href="{% url 'arborist:faq' %}" style="color: #4b5563; font-weight: 500; padding: 0.5rem 0; text-decoration: none; display: block;">
                         {% trans "FAQ" %}
@@ -272,7 +272,7 @@
                 <!-- Contact Button -->
                 <a href="{% url 'arborist:contact' %}"
                    style="display: block; padding: 0.75rem 1rem; background: #2d5016; color: #fff; border-radius: 0.5rem; font-weight: 600; text-decoration: none; text-align: center; margin-top: 0.5rem;">
-                    {% trans "Kontakt" %}
+                    {% trans "Contact" %}
                 </a>
 
                 <!-- Mobile Language Switcher -->

@@ -72,6 +72,38 @@ def save_profile_step1(request):
                     'error': 'Invalid date format. Please use YYYY-MM-DD'
                 }, status=400)
 
+        # Validate required fields: gender and location
+        from .forms import CrushProfileForm
+        from django.utils.translation import gettext as _
+
+        errors = {}
+
+        # Validate gender
+        gender = data.get('gender', '').strip()
+        if not gender:
+            errors['gender'] = _('Please select your gender')
+        else:
+            valid_genders = [choice[0] for choice in CrushProfile.GENDER_CHOICES]
+            if gender not in valid_genders:
+                errors['gender'] = _('Invalid gender selection')
+
+        # Validate location
+        location = data.get('location', '').strip()
+        if not location:
+            errors['location'] = _('Please select your location')
+        else:
+            valid_locations = [choice[0] for choice in CrushProfileForm.LOCATION_CHOICES if choice[0]]
+            if location not in valid_locations:
+                errors['location'] = _('Invalid location selection')
+
+        # Return validation errors if any
+        if errors:
+            return JsonResponse({
+                'success': False,
+                'error': _('Please fill in all required fields'),
+                'errors': errors
+            }, status=400)
+
         # Update basic info
         new_phone_number = data.get('phone_number', '').strip()
 

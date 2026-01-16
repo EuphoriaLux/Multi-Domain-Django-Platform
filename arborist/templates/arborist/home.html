@@ -7,20 +7,20 @@
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto text-center">
             <h1 class="text-4xl md:text-5xl font-bold mb-4">
-                {% trans "Baumwart Tom Aakrann" %}
+                {% trans "Arborist Tom Aakrann" %}
             </h1>
             <p class="text-2xl mb-2">
-                {% trans "Professionelle Baumpflege in Luxemburg" %}
+                {% trans "Professional Tree Care in Luxembourg" %}
             </p>
             <p class="text-lg mb-8 opacity-90">
-                {% trans "FLL-zertifizierter Baumkontrolleur | SKT-B Seilklettertechnik" %}
+                {% trans "FLL-Certified Tree Inspector | SKT-B Rope Climbing Technique" %}
             </p>
             <div class="flex flex-wrap justify-center gap-4">
                 <a href="{% url 'arborist:contact' %}" class="btn btn-primary" style="background: #fff; color: #2d5016;">
-                    {% trans "Kostenlose Beratung" %}
+                    {% trans "Free Consultation" %}
                 </a>
                 <a href="{% url 'arborist:baumkontrolle' %}" class="btn btn-secondary" style="border-color: #fff; color: #fff;">
-                    {% trans "Baumkontrolle" %}
+                    {% trans "Tree Inspection" %}
                 </a>
             </div>
         </div>
@@ -34,17 +34,17 @@
             <div class="flex flex-wrap justify-center gap-8 items-center">
                 <div class="text-center">
                     <div class="text-3xl mb-1">&#128203;</div>
-                    <p class="font-semibold text-green-800">{% trans "FLL zertifiziert" %}</p>
-                    <p class="text-sm text-gray-600">{% trans "Baumkontrolleur" %}</p>
+                    <p class="font-semibold text-green-800">{% trans "FLL Certified" %}</p>
+                    <p class="text-sm text-gray-600">{% trans "Tree Inspector" %}</p>
                 </div>
                 <div class="text-center">
                     <div class="text-3xl mb-1">&#9875;</div>
                     <p class="font-semibold text-green-800">{% trans "SKT-B" %}</p>
-                    <p class="text-sm text-gray-600">{% trans "Seilklettertechnik" %}</p>
+                    <p class="text-sm text-gray-600">{% trans "Rope Climbing Technique" %}</p>
                 </div>
                 <div class="text-center">
                     <div class="text-3xl mb-1">&#127470;&#127473;</div>
-                    <p class="font-semibold text-green-800">{% trans "Luxemburg" %}</p>
+                    <p class="font-semibold text-green-800">{% trans "Luxembourg" %}</p>
                     <p class="text-sm text-gray-600">{% trans "DE | FR | LU" %}</p>
                 </div>
             </div>
@@ -56,37 +56,37 @@
 <section class="py-16">
     <div class="container mx-auto px-4">
         <h2 class="text-3xl font-bold text-center mb-4 text-green-800">
-            {% trans "Meine Leistungen" %}
+            {% trans "My Services" %}
         </h2>
         <p class="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
-            {% trans "Von der fachgerechten Obstbaumpflege bis zur zertifizierten Baumkontrolle - kompetente Baumpflege aus einer Hand." %}
+            {% trans "From professional fruit tree care to certified tree inspection - expert tree care from a single source." %}
         </p>
 
         <div class="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto mb-8">
             <!-- Obstbaumpflege -->
             <a href="{% url 'arborist:obstbaumpflege' %}" class="card hover:shadow-lg transition-shadow">
                 <div class="text-4xl mb-4 text-center">&#127822;</div>
-                <h3 class="text-xl font-semibold mb-2 text-green-800 text-center">{% trans "Obstbaumpflege" %}</h3>
+                <h3 class="text-xl font-semibold mb-2 text-green-800 text-center">{% trans "Fruit Tree Care" %}</h3>
                 <p class="text-gray-600 text-center text-sm">
-                    {% trans "Erziehungsschnitt, Erhaltungsschnitt, Verjüngung - für gesunde und ertragreiche Obstbäume." %}
+                    {% trans "Training pruning, maintenance pruning, rejuvenation - for healthy and productive fruit trees." %}
                 </p>
             </a>
 
             <!-- Baumpflege -->
             <a href="{% url 'arborist:baumpflege' %}" class="card hover:shadow-lg transition-shadow">
                 <div class="text-4xl mb-4 text-center">&#127795;</div>
-                <h3 class="text-xl font-semibold mb-2 text-green-800 text-center">{% trans "Baumpflege" %}</h3>
+                <h3 class="text-xl font-semibold mb-2 text-green-800 text-center">{% trans "Tree Care" %}</h3>
                 <p class="text-gray-600 text-center text-sm">
-                    {% trans "Kronenpflege, Totholzentfernung, Einkürzung - fachgerecht nach ZTV-Baumpflege." %}
+                    {% trans "Crown maintenance, deadwood removal, reduction cuts - professionally according to ZTV tree care standards." %}
                 </p>
             </a>
 
             <!-- Baumkontrolle -->
             <a href="{% url 'arborist:baumkontrolle' %}" class="card hover:shadow-lg transition-shadow">
                 <div class="text-4xl mb-4 text-center">&#128269;</div>
-                <h3 class="text-xl font-semibold mb-2 text-green-800 text-center">{% trans "Baumkontrolle" %}</h3>
+                <h3 class="text-xl font-semibold mb-2 text-green-800 text-center">{% trans "Tree Inspection" %}</h3>
                 <p class="text-gray-600 text-center text-sm">
-                    {% trans "FLL-zertifizierte Kontrolle, Baumkataster, Verkehrssicherheitsprüfung." %}
+                    {% trans "FLL-certified inspection, tree inventory, traffic safety assessment." %}
                 </p>
             </a>
         </div>
@@ -95,18 +95,18 @@
             <!-- Ökologie -->
             <a href="{% url 'arborist:oekologie' %}" class="card hover:shadow-lg transition-shadow">
                 <div class="text-4xl mb-4 text-center">&#127807;</div>
-                <h3 class="text-xl font-semibold mb-2 text-green-800 text-center">{% trans "Ökologische Maßnahmen" %}</h3>
+                <h3 class="text-xl font-semibold mb-2 text-green-800 text-center">{% trans "Ecological Measures" %}</h3>
                 <p class="text-gray-600 text-center text-sm">
-                    {% trans "Habitatbäume, Totholzmanagement, Nisthilfen - Baumpflege für Biodiversität." %}
+                    {% trans "Habitat trees, deadwood management, nesting aids - tree care for biodiversity." %}
                 </p>
             </a>
 
             <!-- Technik -->
             <a href="{% url 'arborist:technik' %}" class="card hover:shadow-lg transition-shadow">
                 <div class="text-4xl mb-4 text-center">&#9875;</div>
-                <h3 class="text-xl font-semibold mb-2 text-green-800 text-center">{% trans "Technik & Methoden" %}</h3>
+                <h3 class="text-xl font-semibold mb-2 text-green-800 text-center">{% trans "Techniques & Methods" %}</h3>
                 <p class="text-gray-600 text-center text-sm">
-                    {% trans "Seilklettertechnik SKT-B, Hubarbeitsbühne, moderne Ausrüstung." %}
+                    {% trans "SKT-B rope climbing technique, aerial work platform, modern equipment." %}
                 </p>
             </a>
         </div>
@@ -118,35 +118,35 @@
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto">
             <h2 class="text-3xl font-bold text-center mb-8 text-green-800">
-                {% trans "Warum Baumwart?" %}
+                {% trans "Why Choose an Arborist?" %}
             </h2>
             <div class="grid md:grid-cols-2 gap-8">
                 <div class="flex gap-4">
                     <div class="text-green-600 text-2xl flex-shrink-0">&#10003;</div>
                     <div>
-                        <h3 class="font-semibold text-lg">{% trans "Zertifizierte Qualifikation" %}</h3>
-                        <p class="text-gray-600">{% trans "FLL-Baumkontrolleur und SKT-B Seilkletterer mit fundierter Ausbildung." %}</p>
+                        <h3 class="font-semibold text-lg">{% trans "Certified Qualification" %}</h3>
+                        <p class="text-gray-600">{% trans "FLL tree inspector and SKT-B rope climber with solid training." %}</p>
                     </div>
                 </div>
                 <div class="flex gap-4">
                     <div class="text-green-600 text-2xl flex-shrink-0">&#10003;</div>
                     <div>
-                        <h3 class="font-semibold text-lg">{% trans "Lokale Expertise" %}</h3>
-                        <p class="text-gray-600">{% trans "Kenntnis der luxemburgischen Baumarten, Regelungen und Gegebenheiten." %}</p>
+                        <h3 class="font-semibold text-lg">{% trans "Local Expertise" %}</h3>
+                        <p class="text-gray-600">{% trans "Knowledge of Luxembourg tree species, regulations, and conditions." %}</p>
                     </div>
                 </div>
                 <div class="flex gap-4">
                     <div class="text-green-600 text-2xl flex-shrink-0">&#10003;</div>
                     <div>
-                        <h3 class="font-semibold text-lg">{% trans "Persönlicher Service" %}</h3>
-                        <p class="text-gray-600">{% trans "Ein Ansprechpartner von der Beratung bis zur Ausführung." %}</p>
+                        <h3 class="font-semibold text-lg">{% trans "Personal Service" %}</h3>
+                        <p class="text-gray-600">{% trans "One point of contact from consultation to completion." %}</p>
                     </div>
                 </div>
                 <div class="flex gap-4">
                     <div class="text-green-600 text-2xl flex-shrink-0">&#10003;</div>
                     <div>
-                        <h3 class="font-semibold text-lg">{% trans "Vollständig versichert" %}</h3>
-                        <p class="text-gray-600">{% trans "Haftpflichtversicherung für Ihre Sicherheit und Ihr Eigentum." %}</p>
+                        <h3 class="font-semibold text-lg">{% trans "Fully Insured" %}</h3>
+                        <p class="text-gray-600">{% trans "Liability insurance for your safety and property." %}</p>
                     </div>
                 </div>
             </div>
@@ -159,18 +159,18 @@
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto text-center">
             <h2 class="text-3xl font-bold mb-4 text-green-800">
-                {% trans "Einsatzgebiet" %}
+                {% trans "Service Area" %}
             </h2>
             <p class="text-lg text-gray-700 mb-6">
-                {% trans "Ich bin in ganz Luxemburg tätig, mit Schwerpunkt auf:" %}
+                {% trans "I operate throughout Luxembourg, with focus on:" %}
             </p>
             <div class="flex flex-wrap justify-center gap-4">
-                <span class="bg-green-100 text-green-800 px-4 py-2 rounded-lg">{% trans "Luxemburg-Stadt" %}</span>
+                <span class="bg-green-100 text-green-800 px-4 py-2 rounded-lg">{% trans "Luxembourg City" %}</span>
                 <span class="bg-green-100 text-green-800 px-4 py-2 rounded-lg">{% trans "Esch-sur-Alzette" %}</span>
                 <span class="bg-green-100 text-green-800 px-4 py-2 rounded-lg">{% trans "Differdange" %}</span>
                 <span class="bg-green-100 text-green-800 px-4 py-2 rounded-lg">{% trans "Dudelange" %}</span>
                 <span class="bg-green-100 text-green-800 px-4 py-2 rounded-lg">{% trans "Ettelbruck" %}</span>
-                <span class="bg-green-100 text-green-800 px-4 py-2 rounded-lg">{% trans "und Umgebung" %}</span>
+                <span class="bg-green-100 text-green-800 px-4 py-2 rounded-lg">{% trans "and surrounding areas" %}</span>
             </div>
         </div>
     </div>
@@ -180,17 +180,17 @@
 <section class="py-16 bg-green-800 text-white">
     <div class="container mx-auto px-4 text-center">
         <h2 class="text-3xl font-bold mb-4">
-            {% trans "Kostenlose Beratung" %}
+            {% trans "Free Consultation" %}
         </h2>
         <p class="text-xl mb-8 max-w-2xl mx-auto">
-            {% trans "Haben Sie Fragen zu Ihren Bäumen? Ich berate Sie gerne vor Ort - unverbindlich und kostenlos." %}
+            {% trans "Have questions about your trees? I'm happy to advise you on-site - no obligation and free of charge." %}
         </p>
         <div class="flex flex-wrap justify-center gap-4">
             <a href="{% url 'arborist:contact' %}" class="btn" style="background: #fff; color: #2d5016;">
-                {% trans "Kontakt aufnehmen" %}
+                {% trans "Get in Touch" %}
             </a>
             <a href="tel:+352621981363" class="btn btn-secondary" style="border-color: #fff; color: #fff;">
-                {% trans "Anrufen" %}
+                {% trans "Call" %}
             </a>
         </div>
     </div>

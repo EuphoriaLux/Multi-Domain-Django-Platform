@@ -6,7 +6,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{{ page_title|default:"Baumwart Tom Aakrann - Baumpflege Luxemburg" }}{% endblock %}</title>
+    <title>{% block title %}{{ page_title|default:"Arborist Tom Aakrann - Tree Care Luxembourg" }}{% endblock %}</title>
 
     <!-- Theme Color -->
     <meta name="theme-color" content="#2d5016">
@@ -123,16 +123,16 @@
     </style>
 
     <!-- SEO Meta Tags -->
-    <meta name="description" content="{% block meta_description %}{{ meta_description|default:"Baumwart Tom Aakrann - Professionelle Baumpflege in Luxemburg. FLL-zertifizierter Baumkontrolleur, SKT-B Seilkletterer." }}{% endblock %}">
+    <meta name="description" content="{% block meta_description %}{{ meta_description|default:"Arborist Tom Aakrann - Professional tree care in Luxembourg. FLL-certified tree inspector, SKT-B rope climbing technician." }}{% endblock %}">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://arborist.lu{{ request.path }}">
 
     <!-- Open Graph / Facebook -->
-    <meta property="og:title" content="{% block og_title %}{{ page_title|default:"Baumwart Tom Aakrann" }}{% endblock %}">
-    <meta property="og:description" content="{{ meta_description|default:"Professionelle Baumpflege in Luxemburg. FLL-zertifizierter Baumkontrolleur, SKT-B Seilkletterer." }}">
+    <meta property="og:title" content="{% block og_title %}{{ page_title|default:"Arborist Tom Aakrann" }}{% endblock %}">
+    <meta property="og:description" content="{{ meta_description|default:"Professional tree care in Luxembourg. FLL-certified tree inspector, SKT-B rope climbing technician." }}">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://arborist.lu{{ request.path }}">
-    <meta property="og:site_name" content="Baumwart Tom Aakrann">
+    <meta property="og:site_name" content="Arborist Tom Aakrann">
     <meta property="og:locale" content="{{ LANGUAGE_CODE }}">
 
     <!-- LocalBusiness Structured Data -->
@@ -141,8 +141,8 @@
         "@context": "https://schema.org",
         "@type": "LocalBusiness",
         "@id": "https://arborist.lu/#business",
-        "name": "Baumwart Tom Aakrann",
-        "description": "{% trans 'Professionelle Baumpflege in Luxemburg. FLL-zertifizierter Baumkontrolleur, SKT-B Seilkletterer. Obstbaumpflege, Baumpflege, Baumkontrolle.' %}",
+        "name": "Arborist Tom Aakrann",
+        "description": "{% trans 'Professional tree care in Luxembourg. FLL-certified tree inspector, SKT-B rope climbing technician. Fruit tree care, tree maintenance, tree inspection.' %}",
         "url": "https://arborist.lu",
         "telephone": "+352621981363",
         "email": "info@arborist.lu",
@@ -172,13 +172,13 @@
         "sameAs": [],
         "hasOfferCatalog": {
             "@type": "OfferCatalog",
-            "name": "{% trans 'Baumpflege-Leistungen' %}",
+            "name": "{% trans 'Tree Care Services' %}",
             "itemListElement": [
                 {
                     "@type": "Offer",
                     "itemOffered": {
                         "@type": "Service",
-                        "name": "{% trans 'Obstbaumpflege' %}",
+                        "name": "{% trans 'Fruit Tree Care' %}",
                         "url": "https://arborist.lu/{{ LANGUAGE_CODE }}/obstbaumpflege/"
                     }
                 },
@@ -186,7 +186,7 @@
                     "@type": "Offer",
                     "itemOffered": {
                         "@type": "Service",
-                        "name": "{% trans 'Baumpflege' %}",
+                        "name": "{% trans 'Tree Care' %}",
                         "url": "https://arborist.lu/{{ LANGUAGE_CODE }}/baumpflege/"
                     }
                 },
@@ -194,7 +194,7 @@
                     "@type": "Offer",
                     "itemOffered": {
                         "@type": "Service",
-                        "name": "{% trans 'Baumkontrolle' %}",
+                        "name": "{% trans 'Tree Inspection' %}",
                         "url": "https://arborist.lu/{{ LANGUAGE_CODE }}/baumkontrolle/"
                     }
                 }

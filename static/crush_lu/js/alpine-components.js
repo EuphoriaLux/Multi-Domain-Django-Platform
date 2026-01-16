@@ -1243,6 +1243,16 @@ document.addEventListener('alpine:init', function() {
             step1Valid: false,
             step2Valid: true,
 
+            // Step 1 required fields tracking
+            gender: '',
+            location: '',
+
+            // Step 2 required fields tracking
+            lookingFor: '',
+
+            // Field-specific error messages
+            fieldErrors: {},
+
             // Step saving state
             isSaving: false,
             saveError: '',
@@ -1266,8 +1276,17 @@ document.addEventListener('alpine:init', function() {
             get isSavingStep() { return this.isSaving; },
             get isNotSaving() { return !this.isSaving; },
             get hasSaveError() { return this.saveError !== ''; },
-            get canContinueStep1() { return this.phoneVerified && !this.isSaving; },
-            get cannotContinueStep1() { return !this.phoneVerified || this.isSaving; },
+            get hasFieldErrors() { return Object.keys(this.fieldErrors).length > 0; },
+            get canContinueStep1() { return this.phoneVerified && this.gender !== '' && this.location !== '' && !this.isSaving; },
+            get cannotContinueStep1() { return !this.phoneVerified || this.gender === '' || this.location === '' || this.isSaving; },
+            get canContinueStep2() { return this.lookingFor !== '' && !this.isSaving; },
+            get cannotContinueStep2() { return this.lookingFor === '' || this.isSaving; },
+            get hasGenderError() { return this.fieldErrors.gender !== undefined; },
+            get hasLocationError() { return this.fieldErrors.location !== undefined; },
+            get hasLookingForError() { return this.fieldErrors.looking_for !== undefined; },
+            get genderErrorMessage() { return this.fieldErrors.gender || ''; },
+            get locationErrorMessage() { return this.fieldErrors.location || ''; },
+            get lookingForErrorMessage() { return this.fieldErrors.looking_for || ''; },
 
             // Step progress bar classes (avoid ternary expressions in templates)
             get step1CircleClass() {
@@ -1371,6 +1390,97 @@ document.addEventListener('alpine:init', function() {
                 // Listen for phone unverification (when user clicks Change)
                 this.$el.addEventListener('phone-unverified', function() {
                     self.phoneVerified = false;
+                });
+
+                // Initialize field values from DOM
+                self.initFieldTracking();
+
+                // Listen for custom events from canton map and gender selection
+                window.addEventListener('location-selected', function(e) {
+                    if (e.detail && e.detail.location) {
+                        self.location = e.detail.location;
+                        self.fieldErrors.location = undefined;
+                    }
+                });
+
+                window.addEventListener('gender-selected', function(e) {
+                    if (e.detail && e.detail.gender) {
+                        self.gender = e.detail.gender;
+                        self.fieldErrors.gender = undefined;
+                    }
+                });
+
+                window.addEventListener('looking-for-selected', function(e) {
+                    if (e.detail && e.detail.lookingFor) {
+                        self.lookingFor = e.detail.lookingFor;
+                        self.fieldErrors.looking_for = undefined;
+                    }
+                });
+            },
+
+            // Initialize field tracking from DOM values
+            initFieldTracking: function() {
+                var self = this;
+
+                // Read initial gender value
+                var genderEl = document.querySelector('[name="gender"]:checked');
+                if (genderEl) {
+                    self.gender = genderEl.value;
+                }
+
+                // Read initial location value
+                var locationEl = document.getElementById('id_location');
+                if (locationEl && locationEl.value) {
+                    self.location = locationEl.value;
+                }
+
+                // Read initial looking_for value
+                var lookingForEl = document.querySelector('[name="looking_for"]:checked');
+                if (lookingForEl) {
+                    self.lookingFor = lookingForEl.value;
+                }
+
+                // Set up change listeners for gender radio buttons
+                var genderRadios = document.querySelectorAll('[name="gender"]');
+                genderRadios.forEach(function(radio) {
+                    radio.addEventListener('change', function(e) {
+                        self.gender = e.target.value;
+                        self.fieldErrors.gender = undefined;
+                        // Dispatch event for other components
+                        window.dispatchEvent(new CustomEvent('gender-selected', {
+                            detail: { gender: e.target.value }
+                        }));
+                    });
+                });
+
+                // Set up change listener for location (hidden input updated by canton map)
+                var locationInput = document.getElementById('id_location');
+                if (locationInput) {
+                    // Use MutationObserver to detect value changes on hidden input
+                    var observer = new MutationObserver(function(mutations) {
+                        mutations.forEach(function(mutation) {
+                            if (mutation.type === 'attributes' && mutation.attributeName === 'value') {
+                                self.location = locationInput.value;
+                                self.fieldErrors.location = undefined;
+                            }
+                        });
+                    });
+                    observer.observe(locationInput, { attributes: true });
+
+                    // Also listen for direct changes
+                    locationInput.addEventListener('change', function(e) {
+                        self.location = e.target.value;
+                        self.fieldErrors.location = undefined;
+                    });
+                }
+
+                // Set up change listeners for looking_for radio buttons
+                var lookingForRadios = document.querySelectorAll('[name="looking_for"]');
+                lookingForRadios.forEach(function(radio) {
+                    radio.addEventListener('change', function(e) {
+                        self.lookingFor = e.target.value;
+                        self.fieldErrors.looking_for = undefined;
+                    });
                 });
             },
 
@@ -1525,6 +1635,7 @@ document.addEventListener('alpine:init', function() {
                 var self = this;
                 self.isSaving = true;
                 self.saveError = '';
+                self.fieldErrors = {};
 
                 var data = self.collectStep1Data();
 
@@ -1544,10 +1655,15 @@ document.addEventListener('alpine:init', function() {
                 .then(function(result) {
                     self.isSaving = false;
                     if (result.ok && result.data.success) {
+                        self.fieldErrors = {};
                         return { success: true };
                     } else {
                         self.saveError = result.data.error || 'Failed to save. Please try again.';
-                        return { success: false, error: self.saveError };
+                        // Handle field-specific errors from backend
+                        if (result.data.errors) {
+                            self.fieldErrors = result.data.errors;
+                        }
+                        return { success: false, error: self.saveError, errors: result.data.errors };
                     }
                 })
                 .catch(function(err) {
@@ -1562,6 +1678,7 @@ document.addEventListener('alpine:init', function() {
                 var self = this;
                 self.isSaving = true;
                 self.saveError = '';
+                self.fieldErrors = {};
 
                 var data = self.collectStep2Data();
 
@@ -1581,10 +1698,15 @@ document.addEventListener('alpine:init', function() {
                 .then(function(result) {
                     self.isSaving = false;
                     if (result.ok && result.data.success) {
+                        self.fieldErrors = {};
                         return { success: true };
                     } else {
                         self.saveError = result.data.error || 'Failed to save. Please try again.';
-                        return { success: false, error: self.saveError };
+                        // Handle field-specific errors from backend
+                        if (result.data.errors) {
+                            self.fieldErrors = result.data.errors;
+                        }
+                        return { success: false, error: self.saveError, errors: result.data.errors };
                     }
                 })
                 .catch(function(err) {
@@ -1968,6 +2090,11 @@ document.addEventListener('alpine:init', function() {
                     hiddenInput.value = regionId;
                     hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
                 }
+
+                // Dispatch global event for profileWizard validation tracking
+                window.dispatchEvent(new CustomEvent('location-selected', {
+                    detail: { location: regionId, name: regionName }
+                }));
 
                 this.$dispatch('region-selected', { id: regionId, name: regionName });
             },

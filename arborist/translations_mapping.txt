@@ -1,0 +1,339 @@
+# Arborist Templates Translation Mapping
+# Format: German text|English text
+# This file documents the German to English translations made in the arborist templates.
+
+# Brand/Business Name
+Baumwart|Arborist
+Baumwart Tom Aakrann|Arborist Tom Aakrann
+
+# Navigation & Menu
+Leistungen|Services
+Obstbaumpflege|Fruit Tree Care
+Baumpflege|Tree Care
+Baumkontrolle|Tree Inspection
+Ökologie|Ecology
+Technik|Techniques
+Über mich|About Me
+Galerie|Gallery
+FAQ|FAQ
+Kontakt|Contact
+
+# Hero Section
+Professionelle Baumpflege in Luxemburg|Professional Tree Care in Luxembourg
+FLL-zertifizierter Baumkontrolleur | SKT-B Seilklettertechnik|FLL-Certified Tree Inspector | SKT-B Rope Climbing Technique
+Kostenlose Beratung|Free Consultation
+
+# Trust Markers
+FLL zertifiziert|FLL Certified
+Baumkontrolleur|Tree Inspector
+SKT-B|SKT-B
+Seilklettertechnik|Rope Climbing Technique
+Luxemburg|Luxembourg
+DE | FR | LU|DE | FR | LU
+
+# Services Section
+Meine Leistungen|My Services
+Von der fachgerechten Obstbaumpflege bis zur zertifizierten Baumkontrolle - kompetente Baumpflege aus einer Hand.|From professional fruit tree care to certified tree inspection - expert tree care from a single source.
+Erziehungsschnitt, Erhaltungsschnitt, Verjüngung - für gesunde und ertragreiche Obstbäume.|Training pruning, maintenance pruning, rejuvenation - for healthy and productive fruit trees.
+Kronenpflege, Totholzentfernung, Einkürzung - fachgerecht nach ZTV-Baumpflege.|Crown maintenance, deadwood removal, reduction cuts - professionally according to ZTV tree care standards.
+FLL-zertifizierte Kontrolle, Baumkataster, Verkehrssicherheitsprüfung.|FLL-certified inspection, tree inventory, traffic safety assessment.
+Ökologische Maßnahmen|Ecological Measures
+Habitatbäume, Totholzmanagement, Nisthilfen - Baumpflege für Biodiversität.|Habitat trees, deadwood management, nesting aids - tree care for biodiversity.
+Technik & Methoden|Techniques & Methods
+Seilklettertechnik SKT-B, Hubarbeitsbühne, moderne Ausrüstung.|SKT-B rope climbing technique, aerial work platform, modern equipment.
+
+# Why Choose Section
+Warum Baumwart?|Why Choose an Arborist?
+Zertifizierte Qualifikation|Certified Qualification
+FLL-Baumkontrolleur und SKT-B Seilkletterer mit fundierter Ausbildung.|FLL tree inspector and SKT-B rope climber with solid training.
+Lokale Expertise|Local Expertise
+Kenntnis der luxemburgischen Baumarten, Regelungen und Gegebenheiten.|Knowledge of Luxembourg tree species, regulations, and conditions.
+Persönlicher Service|Personal Service
+Ein Ansprechpartner von der Beratung bis zur Ausführung.|One point of contact from consultation to completion.
+Vollständig versichert|Fully Insured
+Haftpflichtversicherung für Ihre Sicherheit und Ihr Eigentum.|Liability insurance for your safety and property.
+
+# Service Area Section
+Einsatzgebiet|Service Area
+Ich bin in ganz Luxemburg tätig, mit Schwerpunkt auf:|I operate throughout Luxembourg, with focus on:
+Luxemburg-Stadt|Luxembourg City
+Esch-sur-Alzette|Esch-sur-Alzette
+Differdange|Differdange
+Dudelange|Dudelange
+Ettelbruck|Ettelbruck
+und Umgebung|and surrounding areas
+
+# CTA Section
+Haben Sie Fragen zu Ihren Bäumen? Ich berate Sie gerne vor Ort - unverbindlich und kostenlos.|Have questions about your trees? I'm happy to advise you on-site - no obligation and free of charge.
+Kontakt aufnehmen|Get in Touch
+Anrufen|Call
+
+# Footer
+Tom Aakrann - Professionelle Baumpflege in Luxemburg. FLL-zertifizierter Baumkontrolleur, SKT-B Seilkletterer.|Tom Aakrann - Professional tree care in Luxembourg. FLL-certified tree inspector, SKT-B rope climber.
+Telefon|Phone
+Information|Information
+Alle Rechte vorbehalten.|All rights reserved.
+
+# WhatsApp Button
+Hallo, ich interessiere mich für Ihre Baumpflege-Dienste.|Hello, I am interested in your tree care services.
+Per WhatsApp kontaktieren|Contact via WhatsApp
+WhatsApp öffnen|Open WhatsApp
+
+# Base Template / SEO
+Baumwart Tom Aakrann - Baumpflege Luxemburg|Arborist Tom Aakrann - Tree Care Luxembourg
+Professionelle Baumpflege in Luxemburg. FLL-zertifizierter Baumkontrolleur, SKT-B Seilkletterer. Obstbaumpflege, Baumpflege, Baumkontrolle.|Professional tree care in Luxembourg. FLL-certified tree inspector, SKT-B rope climbing technician. Fruit tree care, tree maintenance, tree inspection.
+Baumpflege-Leistungen|Tree Care Services
+
+# ============================================================
+# Service Pages - Converted from German to English source
+# ============================================================
+
+# obstbaumpflege.html (Fruit Tree Care)
+Obstbaumpflege|Fruit Tree Care
+Professionelle Pflege für gesunde und ertragreiche Obstbäume in Luxemburg.|Professional care for healthy and productive fruit trees in Luxembourg.
+Meine Leistungen für Ihre Obstbäume|My Services for Your Fruit Trees
+Erziehungsschnitt|Formative Pruning
+Der Erziehungsschnitt formt junge Obstbäume zu einer stabilen Kronenstruktur. Er legt das Fundament für einen gesunden, tragfähigen Baum.|Formative pruning shapes young fruit trees into a stable crown structure. It lays the foundation for a healthy, productive tree.
+Erhaltungsschnitt|Maintenance Pruning
+Der regelmäßige Erhaltungsschnitt hält Ihren Obstbaum in Balance. Fruchtholz wird erneuert, die Krone bleibt licht und vital.|Regular maintenance pruning keeps your fruit tree in balance. Fruiting wood is renewed, and the crown stays light and vital.
+Verjüngungsschnitt|Rejuvenation Pruning
+Alte, vernachlässigte Obstbäume können durch fachgerechten Verjüngungsschnitt neues Leben bekommen und wieder reichlich tragen.|Old, neglected fruit trees can be given new life through proper rejuvenation pruning and bear fruit abundantly again.
+Sommerschnitt|Summer Pruning
+Der Sommerschnitt bremst übermäßiges Wachstum und verbessert die Fruchtqualität. Besonders wichtig bei Steinobst.|Summer pruning slows excessive growth and improves fruit quality. Especially important for stone fruit.
+Vorteile professioneller Obstbaumpflege|Benefits of Professional Fruit Tree Care
+Höhere Erträge durch optimale Kronenstruktur|Higher yields through optimal crown structure
+Bessere Fruchtqualität durch mehr Licht und Luft|Better fruit quality through more light and air
+Weniger Krankheiten durch gute Durchlüftung|Fewer diseases through good ventilation
+Längere Lebensdauer Ihrer Obstbäume|Longer lifespan for your fruit trees
+Sichere Ernte ohne überhängende Äste|Safe harvesting without overhanging branches
+Der richtige Zeitpunkt|The Right Time
+Kernobst (Apfel, Birne)|Pome Fruit (Apple, Pear)
+Winterschnitt von November bis März, wenn der Baum ruht.|Winter pruning from November to March when the tree is dormant.
+Steinobst (Kirsche, Pflaume)|Stone Fruit (Cherry, Plum)
+Sommerschnitt nach der Ernte für beste Wundheilung.|Summer pruning after harvest for best wound healing.
+Interesse an professioneller Obstbaumpflege?|Interested in Professional Fruit Tree Care?
+Kontaktieren Sie mich für eine kostenlose Beratung.|Contact me for a free consultation.
+
+# baumpflege.html (Tree Care)
+Baumpflege|Tree Care
+Fachgerechte Pflege für gesunde und sichere Bäume in Luxemburg.|Professional care for healthy and safe trees in Luxembourg.
+Professionelle Baumpflege nach ZTV-Baumpflege|Professional Tree Care According to ZTV Standards
+Bäume sind lebende Organismen, die fachkundige Pflege verdienen. Als zertifizierter Baumpfleger arbeite ich nach den anerkannten Richtlinien der ZTV-Baumpflege und sorge für die Gesundheit und Sicherheit Ihrer Bäume.|Trees are living organisms that deserve expert care. As a certified arborist, I work according to recognized ZTV tree care guidelines and ensure the health and safety of your trees.
+Kronenpflege|Crown Care
+Entfernung von Totholz, sich kreuzenden Ästen und Wasserschossen. Die natürliche Kronenform bleibt erhalten.|Removal of deadwood, crossing branches, and water sprouts. The natural crown shape is preserved.
+Kroneneinkürzung|Crown Reduction
+Fachgerechte Reduzierung der Kronengröße bei zu groß gewordenen Bäumen. Erhalt der natürlichen Wuchsform.|Professional reduction of crown size for trees that have grown too large. Maintaining the natural growth form.
+Lichtraumprofilschnitt|Clearance Pruning
+Freischneiden von Verkehrswegen, Gebäuden und Leitungen. Für sichere Durchfahrtshöhen und freie Sicht.|Clearing around traffic routes, buildings, and utility lines. For safe clearance heights and clear visibility.
+Totholzentfernung|Deadwood Removal
+Abgestorbene Äste werden fachgerecht entfernt, um Gefahren zu minimieren und den Baum zu entlasten.|Dead branches are professionally removed to minimize hazards and relieve stress on the tree.
+Schonende Arbeitsmethoden|Gentle Working Methods
+Ich arbeite überwiegend mit Seilklettertechnik (SKT-B). Diese Methode ist besonders schonend für Baum und Umgebung:|I primarily work with rope climbing technique (SKT-B). This method is particularly gentle on trees and their surroundings:
+Keine schweren Maschinen auf Ihrem Grundstück|No heavy machinery on your property
+Zugang auch an schwer erreichbaren Stellen|Access even in hard-to-reach areas
+Minimale Bodenverdichtung|Minimal soil compaction
+Präzise Arbeit direkt am Ast|Precise work directly at the branch
+Erfahrung mit allen Baumarten|Experience with All Tree Species
+Ob einheimische oder exotische Bäume - jede Art hat ihre Besonderheiten:|Whether native or exotic trees - every species has its characteristics:
+Eiche|Oak
+Buche|Beech
+Linde|Lime
+Ahorn|Maple
+Kastanie|Chestnut
+Nadelbäume|Conifers
+Brauchen Ihre Bäume Pflege?|Do Your Trees Need Care?
+Ich berate Sie gerne vor Ort - kostenlos und unverbindlich.|I am happy to advise you on-site - free and without obligation.
+Beratung anfragen|Request Consultation
+
+# baumkontrolle.html (Tree Inspection)
+Baumkontrolle|Tree Inspection
+FLL-zertifizierte Baumkontrolle für Verkehrssicherheit in Luxemburg.|FLL-certified tree inspection for traffic safety in Luxembourg.
+FLL-zertifizierter Baumkontrolleur|FLL-Certified Tree Inspector
+Forschungsgesellschaft Landschaftsentwicklung Landschaftsbau e.V.|Research Society for Landscape Development and Construction
+Warum Baumkontrolle wichtig ist|Why Tree Inspection is Important
+Als Baumeigentümer tragen Sie die Verkehrssicherungspflicht. Regelmäßige Baumkontrollen schützen Sie vor Haftungsansprüchen und sorgen für die Sicherheit von Menschen und Eigentum.|As a tree owner, you bear the duty to ensure traffic safety. Regular tree inspections protect you from liability claims and ensure the safety of people and property.
+Visuelle Baumkontrolle|Visual Tree Inspection
+Systematische Begutachtung des Baumes vom Boden aus. Erfassung von Vitalität, Statik und Verkehrssicherheit nach FLL-Richtlinien.|Systematic assessment of the tree from the ground. Recording vitality, structural integrity, and traffic safety according to FLL guidelines.
+Eingehende Untersuchung|Detailed Examination
+Bei Auffälligkeiten: Detaillierte Untersuchung mit Klettertechnik, Schallmessung oder anderen Methoden zur genauen Diagnose.|For anomalies: Detailed examination using climbing techniques, sound testing, or other methods for precise diagnosis.
+Baumkataster|Tree Inventory
+Systematische Erfassung und Dokumentation Ihres Baumbestandes. Digitale Verwaltung mit Kontrollintervallen und Maßnahmenplanung.|Systematic recording and documentation of your tree stock. Digital management with inspection intervals and action planning.
+Gutachten & Dokumentation|Reports & Documentation
+Schriftliche Dokumentation aller Befunde mit Handlungsempfehlungen. Rechtssichere Nachweise für Ihre Unterlagen.|Written documentation of all findings with recommendations. Legally compliant records for your files.
+Ablauf einer Baumkontrolle|Tree Inspection Process
+Terminvereinbarung|Appointment Scheduling
+Wir besprechen Umfang und Zielsetzung der Kontrolle.|We discuss the scope and objectives of the inspection.
+Vor-Ort-Begehung|On-Site Assessment
+Systematische Untersuchung jedes Baumes nach FLL-Schema.|Systematic examination of each tree according to FLL methodology.
+Dokumentation|Documentation
+Erstellung eines detaillierten Kontrollprotokolls mit Fotos.|Creation of a detailed inspection report with photos.
+Handlungsempfehlungen|Recommendations
+Konkrete Maßnahmen mit Prioritäten und Zeitrahmen.|Specific measures with priorities and timeframes.
+Für wen ist Baumkontrolle wichtig?|Who Needs Tree Inspection?
+Kommunen & Gemeinden|Municipalities & Local Authorities
+Straßenbäume, Parks, Schulhöfe|Street trees, parks, schoolyards
+Unternehmen|Businesses
+Firmengelände, Parkplätze|Company grounds, parking lots
+Hausverwaltungen|Property Managers
+Wohnanlagen, Innenhöfe|Residential complexes, courtyards
+Privatpersonen|Private Individuals
+Gartenbäume an öffentlichen Wegen|Garden trees near public paths
+Baumkontrolle beauftragen|Commission a Tree Inspection
+Erfüllen Sie Ihre Verkehrssicherungspflicht mit professioneller Dokumentation.|Fulfill your duty to ensure traffic safety with professional documentation.
+Angebot anfordern|Request Quote
+
+# oekologie.html (Ecological Measures)
+Ökologische Maßnahmen|Ecological Measures
+Naturnahe Baumpflege für mehr Biodiversität in Luxemburg.|Nature-friendly tree care for more biodiversity in Luxembourg.
+Baumpflege im Einklang mit der Natur|Tree Care in Harmony with Nature
+Bäume sind wichtige Lebensräume für viele Tierarten. Bei meiner Arbeit achte ich darauf, ökologische Strukturen zu erhalten und zu fördern - für eine lebendige Natur in Luxemburg.|Trees are important habitats for many animal species. In my work, I ensure ecological structures are preserved and promoted - for a vibrant nature in Luxembourg.
+Habitatbäume|Habitat Trees
+Identifizierung und Schutz von Bäumen mit besonderen Strukturen wie Höhlen, Spalten oder Totholz als Lebensraum für Vögel, Fledermäuse und Insekten.|Identification and protection of trees with special features such as cavities, crevices, or deadwood as habitat for birds, bats, and insects.
+Totholzmanagement|Deadwood Management
+Gezieltes Belassen von stehendem und liegendem Totholz, wo es sicher ist. Totholz ist Lebensraum für hunderte Arten.|Targeted retention of standing and fallen deadwood where it is safe. Deadwood is habitat for hundreds of species.
+Nisthilfen|Nesting Aids
+Installation von Nistkästen für Vögel, Fledermauskästen und Insektenhotels. Fachgerechte Anbringung und Beratung zur Pflege.|Installation of bird nesting boxes, bat boxes, and insect hotels. Professional mounting and advice on maintenance.
+Artenschutz bei Baumarbeiten|Species Protection During Tree Work
+Vorabkontrolle auf geschützte Arten vor Baumpflegemaßnahmen. Einhaltung der Brutzeiten und Schutzvorschriften.|Pre-inspection for protected species before tree care measures. Compliance with breeding seasons and protection regulations.
+Warum ökologische Baumpflege?|Why Ecological Tree Care?
+Bäume sind mehr als nur Holz - sie sind komplexe Ökosysteme:|Trees are more than just wood - they are complex ecosystems:
+Eine alte Eiche kann über 1.000 Tierarten beherbergen|A mature oak can host over 1,000 animal species
+Spechthöhlen werden von über 60 Folgenutzer-Arten genutzt|Woodpecker holes are used by over 60 secondary nesting species
+Totholz ist Lebensgrundlage für 25% aller Waldarten|Deadwood is the foundation of life for 25% of all forest species
+Bäume kühlen ihre Umgebung und filtern die Luft|Trees cool their surroundings and filter the air
+Leistungen für mehr Natur|Services for More Nature
+Streuobstwiesen-Pflege|Traditional Orchard Care
+Erhaltung alter Obstsorten und ihrer einzigartigen Lebensräume.|Preservation of old fruit varieties and their unique habitats.
+Kopfbaumpflege|Pollard Tree Care
+Traditionelle Schnittform mit hohem ökologischem Wert.|Traditional pruning form with high ecological value.
+Ökologische Beratung|Ecological Consultation
+Tipps für naturnahe Gartengestaltung mit heimischen Bäumen.|Tips for nature-friendly garden design with native trees.
+Naturnahe Baumpflege interessiert Sie?|Interested in Nature-Friendly Tree Care?
+Lassen Sie uns gemeinsam Lebensräume erhalten.|Let us preserve habitats together.
+
+# technik.html (Equipment & Techniques)
+Technik & Methoden|Equipment & Techniques
+Moderne Ausrüstung und bewährte Techniken für sichere Baumpflege.|Modern equipment and proven techniques for safe tree care.
+SKT-B zertifiziert|SKT-B Certified
+Seilklettertechnik B - Arbeiten mit Motorsäge|Rope Climbing Technique B - Work with Chainsaw
+Seilklettertechnik (SKT)|Rope Climbing Technique (SKT)
+Die Seilklettertechnik ist die modernste und schonendste Methode der Baumpflege. Als SKT-B zertifizierter Kletterer arbeite ich sicher und effizient in jeder Baumkrone.|Rope climbing technique is the most modern and gentle method of tree care. As an SKT-B certified climber, I work safely and efficiently in any tree crown.
+Vorteile der Seilklettertechnik|Advantages of Rope Climbing Technique
+Zugang auch in schwierigem Gelände|Access even in difficult terrain
+Keine Schäden an Rasen oder Wegen|No damage to lawns or pathways
+Präzise Arbeit an jedem Ast|Precise work on every branch
+Umweltfreundlich und leise|Environmentally friendly and quiet
+Einsatzbereiche|Applications
+Kronenpflege in Gärten|Crown care in gardens
+Totholzentfernung|Deadwood removal
+Baumfällung in Stücken|Sectional tree felling
+Eingehende Baumkontrolle|Detailed tree inspection
+Professionelle Ausrüstung|Professional Equipment
+Kletterausrüstung|Climbing Equipment
+Geprüfte Seile, Gurte und Karabiner nach EN-Norm|Tested ropes, harnesses, and carabiners to EN standards
+Schneidwerkzeuge|Cutting Tools
+Profi-Sägen und -Scheren für saubere Schnitte|Professional saws and pruners for clean cuts
+Sicherheit|Safety
+Helm, Schnittschutz, Absturzsicherung|Helmet, chainsaw protection, fall arrest
+Weitere Arbeitsmethoden|Other Working Methods
+Hubarbeitsbühne|Aerial Work Platform
+Bei guter Zufahrt und großen Baumbeständen. Schnelles Arbeiten in der Höhe.|With good access and large tree populations. Fast work at height.
+Bodentechnik|Ground-Based Techniques
+Arbeiten vom Boden mit Teleskopwerkzeugen bei kleineren Bäumen.|Working from the ground with telescopic tools for smaller trees.
+Seilzugtechnik|Rigging Technique
+Kontrolliertes Ablassen von Ästen in sensiblen Bereichen.|Controlled lowering of branches in sensitive areas.
+Sicherheit hat Priorität|Safety is Priority
+Jeder Einsatz wird sorgfältig geplant:|Every job is carefully planned:
+Gefährdungsbeurteilung vor Arbeitsbeginn|Risk assessment before starting work
+Absperrung des Arbeitsbereichs|Cordoning off the work area
+Regelmäßige Ausrüstungskontrolle|Regular equipment inspection
+Vollständig versichert|Fully insured
+Fragen zu Technik oder Ablauf?|Questions About Techniques or Procedures?
+Ich erkläre Ihnen gerne, wie ich an Ihren Bäumen arbeite.|I am happy to explain how I work on your trees.
+
+# ============================================================
+# About, Contact, FAQ, Gallery Pages - Converted from German to English source
+# ============================================================
+
+# About Page (about.html)
+Tom Aakrann - Ihr Baumwart in Luxemburg|Tom Aakrann - Your Arborist in Luxembourg
+Leidenschaft für Bäume|Passion for Trees
+Mein Name ist Tom Aakrann und Bäume sind meine Leidenschaft. Als zertifizierter Baumpfleger und Baumkontrolleur verbinde ich fundiertes Fachwissen mit praktischer Erfahrung.|My name is Tom Aakrann and trees are my passion. As a certified arborist and tree inspector, I combine solid expertise with practical experience.
+Jeder Baum erzählt eine Geschichte und verdient fachkundige Pflege. Ob jahrhundertealte Eiche oder junger Obstbaum - ich behandle jeden Baum mit dem Respekt und der Sorgfalt, die er verdient.|Every tree tells a story and deserves expert care. Whether a centuries-old oak or a young fruit tree - I treat every tree with the respect and care it deserves.
+Qualifikationen|Qualifications
+FLL-Zertifizierter Baumkontrolleur|FLL-Certified Tree Inspector
+Ausbildung nach den Richtlinien der Forschungsgesellschaft Landschaftsentwicklung Landschaftsbau (FLL) zur visuellen Baumkontrolle und Verkehrssicherheitsprüfung.|Training according to the guidelines of the Research Society for Landscape Development and Landscape Construction (FLL) for visual tree inspection and traffic safety assessment.
+Zertifiziert für Seilklettertechnik B - Arbeiten mit Motorsäge in der Baumkrone. Sichere und schonende Baumpflege in jeder Höhe.|Certified for Rope Climbing Technique B - working with chainsaw in the tree crown. Safe and gentle tree care at any height.
+Arbeit nach den anerkannten Richtlinien der ZTV-Baumpflege. Qualitätsstandard für professionelle Baumpflegemaßnahmen.|Work according to the recognized ZTV tree care guidelines. Quality standard for professional tree care measures.
+Spezialisierung auf die Pflege von Obstbäumen. Erziehungsschnitt, Erhaltungsschnitt und Verjüngung für maximalen Ertrag.|Specialization in fruit tree care. Training pruning, maintenance pruning and rejuvenation for maximum yield.
+Meine Philosophie|My Philosophy
+Qualität|Quality
+Fachgerechte Arbeit nach anerkannten Standards. Keine Kompromisse bei der Baumpflege.|Professional work according to recognized standards. No compromises in tree care.
+Nachhaltigkeit|Sustainability
+Baumerhaltung vor Baumfällung. Ökologische Aspekte fließen in jede Entscheidung ein.|Tree preservation over tree removal. Ecological aspects are considered in every decision.
+Vertrauen|Trust
+Ehrliche Beratung und transparente Preise. Persönlicher Service von Anfang bis Ende.|Honest advice and transparent pricing. Personal service from start to finish.
+Sprachen|Languages
+Ich berate Sie gerne in Ihrer Sprache:|I am happy to advise you in your language:
+Deutsch|German
+Französisch|French
+Luxemburgisch|Luxembourgish
+Lassen Sie uns Ihre Bäume gemeinsam pflegen|Let's care for your trees together
+Kontaktieren Sie mich für eine kostenlose Beratung.|Contact me for a free consultation.
+
+# Contact Page (contact.html)
+Nehmen Sie Kontakt auf für eine kostenlose Beratung.|Get in touch for a free consultation.
+Rufen Sie mich direkt an|Call me directly
+Schreiben Sie mir per WhatsApp|Message me on WhatsApp
+Schreiben Sie mir eine E-Mail|Send me an email
+Anfrage senden|Send Inquiry
+Interesse an|Interested in
+Bitte auswählen|Please select
+Allgemeine Beratung|General Consultation
+Ihre Nachricht|Your Message
+Beschreiben Sie kurz Ihr Anliegen...|Briefly describe your request...
+Nachricht senden|Send Message
+* Pflichtfelder. Ich melde mich schnellstmöglich bei Ihnen.|* Required fields. I will get back to you as soon as possible.
+Einsatzgebiet & Erreichbarkeit|Service Area & Availability
+Einsatzgebiete|Service Areas
+Luxemburg-Stadt und Umgebung|Luxembourg City and surroundings
+Süd-Luxemburg (Esch, Dudelange, Differdange)|South Luxembourg (Esch, Dudelange, Differdange)
+Zentrum (Mersch, Steinfort)|Central (Mersch, Steinfort)
+Norden (Ettelbruck, Diekirch)|North (Ettelbruck, Diekirch)
+Erreichbarkeit|Availability
+Montag - Freitag: 8:00 - 18:00|Monday - Friday: 8:00 - 18:00
+Samstag: Nach Vereinbarung|Saturday: By appointment
+Sprachen: DE, FR, LU|Languages: DE, FR, LU
+Kostenlose Vor-Ort-Beratung in ganz Luxemburg.|Free on-site consultation throughout Luxembourg.
+
+# FAQ Page (faq.html)
+Häufige Fragen|Frequently Asked Questions
+Antworten auf die wichtigsten Fragen zur Baumpflege.|Answers to the most important questions about tree care.
+Was kostet eine Baumkontrolle?|How much does a tree inspection cost?
+Die Kosten für eine Baumkontrolle hängen von der Anzahl der Bäume und dem Aufwand ab. Kontaktieren Sie mich für ein individuelles Angebot.|The cost of a tree inspection depends on the number of trees and the effort required. Contact me for an individual quote.
+Wann ist die beste Zeit für Obstbaumschnitt?|When is the best time for fruit tree pruning?
+Der beste Zeitpunkt für den Obstbaumschnitt ist je nach Obstart verschieden. Kernobst (Apfel, Birne) wird meist im Winter geschnitten, Steinobst (Kirsche, Pflaume) nach der Ernte im Sommer.|The best time for fruit tree pruning varies by fruit type. Pome fruit (apple, pear) is usually pruned in winter, stone fruit (cherry, plum) after harvest in summer.
+Arbeiten Sie auch mit Seilklettertechnik?|Do you also work with rope climbing technique?
+Ja, ich bin SKT-B zertifiziert und arbeite mit professioneller Seilklettertechnik. Dies ermöglicht baumschonende Pflege auch ohne schwere Maschinen.|Yes, I am SKT-B certified and work with professional rope climbing technique. This enables tree-friendly care even without heavy machinery.
+In welchen Regionen sind Sie tätig?|In which regions do you operate?
+Ich bin in ganz Luxemburg tätig, mit Schwerpunkt auf dem Zentrum und Süden des Landes.|I operate throughout Luxembourg, with a focus on the center and south of the country.
+Bieten Sie auch Notfalldienst an?|Do you also offer emergency services?
+Ja, bei Sturmschäden oder anderen Notfällen bin ich auch kurzfristig erreichbar. Kontaktieren Sie mich telefonisch für dringende Anfragen.|Yes, for storm damage or other emergencies I am also available on short notice. Contact me by phone for urgent requests.
+Weitere häufige Fragen|More Frequently Asked Questions
+Brauche ich eine Genehmigung für Baumfällung?|Do I need a permit for tree removal?
+In vielen Gemeinden Luxemburgs sind Baumfällungen genehmigungspflichtig. Ich berate Sie gerne zu den lokalen Vorschriften und helfe bei der Antragstellung.|In many municipalities in Luxembourg, tree removal requires a permit. I am happy to advise you on local regulations and help with the application process.
+Was ist der Unterschied zwischen Baumpflege und Baumkontrolle?|What is the difference between tree care and tree inspection?
+Baumkontrolle ist die systematische Untersuchung eines Baumes auf Schäden und Verkehrssicherheit. Baumpflege umfasst aktive Maßnahmen wie Schnitt, Totholzentfernung und Kronenkorrektur.|Tree inspection is the systematic examination of a tree for damage and traffic safety. Tree care includes active measures such as pruning, deadwood removal, and crown correction.
+Wie oft sollte ein Baum kontrolliert werden?|How often should a tree be inspected?
+Bei Bäumen an verkehrsreichen Standorten empfiehlt die FLL eine jährliche Kontrolle. Bei weniger frequentierten Standorten kann ein längeres Intervall ausreichen.|For trees in high-traffic locations, the FLL recommends annual inspection. For less frequented locations, a longer interval may be sufficient.
+Entsorgen Sie das Schnittgut?|Do you dispose of the cuttings?
+Ja, auf Wunsch entsorge ich das Schnittgut fachgerecht. Alternativ kann es auch vor Ort verbleiben, z.B. als Häckselgut für Ihre Beete.|Yes, upon request I dispose of the cuttings properly. Alternatively, they can remain on-site, e.g., as wood chips for your garden beds.
+Weitere Fragen?|More Questions?
+Kontaktieren Sie mich - ich beantworte gerne alle Ihre Fragen zur Baumpflege.|Contact me - I am happy to answer all your questions about tree care.
+
+# Gallery Page (gallery.html)
+Einblicke in meine Arbeit als Baumwart in Luxemburg.|Insights into my work as an arborist in Luxembourg.
+Hier finden Sie Beispiele meiner Baumpflege-Projekte. Die Bilder zeigen verschiedene Arbeiten von Obstbaumpflege bis zur Kronenpflege großer Bäume.|Here you will find examples of my tree care projects. The images show various work from fruit tree care to crown maintenance of large trees.
+Foto folgt|Photo coming soon
+Mehr Fotos folgen bald!|More photos coming soon!
+Die Galerie wird regelmäßig mit neuen Projektfotos aktualisiert. Haben Sie Interesse an meiner Arbeit? Kontaktieren Sie mich für eine Vor-Ort-Beratung.|The gallery is regularly updated with new project photos. Interested in my work? Contact me for an on-site consultation.
