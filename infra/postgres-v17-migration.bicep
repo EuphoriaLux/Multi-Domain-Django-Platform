@@ -1,5 +1,9 @@
 // PostgreSQL 17 Migration - Temporary deployment file
 // This creates a new PostgreSQL 17 server with 32 GB storage for migration
+//
+// Security Note: This template uses password authentication for compatibility with Django.
+// For enhanced security, consider migrating to Azure AD authentication in the future.
+// See: https://learn.microsoft.com/en-us/azure/postgresql/flexible-server/how-to-configure-sign-in-azure-ad-authentication
 
 @description('Resource Group name')
 param resourceGroupName string = 'django-app-rg'

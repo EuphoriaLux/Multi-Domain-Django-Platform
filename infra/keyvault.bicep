@@ -36,10 +36,14 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     enableSoftDelete: true
     softDeleteRetentionInDays: 90
     enablePurgeProtection: true
-    publicNetworkAccess: 'Enabled' // Can be restricted with VNet integration later
+    enabledForDeployment: true
+    enabledForTemplateDeployment: true
+    publicNetworkAccess: 'Enabled'
     networkAcls: {
-      defaultAction: 'Allow'
+      defaultAction: 'Deny'
       bypass: 'AzureServices'
+      ipRules: []
+      virtualNetworkRules: []
     }
   }
 }
