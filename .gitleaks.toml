@@ -2,24 +2,15 @@
 # https://github.com/gitleaks/gitleaks
 
 [extend]
-# Use the default rules
 useDefault = true
 
-# Allowlist for false positives
-[[rules]]
-id = "azure-rbac-role-ids"
-description = "Allow Azure RBAC role IDs (public GUIDs, not secrets)"
-regex = '''4633458b-17de-408a-b874-0445c86b69e6'''
-allowlist = true
-
-# Alternative: use path-based allowlist
+# Allowlist for false positives - Azure RBAC role IDs are public GUIDs
 [allowlist]
-description = "Allow Azure RBAC role definitions (public GUIDs)"
+description = "Allow Azure RBAC role definitions (public GUIDs, not secrets)"
 paths = [
   '''infra/keyvault\.bicep''',
 ]
-regexTarget = "match"
 regexes = [
-  # Key Vault Secrets User role ID
+  # Key Vault Secrets User role ID (public Azure RBAC GUID)
   '''4633458b-17de-408a-b874-0445c86b69e6''',
 ]
