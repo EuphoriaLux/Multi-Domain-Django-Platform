@@ -1,13 +1,16 @@
 """
-OpenTelemetry configuration for exception filtering.
+OpenTelemetry configuration for Azure Monitor with exception filtering.
 
-This module configures OpenTelemetry to suppress benign exceptions
-(like cache race conditions) from being sent to Application Insights.
+This module configures the azure-monitor-opentelemetry SDK to:
+1. Send telemetry to Azure Application Insights
+2. Filter out benign exceptions (cache race conditions) before export
+3. Preserve logging filter functionality
 
-Azure App Service uses auto-instrumentation, but we can add custom
-span processors to filter exceptions before they're exported.
+IMPORTANT: This replaces Azure App Service auto-instrumentation.
+Set ApplicationInsightsAgent_EXTENSION_VERSION=disabled in Azure.
 """
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -49,77 +52,144 @@ def should_suppress_exception(exception_type: str, exception_message: str = '') 
     return False
 
 
-def configure_exception_filtering():
+def _span_has_only_suppressed_exceptions(span) -> bool:
     """
-    Configure OpenTelemetry to filter out suppressed exceptions.
+    Check if a span contains ONLY suppressed exceptions.
 
-    This function attempts to add a custom span processor that filters
-    exceptions before they're exported to Application Insights.
+    Returns True only if:
+    - The span has exception events, AND
+    - ALL exception events should be suppressed
+
+    This ensures we don't drop spans with real errors mixed with cache errors.
     """
-    try:
-        from opentelemetry import trace
-        from opentelemetry.sdk.trace import SpanProcessor, ReadableSpan
-        from opentelemetry.trace import Status, StatusCode
+    if not hasattr(span, 'events') or not span.events:
+        return False
 
-        class ExceptionFilteringProcessor(SpanProcessor):
-            """
-            Span processor that filters out benign exceptions.
+    exception_events = [e for e in span.events if e.name == 'exception']
+    if not exception_events:
+        return False
 
-            This processor modifies spans to remove exception events for
-            exceptions that are expected and handled (like cache race conditions).
-            """
+    # Check if ALL exceptions should be suppressed
+    for event in exception_events:
+        attrs = event.attributes or {}
+        exc_type = str(attrs.get('exception.type', ''))
+        exc_msg = str(attrs.get('exception.message', ''))
 
-            def on_start(self, span, parent_context=None):
-                """Called when a span is started."""
-                pass
+        if not should_suppress_exception(exc_type, exc_msg):
+            return False  # Found a real exception - don't suppress this span
 
-            def on_end(self, span: ReadableSpan):
-                """
-                Called when a span is ended.
+    # All exceptions in this span should be suppressed
+    logger.debug(f"Suppressing span with {len(exception_events)} cache exceptions")
+    return True
 
-                We can't modify the span here (it's read-only), but we can
-                check if it should be suppressed and log accordingly.
-                """
-                # Check for exception events
-                if hasattr(span, 'events') and span.events:
-                    for event in span.events:
-                        if event.name == 'exception':
-                            attrs = event.attributes or {}
-                            exc_type = attrs.get('exception.type', '')
-                            exc_msg = attrs.get('exception.message', '')
 
-                            if should_suppress_exception(str(exc_type), str(exc_msg)):
-                                # Log that we're suppressing (for debugging)
-                                logger.debug(
-                                    f"Suppressed exception in telemetry: {exc_type}"
-                                )
+class ExceptionFilteringProcessor:
+    """
+    Span processor that filters out spans containing only suppressed exceptions.
 
-            def shutdown(self):
-                """Called when the SDK is shut down."""
-                pass
+    This processor marks spans for non-export by setting TraceFlags.DEFAULT
+    when the span contains only benign exceptions (like cache race conditions).
+    """
 
-            def force_flush(self, timeout_millis=30000):
-                """Force flush any pending spans."""
-                return True
+    def __init__(self):
+        from opentelemetry.trace import SpanContext, TraceFlags
+        self._SpanContext = SpanContext
+        self._TraceFlags = TraceFlags
 
-        # Try to add our processor to the existing tracer provider
-        tracer_provider = trace.get_tracer_provider()
+    def on_start(self, span, parent_context=None):
+        """Called when a span is started. We don't filter here."""
+        pass
 
-        if hasattr(tracer_provider, 'add_span_processor'):
-            tracer_provider.add_span_processor(ExceptionFilteringProcessor())
-            logger.info("OpenTelemetry exception filtering processor registered")
-        else:
-            logger.debug(
-                "TracerProvider doesn't support add_span_processor. "
-                "Using logging-based exception filtering instead."
+    def on_end(self, span):
+        """
+        Called when a span is ended.
+
+        If the span contains only suppressed exceptions, we modify its context
+        to prevent export by setting TraceFlags.DEFAULT (not sampled).
+        """
+        if _span_has_only_suppressed_exceptions(span):
+            # Mark span as not sampled to prevent export
+            span._context = self._SpanContext(
+                span.context.trace_id,
+                span.context.span_id,
+                span.context.is_remote,
+                self._TraceFlags(self._TraceFlags.DEFAULT),
+                span.context.trace_state,
             )
+            logger.debug(f"Filtered span {span.name} containing only suppressed exceptions")
+
+    def shutdown(self):
+        """Called when the SDK is shut down."""
+        pass
+
+    def force_flush(self, timeout_millis=30000):
+        """Force flush any pending spans."""
+        return True
+
+
+def configure_azure_monitor_telemetry():
+    """
+    Configure Azure Monitor OpenTelemetry SDK with exception filtering.
+
+    This function:
+    1. Checks for Application Insights connection string
+    2. Configures azure-monitor-opentelemetry with custom span processor
+    3. Sets up Django instrumentation automatically
+    4. Falls back gracefully if connection string is missing (local dev)
+
+    Call this once at application startup (in production.py).
+    """
+    connection_string = os.environ.get('APPLICATIONINSIGHTS_CONNECTION_STRING')
+
+    if not connection_string:
+        logger.info(
+            "APPLICATIONINSIGHTS_CONNECTION_STRING not set. "
+            "Telemetry will not be sent to Azure Monitor."
+        )
+        return False
+
+    try:
+        from azure.monitor.opentelemetry import configure_azure_monitor
+
+        # Create the exception filtering processor
+        exception_filter = ExceptionFilteringProcessor()
+
+        # Configure Azure Monitor with our custom processor
+        # The SDK automatically instruments Django, requests, urllib, psycopg2
+        configure_azure_monitor(
+            connection_string=connection_string,
+            # Add our custom span processor for exception filtering
+            span_processors=[exception_filter],
+            # Configure logging integration - use root logger namespace
+            logger_name="",  # Empty string = root logger
+        )
+
+        logger.info(
+            "Azure Monitor OpenTelemetry configured with exception filtering. "
+            "Auto-instrumentation should be DISABLED in Azure App Service."
+        )
+        return True
 
     except ImportError as e:
-        # OpenTelemetry SDK not installed - that's fine, we're using auto-instrumentation
-        logger.debug(f"OpenTelemetry SDK not available: {e}")
+        logger.warning(
+            f"azure-monitor-opentelemetry package not installed: {e}. "
+            "Telemetry will not be sent to Azure Monitor."
+        )
+        return False
     except Exception as e:
         # Don't let telemetry configuration errors break the app
-        logger.warning(f"Failed to configure OpenTelemetry exception filtering: {e}")
+        logger.error(f"Failed to configure Azure Monitor telemetry: {e}")
+        return False
+
+
+# Legacy function for backward compatibility
+def configure_exception_filtering():
+    """
+    Legacy function - now calls configure_azure_monitor_telemetry().
+
+    Kept for backward compatibility with existing imports.
+    """
+    return configure_azure_monitor_telemetry()
 
 
 class SuppressedExceptionFilter(logging.Filter):
