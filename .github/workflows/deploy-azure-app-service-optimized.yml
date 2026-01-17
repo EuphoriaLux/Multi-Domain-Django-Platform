@@ -35,6 +35,7 @@ on:
 # Concurrency settings:
 # - Different branches/PRs can run in parallel (group includes ref)
 # - Same branch: new run cancels old one (cancel-in-progress: true)
+# - This allows multiple PRs to be validated/tested simultaneously
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: true
