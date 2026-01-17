@@ -1242,3 +1242,4 @@ resource applicationInsightsDashboard 'Microsoft.Portal/dashboards@2020-09-01-pr
 }
 
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = applicationInsights.properties.ConnectionString
+output APPLICATION_INSIGHTS_ID string = applicationInsights.id

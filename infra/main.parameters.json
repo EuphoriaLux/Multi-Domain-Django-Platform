@@ -13,6 +13,9 @@
       },
       "secretKey": {
         "value": "$(secretOrRandomPassword)"
+      },
+      "alertEmail": {
+        "value": "${ALERT_EMAIL}"
       }
     }
   }

@@ -19,7 +19,7 @@ var webappSubnetName = 'webapp-subnet'
 //var cachePrivateEndpointName = 'cache-privateEndpoint'
 //var cachePvtEndpointDnsGroupName = 'cacheDnsGroup'
 
-resource virtualNetwork 'Microsoft.Network/virtualNetworks@2019-11-01' = {
+resource virtualNetwork 'Microsoft.Network/virtualNetworks@2024-01-01' = {
   name: '${prefix}-vnet'
   location: location
   tags: tags
@@ -187,10 +187,10 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       SECRET_KEY: secretKey
       CUSTOM_DOMAINS: 'www.powerup.lu,powerup.lu,vinsdelux.com,www.vinsdelux.com'
       FLASK_DEBUG: 'False'
-      // Azure Storage Account Configuration for Media Files
+      // Azure Storage Account Configuration for Media Files (uses Managed Identity - no key needed)
       AZURE_ACCOUNT_NAME: storageAccount.name
-      AZURE_ACCOUNT_KEY: storageAccount.listKeys().keys[0].value
       AZURE_CONTAINER_NAME: mediaContainerName
+      // AZURE_ACCOUNT_KEY removed - using Managed Identity with Storage Blob Data Contributor role
       // Deployment flags - set to false for faster deployments
       // Set INITIAL_DEPLOYMENT=true manually in portal for first deployment only
       DEPLOY_MEDIA_AND_DATA: 'false'
@@ -252,8 +252,8 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       httpLogs: {
         fileSystem: {
           enabled: true
-          retentionInDays: 1
-          retentionInMb: 35
+          retentionInDays: 7
+          retentionInMb: 100
         }
       }
     }
@@ -268,6 +268,60 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
 
   dependsOn: [ virtualNetwork ]
 
+}
+
+// Staging deployment slot for zero-downtime deployments (included free with Premium tier)
+resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
+  parent: web
+  name: 'staging'
+  location: location
+  tags: union(tags, { 'azd-service-name': 'web-staging' })
+  kind: 'app,linux'
+  properties: {
+    serverFarmId: appServicePlan.id
+    siteConfig: {
+      alwaysOn: true
+      linuxFxVersion: 'PYTHON|3.11'
+      ftpsState: 'Disabled'
+      appCommandLine: 'bash /home/site/wwwroot/startup.sh'
+      minTlsVersion: '1.2'
+    }
+    httpsOnly: true
+  }
+  identity: {
+    type: 'SystemAssigned'
+  }
+
+  resource stagingAppSettings 'config' = {
+    name: 'appsettings'
+    properties: {
+      SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
+      ENABLE_ORYX_BUILD: 'true'
+      AZURE_POSTGRESQL_CONNECTIONSTRING: 'dbname=${pythonAppDatabase.name} host=${postgresServer.name}.postgres.database.azure.com port=5432 sslmode=require user=${postgresServer.properties.administratorLogin} password=${databasePassword}'
+      SECRET_KEY: secretKey
+      CUSTOM_DOMAINS: 'www.powerup.lu,powerup.lu,vinsdelux.com,www.vinsdelux.com'
+      FLASK_DEBUG: 'False'
+      AZURE_ACCOUNT_NAME: storageAccount.name
+      AZURE_CONTAINER_NAME: mediaContainerName
+      DEPLOY_MEDIA_AND_DATA: 'false'
+      INITIAL_DEPLOYMENT: 'false'
+      SYNC_MEDIA_TO_AZURE: 'false'
+      POPULATE_SAMPLE_DATA: 'false'
+      REFERRAL_POINTS_PER_SIGNUP: '100'
+      REFERRAL_POINTS_PER_PROFILE_APPROVED: '50'
+    }
+  }
+}
+
+// Role assignment for staging slot to access Storage via Managed Identity
+resource stagingStorageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccount.id, stagingSlot.id, storageBlobDataContributorRoleId)
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataContributorRoleId)
+    principalId: stagingSlot.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
 }
 
 resource webdiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
@@ -310,23 +364,25 @@ resource webdiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-previe
   }
 }
 
-resource appServicePlan 'Microsoft.Web/serverfarms@2021-03-01' = {
+resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: '${prefix}-service-plan'
   location: location
   tags: tags
   sku: {
-    name: 'B1'
+    name: 'P0v3'
+    tier: 'Premium0V3'
   }
   properties: {
     reserved: true
+    zoneRedundant: false
   }
 }
 
-resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2020-03-01-preview' = {
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: '${prefix}-workspace'
   location: location
   tags: tags
-  properties: any({
+  properties: {
     retentionInDays: 30
     features: {
       searchVersion: 1
@@ -334,7 +390,7 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2020-03
     sku: {
       name: 'PerGB2018'
     }
-  })
+  }
 }
 
 module applicationInsightsResources './appinsights.bicep' = {
@@ -347,7 +403,7 @@ module applicationInsightsResources './appinsights.bicep' = {
   }
 }
 
-resource postgresServer 'Microsoft.DBforPostgreSQL/flexibleServers@2022-01-20-preview' = {
+resource postgresServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-06-01-preview' = {
   location: location
   tags: tags
   name: pgServerName
@@ -356,15 +412,15 @@ resource postgresServer 'Microsoft.DBforPostgreSQL/flexibleServers@2022-01-20-pr
     tier: 'Burstable'
   }
   properties: {
-    version: '13'
+    version: '17'
     administratorLogin: 'postgresadmin'
     administratorLoginPassword: databasePassword
     storage: {
-      storageSizeGB: 128
+      storageSizeGB: 32  // Start small, can scale UP anytime (but cannot scale down)
     }
     backup: {
-      backupRetentionDays: 7
-      geoRedundantBackup: 'Disabled'
+      backupRetentionDays: 14
+      geoRedundantBackup: 'Enabled'
     }
     network: {
       delegatedSubnetResourceId: virtualNetwork::databaseSubnet.id
@@ -411,17 +467,21 @@ resource pythonAppDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/databases@
 // Azure Storage Account for Media Files
 var storageAccountName = '${toLower('media')}${uniqueString(resourceGroup().id)}' // Use a fixed prefix and uniqueString
 var mediaContainerName = 'media' // This should match AZURE_CONTAINER_NAME in production.py
+var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe' // Storage Blob Data Contributor
 
-resource storageAccount 'Microsoft.Storage/storageAccounts@2021-09-01' = {
+resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageAccountName
   location: location
   tags: tags
   sku: {
-    name: 'Standard_LRS' // Or choose a different SKU based on your needs
+    name: 'Standard_LRS'
   }
   kind: 'StorageV2'
   properties: {
     supportsHttpsTrafficOnly: true
+    allowBlobPublicAccess: false
+    minimumTlsVersion: 'TLS1_2'
+    allowSharedKeyAccess: true // Required during transition to Managed Identity
   }
 
   resource blobServices 'blobServices' = {
@@ -433,6 +493,17 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2021-09-01' = {
         publicAccess: 'None' // Or 'Blob' or 'Container' depending on your needs
       }
     }
+  }
+}
+
+// Role assignment for App Service to access Storage via Managed Identity
+resource storageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccount.id, web.id, storageBlobDataContributorRoleId)
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataContributorRoleId)
+    principalId: web.identity.principalId
+    principalType: 'ServicePrincipal'
   }
 }
 
@@ -449,3 +520,8 @@ output WEB_APP_SETTINGS array = webAppSettingsKeys
 output WEB_APP_LOG_STREAM string = format('https://portal.azure.com/#@/resource{0}/logStream', web.id)
 output WEB_APP_SSH string = format('https://{0}.scm.azurewebsites.net/webssh/host', web.name)
 output WEB_APP_CONFIG string = format('https://portal.azure.com/#@/resource{0}/configuration', web.id)
+
+// Outputs for Key Vault and Alerts modules
+output APP_SERVICE_PRINCIPAL_ID string = web.identity.principalId
+output STAGING_SLOT_PRINCIPAL_ID string = stagingSlot.identity.principalId
+output APPLICATION_INSIGHTS_ID string = applicationInsightsResources.outputs.APPLICATION_INSIGHTS_ID

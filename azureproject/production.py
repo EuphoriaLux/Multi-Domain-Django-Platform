@@ -2,6 +2,9 @@ import os
 from .settings import *  # noqa
 from .settings import BASE_DIR
 
+# Azure Identity for Managed Identity authentication
+from azure.identity import DefaultAzureCredential
+
 # ============================================================================
 # Azure Internal IP Support (MUST be before ALLOWED_HOSTS)
 # ============================================================================
@@ -109,14 +112,16 @@ STATICFILES_DIRS = [
 #SITE_ID = 1
 
 # Django 4.2+ STORAGES configuration
+# Using Managed Identity (DefaultAzureCredential) for secure, keyless authentication
+# The App Service's System-Assigned Managed Identity has Storage Blob Data Contributor role
 STORAGES = {
     "default": {
         "BACKEND": "storages.backends.azure_storage.AzureStorage",
         "OPTIONS": {
             "account_name": os.getenv('AZURE_ACCOUNT_NAME'),
-            "account_key": os.getenv('AZURE_ACCOUNT_KEY'),
             "azure_container": os.getenv('AZURE_CONTAINER_NAME'),
-            "overwrite_files": True, # Explicitly set to True for testing
+            "token_credential": DefaultAzureCredential(),  # Managed Identity - no keys needed!
+            "overwrite_files": True,
             # "azure_ssl": True, # Default is True
             # "upload_max_conn": 2, # Default is 2
             # "timeout": 20, # Default is 20
@@ -125,7 +130,6 @@ STORAGES = {
             # "location": "", # Default is ''
             # "endpoint_suffix": "core.windows.net", # Default is core.windows.net
             # "custom_domain": None, # Default is None
-            # "token_credential": DefaultAzureCredential(), # For Managed Identity
         },
     },
     # Private storage for Crush.lu profile photos (SAS token access)

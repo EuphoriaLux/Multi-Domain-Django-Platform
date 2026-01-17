@@ -24,9 +24,9 @@ jobs:
       - name: Run Microsoft Security DevOps Analysis
         uses: microsoft/security-devops-action@preview
         id: msdo
-        continue-on-error: true
         with:
           tools: templateanalyzer
+          # Security scan failures should block deployment
 
       - name: Upload alerts to Security tab
         uses: github/codeql-action/upload-sarif@v4
