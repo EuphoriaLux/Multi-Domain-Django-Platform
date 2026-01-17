@@ -185,7 +185,9 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       ENABLE_ORYX_BUILD: 'true'
       AZURE_POSTGRESQL_CONNECTIONSTRING: 'dbname=${pythonAppDatabase.name} host=${postgresServer.name}.postgres.database.azure.com port=5432 sslmode=require user=${postgresServer.properties.administratorLogin} password=${databasePassword}'
       SECRET_KEY: secretKey
-      CUSTOM_DOMAINS: 'www.powerup.lu,powerup.lu,vinsdelux.com,www.vinsdelux.com'
+      // Production domains - marked as slot-sticky via slotConfigNames (won't swap)
+      CUSTOM_DOMAINS: 'crush.lu,www.crush.lu,entreprinder.lu,www.entreprinder.lu,vinsdelux.com,www.vinsdelux.com,power-up.lu,www.power-up.lu,powerup.lu,www.powerup.lu,tableau.lu,www.tableau.lu,arborist.lu,www.arborist.lu,delegations.lu,www.delegations.lu'
+      ALLOWED_HOSTS_ENV: 'crush.lu,www.crush.lu,entreprinder.lu,www.entreprinder.lu,vinsdelux.com,www.vinsdelux.com,power-up.lu,www.power-up.lu,powerup.lu,www.powerup.lu,tableau.lu,www.tableau.lu,arborist.lu,www.arborist.lu,delegations.lu,www.delegations.lu,${prefix}-app-service.azurewebsites.net'
       FLASK_DEBUG: 'False'
       // Azure Storage Account Configuration for Media Files (uses Managed Identity - no key needed)
       AZURE_ACCOUNT_NAME: storageAccount.name
@@ -299,7 +301,9 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
       ENABLE_ORYX_BUILD: 'true'
       AZURE_POSTGRESQL_CONNECTIONSTRING: 'dbname=${pythonAppDatabase.name} host=${postgresServer.name}.postgres.database.azure.com port=5432 sslmode=require user=${postgresServer.properties.administratorLogin} password=${databasePassword}'
       SECRET_KEY: secretKey
-      CUSTOM_DOMAINS: 'www.powerup.lu,powerup.lu,vinsdelux.com,www.vinsdelux.com'
+      // Staging domains (test.*) - marked as slot-sticky via slotConfigNames (won't swap)
+      CUSTOM_DOMAINS: 'test.crush.lu,test.entreprinder.lu,test.vinsdelux.com,test.power-up.lu,test.powerup.lu,test.tableau.lu,test.arborist.lu,test.delegations.lu'
+      ALLOWED_HOSTS_ENV: 'test.crush.lu,test.entreprinder.lu,test.vinsdelux.com,test.power-up.lu,test.powerup.lu,test.tableau.lu,test.arborist.lu,test.delegations.lu,${prefix}-app-service-staging.azurewebsites.net'
       FLASK_DEBUG: 'False'
       AZURE_ACCOUNT_NAME: storageAccount.name
       AZURE_CONTAINER_NAME: mediaContainerName
@@ -310,6 +314,29 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
       REFERRAL_POINTS_PER_SIGNUP: '100'
       REFERRAL_POINTS_PER_PROFILE_APPROVED: '50'
     }
+  }
+}
+
+// Slot-sticky settings configuration
+// These settings won't swap when swapping deployment slots
+resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
+  parent: web
+  name: 'slotConfigNames'
+  properties: {
+    appSettingNames: [
+      'CUSTOM_DOMAINS'
+      'ALLOWED_HOSTS_ENV'
+      'APPINSIGHTS_INSTRUMENTATIONKEY'
+      'APPINSIGHTS_PROFILERFEATURE_VERSION'
+      'APPINSIGHTS_SNAPSHOTFEATURE_VERSION'
+      'ApplicationInsightsAgent_EXTENSION_VERSION'
+      'DiagnosticServices_EXTENSION_VERSION'
+      'InstrumentationEngine_EXTENSION_VERSION'
+      'SnapshotDebugger_EXTENSION_VERSION'
+      'XDT_MicrosoftApplicationInsights_BaseExtensions'
+      'XDT_MicrosoftApplicationInsights_Mode'
+      'XDT_MicrosoftApplicationInsights_PreemptSdk'
+    ]
   }
 }
 

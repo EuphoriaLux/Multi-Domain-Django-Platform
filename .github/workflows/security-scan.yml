@@ -3,18 +3,15 @@
 name: Security Scan
 
 on:
-  push:
+  pull_request:
     branches:
       - main
     paths-ignore:
       - '**.md'
       - 'docs/**'
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
   schedule:
-    # Run weekly on Sundays at midnight UTC
+    # Run weekly on Sundays at midnight UTC for baseline security checks
     - cron: '0 0 * * 0'
 
 # Minimal permissions for security
