@@ -297,15 +297,18 @@ SECURE_SSL_REDIRECT = False
 # ============================================================================
 # Azure Application Insights Integration
 # ============================================================================
-# Using Azure App Service auto-instrumentation (ApplicationInsightsAgent_EXTENSION_VERSION=~3)
-# instead of manual OpenTelemetry SDK for better compatibility and simpler maintenance.
+# Using azure-monitor-opentelemetry SDK for exception filtering capability.
+# Auto-instrumentation MUST be disabled for SDK to work correctly.
 #
-# Auto-instrumentation provides:
-# - Automatic request/dependency tracking
-# # - Exception logging
+# SDK provides:
+# - Automatic request/dependency tracking (Django, requests, urllib, psycopg2)
+# - Exception logging with filtering (cache race conditions suppressed)
 # - Logs sent to Application Insights 'traces' table
 #
-# To enable: Set ApplicationInsightsAgent_EXTENSION_VERSION=~3 in App Service config
+# Azure App Service config required:
+#   ApplicationInsightsAgent_EXTENSION_VERSION=disabled
+#   APPLICATIONINSIGHTS_CONNECTION_STRING=<your-connection-string>
+#
 # Query logs in App Insights: traces | where timestamp > ago(1h)
 
 LOGGING = {
@@ -434,13 +437,19 @@ if 'WEBSITE_HOSTNAME' in os.environ:
     logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.ERROR)
 
 # =============================================================================
-# OPENTELEMETRY EXCEPTION FILTERING
+# AZURE MONITOR OPENTELEMETRY SDK
 # =============================================================================
-# Configure OpenTelemetry to suppress benign exceptions (like cache race conditions)
-# from being sent to Application Insights. This reduces noise while keeping
-# legitimate errors visible.
-from azureproject.telemetry_config import configure_exception_filtering
-configure_exception_filtering()
+# Using SDK-based instrumentation instead of auto-instrumentation for:
+# 1. Full control over span processing (exception filtering)
+# 2. Better integration with Django logging
+# 3. Suppresses cache race condition exceptions from telemetry
+#
+# IMPORTANT: Disable auto-instrumentation in Azure App Service:
+#   ApplicationInsightsAgent_EXTENSION_VERSION=disabled
+#
+# The SDK automatically instruments: Django, requests, urllib, psycopg2
+from azureproject.telemetry_config import configure_azure_monitor_telemetry
+configure_azure_monitor_telemetry()
 
 # =============================================================================
 # CONTENT SECURITY POLICY (CSP) SETTINGS - Production

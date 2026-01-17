@@ -50,8 +50,9 @@ heroicons[django]==2.13.0
 py-vapid==1.9.4
 pywebpush==2.2.0
 
-# Azure Application Insights - using auto-instrumentation instead of SDK
-# Set ApplicationInsightsAgent_EXTENSION_VERSION=~3 in Azure App Service
+# Azure Application Insights - SDK-based for exception filtering
+# IMPORTANT: Set ApplicationInsightsAgent_EXTENSION_VERSION=disabled in Azure App Service
+azure-monitor-opentelemetry==1.8.4
 
 # Cookie Consent (GDPR/ePrivacy)
 django-cookie-consent==0.9.0
