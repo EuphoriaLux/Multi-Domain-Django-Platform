@@ -11,7 +11,7 @@ django-htmx==1.27.0  # HTMX server-side integration
 psycopg2-binary==2.9.11  # Updated from 2.9.10 (security & bug fixes)
 
 # Authentication
-django-allauth==65.13.1  # Updated from 65.1.0 (latest stable)
+django-allauth==65.14.0  # Updated from 65.1.0 (latest stable)
 PyJWT==2.10.1
 cryptography>=41.0.0  # Required for JWT token verification with RSA keys
 google-auth==2.47.0  # Required for Google Wallet API authentication
@@ -58,7 +58,7 @@ azure-monitor-opentelemetry==1.8.4
 django-cookie-consent==0.9.0
 
 # Internationalization - Model Field Translations
-django-modeltranslation==0.19.4
+django-modeltranslation==0.19.19
 
 # Testing
 pytest==9.0.2

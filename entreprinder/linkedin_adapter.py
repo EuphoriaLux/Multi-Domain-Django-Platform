@@ -11,7 +11,7 @@ class LinkedInOAuth2Adapter(OAuth2Adapter):
     
     def complete_login(self, request, app, token, **kwargs):
         headers = {'Authorization': f'Bearer {token.token}'}
-        resp = requests.get(self.profile_url, headers=headers)
+        resp = requests.get(self.profile_url, headers=headers, timeout=30)
         resp.raise_for_status()
         extra_data = resp.json()
         return self.get_provider().sociallogin_from_response(request, extra_data)

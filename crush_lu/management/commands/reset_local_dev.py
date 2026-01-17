@@ -185,8 +185,9 @@ class Command(BaseCommand):
                 table_name = model._meta.db_table
                 if count > 0:
                     # Use raw SQL for faster deletion and to bypass signals
+                    # table_name comes from Django model metadata, not user input
                     with connection.cursor() as cursor:
-                        cursor.execute(f'DELETE FROM "{table_name}"')
+                        cursor.execute(f'DELETE FROM "{table_name}"')  # nosec B608
                     deleted_counts[model_label] = count
                 tables_cleared.append(table_name)
             except Exception as e:

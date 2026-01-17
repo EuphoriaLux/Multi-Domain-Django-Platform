@@ -1,0 +1,35 @@
+{% if is_staging %}
+{# Staging Environment Banner - Fixed position at top of page #}
+<div id="staging-banner" style="
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 99999;
+    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+    color: white;
+    text-align: center;
+    padding: 8px 16px;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+">
+    <span style="font-size: 16px;">&#9888;</span>
+    <span>STAGING ENVIRONMENT</span>
+    <span style="
+        background: rgba(255, 255, 255, 0.2);
+        padding: 2px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+    ">{{ staging_domain }}</span>
+    <span style="font-size: 12px; opacity: 0.9;">&#8594; Changes are NOT live</span>
+</div>
+{# Spacer to push page content below the fixed banner #}
+<div style="height: 42px;"></div>
+{% endif %}
