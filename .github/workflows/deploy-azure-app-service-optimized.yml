@@ -132,24 +132,52 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # OPTIMIZATION: Already configured via Azure CLI
-      # Settings applied:
-      # - ORYX_DISABLE_PIP_CACHE=false (enables dependency caching)
-      # - SCM_DO_BUILD_DURING_DEPLOYMENT=true (enables Oryx build)
-      # No action needed - settings persist across deployments
+      # ZERO-DOWNTIME DEPLOYMENT using Staging Slot
+      # 1. Deploy to staging slot
+      # 2. Warm up staging
+      # 3. Swap staging to production
 
-      - name: Deploy to Azure Web App
+      - name: Deploy to Staging Slot
         uses: azure/webapps-deploy@v3
-        id: deploy-to-webapp
+        id: deploy-to-staging
         with:
           app-name: 'django-app-ajfffwjb5ie3s-app-service'
-          slot-name: 'Production'
+          slot-name: 'staging'
           clean: false
 
-      - name: Warm up application
+      - name: Warm up Staging Slot
         run: |
-          echo "🔥 Warming up application endpoints..."
-          sleep 10  # Give app time to start
+          echo "🔥 Warming up staging slot..."
+          sleep 15  # Give staging app time to start and run migrations
+          STAGING_URL="https://django-app-ajfffwjb5ie3s-app-service-staging.azurewebsites.net"
+          # Health check with retry
+          for i in 1 2 3; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$STAGING_URL/healthz/" || echo "000")
+            echo "Health check attempt $i: $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Staging slot is healthy"
+              break
+            fi
+            sleep 5
+          done
+          if [ "$STATUS" != "200" ]; then
+            echo "⚠️ Staging health check returned $STATUS, proceeding anyway..."
+          fi
+
+      - name: Swap Staging to Production
+        run: |
+          echo "🔄 Swapping staging slot to production..."
+          az webapp deployment slot swap \
+            --resource-group django-app-rg \
+            --name django-app-ajfffwjb5ie3s-app-service \
+            --slot staging \
+            --target-slot production
+          echo "✅ Slot swap completed!"
+
+      - name: Warm up Production
+        run: |
+          echo "🔥 Warming up production endpoints..."
+          sleep 5
           curl -s -o /dev/null -w "Health check: %{http_code}\n" https://crush.lu/healthz/ || true
           curl -s -o /dev/null -w "Home page: %{http_code}\n" https://crush.lu/ || true
         continue-on-error: true
@@ -157,14 +185,15 @@ jobs:
       - name: Deployment Summary
         if: success()
         run: |
-          echo "✅ Deployment successful!"
+          echo "✅ Zero-downtime deployment successful!"
           echo "🌐 Crush.lu: https://crush.lu"
           echo "🌐 PowerUP: https://powerup.lu"
           echo "🌐 VinsDelux: https://vinsdelux.com"
-          echo "⚡ Deployment optimized for speed (~2-3min target)"
+          echo "⚡ Deployed via staging slot swap (zero downtime)"
 
       - name: Deployment Failed
         if: failure()
         run: |
           echo "❌ Deployment failed. Check Azure App Service logs."
           echo "🔧 Portal: https://portal.azure.com"
+          echo "💡 Tip: If staging slot failed, production is still running old version"

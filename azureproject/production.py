@@ -116,7 +116,7 @@ STORAGES = {
             "account_name": os.getenv('AZURE_ACCOUNT_NAME'),
             "account_key": os.getenv('AZURE_ACCOUNT_KEY'),
             "azure_container": os.getenv('AZURE_CONTAINER_NAME'),
-            "overwrite_files": True, # Explicitly set to True for testing
+            "overwrite_files": True,
             # "azure_ssl": True, # Default is True
             # "upload_max_conn": 2, # Default is 2
             # "timeout": 20, # Default is 20

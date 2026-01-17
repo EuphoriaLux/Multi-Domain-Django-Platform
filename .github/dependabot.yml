@@ -13,7 +13,7 @@ updates:
       timezone: "Europe/Luxembourg"
     open-pull-requests-limit: 5
     reviewers:
-      - "User"  # Replace with your GitHub username
+      - "EuphoriaLux"
     labels:
       - "dependencies"
       - "python"
@@ -35,6 +35,31 @@ updates:
         update-types:
           - "patch"
 
+  # npm dependencies (Tailwind CSS and build tools)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Luxembourg"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "EuphoriaLux"
+    labels:
+      - "dependencies"
+      - "javascript"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      tailwind-ecosystem:
+        patterns:
+          - "tailwindcss*"
+          - "@tailwindcss/*"
+          - "postcss*"
+          - "autoprefixer*"
+
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -44,6 +69,8 @@ updates:
       time: "09:00"
       timezone: "Europe/Luxembourg"
     open-pull-requests-limit: 3
+    reviewers:
+      - "EuphoriaLux"
     labels:
       - "dependencies"
       - "github-actions"

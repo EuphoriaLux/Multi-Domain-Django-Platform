@@ -1,0 +1,138 @@
+# Security Scanning Workflow
+# Runs security scans on PRs and pushes to detect vulnerabilities early
+name: Security Scan
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    # Run weekly on Sundays at midnight UTC
+    - cron: '0 0 * * 0'
+
+# Minimal permissions for security
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # Python dependency vulnerability scanning
+  dependency-scan:
+    name: Dependency Vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Run pip-audit
+        run: |
+          echo "🔍 Scanning Python dependencies for vulnerabilities..."
+          pip-audit -r requirements.txt --desc on --fix --dry-run || {
+            echo "⚠️ Vulnerabilities found! Review above output."
+            exit 1
+          }
+          echo "✅ No known vulnerabilities in dependencies"
+
+  # Static Application Security Testing (SAST) for Python
+  sast-scan:
+    name: SAST (Bandit)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install Bandit
+        run: pip install bandit[toml]
+
+      - name: Run Bandit Security Scan
+        run: |
+          echo "🔍 Running Bandit security analysis..."
+          bandit -r . \
+            --exclude "*/migrations/*,*/venv/*,*/.venv/*,*/tests/*,*/test_*" \
+            -ll \
+            -f json \
+            -o bandit-report.json || true
+
+          # Check for high severity issues
+          HIGH_COUNT=$(python -c "import json; r=json.load(open('bandit-report.json')); print(len([i for i in r.get('results',[]) if i['issue_severity']=='HIGH']))")
+          MEDIUM_COUNT=$(python -c "import json; r=json.load(open('bandit-report.json')); print(len([i for i in r.get('results',[]) if i['issue_severity']=='MEDIUM']))")
+
+          echo "Found: $HIGH_COUNT high severity, $MEDIUM_COUNT medium severity issues"
+
+          if [ "$HIGH_COUNT" -gt 0 ]; then
+            echo "❌ High severity security issues found!"
+            bandit -r . --exclude "*/migrations/*,*/venv/*,*/.venv/*,*/tests/*,*/test_*" -ll
+            exit 1
+          fi
+
+          echo "✅ No high severity security issues"
+
+      - name: Upload Bandit Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bandit-security-report
+          path: bandit-report.json
+          retention-days: 30
+
+  # Secrets scanning with GitLeaks
+  secrets-scan:
+    name: Secrets Detection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Full history for secret scanning
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Summary job
+  security-summary:
+    name: Security Summary
+    needs: [dependency-scan, sast-scan, secrets-scan]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check Results
+        run: |
+          echo "📊 Security Scan Summary"
+          echo "========================"
+          echo "Dependency Scan: ${{ needs.dependency-scan.result }}"
+          echo "SAST (Bandit):   ${{ needs.sast-scan.result }}"
+          echo "Secrets Scan:    ${{ needs.secrets-scan.result }}"
+
+          if [ "${{ needs.dependency-scan.result }}" != "success" ] || \
+             [ "${{ needs.sast-scan.result }}" != "success" ] || \
+             [ "${{ needs.secrets-scan.result }}" != "success" ]; then
+            echo ""
+            echo "⚠️ Some security checks failed. Review the results above."
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ All security checks passed!"
