@@ -19,11 +19,11 @@ from django.views.decorators.http import require_GET
 def home(request):
     """Landing page with hero, services overview, and trust markers."""
     context = {
-        "page_title": _("Baumwart Tom Aakrann - Professionelle Baumpflege Luxemburg"),
+        "page_title": _("Arborist Tom Aakrann - Professional Tree Care Luxembourg"),
         "meta_description": _(
-            "Zertifizierter Baumkontrolleur und Baumpfleger in Luxemburg. "
-            "Obstbaumpflege, Baumpflege, Baumkontrolle nach FLL. "
-            "Seilklettertechnik SKT-B."
+            "Certified tree inspector and arborist in Luxembourg. "
+            "Fruit tree care, tree care, tree inspection according to FLL standards. "
+            "SKT-B rope climbing technique."
         ),
     }
     return render(request, "arborist/home.html", context)
@@ -38,12 +38,12 @@ def home(request):
 def obstbaumpflege(request):
     """Fruit tree care services."""
     context = {
-        "page_title": _("Obstbaumpflege Luxemburg - Baumwart Tom Aakrann"),
+        "page_title": _("Fruit Tree Care Luxembourg - Arborist Tom Aakrann"),
         "meta_description": _(
-            "Professionelle Obstbaumpflege in Luxemburg. Obstbaumschnitt, "
-            "Verjüngungsschnitt, Erziehungsschnitt. Für gesunde und ertragreiche Obstbäume."
+            "Professional fruit tree care in Luxembourg. Fruit tree pruning, "
+            "rejuvenation pruning, training pruning. For healthy and productive fruit trees."
         ),
-        "service_name": _("Obstbaumpflege"),
+        "service_name": _("Fruit Tree Care"),
         "service_type": "obstbaumpflege",
     }
     return render(request, "arborist/services/obstbaumpflege.html", context)
@@ -53,12 +53,12 @@ def obstbaumpflege(request):
 def baumpflege(request):
     """Native tree care services."""
     context = {
-        "page_title": _("Baumpflege Luxemburg - Baumwart Tom Aakrann"),
+        "page_title": _("Tree Care Luxembourg - Arborist Tom Aakrann"),
         "meta_description": _(
-            "Professionelle Baumpflege in Luxemburg. Kronenpflege, Totholzentfernung, "
-            "Kroneneinkürzung. Seilklettertechnik SKT-B zertifiziert."
+            "Professional tree care in Luxembourg. Crown maintenance, deadwood removal, "
+            "crown reduction. SKT-B rope climbing technique certified."
         ),
-        "service_name": _("Baumpflege"),
+        "service_name": _("Tree Care"),
         "service_type": "baumpflege",
     }
     return render(request, "arborist/services/baumpflege.html", context)
@@ -68,12 +68,12 @@ def baumpflege(request):
 def baumkontrolle(request):
     """Certified tree inspection services."""
     context = {
-        "page_title": _("Baumkontrolle Luxemburg - FLL zertifiziert - Baumwart"),
+        "page_title": _("Tree Inspection Luxembourg - FLL Certified - Arborist"),
         "meta_description": _(
-            "FLL-zertifizierte Baumkontrolle in Luxemburg. Visuelle Baumkontrolle, "
-            "Baumkataster, Verkehrssicherheitsprüfung. Gutachten und Dokumentation."
+            "FLL-certified tree inspection in Luxembourg. Visual tree inspection, "
+            "tree inventory, traffic safety assessment. Reports and documentation."
         ),
-        "service_name": _("Baumkontrolle"),
+        "service_name": _("Tree Inspection"),
         "service_type": "baumkontrolle",
     }
     return render(request, "arborist/services/baumkontrolle.html", context)
@@ -83,12 +83,12 @@ def baumkontrolle(request):
 def oekologie(request):
     """Ecological services."""
     context = {
-        "page_title": _("Ökologische Maßnahmen - Baumwart Tom Aakrann"),
+        "page_title": _("Ecological Measures - Arborist Tom Aakrann"),
         "meta_description": _(
-            "Ökologische Baumpflege in Luxemburg. Habitatbäume, Totholzmanagement, "
-            "Nisthilfen, Artenschutz. Naturnahe Baumpflege für Biodiversität."
+            "Ecological tree care in Luxembourg. Habitat trees, deadwood management, "
+            "nesting aids, species protection. Nature-friendly tree care for biodiversity."
         ),
-        "service_name": _("Ökologische Maßnahmen"),
+        "service_name": _("Ecological Measures"),
         "service_type": "oekologie",
     }
     return render(request, "arborist/services/oekologie.html", context)
@@ -98,12 +98,12 @@ def oekologie(request):
 def technik(request):
     """Equipment and methods."""
     context = {
-        "page_title": _("Technik & Methoden - Baumwart Tom Aakrann"),
+        "page_title": _("Techniques & Methods - Arborist Tom Aakrann"),
         "meta_description": _(
-            "Moderne Baumpflegetechnik in Luxemburg. Seilklettertechnik SKT-B, "
-            "Hubarbeitsbühne, professionelle Ausrüstung für sichere Baumpflege."
+            "Modern tree care techniques in Luxembourg. SKT-B rope climbing technique, "
+            "aerial work platform, professional equipment for safe tree care."
         ),
-        "service_name": _("Technik"),
+        "service_name": _("Techniques"),
         "service_type": "technik",
     }
     return render(request, "arborist/services/technik.html", context)
@@ -118,10 +118,10 @@ def technik(request):
 def about(request):
     """About Tom Aakrann and credentials."""
     context = {
-        "page_title": _("Über uns - Baumwart Tom Aakrann"),
+        "page_title": _("About Me - Arborist Tom Aakrann"),
         "meta_description": _(
-            "Tom Aakrann - FLL-zertifizierter Baumkontrolleur und Baumpfleger "
-            "in Luxemburg. Erfahrung, Qualifikationen und Leidenschaft für Bäume."
+            "Tom Aakrann - FLL-certified tree inspector and arborist "
+            "in Luxembourg. Experience, qualifications, and passion for trees."
         ),
     }
     return render(request, "arborist/about.html", context)
@@ -131,10 +131,10 @@ def about(request):
 def contact(request):
     """Contact information and form."""
     context = {
-        "page_title": _("Kontakt - Baumwart Tom Aakrann"),
+        "page_title": _("Contact - Arborist Tom Aakrann"),
         "meta_description": _(
-            "Kontaktieren Sie Baumwart Tom Aakrann für Baumpflege in Luxemburg. "
-            "Kostenlose Beratung, schnelle Antwort. Telefon, WhatsApp, E-Mail."
+            "Contact Arborist Tom Aakrann for tree care in Luxembourg. "
+            "Free consultation, quick response. Phone, WhatsApp, email."
         ),
     }
     return render(request, "arborist/contact.html", context)
@@ -149,10 +149,10 @@ def contact(request):
 def gallery(request):
     """Photo gallery with before/after images."""
     context = {
-        "page_title": _("Galerie - Baumwart Tom Aakrann"),
+        "page_title": _("Gallery - Arborist Tom Aakrann"),
         "meta_description": _(
-            "Fotos von Baumpflege-Projekten in Luxemburg. Vorher-Nachher Bilder "
-            "von Obstbaumpflege, Kronenpflege und Baumfällung."
+            "Photos of tree care projects in Luxembourg. Before and after images "
+            "of fruit tree care, crown maintenance, and tree removal."
         ),
     }
     return render(request, "arborist/gallery.html", context)
@@ -164,49 +164,49 @@ def faq(request):
     # FAQ items for structured data
     faq_items = [
         {
-            "question": _("Was kostet eine Baumkontrolle?"),
+            "question": _("How much does a tree inspection cost?"),
             "answer": _(
-                "Die Kosten für eine Baumkontrolle hängen von der Anzahl der Bäume "
-                "und dem Aufwand ab. Kontaktieren Sie mich für ein individuelles Angebot."
+                "The cost of a tree inspection depends on the number of trees "
+                "and the effort required. Contact me for an individual quote."
             ),
         },
         {
-            "question": _("Wann ist die beste Zeit für Obstbaumschnitt?"),
+            "question": _("When is the best time for fruit tree pruning?"),
             "answer": _(
-                "Der beste Zeitpunkt für den Obstbaumschnitt ist je nach Obstart "
-                "verschieden. Kernobst (Apfel, Birne) wird meist im Winter geschnitten, "
-                "Steinobst (Kirsche, Pflaume) nach der Ernte im Sommer."
+                "The best time for fruit tree pruning varies depending on the type of fruit. "
+                "Pome fruit (apple, pear) is usually pruned in winter, "
+                "stone fruit (cherry, plum) after harvest in summer."
             ),
         },
         {
-            "question": _("Arbeiten Sie auch mit Seilklettertechnik?"),
+            "question": _("Do you also work with rope climbing technique?"),
             "answer": _(
-                "Ja, ich bin SKT-B zertifiziert und arbeite mit professioneller "
-                "Seilklettertechnik. Dies ermöglicht baumschonende Pflege auch ohne "
-                "schwere Maschinen."
+                "Yes, I am SKT-B certified and work with professional "
+                "rope climbing technique. This enables tree-friendly care even without "
+                "heavy machinery."
             ),
         },
         {
-            "question": _("In welchen Regionen sind Sie tätig?"),
+            "question": _("In which regions do you operate?"),
             "answer": _(
-                "Ich bin in ganz Luxemburg tätig, mit Schwerpunkt auf dem Zentrum "
-                "und Süden des Landes."
+                "I operate throughout Luxembourg, with a focus on the center "
+                "and south of the country."
             ),
         },
         {
-            "question": _("Bieten Sie auch Notfalldienst an?"),
+            "question": _("Do you also offer emergency services?"),
             "answer": _(
-                "Ja, bei Sturmschäden oder anderen Notfällen bin ich auch kurzfristig "
-                "erreichbar. Kontaktieren Sie mich telefonisch für dringende Anfragen."
+                "Yes, for storm damage or other emergencies I am also available on short notice. "
+                "Contact me by phone for urgent inquiries."
             ),
         },
     ]
 
     context = {
-        "page_title": _("FAQ - Häufige Fragen - Baumwart Tom Aakrann"),
+        "page_title": _("FAQ - Frequently Asked Questions - Arborist Tom Aakrann"),
         "meta_description": _(
-            "Häufig gestellte Fragen zu Baumpflege in Luxemburg. "
-            "Antworten zu Kosten, Zeitpunkt, Methoden und Leistungen."
+            "Frequently asked questions about tree care in Luxembourg. "
+            "Answers about costs, timing, methods, and services."
         ),
         "faq_items": faq_items,
     }

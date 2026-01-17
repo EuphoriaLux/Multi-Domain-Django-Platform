@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-16 20:04+0100\n"
+"POT-Creation-Date: 2026-01-17 01:30+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -117,6 +117,7 @@ msgstr ""
 #: .\arborist\templates\arborist\partials\navigation.html:203
 #: .\arborist\templates\arborist\partials\navigation.html:244
 #: .\arborist\templates\arborist\services\obstbaumpflege.html:10
+#: .\arborist\views.py:46
 msgid "Fruit Tree Care"
 msgstr "Obstbaumpflege"
 
@@ -229,6 +230,7 @@ msgstr "Baumpflege-Leistungen"
 #: .\arborist\templates\arborist\partials\navigation.html:204
 #: .\arborist\templates\arborist\partials\navigation.html:247
 #: .\arborist\templates\arborist\services\baumpflege.html:10
+#: .\arborist\views.py:61
 msgid "Tree Care"
 msgstr "Baumpflege"
 
@@ -240,6 +242,7 @@ msgstr "Baumpflege"
 #: .\arborist\templates\arborist\partials\navigation.html:205
 #: .\arborist\templates\arborist\partials\navigation.html:250
 #: .\arborist\templates\arborist\services\baumkontrolle.html:10
+#: .\arborist\views.py:76
 msgid "Tree Inspection"
 msgstr "Baumkontrolle"
 
@@ -322,6 +325,7 @@ msgstr "Bitte auswählen"
 #: .\arborist\templates\arborist\contact.html:99
 #: .\arborist\templates\arborist\home.html:98
 #: .\arborist\templates\arborist\services\oekologie.html:10
+#: .\arborist\views.py:91
 msgid "Ecological Measures"
 msgstr "Ökologische Maßnahmen"
 
@@ -398,11 +402,11 @@ msgstr "Häufige Fragen"
 msgid "Answers to the most important questions about tree care."
 msgstr "Antworten auf die wichtigsten Fragen zur Baumpflege."
 
-#: .\arborist\templates\arborist\faq.html:59
+#: .\arborist\templates\arborist\faq.html:59 .\arborist\views.py:167
 msgid "How much does a tree inspection cost?"
 msgstr "Was kostet eine Baumkontrolle?"
 
-#: .\arborist\templates\arborist\faq.html:62
+#: .\arborist\templates\arborist\faq.html:62 .\arborist\views.py:169
 msgid ""
 "The cost of a tree inspection depends on the number of trees and the effort "
 "required. Contact me for an individual quote."
@@ -410,7 +414,7 @@ msgstr ""
 "Die Kosten für eine Baumkontrolle hängen von der Anzahl der Bäume und dem "
 "Aufwand ab. Kontaktieren Sie mich für ein individuelles Angebot."
 
-#: .\arborist\templates\arborist\faq.html:67
+#: .\arborist\templates\arborist\faq.html:67 .\arborist\views.py:174
 msgid "When is the best time for fruit tree pruning?"
 msgstr "Wann ist die beste Zeit für Obstbaumschnitt?"
 
@@ -420,15 +424,15 @@ msgid ""
 "(apple, pear) is usually pruned in winter, stone fruit (cherry, plum) after "
 "harvest in summer."
 msgstr ""
-"Der beste Zeitpunkt für den Obstbaumschnitt ist je nach Obstart "
-"verschieden. Kernobst (Apfel, Birne) wird meist im Winter geschnitten, "
-"Steinobst (Kirsche, Pflaume) nach der Ernte im Sommer."
+"Der beste Zeitpunkt für den Obstbaumschnitt ist je nach Obstart verschieden. "
+"Kernobst (Apfel, Birne) wird meist im Winter geschnitten, Steinobst "
+"(Kirsche, Pflaume) nach der Ernte im Sommer."
 
-#: .\arborist\templates\arborist\faq.html:75
+#: .\arborist\templates\arborist\faq.html:75 .\arborist\views.py:182
 msgid "Do you also work with rope climbing technique?"
 msgstr "Arbeiten Sie auch mit Seilklettertechnik?"
 
-#: .\arborist\templates\arborist\faq.html:78
+#: .\arborist\templates\arborist\faq.html:78 .\arborist\views.py:184
 msgid ""
 "Yes, I am SKT-B certified and work with professional rope climbing "
 "technique. This enables tree-friendly care even without heavy machinery."
@@ -437,11 +441,11 @@ msgstr ""
 "Seilklettertechnik. Dies ermöglicht baumschonende Pflege auch ohne schwere "
 "Maschinen."
 
-#: .\arborist\templates\arborist\faq.html:83
+#: .\arborist\templates\arborist\faq.html:83 .\arborist\views.py:190
 msgid "In which regions do you operate?"
 msgstr "In welchen Regionen sind Sie tätig?"
 
-#: .\arborist\templates\arborist\faq.html:86
+#: .\arborist\templates\arborist\faq.html:86 .\arborist\views.py:192
 msgid ""
 "I operate throughout Luxembourg, with a focus on the center and south of the "
 "country."
@@ -449,7 +453,7 @@ msgstr ""
 "Ich bin in ganz Luxemburg tätig, mit Schwerpunkt auf dem Zentrum und Süden "
 "des Landes."
 
-#: .\arborist\templates\arborist\faq.html:91
+#: .\arborist\templates\arborist\faq.html:91 .\arborist\views.py:197
 msgid "Do you also offer emergency services?"
 msgstr "Bieten Sie auch Notfalldienst an?"
 
@@ -475,8 +479,8 @@ msgid ""
 "happy to advise you on local regulations and help with the application "
 "process."
 msgstr ""
-"In vielen Gemeinden Luxemburgs sind Baumfällungen genehmigungspflichtig. "
-"Ich berate Sie gerne zu den lokalen Vorschriften und helfe bei der "
+"In vielen Gemeinden Luxemburgs sind Baumfällungen genehmigungspflichtig. Ich "
+"berate Sie gerne zu den lokalen Vorschriften und helfe bei der "
 "Antragstellung."
 
 #: .\arborist\templates\arborist\faq.html:123
@@ -503,8 +507,8 @@ msgid ""
 "For less frequented locations, a longer interval may be sufficient."
 msgstr ""
 "Bei Bäumen an verkehrsreichen Standorten empfiehlt die FLL eine jährliche "
-"Kontrolle. Bei weniger frequentierten Standorten kann ein längeres "
-"Intervall ausreichen."
+"Kontrolle. Bei weniger frequentierten Standorten kann ein längeres Intervall "
+"ausreichen."
 
 #: .\arborist\templates\arborist\faq.html:141
 msgid "Do you dispose of the cuttings?"
@@ -524,7 +528,8 @@ msgstr "Weitere Fragen?"
 
 #: .\arborist\templates\arborist\faq.html:159
 msgid "Contact me - I am happy to answer all your questions about tree care."
-msgstr "Kontaktieren Sie mich - ich beantworte gerne alle Ihre Fragen zur Baumpflege."
+msgstr ""
+"Kontaktieren Sie mich - ich beantworte gerne alle Ihre Fragen zur Baumpflege."
 
 #: .\arborist\templates\arborist\gallery.html:10
 #: .\arborist\templates\arborist\partials\footer.html:96
@@ -630,8 +635,8 @@ msgid ""
 "Crown maintenance, deadwood removal, reduction cuts - professionally "
 "according to ZTV tree care standards."
 msgstr ""
-"Kronenpflege, Totholzentfernung, Einkürzung - fachgerecht nach "
-"ZTV-Baumpflege."
+"Kronenpflege, Totholzentfernung, Einkürzung - fachgerecht nach ZTV-"
+"Baumpflege."
 
 #: .\arborist\templates\arborist\home.html:89
 msgid "FLL-certified inspection, tree inventory, traffic safety assessment."
@@ -761,6 +766,7 @@ msgstr "Ökologie"
 #: .\arborist\templates\arborist\partials\footer.html:77
 #: .\arborist\templates\arborist\partials\navigation.html:207
 #: .\arborist\templates\arborist\partials\navigation.html:256
+#: .\arborist\views.py:106
 msgid "Techniques"
 msgstr "Techniken"
 
@@ -800,8 +806,7 @@ msgstr "Unsere Leistungen"
 #: .\arborist\templates\arborist\services.html:13
 msgid ""
 "Comprehensive tree care solutions for residential and commercial properties."
-msgstr ""
-"Umfassende Baumpflegelösungen für Privat- und Geschäftsobjekte."
+msgstr "Umfassende Baumpflegelösungen für Privat- und Geschäftsobjekte."
 
 #: .\arborist\templates\arborist\services.html:27
 msgid "Tree Pruning"
@@ -865,8 +870,8 @@ msgid ""
 "structural issues. We provide detailed reports and treatment recommendations."
 msgstr ""
 "Umfassende Baumgesundheitsuntersuchungen zur Erkennung von Krankheiten, "
-"Schädlingen und strukturellen Problemen. Wir erstellen detaillierte "
-"Berichte und Behandlungsempfehlungen."
+"Schädlingen und strukturellen Problemen. Wir erstellen detaillierte Berichte "
+"und Behandlungsempfehlungen."
 
 #: .\arborist\templates\arborist\services.html:80
 msgid "Disease diagnosis"
@@ -910,7 +915,8 @@ msgstr "Benötigen Sie unsere Leistungen?"
 
 #: .\arborist\templates\arborist\services.html:127
 msgid "Contact us for a free quote on any of our services."
-msgstr "Kontaktieren Sie uns für ein kostenloses Angebot zu unseren Leistungen."
+msgstr ""
+"Kontaktieren Sie uns für ein kostenloses Angebot zu unseren Leistungen."
 
 #: .\arborist\templates\arborist\services.html:130
 msgid "Request a Quote"
@@ -1136,8 +1142,8 @@ msgid ""
 "Dead branches are professionally removed to minimize hazards and relieve "
 "stress on the tree."
 msgstr ""
-"Abgestorbene Äste werden fachgerecht entfernt, um Gefahren zu minimieren "
-"und den Baum zu entlasten."
+"Abgestorbene Äste werden fachgerecht entfernt, um Gefahren zu minimieren und "
+"den Baum zu entlasten."
 
 #: .\arborist\templates\arborist\services\baumpflege.html:64
 msgid "Gentle Working Methods"
@@ -1173,7 +1179,8 @@ msgstr "Erfahrung mit allen Baumarten"
 
 #: .\arborist\templates\arborist\services\baumpflege.html:95
 msgid "Whether native or exotic trees - every species has its characteristics:"
-msgstr "Ob einheimische oder exotische Bäume - jede Art hat ihre Besonderheiten:"
+msgstr ""
+"Ob einheimische oder exotische Bäume - jede Art hat ihre Besonderheiten:"
 
 #: .\arborist\templates\arborist\services\baumpflege.html:100
 msgid "Oak"
@@ -1213,7 +1220,8 @@ msgstr "Beratung anfordern"
 
 #: .\arborist\templates\arborist\services\obstbaumpflege.html:13
 msgid "Professional care for healthy and productive fruit trees in Luxembourg."
-msgstr "Professionelle Pflege für gesunde und ertragreiche Obstbäume in Luxemburg."
+msgstr ""
+"Professionelle Pflege für gesunde und ertragreiche Obstbäume in Luxemburg."
 
 #: .\arborist\templates\arborist\services\obstbaumpflege.html:24
 msgid "My Services for Your Fruit Trees"
@@ -1228,8 +1236,8 @@ msgid ""
 "Formative pruning shapes young fruit trees into a stable crown structure. It "
 "lays the foundation for a healthy, productive tree."
 msgstr ""
-"Der Erziehungsschnitt formt junge Obstbäume zu einer stabilen Kronenstruktur. "
-"Er legt die Basis für einen gesunden, ertragreichen Baum."
+"Der Erziehungsschnitt formt junge Obstbäume zu einer stabilen "
+"Kronenstruktur. Er legt die Basis für einen gesunden, ertragreichen Baum."
 
 #: .\arborist\templates\arborist\services\obstbaumpflege.html:36
 msgid "Maintenance Pruning"
@@ -1252,8 +1260,8 @@ msgid ""
 "Old, neglected fruit trees can be given new life through proper rejuvenation "
 "pruning and bear fruit abundantly again."
 msgstr ""
-"Alte, vernachlässigte Obstbäume können durch fachgerechten Verjüngungsschnitt "
-"neues Leben erhalten und wieder reichlich tragen."
+"Alte, vernachlässigte Obstbäume können durch fachgerechten "
+"Verjüngungsschnitt neues Leben erhalten und wieder reichlich tragen."
 
 #: .\arborist\templates\arborist\services\obstbaumpflege.html:50
 msgid "Summer Pruning"
@@ -1550,7 +1558,8 @@ msgstr "Hubarbeitsbühne"
 
 #: .\arborist\templates\arborist\services\technik.html:122
 msgid "With good access and large tree populations. Fast work at height."
-msgstr "Bei guter Zufahrt und großen Baumbeständen. Schnelles Arbeiten in der Höhe."
+msgstr ""
+"Bei guter Zufahrt und großen Baumbeständen. Schnelles Arbeiten in der Höhe."
 
 #: .\arborist\templates\arborist\services\technik.html:125
 msgid "Ground-Based Techniques"
@@ -1601,210 +1610,143 @@ msgid "I am happy to explain how I work on your trees."
 msgstr "Ich erkläre Ihnen gerne, wie ich an Ihren Bäumen arbeite."
 
 #: .\arborist\views.py:22
-msgid "Baumwart Tom Aakrann - Professionelle Baumpflege Luxemburg"
+msgid "Arborist Tom Aakrann - Professional Tree Care Luxembourg"
 msgstr "Baumwart Tom Aakrann - Professionelle Baumpflege Luxemburg"
 
 #: .\arborist\views.py:24
 msgid ""
-"Zertifizierter Baumkontrolleur und Baumpfleger in Luxemburg. Obstbaumpflege, "
-"Baumpflege, Baumkontrolle nach FLL. Seilklettertechnik SKT-B."
+"Certified tree inspector and arborist in Luxembourg. Fruit tree care, tree "
+"care, tree inspection according to FLL standards. SKT-B rope climbing "
+"technique."
 msgstr ""
 "Zertifizierter Baumkontrolleur und Baumpfleger in Luxemburg. Obstbaumpflege, "
-"Baumpflege, Baumkontrolle nach FLL. Seilklettertechnik SKT-B."
+"Baumpflege, Baumkontrolle nach FLL-Standards. SKT-B Seilklettertechnik."
 
 #: .\arborist\views.py:41
-msgid "Obstbaumpflege Luxemburg - Baumwart Tom Aakrann"
+msgid "Fruit Tree Care Luxembourg - Arborist Tom Aakrann"
 msgstr "Obstbaumpflege Luxemburg - Baumwart Tom Aakrann"
 
 #: .\arborist\views.py:43
 msgid ""
-"Professionelle Obstbaumpflege in Luxemburg. Obstbaumschnitt, "
-"Verjüngungsschnitt, Erziehungsschnitt. Für gesunde und ertragreiche "
-"Obstbäume."
+"Professional fruit tree care in Luxembourg. Fruit tree pruning, rejuvenation "
+"pruning, training pruning. For healthy and productive fruit trees."
 msgstr ""
-"Professionelle Obstbaumpflege in Luxemburg. Obstbaumschnitt, "
-"Verjüngungsschnitt, Erziehungsschnitt. Für gesunde und ertragreiche "
-"Obstbäume."
-
-#: .\arborist\views.py:46
-msgid "Obstbaumpflege"
-msgstr "Obstbaumpflege"
+"Professionelle Obstbaumpflege in Luxemburg. Obstbaumschnitt, Verjüngungsschnitt, "
+"Erziehungsschnitt. Für gesunde und ertragreiche Obstbäume."
 
 #: .\arborist\views.py:56
-msgid "Baumpflege Luxemburg - Baumwart Tom Aakrann"
+msgid "Tree Care Luxembourg - Arborist Tom Aakrann"
 msgstr "Baumpflege Luxemburg - Baumwart Tom Aakrann"
 
 #: .\arborist\views.py:58
 msgid ""
-"Professionelle Baumpflege in Luxemburg. Kronenpflege, Totholzentfernung, "
-"Kroneneinkürzung. Seilklettertechnik SKT-B zertifiziert."
+"Professional tree care in Luxembourg. Crown maintenance, deadwood removal, "
+"crown reduction. SKT-B rope climbing technique certified."
 msgstr ""
 "Professionelle Baumpflege in Luxemburg. Kronenpflege, Totholzentfernung, "
-"Kroneneinkürzung. Seilklettertechnik SKT-B zertifiziert."
-
-#: .\arborist\views.py:61
-msgid "Baumpflege"
-msgstr "Baumpflege"
+"Kroneneinkürzung. SKT-B Seilklettertechnik zertifiziert."
 
 #: .\arborist\views.py:71
-msgid "Baumkontrolle Luxemburg - FLL zertifiziert - Baumwart"
+msgid "Tree Inspection Luxembourg - FLL Certified - Arborist"
 msgstr "Baumkontrolle Luxemburg - FLL zertifiziert - Baumwart"
 
 #: .\arborist\views.py:73
 msgid ""
-"FLL-zertifizierte Baumkontrolle in Luxemburg. Visuelle Baumkontrolle, "
-"Baumkataster, Verkehrssicherheitsprüfung. Gutachten und Dokumentation."
+"FLL-certified tree inspection in Luxembourg. Visual tree inspection, tree "
+"inventory, traffic safety assessment. Reports and documentation."
 msgstr ""
 "FLL-zertifizierte Baumkontrolle in Luxemburg. Visuelle Baumkontrolle, "
 "Baumkataster, Verkehrssicherheitsprüfung. Gutachten und Dokumentation."
 
-#: .\arborist\views.py:76
-msgid "Baumkontrolle"
-msgstr "Baumkontrolle"
-
 #: .\arborist\views.py:86
-msgid "Ökologische Maßnahmen - Baumwart Tom Aakrann"
+msgid "Ecological Measures - Arborist Tom Aakrann"
 msgstr "Ökologische Maßnahmen - Baumwart Tom Aakrann"
 
 #: .\arborist\views.py:88
 msgid ""
-"Ökologische Baumpflege in Luxemburg. Habitatbäume, Totholzmanagement, "
-"Nisthilfen, Artenschutz. Naturnahe Baumpflege für Biodiversität."
+"Ecological tree care in Luxembourg. Habitat trees, deadwood management, "
+"nesting aids, species protection. Nature-friendly tree care for biodiversity."
 msgstr ""
 "Ökologische Baumpflege in Luxemburg. Habitatbäume, Totholzmanagement, "
 "Nisthilfen, Artenschutz. Naturnahe Baumpflege für Biodiversität."
 
-#: .\arborist\views.py:91
-msgid "Ökologische Maßnahmen"
-msgstr "Ökologische Maßnahmen"
-
 #: .\arborist\views.py:101
-msgid "Technik & Methoden - Baumwart Tom Aakrann"
+msgid "Techniques & Methods - Arborist Tom Aakrann"
 msgstr "Technik & Methoden - Baumwart Tom Aakrann"
 
 #: .\arborist\views.py:103
 msgid ""
-"Moderne Baumpflegetechnik in Luxemburg. Seilklettertechnik SKT-B, "
-"Hubarbeitsbühne, professionelle Ausrüstung für sichere Baumpflege."
+"Modern tree care techniques in Luxembourg. SKT-B rope climbing technique, "
+"aerial work platform, professional equipment for safe tree care."
 msgstr ""
-"Moderne Baumpflegetechnik in Luxemburg. Seilklettertechnik SKT-B, "
+"Moderne Baumpflegetechniken in Luxemburg. SKT-B Seilklettertechnik, "
 "Hubarbeitsbühne, professionelle Ausrüstung für sichere Baumpflege."
-
-#: .\arborist\views.py:106
-msgid "Technik"
-msgstr "Technik"
 
 #: .\arborist\views.py:121
-msgid "Über uns - Baumwart Tom Aakrann"
-msgstr "Über uns - Baumwart Tom Aakrann"
+msgid "About Me - Arborist Tom Aakrann"
+msgstr "Über mich - Baumwart Tom Aakrann"
 
 #: .\arborist\views.py:123
 msgid ""
-"Tom Aakrann - FLL-zertifizierter Baumkontrolleur und Baumpfleger in "
-"Luxemburg. Erfahrung, Qualifikationen und Leidenschaft für Bäume."
+"Tom Aakrann - FLL-certified tree inspector and arborist in Luxembourg. "
+"Experience, qualifications, and passion for trees."
 msgstr ""
 "Tom Aakrann - FLL-zertifizierter Baumkontrolleur und Baumpfleger in "
 "Luxemburg. Erfahrung, Qualifikationen und Leidenschaft für Bäume."
 
 #: .\arborist\views.py:134
-msgid "Kontakt - Baumwart Tom Aakrann"
+msgid "Contact - Arborist Tom Aakrann"
 msgstr "Kontakt - Baumwart Tom Aakrann"
 
 #: .\arborist\views.py:136
 msgid ""
-"Kontaktieren Sie Baumwart Tom Aakrann für Baumpflege in Luxemburg. "
-"Kostenlose Beratung, schnelle Antwort. Telefon, WhatsApp, E-Mail."
+"Contact Arborist Tom Aakrann for tree care in Luxembourg. Free consultation, "
+"quick response. Phone, WhatsApp, email."
 msgstr ""
-"Kontaktieren Sie Baumwart Tom Aakrann für Baumpflege in Luxemburg. "
-"Kostenlose Beratung, schnelle Antwort. Telefon, WhatsApp, E-Mail."
+"Kontaktieren Sie Baumwart Tom Aakrann für Baumpflege in Luxemburg. Kostenlose "
+"Beratung, schnelle Antwort. Telefon, WhatsApp, E-Mail."
 
 #: .\arborist\views.py:152
-msgid "Galerie - Baumwart Tom Aakrann"
+msgid "Gallery - Arborist Tom Aakrann"
 msgstr "Galerie - Baumwart Tom Aakrann"
 
 #: .\arborist\views.py:154
 msgid ""
-"Fotos von Baumpflege-Projekten in Luxemburg. Vorher-Nachher Bilder von "
-"Obstbaumpflege, Kronenpflege und Baumfällung."
+"Photos of tree care projects in Luxembourg. Before and after images of fruit "
+"tree care, crown maintenance, and tree removal."
 msgstr ""
-"Fotos von Baumpflege-Projekten in Luxemburg. Vorher-Nachher Bilder von "
+"Fotos von Baumpflege-Projekten in Luxemburg. Vorher-Nachher-Bilder von "
 "Obstbaumpflege, Kronenpflege und Baumfällung."
-
-#: .\arborist\views.py:167
-msgid "Was kostet eine Baumkontrolle?"
-msgstr "Was kostet eine Baumkontrolle?"
-
-#: .\arborist\views.py:169
-msgid ""
-"Die Kosten für eine Baumkontrolle hängen von der Anzahl der Bäume und dem "
-"Aufwand ab. Kontaktieren Sie mich für ein individuelles Angebot."
-msgstr ""
-"Die Kosten für eine Baumkontrolle hängen von der Anzahl der Bäume und dem "
-"Aufwand ab. Kontaktieren Sie mich für ein individuelles Angebot."
-
-#: .\arborist\views.py:174
-msgid "Wann ist die beste Zeit für Obstbaumschnitt?"
-msgstr "Wann ist die beste Zeit für Obstbaumschnitt?"
 
 #: .\arborist\views.py:176
 msgid ""
-"Der beste Zeitpunkt für den Obstbaumschnitt ist je nach Obstart verschieden. "
-"Kernobst (Apfel, Birne) wird meist im Winter geschnitten, Steinobst "
-"(Kirsche, Pflaume) nach der Ernte im Sommer."
+"The best time for fruit tree pruning varies depending on the type of fruit. "
+"Pome fruit (apple, pear) is usually pruned in winter, stone fruit (cherry, "
+"plum) after harvest in summer."
 msgstr ""
 "Der beste Zeitpunkt für den Obstbaumschnitt ist je nach Obstart verschieden. "
 "Kernobst (Apfel, Birne) wird meist im Winter geschnitten, Steinobst "
 "(Kirsche, Pflaume) nach der Ernte im Sommer."
-
-#: .\arborist\views.py:182
-msgid "Arbeiten Sie auch mit Seilklettertechnik?"
-msgstr "Arbeiten Sie auch mit Seilklettertechnik?"
-
-#: .\arborist\views.py:184
-msgid ""
-"Ja, ich bin SKT-B zertifiziert und arbeite mit professioneller "
-"Seilklettertechnik. Dies ermöglicht baumschonende Pflege auch ohne schwere "
-"Maschinen."
-msgstr ""
-"Ja, ich bin SKT-B zertifiziert und arbeite mit professioneller "
-"Seilklettertechnik. Dies ermöglicht baumschonende Pflege auch ohne schwere "
-"Maschinen."
-
-#: .\arborist\views.py:190
-msgid "In welchen Regionen sind Sie tätig?"
-msgstr "In welchen Regionen sind Sie tätig?"
-
-#: .\arborist\views.py:192
-msgid ""
-"Ich bin in ganz Luxemburg tätig, mit Schwerpunkt auf dem Zentrum und Süden "
-"des Landes."
-msgstr ""
-"Ich bin in ganz Luxemburg tätig, mit Schwerpunkt auf dem Zentrum und Süden "
-"des Landes."
-
-#: .\arborist\views.py:197
-msgid "Bieten Sie auch Notfalldienst an?"
-msgstr "Bieten Sie auch Notfalldienst an?"
 
 #: .\arborist\views.py:199
 msgid ""
-"Ja, bei Sturmschäden oder anderen Notfällen bin ich auch kurzfristig "
-"erreichbar. Kontaktieren Sie mich telefonisch für dringende Anfragen."
+"Yes, for storm damage or other emergencies I am also available on short "
+"notice. Contact me by phone for urgent inquiries."
 msgstr ""
 "Ja, bei Sturmschäden oder anderen Notfällen bin ich auch kurzfristig "
 "erreichbar. Kontaktieren Sie mich telefonisch für dringende Anfragen."
 
 #: .\arborist\views.py:206
-msgid "FAQ - Häufige Fragen - Baumwart Tom Aakrann"
+msgid "FAQ - Frequently Asked Questions - Arborist Tom Aakrann"
 msgstr "FAQ - Häufige Fragen - Baumwart Tom Aakrann"
 
 #: .\arborist\views.py:208
 msgid ""
-"Häufig gestellte Fragen zu Baumpflege in Luxemburg. Antworten zu Kosten, "
-"Zeitpunkt, Methoden und Leistungen."
+"Frequently asked questions about tree care in Luxembourg. Answers about "
+"costs, timing, methods, and services."
 msgstr ""
-"Häufig gestellte Fragen zu Baumpflege in Luxemburg. Antworten zu Kosten, "
-"Zeitpunkt, Methoden und Leistungen."
+"Häufig gestellte Fragen zur Baumpflege in Luxemburg. Antworten zu Kosten, "
+"Zeitpunkt, Methoden und Dienstleistungen."
 
 #: .\azureproject\settings.py:459 .\crush_lu\models\profiles.py:389
 msgid "English"
@@ -15808,6 +15750,160 @@ msgstr "Ungültiges Anfrageformat"
 #: .\vinsdelux\views.py:425
 msgid "An error occurred while processing your selection"
 msgstr "Bei der Verarbeitung Ihrer Auswahl ist ein Fehler aufgetreten"
+
+#~ msgid ""
+#~ "Zertifizierter Baumkontrolleur und Baumpfleger in Luxemburg. "
+#~ "Obstbaumpflege, Baumpflege, Baumkontrolle nach FLL. Seilklettertechnik "
+#~ "SKT-B."
+#~ msgstr ""
+#~ "Zertifizierter Baumkontrolleur und Baumpfleger in Luxemburg. "
+#~ "Obstbaumpflege, Baumpflege, Baumkontrolle nach FLL. Seilklettertechnik "
+#~ "SKT-B."
+
+#~ msgid "Obstbaumpflege Luxemburg - Baumwart Tom Aakrann"
+#~ msgstr "Obstbaumpflege Luxemburg - Baumwart Tom Aakrann"
+
+#~ msgid ""
+#~ "Professionelle Obstbaumpflege in Luxemburg. Obstbaumschnitt, "
+#~ "Verjüngungsschnitt, Erziehungsschnitt. Für gesunde und ertragreiche "
+#~ "Obstbäume."
+#~ msgstr ""
+#~ "Professionelle Obstbaumpflege in Luxemburg. Obstbaumschnitt, "
+#~ "Verjüngungsschnitt, Erziehungsschnitt. Für gesunde und ertragreiche "
+#~ "Obstbäume."
+
+#~ msgid "Obstbaumpflege"
+#~ msgstr "Obstbaumpflege"
+
+#~ msgid ""
+#~ "Professionelle Baumpflege in Luxemburg. Kronenpflege, Totholzentfernung, "
+#~ "Kroneneinkürzung. Seilklettertechnik SKT-B zertifiziert."
+#~ msgstr ""
+#~ "Professionelle Baumpflege in Luxemburg. Kronenpflege, Totholzentfernung, "
+#~ "Kroneneinkürzung. Seilklettertechnik SKT-B zertifiziert."
+
+#~ msgid "Baumpflege"
+#~ msgstr "Baumpflege"
+
+#~ msgid ""
+#~ "FLL-zertifizierte Baumkontrolle in Luxemburg. Visuelle Baumkontrolle, "
+#~ "Baumkataster, Verkehrssicherheitsprüfung. Gutachten und Dokumentation."
+#~ msgstr ""
+#~ "FLL-zertifizierte Baumkontrolle in Luxemburg. Visuelle Baumkontrolle, "
+#~ "Baumkataster, Verkehrssicherheitsprüfung. Gutachten und Dokumentation."
+
+#~ msgid "Baumkontrolle"
+#~ msgstr "Baumkontrolle"
+
+#~ msgid "Ökologische Maßnahmen - Baumwart Tom Aakrann"
+#~ msgstr "Ökologische Maßnahmen - Baumwart Tom Aakrann"
+
+#~ msgid ""
+#~ "Ökologische Baumpflege in Luxemburg. Habitatbäume, Totholzmanagement, "
+#~ "Nisthilfen, Artenschutz. Naturnahe Baumpflege für Biodiversität."
+#~ msgstr ""
+#~ "Ökologische Baumpflege in Luxemburg. Habitatbäume, Totholzmanagement, "
+#~ "Nisthilfen, Artenschutz. Naturnahe Baumpflege für Biodiversität."
+
+#~ msgid "Ökologische Maßnahmen"
+#~ msgstr "Ökologische Maßnahmen"
+
+#~ msgid ""
+#~ "Moderne Baumpflegetechnik in Luxemburg. Seilklettertechnik SKT-B, "
+#~ "Hubarbeitsbühne, professionelle Ausrüstung für sichere Baumpflege."
+#~ msgstr ""
+#~ "Moderne Baumpflegetechnik in Luxemburg. Seilklettertechnik SKT-B, "
+#~ "Hubarbeitsbühne, professionelle Ausrüstung für sichere Baumpflege."
+
+#~ msgid "Technik"
+#~ msgstr "Technik"
+
+#~ msgid "Über uns - Baumwart Tom Aakrann"
+#~ msgstr "Über uns - Baumwart Tom Aakrann"
+
+#~ msgid "Kontakt - Baumwart Tom Aakrann"
+#~ msgstr "Kontakt - Baumwart Tom Aakrann"
+
+#~ msgid ""
+#~ "Kontaktieren Sie Baumwart Tom Aakrann für Baumpflege in Luxemburg. "
+#~ "Kostenlose Beratung, schnelle Antwort. Telefon, WhatsApp, E-Mail."
+#~ msgstr ""
+#~ "Kontaktieren Sie Baumwart Tom Aakrann für Baumpflege in Luxemburg. "
+#~ "Kostenlose Beratung, schnelle Antwort. Telefon, WhatsApp, E-Mail."
+
+#~ msgid "Galerie - Baumwart Tom Aakrann"
+#~ msgstr "Galerie - Baumwart Tom Aakrann"
+
+#~ msgid ""
+#~ "Fotos von Baumpflege-Projekten in Luxemburg. Vorher-Nachher Bilder von "
+#~ "Obstbaumpflege, Kronenpflege und Baumfällung."
+#~ msgstr ""
+#~ "Fotos von Baumpflege-Projekten in Luxemburg. Vorher-Nachher Bilder von "
+#~ "Obstbaumpflege, Kronenpflege und Baumfällung."
+
+#~ msgid "Was kostet eine Baumkontrolle?"
+#~ msgstr "Was kostet eine Baumkontrolle?"
+
+#~ msgid ""
+#~ "Die Kosten für eine Baumkontrolle hängen von der Anzahl der Bäume und dem "
+#~ "Aufwand ab. Kontaktieren Sie mich für ein individuelles Angebot."
+#~ msgstr ""
+#~ "Die Kosten für eine Baumkontrolle hängen von der Anzahl der Bäume und dem "
+#~ "Aufwand ab. Kontaktieren Sie mich für ein individuelles Angebot."
+
+#~ msgid "Wann ist die beste Zeit für Obstbaumschnitt?"
+#~ msgstr "Wann ist die beste Zeit für Obstbaumschnitt?"
+
+#~ msgid ""
+#~ "Der beste Zeitpunkt für den Obstbaumschnitt ist je nach Obstart "
+#~ "verschieden. Kernobst (Apfel, Birne) wird meist im Winter geschnitten, "
+#~ "Steinobst (Kirsche, Pflaume) nach der Ernte im Sommer."
+#~ msgstr ""
+#~ "Der beste Zeitpunkt für den Obstbaumschnitt ist je nach Obstart "
+#~ "verschieden. Kernobst (Apfel, Birne) wird meist im Winter geschnitten, "
+#~ "Steinobst (Kirsche, Pflaume) nach der Ernte im Sommer."
+
+#~ msgid "Arbeiten Sie auch mit Seilklettertechnik?"
+#~ msgstr "Arbeiten Sie auch mit Seilklettertechnik?"
+
+#~ msgid ""
+#~ "Ja, ich bin SKT-B zertifiziert und arbeite mit professioneller "
+#~ "Seilklettertechnik. Dies ermöglicht baumschonende Pflege auch ohne "
+#~ "schwere Maschinen."
+#~ msgstr ""
+#~ "Ja, ich bin SKT-B zertifiziert und arbeite mit professioneller "
+#~ "Seilklettertechnik. Dies ermöglicht baumschonende Pflege auch ohne "
+#~ "schwere Maschinen."
+
+#~ msgid "In welchen Regionen sind Sie tätig?"
+#~ msgstr "In welchen Regionen sind Sie tätig?"
+
+#~ msgid ""
+#~ "Ich bin in ganz Luxemburg tätig, mit Schwerpunkt auf dem Zentrum und "
+#~ "Süden des Landes."
+#~ msgstr ""
+#~ "Ich bin in ganz Luxemburg tätig, mit Schwerpunkt auf dem Zentrum und "
+#~ "Süden des Landes."
+
+#~ msgid "Bieten Sie auch Notfalldienst an?"
+#~ msgstr "Bieten Sie auch Notfalldienst an?"
+
+#~ msgid ""
+#~ "Ja, bei Sturmschäden oder anderen Notfällen bin ich auch kurzfristig "
+#~ "erreichbar. Kontaktieren Sie mich telefonisch für dringende Anfragen."
+#~ msgstr ""
+#~ "Ja, bei Sturmschäden oder anderen Notfällen bin ich auch kurzfristig "
+#~ "erreichbar. Kontaktieren Sie mich telefonisch für dringende Anfragen."
+
+#~ msgid "FAQ - Häufige Fragen - Baumwart Tom Aakrann"
+#~ msgstr "FAQ - Häufige Fragen - Baumwart Tom Aakrann"
+
+#~ msgid ""
+#~ "Häufig gestellte Fragen zu Baumpflege in Luxemburg. Antworten zu Kosten, "
+#~ "Zeitpunkt, Methoden und Leistungen."
+#~ msgstr ""
+#~ "Häufig gestellte Fragen zu Baumpflege in Luxemburg. Antworten zu Kosten, "
+#~ "Zeitpunkt, Methoden und Leistungen."
 
 #~ msgid "You must verify your phone number before continuing."
 #~ msgstr ""
