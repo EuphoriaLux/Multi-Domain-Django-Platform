@@ -2,9 +2,35 @@
 Context processors for global admin navigation across all platforms.
 
 This module provides the admin navigation context processor that enables
-superusers to switch between different platform admin panels.
+superusers to switch between different platform admin panels, and staging
+environment detection for the staging banner.
 """
 from django.conf import settings
+
+
+def staging_environment(request):
+    """
+    Context processor that detects if the request is on a staging subdomain.
+
+    Staging subdomains follow the pattern test.* (e.g., test.crush.lu).
+    This enables displaying a visual staging banner on all pages.
+
+    Context variables:
+        - is_staging: Boolean indicating if on staging subdomain
+        - staging_domain: The production domain (without test. prefix)
+    """
+    host = request.META.get('HTTP_HOST', '').split(':')[0].lower()
+
+    if host.startswith('test.'):
+        return {
+            'is_staging': True,
+            'staging_domain': host[5:],  # Remove 'test.' prefix
+        }
+
+    return {
+        'is_staging': False,
+        'staging_domain': None,
+    }
 
 
 # Platform configurations for admin navigation

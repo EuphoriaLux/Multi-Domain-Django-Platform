@@ -152,6 +152,7 @@ TEMPLATES = [
                 'azureproject.content_images_context.content_images_context',  # Content images (Azure Blob)
                 'azureproject.analytics_context.analytics_ids',  # Domain-specific GA4/FB Pixel IDs
                 'azureproject.context_processors.admin_navigation',  # Global admin panel navigation
+                'azureproject.context_processors.staging_environment',  # Staging banner detection
             ],
             'builtins': [
                 'heroicons.templatetags.heroicons',  # Heroicons available in all templates
