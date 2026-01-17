@@ -246,7 +246,8 @@ def build_apple_pass(profile, request=None):
         for filename in ("pass.json", "icon.png"):
             file_path = os.path.join(temp_dir, filename)
             with open(file_path, "rb") as handle:
-                manifest[filename] = hashlib.sha1(handle.read()).hexdigest()
+                # SHA1 is required by Apple Wallet specification for manifest.json
+                manifest[filename] = hashlib.sha1(handle.read(), usedforsecurity=False).hexdigest()
 
         with open(manifest_path, "w", encoding="utf-8") as handle:
             json.dump(manifest, handle, ensure_ascii=False, separators=(",", ":"))
