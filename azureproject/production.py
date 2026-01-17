@@ -84,6 +84,7 @@ MIDDLEWARE = list(MIDDLEWARE)  # Copy the list from settings.py (imported via *)
 # Insert Azure-specific middleware after SecurityMiddleware (index 1)
 MIDDLEWARE.insert(2, 'azureproject.redirect_www_middleware.AzureInternalIPMiddleware')  # Handle Azure internal IPs
 MIDDLEWARE.insert(3, 'azureproject.redirect_www_middleware.RedirectWWWToRootDomainMiddleware')  # WWW redirect
+MIDDLEWARE.insert(4, 'azureproject.redirect_www_middleware.StagingNoIndexMiddleware')  # Noindex for test.* staging subdomains
 
 # Add ForceAdminToEnglish after DomainURLRoutingMiddleware
 domain_routing_idx = MIDDLEWARE.index('azureproject.middleware.DomainURLRoutingMiddleware')

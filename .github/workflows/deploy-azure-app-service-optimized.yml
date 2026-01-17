@@ -26,10 +26,12 @@ on:
       - main
   workflow_dispatch:
 
-# Cancel in-progress deployments when a new one starts
-# This prevents redundant deployments when merging multiple PRs quickly
+# Concurrency settings:
+# - Different branches/PRs can run in parallel (group includes ref)
+# - Same branch: new run cancels old one (cancel-in-progress: true)
+# - This allows multiple PRs to be validated/tested simultaneously
 concurrency:
-  group: deploy-production
+  group: deploy-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
