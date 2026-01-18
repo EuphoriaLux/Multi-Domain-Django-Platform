@@ -101,7 +101,21 @@ jobs:
       - name: Build Tailwind CSS
         run: |
           npm ci
-          npm run build:css
+          npm run build:css:all
+
+      - name: Setup Python for collectstatic
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Run collectstatic
+        env:
+          SECRET_KEY: 'build-time-secret-key-for-collectstatic'
+        run: |
+          pip install -r requirements.txt
+          python manage.py collectstatic --no-input
+          echo "✅ Static files collected"
 
       - name: Login to Azure
         uses: azure/login@v2
