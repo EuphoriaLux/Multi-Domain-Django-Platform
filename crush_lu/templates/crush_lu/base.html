@@ -122,12 +122,12 @@
         @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
         .hidden{display:none}
         .lg\:hidden{display:none}
-        @media(max-width:1023px){.lg\:hidden{display:block}.hidden.lg\:flex{display:none}}
+        @media(max-width:1023px){.lg\:hidden{display:block}}
         .flex{display:flex}.items-center{align-items:center}.justify-between{justify-content:space-between}
         .py-3{padding-top:.75rem;padding-bottom:.75rem}
         .text-white{color:#fff}
         /* Hero section critical styles for LCP optimization */
-        .hero-section{background:linear-gradient(135deg,#9B59B6 0%,#FF6B9D 100%);color:#fff;padding:5rem 1rem;margin:-1rem -1rem 0;position:relative;overflow:hidden;border-radius:0 0 50px 50px}
+        .hero-section{background:linear-gradient(135deg,#9B59B6 0%,#FF6B9D 100%);color:#fff;padding:5rem 1rem;width:100vw;margin-left:calc(-50vw + 50%);margin-top:-0.5rem;position:relative;overflow:hidden;border-radius:0 0 50px 50px}
         .hero-content{position:relative;z-index:1;max-width:1200px;margin:0 auto}
         .hero-title{font-size:clamp(2.5rem,6vw,4.5rem);font-weight:800;margin-bottom:1.5rem;line-height:1.2}
         .hero-subtitle{font-size:clamp(1.1rem,2.5vw,1.5rem);opacity:.95;margin-bottom:2.5rem;max-width:700px}
@@ -192,7 +192,7 @@
                 </button>
 
                 <!-- Desktop Navigation -->
-                <nav class="hidden lg:flex items-center space-x-1" role="navigation" aria-label="Main navigation">
+                <nav class="desktop-nav items-center space-x-1" role="navigation" aria-label="Main navigation">
                     {% if user.is_authenticated %}
                         {# Check if user is a coach #}
                         {% if user.crushcoach and user.crushcoach.is_active %}
@@ -241,7 +241,7 @@
                                      x-transition:leave-start="opacity-100 scale-100"
                                      x-transition:leave-end="opacity-0 scale-95"
                                      x-cloak
-                                     class="dropdown-menu show">
+                                     class="dropdown-menu">
                                     <a class="dropdown-item" href="{% url 'crush_lu:coach_dashboard' %}">
                                         {% include "shared/icons/clipboard.html" with class="w-4 h-4 inline mr-2" %}
                                         Review Queue
@@ -280,7 +280,7 @@
                                      x-transition:leave-start="opacity-100 scale-100"
                                      x-transition:leave-end="opacity-0 scale-95"
                                      x-cloak
-                                     class="dropdown-menu show">
+                                     class="dropdown-menu">
                                     <a class="dropdown-item" href="{% url 'crush_lu:dashboard' %}?user_view=1">
                                         {% include "shared/icons/home.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "My Dashboard" %}
@@ -351,7 +351,7 @@
                                          x-transition:leave-start="opacity-100 scale-100"
                                          x-transition:leave-end="opacity-0 scale-95"
                                          x-cloak
-                                         class="dropdown-menu show">
+                                         class="dropdown-menu">
                                         <div class="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">{% trans "Upcoming Events" %}</div>
                                         {% if upcoming_events %}
                                             {% for registration in upcoming_events %}
@@ -400,7 +400,7 @@
                                     <span class="badge badge-info">⏳</span>
                                 </a>
                                 {% if assigned_coach_name %}
-                                <span class="text-white/60 text-xs hidden lg:inline">
+                                <span class="text-white/60 text-xs desktop-nav-inline">
                                     {{ assigned_coach_name }} {% trans "is reviewing" %}
                                 </span>
                                 {% endif %}
@@ -471,7 +471,7 @@
                                      x-transition:leave-start="opacity-100 scale-100"
                                      x-transition:leave-end="opacity-0 scale-95"
                                      x-cloak
-                                     class="dropdown-menu show">
+                                     class="dropdown-menu">
                                     {% if user.crushprofile %}
                                         <div class="px-4 py-2 text-xs font-semibold text-gray-500">
                                             {% trans "Profile Status:" %}

@@ -151,6 +151,7 @@
   body {
     @apply text-crush-dark bg-crush-light antialiased;
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow-x: hidden;
   }
 
   /* Heading defaults */
@@ -478,6 +479,46 @@
            hover:text-white hover:opacity-90;
   }
 
+  /* Desktop navigation - hidden on mobile, flex on lg+ */
+  .desktop-nav {
+    display: none;
+  }
+
+  .desktop-nav-inline {
+    display: none;
+  }
+
+  @media (min-width: 1024px) {
+    .desktop-nav {
+      display: flex;
+    }
+
+    .desktop-nav-inline {
+      display: inline;
+    }
+  }
+
+  /* Responsive visibility helpers for Tailwind v4 compatibility */
+  /* Hidden on mobile, inline on sm+ (640px) */
+  .mobile-hidden-sm-inline {
+    display: none;
+  }
+
+  @media (min-width: 640px) {
+    .mobile-hidden-sm-inline {
+      display: inline;
+    }
+  }
+
+  /* Hover-show tooltip (hidden by default, block on group hover) */
+  .hover-tooltip {
+    display: none;
+  }
+
+  .group:hover .hover-tooltip {
+    display: block;
+  }
+
   .nav-link {
     @apply inline-flex items-center gap-1.5 text-white/90 hover:text-white px-3 py-2
            transition-colors duration-200 no-underline font-medium whitespace-nowrap;
@@ -498,13 +539,8 @@
 
   .dropdown-menu {
     @apply absolute right-0 mt-2 w-56 bg-white rounded-xl
-           shadow-lg border border-gray-100 py-2 z-50
-           opacity-0 invisible transition-all duration-150;
-  }
-
-  .dropdown.show .dropdown-menu,
-  .dropdown-menu.show {
-    @apply opacity-100 visible;
+           shadow-lg border border-gray-100 py-2 z-50;
+    /* Visibility handled by Alpine.js x-show + x-transition */
   }
 
   .dropdown-item {
@@ -1021,6 +1057,12 @@ footer {
     color: white;
     padding: var(--space-8) 0;
     margin-top: var(--space-16);
+}
+
+/* Remove footer margin when it follows CTA section */
+.cta-section + footer,
+main:has(.cta-section:last-child) + footer {
+    margin-top: 0;
 }
 
 footer h5, footer h6 {
@@ -2755,7 +2797,11 @@ footer hr {
     background: linear-gradient(135deg, var(--crush-purple) 0%, var(--crush-pink) 100%);
     color: white;
     padding: 5rem 1rem;
-    margin: -1rem -1rem 0 -1rem;
+    /* Break out of container to full viewport width */
+    width: 100vw;
+    margin-left: calc(-50vw + 50%);
+    /* Pull up to eliminate gap from container's my-4 */
+    margin-top: -0.5rem;
     position: relative;
     overflow: hidden;
     border-radius: 0 0 50px 50px;
@@ -2988,7 +3034,10 @@ footer hr {
     background: linear-gradient(135deg, var(--crush-purple), var(--crush-pink));
     color: white;
     padding: 5rem 1rem;
-    margin: 3rem -1rem -1rem -1rem;
+    width: 100vw;
+    margin-left: calc(-50vw + 50%);
+    margin-top: 3rem;
+    margin-bottom: 0;
     text-align: center;
     border-radius: 50px 50px 0 0;
     position: relative;
