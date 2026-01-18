@@ -6,8 +6,11 @@ echo "🚀 Starting deployment..."
 echo "📍 Working directory: $(pwd)"
 echo "🐍 Python version: $(python --version)"
 
-# Note: collectstatic is handled by Oryx during build (SCM_DO_BUILD_DURING_DEPLOYMENT=true)
-# Configure via COLLECTSTATIC_ARGS env var (e.g., --ignore "tailwind-input.css")
+# Run collectstatic from /home/site/wwwroot to ensure all static files are collected
+# This is needed because Oryx extracts to /tmp/ but static files are in /home/site/wwwroot/
+echo "📦 Collecting static files..."
+cd /home/site/wwwroot && python manage.py collectstatic --no-input
+cd - > /dev/null
 
 # Run migrations with no-input for faster execution
 python manage.py migrate --no-input
