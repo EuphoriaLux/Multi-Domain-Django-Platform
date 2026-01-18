@@ -6,13 +6,11 @@ echo "🚀 Starting deployment..."
 echo "📍 Working directory: $(pwd)"
 echo "🐍 Python version: $(python --version)"
 
-# Run collectstatic from /home/site/wwwroot to ensure all static files are collected
-# This is needed because Oryx extracts to /tmp/ but static files are in /home/site/wwwroot/
+# Run collectstatic from current directory (Oryx extracts app to /tmp/)
 # --clear: Remove all files in STATIC_ROOT before collecting (clean slate)
 # --ignore: Skip tailwind-input.css files (Tailwind v4 source files that WhiteNoise can't process)
 echo "📦 Collecting static files..."
-cd /home/site/wwwroot && python manage.py collectstatic --clear --no-input --ignore "tailwind-input.css"
-cd - > /dev/null
+python manage.py collectstatic --clear --no-input --ignore "tailwind-input.css"
 
 # Run migrations with no-input for faster execution
 python manage.py migrate --no-input
@@ -48,7 +46,8 @@ echo "✅ Migrations complete. Starting Gunicorn..."
 # Optimized Gunicorn settings for faster startup and better performance
 # Note: Access logs disabled to reduce noise. Errors still logged via --error-logfile.
 # Application errors are tracked via Django logging and Azure Application Insights.
+# No --chdir needed as Oryx sets up the app path correctly in /tmp/
 gunicorn --workers 2 --threads 4 --timeout 120 \
     --access-logfile /dev/null --error-logfile '-' --bind=0.0.0.0:8000 \
     --preload \
-    --chdir=/home/site/wwwroot azureproject.wsgi
+    azureproject.wsgi
