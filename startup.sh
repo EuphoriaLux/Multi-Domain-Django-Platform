@@ -46,4 +46,4 @@ echo "✅ Migrations complete. Starting Gunicorn..."
 gunicorn --workers 2 --threads 4 --timeout 120 \
     --access-logfile /dev/null --error-logfile '-' --bind=0.0.0.0:8000 \
     --preload \
-    --chdir=/home/site/wwwroot azureproject.wsgi
+    --chdir=/home/site/wwwroot azureproject.wsgi# Trigger fresh Oryx build
