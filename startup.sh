@@ -6,14 +6,24 @@ echo "🚀 Starting deployment..."
 echo "📍 Working directory: $(pwd)"
 echo "🐍 Python version: $(python --version)"
 
-# Delete old Oryx tarball cache to force fresh deployment
-# ORYX_DISABLE_OUTPUT_TAR_FILE=true prevents new tarballs but old ones persist
+# Delete old Oryx tarball cache and manifest to force fresh deployment
+# The manifest tells Oryx to look for a tarball - we need to remove both
 if [ -f /home/site/wwwroot/output.tar.gz ]; then
-    echo "🗑️ Removing old Oryx tarball cache..."
+    echo "🗑️ Removing old Oryx tarball cache and manifest..."
     rm -f /home/site/wwwroot/output.tar.gz
-    echo "⚠️ Tarball removed - forcing restart to use fresh deployment..."
-    # Exit to force Azure to restart the app from /home/site/wwwroot
+    rm -f /home/site/wwwroot/oryx-manifest.toml
+    echo "⚠️ Tarball and manifest removed - forcing restart..."
     exit 1
+fi
+
+# Also check if manifest references a tarball that doesn't exist
+if [ -f /home/site/wwwroot/oryx-manifest.toml ] && grep -q "compressedOutput" /home/site/wwwroot/oryx-manifest.toml 2>/dev/null; then
+    if [ ! -f /home/site/wwwroot/output.tar.gz ]; then
+        echo "🗑️ Removing stale Oryx manifest (references missing tarball)..."
+        rm -f /home/site/wwwroot/oryx-manifest.toml
+        echo "⚠️ Manifest removed - forcing restart..."
+        exit 1
+    fi
 fi
 
 # Run collectstatic at startup to ensure manifest is generated
