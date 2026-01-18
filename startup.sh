@@ -6,8 +6,12 @@ echo "🚀 Starting deployment..."
 echo "📍 Working directory: $(pwd)"
 echo "🐍 Python version: $(python --version)"
 
-# Note: collectstatic is handled by Oryx during build (SCM_DO_BUILD_DURING_DEPLOYMENT=true)
-# Running it here would be redundant and add ~30-60s to startup time
+# Generate fresh staticfiles manifest to avoid stale cache issues
+# Oryx caches builds in output.tar.gz with oryx-manifest.toml, which can contain
+# stale staticfiles.json that's missing newly added static files.
+# Running collectstatic at startup ensures the manifest is always current.
+echo "📦 Collecting static files..."
+python manage.py collectstatic --noinput --clear
 
 # Run migrations with no-input for faster execution
 python manage.py migrate --no-input
