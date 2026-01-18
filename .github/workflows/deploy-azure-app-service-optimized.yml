@@ -95,7 +95,7 @@ jobs:
           npm ci
           npm run build:css:all
           pip install -q -r requirements.txt
-          python manage.py collectstatic --no-input
+          python manage.py collectstatic --no-input --ignore "tailwind-input.css"
           echo "✅ Build complete"
 
       - name: Upload build artifacts

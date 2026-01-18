@@ -6,14 +6,8 @@ echo "🚀 Starting deployment..."
 echo "📍 Working directory: $(pwd)"
 echo "🐍 Python version: $(python --version)"
 
-# Run collectstatic only if COLLECT_STATIC=true or staticfiles directory is empty/missing
-# This avoids running collectstatic on every restart
-if [ "$COLLECT_STATIC" = "true" ] || [ ! -d "staticfiles" ] || [ -z "$(ls -A staticfiles 2>/dev/null)" ]; then
-    echo "📦 Collecting static files..."
-    python manage.py collectstatic --clear --no-input --ignore "tailwind-input.css"
-else
-    echo "📦 Skipping collectstatic (staticfiles directory exists)"
-fi
+# NOTE: collectstatic is handled by Oryx during build phase (not at startup)
+# Ensure DISABLE_COLLECTSTATIC is NOT set in App Service configuration
 
 # Run migrations with no-input for faster execution
 python manage.py migrate --no-input
