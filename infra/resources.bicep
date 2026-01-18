@@ -183,6 +183,9 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
     properties: {
       SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
       ENABLE_ORYX_BUILD: 'true'
+      // Disable Oryx output tarball caching - run directly from /home/site/wwwroot/
+      // This fixes stale staticfiles manifest issues after deployment
+      ORYX_DISABLE_OUTPUT_TAR_FILE: 'true'
       AZURE_POSTGRESQL_CONNECTIONSTRING: 'dbname=${pythonAppDatabase.name} host=${postgresServer.name}.postgres.database.azure.com port=5432 sslmode=require user=${postgresServer.properties.administratorLogin} password=${databasePassword}'
       SECRET_KEY: secretKey
       // Production domains - marked as slot-sticky via slotConfigNames (won't swap)
@@ -299,6 +302,9 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
     properties: {
       SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
       ENABLE_ORYX_BUILD: 'true'
+      // Disable Oryx output tarball caching - run directly from /home/site/wwwroot/
+      // This fixes stale staticfiles manifest issues after deployment
+      ORYX_DISABLE_OUTPUT_TAR_FILE: 'true'
       AZURE_POSTGRESQL_CONNECTIONSTRING: 'dbname=${pythonAppDatabase.name} host=${postgresServer.name}.postgres.database.azure.com port=5432 sslmode=require user=${postgresServer.properties.administratorLogin} password=${databasePassword}'
       SECRET_KEY: secretKey
       // Staging domains (test.*) - marked as slot-sticky via slotConfigNames (won't swap)
