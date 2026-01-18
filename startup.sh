@@ -6,11 +6,14 @@ echo "🚀 Starting deployment..."
 echo "📍 Working directory: $(pwd)"
 echo "🐍 Python version: $(python --version)"
 
-# Run collectstatic from current directory (Oryx extracts app to /tmp/)
-# --clear: Remove all files in STATIC_ROOT before collecting (clean slate)
-# --ignore: Skip tailwind-input.css files (Tailwind v4 source files that WhiteNoise can't process)
-echo "📦 Collecting static files..."
-python manage.py collectstatic --clear --no-input --ignore "tailwind-input.css"
+# Run collectstatic only if COLLECT_STATIC=true or staticfiles directory is empty/missing
+# This avoids running collectstatic on every restart
+if [ "$COLLECT_STATIC" = "true" ] || [ ! -d "staticfiles" ] || [ -z "$(ls -A staticfiles 2>/dev/null)" ]; then
+    echo "📦 Collecting static files..."
+    python manage.py collectstatic --clear --no-input --ignore "tailwind-input.css"
+else
+    echo "📦 Skipping collectstatic (staticfiles directory exists)"
+fi
 
 # Run migrations with no-input for faster execution
 python manage.py migrate --no-input
