@@ -1,6 +1,26 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* Tailwind v4 source paths */
+@source "../../../power_up/templates/**/*.html";
+@source "../../../power_up/**/*.py";
+
+/* Tailwind v4 theme - Power-Up brand colors */
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  --color-powerup-orange: #fe4901;
+  --color-powerup-orange-light: #ff6a2d;
+  --color-powerup-orange-lighter: #ff8c5a;
+  --color-powerup-orange-dark: #d93e00;
+  --color-powerup-orange-darker: #b33300;
+  --color-powerup-dark-blue: #151625;
+  --color-powerup-darker-blue: #010106;
+  --color-powerup-navy: #0a0b15;
+  --color-powerup-tan: #80735f;
+  --color-powerup-tan-light: #a09580;
+  --color-powerup-cream: #faf8f5;
+  --color-powerup-warm-gray: #f5f3f0;
+}
 
 /* Power-Up Corporate Site Custom Styles */
 @layer components {

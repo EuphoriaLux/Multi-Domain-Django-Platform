@@ -1,6 +1,96 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* Tailwind v4 source paths for content scanning */
+@source "../../../crush_lu/templates/**/*.html";
+@source "../../../crush_lu/**/*.py";
+@source "../js/**/*.js";
+@source "../../../power_up/templates/**/*.html";
+@source "../../../power_up/**/*.py";
+@source "../../../tableau/templates/**/*.html";
+@source "../../../tableau/**/*.py";
+
+/* Tailwind v4 plugins */
+@plugin "@tailwindcss/forms";
+@plugin "@tailwindcss/typography";
+
+/* Tailwind v4 theme configuration */
+@theme {
+  /* Font family */
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Purple palette - Crush.lu brand */
+  --color-purple-50: #F5EBF8;
+  --color-purple-100: #EAD6F0;
+  --color-purple-200: #D5ADE1;
+  --color-purple-300: #C085D2;
+  --color-purple-400: #AB5CC3;
+  --color-purple-500: #9B59B6;
+  --color-purple-600: #8E44AD;
+  --color-purple-700: #7D3C9B;
+  --color-purple-800: #6C3589;
+  --color-purple-900: #5B2D77;
+
+  /* Pink palette - Crush.lu brand */
+  --color-pink-50: #FFF0F5;
+  --color-pink-100: #FFE0EB;
+  --color-pink-200: #FFC1D7;
+  --color-pink-300: #FFA1C3;
+  --color-pink-400: #FF82AF;
+  --color-pink-500: #FF6B9D;
+  --color-pink-600: #D94D7B;
+  --color-pink-700: #B33D63;
+  --color-pink-800: #8C304D;
+  --color-pink-900: #662438;
+
+  /* Crush-specific color aliases */
+  --color-crush-purple: #9B59B6;
+  --color-crush-purple-light: #AF7AC5;
+  --color-crush-purple-dark: #8E44AD;
+  --color-crush-pink: #FF6B9D;
+  --color-crush-pink-light: #FF8FB3;
+  --color-crush-pink-dark: #D94D7B;
+  --color-crush-dark: #2C3E50;
+  --color-crush-light: #F8F9FA;
+  --color-crush-gray: #6c757d;
+  --color-crush-gray-dark: #4b5563;
+  --color-crush-success: #28a745;
+  --color-crush-warning: #f39c12;
+  --color-crush-danger: #dc3545;
+  --color-crush-info: #17a2b8;
+
+  /* Power-Up brand colors */
+  --color-powerup-orange: #fe4901;
+  --color-powerup-orange-light: #ff6a2d;
+  --color-powerup-orange-lighter: #ff8c5a;
+  --color-powerup-orange-dark: #d93e00;
+  --color-powerup-orange-darker: #b33300;
+  --color-powerup-dark-blue: #151625;
+  --color-powerup-darker-blue: #010106;
+  --color-powerup-navy: #0a0b15;
+  --color-powerup-tan: #80735f;
+  --color-powerup-tan-light: #a09580;
+  --color-powerup-cream: #faf8f5;
+  --color-powerup-warm-gray: #f5f3f0;
+
+  /* Custom border radius */
+  --radius-crush-sm: 8px;
+  --radius-crush-md: 12px;
+  --radius-crush-lg: 15px;
+  --radius-crush-xl: 20px;
+  --radius-crush-2xl: 25px;
+  --radius-crush-pill: 50px;
+
+  /* Custom box shadows */
+  --shadow-crush-sm: 0 2px 10px rgba(0, 0, 0, 0.08);
+  --shadow-crush-md: 0 4px 20px rgba(0, 0, 0, 0.1);
+  --shadow-crush-lg: 0 10px 30px rgba(0, 0, 0, 0.15);
+  --shadow-crush-purple: 0 5px 15px rgba(155, 89, 182, 0.4);
+  --shadow-crush-pink: 0 5px 15px rgba(255, 107, 157, 0.4);
+  --shadow-powerup-sm: 0 2px 10px rgba(254, 73, 1, 0.1);
+  --shadow-powerup-md: 0 4px 20px rgba(254, 73, 1, 0.15);
+  --shadow-powerup-lg: 0 10px 30px rgba(254, 73, 1, 0.2);
+  --shadow-powerup-orange: 0 5px 15px rgba(254, 73, 1, 0.4);
+}
 
 /* =============================================================================
    ALPINE.JS CLOAK
