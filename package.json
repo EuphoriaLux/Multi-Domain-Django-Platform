@@ -3,14 +3,14 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build:css": "tailwindcss -i ./static/crush_lu/css/tailwind-input.css -o ./static/crush_lu/css/tailwind.css --minify",
-    "watch:css": "tailwindcss -i ./static/crush_lu/css/tailwind-input.css -o ./static/crush_lu/css/tailwind.css --watch",
-    "build:css:power-up": "tailwindcss -i ./static/power_up/css/tailwind-input.css -o ./static/power_up/css/tailwind.css --minify",
-    "watch:css:power-up": "tailwindcss -i ./static/power_up/css/tailwind-input.css -o ./static/power_up/css/tailwind.css --watch",
-    "build:css:tableau": "tailwindcss -i ./static/tableau/css/tailwind-input.css -o ./static/tableau/css/tailwind.css --minify",
-    "watch:css:tableau": "tailwindcss -i ./static/tableau/css/tailwind-input.css -o ./static/tableau/css/tailwind.css --watch",
-    "build:css:arborist": "tailwindcss -i ./static/arborist/css/tailwind-input.css -o ./static/arborist/css/tailwind.css --minify",
-    "watch:css:arborist": "tailwindcss -i ./static/arborist/css/tailwind-input.css -o ./static/arborist/css/tailwind.css --watch",
+    "build:css": "tailwindcss -i ./tailwind-src/crush_lu/tailwind-input.css -o ./static/crush_lu/css/tailwind.css --minify",
+    "watch:css": "tailwindcss -i ./tailwind-src/crush_lu/tailwind-input.css -o ./static/crush_lu/css/tailwind.css --watch",
+    "build:css:power-up": "tailwindcss -i ./tailwind-src/power_up/tailwind-input.css -o ./static/power_up/css/tailwind.css --minify",
+    "watch:css:power-up": "tailwindcss -i ./tailwind-src/power_up/tailwind-input.css -o ./static/power_up/css/tailwind.css --watch",
+    "build:css:tableau": "tailwindcss -i ./tailwind-src/tableau/tailwind-input.css -o ./static/tableau/css/tailwind.css --minify",
+    "watch:css:tableau": "tailwindcss -i ./tailwind-src/tableau/tailwind-input.css -o ./static/tableau/css/tailwind.css --watch",
+    "build:css:arborist": "tailwindcss -i ./tailwind-src/arborist/tailwind-input.css -o ./static/arborist/css/tailwind.css --minify",
+    "watch:css:arborist": "tailwindcss -i ./tailwind-src/arborist/tailwind-input.css -o ./static/arborist/css/tailwind.css --watch",
     "build:css:all": "npm run build:css && npm run build:css:power-up && npm run build:css:tableau && npm run build:css:arborist"
   },
   "dependencies": {

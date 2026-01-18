@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 /* Tailwind v4 source paths */
-@source "../../../power_up/templates/**/*.html";
-@source "../../../power_up/**/*.py";
+@source "../../power_up/templates/**/*.html";
+@source "../../power_up/**/*.py";
 
 /* Tailwind v4 theme - Power-Up brand colors */
 @theme {

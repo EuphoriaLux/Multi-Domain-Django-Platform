@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 /* Tailwind v4 source paths for content scanning */
-@source "../../../crush_lu/templates/**/*.html";
-@source "../../../crush_lu/**/*.py";
-@source "../js/**/*.js";
-@source "../../../power_up/templates/**/*.html";
-@source "../../../power_up/**/*.py";
-@source "../../../tableau/templates/**/*.html";
-@source "../../../tableau/**/*.py";
+@source "../../crush_lu/templates/**/*.html";
+@source "../../crush_lu/**/*.py";
+@source "../../static/crush_lu/js/**/*.js";
+@source "../../power_up/templates/**/*.html";
+@source "../../power_up/**/*.py";
+@source "../../tableau/templates/**/*.html";
+@source "../../tableau/**/*.py";
 
 /* Tailwind v4 plugins */
 @plugin "@tailwindcss/forms";

@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 /* Tailwind v4 source paths */
-@source "../../../tableau/templates/**/*.html";
-@source "../../../tableau/**/*.py";
+@source "../../tableau/templates/**/*.html";
+@source "../../tableau/**/*.py";
 
 /* Tableau AI Art Site Custom Styles */
 @layer components {

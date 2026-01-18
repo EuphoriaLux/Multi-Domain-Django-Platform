@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 /* Tailwind v4 source paths */
-@source "../../../arborist/templates/**/*.html";
-@source "../../../arborist/**/*.py";
+@source "../../arborist/templates/**/*.html";
+@source "../../arborist/**/*.py";
 
 /* Tailwind v4 theme - Arborist brand colors (from brand-colors/colors.json) */
 @theme {
