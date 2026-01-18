@@ -6,6 +6,16 @@ echo "🚀 Starting deployment..."
 echo "📍 Working directory: $(pwd)"
 echo "🐍 Python version: $(python --version)"
 
+# Delete old Oryx tarball cache to force fresh deployment
+# ORYX_DISABLE_OUTPUT_TAR_FILE=true prevents new tarballs but old ones persist
+if [ -f /home/site/wwwroot/output.tar.gz ]; then
+    echo "🗑️ Removing old Oryx tarball cache..."
+    rm -f /home/site/wwwroot/output.tar.gz
+    echo "⚠️ Tarball removed - forcing restart to use fresh deployment..."
+    # Exit to force Azure to restart the app from /home/site/wwwroot
+    exit 1
+fi
+
 # Run collectstatic at startup to ensure manifest is generated
 # Note: DISABLE_COLLECTSTATIC=true prevents Oryx from running collectstatic during build
 # We run it here to generate the manifest after deployment with all files present
