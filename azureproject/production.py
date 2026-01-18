@@ -1,6 +1,13 @@
 import os
+import sys
+
+# Diagnostic output to help identify startup hangs
+print("🔧 [STARTUP] production.py: Starting imports...", file=sys.stderr, flush=True)
+
 from .settings import *  # noqa
 from .settings import BASE_DIR
+
+print("🔧 [STARTUP] production.py: Base settings loaded", file=sys.stderr, flush=True)
 
 # ============================================================================
 # Azure Internal IP Support (MUST be before ALLOWED_HOSTS)
@@ -476,8 +483,10 @@ if 'WEBSITE_HOSTNAME' in os.environ:
 #   ApplicationInsightsAgent_EXTENSION_VERSION=disabled
 #
 # The SDK automatically instruments: Django, requests, urllib, psycopg2
+print("🔧 [STARTUP] production.py: About to configure telemetry...", file=sys.stderr, flush=True)
 from azureproject.telemetry_config import configure_azure_monitor_telemetry
 configure_azure_monitor_telemetry()
+print("🔧 [STARTUP] production.py: Telemetry configured ✅", file=sys.stderr, flush=True)
 
 # =============================================================================
 # CONTENT SECURITY POLICY (CSP) SETTINGS - Production
@@ -497,5 +506,8 @@ if STAGING_MODE:
     # Add a note to logs that we're in staging mode
     import logging
     logging.getLogger('azureproject').info('Running in STAGING_MODE - isolated database and storage')
+    print("🔧 [STARTUP] production.py: STAGING_MODE is active", file=sys.stderr, flush=True)
+
+print("🔧 [STARTUP] production.py: Settings module fully loaded ✅", file=sys.stderr, flush=True)
 
 
