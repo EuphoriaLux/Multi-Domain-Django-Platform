@@ -41,9 +41,9 @@ fi
 echo "✅ Migrations complete. Starting Gunicorn..."
 
 # Optimized Gunicorn settings for faster startup and better performance
-# Note: Access logs enabled for staging debugging. Errors logged via --error-logfile.
-# Application errors are tracked via Django logging and Azure Application Insights.
+# Access logs DISABLED to prevent log flooding from health checks
+# Error logs only - application errors tracked via Django logging and Azure Application Insights
 # No --chdir needed as Oryx sets up the app path correctly in /tmp/
 gunicorn --workers 2 --threads 4 --timeout 120 \
-    --access-logfile '-' --error-logfile '-' --bind=0.0.0.0:8000 \
+    --error-logfile '-' --bind=0.0.0.0:8000 \
     azureproject.wsgi
