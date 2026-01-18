@@ -6,31 +6,8 @@ echo "🚀 Starting deployment..."
 echo "📍 Working directory: $(pwd)"
 echo "🐍 Python version: $(python --version)"
 
-# Delete old Oryx tarball cache and manifest to force fresh deployment
-# The manifest tells Oryx to look for a tarball - we need to remove both
-if [ -f /home/site/wwwroot/output.tar.gz ]; then
-    echo "🗑️ Removing old Oryx tarball cache and manifest..."
-    rm -f /home/site/wwwroot/output.tar.gz
-    rm -f /home/site/wwwroot/oryx-manifest.toml
-    echo "⚠️ Tarball and manifest removed - forcing restart..."
-    exit 1
-fi
-
-# Also check if manifest references a tarball that doesn't exist
-if [ -f /home/site/wwwroot/oryx-manifest.toml ] && grep -q "compressedOutput" /home/site/wwwroot/oryx-manifest.toml 2>/dev/null; then
-    if [ ! -f /home/site/wwwroot/output.tar.gz ]; then
-        echo "🗑️ Removing stale Oryx manifest (references missing tarball)..."
-        rm -f /home/site/wwwroot/oryx-manifest.toml
-        echo "⚠️ Manifest removed - forcing restart..."
-        exit 1
-    fi
-fi
-
-# Run collectstatic at startup to ensure manifest is generated
-# Note: DISABLE_COLLECTSTATIC=true prevents Oryx from running collectstatic during build
-# We run it here to generate the manifest after deployment with all files present
-echo "📦 Collecting static files..."
-python manage.py collectstatic --no-input
+# Note: collectstatic is handled by Oryx during build (SCM_DO_BUILD_DURING_DEPLOYMENT=true)
+# Configure via COLLECTSTATIC_ARGS env var (e.g., --ignore "tailwind-input.css")
 
 # Run migrations with no-input for faster execution
 python manage.py migrate --no-input
@@ -61,7 +38,7 @@ if [ "$POPULATE_SAMPLE_DATA" = "true" ]; then
     python manage.py populate_with_images --force-refresh
 fi
 
-echo "✅ Setup complete. Starting Gunicorn..."
+echo "✅ Migrations complete. Starting Gunicorn..."
 
 # Optimized Gunicorn settings for faster startup and better performance
 # Note: Access logs disabled to reduce noise. Errors still logged via --error-logfile.
