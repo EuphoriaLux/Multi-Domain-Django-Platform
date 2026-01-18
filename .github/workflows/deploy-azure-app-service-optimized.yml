@@ -1,13 +1,13 @@
-# Azure App Service Deployment Workflow with Staging
+# Azure App Service Deployment Workflow
 #
 # Deployment flow:
-# 1. PR to main: validate + test (no deployment)
-# 2. Merge to main: deploy to STAGING slot
-# 3. Manual approval: swap staging to production
+# 1. Push to main: validate → test → deploy to STAGING (automatic)
+# 2. Production swap: done manually in Azure Portal
 #
 # Test staging via: test.crush.lu, test.powerup.lu, etc.
+# If validation or tests fail, deployment is blocked.
 
-name: Deploy Multi-Domain App to Azure (Optimized)
+name: Deploy to Azure Staging
 
 on:
   push:
@@ -19,38 +19,23 @@ on:
       - '.vscode/**'
       - '.gitignore'
       - 'LICENSE'
-      - 'README.md'
-      - 'CLAUDE.md'
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
-    inputs:
-      skip_approval:
-        description: 'Skip approval and deploy directly to production'
-        required: false
-        default: 'false'
-        type: boolean
 
-# Concurrency settings:
-# - Different branches/PRs can run in parallel (group includes ref)
-# - Same branch: new run cancels old one (cancel-in-progress: true)
+# Cancel in-progress runs for the same branch
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # Quick pre-deployment validation (runs in ~30 seconds)
-  # Only runs on PRs - merge to main skips this (already validated in PR)
+  # Validate code (syntax, Django checks)
   validate:
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -59,36 +44,30 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install flake8
-          # Only check for critical syntax errors (fail fast)
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=migrations,venv,env,.venv,.git,__pycache__ || exit 1
-          # Quick compilation check
           python -m compileall azureproject entreprinder vinsdelux crush_lu -f -q || exit 1
           echo "✅ Code validation passed"
 
       - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
       - name: Django Safety Check
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY || 'django-insecure-mock-key-for-ci' }}
         run: |
-          echo "🔍 Running Django System Checks..."
           python manage.py check
           echo "✅ Django checks passed"
 
-  # Run pytest tests (skips Playwright browser tests for speed)
+  # Run tests
   test:
     needs: validate
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -102,36 +81,27 @@ jobs:
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY || 'test-secret-key-for-ci' }}
         run: |
-          echo "🧪 Running pytest (excluding Playwright tests)..."
           pytest -m "not playwright" --tb=short -q
           echo "✅ All tests passed"
 
-  # Deploy to STAGING slot (not production)
-  deploy-staging:
+  # Deploy to staging (only if validate and test pass)
+  deploy:
     needs: [validate, test]
-    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment:
-      name: staging
-      url: https://test.crush.lu
-    outputs:
-      staging_url: ${{ steps.deploy-to-staging.outputs.webapp-url }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
       - name: Build Tailwind CSS
         run: |
-          echo "🎨 Building Tailwind CSS..."
           npm ci
           npm run build:css
-          echo "✅ Tailwind CSS built successfully"
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -140,41 +110,24 @@ jobs:
 
       - name: Deploy to Staging Slot
         uses: azure/webapps-deploy@v3
-        id: deploy-to-staging
         with:
           app-name: 'django-app-ajfffwjb5ie3s-app-service'
           slot-name: 'staging'
           clean: false
 
-      - name: Warm up Staging
+      - name: Verify Deployment
         run: |
-          echo "🔥 Warming up staging slot..."
-          sleep 15
+          echo "🔥 Waiting for staging to warm up..."
+          sleep 20
 
           echo "Testing staging endpoints:"
-          curl -s -o /dev/null -w "  test.crush.lu: %{http_code}\n" https://test.crush.lu/healthz/ || true
-          curl -s -o /dev/null -w "  test.powerup.lu: %{http_code}\n" https://test.powerup.lu/healthz/ || true
-          curl -s -o /dev/null -w "  test.vinsdelux.com: %{http_code}\n" https://test.vinsdelux.com/healthz/ || true
+          curl -sf -o /dev/null https://test.crush.lu/healthz/ && echo "  ✅ test.crush.lu" || echo "  ❌ test.crush.lu"
+          curl -sf -o /dev/null https://test.powerup.lu/healthz/ && echo "  ✅ test.powerup.lu" || echo "  ❌ test.powerup.lu"
+          curl -sf -o /dev/null https://test.vinsdelux.com/healthz/ && echo "  ✅ test.vinsdelux.com" || echo "  ❌ test.vinsdelux.com"
 
-          echo ""
-          echo "✅ Staging deployment complete!"
-          echo ""
-          echo "🧪 Test URLs (staging slot):"
-          echo "   - https://test.crush.lu"
-          echo "   - https://test.powerup.lu"
-          echo "   - https://test.power-up.lu"
-          echo "   - https://test.vinsdelux.com"
-          echo "   - https://test.entreprinder.lu"
-          echo "   - https://test.arborist.lu"
-          echo "   - https://test.delegations.lu"
-          echo "   - https://test.tableau.lu"
-        continue-on-error: true
-
-      - name: Staging Summary
+      - name: Summary
         run: |
-          echo "## 🚀 Staging Deployment Complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Test the deployment before approving production swap:" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Deployed to Staging" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Domain | Staging URL |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|-------------|" >> $GITHUB_STEP_SUMMARY
@@ -182,69 +135,5 @@ jobs:
           echo "| PowerUp | https://test.powerup.lu |" >> $GITHUB_STEP_SUMMARY
           echo "| VinsDelux | https://test.vinsdelux.com |" >> $GITHUB_STEP_SUMMARY
           echo "| Entreprinder | https://test.entreprinder.lu |" >> $GITHUB_STEP_SUMMARY
-          echo "| Arborist | https://test.arborist.lu |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "➡️ **Approve the 'production' environment to swap to production**" >> $GITHUB_STEP_SUMMARY
-
-  # Manual approval gate before production
-  approve-production:
-    needs: deploy-staging
-    if: always() && needs.deploy-staging.result == 'success'
-    runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: https://crush.lu
-    steps:
-      - name: Approval confirmed
-        run: |
-          echo "✅ Production deployment approved"
-          echo "Proceeding with staging → production swap..."
-
-  # Swap staging slot to production
-  swap-to-production:
-    needs: approve-production
-    if: always() && needs.approve-production.result == 'success'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Swap Staging to Production
-        run: |
-          echo "🔄 Swapping staging slot to production..."
-          az webapp deployment slot swap \
-            --resource-group django-app-rg \
-            --name django-app-ajfffwjb5ie3s-app-service \
-            --slot staging \
-            --target-slot production
-          echo "✅ Slot swap completed!"
-
-      - name: Warm up Production
-        run: |
-          echo "🔥 Warming up production endpoints..."
-          sleep 5
-          curl -s -o /dev/null -w "crush.lu: %{http_code}\n" https://crush.lu/healthz/ || true
-          curl -s -o /dev/null -w "powerup.lu: %{http_code}\n" https://powerup.lu/healthz/ || true
-        continue-on-error: true
-
-      - name: Production Summary
-        run: |
-          echo "## ✅ Production Deployment Complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Domain | URL |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-----|" >> $GITHUB_STEP_SUMMARY
-          echo "| Crush.lu | https://crush.lu |" >> $GITHUB_STEP_SUMMARY
-          echo "| PowerUp | https://powerup.lu |" >> $GITHUB_STEP_SUMMARY
-          echo "| VinsDelux | https://vinsdelux.com |" >> $GITHUB_STEP_SUMMARY
-          echo "| Entreprinder | https://entreprinder.lu |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🎉 Zero-downtime deployment via slot swap" >> $GITHUB_STEP_SUMMARY
-
-      - name: Deployment Failed
-        if: failure()
-        run: |
-          echo "❌ Production swap failed. Check Azure App Service logs."
-          echo "🔧 Portal: https://portal.azure.com"
-          echo "💡 Staging is still running - production unchanged"
+          echo "**Swap to production manually in Azure Portal when ready.**" >> $GITHUB_STEP_SUMMARY
