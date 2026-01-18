@@ -9,13 +9,13 @@ echo "🐍 Python version: $(python --version)"
 # Note: collectstatic is handled by Oryx during build (SCM_DO_BUILD_DURING_DEPLOYMENT=true)
 # Running it here would be redundant and add ~30-60s to startup time
 
-# Fix migration state: The vibe_coding tables already exist in production
-# but the migration wasn't recorded. Fake it to sync migration state.
-echo "🔧 Checking migration state..."
-python manage.py migrate entreprinder 0004 --fake 2>/dev/null || true
-
 # Run migrations with no-input for faster execution
 python manage.py migrate --no-input
+
+# Create cache table for database-backed caching (rate limiting)
+# This is idempotent - safe to run on every deployment
+echo "📦 Creating cache table if needed..."
+python manage.py createcachetable 2>&1 || echo "Cache table already exists or creation skipped"
 
 # Only deploy media/data on initial deployment or when explicitly needed
 # Set INITIAL_DEPLOYMENT=true in Azure portal only for first deployment
@@ -40,6 +40,7 @@ fi
 
 echo "✅ Migrations complete. Starting Gunicorn..."
 
-# Optimized Gunicorn settings for faster startup and better performance
+# Gunicorn settings (matching Azure sample app format)
 gunicorn --workers 2 --threads 4 --timeout 120 --access-logfile \
     '-' --error-logfile '-' --bind=0.0.0.0:8000 \
+    azureproject.wsgi
