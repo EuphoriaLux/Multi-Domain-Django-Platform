@@ -1,5 +1,6 @@
 {% load static %}
 {% load i18n %}
+{% load analytics %}
 {% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}">
@@ -112,8 +113,15 @@
     </script>
 
     {% block extra_head %}{% endblock %}
+
+    <!-- Google Analytics 4 with Consent Mode v2 -->
+    {% analytics_head %}
+
+    <!-- Azure Application Insights Browser SDK -->
+    {% appinsights_head %}
 </head>
 <body class="bg-white text-gray-900">
+    {% analytics_body %}
     {% include "includes/staging_banner.html" %}
     {% include "arborist/partials/navigation.html" %}
 
@@ -127,5 +135,8 @@
     {% include "arborist/partials/whatsapp_button.html" %}
 
     {% block extra_js %}{% endblock %}
+
+    <!-- GDPR Cookie Consent Banner -->
+    {% include "includes/cookie_banner.html" %}
 </body>
 </html>

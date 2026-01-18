@@ -25,6 +25,7 @@ def analytics_ids(request):
         GA4_DELEGATIONS: Google Analytics 4 Measurement ID for delegations.lu
         GA4_VINSDELUX: Google Analytics 4 Measurement ID for vinsdelux.com
         GA4_POWERUP: Google Analytics 4 Measurement ID for powerup.lu/entreprinder
+        GA4_ARBORIST: Google Analytics 4 Measurement ID for arborist.lu
         FB_PIXEL_CRUSH_LU: Facebook Pixel ID for crush.lu
         FB_PIXEL_DELEGATIONS: Facebook Pixel ID for delegations.lu
         APPLICATIONINSIGHTS_CONNECTION_STRING: Azure App Insights connection string
@@ -56,6 +57,10 @@ def analytics_ids(request):
     elif 'vinsdelux.com' in host:
         # VinsDelux wine platform
         context['GOOGLE_ANALYTICS_GTAG_PROPERTY_ID'] = os.getenv('GA4_VINSDELUX')
+
+    elif 'arborist.lu' in host:
+        # Arborist Tom Aakrann tree care services
+        context['GOOGLE_ANALYTICS_GTAG_PROPERTY_ID'] = os.getenv('GA4_ARBORIST')
 
     elif 'powerup.lu' in host or 'entreprinder' in host:
         # PowerUP / Entreprinder business networking

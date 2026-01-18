@@ -311,33 +311,51 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
       // Skip Oryx collectstatic - CI already builds the complete staticfiles manifest
       // This prevents Oryx from overwriting CI's manifest with an incomplete one
       DISABLE_COLLECTSTATIC: 'true'
-      AZURE_POSTGRESQL_CONNECTIONSTRING: 'dbname=${pythonAppDatabase.name} host=${postgresServer.name}.postgres.database.azure.com port=5432 sslmode=require user=${postgresServer.properties.administratorLogin} password=${databasePassword}'
+      // ISOLATED DATABASE: Uses pythonapp_staging instead of pythonapp to prevent test data affecting production
+      AZURE_POSTGRESQL_CONNECTIONSTRING: 'dbname=${pythonAppStagingDatabase.name} host=${postgresServer.name}.postgres.database.azure.com port=5432 sslmode=require user=${postgresServer.properties.administratorLogin} password=${databasePassword}'
       SECRET_KEY: secretKey
       // Staging domains (test.*) - marked as slot-sticky via slotConfigNames (won't swap)
       CUSTOM_DOMAINS: 'test.crush.lu,test.entreprinder.lu,test.vinsdelux.com,test.power-up.lu,test.powerup.lu,test.tableau.lu,test.arborist.lu,test.delegations.lu'
       ALLOWED_HOSTS_ENV: 'test.crush.lu,test.entreprinder.lu,test.vinsdelux.com,test.power-up.lu,test.powerup.lu,test.tableau.lu,test.arborist.lu,test.delegations.lu,${prefix}-app-service-staging.azurewebsites.net'
       FLASK_DEBUG: 'False'
       AZURE_ACCOUNT_NAME: storageAccount.name
-      AZURE_CONTAINER_NAME: mediaContainerName
+      // ISOLATED STORAGE: Uses media-staging container instead of media to prevent test uploads affecting production
+      AZURE_CONTAINER_NAME: mediaStagingContainerName
       DEPLOY_MEDIA_AND_DATA: 'false'
       INITIAL_DEPLOYMENT: 'false'
       SYNC_MEDIA_TO_AZURE: 'false'
       POPULATE_SAMPLE_DATA: 'false'
       REFERRAL_POINTS_PER_SIGNUP: '100'
       REFERRAL_POINTS_PER_PROFILE_APPROVED: '50'
+      // STAGING MODE FLAG: Enables staging-specific behavior (email prefixes, analytics skip, etc.)
+      STAGING_MODE: 'true'
+      // NOTE: GA4_CRUSH_LU, GA4_POWERUP, GA4_ARBORIST are intentionally NOT set for staging
+      // to prevent test traffic from polluting production analytics
     }
   }
 }
 
 // Slot-sticky settings configuration
 // These settings won't swap when swapping deployment slots
+// This ensures staging and production maintain their own isolated resources
 resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
   parent: web
   name: 'slotConfigNames'
   properties: {
     appSettingNames: [
+      // Domain settings - each slot has its own domains
       'CUSTOM_DOMAINS'
       'ALLOWED_HOSTS_ENV'
+      // CRITICAL: Database and storage isolation - prevents staging data affecting production
+      'AZURE_POSTGRESQL_CONNECTIONSTRING'
+      'AZURE_CONTAINER_NAME'
+      // Staging mode flag - only set in staging slot
+      'STAGING_MODE'
+      // Analytics - only production should track GA4
+      'GA4_CRUSH_LU'
+      'GA4_POWERUP'
+      'GA4_ARBORIST'
+      // Application Insights settings
       'APPINSIGHTS_INSTRUMENTATIONKEY'
       'APPINSIGHTS_PROFILERFEATURE_VERSION'
       'APPINSIGHTS_SNAPSHOTFEATURE_VERSION'
@@ -486,6 +504,12 @@ resource pythonAppDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/databases@
   name: 'pythonapp'
 }
 
+// Staging database - isolated from production to prevent test data affecting real users
+resource pythonAppStagingDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2022-01-20-preview' = {
+  parent: postgresServer
+  name: 'pythonapp_staging'
+}
+
 //added for Redis Cache
 //resource redisCache 'Microsoft.Cache/redis@2023-04-01' = {
 //  location:location
@@ -506,6 +530,7 @@ resource pythonAppDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/databases@
 // Azure Storage Account for Media Files
 var storageAccountName = '${toLower('media')}${uniqueString(resourceGroup().id)}' // Use a fixed prefix and uniqueString
 var mediaContainerName = 'media' // This should match AZURE_CONTAINER_NAME in production.py
+var mediaStagingContainerName = 'media-staging' // Isolated storage for staging slot
 var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe' // Storage Blob Data Contributor
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
@@ -530,6 +555,14 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
       name: mediaContainerName
       properties: {
         publicAccess: 'None' // Or 'Blob' or 'Container' depending on your needs
+      }
+    }
+
+    // Staging container - isolated from production to prevent test uploads affecting real media
+    resource stagingContainer 'containers' = {
+      name: mediaStagingContainerName
+      properties: {
+        publicAccess: 'None'
       }
     }
   }

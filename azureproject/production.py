@@ -11,24 +11,38 @@ from .settings import BASE_DIR
 # (169.254.*) since middleware-based solutions run too late.
 
 from django.http import request as django_request
+from azureproject.domains import DOMAINS
 
 _original_validate_host = django_request.validate_host
 
 
 def _custom_validate_host(host, allowed_hosts):
     """
-    Custom host validation that allows Azure internal IPs (169.254.*).
+    Custom host validation that allows:
+    - Azure internal IPs (169.254.*)
+    - WWW variants of known domains (for redirect middleware)
 
     Azure App Service uses 169.254.* IPs for internal health checks and
     OpenTelemetry instrumentation. These requests have Host headers like
     '169.254.129.4:8000' which fail standard ALLOWED_HOSTS validation.
+
+    WWW variants (e.g., www.vinsdelux.com) are allowed through so that
+    RedirectWWWToRootDomainMiddleware can redirect them to the root domain.
+    Without this, Django rejects them before middleware can handle them.
     """
     # Extract hostname without port
-    host_without_port = host.split(':')[0] if host else ''
+    host_without_port = host.split(':')[0].lower() if host else ''
 
     # Allow Azure internal IPs (169.254.* range)
     if host_without_port.startswith('169.254.'):
         return True
+
+    # Allow www variants of known domains
+    # The RedirectWWWToRootDomainMiddleware will redirect them to root domain
+    if host_without_port.startswith('www.'):
+        root_domain = host_without_port[4:]  # Remove 'www.'
+        if root_domain in DOMAINS:
+            return True
 
     # Fall back to standard validation
     return _original_validate_host(host, allowed_hosts)
@@ -69,6 +83,19 @@ USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 DEBUG = False
+
+# =============================================================================
+# STAGING MODE DETECTION
+# =============================================================================
+# STAGING_MODE is set only in the staging deployment slot (test.* domains).
+# Used to modify behavior that should differ between staging and production:
+# - Email subject prefixes to identify test emails
+# - Analytics tracking (GA4 env vars are not set in staging)
+# - Any other staging-specific behavior
+#
+# Note: Staging has isolated database (pythonapp_staging) and storage (media-staging)
+# configured via slot-sticky settings, so data isolation is automatic.
+STAGING_MODE = os.environ.get('STAGING_MODE', 'false').lower() == 'true'
 
 # Override authentication protocol for production (always HTTPS)
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
@@ -459,5 +486,16 @@ configure_azure_monitor_telemetry()
 # Monitor CSP reports at /csp-report/ endpoint and in logs (csp_reports logger).
 CSP_REPORT_ONLY = True  # Set to False after testing to enforce CSP
 CSP_REPORT_URI = '/csp-report/'
+
+# =============================================================================
+# STAGING MODE SPECIFIC SETTINGS
+# =============================================================================
+# These settings only apply when running in the staging slot (test.* domains)
+if STAGING_MODE:
+    # Prefix email subjects so test emails are clearly identifiable
+    EMAIL_SUBJECT_PREFIX = '[STAGING] '
+    # Add a note to logs that we're in staging mode
+    import logging
+    logging.getLogger('azureproject').info('Running in STAGING_MODE - isolated database and storage')
 
 
