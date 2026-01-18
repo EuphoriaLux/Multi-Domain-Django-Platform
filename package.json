@@ -9,7 +9,9 @@
     "watch:css:power-up": "tailwindcss -i ./static/power_up/css/tailwind-input.css -o ./static/power_up/css/tailwind.css --watch",
     "build:css:tableau": "tailwindcss -i ./static/tableau/css/tailwind-input.css -o ./static/tableau/css/tailwind.css --minify",
     "watch:css:tableau": "tailwindcss -i ./static/tableau/css/tailwind-input.css -o ./static/tableau/css/tailwind.css --watch",
-    "build:css:all": "npm run build:css && npm run build:css:power-up && npm run build:css:tableau"
+    "build:css:arborist": "tailwindcss -i ./static/arborist/css/tailwind-input.css -o ./static/arborist/css/tailwind.css --minify",
+    "watch:css:arborist": "tailwindcss -i ./static/arborist/css/tailwind-input.css -o ./static/arborist/css/tailwind.css --watch",
+    "build:css:all": "npm run build:css && npm run build:css:power-up && npm run build:css:tableau && npm run build:css:arborist"
   },
   "dependencies": {
     "alpinejs": "^3.15.4",

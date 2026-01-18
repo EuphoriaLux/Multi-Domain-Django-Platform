@@ -1,0 +1,34 @@
+// arborist Brand Colors
+
+// Primary
+$color-primary: #ffffff;
+
+// Secondary
+$color-secondary: #45622a;
+
+// Accent Colors
+$color-accent-1: #716249;
+$color-accent-2: #959a61;
+$color-accent-3: #738c44;
+
+// All Brand Colors
+$brand-color-1: #ffffff; // White
+$brand-color-2: #45622a; // Dark Green
+$brand-color-3: #716249; // Orange
+$brand-color-4: #959a61; // Green
+$brand-color-5: #738c44; // Green
+$brand-color-6: #849352; // Green
+$brand-color-7: #5b6239; // Dark Green
+$brand-color-8: #57512c; // Dark Yellow
+
+// Color Map
+$brand-colors: (
+  'white': #ffffff,
+  'dark-green': #45622a,
+  'orange': #716249,
+  'green': #959a61,
+  'green': #738c44,
+  'green': #849352,
+  'dark-green': #5b6239,
+  'dark-yellow': #57512c,
+);

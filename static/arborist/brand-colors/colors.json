@@ -1,0 +1,163 @@
+{
+  "brand": "arborist",
+  "primary": {
+    "rgb": [
+      255,
+      255,
+      255
+    ],
+    "hex": "#ffffff",
+    "name": "White",
+    "luminance": 1.0,
+    "frequency": 75.8
+  },
+  "secondary": {
+    "rgb": [
+      69,
+      98,
+      42
+    ],
+    "hex": "#45622a",
+    "name": "Dark Green",
+    "luminance": 0.102,
+    "frequency": 3.9
+  },
+  "accent": [
+    {
+      "rgb": [
+        113,
+        98,
+        73
+      ],
+      "hex": "#716249",
+      "name": "Orange",
+      "luminance": 0.127,
+      "frequency": 3.5
+    },
+    {
+      "rgb": [
+        149,
+        154,
+        97
+      ],
+      "hex": "#959a61",
+      "name": "Green",
+      "luminance": 0.304,
+      "frequency": 3.3
+    },
+    {
+      "rgb": [
+        115,
+        140,
+        68
+      ],
+      "hex": "#738c44",
+      "name": "Green",
+      "luminance": 0.228,
+      "frequency": 2.7
+    }
+  ],
+  "neutral": [
+    {
+      "rgb": [
+        255,
+        255,
+        255
+      ],
+      "hex": "#ffffff",
+      "name": "White",
+      "luminance": 1.0,
+      "frequency": 75.8
+    }
+  ],
+  "all_colors": [
+    {
+      "rgb": [
+        255,
+        255,
+        255
+      ],
+      "hex": "#ffffff",
+      "name": "White",
+      "luminance": 1.0,
+      "frequency": 75.8
+    },
+    {
+      "rgb": [
+        69,
+        98,
+        42
+      ],
+      "hex": "#45622a",
+      "name": "Dark Green",
+      "luminance": 0.102,
+      "frequency": 3.9
+    },
+    {
+      "rgb": [
+        113,
+        98,
+        73
+      ],
+      "hex": "#716249",
+      "name": "Orange",
+      "luminance": 0.127,
+      "frequency": 3.5
+    },
+    {
+      "rgb": [
+        149,
+        154,
+        97
+      ],
+      "hex": "#959a61",
+      "name": "Green",
+      "luminance": 0.304,
+      "frequency": 3.3
+    },
+    {
+      "rgb": [
+        115,
+        140,
+        68
+      ],
+      "hex": "#738c44",
+      "name": "Green",
+      "luminance": 0.228,
+      "frequency": 2.7
+    },
+    {
+      "rgb": [
+        132,
+        147,
+        82
+      ],
+      "hex": "#849352",
+      "name": "Green",
+      "luminance": 0.264,
+      "frequency": 7.0
+    },
+    {
+      "rgb": [
+        91,
+        98,
+        57
+      ],
+      "hex": "#5b6239",
+      "name": "Dark Green",
+      "luminance": 0.113,
+      "frequency": 6.7
+    },
+    {
+      "rgb": [
+        87,
+        81,
+        44
+      ],
+      "hex": "#57512c",
+      "name": "Dark Yellow",
+      "luminance": 0.081,
+      "frequency": 21.4
+    }
+  ]
+}

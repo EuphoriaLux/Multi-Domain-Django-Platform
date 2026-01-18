@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+/* Tailwind v4 source paths */
+@source "../../../arborist/templates/**/*.html";
+@source "../../../arborist/**/*.py";
+
+/* Tailwind v4 theme - Arborist brand colors (from brand-colors/colors.json) */
+@theme {
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Arborist brand colors */
+  --color-arborist-primary: #45622a;
+  --color-arborist-primary-light: #738c44;
+  --color-arborist-primary-lighter: #849352;
+  --color-arborist-primary-dark: #5b6239;
+  --color-arborist-accent: #716249;
+  --color-arborist-accent-light: #959a61;
+  --color-arborist-brown: #57512c;
+
+  /* Override default green to match brand */
+  --color-green-50: #f0fdf4;
+  --color-green-100: #dcfce7;
+  --color-green-200: #bbf7d0;
+  --color-green-300: #86efac;
+  --color-green-400: #849352;
+  --color-green-500: #738c44;
+  --color-green-600: #5b6239;
+  --color-green-700: #45622a;
+  --color-green-800: #45622a;
+  --color-green-900: #3a5223;
+}
+
+/* Arborist Component Styles */
+@layer components {
+  /* Primary button */
+  .btn {
+    @apply inline-block px-6 py-3 rounded-lg font-semibold no-underline transition-colors duration-200 cursor-pointer border-none;
+  }
+
+  .btn:hover {
+    @apply no-underline;
+  }
+
+  .btn-primary {
+    @apply bg-green-800 text-white hover:bg-green-700;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-green-800 border-2 border-green-800 hover:bg-green-50;
+  }
+
+  /* Card component */
+  .card {
+    @apply bg-white rounded-xl shadow-md p-6;
+  }
+}
+
+/* Base styles */
+@layer base {
+  a {
+    @apply no-underline;
+  }
+
+  a:hover {
+    @apply underline;
+  }
+}
