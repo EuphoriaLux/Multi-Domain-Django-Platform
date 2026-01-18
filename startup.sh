@@ -8,8 +8,10 @@ echo "🐍 Python version: $(python --version)"
 
 # Run collectstatic from /home/site/wwwroot to ensure all static files are collected
 # This is needed because Oryx extracts to /tmp/ but static files are in /home/site/wwwroot/
+# --clear: Remove all files in STATIC_ROOT before collecting (clean slate)
+# --ignore: Skip tailwind-input.css files (Tailwind v4 source files that WhiteNoise can't process)
 echo "📦 Collecting static files..."
-cd /home/site/wwwroot && python manage.py collectstatic --no-input
+cd /home/site/wwwroot && python manage.py collectstatic --clear --no-input --ignore "tailwind-input.css"
 cd - > /dev/null
 
 # Run migrations with no-input for faster execution
