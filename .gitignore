@@ -143,10 +143,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Tailwind CSS (compiled on CI/CD, not committed)
-static/crush_lu/css/tailwind.css
-static/power_up/css/tailwind.css
-static/tableau/css/tailwind.css
+# Tailwind CSS - NOW COMMITTED so Oryx can collectstatic them
+# Build with: npm run build:css:all
 
 # Build outputs
 *.tsbuildinfo

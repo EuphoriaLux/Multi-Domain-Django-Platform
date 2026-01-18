@@ -88,24 +88,11 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Build assets
-        env:
-          SECRET_KEY: 'ci-build-key'
+      - name: Build CSS
         run: |
           npm ci
           npm run build:css:all
-          pip install -q -r requirements.txt
-          python manage.py collectstatic --no-input --ignore "tailwind-input.css"
-          echo "✅ Build complete"
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: static-files
-          path: |
-            static/
-            staticfiles/
-          retention-days: 1
+          echo "✅ CSS build complete (collectstatic handled by Oryx)"
 
   # Deploy only after validate + test + build all pass
   deploy:
@@ -114,11 +101,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: static-files
-          path: .
+      # CSS files are now committed to git, no artifact needed
+      # Oryx will run collectstatic during Azure build
 
       - name: Login to Azure
         uses: azure/login@v2
