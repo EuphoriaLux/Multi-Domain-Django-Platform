@@ -1,5 +1,6 @@
 from django.urls import path
 from django.views.decorators.cache import never_cache
+from django.views.generic import RedirectView
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.http import HttpResponse
@@ -160,6 +161,8 @@ urlpatterns = [
 
     # User dashboard
     path('dashboard/', views.dashboard, name='dashboard'),
+    # Redirect /profile/ to /dashboard/ (LOGIN_REDIRECT_URL points to /profile/)
+    path('profile/', RedirectView.as_view(pattern_name='crush_lu:dashboard'), name='profile'),
     path('profile/edit/', views.edit_profile, name='edit_profile'),
 
     # Account settings

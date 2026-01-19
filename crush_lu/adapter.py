@@ -7,7 +7,13 @@ from django.utils.translation import get_language, override
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.account.adapter import DefaultAccountAdapter
 
+from azureproject.domains import DOMAINS
 from .referrals import apply_referral_to_user
+
+
+# Build set of all Crush.lu domains (primary + aliases) for efficient lookup
+CRUSH_DOMAINS = {'crush.lu'}
+CRUSH_DOMAINS.update(DOMAINS['crush.lu'].get('aliases', []))
 
 
 def get_i18n_redirect_url(request, url_name, user=None):
@@ -51,9 +57,9 @@ class CrushSocialAccountAdapter(DefaultSocialAccountAdapter):
     """
 
     def _is_crush_domain(self, request):
-        """Check if current request is from crush.lu domain"""
+        """Check if current request is from crush.lu domain (including test.crush.lu)"""
         host = request.get_host().split(':')[0].lower()
-        return host in ['crush.lu', 'www.crush.lu']
+        return host in CRUSH_DOMAINS
 
     def get_signup_redirect_url(self, request):
         """
@@ -100,9 +106,9 @@ class CrushAccountAdapter(DefaultAccountAdapter):
     """
 
     def _is_crush_domain(self, request):
-        """Check if current request is from crush.lu domain"""
+        """Check if current request is from crush.lu domain (including test.crush.lu)"""
         host = request.get_host().split(':')[0].lower()
-        return host in ['crush.lu', 'www.crush.lu']
+        return host in CRUSH_DOMAINS
 
     def get_login_redirect_url(self, request):
         """

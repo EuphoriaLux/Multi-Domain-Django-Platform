@@ -11,6 +11,8 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.conf.urls.i18n import i18n_patterns
 from django.contrib.sitemaps.views import sitemap
+from django.shortcuts import redirect
+from django.utils.translation import get_language
 
 from .urls_shared import base_patterns, api_patterns
 from crush_lu.admin import crush_admin_site
@@ -21,6 +23,18 @@ from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_p
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt
+
+
+def redirect_profile_to_dashboard(request):
+    """
+    Redirect /profile/ to /{lang}/dashboard/.
+
+    LOGIN_REDIRECT_URL is set globally to /profile/ but Crush.lu uses /dashboard/.
+    This redirect handles the non-prefixed URL and sends users to the localized dashboard.
+    """
+    lang = get_language() or 'en'
+    return redirect(f'/{lang}/dashboard/')
+
 
 # Language-neutral patterns (no /en/, /de/, /fr/ prefix)
 # These include health checks, API endpoints, authentication, SEO files, and PWA files
@@ -124,6 +138,14 @@ urlpatterns = base_patterns + api_patterns + [
     # This allows https://crush.lu/r/CODE/ to work without language prefix
     # Users will be redirected to the home page in their browser's preferred language
     path('r/<str:code>/', views.referral_redirect, name='referral_redirect_neutral'),
+
+    # ============================================================================
+    # LOGIN REDIRECT COMPATIBILITY
+    # LOGIN_REDIRECT_URL is set globally to /profile/ but Crush.lu uses /dashboard/.
+    # This redirect handles the non-prefixed URL from login and sends users to the
+    # localized dashboard. Without this, users would get a 404 after login.
+    # ============================================================================
+    path('profile/', redirect_profile_to_dashboard, name='profile_redirect'),
 
     # ============================================================================
     # ADMIN PANELS (language-neutral - always accessible without language prefix)
