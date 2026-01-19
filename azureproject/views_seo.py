@@ -234,7 +234,8 @@ def robots_txt_arborist(request):
         "# Crawl delay (be nice to our server)",
         "Crawl-delay: 1",
         "",
-        "# No sitemap yet - static informational site",
+        "# Sitemap location",
+        "Sitemap: https://arborist.lu/sitemap.xml",
         "",
     ]
 

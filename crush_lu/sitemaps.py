@@ -20,6 +20,7 @@ class CrushStaticViewSitemap(Sitemap):
     changefreq = 'weekly'
     priority = 0.8
     i18n = True  # Enable i18n for multiple language versions
+    alternates = True  # Include xhtml:link elements with hreflang for SEO
 
     def items(self):
         return [

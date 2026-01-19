@@ -6,7 +6,7 @@
 <html lang="{{ LANGUAGE_CODE|default:'en' }}">
 <head>
     {% analytics_head %}
-    {% appinsights_head %}
+    {% if user.is_authenticated %}{% appinsights_head %}{% endif %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Crush.lu - Meet New People{% endblock %}</title>

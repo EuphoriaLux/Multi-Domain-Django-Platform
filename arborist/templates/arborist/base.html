@@ -1,6 +1,7 @@
 {% load static %}
 {% load i18n %}
 {% load analytics %}
+{% load seo_tags %}
 {% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}">
@@ -27,7 +28,10 @@
     <!-- SEO Meta Tags -->
     <meta name="description" content="{% block meta_description %}{{ meta_description|default:"Arborist Tom Aakrann - Professional tree care in Luxembourg. FLL-certified tree inspector, SKT-B rope climbing technician." }}{% endblock %}">
     <meta name="robots" content="index, follow">
-    <link rel="canonical" href="https://arborist.lu{{ request.path }}">
+    <link rel="canonical" href="{% canonical_url %}">
+
+    <!-- SEO: Hreflang tags for multi-language support (en, de, fr) -->
+    {% hreflang_tags %}
 
     <!-- Open Graph / Facebook -->
     <meta property="og:title" content="{% block og_title %}{{ page_title|default:"Arborist Tom Aakrann" }}{% endblock %}">
@@ -117,8 +121,8 @@
     <!-- Google Analytics 4 with Consent Mode v2 -->
     {% analytics_head %}
 
-    <!-- Azure Application Insights Browser SDK -->
-    {% appinsights_head %}
+    <!-- Azure Application Insights Browser SDK (authenticated users only for performance) -->
+    {% if user.is_authenticated %}{% appinsights_head %}{% endif %}
 </head>
 <body class="bg-white text-gray-900">
     {% analytics_body %}

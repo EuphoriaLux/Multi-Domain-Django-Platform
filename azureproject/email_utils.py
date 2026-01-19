@@ -42,6 +42,13 @@ DOMAIN_EMAIL_CONFIG = {
         'GRAPH_CLIENT_SECRET': os.getenv('GRAPH_CLIENT_SECRET'),
         'DEFAULT_FROM_EMAIL': os.getenv('VINSDELUX_DEFAULT_FROM_EMAIL', 'info@vinsdelux.com'),
     },
+    'arborist.lu': {
+        'USE_GRAPH_API': True,
+        'GRAPH_TENANT_ID': os.getenv('GRAPH_TENANT_ID'),
+        'GRAPH_CLIENT_ID': os.getenv('GRAPH_CLIENT_ID'),
+        'GRAPH_CLIENT_SECRET': os.getenv('GRAPH_CLIENT_SECRET'),
+        'DEFAULT_FROM_EMAIL': 'tom@arborist.lu',
+    },
 }
 
 
@@ -72,7 +79,7 @@ def get_domain_email_config(request=None, domain=None):
 
 
 def send_domain_email(subject, message, recipient_list, request=None, domain=None,
-                     html_message=None, from_email=None, fail_silently=False):
+                     html_message=None, from_email=None, cc=None, fail_silently=False):
     """
     Send email using domain-specific configuration (Graph API, SMTP, or Console in DEBUG).
 
@@ -84,6 +91,7 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
         domain: Explicit domain string (optional)
         html_message: HTML message body (optional)
         from_email: Override from email (optional)
+        cc: List of CC email addresses (optional)
         fail_silently: Whether to suppress exceptions (default: False)
 
     Returns:
@@ -152,6 +160,7 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
         body=html_message if html_message else message,
         from_email=email_from,
         to=recipient_list,
+        cc=cc or [],
         connection=connection,
     )
 
