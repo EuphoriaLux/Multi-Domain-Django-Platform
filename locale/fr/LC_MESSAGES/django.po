@@ -7817,42 +7817,32 @@ msgid "A Magical Gift Awaits"
 msgstr "Un parcours magique t'attend"
 
 #: .\crush_lu\templates\crush_lu\emails\journey_gift_notification.html:6
-#, fuzzy
-#| msgid "A Journey Created Just for You"
 msgid "A Gift Just for You"
-msgstr "Un parcours cree rien que pour toi"
+msgstr "Un cadeau rien que pour toi"
 
 #: .\crush_lu\templates\crush_lu\emails\journey_gift_notification.html:14
 msgid "Hi"
-msgstr ""
+msgstr "Salut"
 
 #: .\crush_lu\templates\crush_lu\emails\journey_gift_notification.html:18
-#, fuzzy
-#| msgid "has created a magical Wonderland journey for"
 msgid "has created a magical"
-msgstr "a cree un parcours Wonderland magique pour"
+msgstr "a créé un"
 
 #: .\crush_lu\templates\crush_lu\emails\journey_gift_notification.html:20
 msgid "journey especially for you!"
-msgstr ""
+msgstr "parcours magique spécialement pour toi !"
 
 #: .\crush_lu\templates\crush_lu\emails\journey_gift_notification.html:26
-#, fuzzy
-#| msgid "A message for you:"
 msgid "A message from"
-msgstr "Un message pour toi :"
+msgstr "Un message de"
 
 #: .\crush_lu\templates\crush_lu\emails\journey_gift_notification.html:37
-#, fuzzy
-#| msgid "View QR Code"
 msgid "QR Code"
-msgstr "Voir le code QR"
+msgstr "Code QR"
 
 #: .\crush_lu\templates\crush_lu\emails\journey_gift_notification.html:40
-#, fuzzy
-#| msgid "Begin Your Adventure"
 msgid "Scan to begin your adventure"
-msgstr "Commencer ton aventure"
+msgstr "Scanne pour commencer ton aventure"
 
 #: .\crush_lu\templates\crush_lu\emails\journey_gift_notification.html:47
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:506
@@ -7863,50 +7853,41 @@ msgstr "Commencer ton aventure"
 #: .\crush_lu\templates\crush_lu\emails\journey_gift_notification.html:53
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:525
 msgid "What is the Wonderland of You?"
-msgstr ""
+msgstr "Qu'est-ce que le Wonderland of You ?"
 
 #: .\crush_lu\templates\crush_lu\emails\journey_gift_notification.html:56
-#, fuzzy
-#| msgid ""
-#| "6 magical chapters await you, filled with puzzles, riddles, and heartfelt "
-#| "surprises. Each chapter unlocks secrets and reveals messages from someone "
-#| "who cares about you."
 msgid ""
 "It's a magical journey through 6 enchanting chapters filled with puzzles, "
 "riddles, and heartfelt surprises. Each chapter unlocks secrets and reveals "
 "messages from someone who cares about you deeply."
 msgstr ""
-"6 chapitres magiques t'attendent, remplis de puzzles, d'enigmes et de "
-"surprises sinceres. Chaque chapitre devoile des secrets et des messages de "
-"quelqu'un qui tient a toi."
+"C'est un parcours magique à travers 6 chapitres enchanteurs remplis de "
+"puzzles, d'énigmes et de surprises sincères. Chaque chapitre dévoile des "
+"secrets et des messages de quelqu'un qui tient à toi."
 
 #: .\crush_lu\templates\crush_lu\emails\journey_gift_notification.html:61
 msgid "Puzzles"
-msgstr ""
+msgstr "Puzzles"
 
 #: .\crush_lu\templates\crush_lu\emails\journey_gift_notification.html:65
 msgid "Secrets"
-msgstr ""
+msgstr "Secrets"
 
 #: .\crush_lu\templates\crush_lu\emails\journey_gift_notification.html:69
-#, fuzzy
-#| msgid "Reward"
 msgid "Rewards"
-msgstr "Récompense"
+msgstr "Récompenses"
 
 #: .\crush_lu\templates\crush_lu\emails\journey_gift_notification.html:76
-#, fuzzy
-#| msgid "Gift Code"
 msgid "Gift Code:"
-msgstr "Code du cadeau"
+msgstr "Code du cadeau :"
 
 #: .\crush_lu\templates\crush_lu\emails\journey_gift_notification.html:82
-#, fuzzy
-#| msgid "You're receiving this because you have an account on Crush.lu."
 msgid ""
 "You're receiving this because someone special created a journey for you on "
 "Crush.lu."
-msgstr "Tu reçois cet email parce que tu as un compte sur Crush.lu."
+msgstr ""
+"Tu reçois cet email parce que quelqu'un de spécial a créé un parcours pour "
+"toi sur Crush.lu."
 
 #: .\crush_lu\templates\crush_lu\emails\new_connection_request.html:4
 msgid "New Connection Request"
