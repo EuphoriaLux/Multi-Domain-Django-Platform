@@ -255,7 +255,7 @@
         <div class="timeline-container">
             <div class="timeline-line"></div>
             <ul class="timeline-items" id="timelineItems">
-                {% for event in challenge.options.events %}
+                {% for event in localized_events %}
                 <li class="timeline-item" data-original-index="{{ forloop.counter0 }}">
                     <div class="timeline-number">{{ forloop.counter }}</div>
                     <div class="timeline-text">{{ event }}</div>

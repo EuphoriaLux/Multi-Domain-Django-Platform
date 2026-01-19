@@ -7,6 +7,7 @@ This module handles all views related to the personalized journey experience.
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
+from django.utils.translation import get_language
 from django.db.models import Q
 from django.http import JsonResponse
 from .decorators import crush_login_required
@@ -370,6 +371,22 @@ def challenge_view(request, chapter_number, challenge_id):
             'existing_attempt': existing_attempt,
             'journey_progress': journey_progress,
         }
+
+        # For timeline_sort challenges, get language-specific events
+        if challenge.challenge_type == 'timeline_sort' and challenge.options:
+            current_lang = get_language() or 'en'
+            # Get language code (handle 'en-us' -> 'en')
+            lang_code = current_lang[:2] if '-' in current_lang else current_lang
+
+            # Try to get language-specific events, fallback to default
+            events_key = f'events_{lang_code}'
+            if events_key in challenge.options:
+                context['localized_events'] = challenge.options[events_key]
+            elif 'events' in challenge.options:
+                # Fallback to default events (backward compatibility)
+                context['localized_events'] = challenge.options['events']
+            else:
+                context['localized_events'] = []
 
         # Render challenge template based on type
         template_name = f'crush_lu/journey/challenges/{challenge.challenge_type}.html'

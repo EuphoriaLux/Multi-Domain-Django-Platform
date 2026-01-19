@@ -576,7 +576,13 @@ class Command(BaseCommand):
                 'success_message_de': content_de.get('timeline_success', ''),
                 'question_fr': content_fr.get('timeline_question', ''),
                 'success_message_fr': content_fr.get('timeline_success', ''),
-                'options': {'events': formatted_events_en},
+                # Store events in all languages (JSONField doesn't support django-modeltranslation)
+                'options': {
+                    'events': formatted_events_en,  # Default/backward compatible
+                    'events_en': formatted_events_en,
+                    'events_de': formatted_events_de,
+                    'events_fr': formatted_events_fr,
+                },
                 'correct_answer': '0,1,2,3,4',
                 'points_awarded': 300,
             }

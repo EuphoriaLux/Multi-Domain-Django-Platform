@@ -1,0 +1,267 @@
+{% extends "crush_lu/journey/journey_base.html" %}
+{% load static i18n %}
+
+{% block extra_journey_css %}
+<style>
+    .reward-container {
+        max-width: 900px;
+        margin: 60px auto;
+    }
+
+    .reward-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(20px);
+        border-radius: 25px;
+        padding: 50px;
+        border: 2px solid rgba(155, 89, 182, 0.3);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .reward-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(
+            45deg,
+            transparent,
+            rgba(155, 89, 182, 0.1),
+            transparent
+        );
+        animation: shimmer 3s infinite;
+    }
+
+    @keyframes shimmer {
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .reward-content {
+        position: relative;
+        z-index: 1;
+    }
+
+    .reward-icon {
+        text-align: center;
+        font-size: 4rem;
+        margin-bottom: 20px;
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.1);
+        }
+    }
+
+    .reward-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-align: center;
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 30px;
+    }
+
+    .message-intro {
+        font-size: 1.2rem;
+        line-height: 1.8;
+        text-align: center;
+        color: rgba(255, 255, 255, 0.9);
+        margin-bottom: 30px;
+        font-style: italic;
+    }
+
+    .video-container {
+        background: rgba(0, 0, 0, 0.4);
+        border-radius: 20px;
+        padding: 20px;
+        margin: 30px 0;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .video-player-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .video-player-wrapper video {
+        width: 100%;
+        max-width: 720px;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .text-message {
+        font-size: 1.2rem;
+        line-height: 1.8;
+        text-align: center;
+        padding: 30px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 15px;
+        border-left: 4px solid rgba(155, 89, 182, 0.5);
+        margin-top: 30px;
+        white-space: pre-line;
+    }
+
+    .continue-btn {
+        display: block;
+        width: fit-content;
+        margin: 40px auto 0;
+        padding: 15px 40px;
+        border-radius: 25px;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        color: white;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+        text-align: center;
+    }
+
+    .continue-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(155, 89, 182, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+
+    /* Stars Animation */
+    .star {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: white;
+        border-radius: 50%;
+        animation: twinkle 2s infinite;
+    }
+
+    @keyframes twinkle {
+        0%, 100% {
+            opacity: 0.3;
+            transform: scale(0.8);
+        }
+        50% {
+            opacity: 1;
+            transform: scale(1.2);
+        }
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .reward-card {
+            padding: 30px 15px;
+        }
+
+        .reward-title {
+            font-size: 1.8rem;
+        }
+
+        .video-container {
+            padding: 10px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block journey_content %}
+<div class="reward-container animate-fade-in">
+    <!-- Back Button -->
+    <div class="text-center mb-4">
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Chapter" %}
+        </a>
+    </div>
+
+    <div class="reward-card">
+        <!-- Stars -->
+        <div class="star" style="top: 5%; left: 10%; animation-delay: 0s;"></div>
+        <div class="star" style="top: 15%; right: 20%; animation-delay: 0.3s;"></div>
+        <div class="star" style="bottom: 25%; left: 15%; animation-delay: 0.6s;"></div>
+        <div class="star" style="top: 40%; right: 8%; animation-delay: 0.9s;"></div>
+        <div class="star" style="bottom: 10%; right: 30%; animation-delay: 1.2s;"></div>
+
+        <div class="reward-content">
+            <div class="reward-icon">
+                🎬
+            </div>
+
+            <h1 class="reward-title">{{ reward.title }}</h1>
+
+            <p class="message-intro">
+                {% trans "Press play to watch something special..." %}
+            </p>
+
+            <div class="video-container">
+                {% if reward.video_file %}
+                <div class="video-player-wrapper">
+                    <video controls playsinline poster="">
+                        <source src="{{ reward.video_file.url|safe }}" type="video/mp4">
+                        <source src="{{ reward.video_file.url|safe }}" type="video/webm">
+                        {% trans "Your browser does not support the video element." %}
+                    </video>
+                </div>
+                {% elif reward.audio_file %}
+                <!-- Fallback to audio if no video -->
+                <div style="text-align: center; padding: 40px;">
+                    <div style="font-size: 4rem; margin-bottom: 20px;">🎧</div>
+                    <audio controls style="width: 100%; max-width: 400px;">
+                        <source src="{{ reward.audio_file.url|safe }}" type="audio/mpeg">
+                        <source src="{{ reward.audio_file.url|safe }}" type="audio/mp3">
+                        {% trans "Your browser does not support the audio element." %}
+                    </audio>
+                </div>
+                {% else %}
+                <div style="text-align: center; padding: 40px;">
+                    <div style="font-size: 4rem;">💌</div>
+                    <p style="opacity: 0.8; margin-top: 20px;">{% trans "Read the message below" %}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if reward.message %}
+            <div class="text-message">
+                {{ reward.message }}
+            </div>
+            {% endif %}
+
+            <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="continue-btn">
+                {% trans "Continue Your Journey" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+            </a>
+        </div>
+    </div>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', () => {
+    // Create more stars
+    const card = document.querySelector('.reward-card');
+    const starCount = 25;
+
+    for (let i = 0; i < starCount; i++) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        star.style.top = (Math.random() * 90 + 5) + '%';
+        star.style.left = (Math.random() * 90 + 5) + '%';
+        star.style.animationDelay = (Math.random() * 2) + 's';
+        star.style.width = (Math.random() * 3 + 2) + 'px';
+        star.style.height = star.style.width;
+        card.appendChild(star);
+    }
+});
+</script>
+{% endblock %}

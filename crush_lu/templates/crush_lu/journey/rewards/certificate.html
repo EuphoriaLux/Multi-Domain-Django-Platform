@@ -1,0 +1,88 @@
+{% extends "crush_lu/journey/journey_base.html" %}
+{% load static i18n %}
+
+{% block extra_journey_css %}
+<style>
+    .certificate-redirect {
+        max-width: 600px;
+        margin: 80px auto;
+        text-align: center;
+    }
+
+    .certificate-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(20px);
+        border-radius: 25px;
+        padding: 50px;
+        border: 2px solid rgba(255, 215, 0, 0.3);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    }
+
+    .certificate-icon {
+        font-size: 5rem;
+        margin-bottom: 20px;
+        animation: bounce 2s ease-in-out infinite;
+    }
+
+    @keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+    }
+
+    .certificate-title {
+        font-size: 2rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #FFD700, #FFA500);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 20px;
+    }
+
+    .certificate-text {
+        font-size: 1.1rem;
+        color: rgba(255, 255, 255, 0.9);
+        margin-bottom: 30px;
+        line-height: 1.6;
+    }
+
+    .certificate-btn {
+        display: inline-block;
+        padding: 15px 40px;
+        border-radius: 25px;
+        background: linear-gradient(135deg, #FFD700, #FFA500);
+        color: #1a1a2e;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+    }
+
+    .certificate-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(255, 215, 0, 0.4);
+        color: #1a1a2e;
+        text-decoration: none;
+    }
+</style>
+{% endblock %}
+
+{% block journey_content %}
+<div class="certificate-redirect animate-fade-in">
+    <div class="certificate-card">
+        <div class="certificate-icon">
+            🏆
+        </div>
+
+        <h1 class="certificate-title">{% trans "Your Certificate Awaits!" %}</h1>
+
+        <p class="certificate-text">
+            {% trans "Congratulations on completing your journey! View your personalized completion certificate." %}
+        </p>
+
+        <a href="{% url 'crush_lu:certificate' %}" class="certificate-btn">
+            {% trans "View Certificate" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+        </a>
+    </div>
+</div>
+{% endblock %}

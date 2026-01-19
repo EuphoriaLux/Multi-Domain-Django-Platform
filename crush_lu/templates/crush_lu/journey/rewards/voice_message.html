@@ -1,0 +1,362 @@
+{% extends "crush_lu/journey/journey_base.html" %}
+{% load static i18n %}
+
+{% block extra_journey_css %}
+<style>
+    .reward-container {
+        max-width: 800px;
+        margin: 60px auto;
+    }
+
+    .reward-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(20px);
+        border-radius: 25px;
+        padding: 50px;
+        border: 2px solid rgba(255, 107, 157, 0.3);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .reward-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(
+            45deg,
+            transparent,
+            rgba(255, 107, 157, 0.1),
+            transparent
+        );
+        animation: shimmer 3s infinite;
+    }
+
+    @keyframes shimmer {
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .reward-content {
+        position: relative;
+        z-index: 1;
+    }
+
+    .reward-icon {
+        text-align: center;
+        font-size: 4rem;
+        margin-bottom: 20px;
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.1);
+        }
+    }
+
+    .reward-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-align: center;
+        background: linear-gradient(135deg, #FF6B9D, #9B59B6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 30px;
+    }
+
+    .message-intro {
+        font-size: 1.2rem;
+        line-height: 1.8;
+        text-align: center;
+        color: rgba(255, 255, 255, 0.9);
+        margin-bottom: 30px;
+        font-style: italic;
+    }
+
+    .media-container {
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 20px;
+        padding: 40px;
+        margin: 30px 0;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .audio-player-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .audio-visual {
+        width: 150px;
+        height: 150px;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 4rem;
+        animation: glow 2s ease-in-out infinite;
+        box-shadow: 0 10px 40px rgba(155, 89, 182, 0.4);
+    }
+
+    @keyframes glow {
+        0%, 100% {
+            box-shadow: 0 10px 40px rgba(155, 89, 182, 0.4);
+        }
+        50% {
+            box-shadow: 0 10px 60px rgba(255, 107, 157, 0.6);
+        }
+    }
+
+    .audio-player-wrapper audio {
+        width: 100%;
+        max-width: 400px;
+        border-radius: 10px;
+    }
+
+    .video-player-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .video-player-wrapper video {
+        width: 100%;
+        max-width: 600px;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .text-message {
+        font-size: 1.2rem;
+        line-height: 1.8;
+        text-align: center;
+        padding: 30px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 15px;
+        border-left: 4px solid rgba(255, 107, 157, 0.5);
+        margin-top: 30px;
+        white-space: pre-line;
+    }
+
+    .continue-btn {
+        display: block;
+        width: fit-content;
+        margin: 40px auto 0;
+        padding: 15px 40px;
+        border-radius: 25px;
+        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        color: white;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+        text-align: center;
+    }
+
+    .continue-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(155, 89, 182, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+
+    /* Hearts Animation */
+    .heart {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background: #FF6B9D;
+        transform: rotate(45deg);
+        animation: float-heart 4s infinite;
+        opacity: 0.6;
+    }
+
+    .heart::before,
+    .heart::after {
+        content: '';
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background: #FF6B9D;
+        border-radius: 50%;
+    }
+
+    .heart::before {
+        top: -5px;
+        left: 0;
+    }
+
+    .heart::after {
+        left: -5px;
+        top: 0;
+    }
+
+    @keyframes float-heart {
+        0% {
+            opacity: 0;
+            transform: rotate(45deg) translateY(0) scale(0.5);
+        }
+        50% {
+            opacity: 0.6;
+        }
+        100% {
+            opacity: 0;
+            transform: rotate(45deg) translateY(-100px) scale(1);
+        }
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .reward-card {
+            padding: 30px 20px;
+        }
+
+        .reward-title {
+            font-size: 2rem;
+        }
+
+        .media-container {
+            padding: 25px;
+        }
+
+        .audio-visual {
+            width: 120px;
+            height: 120px;
+            font-size: 3rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block journey_content %}
+<div class="reward-container animate-fade-in">
+    <!-- Back Button -->
+    <div class="text-center mb-4">
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Chapter" %}
+        </a>
+    </div>
+
+    <div class="reward-card">
+        <!-- Hearts -->
+        <div class="heart" style="top: 10%; left: 10%; animation-delay: 0s;"></div>
+        <div class="heart" style="top: 20%; right: 15%; animation-delay: 1s;"></div>
+        <div class="heart" style="bottom: 30%; left: 20%; animation-delay: 2s;"></div>
+        <div class="heart" style="top: 50%; right: 10%; animation-delay: 3s;"></div>
+
+        <div class="reward-content">
+            <div class="reward-icon">
+                {% if reward.video_file %}
+                    🎬
+                {% else %}
+                    🎙️
+                {% endif %}
+            </div>
+
+            <h1 class="reward-title">{{ reward.title }}</h1>
+
+            <p class="message-intro">
+                {% trans "A special message, just for you..." %}
+            </p>
+
+            <div class="media-container">
+                {% if reward.video_file %}
+                <!-- Video Player -->
+                <div class="video-player-wrapper">
+                    <video controls playsinline>
+                        <source src="{{ reward.video_file.url|safe }}" type="video/mp4">
+                        <source src="{{ reward.video_file.url|safe }}" type="video/webm">
+                        {% trans "Your browser does not support the video element." %}
+                    </video>
+                </div>
+                {% elif reward.audio_file %}
+                <!-- Audio Player -->
+                <div class="audio-player-wrapper">
+                    <div class="audio-visual" id="audioVisual">
+                        🎧
+                    </div>
+                    <audio controls id="audioPlayer">
+                        <source src="{{ reward.audio_file.url|safe }}" type="audio/mpeg">
+                        <source src="{{ reward.audio_file.url|safe }}" type="audio/mp3">
+                        <source src="{{ reward.audio_file.url|safe }}" type="audio/wav">
+                        {% trans "Your browser does not support the audio element." %}
+                    </audio>
+                </div>
+                {% else %}
+                <!-- No media, just show message icon -->
+                <div class="audio-player-wrapper">
+                    <div class="audio-visual">
+                        💌
+                    </div>
+                    <p style="text-align: center; opacity: 0.8;">
+                        {% trans "Read the message below" %}
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if reward.message %}
+            <div class="text-message">
+                {{ reward.message }}
+            </div>
+            {% endif %}
+
+            <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="continue-btn">
+                {% trans "Continue Your Journey" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+            </a>
+        </div>
+    </div>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', () => {
+    // Create floating hearts
+    const card = document.querySelector('.reward-card');
+    const heartCount = 15;
+
+    for (let i = 0; i < heartCount; i++) {
+        const heart = document.createElement('div');
+        heart.className = 'heart';
+        heart.style.top = (Math.random() * 80 + 10) + '%';
+        heart.style.left = (Math.random() * 80 + 10) + '%';
+        heart.style.animationDelay = (Math.random() * 4) + 's';
+        heart.style.transform = 'rotate(45deg) scale(' + (Math.random() * 0.5 + 0.5) + ')';
+        card.appendChild(heart);
+    }
+
+    // Audio visual animation (if audio player exists)
+    const audioPlayer = document.getElementById('audioPlayer');
+    const audioVisual = document.getElementById('audioVisual');
+
+    if (audioPlayer && audioVisual) {
+        audioPlayer.addEventListener('play', () => {
+            audioVisual.style.animation = 'pulse 0.5s ease-in-out infinite, glow 1s ease-in-out infinite';
+        });
+
+        audioPlayer.addEventListener('pause', () => {
+            audioVisual.style.animation = 'glow 2s ease-in-out infinite';
+        });
+
+        audioPlayer.addEventListener('ended', () => {
+            audioVisual.style.animation = 'glow 2s ease-in-out infinite';
+        });
+    }
+});
+</script>
+{% endblock %}

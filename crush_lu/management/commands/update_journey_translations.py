@@ -143,12 +143,12 @@ class Command(BaseCommand):
             chapter.save()
 
         # Update challenges based on chapter number
-        self.update_chapter_challenges(chapter, chapter_num, content_de, content_fr, dry_run)
+        self.update_chapter_challenges(chapter, chapter_num, content_de, content_fr, journey, dry_run)
 
         # Update rewards
         self.update_chapter_rewards(chapter, content_de, content_fr, first_name, dry_run)
 
-    def update_chapter_challenges(self, chapter, chapter_num, content_de, content_fr, dry_run):
+    def update_chapter_challenges(self, chapter, chapter_num, content_de, content_fr, journey, dry_run):
         """Update challenges based on chapter-specific structure."""
         challenges = list(chapter.challenges.all().order_by('challenge_order'))
 
@@ -167,14 +167,28 @@ class Command(BaseCommand):
             # Chapter 3: timeline_sort + multiple_choice
             # Challenge 0: timeline_sort
             if len(challenges) > 0:
+                timeline_challenge = challenges[0]
                 self._update_challenge_fields(
-                    challenges[0],
+                    timeline_challenge,
                     question_de=content_de.get('timeline_question', ''),
                     question_fr=content_fr.get('timeline_question', ''),
                     success_de=content_de.get('timeline_success', ''),
                     success_fr=content_fr.get('timeline_success', ''),
                     dry_run=dry_run
                 )
+                # Also update events in options JSONField
+                if not dry_run:
+                    events_de = content_de.get('timeline_events', [])
+                    events_fr = content_fr.get('timeline_events', [])
+                    location_met = journey.location_first_met or ''
+                    formatted_events_de = [e.format(location_met=location_met) for e in events_de]
+                    formatted_events_fr = [e.format(location_met=location_met) for e in events_fr]
+                    # Update options to include all language versions
+                    options = timeline_challenge.options or {}
+                    options['events_de'] = formatted_events_de
+                    options['events_fr'] = formatted_events_fr
+                    timeline_challenge.options = options
+                    timeline_challenge.save()
             # Challenge 1: moment multiple_choice
             if len(challenges) > 1:
                 self._update_challenge_fields(
