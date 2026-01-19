@@ -343,17 +343,27 @@ class JourneyGift(models.Model):
         from .journey import JourneyConfiguration
         from crush_lu.utils.journey_creator import create_wonderland_chapters
 
-        # 1. Create SpecialUserExperience (directly linked to user)
-        special_exp = SpecialUserExperience.objects.create(
-            linked_user=user,
-            first_name=self.recipient_name,  # For display/personalization only
-            last_name="",  # Not needed when using direct link
-            is_active=True,
-            auto_approve_profile=True,
-            vip_badge=True,
-            custom_welcome_title=f"Welcome to Your Wonderland, {self.recipient_name}!",
-            custom_welcome_message=f"A journey created just for you by {self.sender.first_name}",
-        )
+        # 1. Get or create SpecialUserExperience (directly linked to user)
+        # A user can only have ONE SpecialUserExperience, but can have multiple journeys
+        special_exp = SpecialUserExperience.objects.filter(linked_user=user).first()
+
+        if special_exp:
+            # User already has a SpecialUserExperience - update it with new gift info
+            special_exp.is_active = True
+            special_exp.vip_badge = True
+            special_exp.save(update_fields=['is_active', 'vip_badge'])
+        else:
+            # Create new SpecialUserExperience for first-time gift recipient
+            special_exp = SpecialUserExperience.objects.create(
+                linked_user=user,
+                first_name=self.recipient_name,  # For display/personalization only
+                last_name="",  # Not needed when using direct link
+                is_active=True,
+                auto_approve_profile=True,
+                vip_badge=True,
+                custom_welcome_title=f"Welcome to Your Wonderland, {self.recipient_name}!",
+                custom_welcome_message=f"A journey created just for you by {self.sender.first_name}",
+            )
 
         # 2. Create JourneyConfiguration
         journey = JourneyConfiguration.objects.create(
