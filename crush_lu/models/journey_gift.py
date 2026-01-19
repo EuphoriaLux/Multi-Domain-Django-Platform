@@ -34,24 +34,38 @@ def gift_qr_code_path(instance, filename):
 
 
 def gift_chapter1_image_path(instance, filename):
-    """Path for Chapter 1 photo puzzle image"""
+    """
+    Path for Chapter 1 photo puzzle image.
+    Structure: users/{sender_id}/journey_gifts/{gift_code}/chapter1/{uuid}.{ext}
+
+    Benefits:
+    - All user content in one place for GDPR deletion
+    - Consistent with CrushProfile photo storage
+    - Easy to find all gifts created by a user
+    """
     ext = os.path.splitext(filename)[1].lower()
     unique_filename = f"{uuid.uuid4().hex}{ext}"
-    return f"journey_gifts/{instance.gift_code}/chapter1/{unique_filename}"
+    return f"users/{instance.sender_id}/journey_gifts/{instance.gift_code}/chapter1/{unique_filename}"
 
 
 def gift_chapter3_image_path(instance, filename):
-    """Path for Chapter 3 slideshow images"""
+    """
+    Path for Chapter 3 slideshow images.
+    Structure: users/{sender_id}/journey_gifts/{gift_code}/chapter3/{uuid}.{ext}
+    """
     ext = os.path.splitext(filename)[1].lower()
     unique_filename = f"{uuid.uuid4().hex}{ext}"
-    return f"journey_gifts/{instance.gift_code}/chapter3/{unique_filename}"
+    return f"users/{instance.sender_id}/journey_gifts/{instance.gift_code}/chapter3/{unique_filename}"
 
 
 def gift_chapter4_audio_path(instance, filename):
-    """Path for Chapter 4 voice message audio"""
+    """
+    Path for Chapter 4 voice/video message.
+    Structure: users/{sender_id}/journey_gifts/{gift_code}/chapter4/{uuid}.{ext}
+    """
     ext = os.path.splitext(filename)[1].lower()
     unique_filename = f"{uuid.uuid4().hex}{ext}"
-    return f"journey_gifts/{instance.gift_code}/chapter4/{unique_filename}"
+    return f"users/{instance.sender_id}/journey_gifts/{instance.gift_code}/chapter4/{unique_filename}"
 
 
 class JourneyGift(models.Model):
