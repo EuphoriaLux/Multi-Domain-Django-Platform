@@ -438,8 +438,24 @@ class ProfileReviewForm(forms.ModelForm):
         model = ProfileSubmission
         fields = ['status', 'coach_notes', 'feedback_to_user']
         widgets = {
-            'coach_notes': forms.Textarea(attrs={'rows': 4, 'placeholder': _('Internal notes...')}),
-            'feedback_to_user': forms.Textarea(attrs={'rows': 4, 'placeholder': _('Feedback for the user...')}),
+            'status': forms.Select(attrs={
+                'class': 'w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 '
+                         'focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors'
+            }),
+            'coach_notes': forms.Textarea(attrs={
+                'rows': 4,
+                'placeholder': _('e.g., Verified identity via video call. Photos match. Genuine interest in dating.'),
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 '
+                         'focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors '
+                         'placeholder:text-gray-400'
+            }),
+            'feedback_to_user': forms.Textarea(attrs={
+                'rows': 4,
+                'placeholder': _('e.g., Welcome to Crush.lu! Your profile looks great...'),
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 '
+                         'focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors '
+                         'placeholder:text-gray-400'
+            }),
         }
 
 
