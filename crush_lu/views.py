@@ -1669,8 +1669,11 @@ def coach_mark_review_call_complete(request, submission_id):
         return redirect('crush_lu:dashboard')
 
     # Handle submission not found or not assigned to this coach
+    # Use select_related to prefetch profile and user in single query (reduces latency)
     try:
-        submission = ProfileSubmission.objects.get(id=submission_id, coach=coach)
+        submission = ProfileSubmission.objects.select_related(
+            'profile', 'profile__user'
+        ).get(id=submission_id, coach=coach)
     except ProfileSubmission.DoesNotExist:
         if is_htmx:
             return render(request, 'crush_lu/_htmx_error.html', {
@@ -1683,7 +1686,8 @@ def coach_mark_review_call_complete(request, submission_id):
     submission.review_call_completed = True
     submission.review_call_date = timezone.now()
     submission.review_call_notes = request.POST.get('call_notes', '')
-    submission.save()
+    # Only update specific fields (faster than full model save)
+    submission.save(update_fields=['review_call_completed', 'review_call_date', 'review_call_notes'])
 
     # Return HTMX partial or redirect
     if is_htmx:
