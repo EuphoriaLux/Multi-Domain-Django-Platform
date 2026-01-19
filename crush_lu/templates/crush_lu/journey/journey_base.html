@@ -136,10 +136,24 @@
     {% endblock %}
 </div>
 
+<!-- CSRF Token for AJAX requests (hidden, works with CSRF_COOKIE_HTTPONLY=True) -->
+<input type="hidden" id="csrf-token" value="{{ csrf_token }}">
+
 <!-- Journey State Manager -->
 <script nonce="{{ request.csp_nonce }}">
-    // CSRF token helper
+    // CSRF token helper (reads from hidden input, works with CSRF_COOKIE_HTTPONLY=True)
     function getCsrfToken() {
+        // First try hidden input (preferred when CSRF_COOKIE_HTTPONLY=True)
+        const input = document.getElementById('csrf-token');
+        if (input && input.value) {
+            return input.value;
+        }
+        // Fallback: try form input
+        const formInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (formInput && formInput.value) {
+            return formInput.value;
+        }
+        // Last fallback: try cookie (if CSRF_COOKIE_HTTPONLY=False)
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
             const cookies = document.cookie.split(';');

@@ -8,6 +8,17 @@
  * @returns {string} CSRF token value
  */
 function getCsrfToken() {
+    // First try hidden input (works with CSRF_COOKIE_HTTPONLY=True)
+    const hiddenInput = document.getElementById('csrf-token');
+    if (hiddenInput && hiddenInput.value) {
+        return hiddenInput.value;
+    }
+    // Try form input
+    const formInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (formInput && formInput.value) {
+        return formInput.value;
+    }
+    // Fallback to cookie (if CSRF_COOKIE_HTTPONLY=False)
     const cookie = document.cookie
         .split('; ')
         .find(row => row.startsWith('csrftoken='));
