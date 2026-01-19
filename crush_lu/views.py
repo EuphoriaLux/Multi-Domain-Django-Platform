@@ -1655,21 +1655,30 @@ def coach_dashboard(request):
 @require_http_methods(["POST"])
 def coach_mark_review_call_complete(request, submission_id):
     """Mark screening call as complete during profile review"""
+    is_htmx = request.headers.get('HX-Request')
+
     try:
         coach = CrushCoach.objects.get(user=request.user, is_active=True)
     except CrushCoach.DoesNotExist:
-        if request.headers.get('HX-Request'):
+        if is_htmx:
             return render(request, 'crush_lu/_htmx_error.html', {
-                'message': 'You do not have coach access.'
+                'message': _('You do not have coach access.'),
+                'target_id': 'screening-call-section',
             })
         messages.error(request, _('You do not have coach access.'))
         return redirect('crush_lu:dashboard')
 
-    submission = get_object_or_404(
-        ProfileSubmission,
-        id=submission_id,
-        coach=coach
-    )
+    # Handle submission not found or not assigned to this coach
+    try:
+        submission = ProfileSubmission.objects.get(id=submission_id, coach=coach)
+    except ProfileSubmission.DoesNotExist:
+        if is_htmx:
+            return render(request, 'crush_lu/_htmx_error.html', {
+                'message': _('Submission not found or not assigned to you.'),
+                'target_id': 'screening-call-section',
+            })
+        messages.error(request, _('Submission not found.'))
+        return redirect('crush_lu:coach_dashboard')
 
     submission.review_call_completed = True
     submission.review_call_date = timezone.now()
@@ -1677,7 +1686,7 @@ def coach_mark_review_call_complete(request, submission_id):
     submission.save()
 
     # Return HTMX partial or redirect
-    if request.headers.get('HX-Request'):
+    if is_htmx:
         return render(request, 'crush_lu/_screening_call_section.html', {
             'submission': submission,
             'profile': submission.profile,

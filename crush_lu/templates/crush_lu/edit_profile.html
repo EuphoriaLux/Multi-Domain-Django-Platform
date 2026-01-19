@@ -18,6 +18,32 @@
 
 {% block content %}
 <div class="max-w-3xl mx-auto">
+    {% with missing_fields=profile.get_missing_fields %}
+    {% if missing_fields %}
+    <!-- Missing Fields Alert -->
+    <div class="bg-amber-50 border-l-4 border-amber-500 p-4 mb-6 rounded-r-lg">
+        <div class="flex items-start gap-3">
+            <div class="flex-shrink-0 text-amber-500">
+                {% include "shared/icons/exclamation-triangle.html" with class="w-6 h-6" %}
+            </div>
+            <div class="flex-1">
+                <h3 class="text-amber-800 font-semibold">{% trans "Your profile is incomplete" %}</h3>
+                <p class="text-amber-700 text-sm mt-1">{% trans "Please fill in the following required fields:" %}</p>
+                <ul class="mt-2 space-y-1">
+                    {% for field in missing_fields %}
+                    <li class="text-amber-700 text-sm flex items-center gap-2">
+                        <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
+                        {{ field.label }}
+                        <span class="text-amber-500 text-xs">({% trans "Step" %} {{ field.step }})</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endwith %}
+
     <div class="card shadow-sm">
         <div class="card-body p-6 lg:p-8">
             <div class="text-center mb-6">

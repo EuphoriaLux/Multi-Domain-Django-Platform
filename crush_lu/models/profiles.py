@@ -498,6 +498,74 @@ class CrushProfile(models.Model):
         """Alias for location field"""
         return self.location
 
+    def get_missing_fields(self):
+        """
+        Returns a list of missing required fields for profile completion.
+        Used to show users what they need to fill in.
+        """
+        missing = []
+
+        # Step 1: Basic Info (Required)
+        if not self.date_of_birth:
+            missing.append({
+                'field': 'date_of_birth',
+                'label': _('Date of Birth'),
+                'step': 1
+            })
+        if not self.gender:
+            missing.append({
+                'field': 'gender',
+                'label': _('Gender'),
+                'step': 1
+            })
+        if not self.phone_number:
+            missing.append({
+                'field': 'phone_number',
+                'label': _('Phone Number'),
+                'step': 1
+            })
+        if not self.phone_verified:
+            missing.append({
+                'field': 'phone_verified',
+                'label': _('Phone Verification'),
+                'step': 1
+            })
+        if not self.location:
+            missing.append({
+                'field': 'location',
+                'label': _('Location'),
+                'step': 1
+            })
+
+        # Step 2: About You (Required)
+        if not self.bio:
+            missing.append({
+                'field': 'bio',
+                'label': _('Bio'),
+                'step': 2
+            })
+        if not self.interests:
+            missing.append({
+                'field': 'interests',
+                'label': _('Interests'),
+                'step': 2
+            })
+
+        # Step 3: Photos (At least one required)
+        if not self.photo_1:
+            missing.append({
+                'field': 'photo_1',
+                'label': _('Profile Photo'),
+                'step': 3
+            })
+
+        return missing
+
+    @property
+    def is_profile_complete(self):
+        """Check if all required fields are filled"""
+        return len(self.get_missing_fields()) == 0
+
     def save(self, *args, **kwargs):
         """
         Override save to enforce phone verification protection at model level.

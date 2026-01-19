@@ -1,6 +1,25 @@
+{% if target_id %}
+<div id="{{ target_id }}" class="bg-white rounded-xl shadow-lg mb-4 overflow-hidden">
+    <div class="bg-red-500 text-white px-6 py-4">
+        <h6 class="font-semibold flex items-center gap-2">
+            {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4" %}
+            Error
+        </h6>
+    </div>
+    <div class="p-6">
+        <div class="alert alert-danger" role="alert">
+            <div class="flex items-center gap-2">
+                {% include "shared/icons/exclamation-circle.html" with class="w-5 h-5 flex-shrink-0" %}
+                <span>{{ message }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
 <div class="alert alert-danger" role="alert">
     <div class="flex items-center gap-2">
         {% include "shared/icons/exclamation-circle.html" with class="w-5 h-5 flex-shrink-0" %}
         <span>{{ message }}</span>
     </div>
 </div>
+{% endif %}
