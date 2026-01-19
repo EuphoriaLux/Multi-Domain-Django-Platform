@@ -234,14 +234,19 @@ def unlock_hint(request):
         )
 
         # Get or create challenge attempt for this user/challenge
-        attempt, created = ChallengeAttempt.objects.get_or_create(
+        # Use filter().first() to handle any existing duplicate records gracefully
+        attempt = ChallengeAttempt.objects.filter(
             chapter_progress=chapter_progress,
-            challenge=challenge,
-            defaults={
-                'user_answer': '',  # Empty until they submit
-                'hints_used': []
-            }
-        )
+            challenge=challenge
+        ).first()
+
+        if not attempt:
+            attempt = ChallengeAttempt.objects.create(
+                chapter_progress=chapter_progress,
+                challenge=challenge,
+                user_answer='',  # Empty until they submit
+                hints_used=[]
+            )
 
         # Add hint to the list if not already used
         hints_used = attempt.hints_used or []

@@ -6208,11 +6208,11 @@ msgstr "Total d'utilisateurs"
 
 #: .\crush_lu\templates\crush_lu\coach_journey_dashboard.html:52
 msgid "Chapters"
-msgstr "caractères"
+msgstr "Chapitres"
 
 #: .\crush_lu\templates\crush_lu\coach_journey_dashboard.html:63
 msgid "Challenges"
-msgstr "Capellen"
+msgstr "Défis"
 
 #: .\crush_lu\templates\crush_lu\coach_journey_dashboard.html:70
 msgid "Recent User Activity"
@@ -9993,7 +9993,7 @@ msgstr "Défis complétés ✅"
 
 #: .\crush_lu\templates\crush_lu\journey\chapter_view.html:342
 msgid "Your Challenges"
-msgstr "Votre assemblage"
+msgstr "Tes Défis"
 
 #: .\crush_lu\templates\crush_lu\journey\chapter_view.html:369
 msgid "You solved this challenge!"
@@ -10182,164 +10182,128 @@ msgid "Sign in"
 msgstr "Se connecter"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:530
-#, fuzzy
-#| msgid "Chapters"
 msgid "6 Magical Chapters"
-msgstr "caractères"
+msgstr "6 Chapitres Magiques"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:531
 msgid "Puzzles, riddles, and surprises"
-msgstr ""
+msgstr "Puzzles, énigmes et surprises"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:537
 msgid "Unlock Secrets"
-msgstr ""
+msgstr "Découvrir les secrets"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:538
 msgid "Hidden messages and rewards"
-msgstr ""
+msgstr "Messages cachés et récompenses"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:544
-#, fuzzy
-#| msgid "Our Story"
 msgid "Your Story"
-msgstr "Notre histoire"
+msgstr "Ton Histoire"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:545
-#, fuzzy
-#| msgid "Personalize Your Wine"
 msgid "A personalized journey ending"
-msgstr "Personnalisez votre vin"
+msgstr "Une fin de parcours personnalisée"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:553
-#, fuzzy
-#| msgid "Your Journey"
 msgid "Your Journey Awaits"
-msgstr "Votre parcours"
+msgstr "Ton parcours t'attend"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:557
-#, fuzzy
-#| msgid "Chapter #"
 msgid "Chapter 1"
-msgstr "Chapitre n°"
+msgstr "Chapitre 1"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:558
-#, fuzzy
-#| msgid "e.g., \"Down the Rabbit Hole\""
 msgid "Down the Rabbit Hole"
-msgstr "ex. \"Dans le terrier du lapin\""
+msgstr "Dans le terrier du lapin"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:559
-#, fuzzy
-#| msgid "Mystery Event"
 msgid "Mystery"
-msgstr "Événement mystère"
+msgstr "Mystère"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:563
-#, fuzzy
-#| msgid "Chapter #"
 msgid "Chapter 2"
-msgstr "Chapitre n°"
+msgstr "Chapitre 2"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:564
 msgid "The Garden of Rare Flowers"
-msgstr ""
+msgstr "Le Jardin des Fleurs Rares"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:565
-#, fuzzy
-#| msgid "Discover Plan"
 msgid "Discovery"
-msgstr "Découvrir le plan"
+msgstr "Découverte"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:569
-#, fuzzy
-#| msgid "Chapter #"
 msgid "Chapter 3"
-msgstr "Chapitre n°"
+msgstr "Chapitre 3"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:570
 msgid "The Gallery of Moments"
-msgstr ""
+msgstr "La Galerie des Moments"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:571
 msgid "Memories"
-msgstr ""
+msgstr "Souvenirs"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:575
-#, fuzzy
-#| msgid "Chapter #"
 msgid "Chapter 4"
-msgstr "Chapitre n°"
+msgstr "Chapitre 4"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:576
 msgid "The Carnival of Courage"
-msgstr ""
+msgstr "Le Carnaval du Courage"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:577
-#, fuzzy
-#| msgid "New Adventure"
 msgid "Adventure"
-msgstr "Voir l'événement"
+msgstr "Aventure"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:581
-#, fuzzy
-#| msgid "Chapter #"
 msgid "Chapter 5"
-msgstr "Chapitre n°"
+msgstr "Chapitre 5"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:582
 msgid "The Starlit Observatory"
-msgstr ""
+msgstr "L'Observatoire Étoilé"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:583
 msgid "Dreams"
-msgstr ""
+msgstr "Rêves"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:587
-#, fuzzy
-#| msgid "Chapter #"
 msgid "Chapter 6"
-msgstr "Chapitre n°"
+msgstr "Chapitre 6"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:588
 msgid "The Door to Tomorrow"
-msgstr ""
+msgstr "La Porte vers Demain"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:589
-#, fuzzy
-#| msgid "Digital Future"
 msgid "Future"
-msgstr "Caractéristiques spéciales"
+msgstr "Avenir"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:596
 msgid "What awaits at the end?"
-msgstr ""
+msgstr "Qu'est-ce qui t'attend à la fin ?"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:600
 msgid "Unlock heartfelt poems"
-msgstr ""
+msgstr "Débloquer des poèmes sincères"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:604
-#, fuzzy
-#| msgid "Add photos"
 msgid "Reveal hidden photos"
-msgstr "Ajouter des photos"
+msgstr "Révéler des photos cachées"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:608
-#, fuzzy
-#| msgid "Optional personal message from sender"
 msgid "Discover personal messages"
-msgstr "Message personnel optionnel de l'expediteur"
+msgstr "Découvrir des messages personnels"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:612
-#, fuzzy
-#| msgid "View Your Certificate"
 msgid "Earn your Journey Certificate"
-msgstr "Voir ton certificat"
+msgstr "Gagner ton certificat de parcours"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:626
 msgid "Free to join, takes only 2 minutes"
-msgstr ""
+msgstr "Gratuit et ne prend que 2 minutes"
 
 #: .\crush_lu\templates\crush_lu\journey\gift_list.html:4
 #: .\crush_lu\templates\crush_lu\journey\gift_list.html:180
