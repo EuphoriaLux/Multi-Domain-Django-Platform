@@ -294,9 +294,10 @@ CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookie
 SESSION_COOKIE_SAMESITE = "Lax"  # CSRF protection while allowing OAuth redirects
 CSRF_COOKIE_SAMESITE = "Lax"  # Must match SESSION_COOKIE_SAMESITE for OAuth
-# CSRF_COOKIE_HTTPONLY must be False to allow JavaScript access for AJAX requests
-# This is Django's default and is safe because CSRF tokens are not sensitive data
-CSRF_COOKIE_HTTPONLY = False
+# CSRF_COOKIE_HTTPONLY=True prevents JavaScript from reading the CSRF cookie
+# This is safe because HTMX reads the token from a hidden input field instead
+# See base.html for the HTMX CSRF token setup
+CSRF_COOKIE_HTTPONLY = True
 
 # Multi-domain cookie configuration
 # ============================================================================

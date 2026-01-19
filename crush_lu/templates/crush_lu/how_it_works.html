@@ -83,14 +83,20 @@
 
 {% block extra_css %}
 <style>
-    /* Hero Section */
+    /* Hero Section - Full width without negative margins */
     .how-it-works-hero {
         background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
         color: white;
         padding: 4rem 1rem;
         text-align: center;
-        margin: -1rem -1rem 3rem -1rem;
+        /* Use viewport width to break out of container */
+        width: 100vw;
         position: relative;
+        left: 50%;
+        right: 50%;
+        margin-left: -50vw;
+        margin-right: -50vw;
+        margin-bottom: 3rem;
         overflow: hidden;
     }
 
@@ -281,13 +287,20 @@
         font-size: 1.5rem;
     }
 
-    /* CTA Section */
+    /* CTA Section - Full width like hero */
     .cta-section {
         text-align: center;
         padding: 4rem 1rem;
-        background: linear-gradient(135deg, rgba(155, 89, 182, 0.08), rgba(255, 107, 157, 0.08));
-        border-radius: 25px;
-        margin: 3rem 0;
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.15), rgba(255, 107, 157, 0.15));
+        /* Use viewport width to break out of container */
+        width: 100vw;
+        position: relative;
+        left: 50%;
+        right: 50%;
+        margin-left: -50vw;
+        margin-right: -50vw;
+        margin-top: 3rem;
+        margin-bottom: 0;
     }
 
     .cta-section h2 {
@@ -356,16 +369,24 @@
         }
     }
 
-    /* Scroll animations */
+    /* Scroll animations - Use visibility instead of affecting layout */
     .fade-in {
         opacity: 0;
-        transform: translateY(30px);
+        transform: translateY(20px);
         transition: opacity 0.6s ease, transform 0.6s ease;
     }
 
     .fade-in.visible {
         opacity: 1;
         transform: translateY(0);
+    }
+
+    /* Fallback: Show all sections after page load if JS fails */
+    @media (prefers-reduced-motion: reduce) {
+        .fade-in {
+            opacity: 1;
+            transform: none;
+        }
     }
 </style>
 {% endblock %}
@@ -535,14 +556,15 @@
 <script nonce="{{ request.csp_nonce }}">
     // Intersection Observer for scroll animations
     const observerOptions = {
-        threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px'
+        threshold: 0.05,
+        rootMargin: '50px 0px 50px 0px'
     };
 
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
                 entry.target.classList.add('visible');
+                observer.unobserve(entry.target); // Stop observing once visible
             }
         });
     }, observerOptions);
@@ -551,6 +573,13 @@
     document.querySelectorAll('.fade-in').forEach(el => {
         observer.observe(el);
     });
+
+    // Fallback: Make all elements visible after 1 second if observer doesn't trigger
+    setTimeout(() => {
+        document.querySelectorAll('.fade-in:not(.visible)').forEach(el => {
+            el.classList.add('visible');
+        });
+    }, 1000);
 
     // Add stagger effect to step cards
     document.querySelectorAll('.step-card').forEach((card, index) => {

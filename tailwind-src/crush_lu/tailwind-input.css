@@ -93,6 +93,19 @@
 }
 
 /* =============================================================================
+   GRADIENT CUSTOM PROPERTIES
+   Define gradients as CSS custom properties for reusability
+   Usage: background: var(--gradient-crush-primary);
+   ============================================================================= */
+:root {
+  --gradient-crush-primary: linear-gradient(135deg, #9B59B6, #FF6B9D);
+  --gradient-crush-hover: linear-gradient(135deg, #8E44AD, #D94D7B);
+  --gradient-crush-vertical: linear-gradient(180deg, #9B59B6, #FF6B9D);
+  --gradient-powerup-primary: linear-gradient(135deg, #fe4901, #ff6a2d);
+  --gradient-powerup-hover: linear-gradient(135deg, #d93e00, #fe4901);
+}
+
+/* =============================================================================
    ALPINE.JS CLOAK
    Prevents flash of unstyled content before Alpine initializes
    ============================================================================= */

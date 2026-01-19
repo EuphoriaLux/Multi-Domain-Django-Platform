@@ -17,6 +17,9 @@
     <!-- Performance: Resource Hints -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://js.monitor.azure.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" href="{% static 'crush_lu/css/tailwind.css' %}" as="style">
 
     <!-- SEO: Canonical URL (self-referencing - each language version is its own canonical) -->
@@ -146,7 +149,16 @@
 
     {% block extra_css %}{% endblock %}
 </head>
-<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+<body>
+    {# HTMX CSRF Token - Read from hidden input for reliable cross-language support #}
+    {# This works correctly when CSRF_COOKIE_HTTPONLY=True #}
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}" id="csrf-token-input">
+    <script>
+        // Set HTMX headers from hidden input (works with CSRF_COOKIE_HTTPONLY=True)
+        document.body.setAttribute('hx-headers', JSON.stringify({
+            'X-CSRFToken': document.getElementById('csrf-token-input').value
+        }));
+    </script>
     {% include "includes/staging_banner.html" %}
     {% analytics_body %}
     <!-- Skip to main content link for keyboard/screen reader users -->
@@ -154,10 +166,10 @@
         Skip to main content
     </a>
     <!-- Loading Overlay -->
-    <div id="page-loading-overlay">
+    <div id="page-loading-overlay" role="status" aria-live="polite" aria-label="Loading">
         <div class="loading-content">
-            <div class="loading-spinner"></div>
-            <div class="loading-heart">💕</div>
+            <div class="loading-spinner" aria-hidden="true"></div>
+            <div class="loading-heart" aria-hidden="true">💕</div>
             <div class="loading-text">Loading...</div>
             <div class="loading-subtext">Just a moment</div>
         </div>
@@ -182,11 +194,11 @@
                         x-bind:aria-expanded="mobileMenuAriaExpanded"
                         aria-controls="mobile-nav-menu">
                     <!-- Hamburger icon -->
-                    <svg x-show="mobileMenuClosed" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg x-show="mobileMenuClosed" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
                     </svg>
                     <!-- Close icon -->
-                    <svg x-show="mobileMenuOpen" x-cloak class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg x-show="mobileMenuOpen" x-cloak class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                 </button>

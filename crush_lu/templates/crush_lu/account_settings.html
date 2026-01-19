@@ -192,7 +192,7 @@
 
                         {% if photo.available %}
                         <div class="social-photo-preview">
-                            <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }} photo">
+                            <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }} photo" loading="lazy">
                         </div>
                         <small class="text-green-600 mt-2 block">
                             {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} {% trans "Available" %}

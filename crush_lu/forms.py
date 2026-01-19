@@ -261,14 +261,37 @@ class CrushProfileForm(forms.ModelForm):
         cleaned_data = super().clean()
 
         # Server-side phone verification enforcement
-        # Check if this is a profile submission (has instance with user)
+        # This validation applies to BOTH new and existing profiles
+        phone_verified = False
+
         if self.instance and self.instance.pk:
-            # For existing profiles, check phone verification status
-            if not self.instance.phone_verified:
-                raise forms.ValidationError(
-                    _("You must verify your phone number before submitting your profile. "
-                      "Click the 'Verify' button next to your phone number.")
-                )
+            # Existing profile: check phone_verified on the instance
+            # Refresh from DB to get latest verification status
+            from .models import CrushProfile
+            try:
+                db_profile = CrushProfile.objects.get(pk=self.instance.pk)
+                phone_verified = db_profile.phone_verified
+            except CrushProfile.DoesNotExist:
+                phone_verified = False
+        else:
+            # New profile: check if profile was created during phone verification
+            # The verify_phone_page and mark_phone_verified views create profiles
+            # with phone_verified=True before the form is submitted
+            if hasattr(self, 'instance') and hasattr(self.instance, 'user') and self.instance.user:
+                from .models import CrushProfile
+                try:
+                    db_profile = CrushProfile.objects.get(user=self.instance.user)
+                    phone_verified = db_profile.phone_verified
+                    # Update instance to use the existing profile
+                    self.instance = db_profile
+                except CrushProfile.DoesNotExist:
+                    phone_verified = False
+
+        if not phone_verified:
+            raise forms.ValidationError(
+                _("You must verify your phone number before submitting your profile. "
+                  "Click the 'Verify' button next to your phone number.")
+            )
 
         return cleaned_data
 

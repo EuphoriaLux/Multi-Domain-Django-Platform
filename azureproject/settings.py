@@ -607,9 +607,11 @@ else:
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# CSRF Cookie Settings (required for JavaScript AJAX requests)
-# Allow JavaScript to read the CSRF cookie for fetch/XMLHttpRequest
-CSRF_COOKIE_HTTPONLY = False
+# CSRF Cookie Settings
+# CSRF_COOKIE_HTTPONLY=True prevents JavaScript from reading the CSRF cookie
+# This is safe because HTMX reads the token from a hidden input field instead
+# See base.html for the HTMX CSRF token setup
+CSRF_COOKIE_HTTPONLY = True
 
 # Custom CSRF failure view with detailed logging
 CSRF_FAILURE_VIEW = 'azureproject.middleware.csrf_failure_view'

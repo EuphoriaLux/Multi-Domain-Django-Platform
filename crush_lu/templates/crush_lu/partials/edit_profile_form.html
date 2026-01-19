@@ -234,7 +234,7 @@
                     {% endif %}
                 </div>
                 {% if photo.available %}
-                <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }}" class="social-mini-img">
+                <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }}" class="social-mini-img" loading="lazy">
                 <div class="import-btns">
                     <button type="button"
                             class="import-slot-btn import-slot-btn--main import-social-photo-btn"
