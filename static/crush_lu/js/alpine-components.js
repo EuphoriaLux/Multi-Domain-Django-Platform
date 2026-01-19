@@ -616,6 +616,10 @@ document.addEventListener('alpine:init', function() {
             },
 
             getCsrfToken: function() {
+                // First try hidden form input (works with CSRF_COOKIE_HTTPONLY=True)
+                var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                if (input && input.value) return input.value;
+                // Fallback to cookie
                 var cookie = document.cookie.split('; ')
                     .find(function(row) { return row.startsWith('csrftoken='); });
                 return cookie ? cookie.split('=')[1] : '';
@@ -1037,6 +1041,10 @@ document.addEventListener('alpine:init', function() {
             },
 
             getCsrfToken: function() {
+                // First try hidden form input (works with CSRF_COOKIE_HTTPONLY=True)
+                var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                if (input && input.value) return input.value;
+                // Fallback to cookie
                 var c = document.cookie.split('; ').find(function(r) { return r.startsWith('csrftoken='); });
                 return c ? c.split('=')[1] : '';
             },
@@ -1574,7 +1582,14 @@ document.addEventListener('alpine:init', function() {
             },
 
             // CSRF token helper for AJAX requests
+            // Reads from hidden form input (works with CSRF_COOKIE_HTTPONLY=True)
             getCsrfToken: function() {
+                // First try the hidden form input (preferred when CSRF_COOKIE_HTTPONLY=True)
+                var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                if (input && input.value) {
+                    return input.value;
+                }
+                // Fallback to cookie (if CSRF_COOKIE_HTTPONLY=False)
                 var cookie = document.cookie.split('; ')
                     .find(function(row) { return row.startsWith('csrftoken='); });
                 return cookie ? cookie.split('=')[1] : '';
