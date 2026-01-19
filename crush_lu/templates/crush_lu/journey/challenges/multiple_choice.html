@@ -216,7 +216,7 @@
         {% else %}
         <!-- Options -->
         <div id="optionsSection" class="options-container">
-            {% for key, value in challenge.options.items %}
+            {% for key, value in localized_options.items %}
             <div class="option-card" data-option="{{ key }}">
                 <div class="option-label">{{ key }}</div>
                 <div class="option-text">{{ value }}</div>

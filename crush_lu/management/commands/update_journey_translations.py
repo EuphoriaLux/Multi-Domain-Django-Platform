@@ -191,14 +191,27 @@ class Command(BaseCommand):
                     timeline_challenge.save()
             # Challenge 1: moment multiple_choice
             if len(challenges) > 1:
+                moment_challenge = challenges[1]
                 self._update_challenge_fields(
-                    challenges[1],
+                    moment_challenge,
                     question_de=content_de.get('moment_question', ''),
                     question_fr=content_fr.get('moment_question', ''),
                     success_de=content_de.get('moment_success', ''),
                     success_fr=content_fr.get('moment_success', ''),
                     dry_run=dry_run
                 )
+                # Update moment options in JSONField
+                if not dry_run:
+                    options_de = content_de.get('moment_options', {})
+                    options_fr = content_fr.get('moment_options', {})
+                    if options_de or options_fr:
+                        options = moment_challenge.options or {}
+                        if options_de:
+                            options['options_de'] = options_de
+                        if options_fr:
+                            options['options_fr'] = options_fr
+                        moment_challenge.options = options
+                        moment_challenge.save(update_fields=['options'])
 
         elif chapter_num == 4:
             # Chapter 4: 3 would_you_rather + 1 open_text
@@ -239,6 +252,18 @@ class Command(BaseCommand):
                         success_fr=content_fr.get('dream_success', ''),
                         dry_run=dry_run
                     )
+                    # Update dream options in JSONField
+                    if not dry_run:
+                        options_de = content_de.get('dream_options', {})
+                        options_fr = content_fr.get('dream_options', {})
+                        if options_de or options_fr:
+                            options = challenge.options or {}
+                            if options_de:
+                                options['options_de'] = options_de
+                            if options_fr:
+                                options['options_fr'] = options_fr
+                            challenge.options = options
+                            challenge.save(update_fields=['options'])
                 elif challenge.challenge_type == 'open_text':
                     self._update_challenge_fields(
                         challenge,
@@ -290,6 +315,19 @@ class Command(BaseCommand):
                 hint_3_fr=ch_fr.get('hint_3', ''),
                 dry_run=dry_run
             )
+
+            # Update options JSONField with translated versions for multiple_choice
+            if challenge.challenge_type == 'multiple_choice' and not dry_run:
+                options_de = ch_de.get('options', {})
+                options_fr = ch_fr.get('options', {})
+                if options_de or options_fr:
+                    options = challenge.options or {}
+                    if options_de:
+                        options['options_de'] = options_de
+                    if options_fr:
+                        options['options_fr'] = options_fr
+                    challenge.options = options
+                    challenge.save(update_fields=['options'])
 
     def _update_challenge_fields(self, challenge, dry_run, **kwargs):
         """Update a single challenge with the given field values."""

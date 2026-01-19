@@ -372,12 +372,12 @@ def challenge_view(request, chapter_number, challenge_id):
             'journey_progress': journey_progress,
         }
 
+        # Get current language for localized content
+        current_lang = get_language() or 'en'
+        lang_code = current_lang[:2] if '-' in current_lang else current_lang
+
         # For timeline_sort challenges, get language-specific events
         if challenge.challenge_type == 'timeline_sort' and challenge.options:
-            current_lang = get_language() or 'en'
-            # Get language code (handle 'en-us' -> 'en')
-            lang_code = current_lang[:2] if '-' in current_lang else current_lang
-
             # Try to get language-specific events, fallback to default
             events_key = f'events_{lang_code}'
             if events_key in challenge.options:
@@ -387,6 +387,19 @@ def challenge_view(request, chapter_number, challenge_id):
                 context['localized_events'] = challenge.options['events']
             else:
                 context['localized_events'] = []
+
+        # For multiple_choice challenges, get language-specific options
+        if challenge.challenge_type == 'multiple_choice' and challenge.options:
+            # Try to get language-specific options (e.g., options_de, options_fr)
+            options_key = f'options_{lang_code}'
+            if options_key in challenge.options:
+                context['localized_options'] = challenge.options[options_key]
+            else:
+                # Fallback: use top-level options (A, B, C, D keys)
+                # Filter out language-specific keys to get base options
+                base_options = {k: v for k, v in challenge.options.items()
+                               if not k.startswith('options_')}
+                context['localized_options'] = base_options
 
         # Render challenge template based on type
         template_name = f'crush_lu/journey/challenges/{challenge.challenge_type}.html'
