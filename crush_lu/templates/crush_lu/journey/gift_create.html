@@ -71,14 +71,241 @@
         min-width: 200px;
     }
 
+    /* Step Navigation */
+    .step-nav {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 30px;
+    }
+
+    .step-indicator {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.5);
+        transition: all 0.3s;
+    }
+
+    .step-indicator.active {
+        background: linear-gradient(135deg, var(--journey-primary), #e91e63);
+        color: white;
+    }
+
+    .step-indicator.completed {
+        background: rgba(46, 204, 113, 0.3);
+        color: #2ecc71;
+    }
+
+    .step-number {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 0.8rem;
+    }
+
+    .step-indicator.active .step-number {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    .step-indicator.completed .step-number {
+        background: #2ecc71;
+        color: white;
+    }
+
+    /* Step Content */
+    .step-content {
+        display: none;
+    }
+
+    .step-content.active {
+        display: block;
+        animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* File Upload Styling */
+    .media-section {
+        margin-bottom: 30px;
+    }
+
+    .media-section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 15px;
+        color: var(--journey-light);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .media-section-title .emoji {
+        font-size: 1.3rem;
+    }
+
+    .file-upload-wrapper {
+        border: 2px dashed rgba(255, 255, 255, 0.3);
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        transition: all 0.3s;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .file-upload-wrapper:hover {
+        border-color: var(--journey-primary);
+        background: rgba(155, 89, 182, 0.1);
+    }
+
+    .file-upload-wrapper.has-file {
+        border-color: #2ecc71;
+        background: rgba(46, 204, 113, 0.1);
+    }
+
+    .file-upload-wrapper input[type="file"] {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    .file-upload-icon {
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+
+    .file-upload-text {
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .file-upload-preview {
+        display: none;
+        margin-top: 10px;
+    }
+
+    .file-upload-preview.show {
+        display: block;
+    }
+
+    .file-upload-preview img {
+        max-width: 150px;
+        max-height: 150px;
+        border-radius: 8px;
+        object-fit: cover;
+    }
+
+    .file-name {
+        font-size: 0.85rem;
+        color: #2ecc71;
+        margin-top: 8px;
+    }
+
+    /* Slideshow Grid */
+    .slideshow-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 15px;
+    }
+
+    .slideshow-item {
+        aspect-ratio: 1;
+    }
+
+    .slideshow-item .file-upload-wrapper {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .slideshow-item .file-upload-icon {
+        font-size: 1.5rem;
+        margin-bottom: 5px;
+    }
+
+    .slideshow-item .file-upload-text {
+        font-size: 0.75rem;
+    }
+
+    /* Media Info Box */
+    .media-info {
+        background: rgba(155, 89, 182, 0.15);
+        border: 1px solid rgba(155, 89, 182, 0.3);
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 25px;
+    }
+
+    .media-info p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    .media-info strong {
+        color: var(--journey-primary);
+    }
+
+    /* Button Group */
+    .btn-group {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .btn-gift-secondary {
+        background: transparent;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        padding: 12px 30px;
+        border-radius: 25px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .btn-gift-secondary:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.5);
+    }
+
     /* Mobile Responsive */
     @media (max-width: 600px) {
+        .step-nav {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .step-indicator {
+            justify-content: center;
+        }
+
         .create-form .form-group {
             margin-bottom: 16px;
         }
 
         .create-form .gift-input {
-            font-size: 16px; /* Prevents iOS zoom on focus */
+            font-size: 16px;
             padding: 14px 16px;
         }
 
@@ -94,78 +321,375 @@
             width: 100%;
             min-width: auto;
         }
+
+        .slideshow-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .btn-group {
+            flex-direction: column;
+        }
+
+        .btn-group .btn-gift,
+        .btn-group .btn-gift-secondary {
+            width: 100%;
+        }
     }
 </style>
 {% endblock %}
 
 {% block gift_content %}
-<div class="gift-card">
+<div class="gift-card" x-data="giftCreateForm()">
     <h1 class="gift-title">{% trans "Create a Wonderland Journey" %}</h1>
     <p class="gift-subtitle">{% trans "Create a magical experience for someone special" %}</p>
 
-    <form method="post" novalidate class="create-form">
+    <!-- Step Navigation -->
+    <div class="step-nav">
+        <div class="step-indicator" x-bind:class="stepOneClass">
+            <span class="step-number">1</span>
+            <span>{% trans "Story Details" %}</span>
+        </div>
+        <div class="step-indicator" x-bind:class="stepTwoClass">
+            <span class="step-number">2</span>
+            <span>{% trans "Add Media" %}</span>
+        </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" novalidate class="create-form">
         {% csrf_token %}
 
-        <div class="form-group">
-            <label for="id_recipient_name">{{ form.recipient_name.label }}</label>
-            {{ form.recipient_name }}
-            {% if form.recipient_name.help_text %}
-            <p class="help-text">{{ form.recipient_name.help_text }}</p>
-            {% endif %}
-            {% if form.recipient_name.errors %}
-            <p class="error-text">{{ form.recipient_name.errors.0 }}</p>
-            {% endif %}
+        <!-- Step 1: Basic Information -->
+        <div class="step-content" x-bind:class="stepOneContentClass">
+            <div class="form-group">
+                <label for="id_recipient_name">{{ form.recipient_name.label }}</label>
+                {{ form.recipient_name }}
+                {% if form.recipient_name.help_text %}
+                <p class="help-text">{{ form.recipient_name.help_text }}</p>
+                {% endif %}
+                {% if form.recipient_name.errors %}
+                <p class="error-text">{{ form.recipient_name.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="id_date_first_met">{{ form.date_first_met.label }}</label>
+                {{ form.date_first_met }}
+                {% if form.date_first_met.help_text %}
+                <p class="help-text">{{ form.date_first_met.help_text }}</p>
+                {% endif %}
+                {% if form.date_first_met.errors %}
+                <p class="error-text">{{ form.date_first_met.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="id_location_first_met">{{ form.location_first_met.label }}</label>
+                {{ form.location_first_met }}
+                {% if form.location_first_met.help_text %}
+                <p class="help-text">{{ form.location_first_met.help_text }}</p>
+                {% endif %}
+                {% if form.location_first_met.errors %}
+                <p class="error-text">{{ form.location_first_met.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="id_sender_message">{{ form.sender_message.label }}</label>
+                {{ form.sender_message }}
+                {% if form.sender_message.help_text %}
+                <p class="help-text">{{ form.sender_message.help_text }}</p>
+                {% endif %}
+                {% if form.sender_message.errors %}
+                <p class="error-text">{{ form.sender_message.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="id_recipient_email">{{ form.recipient_email.label }}</label>
+                {{ form.recipient_email }}
+                {% if form.recipient_email.help_text %}
+                <p class="help-text">{{ form.recipient_email.help_text }}</p>
+                {% endif %}
+                {% if form.recipient_email.errors %}
+                <p class="error-text">{{ form.recipient_email.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-submit">
+                <div class="btn-group">
+                    <button type="button" class="btn-gift btn-gift-primary" @click="goToStep2">
+                        {% trans "Next: Add Media" %} &rarr;
+                    </button>
+                </div>
+                <p class="help-text" style="margin-top: 15px;">
+                    {% trans "You can skip media and create a basic gift" %}
+                </p>
+            </div>
         </div>
 
-        <div class="form-group">
-            <label for="id_date_first_met">{{ form.date_first_met.label }}</label>
-            {{ form.date_first_met }}
-            {% if form.date_first_met.help_text %}
-            <p class="help-text">{{ form.date_first_met.help_text }}</p>
-            {% endif %}
-            {% if form.date_first_met.errors %}
-            <p class="error-text">{{ form.date_first_met.errors.0 }}</p>
-            {% endif %}
-        </div>
+        <!-- Step 2: Media Upload -->
+        <div class="step-content" x-bind:class="stepTwoContentClass">
+            <div class="media-info">
+                <p>
+                    <strong>{% trans "Optional:" %}</strong>
+                    {% trans "Add photos and voice/video messages to make the journey extra special. These will be revealed as rewards when your recipient completes challenges!" %}
+                </p>
+            </div>
 
-        <div class="form-group">
-            <label for="id_location_first_met">{{ form.location_first_met.label }}</label>
-            {{ form.location_first_met }}
-            {% if form.location_first_met.help_text %}
-            <p class="help-text">{{ form.location_first_met.help_text }}</p>
-            {% endif %}
-            {% if form.location_first_met.errors %}
-            <p class="error-text">{{ form.location_first_met.errors.0 }}</p>
-            {% endif %}
-        </div>
+            <!-- Chapter 1: Photo Puzzle -->
+            <div class="media-section">
+                <h3 class="media-section-title">
+                    <span class="emoji">🧩</span>
+                    {% trans "Chapter 1: Photo Puzzle" %}
+                </h3>
+                <p class="help-text" style="margin-bottom: 15px;">
+                    {% trans "This photo will be revealed piece by piece as a puzzle. Best with a square image (800x800px)." %}
+                </p>
+                <div class="file-upload-wrapper" x-bind:class="chapter1HasFile">
+                    {{ form.chapter1_image }}
+                    <div class="file-upload-icon">📷</div>
+                    <div class="file-upload-text">{% trans "Click or drag to upload photo" %}</div>
+                    <div class="file-upload-preview" x-bind:class="chapter1PreviewClass">
+                        <img x-bind:src="chapter1Preview" alt="Preview">
+                    </div>
+                    <div class="file-name" x-text="chapter1FileName" x-show="chapter1HasFileFlag"></div>
+                </div>
+                {% if form.chapter1_image.errors %}
+                <p class="error-text">{{ form.chapter1_image.errors.0 }}</p>
+                {% endif %}
+            </div>
 
-        <div class="form-group">
-            <label for="id_sender_message">{{ form.sender_message.label }}</label>
-            {{ form.sender_message }}
-            {% if form.sender_message.help_text %}
-            <p class="help-text">{{ form.sender_message.help_text }}</p>
-            {% endif %}
-            {% if form.sender_message.errors %}
-            <p class="error-text">{{ form.sender_message.errors.0 }}</p>
-            {% endif %}
-        </div>
+            <!-- Chapter 3: Photo Slideshow -->
+            <div class="media-section">
+                <h3 class="media-section-title">
+                    <span class="emoji">🎞️</span>
+                    {% trans "Chapter 3: Photo Slideshow" %}
+                </h3>
+                <p class="help-text" style="margin-bottom: 15px;">
+                    {% trans "Add up to 5 photos for a beautiful slideshow reveal. Add memories of your time together!" %}
+                </p>
+                <div class="slideshow-grid">
+                    <div class="slideshow-item">
+                        <div class="file-upload-wrapper">
+                            {{ form.chapter3_image_1 }}
+                            <div class="file-upload-icon">🖼️</div>
+                            <div class="file-upload-text">{% trans "Photo" %} 1</div>
+                        </div>
+                    </div>
+                    <div class="slideshow-item">
+                        <div class="file-upload-wrapper">
+                            {{ form.chapter3_image_2 }}
+                            <div class="file-upload-icon">🖼️</div>
+                            <div class="file-upload-text">{% trans "Photo" %} 2</div>
+                        </div>
+                    </div>
+                    <div class="slideshow-item">
+                        <div class="file-upload-wrapper">
+                            {{ form.chapter3_image_3 }}
+                            <div class="file-upload-icon">🖼️</div>
+                            <div class="file-upload-text">{% trans "Photo" %} 3</div>
+                        </div>
+                    </div>
+                    <div class="slideshow-item">
+                        <div class="file-upload-wrapper">
+                            {{ form.chapter3_image_4 }}
+                            <div class="file-upload-icon">🖼️</div>
+                            <div class="file-upload-text">{% trans "Photo" %} 4</div>
+                        </div>
+                    </div>
+                    <div class="slideshow-item">
+                        <div class="file-upload-wrapper">
+                            {{ form.chapter3_image_5 }}
+                            <div class="file-upload-icon">🖼️</div>
+                            <div class="file-upload-text">{% trans "Photo" %} 5</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-        <div class="form-group">
-            <label for="id_recipient_email">{{ form.recipient_email.label }}</label>
-            {{ form.recipient_email }}
-            {% if form.recipient_email.help_text %}
-            <p class="help-text">{{ form.recipient_email.help_text }}</p>
-            {% endif %}
-            {% if form.recipient_email.errors %}
-            <p class="error-text">{{ form.recipient_email.errors.0 }}</p>
-            {% endif %}
-        </div>
+            <!-- Chapter 4: Voice/Video Message -->
+            <div class="media-section">
+                <h3 class="media-section-title">
+                    <span class="emoji">💬</span>
+                    {% trans "Chapter 4: Personal Message" %}
+                </h3>
+                <p class="help-text" style="margin-bottom: 15px;">
+                    {% trans "Record a heartfelt voice or video message. This will be the emotional finale of the journey!" %}
+                </p>
 
-        <div class="form-submit">
-            <button type="submit" class="btn-gift btn-gift-primary">
-                {% trans "Create Gift" %}
-            </button>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <label style="font-size: 0.9rem; color: var(--journey-light); margin-bottom: 10px; display: block;">
+                            🎤 {% trans "Voice Message" %}
+                        </label>
+                        <div class="file-upload-wrapper">
+                            {{ form.chapter4_audio }}
+                            <div class="file-upload-icon">🎵</div>
+                            <div class="file-upload-text">{% trans "MP3, WAV, M4A (max 10MB)" %}</div>
+                        </div>
+                        {% if form.chapter4_audio.errors %}
+                        <p class="error-text">{{ form.chapter4_audio.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label style="font-size: 0.9rem; color: var(--journey-light); margin-bottom: 10px; display: block;">
+                            📹 {% trans "Video Message" %}
+                        </label>
+                        <div class="file-upload-wrapper">
+                            {{ form.chapter4_video }}
+                            <div class="file-upload-icon">🎬</div>
+                            <div class="file-upload-text">{% trans "MP4, MOV (max 50MB)" %}</div>
+                        </div>
+                        {% if form.chapter4_video.errors %}
+                        <p class="error-text">{{ form.chapter4_video.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-submit">
+                <div class="btn-group">
+                    <button type="button" class="btn-gift-secondary" @click="goToStep1">
+                        &larr; {% trans "Back" %}
+                    </button>
+                    <button type="submit" class="btn-gift btn-gift-primary">
+                        ✨ {% trans "Create Gift" %}
+                    </button>
+                </div>
+            </div>
         </div>
     </form>
 </div>
+{% endblock %}
+
+{% block extra_gift_js %}
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('alpine:init', function() {
+    Alpine.data('giftCreateForm', function() {
+        return {
+            currentStep: 1,
+            chapter1HasFileFlag: false,
+            chapter1Preview: '',
+            chapter1FileName: '',
+
+            init: function() {
+                var self = this;
+                // Listen for file changes on chapter1_image
+                var ch1Input = document.getElementById('id_chapter1_image');
+                if (ch1Input) {
+                    ch1Input.addEventListener('change', function(e) {
+                        self.handleChapter1FileChange(e);
+                    });
+                }
+
+                // Add visual feedback for all file inputs
+                var fileInputs = document.querySelectorAll('input[type="file"]');
+                fileInputs.forEach(function(input) {
+                    input.addEventListener('change', function(e) {
+                        var wrapper = e.target.closest('.file-upload-wrapper');
+                        if (wrapper) {
+                            if (e.target.files && e.target.files.length > 0) {
+                                wrapper.classList.add('has-file');
+                            } else {
+                                wrapper.classList.remove('has-file');
+                            }
+                        }
+                    });
+                });
+            },
+
+            get stepOneClass() {
+                if (this.currentStep === 1) return 'active';
+                if (this.currentStep > 1) return 'completed';
+                return '';
+            },
+
+            get stepTwoClass() {
+                if (this.currentStep === 2) return 'active';
+                return '';
+            },
+
+            get stepOneContentClass() {
+                return this.currentStep === 1 ? 'active' : '';
+            },
+
+            get stepTwoContentClass() {
+                return this.currentStep === 2 ? 'active' : '';
+            },
+
+            get chapter1HasFile() {
+                return this.chapter1HasFileFlag ? 'has-file' : '';
+            },
+
+            get chapter1PreviewClass() {
+                return this.chapter1Preview ? 'show' : '';
+            },
+
+            goToStep2: function() {
+                // Basic validation before proceeding
+                var recipientName = document.getElementById('id_recipient_name');
+                var dateMet = document.getElementById('id_date_first_met');
+                var locationMet = document.getElementById('id_location_first_met');
+
+                var isValid = true;
+
+                if (!recipientName.value.trim()) {
+                    recipientName.classList.add('is-invalid');
+                    isValid = false;
+                } else {
+                    recipientName.classList.remove('is-invalid');
+                }
+
+                if (!dateMet.value) {
+                    dateMet.classList.add('is-invalid');
+                    isValid = false;
+                } else {
+                    dateMet.classList.remove('is-invalid');
+                }
+
+                if (!locationMet.value.trim()) {
+                    locationMet.classList.add('is-invalid');
+                    isValid = false;
+                } else {
+                    locationMet.classList.remove('is-invalid');
+                }
+
+                if (isValid) {
+                    this.currentStep = 2;
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            },
+
+            goToStep1: function() {
+                this.currentStep = 1;
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            },
+
+            handleChapter1FileChange: function(event) {
+                var file = event.target.files[0];
+                if (file) {
+                    this.chapter1HasFileFlag = true;
+                    this.chapter1FileName = file.name;
+
+                    // Create preview for images
+                    if (file.type.startsWith('image/')) {
+                        var reader = new FileReader();
+                        var self = this;
+                        reader.onload = function(e) {
+                            self.chapter1Preview = e.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                } else {
+                    this.chapter1HasFileFlag = false;
+                    this.chapter1Preview = '';
+                    this.chapter1FileName = '';
+                }
+            }
+        };
+    });
+});
+</script>
 {% endblock %}

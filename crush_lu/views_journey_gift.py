@@ -30,7 +30,7 @@ def gift_create(request):
     If recipient email is provided, sends notification email with QR code.
     """
     if request.method == 'POST':
-        form = JourneyGiftForm(request.POST)
+        form = JourneyGiftForm(request.POST, request.FILES)
         if form.is_valid():
             # Create the gift
             gift = form.save(commit=False)

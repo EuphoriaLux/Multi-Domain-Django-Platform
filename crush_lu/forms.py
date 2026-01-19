@@ -642,9 +642,93 @@ class JourneyGiftForm(forms.ModelForm):
         help_text=_('We can send them a notification when you create the gift.')
     )
 
+    # Media Upload Fields
+    chapter1_image = forms.ImageField(
+        required=False,
+        widget=forms.FileInput(attrs={
+            'accept': 'image/*',
+            'class': 'gift-file-input'
+        }),
+        label=_('Photo Puzzle Image'),
+        help_text=_('This image will be revealed as a puzzle in Chapter 1. Recommended: 800x800px square image.')
+    )
+
+    chapter3_image_1 = forms.ImageField(
+        required=False,
+        widget=forms.FileInput(attrs={
+            'accept': 'image/*',
+            'class': 'gift-file-input'
+        }),
+        label=_('Slideshow Photo 1'),
+        help_text=_('First photo for the Chapter 3 slideshow.')
+    )
+
+    chapter3_image_2 = forms.ImageField(
+        required=False,
+        widget=forms.FileInput(attrs={
+            'accept': 'image/*',
+            'class': 'gift-file-input'
+        }),
+        label=_('Slideshow Photo 2'),
+    )
+
+    chapter3_image_3 = forms.ImageField(
+        required=False,
+        widget=forms.FileInput(attrs={
+            'accept': 'image/*',
+            'class': 'gift-file-input'
+        }),
+        label=_('Slideshow Photo 3'),
+    )
+
+    chapter3_image_4 = forms.ImageField(
+        required=False,
+        widget=forms.FileInput(attrs={
+            'accept': 'image/*',
+            'class': 'gift-file-input'
+        }),
+        label=_('Slideshow Photo 4'),
+    )
+
+    chapter3_image_5 = forms.ImageField(
+        required=False,
+        widget=forms.FileInput(attrs={
+            'accept': 'image/*',
+            'class': 'gift-file-input'
+        }),
+        label=_('Slideshow Photo 5'),
+    )
+
+    chapter4_audio = forms.FileField(
+        required=False,
+        widget=forms.FileInput(attrs={
+            'accept': 'audio/*',
+            'class': 'gift-file-input'
+        }),
+        label=_('Voice Message'),
+        help_text=_('Record a personal voice message for Chapter 4. Formats: MP3, WAV, M4A (max 10MB).')
+    )
+
+    chapter4_video = forms.FileField(
+        required=False,
+        widget=forms.FileInput(attrs={
+            'accept': 'video/*',
+            'class': 'gift-file-input'
+        }),
+        label=_('Video Message (Alternative)'),
+        help_text=_('Alternatively, record a video message. Formats: MP4, MOV (max 50MB).')
+    )
+
     class Meta:
         model = JourneyGift
-        fields = ['recipient_name', 'date_first_met', 'location_first_met', 'sender_message', 'recipient_email']
+        fields = [
+            'recipient_name', 'date_first_met', 'location_first_met',
+            'sender_message', 'recipient_email',
+            'chapter1_image',
+            'chapter3_image_1', 'chapter3_image_2', 'chapter3_image_3',
+            'chapter3_image_4', 'chapter3_image_5',
+            'chapter4_audio', 'chapter4_video'
+        ]
 
     def clean_date_first_met(self):
         """Validate that the date is not in the future"""
@@ -657,3 +741,41 @@ class JourneyGiftForm(forms.ModelForm):
                 raise forms.ValidationError(_("The date you first met cannot be in the future"))
 
         return date_met
+
+    def _validate_image_size(self, image, max_size_mb=5):
+        """Validate image file size"""
+        if image and image.size > max_size_mb * 1024 * 1024:
+            raise forms.ValidationError(
+                _("Image file size must be less than %(max_size)s MB.") % {'max_size': max_size_mb}
+            )
+        return image
+
+    def clean_chapter1_image(self):
+        return self._validate_image_size(self.cleaned_data.get('chapter1_image'), max_size_mb=5)
+
+    def clean_chapter3_image_1(self):
+        return self._validate_image_size(self.cleaned_data.get('chapter3_image_1'), max_size_mb=5)
+
+    def clean_chapter3_image_2(self):
+        return self._validate_image_size(self.cleaned_data.get('chapter3_image_2'), max_size_mb=5)
+
+    def clean_chapter3_image_3(self):
+        return self._validate_image_size(self.cleaned_data.get('chapter3_image_3'), max_size_mb=5)
+
+    def clean_chapter3_image_4(self):
+        return self._validate_image_size(self.cleaned_data.get('chapter3_image_4'), max_size_mb=5)
+
+    def clean_chapter3_image_5(self):
+        return self._validate_image_size(self.cleaned_data.get('chapter3_image_5'), max_size_mb=5)
+
+    def clean_chapter4_audio(self):
+        audio = self.cleaned_data.get('chapter4_audio')
+        if audio and audio.size > 10 * 1024 * 1024:  # 10MB limit
+            raise forms.ValidationError(_("Audio file size must be less than 10 MB."))
+        return audio
+
+    def clean_chapter4_video(self):
+        video = self.cleaned_data.get('chapter4_video')
+        if video and video.size > 50 * 1024 * 1024:  # 50MB limit
+            raise forms.ValidationError(_("Video file size must be less than 50 MB."))
+        return video
