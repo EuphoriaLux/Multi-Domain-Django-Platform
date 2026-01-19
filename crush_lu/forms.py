@@ -770,12 +770,43 @@ class JourneyGiftForm(forms.ModelForm):
 
     def clean_chapter4_audio(self):
         audio = self.cleaned_data.get('chapter4_audio')
-        if audio and audio.size > 10 * 1024 * 1024:  # 10MB limit
-            raise forms.ValidationError(_("Audio file size must be less than 10 MB."))
+        if audio:
+            # Validate file size (10MB max)
+            if audio.size > 10 * 1024 * 1024:
+                raise forms.ValidationError(_("Audio file size must be less than 10 MB."))
+
+            # Validate file type by extension and content type
+            allowed_extensions = ['.mp3', '.wav', '.m4a', '.aac']
+            allowed_content_types = [
+                'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav',
+                'audio/mp4', 'audio/x-m4a', 'audio/aac'
+            ]
+
+            ext = '.' + audio.name.split('.')[-1].lower() if '.' in audio.name else ''
+            content_type = getattr(audio, 'content_type', '')
+
+            if ext not in allowed_extensions and content_type not in allowed_content_types:
+                raise forms.ValidationError(
+                    _("Invalid audio format. Please use MP3, WAV, or M4A files.")
+                )
         return audio
 
     def clean_chapter4_video(self):
         video = self.cleaned_data.get('chapter4_video')
-        if video and video.size > 50 * 1024 * 1024:  # 50MB limit
-            raise forms.ValidationError(_("Video file size must be less than 50 MB."))
+        if video:
+            # Validate file size (50MB max)
+            if video.size > 50 * 1024 * 1024:
+                raise forms.ValidationError(_("Video file size must be less than 50 MB."))
+
+            # Validate file type by extension and content type
+            allowed_extensions = ['.mp4', '.mov', '.m4v']
+            allowed_content_types = ['video/mp4', 'video/quicktime', 'video/x-m4v']
+
+            ext = '.' + video.name.split('.')[-1].lower() if '.' in video.name else ''
+            content_type = getattr(video, 'content_type', '')
+
+            if ext not in allowed_extensions and content_type not in allowed_content_types:
+                raise forms.ValidationError(
+                    _("Invalid video format. Please use MP4 or MOV files.")
+                )
         return video

@@ -172,6 +172,7 @@ class JourneyGift(models.Model):
     chapter1_image = models.ImageField(
         upload_to=gift_chapter1_image_path,
         storage=crush_photo_storage,
+        max_length=255,
         blank=True,
         null=True,
         help_text=_("Photo for the Chapter 1 puzzle reveal (recommended: 800x800px)")
@@ -181,6 +182,7 @@ class JourneyGift(models.Model):
     chapter3_image_1 = models.ImageField(
         upload_to=gift_chapter3_image_path,
         storage=crush_photo_storage,
+        max_length=255,
         blank=True,
         null=True,
         help_text=_("First slideshow photo")
@@ -188,6 +190,7 @@ class JourneyGift(models.Model):
     chapter3_image_2 = models.ImageField(
         upload_to=gift_chapter3_image_path,
         storage=crush_photo_storage,
+        max_length=255,
         blank=True,
         null=True,
         help_text=_("Second slideshow photo")
@@ -195,6 +198,7 @@ class JourneyGift(models.Model):
     chapter3_image_3 = models.ImageField(
         upload_to=gift_chapter3_image_path,
         storage=crush_photo_storage,
+        max_length=255,
         blank=True,
         null=True,
         help_text=_("Third slideshow photo")
@@ -202,6 +206,7 @@ class JourneyGift(models.Model):
     chapter3_image_4 = models.ImageField(
         upload_to=gift_chapter3_image_path,
         storage=crush_photo_storage,
+        max_length=255,
         blank=True,
         null=True,
         help_text=_("Fourth slideshow photo")
@@ -209,6 +214,7 @@ class JourneyGift(models.Model):
     chapter3_image_5 = models.ImageField(
         upload_to=gift_chapter3_image_path,
         storage=crush_photo_storage,
+        max_length=255,
         blank=True,
         null=True,
         help_text=_("Fifth slideshow photo")
@@ -218,6 +224,7 @@ class JourneyGift(models.Model):
     chapter4_audio = models.FileField(
         upload_to=gift_chapter4_audio_path,
         storage=crush_photo_storage,
+        max_length=255,
         blank=True,
         null=True,
         help_text=_("Voice message audio file (MP3, WAV, M4A - max 10MB)")
@@ -227,6 +234,7 @@ class JourneyGift(models.Model):
     chapter4_video = models.FileField(
         upload_to=gift_chapter4_audio_path,  # Same path function works
         storage=crush_photo_storage,
+        max_length=255,
         blank=True,
         null=True,
         help_text=_("Video message file (MP4, MOV - max 50MB)")

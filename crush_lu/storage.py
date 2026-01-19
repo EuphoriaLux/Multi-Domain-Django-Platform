@@ -9,8 +9,14 @@ Supports:
 
 Setup Instructions:
 1. Create a separate Azure Blob container named 'crush-profiles-private'
+   (or custom name via AZURE_PRIVATE_CONTAINER_NAME env var)
 2. Set container access level to "Private (no anonymous access)"
 3. Photos will be served with time-limited SAS tokens (default 1 hour)
+
+Environment Variables:
+    AZURE_PRIVATE_CONTAINER_NAME - Container name for private storage
+                                   Default: 'crush-profiles-private'
+                                   Example for staging: 'crush-profiles-private-staging'
 
 User Storage Structure:
     users/{user_id}/.user_created    # Marker file
@@ -50,14 +56,26 @@ class PrivateAzureStorage(AzureStorage):
     and generates SAS tokens for temporary access.
 
     Supports both production Azure Blob Storage and local Azurite emulator.
+
+    Container name can be configured via AZURE_PRIVATE_CONTAINER_NAME env var.
+    Default: 'crush-profiles-private'
+    Staging example: 'crush-profiles-private-staging'
     """
-    azure_container = 'crush-profiles-private'  # Separate private container
+    # Container name configurable via environment variable
+    azure_container = os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-profiles-private')
     expiration_secs = 3600  # SAS token valid for 1 hour
 
     def __init__(self, *args, **kwargs):
         # Get credentials from settings (handles both Azurite and production)
         self.account_name = getattr(settings, 'AZURE_ACCOUNT_NAME', None)
         self.account_key = getattr(settings, 'AZURE_ACCOUNT_KEY', None)
+
+        # Allow container name override from settings or environment
+        container_name = getattr(
+            settings, 'AZURE_PRIVATE_CONTAINER_NAME',
+            os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-profiles-private')
+        )
+        self.azure_container = container_name
 
         # Azurite-specific configuration
         self._is_azurite = is_azurite_mode()
@@ -116,7 +134,7 @@ class CrushProfilePhotoStorage(PrivateAzureStorage):
     Specialized storage for Crush.lu profile photos
     Includes additional security checks and naming conventions
     """
-    azure_container = 'crush-profiles-private'  # Use separate private container
+    # Inherits container name from PrivateAzureStorage (configurable via env var)
     expiration_secs = 1800  # 30 minutes for profile photos
 
     def get_available_name(self, name, max_length=None):
@@ -272,9 +290,10 @@ def delete_user_storage(user_id):
                 )
 
             # Containers to clean up
+            private_container = os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-profiles-private')
             containers = [
                 getattr(settings, 'AZURE_CONTAINER_NAME', 'media'),  # Public media
-                'crush-profiles-private',  # Private profile data
+                private_container,  # Private profile data
             ]
 
             for container_name in containers:
@@ -370,9 +389,10 @@ def list_user_storage_folders():
                 )
 
             # Scan both containers
+            private_container = os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-profiles-private')
             containers = [
                 getattr(settings, 'AZURE_CONTAINER_NAME', 'media'),
-                'crush-profiles-private',
+                private_container,
             ]
 
             for container_name in containers:

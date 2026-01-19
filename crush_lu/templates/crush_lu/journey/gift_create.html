@@ -523,11 +523,19 @@
                         <label style="font-size: 0.9rem; color: var(--journey-light); margin-bottom: 10px; display: block;">
                             🎤 {% trans "Voice Message" %}
                         </label>
-                        <div class="file-upload-wrapper">
+                        <div class="file-upload-wrapper" x-bind:class="audioHasFile">
                             {{ form.chapter4_audio }}
-                            <div class="file-upload-icon">🎵</div>
-                            <div class="file-upload-text">{% trans "MP3, WAV, M4A (max 10MB)" %}</div>
+                            <div class="file-upload-icon" x-show="audioDefaultVisible">🎵</div>
+                            <div class="file-upload-text" x-show="audioDefaultVisible">{% trans "MP3, WAV, M4A (max 10MB)" %}</div>
+                            <!-- Audio file info display -->
+                            <div class="file-info" x-show="audioInfoVisible" style="margin-top: 10px;">
+                                <div style="font-size: 2rem; margin-bottom: 5px;">🎵</div>
+                                <div class="file-name" x-text="audioFileName"></div>
+                                <div style="font-size: 0.8rem; color: rgba(255,255,255,0.6); margin-top: 4px;" x-text="audioFileSize"></div>
+                            </div>
                         </div>
+                        <!-- Client-side validation error -->
+                        <p class="error-text" x-show="audioHasError" x-text="audioError"></p>
                         {% if form.chapter4_audio.errors %}
                         <p class="error-text">{{ form.chapter4_audio.errors.0 }}</p>
                         {% endif %}
@@ -537,11 +545,19 @@
                         <label style="font-size: 0.9rem; color: var(--journey-light); margin-bottom: 10px; display: block;">
                             📹 {% trans "Video Message" %}
                         </label>
-                        <div class="file-upload-wrapper">
+                        <div class="file-upload-wrapper" x-bind:class="videoHasFile">
                             {{ form.chapter4_video }}
-                            <div class="file-upload-icon">🎬</div>
-                            <div class="file-upload-text">{% trans "MP4, MOV (max 50MB)" %}</div>
+                            <div class="file-upload-icon" x-show="videoDefaultVisible">🎬</div>
+                            <div class="file-upload-text" x-show="videoDefaultVisible">{% trans "MP4, MOV (max 50MB)" %}</div>
+                            <!-- Video file info display -->
+                            <div class="file-info" x-show="videoInfoVisible" style="margin-top: 10px;">
+                                <div style="font-size: 2rem; margin-bottom: 5px;">🎬</div>
+                                <div class="file-name" x-text="videoFileName"></div>
+                                <div style="font-size: 0.8rem; color: rgba(255,255,255,0.6); margin-top: 4px;" x-text="videoFileSize"></div>
+                            </div>
                         </div>
+                        <!-- Client-side validation error -->
+                        <p class="error-text" x-show="videoHasError" x-text="videoError"></p>
                         {% if form.chapter4_video.errors %}
                         <p class="error-text">{{ form.chapter4_video.errors.0 }}</p>
                         {% endif %}

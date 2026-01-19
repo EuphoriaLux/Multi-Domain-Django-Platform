@@ -3035,9 +3035,28 @@ document.addEventListener('alpine:init', function() {
     Alpine.data('giftCreateForm', function() {
         return {
             currentStep: 1,
+            // Chapter 1 image state
             chapter1HasFileFlag: false,
             chapter1Preview: '',
             chapter1FileName: '',
+            // Audio file state
+            audioHasFileFlag: false,
+            audioFileName: '',
+            audioFileSize: '',
+            audioFileType: '',
+            audioError: '',
+            // Video file state
+            videoHasFileFlag: false,
+            videoFileName: '',
+            videoFileSize: '',
+            videoFileType: '',
+            videoError: '',
+
+            // Allowed file types
+            allowedAudioTypes: ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a', 'audio/aac'],
+            allowedVideoTypes: ['video/mp4', 'video/quicktime', 'video/x-m4v'],
+            allowedAudioExtensions: ['.mp3', '.wav', '.m4a', '.aac'],
+            allowedVideoExtensions: ['.mp4', '.mov', '.m4v'],
 
             // Computed getters for CSP compatibility
             get stepOneClass() {
@@ -3061,6 +3080,30 @@ document.addEventListener('alpine:init', function() {
             get chapter1PreviewClass() {
                 return this.chapter1Preview ? 'show' : '';
             },
+            get audioHasFile() {
+                return this.audioHasFileFlag ? 'has-file' : '';
+            },
+            get audioInfoVisible() {
+                return this.audioHasFileFlag;
+            },
+            get audioDefaultVisible() {
+                return !this.audioHasFileFlag;
+            },
+            get audioHasError() {
+                return this.audioError !== '';
+            },
+            get videoHasFile() {
+                return this.videoHasFileFlag ? 'has-file' : '';
+            },
+            get videoInfoVisible() {
+                return this.videoHasFileFlag;
+            },
+            get videoDefaultVisible() {
+                return !this.videoHasFileFlag;
+            },
+            get videoHasError() {
+                return this.videoError !== '';
+            },
 
             init: function() {
                 var self = this;
@@ -3069,6 +3112,22 @@ document.addEventListener('alpine:init', function() {
                 if (ch1Input) {
                     ch1Input.addEventListener('change', function(e) {
                         self.handleChapter1FileChange(e);
+                    });
+                }
+
+                // Listen for audio file changes
+                var audioInput = document.getElementById('id_chapter4_audio');
+                if (audioInput) {
+                    audioInput.addEventListener('change', function(e) {
+                        self.handleAudioFileChange(e);
+                    });
+                }
+
+                // Listen for video file changes
+                var videoInput = document.getElementById('id_chapter4_video');
+                if (videoInput) {
+                    videoInput.addEventListener('change', function(e) {
+                        self.handleVideoFileChange(e);
                     });
                 }
 
@@ -3086,6 +3145,33 @@ document.addEventListener('alpine:init', function() {
                         }
                     });
                 });
+            },
+
+            formatFileSize: function(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                var k = 1024;
+                var sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                var i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            },
+
+            getFileExtension: function(filename) {
+                var ext = filename.slice((filename.lastIndexOf('.') - 1 >>> 0) + 2);
+                return ext ? '.' + ext.toLowerCase() : '';
+            },
+
+            isValidAudioFile: function(file) {
+                var ext = this.getFileExtension(file.name);
+                var typeValid = this.allowedAudioTypes.indexOf(file.type) !== -1;
+                var extValid = this.allowedAudioExtensions.indexOf(ext) !== -1;
+                return typeValid || extValid;
+            },
+
+            isValidVideoFile: function(file) {
+                var ext = this.getFileExtension(file.name);
+                var typeValid = this.allowedVideoTypes.indexOf(file.type) !== -1;
+                var extValid = this.allowedVideoExtensions.indexOf(ext) !== -1;
+                return typeValid || extValid;
             },
 
             goToStep2: function() {
@@ -3147,6 +3233,84 @@ document.addEventListener('alpine:init', function() {
                     this.chapter1HasFileFlag = false;
                     this.chapter1Preview = '';
                     this.chapter1FileName = '';
+                }
+            },
+
+            handleAudioFileChange: function(event) {
+                var file = event.target.files[0];
+                this.audioError = '';
+
+                if (file) {
+                    // Validate file type
+                    if (!this.isValidAudioFile(file)) {
+                        this.audioError = 'Invalid audio format. Please use MP3, WAV, or M4A files.';
+                        this.audioHasFileFlag = false;
+                        this.audioFileName = '';
+                        this.audioFileSize = '';
+                        this.audioFileType = '';
+                        event.target.value = '';
+                        return;
+                    }
+
+                    // Validate file size (10MB max)
+                    if (file.size > 10 * 1024 * 1024) {
+                        this.audioError = 'Audio file is too large. Maximum size is 10 MB.';
+                        this.audioHasFileFlag = false;
+                        this.audioFileName = '';
+                        this.audioFileSize = '';
+                        this.audioFileType = '';
+                        event.target.value = '';
+                        return;
+                    }
+
+                    this.audioHasFileFlag = true;
+                    this.audioFileName = file.name;
+                    this.audioFileSize = this.formatFileSize(file.size);
+                    this.audioFileType = file.type || 'audio';
+                } else {
+                    this.audioHasFileFlag = false;
+                    this.audioFileName = '';
+                    this.audioFileSize = '';
+                    this.audioFileType = '';
+                }
+            },
+
+            handleVideoFileChange: function(event) {
+                var file = event.target.files[0];
+                this.videoError = '';
+
+                if (file) {
+                    // Validate file type
+                    if (!this.isValidVideoFile(file)) {
+                        this.videoError = 'Invalid video format. Please use MP4 or MOV files.';
+                        this.videoHasFileFlag = false;
+                        this.videoFileName = '';
+                        this.videoFileSize = '';
+                        this.videoFileType = '';
+                        event.target.value = '';
+                        return;
+                    }
+
+                    // Validate file size (50MB max)
+                    if (file.size > 50 * 1024 * 1024) {
+                        this.videoError = 'Video file is too large. Maximum size is 50 MB.';
+                        this.videoHasFileFlag = false;
+                        this.videoFileName = '';
+                        this.videoFileSize = '';
+                        this.videoFileType = '';
+                        event.target.value = '';
+                        return;
+                    }
+
+                    this.videoHasFileFlag = true;
+                    this.videoFileName = file.name;
+                    this.videoFileSize = this.formatFileSize(file.size);
+                    this.videoFileType = file.type || 'video';
+                } else {
+                    this.videoHasFileFlag = false;
+                    this.videoFileName = '';
+                    this.videoFileSize = '';
+                    this.videoFileType = '';
                 }
             }
         };
