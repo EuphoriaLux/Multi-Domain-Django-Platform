@@ -350,6 +350,13 @@ class CrushProfileForm(forms.ModelForm):
         if not photo:
             return photo
 
+        # Skip validation for existing files (only validate new uploads)
+        # This prevents errors when the storage backend can't find existing files
+        # (e.g., staging pointing to different container than production)
+        from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
+        if not isinstance(photo, (InMemoryUploadedFile, TemporaryUploadedFile)):
+            return photo
+
         # Check file size (10MB limit)
         max_size = 10 * 1024 * 1024  # 10MB in bytes
         if photo.size > max_size:
