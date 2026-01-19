@@ -40,7 +40,9 @@ fi
 
 echo "✅ Migrations complete. Starting Gunicorn..."
 
-# Gunicorn settings (matching Azure sample app format)
-gunicorn --workers 2 --threads 4 --timeout 120 --access-logfile \
-    '-' --error-logfile '-' --bind=0.0.0.0:8000 \
+# Gunicorn settings
+# Access logs disabled - Application Insights captures HTTP requests via OpenTelemetry
+# Error logs still go to stdout for Log Stream visibility
+gunicorn --workers 2 --threads 4 --timeout 120 \
+    --access-logfile /dev/null --error-logfile '-' --bind=0.0.0.0:8000 \
     azureproject.wsgi

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-17 01:30+0100\n"
+"POT-Creation-Date: 2026-01-19 01:24+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -109,7 +109,7 @@ msgstr ""
 "Qualitätsstandard für professionelle Baumpflegemaßnahmen."
 
 #: .\arborist\templates\arborist\about.html:106
-#: .\arborist\templates\arborist\base.html:181
+#: .\arborist\templates\arborist\base.html:90
 #: .\arborist\templates\arborist\contact.html:96
 #: .\arborist\templates\arborist\gallery.html:37
 #: .\arborist\templates\arborist\home.html:69
@@ -176,11 +176,11 @@ msgstr "Sprachen"
 msgid "I am happy to advise you in your language:"
 msgstr "Ich berate Sie gerne in Ihrer Sprache:"
 
-#: .\arborist\templates\arborist\about.html:166 .\azureproject\settings.py:460
+#: .\arborist\templates\arborist\about.html:166 .\azureproject\settings.py:461
 msgid "German"
 msgstr "Deutsch"
 
-#: .\arborist\templates\arborist\about.html:170 .\azureproject\settings.py:461
+#: .\arborist\templates\arborist\about.html:170 .\azureproject\settings.py:462
 msgid "French"
 msgstr "Französisch"
 
@@ -210,7 +210,7 @@ msgstr "Kontaktieren Sie mich für eine kostenlose Beratung."
 msgid "Get in Touch"
 msgstr "Nehmen Sie Kontakt auf"
 
-#: .\arborist\templates\arborist\base.html:145
+#: .\arborist\templates\arborist\base.html:54
 msgid ""
 "Professional tree care in Luxembourg. FLL-certified tree inspector, SKT-B "
 "rope climbing technician. Fruit tree care, tree maintenance, tree inspection."
@@ -218,11 +218,11 @@ msgstr ""
 "Professionelle Baumpflege in Luxemburg. FLL-zertifizierter Baumkontrolleur, "
 "SKT-B Seilkletterer. Obstbaumpflege, Baumpflege, Baumkontrolle."
 
-#: .\arborist\templates\arborist\base.html:175
+#: .\arborist\templates\arborist\base.html:84
 msgid "Tree Care Services"
 msgstr "Baumpflege-Leistungen"
 
-#: .\arborist\templates\arborist\base.html:189
+#: .\arborist\templates\arborist\base.html:98
 #: .\arborist\templates\arborist\contact.html:97
 #: .\arborist\templates\arborist\gallery.html:64
 #: .\arborist\templates\arborist\home.html:78
@@ -234,7 +234,7 @@ msgstr "Baumpflege-Leistungen"
 msgid "Tree Care"
 msgstr "Baumpflege"
 
-#: .\arborist\templates\arborist\base.html:197
+#: .\arborist\templates\arborist\base.html:106
 #: .\arborist\templates\arborist\contact.html:98
 #: .\arborist\templates\arborist\home.html:23
 #: .\arborist\templates\arborist\home.html:87
@@ -251,7 +251,7 @@ msgstr "Baumkontrolle"
 #: .\arborist\templates\arborist\partials\footer.html:115
 #: .\arborist\templates\arborist\partials\navigation.html:221
 #: .\arborist\templates\arborist\partials\navigation.html:275
-#: .\entreprinder\templates\base.html:71
+#: .\entreprinder\templates\base.html:72
 #: .\power_up\templates\power_up\partials\footer.html:41
 #: .\power_up\templates\power_up\partials\navigation.html:34
 #: .\power_up\templates\power_up\partials\navigation.html:68
@@ -363,8 +363,8 @@ msgid "Luxembourg City and surroundings"
 msgstr "Luxemburg-Stadt und Umgebung"
 
 #: .\arborist\templates\arborist\contact.html:137
-msgid "South Luxembourg (Esch, Dudelange, Differdange)"
-msgstr "Süd-Luxemburg (Esch, Dudelange, Differdange)"
+msgid "Echternach and Mullerthal Region"
+msgstr "Echternach und Müllerthal-Region"
 
 #: .\arborist\templates\arborist\contact.html:138
 msgid "Central (Mersch, Steinfort)"
@@ -705,18 +705,18 @@ msgstr "Ich bin in ganz Luxemburg tätig, mit Schwerpunkt auf:"
 msgid "Luxembourg City"
 msgstr "Luxemburg-Stadt"
 
-#: .\arborist\templates\arborist\home.html:169 .\crush_lu\forms.py:144
-#: .\crush_lu\templates\crush_lu\create_profile.html:343
-msgid "Esch-sur-Alzette"
-msgstr "Esch-sur-Alzette"
+#: .\arborist\templates\arborist\home.html:169 .\crush_lu\forms.py:143
+#: .\crush_lu\templates\crush_lu\create_profile.html:342
+msgid "Echternach"
+msgstr "Echternach"
 
 #: .\arborist\templates\arborist\home.html:170
-msgid "Differdange"
-msgstr "Differdange"
+msgid "Mullerthal Region"
+msgstr "Müllerthal-Region"
 
 #: .\arborist\templates\arborist\home.html:171
-msgid "Dudelange"
-msgstr "Dudelange"
+msgid "Moselle Region"
+msgstr "Mosel-Region"
 
 #: .\arborist\templates\arborist\home.html:172
 msgid "Ettelbruck"
@@ -1631,8 +1631,9 @@ msgid ""
 "Professional fruit tree care in Luxembourg. Fruit tree pruning, rejuvenation "
 "pruning, training pruning. For healthy and productive fruit trees."
 msgstr ""
-"Professionelle Obstbaumpflege in Luxemburg. Obstbaumschnitt, Verjüngungsschnitt, "
-"Erziehungsschnitt. Für gesunde und ertragreiche Obstbäume."
+"Professionelle Obstbaumpflege in Luxemburg. Obstbaumschnitt, "
+"Verjüngungsschnitt, Erziehungsschnitt. Für gesunde und ertragreiche "
+"Obstbäume."
 
 #: .\arborist\views.py:56
 msgid "Tree Care Luxembourg - Arborist Tom Aakrann"
@@ -1703,8 +1704,8 @@ msgid ""
 "Contact Arborist Tom Aakrann for tree care in Luxembourg. Free consultation, "
 "quick response. Phone, WhatsApp, email."
 msgstr ""
-"Kontaktieren Sie Baumwart Tom Aakrann für Baumpflege in Luxemburg. Kostenlose "
-"Beratung, schnelle Antwort. Telefon, WhatsApp, E-Mail."
+"Kontaktieren Sie Baumwart Tom Aakrann für Baumpflege in Luxemburg. "
+"Kostenlose Beratung, schnelle Antwort. Telefon, WhatsApp, E-Mail."
 
 #: .\arborist\views.py:152
 msgid "Gallery - Arborist Tom Aakrann"
@@ -1748,7 +1749,7 @@ msgstr ""
 "Häufig gestellte Fragen zur Baumpflege in Luxemburg. Antworten zu Kosten, "
 "Zeitpunkt, Methoden und Dienstleistungen."
 
-#: .\azureproject\settings.py:459 .\crush_lu\models\profiles.py:389
+#: .\azureproject\settings.py:460 .\crush_lu\models\profiles.py:389
 msgid "English"
 msgstr "Englisch"
 
@@ -2435,12 +2436,12 @@ msgid "Event Registrations"
 msgstr "Event-Anmeldungen"
 
 #: .\crush_lu\admin\profiles.py:429
-#: .\crush_lu\templates\crush_lu\base.html:388
-#: .\crush_lu\templates\crush_lu\base.html:431
-#: .\crush_lu\templates\crush_lu\base.html:446
-#: .\crush_lu\templates\crush_lu\base.html:641
-#: .\crush_lu\templates\crush_lu\base.html:700
-#: .\crush_lu\templates\crush_lu\base.html:736
+#: .\crush_lu\templates\crush_lu\base.html:389
+#: .\crush_lu\templates\crush_lu\base.html:432
+#: .\crush_lu\templates\crush_lu\base.html:447
+#: .\crush_lu\templates\crush_lu\base.html:642
+#: .\crush_lu\templates\crush_lu\base.html:701
+#: .\crush_lu\templates\crush_lu\base.html:737
 #: .\crush_lu\templates\crush_lu\dashboard.html:222
 msgid "Connections"
 msgstr "Verbindungen"
@@ -2734,10 +2735,10 @@ msgstr "Clerf"
 msgid "Diekirch"
 msgstr "Diekirch"
 
-#: .\crush_lu\forms.py:143
-#: .\crush_lu\templates\crush_lu\create_profile.html:342
-msgid "Echternach"
-msgstr "Echternach"
+#: .\crush_lu\forms.py:144
+#: .\crush_lu\templates\crush_lu\create_profile.html:343
+msgid "Esch-sur-Alzette"
+msgstr "Esch-sur-Alzette"
 
 #: .\crush_lu\forms.py:145
 #: .\crush_lu\templates\crush_lu\create_profile.html:344
@@ -3965,13 +3966,13 @@ msgstr "Mitgliedschaftsstufe basierend auf Empfehlungsaktivität"
 
 #: .\crush_lu\models\profiles.py:523
 #: .\crush_lu\templates\crush_lu\account_settings.html:278
-#: .\crush_lu\templates\crush_lu\base.html:478
+#: .\crush_lu\templates\crush_lu\base.html:479
 msgid "Pending Review"
 msgstr "Prüfung ausstehend"
 
 #: .\crush_lu\models\profiles.py:524
 #: .\crush_lu\templates\crush_lu\account_settings.html:278
-#: .\crush_lu\templates\crush_lu\base.html:484
+#: .\crush_lu\templates\crush_lu\base.html:485
 #: .\crush_lu\templates\crush_lu\coach_dashboard.html:152
 #: .\crush_lu\templates\crush_lu\coach_invitation_dashboard.html:44
 #: .\crush_lu\templates\crush_lu\coach_invitation_dashboard.html:200
@@ -3980,14 +3981,14 @@ msgid "Approved"
 msgstr "Genehmigt"
 
 #: .\crush_lu\models\profiles.py:525
-#: .\crush_lu\templates\crush_lu\base.html:480
+#: .\crush_lu\templates\crush_lu\base.html:481
 #: .\crush_lu\templates\crush_lu\coach_dashboard.html:154
 #: .\crush_lu\templates\crush_lu\coach_invitation_dashboard.html:280
 msgid "Rejected"
 msgstr "Abgelehnt"
 
 #: .\crush_lu\models\profiles.py:526
-#: .\crush_lu\templates\crush_lu\base.html:482
+#: .\crush_lu\templates\crush_lu\base.html:483
 msgid "Needs Revision"
 msgstr "Überarbeitung erforderlich"
 
@@ -4658,8 +4659,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:24
 #: .\crush_lu\templates\crush_lu\how_it_works.html:24
-#: .\entreprinder\templates\base.html:61
-#: .\vinsdelux\templates\vinsdelux\base.html:63
+#: .\entreprinder\templates\base.html:62
+#: .\vinsdelux\templates\vinsdelux\base.html:64
 #: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:12
 #: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:12
 #: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:12
@@ -4667,8 +4668,8 @@ msgid "Home"
 msgstr "Startseite"
 
 #: .\crush_lu\templates\crush_lu\about.html:30
-#: .\crush_lu\templates\crush_lu\base.html:526
-#: .\crush_lu\templates\crush_lu\base.html:753
+#: .\crush_lu\templates\crush_lu\base.html:527
+#: .\crush_lu\templates\crush_lu\base.html:754
 #: .\crush_lu\templates\crush_lu\emails\base_email.html:99
 #: .\power_up\templates\power_up\partials\footer.html:26
 #: .\power_up\templates\power_up\partials\navigation.html:22
@@ -4786,9 +4787,9 @@ msgid "Account Settings - Crush.lu"
 msgstr "Kontoeinstellungen - Crush.lu"
 
 #: .\crush_lu\templates\crush_lu\account_settings.html:10
-#: .\crush_lu\templates\crush_lu\base.html:307
-#: .\crush_lu\templates\crush_lu\base.html:514
-#: .\crush_lu\templates\crush_lu\base.html:743
+#: .\crush_lu\templates\crush_lu\base.html:308
+#: .\crush_lu\templates\crush_lu\base.html:515
+#: .\crush_lu\templates\crush_lu\base.html:744
 msgid "Account Settings"
 msgstr "Kontoeinstellungen"
 
@@ -4941,12 +4942,12 @@ msgid "Incomplete"
 msgstr "Unvollständig"
 
 #: .\crush_lu\templates\crush_lu\account_settings.html:283
-#: .\crush_lu\templates\crush_lu\base.html:291
-#: .\crush_lu\templates\crush_lu\base.html:301
-#: .\crush_lu\templates\crush_lu\base.html:493
-#: .\crush_lu\templates\crush_lu\base.html:503
-#: .\crush_lu\templates\crush_lu\base.html:649
-#: .\crush_lu\templates\crush_lu\base.html:677
+#: .\crush_lu\templates\crush_lu\base.html:292
+#: .\crush_lu\templates\crush_lu\base.html:302
+#: .\crush_lu\templates\crush_lu\base.html:494
+#: .\crush_lu\templates\crush_lu\base.html:504
+#: .\crush_lu\templates\crush_lu\base.html:650
+#: .\crush_lu\templates\crush_lu\base.html:678
 #: .\crush_lu\templates\crush_lu\dashboard.html:66
 msgid "Edit Profile"
 msgstr "Profil bearbeiten"
@@ -4967,7 +4968,7 @@ msgid "You haven't created a dating profile yet."
 msgstr "Du hast noch kein Dating-Profil erstellt."
 
 #: .\crush_lu\templates\crush_lu\account_settings.html:295
-#: .\crush_lu\templates\crush_lu\base.html:509
+#: .\crush_lu\templates\crush_lu\base.html:510
 msgid "Create Profile"
 msgstr "Profil erstellen"
 
@@ -5211,7 +5212,7 @@ msgid "Privacy & Data"
 msgstr "Privatsphäre & Daten"
 
 #: .\crush_lu\templates\crush_lu\account_settings.html:809
-#: .\crush_lu\templates\crush_lu\base.html:868
+#: .\crush_lu\templates\crush_lu\base.html:869
 msgid "Privacy Policy"
 msgstr "Datenschutzerklärung"
 
@@ -5252,91 +5253,91 @@ msgid "Back to Dashboard"
 msgstr "Zurück zum Dashboard"
 
 # Coach Dashboard translations
-#: .\crush_lu\templates\crush_lu\base.html:285
+#: .\crush_lu\templates\crush_lu\base.html:286
 msgid "My Dashboard"
 msgstr "Mein Dashboard"
 
-#: .\crush_lu\templates\crush_lu\base.html:296
-#: .\crush_lu\templates\crush_lu\base.html:498
+#: .\crush_lu\templates\crush_lu\base.html:297
+#: .\crush_lu\templates\crush_lu\base.html:499
 msgid "Finish Profile"
 msgstr "Profil vervollständigen"
 
-#: .\crush_lu\templates\crush_lu\base.html:312
-#: .\crush_lu\templates\crush_lu\base.html:519
-#: .\crush_lu\templates\crush_lu\base.html:748
-#: .\entreprinder\templates\base.html:115
+#: .\crush_lu\templates\crush_lu\base.html:313
+#: .\crush_lu\templates\crush_lu\base.html:520
+#: .\crush_lu\templates\crush_lu\base.html:749
+#: .\entreprinder\templates\base.html:116
 msgid "Logout"
 msgstr "Abmelden"
 
 # Coach Dashboard translations
-#: .\crush_lu\templates\crush_lu\base.html:323
-#: .\crush_lu\templates\crush_lu\base.html:621
+#: .\crush_lu\templates\crush_lu\base.html:324
+#: .\crush_lu\templates\crush_lu\base.html:622
 #: .\crush_lu\templates\crush_lu\journey\certificate.html:358
 msgid "Dashboard"
 msgstr "Dashboard"
 
-#: .\crush_lu\templates\crush_lu\base.html:328
-#: .\crush_lu\templates\crush_lu\base.html:409
-#: .\crush_lu\templates\crush_lu\base.html:427
-#: .\crush_lu\templates\crush_lu\base.html:439
-#: .\crush_lu\templates\crush_lu\base.html:626
-#: .\crush_lu\templates\crush_lu\base.html:667
-#: .\crush_lu\templates\crush_lu\base.html:690
-#: .\crush_lu\templates\crush_lu\base.html:723
+#: .\crush_lu\templates\crush_lu\base.html:329
+#: .\crush_lu\templates\crush_lu\base.html:410
+#: .\crush_lu\templates\crush_lu\base.html:428
+#: .\crush_lu\templates\crush_lu\base.html:440
+#: .\crush_lu\templates\crush_lu\base.html:627
+#: .\crush_lu\templates\crush_lu\base.html:668
+#: .\crush_lu\templates\crush_lu\base.html:691
+#: .\crush_lu\templates\crush_lu\base.html:724
 msgid "Special Journey"
 msgstr "Besondere Reise"
 
-#: .\crush_lu\templates\crush_lu\base.html:330
-#: .\crush_lu\templates\crush_lu\base.html:441
-#: .\crush_lu\templates\crush_lu\base.html:628
-#: .\crush_lu\templates\crush_lu\base.html:725
+#: .\crush_lu\templates\crush_lu\base.html:331
+#: .\crush_lu\templates\crush_lu\base.html:442
+#: .\crush_lu\templates\crush_lu\base.html:629
+#: .\crush_lu\templates\crush_lu\base.html:726
 msgid "New!"
 msgstr "Neu!"
 
-#: .\crush_lu\templates\crush_lu\base.html:339
-#: .\crush_lu\templates\crush_lu\base.html:430
-#: .\crush_lu\templates\crush_lu\base.html:445
-#: .\crush_lu\templates\crush_lu\base.html:528
-#: .\crush_lu\templates\crush_lu\base.html:634
-#: .\crush_lu\templates\crush_lu\base.html:696
-#: .\crush_lu\templates\crush_lu\base.html:732
-#: .\crush_lu\templates\crush_lu\base.html:755
-#: .\crush_lu\templates\crush_lu\base.html:859
+#: .\crush_lu\templates\crush_lu\base.html:340
+#: .\crush_lu\templates\crush_lu\base.html:431
+#: .\crush_lu\templates\crush_lu\base.html:446
+#: .\crush_lu\templates\crush_lu\base.html:529
+#: .\crush_lu\templates\crush_lu\base.html:635
+#: .\crush_lu\templates\crush_lu\base.html:697
+#: .\crush_lu\templates\crush_lu\base.html:733
+#: .\crush_lu\templates\crush_lu\base.html:756
+#: .\crush_lu\templates\crush_lu\base.html:860
 #: .\crush_lu\templates\crush_lu\dashboard.html:213
 #: .\crush_lu\templates\crush_lu\emails\base_email.html:100
 msgid "Events"
 msgstr "Veranstaltungen"
 
-#: .\crush_lu\templates\crush_lu\base.html:354
+#: .\crush_lu\templates\crush_lu\base.html:355
 #: .\crush_lu\templates\crush_lu\event_list.html:79
 #: .\crush_lu\templates\crush_lu\home.html:179
 msgid "Upcoming Events"
 msgstr "Kommende Veranstaltungen"
 
-#: .\crush_lu\templates\crush_lu\base.html:367
+#: .\crush_lu\templates\crush_lu\base.html:368
 #: .\crush_lu\templates\crush_lu\dashboard.html:251
 msgid "Waitlist"
 msgstr "Warteliste"
 
-#: .\crush_lu\templates\crush_lu\base.html:376
+#: .\crush_lu\templates\crush_lu\base.html:377
 msgid "No upcoming events"
 msgstr "Keine kommenden Events"
 
-#: .\crush_lu\templates\crush_lu\base.html:381
+#: .\crush_lu\templates\crush_lu\base.html:382
 msgid "Browse All Events"
 msgstr "Alle Veranstaltungen ansehen"
 
-#: .\crush_lu\templates\crush_lu\base.html:398
-#: .\crush_lu\templates\crush_lu\base.html:656
+#: .\crush_lu\templates\crush_lu\base.html:399
+#: .\crush_lu\templates\crush_lu\base.html:657
 msgid "Under Review"
 msgstr "In Prüfung"
 
-#: .\crush_lu\templates\crush_lu\base.html:403
+#: .\crush_lu\templates\crush_lu\base.html:404
 msgid "is reviewing"
 msgstr "prüft"
 
-#: .\crush_lu\templates\crush_lu\base.html:414
-#: .\crush_lu\templates\crush_lu\base.html:672
+#: .\crush_lu\templates\crush_lu\base.html:415
+#: .\crush_lu\templates\crush_lu\base.html:673
 #: .\crush_lu\templates\crush_lu\dashboard.html:279
 #: .\crush_lu\templates\crush_lu\emails\profile_approved.html:27
 #: .\crush_lu\templates\crush_lu\how_it_works.html:68
@@ -5347,48 +5348,48 @@ msgstr "prüft"
 msgid "Browse Events"
 msgstr "Veranstaltungen durchsuchen"
 
-#: .\crush_lu\templates\crush_lu\base.html:421
-#: .\crush_lu\templates\crush_lu\base.html:684
+#: .\crush_lu\templates\crush_lu\base.html:422
+#: .\crush_lu\templates\crush_lu\base.html:685
 msgid "Fix Profile"
 msgstr "Profil korrigieren"
 
-#: .\crush_lu\templates\crush_lu\base.html:430
-#: .\crush_lu\templates\crush_lu\base.html:445
+#: .\crush_lu\templates\crush_lu\base.html:431
+#: .\crush_lu\templates\crush_lu\base.html:446
 msgid "Complete profile to register"
 msgstr "Profil vervollständigen, um dich anzumelden"
 
-#: .\crush_lu\templates\crush_lu\base.html:431
-#: .\crush_lu\templates\crush_lu\base.html:446
+#: .\crush_lu\templates\crush_lu\base.html:432
+#: .\crush_lu\templates\crush_lu\base.html:447
 msgid "Connect after events"
 msgstr "Nach Events vernetzen"
 
-#: .\crush_lu\templates\crush_lu\base.html:455
+#: .\crush_lu\templates\crush_lu\base.html:456
 msgid "Profile pending review"
 msgstr "Profil wartet auf Prüfung"
 
-#: .\crush_lu\templates\crush_lu\base.html:457
+#: .\crush_lu\templates\crush_lu\base.html:458
 msgid "Profile rejected"
 msgstr "Profil abgelehnt"
 
-#: .\crush_lu\templates\crush_lu\base.html:459
+#: .\crush_lu\templates\crush_lu\base.html:460
 msgid "Profile needs revision"
 msgstr "Profil muss überarbeitet werden"
 
-#: .\crush_lu\templates\crush_lu\base.html:461
+#: .\crush_lu\templates\crush_lu\base.html:462
 msgid "Profile approved"
 msgstr "Profil genehmigt"
 
-#: .\crush_lu\templates\crush_lu\base.html:476
+#: .\crush_lu\templates\crush_lu\base.html:477
 msgid "Profile Status:"
 msgstr "Profilstatus:"
 
-#: .\crush_lu\templates\crush_lu\base.html:486
+#: .\crush_lu\templates\crush_lu\base.html:487
 msgid "Not Submitted"
 msgstr "Nicht eingereicht"
 
-#: .\crush_lu\templates\crush_lu\base.html:527
-#: .\crush_lu\templates\crush_lu\base.html:754
-#: .\crush_lu\templates\crush_lu\base.html:858
+#: .\crush_lu\templates\crush_lu\base.html:528
+#: .\crush_lu\templates\crush_lu\base.html:755
+#: .\crush_lu\templates\crush_lu\base.html:859
 #: .\crush_lu\templates\crush_lu\emails\welcome.html:103
 #: .\crush_lu\templates\crush_lu\event_attendees.html:23
 #: .\crush_lu\templates\crush_lu\home.html:92
@@ -5397,98 +5398,98 @@ msgstr "Nicht eingereicht"
 msgid "How It Works"
 msgstr "So funktioniert's"
 
-#: .\crush_lu\templates\crush_lu\base.html:529
-#: .\crush_lu\templates\crush_lu\base.html:756
-#: .\crush_lu\templates\crush_lu\base.html:860
+#: .\crush_lu\templates\crush_lu\base.html:530
+#: .\crush_lu\templates\crush_lu\base.html:757
+#: .\crush_lu\templates\crush_lu\base.html:861
 msgid "Membership"
 msgstr "Mitgliedschaft"
 
-#: .\crush_lu\templates\crush_lu\base.html:531
-#: .\crush_lu\templates\crush_lu\base.html:759
+#: .\crush_lu\templates\crush_lu\base.html:532
+#: .\crush_lu\templates\crush_lu\base.html:760
 msgid "Login / Join"
 msgstr "Anmelden / Registrieren"
 
-#: .\crush_lu\templates\crush_lu\base.html:661
+#: .\crush_lu\templates\crush_lu\base.html:662
 msgid "is reviewing your profile"
 msgstr "prüft dein Profil"
 
-#: .\crush_lu\templates\crush_lu\base.html:696
-#: .\crush_lu\templates\crush_lu\base.html:732
+#: .\crush_lu\templates\crush_lu\base.html:697
+#: .\crush_lu\templates\crush_lu\base.html:733
 msgid "complete profile"
 msgstr "Profil vervollständigen"
 
-#: .\crush_lu\templates\crush_lu\base.html:700
-#: .\crush_lu\templates\crush_lu\base.html:736
+#: .\crush_lu\templates\crush_lu\base.html:701
+#: .\crush_lu\templates\crush_lu\base.html:737
 msgid "after events"
 msgstr "nach Events"
 
-#: .\crush_lu\templates\crush_lu\base.html:707
+#: .\crush_lu\templates\crush_lu\base.html:708
 msgid "Profile Progress"
 msgstr "Profil-Fortschritt"
 
-#: .\crush_lu\templates\crush_lu\base.html:714
+#: .\crush_lu\templates\crush_lu\base.html:715
 #: .\crush_lu\templates\crush_lu\partials\nav_progress_dropdown.html:36
 msgid "Next:"
 msgstr "Nächster Schritt:"
 
-#: .\crush_lu\templates\crush_lu\base.html:718
+#: .\crush_lu\templates\crush_lu\base.html:719
 #: .\crush_lu\templates\crush_lu\partials\nav_progress_dropdown.html:44
 msgid "Continue Setup"
 msgstr "Einrichtung fortsetzen"
 
-#: .\crush_lu\templates\crush_lu\base.html:780
+#: .\crush_lu\templates\crush_lu\base.html:781
 msgid "Your profile is incomplete"
 msgstr "Dein Profil ist unvollständig"
 
-#: .\crush_lu\templates\crush_lu\base.html:783
+#: .\crush_lu\templates\crush_lu\base.html:784
 msgid "Complete your profile"
 msgstr "Vervollständige dein Profil"
 
-#: .\crush_lu\templates\crush_lu\base.html:792
+#: .\crush_lu\templates\crush_lu\base.html:793
 msgid "Your profile is under review by our Crush Coach"
 msgstr "Dein Profil wird von unserem Crush Coach überprüft"
 
-#: .\crush_lu\templates\crush_lu\base.html:795
+#: .\crush_lu\templates\crush_lu\base.html:796
 msgid "Check status"
 msgstr "Status prüfen"
 
 # Footer translations (only new strings that don't exist elsewhere)
-#: .\crush_lu\templates\crush_lu\base.html:850
+#: .\crush_lu\templates\crush_lu\base.html:851
 msgid "Meet new people. Make real connections."
 msgstr "Neue Leute treffen. Echte Verbindungen knüpfen."
 
-#: .\crush_lu\templates\crush_lu\base.html:855
+#: .\crush_lu\templates\crush_lu\base.html:856
 msgid "Quick Links"
 msgstr "Schnelllinks"
 
-#: .\crush_lu\templates\crush_lu\base.html:857
+#: .\crush_lu\templates\crush_lu\base.html:858
 msgid "About Us"
 msgstr "Über uns"
 
-#: .\crush_lu\templates\crush_lu\base.html:866
+#: .\crush_lu\templates\crush_lu\base.html:867
 msgid "Legal"
 msgstr "Rechtliches"
 
-#: .\crush_lu\templates\crush_lu\base.html:869
+#: .\crush_lu\templates\crush_lu\base.html:870
 msgid "Terms of Service"
 msgstr "Nutzungsbedingungen"
 
-#: .\crush_lu\templates\crush_lu\base.html:870
+#: .\crush_lu\templates\crush_lu\base.html:871
 msgid "Data Deletion"
 msgstr "Datenlöschung"
 
-#: .\crush_lu\templates\crush_lu\base.html:876
+#: .\crush_lu\templates\crush_lu\base.html:877
 #: .\crush_lu\templates\crush_lu\home.html:109
 msgid "Privacy First"
 msgstr "Datenschutz an erster Stelle"
 
-#: .\crush_lu\templates\crush_lu\base.html:877
+#: .\crush_lu\templates\crush_lu\base.html:878
 msgid "Your privacy matters. All profiles are reviewed by our Crush Coaches."
 msgstr ""
 "Ihre Privatsphäre ist uns wichtig. Alle Profile werden von unseren Crush-"
 "Coaches überprüft."
 
-#: .\crush_lu\templates\crush_lu\base.html:883
+#: .\crush_lu\templates\crush_lu\base.html:884
 msgid "&copy; 2025 Crush.lu - Made with 💕 in Luxembourg"
 msgstr "&copy; 2025 Crush.lu - Mit 💕 in Luxemburg gemacht"
 
@@ -12146,7 +12147,7 @@ msgstr ""
 
 #: .\entreprinder\templates\account\login.html:36
 #: .\entreprinder\templates\account\login_powerup.html:36
-#: .\entreprinder\templates\base.html:127
+#: .\entreprinder\templates\base.html:128
 msgid "Sign in with LinkedIn"
 msgstr "Mit LinkedIn anmelden"
 
@@ -12206,35 +12207,35 @@ msgstr ""
 msgid "Entreprinder Administration"
 msgstr "Entreprinder-Verwaltung"
 
-#: .\entreprinder\templates\base.html:66
+#: .\entreprinder\templates\base.html:67
 msgid "Vibe Coding"
 msgstr "Vibe Coding"
 
-#: .\entreprinder\templates\base.html:77
+#: .\entreprinder\templates\base.html:78
 #: .\entreprinder\templates\entreprinder\entrepreneur_list.html:8
 msgid "Find Entrepreneurs"
 msgstr "Unternehmer finden"
 
-#: .\entreprinder\templates\base.html:135
+#: .\entreprinder\templates\base.html:136
 msgid "Login"
 msgstr "Anmelden"
 
-#: .\entreprinder\templates\base.html:166
+#: .\entreprinder\templates\base.html:167
 #, python-format
 msgid "Your email address (%(email)s) is not verified."
 msgstr "Ihre E-Mail-Adresse (%(email)s) ist nicht verifiziert."
 
-#: .\entreprinder\templates\base.html:167
+#: .\entreprinder\templates\base.html:168
 msgid "Please verify your email address to access all features."
 msgstr ""
 "Bitte verifizieren Sie Ihre E-Mail-Adresse, um alle Funktionen nutzen zu "
 "können."
 
-#: .\entreprinder\templates\base.html:168
+#: .\entreprinder\templates\base.html:169
 msgid "Need a new verification email?"
 msgstr "Benötigen Sie eine neue Verifizierungs-E-Mail?"
 
-#: .\entreprinder\templates\base.html:168
+#: .\entreprinder\templates\base.html:169
 msgid "Resend verification"
 msgstr "Verifizierung erneut senden"
 
@@ -13635,51 +13636,51 @@ msgstr "Adoptiert"
 msgid "VinsDelux Management"
 msgstr "VinsDelux Verwaltung"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:68
+#: .\vinsdelux\templates\vinsdelux\base.html:69
 msgid "Products"
 msgstr "Produkte"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:72
+#: .\vinsdelux\templates\vinsdelux\base.html:73
 #: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:5
 #: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:60
 #: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:57
 msgid "Wine Coffrets"
 msgstr "Wein-Coffrets"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:75
+#: .\vinsdelux\templates\vinsdelux\base.html:76
 #: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:13
 msgid "Producers"
 msgstr "Produzenten"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:81
+#: .\vinsdelux\templates\vinsdelux\base.html:82
 msgid "Your Journey"
 msgstr "Ihre Reise"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:85 .\vinsdelux\views.py:325
+#: .\vinsdelux\templates\vinsdelux\base.html:86 .\vinsdelux\views.py:325
 msgid "Plot Selection"
 msgstr "Parzellenauswahl"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:88
+#: .\vinsdelux\templates\vinsdelux\base.html:89
 msgid "Personalize Your Wine"
 msgstr "Personalisieren Sie Ihren Wein"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:91
+#: .\vinsdelux\templates\vinsdelux\base.html:92
 msgid "Follow Production"
 msgstr "Produktion verfolgen"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:94
+#: .\vinsdelux\templates\vinsdelux\base.html:95
 msgid "Receive & Taste"
 msgstr "Empfangen & Verkosten"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:97
+#: .\vinsdelux\templates\vinsdelux\base.html:98
 msgid "Create Legacy"
 msgstr "Vermächtnis schaffen"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:103
+#: .\vinsdelux\templates\vinsdelux\base.html:104
 msgid "Cart"
 msgstr "Warenkorb"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:108
+#: .\vinsdelux\templates\vinsdelux\base.html:109
 msgid "Account"
 msgstr "Konto"
 
@@ -15750,6 +15751,15 @@ msgstr "Ungültiges Anfrageformat"
 #: .\vinsdelux\views.py:425
 msgid "An error occurred while processing your selection"
 msgstr "Bei der Verarbeitung Ihrer Auswahl ist ein Fehler aufgetreten"
+
+#~ msgid "South Luxembourg (Esch, Dudelange, Differdange)"
+#~ msgstr "Süd-Luxemburg (Esch, Dudelange, Differdange)"
+
+#~ msgid "Differdange"
+#~ msgstr "Differdange"
+
+#~ msgid "Dudelange"
+#~ msgstr "Dudelange"
 
 #~ msgid ""
 #~ "Zertifizierter Baumkontrolleur und Baumpfleger in Luxemburg. "

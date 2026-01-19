@@ -309,7 +309,7 @@ def appinsights_head(context):
     enableAutoRouteTracking: true,
     enableCorsCorrelation: true,
     autoTrackPageVisitTime: true,
-    disablePageUnloadEvents: true
+    disablePageUnloadEvents: ["unload"]
   }}
 }});
 </script>'''
