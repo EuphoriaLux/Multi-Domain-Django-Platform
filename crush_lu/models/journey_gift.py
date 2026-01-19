@@ -272,9 +272,13 @@ class JourneyGift(models.Model):
         """Full URL for QR code (used in QR generation)"""
         from django.contrib.sites.models import Site
         try:
-            site = Site.objects.get(domain__contains='crush.lu')
-            domain = site.domain
-        except Site.DoesNotExist:
+            # Prefer exact match 'crush.lu' over subdomains like 'test.crush.lu'
+            site = Site.objects.filter(domain='crush.lu').first()
+            if not site:
+                # Fall back to any crush.lu domain
+                site = Site.objects.filter(domain__endswith='crush.lu').first()
+            domain = site.domain if site else 'crush.lu'
+        except Exception:
             domain = 'crush.lu'
 
         return f"https://{domain}/journey/gift/{self.gift_code}/"

@@ -9,11 +9,18 @@ from django.core.mail import EmailMessage
 
 def _normalize_domain(domain):
     """
-    Normalize domain by removing www. prefix.
-    This allows a single config entry to handle both www and non-www variants.
+    Normalize domain by removing www. and test. prefixes.
+    This allows a single config entry to handle www, test, and non-prefixed variants.
+    Examples:
+        www.crush.lu -> crush.lu
+        test.crush.lu -> crush.lu
+        staging.crush.lu -> crush.lu
     """
-    if domain.startswith('www.'):
-        return domain[4:]
+    # Strip common prefixes
+    prefixes = ['www.', 'test.', 'staging.', 'dev.']
+    for prefix in prefixes:
+        if domain.startswith(prefix):
+            return domain[len(prefix):]
     return domain
 
 
@@ -26,7 +33,7 @@ DOMAIN_EMAIL_CONFIG = {
         'GRAPH_TENANT_ID': os.getenv('GRAPH_TENANT_ID'),
         'GRAPH_CLIENT_ID': os.getenv('GRAPH_CLIENT_ID'),
         'GRAPH_CLIENT_SECRET': os.getenv('GRAPH_CLIENT_SECRET'),
-        'DEFAULT_FROM_EMAIL': os.getenv('CRUSH_DEFAULT_FROM_EMAIL', 'info@crush.lu'),
+        'DEFAULT_FROM_EMAIL': os.getenv('CRUSH_DEFAULT_FROM_EMAIL', 'noreply@crush.lu'),
     },
     'powerup.lu': {
         'USE_GRAPH_API': True,
