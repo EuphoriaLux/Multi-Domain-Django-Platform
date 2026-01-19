@@ -1,3 +1,6 @@
+import os
+import uuid
+
 from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import User
@@ -8,6 +11,51 @@ from .profiles import SpecialUserExperience, get_crush_photo_storage
 # Callable used by all file fields - Django calls this when needed
 # This prevents migration drift between environments
 crush_photo_storage = get_crush_photo_storage
+
+
+def _get_journey_user_path(instance):
+    """
+    Get the user-specific base path for journey rewards.
+    If linked_user exists: users/{user_id}/journey_rewards/
+    Otherwise: journey_rewards/experiences/{experience_id}/
+    """
+    experience = instance.chapter.journey.special_experience
+    if experience.linked_user_id:
+        return f'users/{experience.linked_user_id}/journey_rewards'
+    return f'journey_rewards/experiences/{experience.id}'
+
+
+def journey_reward_photo_path(instance, filename):
+    """
+    Generate user-specific upload path for journey reward photos.
+    Path: users/{user_id}/journey_rewards/photos/{uuid}.{ext}
+    """
+    ext = os.path.splitext(filename)[1].lower()
+    unique_filename = f"{uuid.uuid4().hex}{ext}"
+    base_path = _get_journey_user_path(instance)
+    return f'{base_path}/photos/{unique_filename}'
+
+
+def journey_reward_audio_path(instance, filename):
+    """
+    Generate user-specific upload path for journey reward audio files.
+    Path: users/{user_id}/journey_rewards/audio/{uuid}.{ext}
+    """
+    ext = os.path.splitext(filename)[1].lower()
+    unique_filename = f"{uuid.uuid4().hex}{ext}"
+    base_path = _get_journey_user_path(instance)
+    return f'{base_path}/audio/{unique_filename}'
+
+
+def journey_reward_video_path(instance, filename):
+    """
+    Generate user-specific upload path for journey reward video files.
+    Path: users/{user_id}/journey_rewards/video/{uuid}.{ext}
+    """
+    ext = os.path.splitext(filename)[1].lower()
+    unique_filename = f"{uuid.uuid4().hex}{ext}"
+    base_path = _get_journey_user_path(instance)
+    return f'{base_path}/video/{unique_filename}'
 
 
 class JourneyConfiguration(models.Model):
@@ -283,20 +331,21 @@ class JourneyReward(models.Model):
     )
 
     # Media uploads (use existing Crush.lu private storage)
+    # Files are organized by SpecialUserExperience ID for user-specific storage
     photo = models.ImageField(
-        upload_to='journey_rewards/',
+        upload_to=journey_reward_photo_path,
         blank=True,
         null=True,
         storage=crush_photo_storage
     )
     audio_file = models.FileField(
-        upload_to='journey_rewards/audio/',
+        upload_to=journey_reward_audio_path,
         blank=True,
         null=True,
         storage=crush_photo_storage
     )
     video_file = models.FileField(
-        upload_to='journey_rewards/video/',
+        upload_to=journey_reward_video_path,
         blank=True,
         null=True,
         storage=crush_photo_storage

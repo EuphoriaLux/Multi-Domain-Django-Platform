@@ -309,11 +309,22 @@ let scrambledWords = '{{ challenge.options.scrambled }}'.split(/\s+/).filter(w =
 // Shuffle function - shuffles words, not individual letters
 if (shuffleBtn) {
     shuffleBtn.addEventListener('click', function() {
-        // Fisher-Yates shuffle for words
-        for (let i = scrambledWords.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [scrambledWords[i], scrambledWords[j]] = [scrambledWords[j], scrambledWords[i]];
-        }
+        const currentOrder = scrambledWords.join(' ');
+        let attempts = 0;
+        let newOrder;
+
+        // Keep shuffling until we get a different arrangement (or max 50 attempts)
+        do {
+            newOrder = [...scrambledWords];
+            // Fisher-Yates shuffle for words
+            for (let i = newOrder.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newOrder[i], newOrder[j]] = [newOrder[j], newOrder[i]];
+            }
+            attempts++;
+        } while (newOrder.join(' ') === currentOrder && attempts < 50);
+
+        scrambledWords = newOrder;
         // Join words with a bullet separator for clear visual separation
         scrambledDisplay.textContent = scrambledWords.join('  •  ');
 

@@ -854,19 +854,28 @@ def send_journey_gift_notification(gift, request):
     Returns:
         int: Number of emails sent (1 on success, 0 if no email or failure)
     """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
     if not gift.recipient_email:
         logger.info(f"No recipient email for gift {gift.gift_code}, skipping notification")
         return 0
 
+    # Get sender's preferred language (fall back to English)
+    sender_lang = 'en'
+    try:
+        if hasattr(gift.sender, 'crushprofile') and gift.sender.crushprofile:
+            sender_lang = gift.sender.crushprofile.preferred_language or 'en'
+    except Exception:
+        pass
+
     # Get sender name
     sender_name = gift.sender.first_name or gift.sender.username
 
-    subject = f"{sender_name} has created a magical journey for you!"
-
-    # Build claim URL - gift landing page
+    # Build claim URL - gift landing page with language prefix
     protocol = 'https' if request.is_secure() else 'http'
     domain = request.get_host()
-    claim_url = f"{protocol}://{domain}/en/journey/gift/{gift.gift_code}/"
+    claim_url = f"{protocol}://{domain}/{sender_lang}/journey/gift/{gift.gift_code}/"
 
     # Get QR code URL (may be None if not generated yet)
     qr_code_url = None
@@ -886,13 +895,16 @@ def send_journey_gift_notification(gift, request):
         'claim_url': claim_url,
         'qr_code_url': qr_code_url,
         'gift_code': gift.gift_code,
-        'home_url': f'{protocol}://{domain}/en/',
-        'about_url': f'{protocol}://{domain}/en/about/',
-        'events_url': f'{protocol}://{domain}/en/events/',
+        'home_url': f'{protocol}://{domain}/{sender_lang}/',
+        'about_url': f'{protocol}://{domain}/{sender_lang}/about/',
+        'events_url': f'{protocol}://{domain}/{sender_lang}/events/',
     }
 
-    html_message = render_to_string('crush_lu/emails/journey_gift_notification.html', context)
-    plain_message = strip_tags(html_message)
+    # Render email template in sender's preferred language
+    with translation.override(sender_lang):
+        subject = _("{sender_name} has created a magical journey for you!").format(sender_name=sender_name)
+        html_message = render_to_string('crush_lu/emails/journey_gift_notification.html', context)
+        plain_message = strip_tags(html_message)
 
     try:
         return send_domain_email(

@@ -33,6 +33,19 @@
                     </div>
                 </div>
 
+                <div class="mb-4">
+                    <p class="flex items-center gap-2 flex-wrap">
+                        <strong>Event Languages:</strong>
+                        {% for lang in profile.event_languages %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                                {% if lang == 'en' %}🇬🇧 English{% elif lang == 'de' %}🇩🇪 Deutsch{% elif lang == 'fr' %}🇫🇷 Français{% elif lang == 'lu' %}🇱🇺 Lëtzebuergesch{% endif %}
+                            </span>
+                        {% empty %}
+                            <span class="text-gray-400 text-sm italic">Not set</span>
+                        {% endfor %}
+                    </p>
+                </div>
+
                 <hr class="my-4 border-gray-200">
 
                 <h6 class="font-semibold mb-2">Bio</h6>

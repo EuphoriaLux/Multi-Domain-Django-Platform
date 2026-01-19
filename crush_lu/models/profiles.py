@@ -394,6 +394,19 @@ class CrushProfile(models.Model):
         help_text=_("Preferred language for emails and notifications")
     )
 
+    # Event Languages (languages user can speak at in-person events)
+    EVENT_LANGUAGE_CHOICES = [
+        ('en', _('English')),
+        ('de', _('Deutsch')),
+        ('fr', _('Français')),
+        ('lu', _('Lëtzebuergesch')),
+    ]
+    event_languages = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=_("Languages the user can speak at in-person events")
+    )
+
     # Wallet passes
     apple_pass_serial = models.CharField(
         max_length=64,

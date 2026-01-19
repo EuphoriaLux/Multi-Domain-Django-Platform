@@ -779,6 +779,48 @@
                     </div>
                 </div>
 
+                <!-- Event Languages -->
+                <div class="border-t pt-6 mt-6">
+                    <h5 class="font-semibold mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+                        </svg>
+                        {% trans "Languages for Events" %}
+                    </h5>
+                    <p class="text-sm text-gray-500 mb-4">{% trans "Which languages can you speak at in-person events?" %}</p>
+
+                    <div class="flex flex-wrap gap-3">
+                        <label class="cursor-pointer">
+                            <input type="checkbox" name="event_languages" value="en" class="peer hidden"
+                                   {% if 'en' in profile.event_languages %}checked{% endif %}>
+                            <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 bg-white transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:text-purple-700 hover:border-purple-300">
+                                🇬🇧 {% trans "English" %}
+                            </span>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="checkbox" name="event_languages" value="de" class="peer hidden"
+                                   {% if 'de' in profile.event_languages %}checked{% endif %}>
+                            <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 bg-white transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:text-purple-700 hover:border-purple-300">
+                                🇩🇪 {% trans "Deutsch" %}
+                            </span>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="checkbox" name="event_languages" value="fr" class="peer hidden"
+                                   {% if 'fr' in profile.event_languages %}checked{% endif %}>
+                            <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 bg-white transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:text-purple-700 hover:border-purple-300">
+                                🇫🇷 {% trans "Français" %}
+                            </span>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="checkbox" name="event_languages" value="lu" class="peer hidden"
+                                   {% if 'lu' in profile.event_languages %}checked{% endif %}>
+                            <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 bg-white transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:text-purple-700 hover:border-purple-300">
+                                🇱🇺 {% trans "Lëtzebuergesch" %}
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
                 <!-- Navigation Buttons -->
                 <div class="flex gap-4 mt-6">
                     <button type="button" @click="prevStep"

@@ -49,6 +49,8 @@ urlpatterns = base_patterns + api_patterns + [
     path('sw-workbox.js', views.service_worker_view, name='pwa_service_worker'),
     path('manifest.json', views.manifest_view, name='pwa_manifest'),
     path('offline/', views.offline_view, name='pwa_offline'),
+    # Android App Links verification for PWA
+    path('.well-known/assetlinks.json', views.assetlinks_view, name='assetlinks'),
 
     # Phone verification API (language-neutral - called by JavaScript with hardcoded paths)
     path('api/phone/mark-verified/', views_phone_verification.mark_phone_verified, name='api_phone_mark_verified'),

@@ -335,18 +335,49 @@
     </div>
 </div>
 
+<!-- Event Languages Section -->
+<div class="section-card mb-4">
+    <h5 class="section-title">
+        {% include "shared/icons/globe-alt.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+        Languages for Events
+    </h5>
+    <p class="text-gray-500 text-sm mb-3">Which languages can you speak at in-person events?</p>
+
+    <div class="flex flex-wrap gap-3">
+        {% for value, label in form.event_languages.field.choices %}
+        <label class="event-language-pill cursor-pointer">
+            <input type="checkbox"
+                   name="{{ form.event_languages.html_name }}"
+                   value="{{ value }}"
+                   class="peer hidden"
+                   {% if value in profile.event_languages %}checked{% endif %}>
+            <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 bg-white transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:text-purple-700 hover:border-purple-300">
+                {% if value == 'en' %}🇬🇧{% elif value == 'de' %}🇩🇪{% elif value == 'fr' %}🇫🇷{% elif value == 'lu' %}🇱🇺{% endif %}
+                {{ label }}
+            </span>
+        </label>
+        {% endfor %}
+    </div>
+
+    {% if form.event_languages.errors %}
+        <div class="text-red-600 text-sm mt-2">{{ form.event_languages.errors.0 }}</div>
+    {% endif %}
+</div>
+
 <!-- Action Buttons -->
 <div class="action-buttons-container action-buttons-sticky">
     <a href="{% url 'crush_lu:dashboard' %}" class="btn-cancel">
         {% include "shared/icons/x-mark.html" with class="w-5 h-5" %}
         Cancel
     </a>
-    <button type="submit" class="btn-crush-primary relative px-8 py-3 text-lg inline-flex items-center justify-center gap-2">
-        <span id="submit-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-crush-purple tw-rounded-full">
-            {% include "shared/icons/loading.html" with class="w-5 h-5 tw-animate-spin" %} Saving...
+    <button type="submit" class="btn-crush-primary relative gap-2">
+        <span id="submit-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink">
+            {% include "shared/icons/loading.html" with class="w-5 h-5 animate-spin" %}
+            <span>Saving...</span>
         </span>
-        <span class="button-text">
-            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Save Changes
+        <span class="button-text inline-flex items-center gap-2">
+            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+            <span>Save Changes</span>
         </span>
     </button>
 </div>

@@ -20,6 +20,32 @@
                 You must complete a screening call with <strong>{{ profile.user.first_name }}</strong> before approving this profile.
             </p>
             <p class="text-sm mb-3"><strong>Phone:</strong> {{ profile.phone_number }}</p>
+            <p class="text-sm mb-3 flex items-center gap-2">
+                <strong>Preferred Language:</strong>
+                {% if profile.preferred_language == 'de' %}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-full text-sm font-medium">
+                        🇩🇪 Deutsch
+                    </span>
+                {% elif profile.preferred_language == 'fr' %}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-full text-sm font-medium">
+                        🇫🇷 Français
+                    </span>
+                {% else %}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-full text-sm font-medium">
+                        🇬🇧 English
+                    </span>
+                {% endif %}
+            </p>
+            <p class="text-sm mb-3 flex items-center gap-2 flex-wrap">
+                <strong>Event Languages:</strong>
+                {% for lang in profile.event_languages %}
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                        {% if lang == 'en' %}🇬🇧 English{% elif lang == 'de' %}🇩🇪 Deutsch{% elif lang == 'fr' %}🇫🇷 Français{% elif lang == 'lu' %}🇱🇺 Lëtzebuergesch{% endif %}
+                    </span>
+                {% empty %}
+                    <span class="text-gray-400 text-sm italic">Not set</span>
+                {% endfor %}
+            </p>
             <form hx-post="{% url 'crush_lu:coach_mark_review_call_complete' submission.id %}"
                   hx-target="#screening-call-section"
                   hx-swap="outerHTML">

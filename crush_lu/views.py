@@ -3778,6 +3778,34 @@ def manifest_view(request):
     return response
 
 
+def assetlinks_view(request):
+    """
+    Serve assetlinks.json for Android App Links verification.
+
+    This enables Android to verify that Crush.lu PWA can handle all URLs
+    from the crush.lu domain, enabling a better OAuth experience in installed PWAs.
+
+    See: https://developer.android.com/training/app-links/verify-android-applinks
+    """
+    from django.http import JsonResponse
+
+    assetlinks = [
+        {
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {
+                "namespace": "web",
+                "site": "https://crush.lu"
+            }
+        }
+    ]
+
+    response = JsonResponse(assetlinks, safe=False)
+    response['Content-Type'] = 'application/json'
+    # Allow caching for 24 hours
+    response['Cache-Control'] = 'public, max-age=86400'
+    return response
+
+
 @login_required
 def pwa_debug_view(request):
     """

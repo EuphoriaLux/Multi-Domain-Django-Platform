@@ -170,6 +170,15 @@ class CrushProfileForm(forms.ModelForm):
         help_text=_('Required')
     )
 
+    # Event languages (multi-select checkbox field for languages spoken at events)
+    event_languages = forms.MultipleChoiceField(
+        choices=CrushProfile.EVENT_LANGUAGE_CHOICES,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'event-language-checkbox'}),
+        required=False,
+        label=_('Languages for Events'),
+        help_text=_('Which languages can you speak at in-person events?')
+    )
+
     class Meta:
         model = CrushProfile
         fields = [
@@ -186,8 +195,28 @@ class CrushProfileForm(forms.ModelForm):
             'show_full_name',
             'show_exact_age',
             'blur_photos',
+            'event_languages',
         ]
         # Widgets are defined in field overrides above
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Set initial value for event_languages from JSONField
+        if self.instance and self.instance.pk and self.instance.event_languages:
+            self.initial['event_languages'] = self.instance.event_languages
+
+    def clean_event_languages(self):
+        """Ensure event_languages is stored as a list for JSON serialization"""
+        languages = self.cleaned_data.get('event_languages', [])
+        # Validate that all selected languages are valid choices
+        valid_codes = [code for code, _ in CrushProfile.EVENT_LANGUAGE_CHOICES]
+        for lang in languages:
+            if lang not in valid_codes:
+                raise forms.ValidationError(
+                    _("Invalid language selection: %(lang)s"),
+                    params={'lang': lang}
+                )
+        return list(languages)
 
     def clean_date_of_birth(self):
         dob = self.cleaned_data.get('date_of_birth')

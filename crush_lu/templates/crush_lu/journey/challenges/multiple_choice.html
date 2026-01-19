@@ -84,6 +84,18 @@
         color: white;
     }
 
+    .option-card.incorrect {
+        background: rgba(231, 76, 60, 0.3);
+        border-color: #e74c3c;
+        animation: shake 0.5s ease;
+    }
+
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-10px); }
+        75% { transform: translateX(10px); }
+    }
+
     .option-text {
         font-size: 1.1rem;
         flex: 1;
@@ -127,6 +139,12 @@
     .message-box.success {
         background: rgba(46, 204, 113, 0.2);
         border: 2px solid rgba(46, 204, 113, 0.5);
+        color: white;
+    }
+
+    .message-box.error {
+        background: rgba(231, 76, 60, 0.2);
+        border: 2px solid rgba(231, 76, 60, 0.5);
         color: white;
     }
 
@@ -289,9 +307,33 @@ document.addEventListener('DOMContentLoaded', function() {
                 submitBtn.style.display = 'none';
 
             } else {
-                // Wrong answer (shouldn't happen with proper admin setup or in Chapter 2)
+                // Wrong answer - show error message and allow retry
+                messageBox.innerHTML = `
+                    <div class="text-center">
+                        <div class="text-3xl mb-2">🤔</div>
+                        <div class="font-semibold">{% trans "Not quite right!" %}</div>
+                        <div class="text-sm mt-2 opacity-80">{% trans "Try a different answer" %}</div>
+                    </div>
+                `;
+                messageBox.className = 'message-box error active';
+
+                // Clear selection visually
+                const selectedCard = document.querySelector('.option-card.selected');
+                if (selectedCard) {
+                    selectedCard.classList.remove('selected');
+                    selectedCard.classList.add('incorrect');
+                    setTimeout(() => selectedCard.classList.remove('incorrect'), 1000);
+                }
+                selectedOption = null;
+
+                // Re-enable button for retry
                 submitBtn.removeAttribute('disabled');
-                submitBtn.innerHTML = `Submit Answer {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}`;
+                submitBtn.innerHTML = `{% trans "Try Again" %} {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}`;
+
+                // Hide message after 3 seconds
+                setTimeout(() => {
+                    messageBox.className = 'message-box error';
+                }, 3000);
             }
         })
         .catch(error => {

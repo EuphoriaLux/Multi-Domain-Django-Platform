@@ -7,9 +7,17 @@ Content automatically switches based on URL language prefix (/en/, /de/, /fr/).
 
 Usage:
     python manage.py create_wonderland_journey --first-name Marie --last-name Dupont
+
+    # With reward images:
+    python manage.py create_wonderland_journey --first-name Marie --last-name Dupont \\
+        --chapter1-image /path/to/chapter1_photo.jpg \\
+        --chapter3-image /path/to/chapter3_slideshow.jpg \\
+        --chapter4-audio /path/to/voice_message.mp3
 """
 
+import os
 from django.core.management.base import BaseCommand
+from django.core.files import File
 from crush_lu.models import (
     SpecialUserExperience, JourneyConfiguration, JourneyChapter,
     JourneyChallenge, JourneyReward
@@ -45,6 +53,27 @@ class Command(BaseCommand):
             type=str,
             default='Cafe de Paris',
             help='Location where you first met'
+        )
+        # Reward media file arguments
+        parser.add_argument(
+            '--chapter1-image',
+            type=str,
+            help='Path to photo for Chapter 1 reward (Photo Puzzle)'
+        )
+        parser.add_argument(
+            '--chapter3-image',
+            type=str,
+            help='Path to photo for Chapter 3 reward (Photo Slideshow)'
+        )
+        parser.add_argument(
+            '--chapter4-audio',
+            type=str,
+            help='Path to audio file for Chapter 4 reward (Voice Message)'
+        )
+        parser.add_argument(
+            '--chapter5-image',
+            type=str,
+            help='Path to photo for Chapter 5 reward (Future Letter - optional image)'
         )
 
     def get_text(self, lang, key, fallback_to_en=True, **kwargs):
@@ -93,11 +122,62 @@ class Command(BaseCommand):
         chapter_key = f'chapter_{chapter_num}'
         return content.get(chapter_key, JOURNEY_CONTENT['en'].get(chapter_key, {}))
 
+    def upload_media_to_reward(self, reward, file_path, media_type='photo'):
+        """
+        Upload a media file (photo, audio, or video) to a JourneyReward.
+
+        Args:
+            reward: JourneyReward instance
+            file_path: Path to the file on disk
+            media_type: 'photo', 'audio', or 'video'
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not file_path:
+            return False
+
+        if not os.path.exists(file_path):
+            self.stdout.write(self.style.WARNING(
+                f'  [WARN] File not found: {file_path}'
+            ))
+            return False
+
+        try:
+            with open(file_path, 'rb') as f:
+                file_obj = File(f)
+                filename = os.path.basename(file_path)
+
+                if media_type == 'photo':
+                    reward.photo.save(filename, file_obj, save=True)
+                elif media_type == 'audio':
+                    reward.audio_file.save(filename, file_obj, save=True)
+                elif media_type == 'video':
+                    reward.video_file.save(filename, file_obj, save=True)
+
+            self.stdout.write(self.style.SUCCESS(
+                f'  [OK] Uploaded {media_type}: {filename}'
+            ))
+            return True
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(
+                f'  [ERROR] Failed to upload {media_type}: {e}'
+            ))
+            return False
+
     def handle(self, *args, **options):
         first_name = options['first_name']
         last_name = options['last_name']
         date_met_str = options['date_met']
         location_met = options['location_met']
+
+        # Media file options
+        media_options = {
+            'chapter1_image': options.get('chapter1_image'),
+            'chapter3_image': options.get('chapter3_image'),
+            'chapter4_audio': options.get('chapter4_audio'),
+            'chapter5_image': options.get('chapter5_image'),
+        }
 
         # Parse date
         date_met = date.fromisoformat(date_met_str)
@@ -183,7 +263,12 @@ class Command(BaseCommand):
             journey.save()
 
         # 3. Create all 6 chapters with all language content
-        self.create_all_chapters(journey, date_met, location_met, first_name)
+        self.create_all_chapters(journey, date_met, location_met, first_name, media_options)
+
+        # Summary of media uploads
+        uploaded_count = sum(1 for v in media_options.values() if v)
+        if uploaded_count > 0:
+            self.stdout.write(f'\nMedia files provided: {uploaded_count}')
 
         self.stdout.write(self.style.SUCCESS(
             f'\nJourney creation complete!\n'
@@ -192,28 +277,30 @@ class Command(BaseCommand):
             f'Ready to use - language switches automatically based on URL!\n'
         ))
 
-    def create_all_chapters(self, journey, date_met, location_met, first_name):
+    def create_all_chapters(self, journey, date_met, location_met, first_name, media_options=None):
         """Create all 6 chapters with their challenges and rewards"""
+        if media_options is None:
+            media_options = {}
 
         # CHAPTER 1: Down the Rabbit Hole
-        self.create_chapter_1(journey, date_met)
+        self.create_chapter_1(journey, date_met, media_options.get('chapter1_image'))
 
         # CHAPTER 2: Garden of Rare Flowers
         self.create_chapter_2(journey, first_name)
 
         # CHAPTER 3: Gallery of Moments
-        self.create_chapter_3(journey, location_met)
+        self.create_chapter_3(journey, location_met, media_options.get('chapter3_image'))
 
         # CHAPTER 4: Carnival of Courage
-        self.create_chapter_4(journey)
+        self.create_chapter_4(journey, media_options.get('chapter4_audio'))
 
         # CHAPTER 5: Starlit Observatory
-        self.create_chapter_5(journey, first_name)
+        self.create_chapter_5(journey, first_name, media_options.get('chapter5_image'))
 
         # CHAPTER 6: Door to Tomorrow
         self.create_chapter_6(journey, first_name)
 
-    def create_chapter_1(self, journey, date_met):
+    def create_chapter_1(self, journey, date_met, chapter1_image=None):
         """Chapter 1: Down the Rabbit Hole - Mystery & Curiosity"""
         self.stdout.write(f'Creating Chapter 1: Down the Rabbit Hole...')
 
@@ -345,7 +432,7 @@ class Command(BaseCommand):
         reward_de = content_de.get('reward', {})
         reward_fr = content_fr.get('reward', {})
 
-        JourneyReward.objects.get_or_create(
+        reward, reward_created = JourneyReward.objects.get_or_create(
             chapter=chapter,
             defaults={
                 'reward_type': reward_en.get('type', 'photo_reveal'),
@@ -358,6 +445,10 @@ class Command(BaseCommand):
                 'puzzle_pieces': 16,
             }
         )
+
+        # Upload photo for the puzzle reward
+        if chapter1_image:
+            self.upload_media_to_reward(reward, chapter1_image, 'photo')
 
     def create_chapter_2(self, journey, first_name):
         """Chapter 2: Garden of Rare Flowers - Appreciation & Uniqueness"""
@@ -434,7 +525,7 @@ class Command(BaseCommand):
             }
         )
 
-    def create_chapter_3(self, journey, location_met):
+    def create_chapter_3(self, journey, location_met, chapter3_image=None):
         """Chapter 3: Gallery of Moments - Shared Memories"""
         self.stdout.write(f'Creating Chapter 3: Gallery of Moments...')
 
@@ -514,7 +605,7 @@ class Command(BaseCommand):
         reward_de = content_de.get('reward', {})
         reward_fr = content_fr.get('reward', {})
 
-        JourneyReward.objects.get_or_create(
+        reward, reward_created = JourneyReward.objects.get_or_create(
             chapter=chapter,
             defaults={
                 'reward_type': reward_en.get('type', 'photo_slideshow'),
@@ -527,7 +618,11 @@ class Command(BaseCommand):
             }
         )
 
-    def create_chapter_4(self, journey):
+        # Upload photo for the slideshow reward
+        if chapter3_image:
+            self.upload_media_to_reward(reward, chapter3_image, 'photo')
+
+    def create_chapter_4(self, journey, chapter4_audio=None):
         """Chapter 4: Carnival of Courage - Vulnerability & Truth"""
         self.stdout.write(f'Creating Chapter 4: Carnival of Courage...')
 
@@ -609,7 +704,7 @@ class Command(BaseCommand):
         reward_de = content_de.get('reward', {})
         reward_fr = content_fr.get('reward', {})
 
-        JourneyReward.objects.get_or_create(
+        reward, reward_created = JourneyReward.objects.get_or_create(
             chapter=chapter,
             defaults={
                 'reward_type': reward_en.get('type', 'voice_message'),
@@ -622,7 +717,11 @@ class Command(BaseCommand):
             }
         )
 
-    def create_chapter_5(self, journey, first_name):
+        # Upload audio for the voice message reward
+        if chapter4_audio:
+            self.upload_media_to_reward(reward, chapter4_audio, 'audio')
+
+    def create_chapter_5(self, journey, first_name, chapter5_image=None):
         """Chapter 5: Starlit Observatory - Dreams & Future"""
         self.stdout.write(f'Creating Chapter 5: Starlit Observatory...')
 
@@ -693,7 +792,7 @@ class Command(BaseCommand):
         reward_de = content_de.get('reward', {})
         reward_fr = content_fr.get('reward', {})
 
-        JourneyReward.objects.get_or_create(
+        reward, reward_created = JourneyReward.objects.get_or_create(
             chapter=chapter,
             defaults={
                 'reward_type': reward_en.get('type', 'future_letter'),
@@ -705,6 +804,10 @@ class Command(BaseCommand):
                 'message_fr': reward_fr.get('message', '').format(first_name=first_name),
             }
         )
+
+        # Upload optional image for the future letter reward
+        if chapter5_image:
+            self.upload_media_to_reward(reward, chapter5_image, 'photo')
 
     def create_chapter_6(self, journey, first_name):
         """Chapter 6: Door to Tomorrow - The Reveal & Next Step"""
@@ -779,7 +882,7 @@ class Command(BaseCommand):
     def get_german_month(self, month_num):
         """Get German month name"""
         months = {
-            1: 'Januar', 2: 'Februar', 3: 'Marz', 4: 'April',
+            1: 'Januar', 2: 'Februar', 3: 'März', 4: 'April',
             5: 'Mai', 6: 'Juni', 7: 'Juli', 8: 'August',
             9: 'September', 10: 'Oktober', 11: 'November', 12: 'Dezember'
         }
@@ -788,8 +891,8 @@ class Command(BaseCommand):
     def get_french_month(self, month_num):
         """Get French month name"""
         months = {
-            1: 'janvier', 2: 'fevrier', 3: 'mars', 4: 'avril',
-            5: 'mai', 6: 'juin', 7: 'juillet', 8: 'aout',
-            9: 'septembre', 10: 'octobre', 11: 'novembre', 12: 'decembre'
+            1: 'janvier', 2: 'février', 3: 'mars', 4: 'avril',
+            5: 'mai', 6: 'juin', 7: 'juillet', 8: 'août',
+            9: 'septembre', 10: 'octobre', 11: 'novembre', 12: 'décembre'
         }
         return months.get(month_num, '')
