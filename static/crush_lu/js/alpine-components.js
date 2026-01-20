@@ -3451,36 +3451,31 @@ document.addEventListener('alpine:init', function() {
             hintUrl: '',
             chapterUrl: '',
             hintsUsed: [],
-
-            // CSP-safe computed getters (NEVER use inline negation in templates)
-            get hasAnswer() { return this.answer.trim().length > 0; },
-            get canSubmit() { return this.hasAnswer && !this.isSubmitting; },
-            get showFeedback() { return this.feedback !== '' || this.feedbackHtml !== ''; },
-            get isSuccess() { return this.feedbackType === 'success'; },
-            get isNotSuccess() { return !this.isSuccess; },
-            get isError() { return this.feedbackType === 'error'; },
-            get isNotError() { return !this.isError; },
-            get isNotSubmitting() { return !this.isSubmitting; },
-            get submitBtnDisabled() { return this.canSubmit ? undefined : true; },
-            get feedbackClass() {
-                if (this.feedbackType === 'success') return 'journey-message-success p-6 text-center';
-                if (this.feedbackType === 'error') return 'journey-message-error p-6 text-center';
-                return 'hidden';
-            },
-
-            // CSP-safe hint getters (for hint_section.html partial)
-            get hint1Used() { return this.hintsUsed.indexOf(1) !== -1; },
-            get hint2Used() { return this.hintsUsed.indexOf(2) !== -1; },
-            get hint3Used() { return this.hintsUsed.indexOf(3) !== -1; },
-            get hint1NotUsed() { return !this.hint1Used; },
-            get hint2NotUsed() { return !this.hint2Used; },
-            get hint3NotUsed() { return !this.hint3Used; },
-            get hint1DisabledAttr() { return this.hint1Used ? true : undefined; },
-            get hint2DisabledAttr() { return this.hint2Used ? true : undefined; },
-            get hint3DisabledAttr() { return this.hint3Used ? true : undefined; },
-            get hint1BtnClass() { return this.hint1Used ? 'opacity-50 cursor-not-allowed' : ''; },
-            get hint2BtnClass() { return this.hint2Used ? 'opacity-50 cursor-not-allowed' : ''; },
-            get hint3BtnClass() { return this.hint3Used ? 'opacity-50 cursor-not-allowed' : ''; },
+            // Date input support
+            inputType: '',
+            dateFormat: 'DD/MM/YYYY',
+            dateValue: '',
+            isDateInput: false,
+            isTextInput: true,
+            // CSP-safe: plain data properties instead of getters
+            submitBtnDisabled: true,
+            showFeedback: false,
+            isSuccess: false,
+            isNotSuccess: true,
+            isError: false,
+            isNotError: true,
+            isNotSubmitting: true,
+            feedbackClass: 'hidden',
+            // Hint state properties
+            hint1Used: false,
+            hint2Used: false,
+            hint3Used: false,
+            hint1NotUsed: true,
+            hint2NotUsed: true,
+            hint3NotUsed: true,
+            hint1BtnClass: '',
+            hint2BtnClass: '',
+            hint3BtnClass: '',
 
             init: function() {
                 var el = this.$el;
@@ -3489,13 +3484,65 @@ document.addEventListener('alpine:init', function() {
                 this.hintUrl = el.dataset.hintUrl || '';
                 this.chapterUrl = el.dataset.chapterUrl || '';
                 this.currentPoints = parseInt(el.dataset.initialPoints, 10) || 0;
+
+                // Date input configuration
+                this.inputType = el.dataset.inputType || '';
+                this.dateFormat = el.dataset.dateFormat || 'DD/MM/YYYY';
+                this.isDateInput = this.inputType === 'date';
+                this.isTextInput = !this.isDateInput;
+
+                // CSP-safe: use $watch to update derived state
+                var self = this;
+                this.$watch('answer', function() { self._updateSubmitState(); });
+                this.$watch('isSubmitting', function() { self._updateSubmitState(); });
+                this.$watch('feedback', function() { self._updateFeedbackState(); });
+                this.$watch('feedbackHtml', function() { self._updateFeedbackState(); });
+                this.$watch('feedbackType', function() { self._updateFeedbackState(); });
+                this.$watch('hintsUsed', function() { self._updateHintState(); });
+            },
+
+            // CSP-safe: update derived state manually
+            _updateSubmitState: function() {
+                var hasAnswer = this.answer.trim().length > 0;
+                var canSubmit = hasAnswer && !this.isSubmitting;
+                this.submitBtnDisabled = !canSubmit;
+                this.isNotSubmitting = !this.isSubmitting;
+            },
+
+            _updateFeedbackState: function() {
+                this.showFeedback = this.feedback !== '' || this.feedbackHtml !== '';
+                this.isSuccess = this.feedbackType === 'success';
+                this.isNotSuccess = !this.isSuccess;
+                this.isError = this.feedbackType === 'error';
+                this.isNotError = !this.isError;
+                if (this.feedbackType === 'success') {
+                    this.feedbackClass = 'journey-message-success p-6 text-center';
+                } else if (this.feedbackType === 'error') {
+                    this.feedbackClass = 'journey-message-error p-6 text-center';
+                } else {
+                    this.feedbackClass = 'hidden';
+                }
+            },
+
+            _updateHintState: function() {
+                this.hint1Used = this.hintsUsed.indexOf(1) !== -1;
+                this.hint2Used = this.hintsUsed.indexOf(2) !== -1;
+                this.hint3Used = this.hintsUsed.indexOf(3) !== -1;
+                this.hint1NotUsed = !this.hint1Used;
+                this.hint2NotUsed = !this.hint2Used;
+                this.hint3NotUsed = !this.hint3Used;
+                this.hint1BtnClass = this.hint1Used ? 'opacity-50 cursor-not-allowed' : '';
+                this.hint2BtnClass = this.hint2Used ? 'opacity-50 cursor-not-allowed' : '';
+                this.hint3BtnClass = this.hint3Used ? 'opacity-50 cursor-not-allowed' : '';
             },
 
             submitAnswer: function() {
-                if (!this.canSubmit) return;
+                // CSP-safe: check submitBtnDisabled directly instead of getter
+                if (this.submitBtnDisabled) return;
 
                 var self = this;
                 this.isSubmitting = true;
+                this._updateSubmitState();
                 this.feedback = '';
                 this.feedbackHtml = '';
 
@@ -3589,9 +3636,68 @@ document.addEventListener('alpine:init', function() {
                 return this.hintsUsed.indexOf(hintNum) !== -1;
             },
 
-            handleKeypress: function(event) {
-                if (event.key === 'Enter') {
+            // CSP-safe: update answer from input event
+            updateAnswer: function(event) {
+                // In CSP mode, get value from event parameter or query DOM
+                if (event && event.target) {
+                    this.answer = event.target.value;
+                } else {
+                    var input = this.$el.querySelector('#answerInput');
+                    if (input) this.answer = input.value;
+                }
+            },
+
+            // CSP-safe: wrapper to unlock hint from button click
+            // Reads hint number and cost from data attributes
+            unlockHintFromButton: function(event) {
+                var button = event && event.currentTarget ? event.currentTarget : null;
+                if (!button) return;
+
+                var hintNum = parseInt(button.dataset.hintNum, 10) || 0;
+                var cost = parseInt(button.dataset.hintCost, 10) || 0;
+                if (hintNum > 0) {
+                    this.unlockHint(hintNum, cost);
+                }
+            },
+
+            // CSP-safe: handle keydown to submit on Enter only
+            handleKeydown: function(event) {
+                if (event && event.key === 'Enter') {
+                    event.preventDefault();
                     this.submitAnswer();
+                }
+            },
+
+            // CSP-safe: update answer from date input
+            // Formats date according to dateFormat setting (DD/MM/YYYY by default)
+            updateDateAnswer: function(event) {
+                if (event && event.target) {
+                    var dateStr = event.target.value; // YYYY-MM-DD format from date input
+                    this.dateValue = dateStr;
+
+                    if (dateStr) {
+                        var parts = dateStr.split('-');
+                        var year = parts[0];
+                        var month = parts[1];
+                        var day = parts[2];
+
+                        // Format according to dateFormat
+                        // Supports: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, MM/DD/YYYY
+                        var format = this.dateFormat.toUpperCase();
+                        var separator = '/';
+                        if (format.indexOf('-') !== -1) separator = '-';
+                        else if (format.indexOf('.') !== -1) separator = '.';
+
+                        if (format.indexOf('MM') < format.indexOf('DD')) {
+                            // MM/DD/YYYY format
+                            this.answer = month + separator + day + separator + year;
+                        } else {
+                            // DD/MM/YYYY format (default)
+                            this.answer = day + separator + month + separator + year;
+                        }
+                    } else {
+                        this.answer = '';
+                    }
                 }
             }
         };
@@ -3625,36 +3731,25 @@ document.addEventListener('alpine:init', function() {
             hintsUsed: [],
             scrambledWords: [],
             displayText: '',
-
-            // CSP-safe computed getters (NEVER use inline negation in templates)
-            get hasAnswer() { return this.answer.trim().length > 0; },
-            get canSubmit() { return this.hasAnswer && !this.isSubmitting; },
-            get showFeedback() { return this.feedback !== '' || this.feedbackHtml !== ''; },
-            get isSuccess() { return this.feedbackType === 'success'; },
-            get isNotSuccess() { return !this.isSuccess; },
-            get isError() { return this.feedbackType === 'error'; },
-            get isNotError() { return !this.isError; },
-            get isNotSubmitting() { return !this.isSubmitting; },
-            get submitBtnDisabled() { return this.canSubmit ? undefined : true; },
-            get feedbackClass() {
-                if (this.feedbackType === 'success') return 'journey-message-success p-6 text-center';
-                if (this.feedbackType === 'error') return 'journey-message-error p-6 text-center';
-                return 'hidden';
-            },
-
-            // CSP-safe hint getters (for hint_section.html partial)
-            get hint1Used() { return this.hintsUsed.indexOf(1) !== -1; },
-            get hint2Used() { return this.hintsUsed.indexOf(2) !== -1; },
-            get hint3Used() { return this.hintsUsed.indexOf(3) !== -1; },
-            get hint1NotUsed() { return !this.hint1Used; },
-            get hint2NotUsed() { return !this.hint2Used; },
-            get hint3NotUsed() { return !this.hint3Used; },
-            get hint1DisabledAttr() { return this.hint1Used ? true : undefined; },
-            get hint2DisabledAttr() { return this.hint2Used ? true : undefined; },
-            get hint3DisabledAttr() { return this.hint3Used ? true : undefined; },
-            get hint1BtnClass() { return this.hint1Used ? 'opacity-50 cursor-not-allowed' : ''; },
-            get hint2BtnClass() { return this.hint2Used ? 'opacity-50 cursor-not-allowed' : ''; },
-            get hint3BtnClass() { return this.hint3Used ? 'opacity-50 cursor-not-allowed' : ''; },
+            // CSP-safe: plain data properties instead of getters
+            submitBtnDisabled: true,
+            showFeedback: false,
+            isSuccess: false,
+            isNotSuccess: true,
+            isError: false,
+            isNotError: true,
+            isNotSubmitting: true,
+            feedbackClass: 'hidden',
+            // Hint state properties
+            hint1Used: false,
+            hint2Used: false,
+            hint3Used: false,
+            hint1NotUsed: true,
+            hint2NotUsed: true,
+            hint3NotUsed: true,
+            hint1BtnClass: '',
+            hint2BtnClass: '',
+            hint3BtnClass: '',
 
             init: function() {
                 var el = this.$el;
@@ -3667,6 +3762,50 @@ document.addEventListener('alpine:init', function() {
                 var scrambled = el.dataset.scrambledWords || '';
                 this.scrambledWords = scrambled.split(/\s+/).filter(function(w) { return w.trim(); });
                 this.displayText = this.scrambledWords.join('  •  ');
+
+                // CSP-safe: use $watch to update derived state
+                var self = this;
+                this.$watch('answer', function() { self._updateSubmitState(); });
+                this.$watch('isSubmitting', function() { self._updateSubmitState(); });
+                this.$watch('feedback', function() { self._updateFeedbackState(); });
+                this.$watch('feedbackHtml', function() { self._updateFeedbackState(); });
+                this.$watch('feedbackType', function() { self._updateFeedbackState(); });
+                this.$watch('hintsUsed', function() { self._updateHintState(); });
+            },
+
+            // CSP-safe: update derived state manually
+            _updateSubmitState: function() {
+                var hasAnswer = this.answer.trim().length > 0;
+                var canSubmit = hasAnswer && !this.isSubmitting;
+                this.submitBtnDisabled = !canSubmit;
+                this.isNotSubmitting = !this.isSubmitting;
+            },
+
+            _updateFeedbackState: function() {
+                this.showFeedback = this.feedback !== '' || this.feedbackHtml !== '';
+                this.isSuccess = this.feedbackType === 'success';
+                this.isNotSuccess = !this.isSuccess;
+                this.isError = this.feedbackType === 'error';
+                this.isNotError = !this.isError;
+                if (this.feedbackType === 'success') {
+                    this.feedbackClass = 'journey-message-success p-6 text-center';
+                } else if (this.feedbackType === 'error') {
+                    this.feedbackClass = 'journey-message-error p-6 text-center';
+                } else {
+                    this.feedbackClass = 'hidden';
+                }
+            },
+
+            _updateHintState: function() {
+                this.hint1Used = this.hintsUsed.indexOf(1) !== -1;
+                this.hint2Used = this.hintsUsed.indexOf(2) !== -1;
+                this.hint3Used = this.hintsUsed.indexOf(3) !== -1;
+                this.hint1NotUsed = !this.hint1Used;
+                this.hint2NotUsed = !this.hint2Used;
+                this.hint3NotUsed = !this.hint3Used;
+                this.hint1BtnClass = this.hint1Used ? 'opacity-50 cursor-not-allowed' : '';
+                this.hint2BtnClass = this.hint2Used ? 'opacity-50 cursor-not-allowed' : '';
+                this.hint3BtnClass = this.hint3Used ? 'opacity-50 cursor-not-allowed' : '';
             },
 
             shuffleWords: function() {
@@ -3691,10 +3830,12 @@ document.addEventListener('alpine:init', function() {
             },
 
             submitAnswer: function() {
-                if (!this.canSubmit) return;
+                // CSP-safe: check submitBtnDisabled directly instead of getter
+                if (this.submitBtnDisabled) return;
 
                 var self = this;
                 this.isSubmitting = true;
+                this._updateSubmitState();
                 this.feedback = '';
                 this.feedbackHtml = '';
 
@@ -3786,8 +3927,33 @@ document.addEventListener('alpine:init', function() {
                 return this.hintsUsed.indexOf(hintNum) !== -1;
             },
 
-            handleKeypress: function(event) {
-                if (event.key === 'Enter') {
+            // CSP-safe: update answer from input event
+            updateAnswer: function(event) {
+                // In CSP mode, get value from event parameter or query DOM
+                if (event && event.target) {
+                    this.answer = event.target.value;
+                } else {
+                    var input = this.$el.querySelector('#answerInput');
+                    if (input) this.answer = input.value;
+                }
+            },
+
+            // CSP-safe: wrapper to unlock hint from button click
+            unlockHintFromButton: function(event) {
+                var button = event && event.currentTarget ? event.currentTarget : null;
+                if (!button) return;
+
+                var hintNum = parseInt(button.dataset.hintNum, 10) || 0;
+                var cost = parseInt(button.dataset.hintCost, 10) || 0;
+                if (hintNum > 0) {
+                    this.unlockHint(hintNum, cost);
+                }
+            },
+
+            // CSP-safe: handle keydown to submit on Enter only
+            handleKeydown: function(event) {
+                if (event && event.key === 'Enter') {
+                    event.preventDefault();
                     this.submitAnswer();
                 }
             }
@@ -3816,23 +3982,17 @@ document.addEventListener('alpine:init', function() {
             submitUrl: '',
             chapterUrl: '',
             chapterNumber: 1,
-
-            // CSP-safe computed getters (NEVER use inline negation in templates)
-            get hasSelection() { return this.selectedOption !== null; },
-            get hasNoSelection() { return !this.hasSelection; },
-            get canSubmit() { return this.hasSelection && !this.isSubmitting; },
-            get showFeedback() { return this.feedback !== '' || this.feedbackHtml !== ''; },
-            get isSuccess() { return this.feedbackType === 'success'; },
-            get isNotSuccess() { return !this.isSuccess; },
-            get isError() { return this.feedbackType === 'error'; },
-            get isNotError() { return !this.isError; },
-            get isNotSubmitting() { return !this.isSubmitting; },
-            get submitBtnDisabled() { return this.canSubmit ? undefined : true; },
-            get feedbackClass() {
-                if (this.feedbackType === 'success') return 'journey-message-success p-6 text-center mt-6';
-                if (this.feedbackType === 'error') return 'journey-message-error p-6 text-center mt-6';
-                return 'hidden mt-6';
-            },
+            // CSP-safe: plain data properties instead of getters
+            hasSelection: false,
+            hasNoSelection: true,
+            submitBtnDisabled: true,
+            showFeedback: false,
+            isSuccess: false,
+            isNotSuccess: true,
+            isError: false,
+            isNotError: true,
+            isNotSubmitting: true,
+            feedbackClass: 'hidden mt-6',
 
             init: function() {
                 var el = this.$el;
@@ -3840,6 +4000,38 @@ document.addEventListener('alpine:init', function() {
                 this.submitUrl = el.dataset.submitUrl || '';
                 this.chapterUrl = el.dataset.chapterUrl || '';
                 this.chapterNumber = parseInt(el.dataset.chapterNumber, 10) || 1;
+
+                // CSP-safe: use $watch to update derived state
+                var self = this;
+                this.$watch('selectedOption', function() { self._updateSubmitState(); });
+                this.$watch('isSubmitting', function() { self._updateSubmitState(); });
+                this.$watch('feedback', function() { self._updateFeedbackState(); });
+                this.$watch('feedbackHtml', function() { self._updateFeedbackState(); });
+                this.$watch('feedbackType', function() { self._updateFeedbackState(); });
+            },
+
+            // CSP-safe: update derived state manually
+            _updateSubmitState: function() {
+                this.hasSelection = this.selectedOption !== null;
+                this.hasNoSelection = !this.hasSelection;
+                var canSubmit = this.hasSelection && !this.isSubmitting;
+                this.submitBtnDisabled = !canSubmit;
+                this.isNotSubmitting = !this.isSubmitting;
+            },
+
+            _updateFeedbackState: function() {
+                this.showFeedback = this.feedback !== '' || this.feedbackHtml !== '';
+                this.isSuccess = this.feedbackType === 'success';
+                this.isNotSuccess = !this.isSuccess;
+                this.isError = this.feedbackType === 'error';
+                this.isNotError = !this.isError;
+                if (this.feedbackType === 'success') {
+                    this.feedbackClass = 'journey-message-success p-6 text-center mt-6';
+                } else if (this.feedbackType === 'error') {
+                    this.feedbackClass = 'journey-message-error p-6 text-center mt-6';
+                } else {
+                    this.feedbackClass = 'hidden mt-6';
+                }
             },
 
             selectOption: function(optionKey, event) {
@@ -3862,10 +4054,12 @@ document.addEventListener('alpine:init', function() {
             },
 
             submitAnswer: function() {
-                if (!this.canSubmit) return;
+                // CSP-safe: check submitBtnDisabled directly instead of getter
+                if (this.submitBtnDisabled) return;
 
                 var self = this;
                 this.isSubmitting = true;
+                this._updateSubmitState();
                 this.feedback = '';
                 this.feedbackHtml = '';
 
@@ -3940,6 +4134,25 @@ document.addEventListener('alpine:init', function() {
                     event.preventDefault();
                     this.selectOption(optionKey, event);
                 }
+            },
+
+            // CSP-safe: select option from element click
+            selectOptionFromElement: function(event) {
+                var element = event && event.currentTarget ? event.currentTarget : null;
+                if (!element) return;
+
+                var optionKey = element.dataset.optionKey || '';
+                if (optionKey) {
+                    this.selectOption(optionKey, event);
+                }
+            },
+
+            // CSP-safe: handle keydown on option cards
+            handleOptionKeydown: function(event) {
+                if (event && (event.key === 'Enter' || event.key === ' ')) {
+                    event.preventDefault();
+                    this.selectOptionFromElement(event);
+                }
             }
         };
     });
@@ -3965,26 +4178,16 @@ document.addEventListener('alpine:init', function() {
             chapterUrl: '',
             sortable: null,
             isTouchDevice: false,
-
-            // CSP-safe computed getters (NEVER use inline negation in templates)
-            get canSubmit() { return !this.isSubmitting; },
-            get showFeedback() { return this.feedback !== '' || this.feedbackHtml !== ''; },
-            get isSuccess() { return this.feedbackType === 'success'; },
-            get isNotSuccess() { return !this.isSuccess; },
-            get isError() { return this.feedbackType === 'error'; },
-            get isNotError() { return !this.isError; },
-            get isNotSubmitting() { return !this.isSubmitting; },
-            get submitBtnDisabled() { return this.canSubmit ? undefined : true; },
-            get feedbackClass() {
-                if (this.feedbackType === 'success') return 'journey-message-success p-6 text-center mt-6';
-                if (this.feedbackType === 'error') return 'journey-message-error p-6 text-center mt-6';
-                return 'hidden mt-6';
-            },
-            get instructionText() {
-                return this.isTouchDevice
-                    ? 'Touch and drag the events to arrange them in chronological order'
-                    : 'Drag and drop the events to arrange them in chronological order';
-            },
+            // CSP-safe: plain data properties instead of getters
+            submitBtnDisabled: false,
+            showFeedback: false,
+            isSuccess: false,
+            isNotSuccess: true,
+            isError: false,
+            isNotError: true,
+            isNotSubmitting: true,
+            feedbackClass: 'hidden mt-6',
+            instructionText: 'Drag and drop the events to arrange them in chronological order',
 
             init: function() {
                 var el = this.$el;
@@ -3995,11 +4198,48 @@ document.addEventListener('alpine:init', function() {
                 this.chapterUrl = el.dataset.chapterUrl || '';
                 this.isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
+                // CSP-safe: update instruction text based on device type
+                this._updateInstructionText();
+
+                // CSP-safe: use $watch to update derived state
+                this.$watch('isSubmitting', function() { self._updateSubmitState(); });
+                this.$watch('feedback', function() { self._updateFeedbackState(); });
+                this.$watch('feedbackHtml', function() { self._updateFeedbackState(); });
+                this.$watch('feedbackType', function() { self._updateFeedbackState(); });
+
                 // Initialize Sortable.js after DOM is ready
                 this.$nextTick(function() {
                     self.initSortable();
                     self.shuffleItems();
                 });
+            },
+
+            // CSP-safe: update derived state manually
+            _updateSubmitState: function() {
+                var canSubmit = !this.isSubmitting;
+                this.submitBtnDisabled = !canSubmit;
+                this.isNotSubmitting = !this.isSubmitting;
+            },
+
+            _updateFeedbackState: function() {
+                this.showFeedback = this.feedback !== '' || this.feedbackHtml !== '';
+                this.isSuccess = this.feedbackType === 'success';
+                this.isNotSuccess = !this.isSuccess;
+                this.isError = this.feedbackType === 'error';
+                this.isNotError = !this.isError;
+                if (this.feedbackType === 'success') {
+                    this.feedbackClass = 'journey-message-success p-6 text-center mt-6';
+                } else if (this.feedbackType === 'error') {
+                    this.feedbackClass = 'journey-message-error p-6 text-center mt-6';
+                } else {
+                    this.feedbackClass = 'hidden mt-6';
+                }
+            },
+
+            _updateInstructionText: function() {
+                this.instructionText = this.isTouchDevice
+                    ? 'Touch and drag the events to arrange them in chronological order'
+                    : 'Drag and drop the events to arrange them in chronological order';
             },
 
             initSortable: function() {
@@ -4049,7 +4289,8 @@ document.addEventListener('alpine:init', function() {
             },
 
             submitAnswer: function() {
-                if (!this.canSubmit) return;
+                // CSP-safe: check submitBtnDisabled directly instead of getter
+                if (this.submitBtnDisabled) return;
 
                 var timelineItems = this.$el.querySelector('#timelineItems');
                 if (!timelineItems) return;
@@ -4062,6 +4303,7 @@ document.addEventListener('alpine:init', function() {
 
                 var self = this;
                 this.isSubmitting = true;
+                this._updateSubmitState();
                 this.feedback = '';
                 this.feedbackHtml = '';
 
@@ -4149,23 +4391,17 @@ document.addEventListener('alpine:init', function() {
             submitUrl: '',
             chapterUrl: '',
             chapterNumber: 1,
-
-            // CSP-safe computed getters (NEVER use inline negation in templates)
-            get hasSelection() { return this.selectedOption !== null; },
-            get hasNoSelection() { return !this.hasSelection; },
-            get canSubmit() { return this.hasSelection && !this.isSubmitting; },
-            get showFeedback() { return this.feedback !== '' || this.feedbackHtml !== ''; },
-            get isSuccess() { return this.feedbackType === 'success'; },
-            get isNotSuccess() { return !this.isSuccess; },
-            get isError() { return this.feedbackType === 'error'; },
-            get isNotError() { return !this.isError; },
-            get isNotSubmitting() { return !this.isSubmitting; },
-            get submitBtnDisabled() { return this.canSubmit ? undefined : true; },
-            get feedbackClass() {
-                if (this.feedbackType === 'success') return 'journey-message-success p-6 text-center mt-6';
-                if (this.feedbackType === 'error') return 'journey-message-error p-6 text-center mt-6';
-                return 'hidden mt-6';
-            },
+            // CSP-safe: plain data properties instead of getters
+            hasSelection: false,
+            hasNoSelection: true,
+            submitBtnDisabled: true,
+            showFeedback: false,
+            isSuccess: false,
+            isNotSuccess: true,
+            isError: false,
+            isNotError: true,
+            isNotSubmitting: true,
+            feedbackClass: 'hidden mt-6',
 
             init: function() {
                 var el = this.$el;
@@ -4173,6 +4409,38 @@ document.addEventListener('alpine:init', function() {
                 this.submitUrl = el.dataset.submitUrl || '';
                 this.chapterUrl = el.dataset.chapterUrl || '';
                 this.chapterNumber = parseInt(el.dataset.chapterNumber, 10) || 1;
+
+                // CSP-safe: use $watch to update derived state
+                var self = this;
+                this.$watch('selectedOption', function() { self._updateSubmitState(); });
+                this.$watch('isSubmitting', function() { self._updateSubmitState(); });
+                this.$watch('feedback', function() { self._updateFeedbackState(); });
+                this.$watch('feedbackHtml', function() { self._updateFeedbackState(); });
+                this.$watch('feedbackType', function() { self._updateFeedbackState(); });
+            },
+
+            // CSP-safe: update derived state manually
+            _updateSubmitState: function() {
+                this.hasSelection = this.selectedOption !== null;
+                this.hasNoSelection = !this.hasSelection;
+                var canSubmit = this.hasSelection && !this.isSubmitting;
+                this.submitBtnDisabled = !canSubmit;
+                this.isNotSubmitting = !this.isSubmitting;
+            },
+
+            _updateFeedbackState: function() {
+                this.showFeedback = this.feedback !== '' || this.feedbackHtml !== '';
+                this.isSuccess = this.feedbackType === 'success';
+                this.isNotSuccess = !this.isSuccess;
+                this.isError = this.feedbackType === 'error';
+                this.isNotError = !this.isError;
+                if (this.feedbackType === 'success') {
+                    this.feedbackClass = 'journey-message-success p-6 text-center mt-6';
+                } else if (this.feedbackType === 'error') {
+                    this.feedbackClass = 'journey-message-error p-6 text-center mt-6';
+                } else {
+                    this.feedbackClass = 'hidden mt-6';
+                }
             },
 
             selectOption: function(optionKey, event) {
@@ -4195,10 +4463,12 @@ document.addEventListener('alpine:init', function() {
             },
 
             submitAnswer: function() {
-                if (!this.canSubmit) return;
+                // CSP-safe: check submitBtnDisabled directly instead of getter
+                if (this.submitBtnDisabled) return;
 
                 var self = this;
                 this.isSubmitting = true;
+                this._updateSubmitState();
                 this.feedback = '';
                 this.feedbackHtml = '';
 
@@ -4263,6 +4533,25 @@ document.addEventListener('alpine:init', function() {
                     event.preventDefault();
                     this.selectOption(optionKey, event);
                 }
+            },
+
+            // CSP-safe: select option from element click
+            selectOptionFromElement: function(event) {
+                var element = event && event.currentTarget ? event.currentTarget : null;
+                if (!element) return;
+
+                var optionKey = element.dataset.optionKey || '';
+                if (optionKey) {
+                    this.selectOption(optionKey, event);
+                }
+            },
+
+            // CSP-safe: handle keydown on option cards
+            handleOptionKeydown: function(event) {
+                if (event && (event.key === 'Enter' || event.key === ' ')) {
+                    event.preventDefault();
+                    this.selectOptionFromElement(event);
+                }
             }
         };
     });
@@ -4293,29 +4582,18 @@ document.addEventListener('alpine:init', function() {
             chapterNumber: 1,
             minLength: 10,
             maxLength: 2000,
-
-            // CSP-safe computed getters
-            get charCount() { return this.answer.length; },
-            get hasMinLength() { return this.answer.trim().length >= this.minLength; },
-            get canSubmit() { return this.hasMinLength && !this.isSubmitting; },
-            get showFeedback() { return this.feedback !== '' || this.feedbackHtml !== ''; },
-            get isSuccess() { return this.feedbackType === 'success'; },
-            get isNotSuccess() { return !this.isSuccess; },
-            get isError() { return this.feedbackType === 'error'; },
-            get isNotError() { return !this.isError; },
-            get isSubmittingState() { return this.isSubmitting; },
-            get isNotSubmitting() { return !this.isSubmitting; },
-            get submitBtnDisabled() { return this.canSubmit ? undefined : true; },
-            get feedbackClass() {
-                if (this.feedbackType === 'success') return 'journey-message-success p-6 text-center mt-6';
-                if (this.feedbackType === 'error') return 'journey-message-error p-6 text-center mt-6';
-                return 'hidden mt-6';
-            },
-            get charCounterClass() {
-                if (this.charCount > this.maxLength * 0.9) return 'char-counter error';
-                if (this.charCount > this.maxLength * 0.75) return 'char-counter warning';
-                return 'char-counter';
-            },
+            // CSP-safe: plain data properties instead of getters
+            charCount: 0,
+            submitBtnDisabled: true,
+            showFeedback: false,
+            isSuccess: false,
+            isNotSuccess: true,
+            isError: false,
+            isNotError: true,
+            isSubmittingState: false,
+            isNotSubmitting: true,
+            feedbackClass: 'hidden mt-6',
+            charCounterClass: 'char-counter',
 
             init: function() {
                 var el = this.$el;
@@ -4328,6 +4606,13 @@ document.addEventListener('alpine:init', function() {
                 this.minLength = parseInt(el.dataset.minLength, 10) || 10;
                 this.maxLength = parseInt(el.dataset.maxLength, 10) || 2000;
 
+                // CSP-safe: use $watch to update derived state
+                this.$watch('answer', function() { self._updateSubmitState(); self._updateCharCounterClass(); });
+                this.$watch('isSubmitting', function() { self._updateSubmitState(); });
+                this.$watch('feedback', function() { self._updateFeedbackState(); });
+                this.$watch('feedbackHtml', function() { self._updateFeedbackState(); });
+                this.$watch('feedbackType', function() { self._updateFeedbackState(); });
+
                 // Auto-focus on input
                 this.$nextTick(function() {
                     var textInput = self.$el.querySelector('#textInput');
@@ -4339,11 +4624,48 @@ document.addEventListener('alpine:init', function() {
                 });
             },
 
+            // CSP-safe: update derived state manually
+            _updateSubmitState: function() {
+                this.charCount = this.answer.length;
+                var hasMinLength = this.answer.trim().length >= this.minLength;
+                var canSubmit = hasMinLength && !this.isSubmitting;
+                this.submitBtnDisabled = !canSubmit;
+                this.isSubmittingState = this.isSubmitting;
+                this.isNotSubmitting = !this.isSubmitting;
+            },
+
+            _updateFeedbackState: function() {
+                this.showFeedback = this.feedback !== '' || this.feedbackHtml !== '';
+                this.isSuccess = this.feedbackType === 'success';
+                this.isNotSuccess = !this.isSuccess;
+                this.isError = this.feedbackType === 'error';
+                this.isNotError = !this.isError;
+                if (this.feedbackType === 'success') {
+                    this.feedbackClass = 'journey-message-success p-6 text-center mt-6';
+                } else if (this.feedbackType === 'error') {
+                    this.feedbackClass = 'journey-message-error p-6 text-center mt-6';
+                } else {
+                    this.feedbackClass = 'hidden mt-6';
+                }
+            },
+
+            _updateCharCounterClass: function() {
+                if (this.charCount > this.maxLength * 0.9) {
+                    this.charCounterClass = 'char-counter error';
+                } else if (this.charCount > this.maxLength * 0.75) {
+                    this.charCounterClass = 'char-counter warning';
+                } else {
+                    this.charCounterClass = 'char-counter';
+                }
+            },
+
             submitAnswer: function() {
-                if (!this.canSubmit) return;
+                // CSP-safe: check submitBtnDisabled directly instead of getter
+                if (this.submitBtnDisabled) return;
 
                 var self = this;
                 this.isSubmitting = true;
+                this._updateSubmitState();
                 this.feedback = '';
                 this.feedbackHtml = '';
 
@@ -4391,6 +4713,17 @@ document.addEventListener('alpine:init', function() {
                     '<a href="' + this.chapterUrl + '" class="journey-btn-primary">' +
                     'Continue <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
                     '</a>';
+            },
+
+            // CSP-safe: update answer from input event
+            updateAnswer: function(event) {
+                // In CSP mode, get value from event parameter or query DOM
+                if (event && event.target) {
+                    this.answer = event.target.value;
+                } else {
+                    var input = this.$el.querySelector('#textInput');
+                    if (input) this.answer = input.value;
+                }
             }
         };
     });
@@ -4407,14 +4740,27 @@ document.addEventListener('alpine:init', function() {
             hintNum: 0,
             hintText: '',
             isActive: false,
-
-            get showHint() { return this.isActive; },
-            get hintClass() {
-                return this.isActive ? 'journey-hint-box active' : 'journey-hint-box';
-            },
+            // CSP-safe: plain data properties instead of getters
+            showHint: false,
+            hintClass: 'journey-hint-box',
 
             init: function() {
                 this.hintNum = parseInt(this.$el.dataset.hintNum, 10) || 0;
+
+                // CSP-safe: use $watch to update derived state
+                var self = this;
+                this.$watch('isActive', function() { self._updateState(); });
+            },
+
+            _updateState: function() {
+                this.showHint = this.isActive;
+                this.hintClass = this.isActive ? 'journey-hint-box active' : 'journey-hint-box';
+            },
+
+            // CSP-safe: wrapper that receives event object
+            handleHintUnlockedEvent: function(event) {
+                var detail = event && event.detail ? event.detail : {};
+                this.handleHintUnlocked(detail);
             },
 
             handleHintUnlocked: function(detail) {

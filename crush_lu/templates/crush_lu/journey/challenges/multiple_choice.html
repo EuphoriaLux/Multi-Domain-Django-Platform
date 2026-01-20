@@ -111,9 +111,9 @@
             {% for key, value in localized_options.items %}
             <div
                 class="option-card"
-                @click="selectOption('{{ key }}', $event)"
-                @keypress.enter="selectOption('{{ key }}', $event)"
-                @keypress.space.prevent="selectOption('{{ key }}', $event)"
+                data-option-key="{{ key }}"
+                @click="selectOptionFromElement"
+                @keydown="handleOptionKeydown"
                 role="radio"
                 aria-checked="false"
                 tabindex="0"

@@ -158,12 +158,8 @@
     {# HTMX CSRF Token - Read from hidden input for reliable cross-language support #}
     {# This works correctly when CSRF_COOKIE_HTTPONLY=True #}
     <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}" id="csrf-token-input">
-    <script>
-        // Set HTMX headers from hidden input (works with CSRF_COOKIE_HTTPONLY=True)
-        document.body.setAttribute('hx-headers', JSON.stringify({
-            'X-CSRFToken': document.getElementById('csrf-token-input').value
-        }));
-    </script>
+    {# External script for CSP compliance - runs synchronously before HTMX #}
+    <script src="{% static 'crush_lu/js/htmx-csrf.js' %}"></script>
     {% include "includes/staging_banner.html" %}
     {% analytics_body %}
     <!-- Skip to main content link for keyboard/screen reader users -->

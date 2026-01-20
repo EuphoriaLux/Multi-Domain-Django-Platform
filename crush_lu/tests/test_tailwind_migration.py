@@ -18,10 +18,11 @@ class TailwindMigrationTests(TestCase):
     TEMPLATE_DIR = Path('crush_lu/templates/crush_lu')
 
     # Bootstrap patterns that should be removed
+    # Note: Uses negative lookbehind (?<!-) to exclude custom CSS classes like journey-btn-primary
     BOOTSTRAP_PATTERNS = [
         (r'\bdata-bs-[a-z]+', 'Bootstrap data attributes'),
-        (r'\bbtn-primary\b(?!.*class=["\'][^"\']*btn-crush)', 'Bootstrap btn-primary (use btn-crush-primary)'),
-        (r'\bbtn-secondary\b(?!.*class=["\'][^"\']*btn-crush)', 'Bootstrap btn-secondary'),
+        (r'(?<!-)btn-primary\b(?!.*class=["\'][^"\']*btn-crush)', 'Bootstrap btn-primary (use btn-crush-primary)'),
+        (r'(?<!-)btn-secondary\b(?!.*class=["\'][^"\']*btn-crush)', 'Bootstrap btn-secondary'),
         (r'\bform-control\b', 'Bootstrap form-control (use Tailwind form classes)'),
         (r'\bform-check\b', 'Bootstrap form-check'),
         (r'\balert-dismissible\b', 'Bootstrap alert-dismissible (use Alpine.js)'),
@@ -171,11 +172,12 @@ class TailwindMigrationTests(TestCase):
 
         content = base_path.read_text(encoding='utf-8')
 
-        # Check for HTMX CSRF configuration
+        # Check for HTMX CSRF configuration (inline or external script)
         has_csrf_config = (
             'hx-headers' in content or
             'htmx:configRequest' in content or
-            'X-CSRFToken' in content
+            'X-CSRFToken' in content or
+            'htmx-csrf.js' in content  # External CSP-compliant script
         )
 
         self.assertTrue(

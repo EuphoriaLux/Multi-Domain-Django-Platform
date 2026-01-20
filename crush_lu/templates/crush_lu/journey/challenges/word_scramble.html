@@ -109,8 +109,9 @@
             <input
                 type="text"
                 id="answerInput"
-                x-model="answer"
-                @keypress="handleKeypress($event)"
+                x-bind:value="answer"
+                @input="updateAnswer"
+                @keydown="handleKeydown"
                 class="journey-input mb-4 text-center uppercase"
                 placeholder="{% trans 'Type the unscrambled word...' %}"
                 autocomplete="off"

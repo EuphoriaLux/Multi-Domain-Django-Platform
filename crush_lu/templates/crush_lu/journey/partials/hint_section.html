@@ -13,7 +13,9 @@
         {% if challenge.hint_1 %}
         <button
             class="journey-hint-btn"
-            @click="unlockHint(1, {{ challenge.hint_1_cost }})"
+            data-hint-num="1"
+            data-hint-cost="{{ challenge.hint_1_cost }}"
+            @click="unlockHintFromButton"
             x-bind:disabled="hint1Used"
             x-bind:class="hint1BtnClass"
         >
@@ -26,7 +28,9 @@
         {% if challenge.hint_2 %}
         <button
             class="journey-hint-btn"
-            @click="unlockHint(2, {{ challenge.hint_2_cost }})"
+            data-hint-num="2"
+            data-hint-cost="{{ challenge.hint_2_cost }}"
+            @click="unlockHintFromButton"
             x-bind:disabled="hint2Used"
             x-bind:class="hint2BtnClass"
         >
@@ -39,7 +43,9 @@
         {% if challenge.hint_3 %}
         <button
             class="journey-hint-btn"
-            @click="unlockHint(3, {{ challenge.hint_3_cost }})"
+            data-hint-num="3"
+            data-hint-cost="{{ challenge.hint_3_cost }}"
+            @click="unlockHintFromButton"
             x-bind:disabled="hint3Used"
             x-bind:class="hint3BtnClass"
         >
@@ -56,7 +62,7 @@
     <div
         x-data="hintBox"
         data-hint-num="1"
-        @hint-unlocked.window="handleHintUnlocked($event.detail)"
+        @hint-unlocked.window="handleHintUnlockedEvent"
         x-bind:class="hintClass"
         x-show="showHint"
         x-cloak
@@ -70,7 +76,7 @@
     <div
         x-data="hintBox"
         data-hint-num="2"
-        @hint-unlocked.window="handleHintUnlocked($event.detail)"
+        @hint-unlocked.window="handleHintUnlockedEvent"
         x-bind:class="hintClass"
         x-show="showHint"
         x-cloak
@@ -84,7 +90,7 @@
     <div
         x-data="hintBox"
         data-hint-num="3"
-        @hint-unlocked.window="handleHintUnlocked($event.detail)"
+        @hint-unlocked.window="handleHintUnlockedEvent"
         x-bind:class="hintClass"
         x-show="showHint"
         x-cloak

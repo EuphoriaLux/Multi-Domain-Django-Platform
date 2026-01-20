@@ -33,6 +33,8 @@
         data-hint-url="{% url 'crush_lu:api_unlock_hint' %}"
         data-chapter-url="{% url 'crush_lu:chapter_view' chapter.chapter_number %}"
         data-initial-points="{{ challenge.points_awarded }}"
+        data-input-type="{{ challenge.options.input_type|default:'' }}"
+        data-date-format="{{ challenge.options.date_format|default:'DD/MM/YYYY' }}"
         class="journey-card"
     >
         <!-- Challenge Type Badge -->
@@ -62,11 +64,29 @@
         <!-- Answer Input Section -->
         <div x-show="isNotSuccess" x-cloak>
             <label for="answerInput" class="sr-only">{% trans "Your answer" %}</label>
+            <!-- Date input (when input_type=date) -->
+            <div x-show="isDateInput" x-cloak>
+                <input
+                    type="date"
+                    id="dateInput"
+                    x-bind:value="dateValue"
+                    @input="updateDateAnswer"
+                    @keydown="handleKeydown"
+                    class="journey-input mb-2"
+                    aria-describedby="dateHelp"
+                >
+                <p id="dateHelp" class="text-sm text-white/60 text-center mb-4">
+                    {% trans "Select a date using the calendar" %}
+                </p>
+            </div>
+            <!-- Text input (default) -->
             <input
+                x-show="isTextInput"
                 type="text"
                 id="answerInput"
-                x-model="answer"
-                @keypress="handleKeypress($event)"
+                x-bind:value="answer"
+                @input="updateAnswer"
+                @keydown="handleKeydown"
                 class="journey-input mb-4"
                 placeholder="{% trans 'Type your answer here...' %}"
                 autocomplete="off"

@@ -201,7 +201,8 @@
             <label for="textInput" class="sr-only">{% trans "Your response" %}</label>
             <textarea
                 id="textInput"
-                x-model="answer"
+                x-bind:value="answer"
+                @input="updateAnswer"
                 class="text-input"
                 placeholder="{% trans 'Start typing your thoughts here...' %}"
                 x-bind:maxlength="maxLength"

@@ -72,7 +72,7 @@ class TestGiftCreationFlow:
         authenticated_sender_page.goto(f"{live_server_url}/en/journey/gift/create/")
         authenticated_sender_page.wait_for_load_state('networkidle')
 
-        # Fill in the form
+        # Fill in Step 1 form fields
         authenticated_sender_page.fill('input[name="recipient_name"]', 'My Beloved')
         authenticated_sender_page.fill('input[name="date_first_met"]', '2024-02-14')
         authenticated_sender_page.fill('input[name="location_first_met"]', 'Luxembourg City')
@@ -84,7 +84,11 @@ class TestGiftCreationFlow:
         else:
             authenticated_sender_page.fill('input[name="sender_message"]', 'A special journey for you!')
 
-        # Submit form (use text selector for Create Gift button)
+        # Navigate to Step 2 (Media upload - optional)
+        authenticated_sender_page.click('button:has-text("Next")')
+        authenticated_sender_page.wait_for_timeout(500)  # Wait for step transition
+
+        # Submit form from Step 2
         authenticated_sender_page.click('button:has-text("Create Gift")')
         authenticated_sender_page.wait_for_load_state('networkidle')
 
@@ -102,6 +106,9 @@ class TestGiftCreationFlow:
         authenticated_sender_page.fill('input[name="date_first_met"]', '2024-01-01')
         authenticated_sender_page.fill('input[name="location_first_met"]', 'Test Location')
 
+        # Navigate to Step 2 and submit
+        authenticated_sender_page.click('button:has-text("Next")')
+        authenticated_sender_page.wait_for_timeout(500)
         authenticated_sender_page.click('button:has-text("Create Gift")')
         authenticated_sender_page.wait_for_load_state('networkidle')
 
@@ -119,6 +126,9 @@ class TestGiftCreationFlow:
         authenticated_sender_page.fill('input[name="date_first_met"]', '2024-01-01')
         authenticated_sender_page.fill('input[name="location_first_met"]', 'Test Location')
 
+        # Navigate to Step 2 and submit
+        authenticated_sender_page.click('button:has-text("Next")')
+        authenticated_sender_page.wait_for_timeout(500)
         authenticated_sender_page.click('button:has-text("Create Gift")')
         authenticated_sender_page.wait_for_load_state('networkidle')
 
@@ -137,6 +147,9 @@ class TestGiftCreationFlow:
         authenticated_sender_page.fill('input[name="date_first_met"]', '2024-01-01')
         authenticated_sender_page.fill('input[name="location_first_met"]', 'Test Location')
 
+        # Navigate to Step 2 and submit
+        authenticated_sender_page.click('button:has-text("Next")')
+        authenticated_sender_page.wait_for_timeout(500)
         authenticated_sender_page.click('button:has-text("Create Gift")')
         authenticated_sender_page.wait_for_load_state('networkidle')
 
