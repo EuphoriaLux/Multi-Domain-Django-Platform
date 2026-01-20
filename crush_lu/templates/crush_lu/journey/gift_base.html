@@ -3,33 +3,24 @@
 
 {% block extra_css %}
 <style>
-    /* Gift Page Styles - Consistent with journey theming */
-    :root {
-        --journey-primary: #9B59B6;
-        --journey-secondary: #FF6B9D;
-        --journey-dark: #1a1a2e;
-        --journey-light: #f8f9fa;
-    }
-
+    /* Gift Page Foundation - Uses Journey design tokens */
     body {
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
         min-height: 100vh;
-        color: var(--journey-light);
+        color: var(--color-crush-light);
     }
 
+    /* Page-specific: Gift container */
     .gift-container {
-        max-width: 600px;
-        margin: 0 auto;
-        padding: 20px;
+        @apply max-w-[600px] mx-auto px-4 md:px-5;
     }
 
+    /* Page-specific: Gift card (glassmorphic) */
     .gift-card {
-        background: rgba(30, 30, 50, 0.95); /* Fallback for Firefox */
+        @apply rounded-2xl p-6 md:p-8 border border-white/20;
+        background: rgba(30, 30, 50, 0.95);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
-        border-radius: 20px;
-        padding: 30px;
-        border: 1px solid rgba(255, 255, 255, 0.2);
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
     }
 
@@ -39,133 +30,118 @@
         }
     }
 
+    /* Page-specific: Gift title with gradient */
     .gift-title {
-        font-size: 2rem;
-        font-weight: bold;
-        text-align: center;
-        margin-bottom: 10px;
-        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        @apply text-2xl md:text-3xl font-bold text-center mb-2.5;
+        background: linear-gradient(135deg, var(--color-crush-purple), var(--color-crush-pink));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
     }
 
     .gift-subtitle {
-        text-align: center;
-        opacity: 0.8;
-        margin-bottom: 30px;
+        @apply text-center opacity-80 mb-8;
     }
 
-    /* Form Styles */
-    .form-group {
-        margin-bottom: 20px;
+    /* Page-specific: Form group */
+    .gift-form-group {
+        @apply mb-5;
     }
 
-    .form-group label {
-        display: block;
-        font-weight: 600;
-        margin-bottom: 8px;
-        color: var(--journey-light);
+    .gift-form-group label {
+        @apply block font-semibold mb-2 text-crush-light;
     }
 
-    .form-group .help-text {
-        font-size: 0.85rem;
-        opacity: 0.7;
-        margin-top: 5px;
+    .gift-form-group .help-text {
+        @apply text-sm opacity-70 mt-1;
     }
 
+    /* Page-specific: Gift input */
     .gift-input {
-        width: 100%;
-        padding: 12px 16px;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 10px;
+        @apply w-full py-3 px-4 text-base text-white rounded-xl border border-white/30 transition-all duration-300;
         background: rgba(255, 255, 255, 0.1);
-        color: white;
-        font-size: 1rem;
-        transition: border-color 0.3s, box-shadow 0.3s;
     }
 
     .gift-input:focus {
-        outline: none;
-        border-color: var(--journey-primary);
+        @apply outline-none border-crush-purple;
         box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.3);
     }
 
     .gift-input::placeholder {
-        color: rgba(255, 255, 255, 0.5);
+        @apply text-white/50;
     }
 
     .gift-input-lg {
-        padding: 14px 18px;
-        font-size: 1.1rem;
+        @apply py-3.5 px-5 text-lg;
     }
 
-    /* Button Styles */
+    /* iOS zoom prevention */
+    @media (max-width: 600px) {
+        .gift-input {
+            font-size: 16px;
+        }
+    }
+
+    /* Page-specific: Gift buttons */
     .btn-gift {
-        display: inline-block;
-        padding: 14px 28px;
-        border-radius: 50px;
-        font-weight: 600;
-        text-decoration: none;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        cursor: pointer;
-        border: none;
-        font-size: 1rem;
+        @apply inline-flex items-center justify-center gap-2 py-3.5 px-7 rounded-full font-semibold text-base border-none cursor-pointer transition-all duration-300;
     }
 
     .btn-gift:focus-visible {
-        outline: 2px solid var(--journey-secondary);
-        outline-offset: 3px;
+        @apply ring-2 ring-crush-pink ring-offset-2;
+        ring-offset-color: #1a1a2e;
     }
 
     .btn-gift-primary {
-        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
-        color: white;
+        @apply text-white;
+        background: linear-gradient(135deg, var(--color-crush-purple), var(--color-crush-pink));
         box-shadow: 0 5px 20px rgba(155, 89, 182, 0.4);
     }
 
     .btn-gift-primary:hover {
-        transform: translateY(-2px);
+        @apply -translate-y-0.5;
         box-shadow: 0 8px 25px rgba(155, 89, 182, 0.5);
     }
 
     .btn-gift-primary:active {
-        transform: translateY(0);
+        @apply translate-y-0;
         box-shadow: 0 3px 15px rgba(155, 89, 182, 0.4);
     }
 
     .btn-gift-secondary {
+        @apply text-white border border-white/30;
         background: rgba(255, 255, 255, 0.1);
-        color: white;
-        border: 1px solid rgba(255, 255, 255, 0.3);
     }
 
     .btn-gift-secondary:hover {
+        @apply -translate-y-px;
         background: rgba(255, 255, 255, 0.2);
-        transform: translateY(-1px);
     }
 
-    .btn-gift-secondary:active {
-        transform: translateY(0);
-    }
-
-    /* QR Code Display */
+    /* Page-specific: QR code container */
     .qr-container {
-        text-align: center;
-        padding: 20px;
-        background: white;
-        border-radius: 15px;
-        margin: 20px 0;
+        @apply text-center p-5 bg-white rounded-2xl my-5;
     }
 
     .qr-container img {
-        max-width: 200px;
-        width: 100%;
-        height: auto;
+        @apply max-w-[200px] w-full h-auto;
     }
 
-    /* Animations */
-    @keyframes fadeInUp {
+    /* Page-specific: Messages */
+    .gift-message {
+        @apply p-3 px-4 rounded-xl mb-5;
+    }
+
+    .gift-message-success {
+        @apply bg-crush-success/20 border border-crush-success/50;
+    }
+
+    .gift-message-error {
+        @apply bg-red-500/20 border border-red-500/50;
+    }
+
+    /* Animation */
+    @keyframes giftFadeInUp {
         from {
             opacity: 0;
             transform: translateY(30px);
@@ -176,81 +152,36 @@
         }
     }
 
-    .animate-fade-in {
-        animation: fadeInUp 0.6s ease-out;
+    .gift-animate-fade-in {
+        animation: giftFadeInUp 0.6s ease-out;
     }
 
-    /* Messages */
-    .message {
-        padding: 12px 16px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-    }
-
-    .message-success {
-        background: rgba(46, 204, 113, 0.2);
-        border: 1px solid rgba(46, 204, 113, 0.5);
-    }
-
-    .message-error {
-        background: rgba(231, 76, 60, 0.2);
-        border: 1px solid rgba(231, 76, 60, 0.5);
-    }
-
-    /* Responsive - Tablet */
-    @media (max-width: 768px) {
-        .gift-container {
-            padding: 15px;
-        }
-
-        .gift-card {
-            padding: 25px 20px;
-        }
-
-        .gift-title {
-            font-size: 1.6rem;
-        }
-    }
-
-    /* Responsive - Mobile */
+    /* Mobile responsive */
     @media (max-width: 600px) {
-        .gift-container {
-            padding: 10px;
-        }
-
         .gift-card {
-            padding: 20px 15px;
-            border-radius: 15px;
+            @apply p-5 rounded-xl;
         }
 
         .gift-title {
-            font-size: 1.4rem;
+            @apply text-xl;
         }
 
         .gift-subtitle {
-            font-size: 0.95rem;
-            margin-bottom: 20px;
+            @apply text-sm mb-5;
         }
 
         .btn-gift {
-            width: 100%;
-            text-align: center;
-            padding: 14px 20px;
-        }
-
-        .gift-input {
-            font-size: 16px; /* Prevents iOS zoom on focus */
-            padding: 14px 16px;
+            @apply w-full text-center py-3.5 px-5;
         }
 
         .qr-container img {
-            max-width: 160px;
+            @apply max-w-[160px];
         }
     }
 
     /* Accessibility - Reduced Motion */
     @media (prefers-reduced-motion: reduce) {
-        .animate-fade-in,
+        .gift-animate-fade-in,
         .gift-card,
         .btn-gift {
             animation: none !important;
@@ -262,10 +193,10 @@
 {% endblock %}
 
 {% block content %}
-<div class="gift-container animate-fade-in">
+<div class="gift-container gift-animate-fade-in">
     {% if messages %}
     {% for message in messages %}
-    <div class="message message-{{ message.tags }}">
+    <div class="gift-message gift-message-{{ message.tags }}" role="alert">
         {{ message }}
     </div>
     {% endfor %}

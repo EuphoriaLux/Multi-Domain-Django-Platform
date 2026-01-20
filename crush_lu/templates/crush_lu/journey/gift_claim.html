@@ -5,105 +5,90 @@
 
 {% block extra_gift_css %}
 <style>
+    /* Page-specific: Claim hero */
     .claim-hero {
-        text-align: center;
-        margin: 30px 0;
+        @apply text-center my-8;
     }
 
     .claim-from {
-        font-size: 1.1rem;
+        @apply text-lg;
     }
 
     .claim-recipient {
-        font-size: 1.5rem;
-        font-weight: bold;
-        margin-top: 10px;
-        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        @apply text-xl md:text-2xl font-bold mt-2.5;
+        background: linear-gradient(135deg, var(--color-crush-purple), var(--color-crush-pink));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
     }
 
+    /* Page-specific: Claim message */
     .claim-message {
+        @apply p-5 my-5 text-center italic rounded-xl;
         background: rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
-        padding: 20px;
-        margin: 20px 0;
-        font-style: italic;
-        text-align: center;
     }
 
     .claim-message-label {
-        margin-bottom: 10px;
-        opacity: 0.7;
-        font-size: 0.9rem;
+        @apply mb-2.5 opacity-70 text-sm;
     }
 
+    /* Page-specific: Claim info */
     .claim-info {
-        margin: 30px 0;
-        text-align: center;
+        @apply my-8 text-center;
     }
 
     .claim-info p {
-        font-size: 1rem;
-        opacity: 0.9;
-        line-height: 1.6;
+        @apply text-base opacity-90 leading-relaxed;
     }
 
+    /* Page-specific: Claim form */
     .claim-form {
-        text-align: center;
-        margin-top: 30px;
+        @apply text-center mt-8;
     }
 
     .claim-form .btn-gift {
-        font-size: 1.1rem;
-        padding: 16px 32px;
+        @apply text-lg py-4 px-8;
     }
 
     .claim-hint {
-        text-align: center;
-        margin-top: 20px;
-        font-size: 0.85rem;
-        opacity: 0.6;
+        @apply text-center mt-5 text-sm opacity-60;
     }
 
-    /* Mobile Responsive */
+    /* Mobile responsive */
     @media (max-width: 600px) {
         .claim-hero {
-            margin: 20px 0;
+            @apply my-5;
         }
 
         .claim-from {
-            font-size: 1rem;
+            @apply text-base;
         }
 
         .claim-recipient {
-            font-size: 1.3rem;
+            @apply text-lg;
         }
 
         .claim-message {
-            padding: 15px;
+            @apply p-4;
         }
 
         .claim-info p {
-            font-size: 0.95rem;
+            @apply text-sm;
         }
 
         .claim-form .btn-gift {
-            width: 100%;
-            font-size: 1rem;
-            padding: 14px 24px;
+            @apply w-full text-base py-3.5 px-6;
         }
 
         .claim-hint {
-            font-size: 0.8rem;
+            @apply text-xs;
         }
     }
 </style>
 {% endblock %}
 
 {% block gift_content %}
-<div class="gift-card">
+<article class="gift-card">
     <h1 class="gift-title">{% trans "Claim Your Wonderland Journey" %}</h1>
 
     <div class="claim-hero">
@@ -134,5 +119,5 @@
     <p class="claim-hint">
         {% trans "By claiming this gift, you'll unlock 6 chapters of puzzles, secrets, and messages." %}
     </p>
-</div>
+</article>
 {% endblock %}

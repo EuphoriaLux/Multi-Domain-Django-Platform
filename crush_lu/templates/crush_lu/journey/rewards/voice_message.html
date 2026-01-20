@@ -3,241 +3,152 @@
 
 {% block extra_journey_css %}
 <style>
-    .reward-container {
-        max-width: 800px;
-        margin: 60px auto;
-    }
-
-    .reward-card {
+    /* Page-specific: Voice message card with pink shimmer */
+    .voice-card {
+        @apply rounded-2xl p-8 md:p-12 border-2 relative overflow-hidden;
         background: rgba(255, 255, 255, 0.1);
         backdrop-filter: blur(20px);
-        border-radius: 25px;
-        padding: 50px;
-        border: 2px solid rgba(255, 107, 157, 0.3);
+        border-color: rgba(255, 107, 157, 0.3);
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-        position: relative;
-        overflow: hidden;
     }
 
-    .reward-card::before {
+    .voice-card::before {
         content: '';
         position: absolute;
         top: -50%;
         left: -50%;
         width: 200%;
         height: 200%;
-        background: linear-gradient(
-            45deg,
-            transparent,
-            rgba(255, 107, 157, 0.1),
-            transparent
-        );
-        animation: shimmer 3s infinite;
+        background: linear-gradient(45deg, transparent, rgba(255, 107, 157, 0.1), transparent);
+        animation: voiceShimmer 3s infinite linear;
     }
 
-    @keyframes shimmer {
-        0% {
-            transform: rotate(0deg);
-        }
-        100% {
-            transform: rotate(360deg);
-        }
+    @keyframes voiceShimmer {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
     }
 
-    .reward-content {
-        position: relative;
-        z-index: 1;
+    .voice-card-content {
+        @apply relative z-10;
     }
 
-    .reward-icon {
-        text-align: center;
+    .voice-icon {
+        @apply text-center mb-5;
         font-size: 4rem;
-        margin-bottom: 20px;
-        animation: pulse 2s ease-in-out infinite;
+        animation: voicePulse 2s ease-in-out infinite;
     }
 
-    @keyframes pulse {
-        0%, 100% {
-            transform: scale(1);
-        }
-        50% {
-            transform: scale(1.1);
-        }
+    @keyframes voicePulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
     }
 
-    .reward-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        text-align: center;
+    .voice-title {
+        @apply text-3xl md:text-4xl font-bold text-center mb-8;
         background: linear-gradient(135deg, #FF6B9D, #9B59B6);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        margin-bottom: 30px;
     }
 
-    .message-intro {
-        font-size: 1.2rem;
-        line-height: 1.8;
-        text-align: center;
+    .voice-intro {
+        @apply text-xl text-center mb-8 italic;
         color: rgba(255, 255, 255, 0.9);
-        margin-bottom: 30px;
-        font-style: italic;
     }
 
-    .media-container {
+    .voice-media-container {
+        @apply rounded-2xl p-8 md:p-10 my-8;
         background: rgba(0, 0, 0, 0.3);
-        border-radius: 20px;
-        padding: 40px;
-        margin: 30px 0;
         border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    .audio-player-wrapper {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 20px;
+    .voice-audio-wrapper {
+        @apply flex flex-col items-center gap-5;
     }
 
-    .audio-visual {
-        width: 150px;
-        height: 150px;
-        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+    .voice-audio-visual {
+        @apply w-32 h-32 md:w-36 md:h-36 rounded-full flex items-center justify-center;
+        background: linear-gradient(135deg, var(--color-crush-purple), var(--color-crush-pink));
         font-size: 4rem;
-        animation: glow 2s ease-in-out infinite;
+        animation: voiceGlow 2s ease-in-out infinite;
         box-shadow: 0 10px 40px rgba(155, 89, 182, 0.4);
     }
 
-    @keyframes glow {
-        0%, 100% {
-            box-shadow: 0 10px 40px rgba(155, 89, 182, 0.4);
-        }
-        50% {
-            box-shadow: 0 10px 60px rgba(255, 107, 157, 0.6);
-        }
+    @keyframes voiceGlow {
+        0%, 100% { box-shadow: 0 10px 40px rgba(155, 89, 182, 0.4); }
+        50% { box-shadow: 0 10px 60px rgba(255, 107, 157, 0.6); }
     }
 
-    .audio-player-wrapper audio {
-        width: 100%;
-        max-width: 400px;
-        border-radius: 10px;
+    .voice-audio-wrapper audio {
+        @apply w-full max-w-md rounded-xl;
     }
 
-    .video-player-wrapper {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 20px;
+    .voice-video-wrapper {
+        @apply flex flex-col items-center gap-5;
     }
 
-    .video-player-wrapper video {
-        width: 100%;
-        max-width: 600px;
-        border-radius: 15px;
+    .voice-video-wrapper video {
+        @apply w-full max-w-xl rounded-2xl;
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     }
 
-    .text-message {
-        font-size: 1.2rem;
-        line-height: 1.8;
-        text-align: center;
-        padding: 30px;
+    .voice-text-message {
+        @apply text-lg md:text-xl text-center p-6 md:p-8 rounded-xl mt-8 whitespace-pre-line;
         background: rgba(255, 255, 255, 0.05);
-        border-radius: 15px;
         border-left: 4px solid rgba(255, 107, 157, 0.5);
-        margin-top: 30px;
-        white-space: pre-line;
     }
 
-    .continue-btn {
-        display: block;
-        width: fit-content;
-        margin: 40px auto 0;
-        padding: 15px 40px;
-        border-radius: 25px;
-        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
-        color: white;
-        text-decoration: none;
-        font-weight: bold;
-        font-size: 1.1rem;
-        transition: all 0.3s ease;
-        text-align: center;
-    }
-
-    .continue-btn:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 10px 30px rgba(155, 89, 182, 0.4);
-        color: white;
-        text-decoration: none;
-    }
-
-    /* Hearts Animation */
-    .heart {
-        position: absolute;
-        width: 10px;
-        height: 10px;
+    /* Page-specific: Floating hearts */
+    .voice-heart {
+        @apply absolute w-2.5 h-2.5;
         background: #FF6B9D;
         transform: rotate(45deg);
-        animation: float-heart 4s infinite;
+        animation: voiceHeartFloat 4s infinite;
         opacity: 0.6;
     }
 
-    .heart::before,
-    .heart::after {
+    .voice-heart::before,
+    .voice-heart::after {
         content: '';
-        position: absolute;
-        width: 10px;
-        height: 10px;
+        @apply absolute w-2.5 h-2.5 rounded-full;
         background: #FF6B9D;
-        border-radius: 50%;
     }
 
-    .heart::before {
+    .voice-heart::before {
         top: -5px;
         left: 0;
     }
 
-    .heart::after {
+    .voice-heart::after {
         left: -5px;
         top: 0;
     }
 
-    @keyframes float-heart {
-        0% {
-            opacity: 0;
-            transform: rotate(45deg) translateY(0) scale(0.5);
-        }
-        50% {
-            opacity: 0.6;
-        }
-        100% {
-            opacity: 0;
-            transform: rotate(45deg) translateY(-100px) scale(1);
+    @keyframes voiceHeartFloat {
+        0% { opacity: 0; transform: rotate(45deg) translateY(0) scale(0.5); }
+        50% { opacity: 0.6; }
+        100% { opacity: 0; transform: rotate(45deg) translateY(-100px) scale(1); }
+    }
+
+    /* Accessibility - Reduced Motion */
+    @media (prefers-reduced-motion: reduce) {
+        .voice-card::before,
+        .voice-icon,
+        .voice-audio-visual,
+        .voice-heart {
+            animation: none;
         }
     }
 
-    /* Mobile Responsive */
     @media (max-width: 768px) {
-        .reward-card {
-            padding: 30px 20px;
+        .voice-card {
+            @apply p-5;
         }
-
-        .reward-title {
-            font-size: 2rem;
+        .voice-media-container {
+            @apply p-5;
         }
-
-        .media-container {
-            padding: 25px;
-        }
-
-        .audio-visual {
-            width: 120px;
-            height: 120px;
+        .voice-audio-visual {
+            @apply w-24 h-24;
             font-size: 3rem;
         }
     }
@@ -245,40 +156,35 @@
 {% endblock %}
 
 {% block journey_content %}
-<div class="reward-container animate-fade-in">
+<div class="journey-container-content my-12 journey-animate-fade-in">
     <!-- Back Button -->
-    <div class="text-center mb-4">
-        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Chapter" %}
+    <nav class="text-center mb-6" aria-label="{% trans 'Navigation' %}">
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="journey-nav-btn">
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
+            {% trans "Back to Chapter" %}
         </a>
-    </div>
+    </nav>
 
-    <div class="reward-card">
+    <article class="voice-card" aria-labelledby="voice-heading">
         <!-- Hearts -->
-        <div class="heart" style="top: 10%; left: 10%; animation-delay: 0s;"></div>
-        <div class="heart" style="top: 20%; right: 15%; animation-delay: 1s;"></div>
-        <div class="heart" style="bottom: 30%; left: 20%; animation-delay: 2s;"></div>
-        <div class="heart" style="top: 50%; right: 10%; animation-delay: 3s;"></div>
+        <div class="voice-heart" style="top: 10%; left: 10%; animation-delay: 0s;" aria-hidden="true"></div>
+        <div class="voice-heart" style="top: 20%; right: 15%; animation-delay: 1s;" aria-hidden="true"></div>
+        <div class="voice-heart" style="bottom: 30%; left: 20%; animation-delay: 2s;" aria-hidden="true"></div>
+        <div class="voice-heart" style="top: 50%; right: 10%; animation-delay: 3s;" aria-hidden="true"></div>
 
-        <div class="reward-content">
-            <div class="reward-icon">
-                {% if reward.video_file %}
-                    🎬
-                {% else %}
-                    🎙️
-                {% endif %}
+        <div class="voice-card-content">
+            <div class="voice-icon" aria-hidden="true">
+                {% if reward.video_file %}&#127916;{% else %}&#127897;{% endif %}
             </div>
 
-            <h1 class="reward-title">{{ reward.title }}</h1>
+            <h1 id="voice-heading" class="voice-title">{{ reward.title }}</h1>
 
-            <p class="message-intro">
-                {% trans "A special message, just for you..." %}
-            </p>
+            <p class="voice-intro">{% trans "A special message, just for you..." %}</p>
 
-            <div class="media-container">
+            <div class="voice-media-container">
                 {% if reward.video_file %}
                 <!-- Video Player -->
-                <div class="video-player-wrapper">
+                <div class="voice-video-wrapper">
                     <video controls playsinline>
                         <source src="{{ reward.video_file.url|safe }}" type="video/mp4">
                         <source src="{{ reward.video_file.url|safe }}" type="video/webm">
@@ -287,10 +193,8 @@
                 </div>
                 {% elif reward.audio_file %}
                 <!-- Audio Player -->
-                <div class="audio-player-wrapper">
-                    <div class="audio-visual" id="audioVisual">
-                        🎧
-                    </div>
+                <div class="voice-audio-wrapper">
+                    <div class="voice-audio-visual" id="audioVisual" aria-hidden="true">&#127911;</div>
                     <audio controls id="audioPlayer">
                         <source src="{{ reward.audio_file.url|safe }}" type="audio/mpeg">
                         <source src="{{ reward.audio_file.url|safe }}" type="audio/mp3">
@@ -300,39 +204,34 @@
                 </div>
                 {% else %}
                 <!-- No media, just show message icon -->
-                <div class="audio-player-wrapper">
-                    <div class="audio-visual">
-                        💌
-                    </div>
-                    <p style="text-align: center; opacity: 0.8;">
-                        {% trans "Read the message below" %}
-                    </p>
+                <div class="voice-audio-wrapper">
+                    <div class="voice-audio-visual" aria-hidden="true">&#128140;</div>
+                    <p class="text-center opacity-80">{% trans "Read the message below" %}</p>
                 </div>
                 {% endif %}
             </div>
 
             {% if reward.message %}
-            <div class="text-message">
-                {{ reward.message }}
-            </div>
+            <div class="voice-text-message">{{ reward.message }}</div>
             {% endif %}
 
-            <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="continue-btn">
-                {% trans "Continue Your Journey" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+            <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="journey-btn-primary block w-fit mx-auto mt-10">
+                {% trans "Continue Your Journey" %}
+                {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
             </a>
         </div>
-    </div>
+    </article>
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
-document.addEventListener('DOMContentLoaded', () => {
-    // Create floating hearts
-    const card = document.querySelector('.reward-card');
-    const heartCount = 15;
+document.addEventListener('DOMContentLoaded', function() {
+    var card = document.querySelector('.voice-card');
+    var heartCount = 15;
 
-    for (let i = 0; i < heartCount; i++) {
-        const heart = document.createElement('div');
-        heart.className = 'heart';
+    for (var i = 0; i < heartCount; i++) {
+        var heart = document.createElement('div');
+        heart.className = 'voice-heart';
+        heart.setAttribute('aria-hidden', 'true');
         heart.style.top = (Math.random() * 80 + 10) + '%';
         heart.style.left = (Math.random() * 80 + 10) + '%';
         heart.style.animationDelay = (Math.random() * 4) + 's';
@@ -340,21 +239,20 @@ document.addEventListener('DOMContentLoaded', () => {
         card.appendChild(heart);
     }
 
-    // Audio visual animation (if audio player exists)
-    const audioPlayer = document.getElementById('audioPlayer');
-    const audioVisual = document.getElementById('audioVisual');
+    var audioPlayer = document.getElementById('audioPlayer');
+    var audioVisual = document.getElementById('audioVisual');
 
     if (audioPlayer && audioVisual) {
-        audioPlayer.addEventListener('play', () => {
-            audioVisual.style.animation = 'pulse 0.5s ease-in-out infinite, glow 1s ease-in-out infinite';
+        audioPlayer.addEventListener('play', function() {
+            audioVisual.style.animation = 'voicePulse 0.5s ease-in-out infinite, voiceGlow 1s ease-in-out infinite';
         });
 
-        audioPlayer.addEventListener('pause', () => {
-            audioVisual.style.animation = 'glow 2s ease-in-out infinite';
+        audioPlayer.addEventListener('pause', function() {
+            audioVisual.style.animation = 'voiceGlow 2s ease-in-out infinite';
         });
 
-        audioPlayer.addEventListener('ended', () => {
-            audioVisual.style.animation = 'glow 2s ease-in-out infinite';
+        audioPlayer.addEventListener('ended', function() {
+            audioVisual.style.animation = 'voiceGlow 2s ease-in-out infinite';
         });
     }
 });

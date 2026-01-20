@@ -11,9 +11,10 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
 import os
-from pathlib import Path
-from django.utils.translation import gettext_lazy as _
 from datetime import timedelta
+from pathlib import Path
+
+from django.utils.translation import gettext_lazy as _
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,168 +25,179 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # Development fallback - production.py uses environment variable only
-SECRET_KEY = os.getenv('SECRET_KEY', 'dev-insecure-key-change-in-production')
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-insecure-key-change-in-production")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+# Required for django.template.context_processors.debug to expose 'debug' in templates
+INTERNAL_IPS = [
+    "127.0.0.1",
+    "localhost",
+]
+
 # Use centralized domain configuration for ALLOWED_HOSTS
 # See azureproject/domains.py for the list of configured domains
 from azureproject.domains import get_all_hosts
+
 ALLOWED_HOSTS = get_all_hosts()
 
-if 'CODESPACE_NAME' in os.environ:
-    CSRF_TRUSTED_ORIGINS = [f'https://{os.getenv("CODESPACE_NAME")}-8000.{os.getenv("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")}']
+if "CODESPACE_NAME" in os.environ:
+    CSRF_TRUSTED_ORIGINS = [
+        f'https://{os.getenv("CODESPACE_NAME")}-8000.{os.getenv("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")}'
+    ]
 
 # Local development CSRF trusted origins (for .localhost domains)
 # These only apply locally - production uses real domains
-CSRF_TRUSTED_ORIGINS = getattr(globals(), 'CSRF_TRUSTED_ORIGINS', []) + [
-    'http://arborist.localhost:8000',
-    'http://crush.localhost:8000',
-    'http://power-up.localhost:8000',
-    'http://powerup.localhost:8000',
-    'http://vinsdelux.localhost:8000',
-    'http://entreprinder.localhost:8000',
-    'http://tableau.localhost:8000',
-    'http://delegation.localhost:8000',
+CSRF_TRUSTED_ORIGINS = getattr(globals(), "CSRF_TRUSTED_ORIGINS", []) + [
+    "http://arborist.localhost:8000",
+    "http://crush.localhost:8000",
+    "http://power-up.localhost:8000",
+    "http://powerup.localhost:8000",
+    "http://vinsdelux.localhost:8000",
+    "http://entreprinder.localhost:8000",
+    "http://tableau.localhost:8000",
+    "http://delegation.localhost:8000",
 ]
 
 # Application definition
 
 INSTALLED_APPS = [
-    'modeltranslation',  # MUST be before admin for translation tabs in admin
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'django.contrib.sites',
-    'django.contrib.sitemaps',  # SEO: Dynamic sitemap generation
+    "modeltranslation",  # MUST be before admin for translation tabs in admin
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "django.contrib.sites",
+    "django.contrib.sitemaps",  # SEO: Dynamic sitemap generation
     # App templates must come BEFORE allauth to override default allauth templates
     # Order matters: crush_lu before entreprinder so its account/ templates take priority
-    'core',  # Shared templates (cookie_banner, etc.) across all domains
-    'crush_lu',  # Must be before entreprinder for account/ template override on crush.lu
-    'delegations',
-    'vinsdelux',
-    'entreprinder',  # Includes merged: matching, finops, vibe_coding
-    'power_up',  # Corporate/investor site for power-up.lu
-    'tableau',  # AI Art e-commerce site for tableau.lu
-    'arborist',  # Tree care informational site for arborist.lu
+    "core",  # Shared templates (cookie_banner, etc.) across all domains
+    "crush_lu",  # Must be before entreprinder for account/ template override on crush.lu
+    "delegations",
+    "vinsdelux",
+    "entreprinder",  # Includes merged: matching, finops, vibe_coding
+    "power_up",  # Corporate/investor site for power-up.lu
+    "tableau",  # AI Art e-commerce site for tableau.lu
+    "arborist",  # Tree care informational site for arborist.lu
     # Allauth apps
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
-    'allauth.socialaccount.providers.openid_connect',
-    'allauth.socialaccount.providers.linkedin_oauth2',
-    'allauth.socialaccount.providers.facebook',
-    'allauth.socialaccount.providers.google',
-    'allauth.socialaccount.providers.microsoft',
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.openid_connect",
+    "allauth.socialaccount.providers.linkedin_oauth2",
+    "allauth.socialaccount.providers.facebook",
+    "allauth.socialaccount.providers.google",
+    "allauth.socialaccount.providers.microsoft",
     # Third-party apps
-    'crispy_forms',
-    'crispy_tailwind',
-    'rest_framework',
-    'rest_framework_simplejwt',
-    'corsheaders',
-    'django_htmx',  # HTMX server-side integration
-    'azureproject',  # For custom analytics templatetags
-    'cookie_consent',  # GDPR cookie consent banner
-    'heroicons',  # Tailwind Heroicons template tags
+    "crispy_forms",
+    "crispy_tailwind",
+    "rest_framework",
+    "rest_framework_simplejwt",
+    "corsheaders",
+    "django_htmx",  # HTMX server-side integration
+    "azureproject",  # For custom analytics templatetags
+    "cookie_consent",  # GDPR cookie consent banner
+    "heroicons",  # Tailwind Heroicons template tags
 ]
 
 # SITE_ID must NOT be set - CurrentSiteMiddleware determines site dynamically per request
 # Setting SITE_ID would force all domains to use the same Site object
 
 MIDDLEWARE = [
-    'azureproject.middleware.HealthCheckMiddleware',  # MUST be first - bypasses all other middleware for /healthz/
-    'django.middleware.security.SecurityMiddleware',
-    'django.middleware.gzip.GZipMiddleware',  # Compress HTML responses (27 KiB savings per Lighthouse)
-    'azureproject.csp_middleware.CSPMiddleware',  # Content Security Policy header
-    'whitenoise.middleware.WhiteNoiseMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'azureproject.middleware.AuthRateLimitMiddleware',  # Rate limit password reset before CSRF
-    'azureproject.middleware.DomainURLRoutingMiddleware',  # Multi-domain routing - MUST be before LocaleMiddleware
-    'django.middleware.locale.LocaleMiddleware',
-    'django.middleware.common.CommonMiddleware',  # MUST be before SafeCurrentSiteMiddleware
-    'azureproject.middleware.SafeCurrentSiteMiddleware',  # Safe site detection (auto-creates missing Sites)
-    'azureproject.middleware.AdminLanguagePrefixRedirectMiddleware',  # Redirect /fr/admin/ -> /admin/
-    'azureproject.middleware.LoginPostDebugMiddleware',  # DEBUG: Log /login/ POSTs before CSRF check
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'crush_lu.middleware.UserActivityMiddleware',  # Track user activity and PWA usage
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',
-    'django_htmx.middleware.HtmxMiddleware',  # HTMX request detection
+    "azureproject.middleware.HealthCheckMiddleware",  # MUST be first - bypasses all other middleware for /healthz/
+    "django.middleware.security.SecurityMiddleware",
+    "django.middleware.gzip.GZipMiddleware",  # Compress HTML responses (27 KiB savings per Lighthouse)
+    "azureproject.csp_middleware.CSPMiddleware",  # Content Security Policy header
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "azureproject.middleware.AuthRateLimitMiddleware",  # Rate limit password reset before CSRF
+    "azureproject.middleware.DomainURLRoutingMiddleware",  # Multi-domain routing - MUST be before LocaleMiddleware
+    "django.middleware.locale.LocaleMiddleware",
+    "django.middleware.common.CommonMiddleware",  # MUST be before SafeCurrentSiteMiddleware
+    "azureproject.middleware.SafeCurrentSiteMiddleware",  # Safe site detection (auto-creates missing Sites)
+    "azureproject.middleware.AdminLanguagePrefixRedirectMiddleware",  # Redirect /fr/admin/ -> /admin/
+    "azureproject.middleware.LoginPostDebugMiddleware",  # DEBUG: Log /login/ POSTs before CSRF check
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "crush_lu.middleware.UserActivityMiddleware",  # Track user activity and PWA usage
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
+    "django_htmx.middleware.HtmxMiddleware",  # HTMX request detection
 ]
 
 
 from django.contrib.messages import constants as messages
+
 MESSAGE_TAGS = {
-    messages.DEBUG: 'alert-info',
-    messages.INFO: 'alert-info',
-    messages.SUCCESS: 'alert-success',
-    messages.WARNING: 'alert-warning',
-    messages.ERROR: 'alert-danger',
+    messages.DEBUG: "alert-info",
+    messages.INFO: "alert-info",
+    messages.SUCCESS: "alert-success",
+    messages.WARNING: "alert-warning",
+    messages.ERROR: "alert-danger",
 }
 
 SESSION_ENGINE = "django.contrib.sessions.backends.db"  # Changed from cache to db for PWA persistence
-ROOT_URLCONF = 'azureproject.urls'
+ROOT_URLCONF = "azureproject.urls"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [
-            BASE_DIR / 'core' / 'templates',  # Core templates first (for admin overrides, shared icons)
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [
+            BASE_DIR
+            / "core"
+            / "templates",  # Core templates first (for admin overrides, shared icons)
         ],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-                'django.template.context_processors.i18n',  # Ensure this line is present
-                'crush_lu.context_processors.crush_user_context',  # Crush.lu user context
-                'crush_lu.context_processors.social_preview_context',  # Crush.lu social preview (PR #47)
-                'crush_lu.context_processors.firebase_config',  # Firebase config for phone verification
-                'azureproject.content_images_context.content_images_context',  # Content images (Azure Blob)
-                'azureproject.analytics_context.analytics_ids',  # Domain-specific GA4/FB Pixel IDs
-                'azureproject.context_processors.admin_navigation',  # Global admin panel navigation
-                'azureproject.context_processors.staging_environment',  # Staging banner detection
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+                "django.template.context_processors.i18n",  # Ensure this line is present
+                "crush_lu.context_processors.crush_user_context",  # Crush.lu user context
+                "crush_lu.context_processors.social_preview_context",  # Crush.lu social preview (PR #47)
+                "crush_lu.context_processors.firebase_config",  # Firebase config for phone verification
+                "azureproject.content_images_context.content_images_context",  # Content images (Azure Blob)
+                "azureproject.analytics_context.analytics_ids",  # Domain-specific GA4/FB Pixel IDs
+                "azureproject.context_processors.admin_navigation",  # Global admin panel navigation
+                "azureproject.context_processors.staging_environment",  # Staging banner detection
             ],
-            'builtins': [
-                'heroicons.templatetags.heroicons',  # Heroicons available in all templates
+            "builtins": [
+                "heroicons.templatetags.heroicons",  # Heroicons available in all templates
             ],
         },
     },
 ]
 
 
-
-WSGI_APPLICATION = 'azureproject.wsgi.application'
+WSGI_APPLICATION = "azureproject.wsgi.application"
 
 
 # Database
 # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
 
 # Uses PostgreSQL if DBHOST is set in .env, otherwise falls back to SQLite
-if os.environ.get('DBHOST'):
+if os.environ.get("DBHOST"):
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('DBNAME', 'entreprinder'),
-            'HOST': os.environ.get('DBHOST', 'localhost'),
-            'USER': os.environ.get('DBUSER', 'postgres'),
-            'PASSWORD': os.environ.get('DBPASS', ''),
-            'PORT': os.environ.get('DBPORT', '5432'),
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("DBNAME", "entreprinder"),
+            "HOST": os.environ.get("DBHOST", "localhost"),
+            "USER": os.environ.get("DBUSER", "postgres"),
+            "PASSWORD": os.environ.get("DBPASS", ""),
+            "PORT": os.environ.get("DBPORT", "5432"),
         }
     }
 else:
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
         }
     }
 
@@ -195,16 +207,16 @@ else:
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -225,8 +237,10 @@ SESSION_COOKIE_AGE = 1209600  # 14 days (2 weeks) - longer session for PWA
 SESSION_SAVE_EVERY_REQUEST = True  # Extend session on each request
 SESSION_COOKIE_HTTPONLY = True  # Security: prevent JavaScript access
 SESSION_COOKIE_SECURE = False  # Set to True in production (HTTPS only)
-SESSION_COOKIE_SAMESITE = 'Lax'  # CSRF protection while allowing navigation
-SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep session alive after browser close (critical for PWA)
+SESSION_COOKIE_SAMESITE = "Lax"  # CSRF protection while allowing navigation
+SESSION_EXPIRE_AT_BROWSER_CLOSE = (
+    False  # Keep session alive after browser close (critical for PWA)
+)
 SESSION_REMEMBER_ME = True
 
 # PWA Manifest version - bump when updating icons to force cache refresh
@@ -248,9 +262,15 @@ WALLET_GOOGLE_CLASS_SUFFIX = os.getenv("WALLET_GOOGLE_CLASS_SUFFIX", "crush_memb
 # CLASS_ID is derived from ISSUER_ID.CLASS_SUFFIX, or can be overridden
 WALLET_GOOGLE_CLASS_ID = os.getenv(
     "WALLET_GOOGLE_CLASS_ID",
-    f"{WALLET_GOOGLE_ISSUER_ID}.{WALLET_GOOGLE_CLASS_SUFFIX}" if WALLET_GOOGLE_ISSUER_ID else ""
+    (
+        f"{WALLET_GOOGLE_ISSUER_ID}.{WALLET_GOOGLE_CLASS_SUFFIX}"
+        if WALLET_GOOGLE_ISSUER_ID
+        else ""
+    ),
 )
-WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL = os.getenv("WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL", "")
+WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL = os.getenv(
+    "WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL", ""
+)
 WALLET_GOOGLE_PRIVATE_KEY = os.getenv("WALLET_GOOGLE_PRIVATE_KEY", "")
 WALLET_GOOGLE_PRIVATE_KEY_PATH = os.getenv("WALLET_GOOGLE_PRIVATE_KEY_PATH", "")
 WALLET_GOOGLE_KEY_ID = os.getenv("WALLET_GOOGLE_KEY_ID", "")
@@ -278,16 +298,16 @@ CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
 CRISPY_TEMPLATE_PACK = "tailwind"
 
 AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
-    'allauth.account.auth_backends.AuthenticationBackend',
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
 ]
 
 # AllAuth settings (updated for django-allauth 0.63+)
 # Login via email only (no username)
-ACCOUNT_LOGIN_METHODS = {'email'}
+ACCOUNT_LOGIN_METHODS = {"email"}
 
 # Signup fields: email required (*), password twice required (*)
-ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 
 # Keep unique email constraint
 ACCOUNT_UNIQUE_EMAIL = True
@@ -298,7 +318,7 @@ ACCOUNT_EMAIL_VERIFICATION = "optional"
 # Remember me by default
 ACCOUNT_SESSION_REMEMBER = True
 
-LOGIN_REDIRECT_URL = '/profile/'
+LOGIN_REDIRECT_URL = "/profile/"
 
 SOCIALACCOUNT_LOGIN_ON_GET = True
 
@@ -310,76 +330,91 @@ SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
 # in the database (from a previous signup via email/password or another social provider),
 # automatically link the social account to the existing user account.
 SOCIALACCOUNT_EMAIL_AUTHENTICATION = True  # Enable email-based account linking
-SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True  # Auto-connect without confirmation
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = (
+    True  # Auto-connect without confirmation
+)
 
 # Social account provider settings
 SOCIALACCOUNT_PROVIDERS = {
-    'facebook': {
-        'METHOD': 'oauth2',
-        'SCOPE': ['email', 'public_profile'],  # Only basic permissions (no app review needed)
-        'AUTH_PARAMS': {'auth_type': 'rerequest'},  # Smoother UX - only re-prompt for declined permissions
-        'FIELDS': [
-            'id',
-            'email',
-            'name',
-            'first_name',
-            'last_name',
-            'picture.type(large)',
+    "facebook": {
+        "METHOD": "oauth2",
+        "SCOPE": [
+            "email",
+            "public_profile",
+        ],  # Only basic permissions (no app review needed)
+        "AUTH_PARAMS": {
+            "auth_type": "rerequest"
+        },  # Smoother UX - only re-prompt for declined permissions
+        "FIELDS": [
+            "id",
+            "email",
+            "name",
+            "first_name",
+            "last_name",
+            "picture.type(large)",
         ],
-        'EXCHANGE_TOKEN': True,
+        "EXCHANGE_TOKEN": True,
         # Trust Facebook emails as verified (required for auto-linking)
-        'VERIFIED_EMAIL': True,
-        'VERSION': 'v24.0',
+        "VERIFIED_EMAIL": True,
+        "VERSION": "v24.0",
     },
-    'google': {
-        'SCOPE': ['profile', 'email'],
-        'AUTH_PARAMS': {'access_type': 'online'},
-        'OAUTH_PKCE_ENABLED': True,
+    "google": {
+        "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {"access_type": "online"},
+        "OAUTH_PKCE_ENABLED": True,
         # Trust Google emails as verified (required for auto-linking)
-        'VERIFIED_EMAIL': True,
+        "VERIFIED_EMAIL": True,
     },
-    'microsoft': {
+    "microsoft": {
         # 'common' allows any Microsoft account (personal + work/school from any org)
         # This is needed for crush.lu consumers who may use personal accounts
         # Admin panel access is restricted at the adapter level (see adapters.py)
-        'TENANT': 'common',
-        'SCOPE': ['User.Read', 'profile', 'email', 'openid'],
+        "TENANT": "common",
+        "SCOPE": ["User.Read", "profile", "email", "openid"],
         # Trust Microsoft emails as verified (required for auto-linking)
-        'VERIFIED_EMAIL': True,
+        "VERIFIED_EMAIL": True,
     },
 }
 
 # Trust emails from these providers as verified (enables auto-linking to existing accounts)
 # When a user logs in with a social provider using an email that exists in the database,
 # the social account will be automatically linked if the provider is in this list.
-SOCIALACCOUNT_EMAIL_VERIFIED_PROVIDERS = ['google', 'facebook', 'microsoft']
+SOCIALACCOUNT_EMAIL_VERIFIED_PROVIDERS = ["google", "facebook", "microsoft"]
 
 
 # Use CustomSignupForm for Entreprinder (will be overridden by adapters for other domains)
-ACCOUNT_FORMS = {'signup': 'entreprinder.forms.CustomSignupForm'}
+ACCOUNT_FORMS = {"signup": "entreprinder.forms.CustomSignupForm"}
 
 # Specify where to redirect after successful sign-up
-ACCOUNT_SIGNUP_REDIRECT_URL = '/profile/'  # Redirect to profile page after signup
+ACCOUNT_SIGNUP_REDIRECT_URL = "/profile/"  # Redirect to profile page after signup
 
 # Allauth adapters - Multi-domain aware
-SOCIALACCOUNT_ADAPTER = 'azureproject.adapters.MultiDomainSocialAccountAdapter'
-ACCOUNT_ADAPTER = 'azureproject.adapters.MultiDomainAccountAdapter'
+SOCIALACCOUNT_ADAPTER = "azureproject.adapters.MultiDomainSocialAccountAdapter"
+ACCOUNT_ADAPTER = "azureproject.adapters.MultiDomainAccountAdapter"
 
 # Email backend Configuration (using SMTP)
 # NOTE: For domain-specific email configuration (crush.lu, vinsdelux.com, etc.),
 # use the send_domain_email() function from azureproject.email_utils
 # The send_domain_email() automatically uses console backend in DEBUG mode
 # This default configuration is used for powerup.lu and as fallback
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'mail.power-up.lu')  # SMTP server address
-EMAIL_PORT = int(os.getenv('EMAIL_PORT', 465))          # SMTP port (465 for SSL)
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')          # Your SMTP username (e.g., info@power-up.lu)
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')  # Your SMTP password or App Password
-EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'True').lower() == 'true' # Use SSL since port is 465
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.getenv("EMAIL_HOST", "mail.power-up.lu")  # SMTP server address
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", 465))  # SMTP port (465 for SSL)
+EMAIL_HOST_USER = os.getenv(
+    "EMAIL_HOST_USER"
+)  # Your SMTP username (e.g., info@power-up.lu)
+EMAIL_HOST_PASSWORD = os.getenv(
+    "EMAIL_HOST_PASSWORD"
+)  # Your SMTP password or App Password
+EMAIL_USE_SSL = (
+    os.getenv("EMAIL_USE_SSL", "True").lower() == "true"
+)  # Use SSL since port is 465
 # EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'False').lower() == 'true' # Use TLS if port was 587
 
 # Default email address for outgoing mail
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'noreply@powerup.lu')
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "noreply@powerup.lu"
+)
 
 # Domain-specific email configurations
 # Crush.lu uses Microsoft Graph API (SMTP disabled by M365)
@@ -397,83 +432,92 @@ FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "")
 FIREBASE_API_KEY = os.environ.get("FIREBASE_API_KEY", "")
 FIREBASE_AUTH_DOMAIN = os.environ.get("FIREBASE_AUTH_DOMAIN", "")
 
-CORS_ALLOWED_ORIGINS = [
-]
+CORS_ALLOWED_ORIGINS = []
 
 
-
-ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'http' if DEBUG else 'https'
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http" if DEBUG else "https"
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
-    'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
-    ),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     # Custom exception handler for error sanitization in production
-    'EXCEPTION_HANDLER': 'azureproject.api_exception_handler.custom_exception_handler',
+    "EXCEPTION_HANDLER": "azureproject.api_exception_handler.custom_exception_handler",
     # Rate limiting / throttling
-    'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle',
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
     ],
-    'DEFAULT_THROTTLE_RATES': {
-        'anon': '60/minute',        # Anonymous API users
-        'user': '120/minute',       # Authenticated API users
-        'login': '5/minute',        # Login attempts (custom throttle)
-        'signup': '3/minute',       # Signup attempts (custom throttle)
-        'phone_verify': '3/minute', # Phone verification (custom throttle)
-        'password_reset': '3/hour', # Password reset requests (prevent email spam)
-    }
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "60/minute",  # Anonymous API users
+        "user": "120/minute",  # Authenticated API users
+        "login": "5/minute",  # Login attempts (custom throttle)
+        "signup": "3/minute",  # Signup attempts (custom throttle)
+        "phone_verify": "3/minute",  # Phone verification (custom throttle)
+        "password_reset": "3/hour",  # Password reset requests (prevent email spam)
+    },
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': False,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'ALGORITHM': 'HS256',
-    'SIGNING_KEY': SECRET_KEY,
-    'VERIFYING_KEY': None,
-    'AUTH_HEADER_TYPES': ('Bearer',),
-    'USER_ID_FIELD': 'id',
-    'USER_ID_CLAIM': 'user_id',
-    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
-    'TOKEN_TYPE_CLAIM': 'token_type',
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": SECRET_KEY,
+    "VERIFYING_KEY": None,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+    "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
+    "TOKEN_TYPE_CLAIM": "token_type",
 }
 
 # Internationalization
 
 LOCALE_PATHS = [
-    BASE_DIR / 'locale',
+    BASE_DIR / "locale",
 ]
 
-LANGUAGE_CODE = 'en'
+LANGUAGE_CODE = "en"
 
 # Luxembourg timezone (CET/CEST - UTC+1/UTC+2 with automatic DST handling)
-TIME_ZONE = 'Europe/Luxembourg'
+TIME_ZONE = "Europe/Luxembourg"
 
 USE_I18N = True
 
 LANGUAGES = [
-    ('en', _('English')),
-    ('de', _('German')),
-    ('fr', _('French')),
+    ("en", _("English")),
+    ("de", _("German")),
+    ("fr", _("French")),
 ]
 
 # django-modeltranslation settings
 # Automatically returns correct language field based on request.LANGUAGE_CODE
-MODELTRANSLATION_DEFAULT_LANGUAGE = 'en'
-MODELTRANSLATION_LANGUAGES = ('en', 'de', 'fr')
-MODELTRANSLATION_FALLBACK_LANGUAGES = ('en',)  # Fallback to English if translation missing
+MODELTRANSLATION_DEFAULT_LANGUAGE = "en"
+MODELTRANSLATION_LANGUAGES = ("en", "de", "fr")
+MODELTRANSLATION_FALLBACK_LANGUAGES = (
+    "en",
+)  # Fallback to English if translation missing
 
 USE_TZ = True
 
-STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_URL = "/static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# =============================================================================
+# STATIC FILES STORAGE (Development)
+# =============================================================================
+# Use simple StaticFilesStorage in development for instant cache refresh.
+# Production (production.py) overrides this with CompressedManifestStaticFilesStorage.
+STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+
+# WhiteNoise development settings - enable auto-refresh for instant CSS/JS updates
+if DEBUG:
+    WHITENOISE_AUTOREFRESH = True  # Re-check files on every request
+    WHITENOISE_MAX_AGE = 0  # No caching in development
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
@@ -487,28 +531,25 @@ STATICFILES_DIRS = [
 
 # Crush.lu images
 SOCIAL_PREVIEW_IMAGE_URL = os.getenv(
-    'SOCIAL_PREVIEW_IMAGE_URL',
-    'https://crush.lu/static/crush_lu/crush_social_preview.jpg'
+    "SOCIAL_PREVIEW_IMAGE_URL",
+    "https://crush.lu/static/crush_lu/crush_social_preview.jpg",
 )
 CRUSH_SOCIAL_PREVIEW_URL = os.getenv(
-    'CRUSH_SOCIAL_PREVIEW_URL',
-    'https://crush.lu/static/crush_lu/crush_social_preview.jpg'
+    "CRUSH_SOCIAL_PREVIEW_URL",
+    "https://crush.lu/static/crush_lu/crush_social_preview.jpg",
 )
 
 # VinsDelux images
 VINSDELUX_JOURNEY_BASE_URL = os.getenv(
-    'VINSDELUX_JOURNEY_BASE_URL',
-    '/static/vinsdelux/images/journey/'
+    "VINSDELUX_JOURNEY_BASE_URL", "/static/vinsdelux/images/journey/"
 )
 VINSDELUX_VINEYARD_DEFAULTS_URL = os.getenv(
-    'VINSDELUX_VINEYARD_DEFAULTS_URL',
-    '/static/vinsdelux/images/vineyard-defaults/'
+    "VINSDELUX_VINEYARD_DEFAULTS_URL", "/static/vinsdelux/images/vineyard-defaults/"
 )
 
 # PowerUP/Entreprinder images
 POWERUP_DEFAULT_PROFILE_URL = os.getenv(
-    'POWERUP_DEFAULT_PROFILE_URL',
-    '/static/vinsdelux/images/default-profile.png'
+    "POWERUP_DEFAULT_PROFILE_URL", "/static/vinsdelux/images/default-profile.png"
 )
 
 # =============================================================================
@@ -517,95 +558,125 @@ POWERUP_DEFAULT_PROFILE_URL = os.getenv(
 # Priority: 1) Azurite (local emulator), 2) Azure Blob Storage, 3) Local filesystem
 
 # Azurite (Azure Storage Emulator) for local development
-AZURITE_MODE = os.environ.get('USE_AZURITE', 'false').lower() == 'true'
+AZURITE_MODE = os.environ.get("USE_AZURITE", "false").lower() == "true"
 
 if AZURITE_MODE:
     # Azurite well-known development credentials
-    AZURE_ACCOUNT_NAME = 'devstoreaccount1'
+    AZURE_ACCOUNT_NAME = "devstoreaccount1"
     AZURE_ACCOUNT_KEY = (
-        'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq'
-        '/K1SZFPTOtr/KBHBeksoGMGw=='
+        "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq"
+        "/K1SZFPTOtr/KBHBeksoGMGw=="
     )
-    AZURE_CONTAINER_NAME = 'media'
-    AZURITE_BLOB_HOST = '127.0.0.1:10000'
+    AZURE_CONTAINER_NAME = "media"
+    AZURITE_BLOB_HOST = "127.0.0.1:10000"
 
     # Azurite connection string for azure-storage-blob SDK
     AZURE_CONNECTION_STRING = (
-        f'DefaultEndpointsProtocol=http;'
-        f'AccountName={AZURE_ACCOUNT_NAME};'
-        f'AccountKey={AZURE_ACCOUNT_KEY};'
-        f'BlobEndpoint=http://{AZURITE_BLOB_HOST}/{AZURE_ACCOUNT_NAME};'
+        f"DefaultEndpointsProtocol=http;"
+        f"AccountName={AZURE_ACCOUNT_NAME};"
+        f"AccountKey={AZURE_ACCOUNT_KEY};"
+        f"BlobEndpoint=http://{AZURITE_BLOB_HOST}/{AZURE_ACCOUNT_NAME};"
     )
 
     # Media URL for serving files (Azurite blob endpoint format)
-    MEDIA_URL = f'http://{AZURITE_BLOB_HOST}/{AZURE_ACCOUNT_NAME}/{AZURE_CONTAINER_NAME}/'
+    MEDIA_URL = (
+        f"http://{AZURITE_BLOB_HOST}/{AZURE_ACCOUNT_NAME}/{AZURE_CONTAINER_NAME}/"
+    )
 
     # Django 4.2+ STORAGES configuration for Azurite
     STORAGES = {
-        'default': {
-            'BACKEND': 'storages.backends.azure_storage.AzureStorage',
-            'OPTIONS': {
-                'account_name': AZURE_ACCOUNT_NAME,
-                'account_key': AZURE_ACCOUNT_KEY,
-                'azure_container': AZURE_CONTAINER_NAME,
-                'connection_string': AZURE_CONNECTION_STRING,
-                'overwrite_files': True,
+        "default": {
+            "BACKEND": "storages.backends.azure_storage.AzureStorage",
+            "OPTIONS": {
+                "account_name": AZURE_ACCOUNT_NAME,
+                "account_key": AZURE_ACCOUNT_KEY,
+                "azure_container": AZURE_CONTAINER_NAME,
+                "connection_string": AZURE_CONNECTION_STRING,
+                "overwrite_files": True,
             },
         },
         # Private storage for Crush.lu profile photos (matches production)
         # Uses separate 'crush-profiles-private' container with SAS token access
-        'crush_private': {
-            'BACKEND': 'crush_lu.storage.CrushProfilePhotoStorage',
+        "crush_private": {
+            "BACKEND": "crush_lu.storage.CrushProfilePhotoStorage",
         },
-        'staticfiles': {
-            'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
+        # Use simple StaticFilesStorage in development for instant refresh
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
         },
     }
 
-    if os.environ.get('RUN_MAIN'):
+    if os.environ.get("RUN_MAIN"):
         print(f"Using Azurite (Azure Storage Emulator) at {AZURITE_BLOB_HOST}")
 
 # Azure Blob Storage Settings (Production)
-elif os.getenv('AZURE_ACCOUNT_NAME'):
-    DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
-    AZURE_ACCOUNT_NAME = os.getenv('AZURE_ACCOUNT_NAME')
-    AZURE_ACCOUNT_KEY = os.getenv('AZURE_ACCOUNT_KEY')
-    AZURE_CONTAINER_NAME = os.getenv('AZURE_CONTAINER_NAME')
-    MEDIA_URL = f'https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}/'
+elif os.getenv("AZURE_ACCOUNT_NAME"):
+    DEFAULT_FILE_STORAGE = "storages.backends.azure_storage.AzureStorage"
+    AZURE_ACCOUNT_NAME = os.getenv("AZURE_ACCOUNT_NAME")
+    AZURE_ACCOUNT_KEY = os.getenv("AZURE_ACCOUNT_KEY")
+    AZURE_CONTAINER_NAME = os.getenv("AZURE_CONTAINER_NAME")
+    MEDIA_URL = (
+        f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}/"
+    )
 
     # Azure Blob base URL for content images (domain-organized structure)
-    AZURE_CONTENT_BASE_URL = f'https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}'
+    AZURE_CONTENT_BASE_URL = (
+        f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}"
+    )
 
     # Override content image URLs with Azure Blob paths (if not explicitly set in env)
-    if 'SOCIAL_PREVIEW_IMAGE_URL' not in os.environ:
-        SOCIAL_PREVIEW_IMAGE_URL = f'{AZURE_CONTENT_BASE_URL}/crush-lu/branding/social-preview.jpg'
-    if 'CRUSH_SOCIAL_PREVIEW_URL' not in os.environ:
-        CRUSH_SOCIAL_PREVIEW_URL = f'{AZURE_CONTENT_BASE_URL}/crush-lu/branding/social-preview.jpg'
-    if 'VINSDELUX_JOURNEY_BASE_URL' not in os.environ:
-        VINSDELUX_JOURNEY_BASE_URL = f'{AZURE_CONTENT_BASE_URL}/vinsdelux/journey/'
-    if 'VINSDELUX_VINEYARD_DEFAULTS_URL' not in os.environ:
-        VINSDELUX_VINEYARD_DEFAULTS_URL = f'{AZURE_CONTENT_BASE_URL}/vinsdelux/vineyard-defaults/'
-    if 'POWERUP_DEFAULT_PROFILE_URL' not in os.environ:
-        POWERUP_DEFAULT_PROFILE_URL = f'{AZURE_CONTENT_BASE_URL}/powerup/defaults/profile.png'
+    if "SOCIAL_PREVIEW_IMAGE_URL" not in os.environ:
+        SOCIAL_PREVIEW_IMAGE_URL = (
+            f"{AZURE_CONTENT_BASE_URL}/crush-lu/branding/social-preview.jpg"
+        )
+    if "CRUSH_SOCIAL_PREVIEW_URL" not in os.environ:
+        CRUSH_SOCIAL_PREVIEW_URL = (
+            f"{AZURE_CONTENT_BASE_URL}/crush-lu/branding/social-preview.jpg"
+        )
+    if "VINSDELUX_JOURNEY_BASE_URL" not in os.environ:
+        VINSDELUX_JOURNEY_BASE_URL = f"{AZURE_CONTENT_BASE_URL}/vinsdelux/journey/"
+    if "VINSDELUX_VINEYARD_DEFAULTS_URL" not in os.environ:
+        VINSDELUX_VINEYARD_DEFAULTS_URL = (
+            f"{AZURE_CONTENT_BASE_URL}/vinsdelux/vineyard-defaults/"
+        )
+    if "POWERUP_DEFAULT_PROFILE_URL" not in os.environ:
+        POWERUP_DEFAULT_PROFILE_URL = (
+            f"{AZURE_CONTENT_BASE_URL}/powerup/defaults/profile.png"
+        )
 
-    if os.environ.get('RUN_MAIN'):
+    if os.environ.get("RUN_MAIN"):
         print("Using Azure Blob Storage for media files.")
 else:
-    MEDIA_URL = '/media/'
-    MEDIA_ROOT = BASE_DIR / 'media'
+    MEDIA_URL = "/media/"
+    MEDIA_ROOT = BASE_DIR / "media"
 
     # Ensure media directory exists
     if not os.path.exists(MEDIA_ROOT):
         os.makedirs(MEDIA_ROOT)
-        if os.environ.get('RUN_MAIN'):  # Only print in main process
+        if os.environ.get("RUN_MAIN"):  # Only print in main process
             print(f"Created media directory at: {MEDIA_ROOT}")
-    elif os.environ.get('RUN_MAIN'):  # Only print in main process
+    elif os.environ.get("RUN_MAIN"):  # Only print in main process
         print(f"Media directory already exists at: {MEDIA_ROOT}")
 
-    if os.environ.get('RUN_MAIN'):  # Only print in main process
+    if os.environ.get("RUN_MAIN"):  # Only print in main process
         print("Using local file system for media files.")
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+    # Django 4.2+ STORAGES configuration for local development
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        # Private storage for Crush.lu profile photos (local development)
+        "crush_private": {
+            "BACKEND": "crush_lu.storage.CrushProfilePhotoStorage",
+        },
+        # Use simple StaticFilesStorage in development for instant refresh
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # CSRF Cookie Settings
 # CSRF_COOKIE_HTTPONLY=True prevents JavaScript from reading the CSRF cookie
@@ -614,7 +685,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CSRF_COOKIE_HTTPONLY = True
 
 # Custom CSRF failure view with detailed logging
-CSRF_FAILURE_VIEW = 'azureproject.middleware.csrf_failure_view'
+CSRF_FAILURE_VIEW = "azureproject.middleware.csrf_failure_view"
 
 # =============================================================================
 # PROFILE REMINDER TIMING CONFIGURATION
@@ -624,17 +695,17 @@ CSRF_FAILURE_VIEW = 'azureproject.middleware.csrf_failure_view'
 # max_hours: Maximum time window - don't send reminder after this point
 # Users are only eligible if they haven't received this reminder type before.
 PROFILE_REMINDER_TIMING = {
-    '24h': {
-        'min_hours': 24,
-        'max_hours': 48,
+    "24h": {
+        "min_hours": 24,
+        "max_hours": 48,
     },
-    '72h': {
-        'min_hours': 72,
-        'max_hours': 96,
+    "72h": {
+        "min_hours": 72,
+        "max_hours": 96,
     },
-    '7d': {
-        'min_hours': 168,  # 7 days
-        'max_hours': 192,  # 8 days
+    "7d": {
+        "min_hours": 168,  # 7 days
+        "max_hours": 192,  # 8 days
     },
 }
 
@@ -644,8 +715,10 @@ PROFILE_REMINDER_TIMING = {
 # CSP helps prevent XSS attacks by controlling which resources can be loaded.
 # Report-Only mode logs violations without blocking - safe for initial deployment.
 # Set CSP_REPORT_ONLY = False to enforce after testing.
-CSP_REPORT_ONLY = True  # Report violations but don't block (development/initial rollout)
-CSP_REPORT_URI = '/csp-report/'  # Endpoint for violation reports
+CSP_REPORT_ONLY = (
+    True  # Report violations but don't block (development/initial rollout)
+)
+CSP_REPORT_URI = "/csp-report/"  # Endpoint for violation reports
 
 # =============================================================================
 # PASSKIT (APPLE WALLET) SETTINGS

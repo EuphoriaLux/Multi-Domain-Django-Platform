@@ -3331,4 +3331,1099 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // =========================================================================
+    // JOURNEY SYSTEM ALPINE COMPONENTS
+    // CSP-compatible components for the Wonderland Journey experience
+    // =========================================================================
+
+    /**
+     * Journey State Manager
+     * Handles auto-save of journey progress, time tracking, and state management.
+     * Used in journey_base.html
+     *
+     * Usage:
+     * <div x-data="journeyState"
+     *      data-save-url="/api/journey/save-state/"
+     *      data-initial-time="300"
+     *      data-initial-points="150">
+     */
+    Alpine.data('journeyState', function() {
+        return {
+            startTime: Date.now(),
+            lastSaveTime: Date.now(),
+            totalTimeSeconds: 0,
+            currentPoints: 0,
+            saveUrl: '',
+            saveInterval: null,
+
+            init: function() {
+                var el = this.$el;
+                this.saveUrl = el.dataset.saveUrl || '';
+                this.totalTimeSeconds = parseInt(el.dataset.initialTime, 10) || 0;
+                this.currentPoints = parseInt(el.dataset.initialPoints, 10) || 0;
+
+                // Start auto-save interval (every 30 seconds)
+                var self = this;
+                this.saveInterval = setInterval(function() {
+                    self.saveState();
+                }, 30000);
+
+                // Save on page unload
+                window.addEventListener('beforeunload', function() {
+                    self.saveStateBeacon();
+                });
+            },
+
+            saveState: function() {
+                if (!this.saveUrl) return;
+
+                var now = Date.now();
+                var timeIncrement = Math.floor((now - this.lastSaveTime) / 1000);
+                var self = this;
+
+                if (timeIncrement > 0) {
+                    fetch(this.saveUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': CrushUtils.getCsrfToken()
+                        },
+                        body: JSON.stringify({
+                            time_increment: timeIncrement
+                        })
+                    })
+                    .then(function(response) { return response.json(); })
+                    .then(function(data) {
+                        if (data.success) {
+                            self.lastSaveTime = now;
+                            self.totalTimeSeconds = data.total_time;
+                            console.log('⏱️ Journey state saved');
+                        }
+                    })
+                    .catch(function(error) {
+                        console.error('Error saving state:', error);
+                    });
+                }
+            },
+
+            saveStateBeacon: function() {
+                if (!this.saveUrl) return;
+
+                var timeIncrement = Math.floor((Date.now() - this.lastSaveTime) / 1000);
+                if (timeIncrement > 0) {
+                    var formData = new FormData();
+                    formData.append('time_increment', timeIncrement);
+                    formData.append('csrfmiddlewaretoken', CrushUtils.getCsrfToken());
+                    navigator.sendBeacon(this.saveUrl, formData);
+                }
+            },
+
+            destroy: function() {
+                if (this.saveInterval) {
+                    clearInterval(this.saveInterval);
+                }
+            }
+        };
+    });
+
+    /**
+     * Riddle Challenge Component
+     * For riddle-type challenges with text input and hints
+     *
+     * Usage:
+     * <article x-data="riddleChallenge"
+     *          data-challenge-id="123"
+     *          data-submit-url="/api/journey/submit/"
+     *          data-hint-url="/api/journey/hint/"
+     *          data-chapter-url="/journey/chapter/1/"
+     *          data-initial-points="25">
+     */
+    Alpine.data('riddleChallenge', function() {
+        return {
+            challengeId: 0,
+            answer: '',
+            isSubmitting: false,
+            feedback: '',
+            feedbackType: '',
+            feedbackHtml: '',
+            currentPoints: 0,
+            submitUrl: '',
+            hintUrl: '',
+            chapterUrl: '',
+            hintsUsed: [],
+
+            // CSP-safe computed getters (NEVER use inline negation in templates)
+            get hasAnswer() { return this.answer.trim().length > 0; },
+            get canSubmit() { return this.hasAnswer && !this.isSubmitting; },
+            get showFeedback() { return this.feedback !== '' || this.feedbackHtml !== ''; },
+            get isSuccess() { return this.feedbackType === 'success'; },
+            get isNotSuccess() { return !this.isSuccess; },
+            get isError() { return this.feedbackType === 'error'; },
+            get isNotError() { return !this.isError; },
+            get isNotSubmitting() { return !this.isSubmitting; },
+            get submitBtnDisabled() { return this.canSubmit ? undefined : true; },
+            get feedbackClass() {
+                if (this.feedbackType === 'success') return 'journey-message-success p-6 text-center';
+                if (this.feedbackType === 'error') return 'journey-message-error p-6 text-center';
+                return 'hidden';
+            },
+
+            // CSP-safe hint getters (for hint_section.html partial)
+            get hint1Used() { return this.hintsUsed.indexOf(1) !== -1; },
+            get hint2Used() { return this.hintsUsed.indexOf(2) !== -1; },
+            get hint3Used() { return this.hintsUsed.indexOf(3) !== -1; },
+            get hint1NotUsed() { return !this.hint1Used; },
+            get hint2NotUsed() { return !this.hint2Used; },
+            get hint3NotUsed() { return !this.hint3Used; },
+            get hint1DisabledAttr() { return this.hint1Used ? true : undefined; },
+            get hint2DisabledAttr() { return this.hint2Used ? true : undefined; },
+            get hint3DisabledAttr() { return this.hint3Used ? true : undefined; },
+            get hint1BtnClass() { return this.hint1Used ? 'opacity-50 cursor-not-allowed' : ''; },
+            get hint2BtnClass() { return this.hint2Used ? 'opacity-50 cursor-not-allowed' : ''; },
+            get hint3BtnClass() { return this.hint3Used ? 'opacity-50 cursor-not-allowed' : ''; },
+
+            init: function() {
+                var el = this.$el;
+                this.challengeId = parseInt(el.dataset.challengeId, 10) || 0;
+                this.submitUrl = el.dataset.submitUrl || '';
+                this.hintUrl = el.dataset.hintUrl || '';
+                this.chapterUrl = el.dataset.chapterUrl || '';
+                this.currentPoints = parseInt(el.dataset.initialPoints, 10) || 0;
+            },
+
+            submitAnswer: function() {
+                if (!this.canSubmit) return;
+
+                var self = this;
+                this.isSubmitting = true;
+                this.feedback = '';
+                this.feedbackHtml = '';
+
+                fetch(this.submitUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CrushUtils.getCsrfToken()
+                    },
+                    body: JSON.stringify({
+                        challenge_id: this.challengeId,
+                        answer: this.answer.trim()
+                    })
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.success && data.is_correct) {
+                        self.feedbackType = 'success';
+                        self.feedbackHtml = self.buildSuccessHtml(data);
+                    } else {
+                        self.feedbackType = 'error';
+                        self.feedback = data.message || 'Not quite right. Try again!';
+                        self.answer = '';
+                        self.isSubmitting = false;
+                        self.shakeInput();
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error:', error);
+                    self.feedbackType = 'error';
+                    self.feedback = 'An error occurred. Please try again.';
+                    self.isSubmitting = false;
+                });
+            },
+
+            buildSuccessHtml: function(data) {
+                return '<h3 class="flex items-center justify-center gap-2 text-lg font-bold mb-3">' +
+                    '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' +
+                    ' Correct!</h3>' +
+                    '<p class="mb-4">' + (data.success_message || '') + '</p>' +
+                    '<p class="font-bold mb-6">🏆 Points Earned: ' + data.points_earned + '</p>' +
+                    '<a href="' + this.chapterUrl + '" class="journey-btn-primary">' +
+                    'Continue <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
+                    '</a>';
+            },
+
+            shakeInput: function() {
+                var input = this.$el.querySelector('.journey-input');
+                if (input) {
+                    input.classList.add('journey-animate-shake');
+                    setTimeout(function() {
+                        input.classList.remove('journey-animate-shake');
+                    }, 500);
+                }
+            },
+
+            unlockHint: function(hintNum, cost) {
+                if (this.hintsUsed.indexOf(hintNum) !== -1) return;
+
+                var self = this;
+                fetch(this.hintUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CrushUtils.getCsrfToken()
+                    },
+                    body: JSON.stringify({
+                        challenge_id: this.challengeId,
+                        hint_number: hintNum
+                    })
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        self.hintsUsed.push(hintNum);
+                        self.currentPoints -= cost;
+
+                        // Dispatch event for hint box to show content
+                        self.$dispatch('hint-unlocked', {
+                            hintNum: hintNum,
+                            hintText: data.hint_text
+                        });
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error:', error);
+                });
+            },
+
+            isHintUsed: function(hintNum) {
+                return this.hintsUsed.indexOf(hintNum) !== -1;
+            },
+
+            handleKeypress: function(event) {
+                if (event.key === 'Enter') {
+                    this.submitAnswer();
+                }
+            }
+        };
+    });
+
+    /**
+     * Word Scramble Challenge Component
+     * For word scramble challenges with shuffle functionality
+     *
+     * Usage:
+     * <article x-data="wordScramble"
+     *          data-challenge-id="123"
+     *          data-submit-url="/api/journey/submit/"
+     *          data-hint-url="/api/journey/hint/"
+     *          data-chapter-url="/journey/chapter/1/"
+     *          data-initial-points="25"
+     *          data-scrambled-words="WORD SCRAMBLE TEST">
+     */
+    Alpine.data('wordScramble', function() {
+        return {
+            challengeId: 0,
+            answer: '',
+            isSubmitting: false,
+            feedback: '',
+            feedbackType: '',
+            feedbackHtml: '',
+            currentPoints: 0,
+            submitUrl: '',
+            hintUrl: '',
+            chapterUrl: '',
+            hintsUsed: [],
+            scrambledWords: [],
+            displayText: '',
+
+            // CSP-safe computed getters (NEVER use inline negation in templates)
+            get hasAnswer() { return this.answer.trim().length > 0; },
+            get canSubmit() { return this.hasAnswer && !this.isSubmitting; },
+            get showFeedback() { return this.feedback !== '' || this.feedbackHtml !== ''; },
+            get isSuccess() { return this.feedbackType === 'success'; },
+            get isNotSuccess() { return !this.isSuccess; },
+            get isError() { return this.feedbackType === 'error'; },
+            get isNotError() { return !this.isError; },
+            get isNotSubmitting() { return !this.isSubmitting; },
+            get submitBtnDisabled() { return this.canSubmit ? undefined : true; },
+            get feedbackClass() {
+                if (this.feedbackType === 'success') return 'journey-message-success p-6 text-center';
+                if (this.feedbackType === 'error') return 'journey-message-error p-6 text-center';
+                return 'hidden';
+            },
+
+            // CSP-safe hint getters (for hint_section.html partial)
+            get hint1Used() { return this.hintsUsed.indexOf(1) !== -1; },
+            get hint2Used() { return this.hintsUsed.indexOf(2) !== -1; },
+            get hint3Used() { return this.hintsUsed.indexOf(3) !== -1; },
+            get hint1NotUsed() { return !this.hint1Used; },
+            get hint2NotUsed() { return !this.hint2Used; },
+            get hint3NotUsed() { return !this.hint3Used; },
+            get hint1DisabledAttr() { return this.hint1Used ? true : undefined; },
+            get hint2DisabledAttr() { return this.hint2Used ? true : undefined; },
+            get hint3DisabledAttr() { return this.hint3Used ? true : undefined; },
+            get hint1BtnClass() { return this.hint1Used ? 'opacity-50 cursor-not-allowed' : ''; },
+            get hint2BtnClass() { return this.hint2Used ? 'opacity-50 cursor-not-allowed' : ''; },
+            get hint3BtnClass() { return this.hint3Used ? 'opacity-50 cursor-not-allowed' : ''; },
+
+            init: function() {
+                var el = this.$el;
+                this.challengeId = parseInt(el.dataset.challengeId, 10) || 0;
+                this.submitUrl = el.dataset.submitUrl || '';
+                this.hintUrl = el.dataset.hintUrl || '';
+                this.chapterUrl = el.dataset.chapterUrl || '';
+                this.currentPoints = parseInt(el.dataset.initialPoints, 10) || 0;
+
+                var scrambled = el.dataset.scrambledWords || '';
+                this.scrambledWords = scrambled.split(/\s+/).filter(function(w) { return w.trim(); });
+                this.displayText = this.scrambledWords.join('  •  ');
+            },
+
+            shuffleWords: function() {
+                var currentOrder = this.scrambledWords.join(' ');
+                var newOrder;
+                var attempts = 0;
+
+                // Fisher-Yates shuffle
+                do {
+                    newOrder = this.scrambledWords.slice();
+                    for (var i = newOrder.length - 1; i > 0; i--) {
+                        var j = Math.floor(Math.random() * (i + 1));
+                        var temp = newOrder[i];
+                        newOrder[i] = newOrder[j];
+                        newOrder[j] = temp;
+                    }
+                    attempts++;
+                } while (newOrder.join(' ') === currentOrder && attempts < 50);
+
+                this.scrambledWords = newOrder;
+                this.displayText = this.scrambledWords.join('  •  ');
+            },
+
+            submitAnswer: function() {
+                if (!this.canSubmit) return;
+
+                var self = this;
+                this.isSubmitting = true;
+                this.feedback = '';
+                this.feedbackHtml = '';
+
+                fetch(this.submitUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CrushUtils.getCsrfToken()
+                    },
+                    body: JSON.stringify({
+                        challenge_id: this.challengeId,
+                        answer: this.answer.trim()
+                    })
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.success && data.is_correct) {
+                        self.feedbackType = 'success';
+                        self.feedbackHtml = self.buildSuccessHtml(data);
+                    } else {
+                        self.feedbackType = 'error';
+                        self.feedback = data.message || 'Not quite right. Try again!';
+                        self.answer = '';
+                        self.isSubmitting = false;
+                        self.shakeInput();
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error:', error);
+                    self.feedbackType = 'error';
+                    self.feedback = 'An error occurred. Please try again.';
+                    self.isSubmitting = false;
+                });
+            },
+
+            buildSuccessHtml: function(data) {
+                return '<h3 class="flex items-center justify-center gap-2 text-lg font-bold mb-3">' +
+                    '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' +
+                    ' Correct!</h3>' +
+                    '<p class="mb-4">' + (data.success_message || '') + '</p>' +
+                    '<p class="font-bold mb-6">🏆 Points Earned: ' + data.points_earned + '</p>' +
+                    '<a href="' + this.chapterUrl + '" class="journey-btn-primary">' +
+                    'Continue <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
+                    '</a>';
+            },
+
+            shakeInput: function() {
+                var input = this.$el.querySelector('.journey-input');
+                if (input) {
+                    input.classList.add('journey-animate-shake');
+                    setTimeout(function() {
+                        input.classList.remove('journey-animate-shake');
+                    }, 500);
+                }
+            },
+
+            unlockHint: function(hintNum, cost) {
+                if (this.hintsUsed.indexOf(hintNum) !== -1) return;
+
+                var self = this;
+                fetch(this.hintUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CrushUtils.getCsrfToken()
+                    },
+                    body: JSON.stringify({
+                        challenge_id: this.challengeId,
+                        hint_number: hintNum
+                    })
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        self.hintsUsed.push(hintNum);
+                        self.currentPoints -= cost;
+                        self.$dispatch('hint-unlocked', {
+                            hintNum: hintNum,
+                            hintText: data.hint_text
+                        });
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error:', error);
+                });
+            },
+
+            isHintUsed: function(hintNum) {
+                return this.hintsUsed.indexOf(hintNum) !== -1;
+            },
+
+            handleKeypress: function(event) {
+                if (event.key === 'Enter') {
+                    this.submitAnswer();
+                }
+            }
+        };
+    });
+
+    /**
+     * Multiple Choice Challenge Component
+     * For multiple choice questions with option selection
+     *
+     * Usage:
+     * <article x-data="multipleChoice"
+     *          data-challenge-id="123"
+     *          data-submit-url="/api/journey/submit/"
+     *          data-chapter-url="/journey/chapter/1/"
+     *          data-chapter-number="2">
+     */
+    Alpine.data('multipleChoice', function() {
+        return {
+            challengeId: 0,
+            selectedOption: null,
+            isSubmitting: false,
+            feedback: '',
+            feedbackType: '',
+            feedbackHtml: '',
+            submitUrl: '',
+            chapterUrl: '',
+            chapterNumber: 1,
+
+            // CSP-safe computed getters (NEVER use inline negation in templates)
+            get hasSelection() { return this.selectedOption !== null; },
+            get hasNoSelection() { return !this.hasSelection; },
+            get canSubmit() { return this.hasSelection && !this.isSubmitting; },
+            get showFeedback() { return this.feedback !== '' || this.feedbackHtml !== ''; },
+            get isSuccess() { return this.feedbackType === 'success'; },
+            get isNotSuccess() { return !this.isSuccess; },
+            get isError() { return this.feedbackType === 'error'; },
+            get isNotError() { return !this.isError; },
+            get isNotSubmitting() { return !this.isSubmitting; },
+            get submitBtnDisabled() { return this.canSubmit ? undefined : true; },
+            get feedbackClass() {
+                if (this.feedbackType === 'success') return 'journey-message-success p-6 text-center mt-6';
+                if (this.feedbackType === 'error') return 'journey-message-error p-6 text-center mt-6';
+                return 'hidden mt-6';
+            },
+
+            init: function() {
+                var el = this.$el;
+                this.challengeId = parseInt(el.dataset.challengeId, 10) || 0;
+                this.submitUrl = el.dataset.submitUrl || '';
+                this.chapterUrl = el.dataset.chapterUrl || '';
+                this.chapterNumber = parseInt(el.dataset.chapterNumber, 10) || 1;
+            },
+
+            selectOption: function(optionKey, event) {
+                // Deselect all options
+                var cards = this.$el.querySelectorAll('.option-card');
+                cards.forEach(function(card) {
+                    card.classList.remove('selected');
+                    card.setAttribute('aria-checked', 'false');
+                });
+
+                // Select this option
+                var target = event.currentTarget;
+                target.classList.add('selected');
+                target.setAttribute('aria-checked', 'true');
+                this.selectedOption = optionKey;
+            },
+
+            isSelected: function(optionKey) {
+                return this.selectedOption === optionKey;
+            },
+
+            submitAnswer: function() {
+                if (!this.canSubmit) return;
+
+                var self = this;
+                this.isSubmitting = true;
+                this.feedback = '';
+                this.feedbackHtml = '';
+
+                fetch(this.submitUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CrushUtils.getCsrfToken()
+                    },
+                    body: JSON.stringify({
+                        challenge_id: this.challengeId,
+                        answer: this.selectedOption
+                    })
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.success && data.is_correct) {
+                        self.feedbackType = 'success';
+                        self.feedbackHtml = self.buildSuccessHtml(data);
+                    } else {
+                        self.feedbackType = 'error';
+                        self.feedback = 'Not quite right! Try a different answer.';
+                        self.markIncorrect();
+                        self.selectedOption = null;
+                        self.isSubmitting = false;
+
+                        // Auto-hide error after 3 seconds
+                        setTimeout(function() {
+                            if (self.feedbackType === 'error') {
+                                self.feedback = '';
+                                self.feedbackType = '';
+                            }
+                        }, 3000);
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error:', error);
+                    self.feedbackType = 'error';
+                    self.feedback = 'An error occurred. Please try again.';
+                    self.isSubmitting = false;
+                });
+            },
+
+            buildSuccessHtml: function(data) {
+                var isChapter2 = this.chapterNumber === 2;
+                var iconHtml = isChapter2
+                    ? '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'
+                    : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+                var title = isChapter2 ? 'Thank you for sharing!' : 'Correct!';
+
+                return '<h3 class="flex items-center justify-center gap-2 text-lg font-bold mb-3">' + iconHtml + ' ' + title + '</h3>' +
+                    '<div class="personal-message">' + (data.success_message || '') + '</div>' +
+                    '<p class="font-bold my-4">🏆 Points Earned: ' + data.points_earned + '</p>' +
+                    '<a href="' + this.chapterUrl + '" class="journey-btn-primary">' +
+                    'Continue <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
+                    '</a>';
+            },
+
+            markIncorrect: function() {
+                var selectedCard = this.$el.querySelector('.option-card.selected');
+                if (selectedCard) {
+                    selectedCard.classList.remove('selected');
+                    selectedCard.classList.add('incorrect', 'journey-animate-shake');
+                    setTimeout(function() {
+                        selectedCard.classList.remove('incorrect', 'journey-animate-shake');
+                    }, 1000);
+                }
+            },
+
+            handleKeypress: function(optionKey, event) {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    this.selectOption(optionKey, event);
+                }
+            }
+        };
+    });
+
+    /**
+     * Timeline Sort Challenge Component
+     * For timeline sorting challenges with Sortable.js
+     *
+     * Usage:
+     * <article x-data="timelineSort"
+     *          data-challenge-id="123"
+     *          data-submit-url="/api/journey/submit/"
+     *          data-chapter-url="/journey/chapter/1/">
+     */
+    Alpine.data('timelineSort', function() {
+        return {
+            challengeId: 0,
+            isSubmitting: false,
+            feedback: '',
+            feedbackType: '',
+            feedbackHtml: '',
+            submitUrl: '',
+            chapterUrl: '',
+            sortable: null,
+            isTouchDevice: false,
+
+            // CSP-safe computed getters (NEVER use inline negation in templates)
+            get canSubmit() { return !this.isSubmitting; },
+            get showFeedback() { return this.feedback !== '' || this.feedbackHtml !== ''; },
+            get isSuccess() { return this.feedbackType === 'success'; },
+            get isNotSuccess() { return !this.isSuccess; },
+            get isError() { return this.feedbackType === 'error'; },
+            get isNotError() { return !this.isError; },
+            get isNotSubmitting() { return !this.isSubmitting; },
+            get submitBtnDisabled() { return this.canSubmit ? undefined : true; },
+            get feedbackClass() {
+                if (this.feedbackType === 'success') return 'journey-message-success p-6 text-center mt-6';
+                if (this.feedbackType === 'error') return 'journey-message-error p-6 text-center mt-6';
+                return 'hidden mt-6';
+            },
+            get instructionText() {
+                return this.isTouchDevice
+                    ? 'Touch and drag the events to arrange them in chronological order'
+                    : 'Drag and drop the events to arrange them in chronological order';
+            },
+
+            init: function() {
+                var el = this.$el;
+                var self = this;
+
+                this.challengeId = parseInt(el.dataset.challengeId, 10) || 0;
+                this.submitUrl = el.dataset.submitUrl || '';
+                this.chapterUrl = el.dataset.chapterUrl || '';
+                this.isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+                // Initialize Sortable.js after DOM is ready
+                this.$nextTick(function() {
+                    self.initSortable();
+                    self.shuffleItems();
+                });
+            },
+
+            initSortable: function() {
+                var timelineItems = this.$el.querySelector('#timelineItems');
+                if (!timelineItems || typeof Sortable === 'undefined') return;
+
+                var self = this;
+                this.sortable = new Sortable(timelineItems, {
+                    animation: 200,
+                    easing: "cubic-bezier(1, 0, 0, 1)",
+                    ghostClass: 'sortable-ghost',
+                    chosenClass: 'sortable-chosen',
+                    dragClass: 'sortable-drag',
+                    handle: '.timeline-item',
+                    forceFallback: false,
+                    fallbackTolerance: 3,
+                    touchStartThreshold: 5,
+                    delay: 0,
+                    delayOnTouchOnly: true,
+                    onEnd: function() {
+                        self.updateNumbers();
+                    }
+                });
+            },
+
+            updateNumbers: function() {
+                var items = this.$el.querySelectorAll('.timeline-item');
+                items.forEach(function(item, index) {
+                    var numberEl = item.querySelector('.timeline-number');
+                    if (numberEl) {
+                        numberEl.textContent = index + 1;
+                    }
+                });
+            },
+
+            shuffleItems: function() {
+                var timelineItems = this.$el.querySelector('#timelineItems');
+                if (!timelineItems) return;
+
+                var items = Array.from(timelineItems.children);
+                // Fisher-Yates shuffle
+                for (var i = items.length - 1; i > 0; i--) {
+                    var j = Math.floor(Math.random() * (i + 1));
+                    timelineItems.appendChild(items[j]);
+                }
+                this.updateNumbers();
+            },
+
+            submitAnswer: function() {
+                if (!this.canSubmit) return;
+
+                var timelineItems = this.$el.querySelector('#timelineItems');
+                if (!timelineItems) return;
+
+                var items = timelineItems.querySelectorAll('.timeline-item');
+                var order = Array.from(items).map(function(item) {
+                    return item.dataset.originalIndex;
+                });
+                var answer = order.join(',');
+
+                var self = this;
+                this.isSubmitting = true;
+                this.feedback = '';
+                this.feedbackHtml = '';
+
+                fetch(this.submitUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CrushUtils.getCsrfToken()
+                    },
+                    body: JSON.stringify({
+                        challenge_id: this.challengeId,
+                        answer: answer
+                    })
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.success && data.is_correct) {
+                        self.feedbackType = 'success';
+                        self.feedbackHtml = self.buildSuccessHtml(data);
+                        self.disableSorting();
+                    } else {
+                        self.feedbackType = 'error';
+                        self.feedback = 'Not quite right. Try rearranging the events!';
+                        self.isSubmitting = false;
+
+                        // Auto-hide error after 3 seconds
+                        setTimeout(function() {
+                            if (self.feedbackType === 'error') {
+                                self.feedback = '';
+                                self.feedbackType = '';
+                            }
+                        }, 3000);
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error:', error);
+                    self.feedbackType = 'error';
+                    self.feedback = 'An error occurred. Please try again.';
+                    self.isSubmitting = false;
+                });
+            },
+
+            buildSuccessHtml: function(data) {
+                return '<h3 class="flex items-center justify-center gap-2 text-lg font-bold mb-3">' +
+                    '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' +
+                    ' Perfect!</h3>' +
+                    '<p class="text-lg my-5">' + (data.success_message || '') + '</p>' +
+                    '<p class="font-bold my-4">🏆 Points Earned: ' + data.points_earned + '</p>' +
+                    '<a href="' + this.chapterUrl + '" class="journey-btn-primary">' +
+                    'Continue <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
+                    '</a>';
+            },
+
+            disableSorting: function() {
+                if (this.sortable) {
+                    this.sortable.option('disabled', true);
+                }
+                var items = this.$el.querySelectorAll('.timeline-item');
+                items.forEach(function(item) {
+                    item.style.cursor = 'default';
+                });
+            }
+        };
+    });
+
+    /**
+     * Would You Rather Challenge Component
+     * For two-option choice questions
+     *
+     * Usage:
+     * <article x-data="wouldYouRather"
+     *          data-challenge-id="123"
+     *          data-submit-url="/api/journey/submit/"
+     *          data-chapter-url="/journey/chapter/1/"
+     *          data-chapter-number="4">
+     */
+    Alpine.data('wouldYouRather', function() {
+        return {
+            challengeId: 0,
+            selectedOption: null,
+            isSubmitting: false,
+            feedback: '',
+            feedbackType: '',
+            feedbackHtml: '',
+            submitUrl: '',
+            chapterUrl: '',
+            chapterNumber: 1,
+
+            // CSP-safe computed getters (NEVER use inline negation in templates)
+            get hasSelection() { return this.selectedOption !== null; },
+            get hasNoSelection() { return !this.hasSelection; },
+            get canSubmit() { return this.hasSelection && !this.isSubmitting; },
+            get showFeedback() { return this.feedback !== '' || this.feedbackHtml !== ''; },
+            get isSuccess() { return this.feedbackType === 'success'; },
+            get isNotSuccess() { return !this.isSuccess; },
+            get isError() { return this.feedbackType === 'error'; },
+            get isNotError() { return !this.isError; },
+            get isNotSubmitting() { return !this.isSubmitting; },
+            get submitBtnDisabled() { return this.canSubmit ? undefined : true; },
+            get feedbackClass() {
+                if (this.feedbackType === 'success') return 'journey-message-success p-6 text-center mt-6';
+                if (this.feedbackType === 'error') return 'journey-message-error p-6 text-center mt-6';
+                return 'hidden mt-6';
+            },
+
+            init: function() {
+                var el = this.$el;
+                this.challengeId = parseInt(el.dataset.challengeId, 10) || 0;
+                this.submitUrl = el.dataset.submitUrl || '';
+                this.chapterUrl = el.dataset.chapterUrl || '';
+                this.chapterNumber = parseInt(el.dataset.chapterNumber, 10) || 1;
+            },
+
+            selectOption: function(optionKey, event) {
+                // Deselect all options
+                var cards = this.$el.querySelectorAll('.option-card');
+                cards.forEach(function(card) {
+                    card.classList.remove('selected');
+                    card.setAttribute('aria-checked', 'false');
+                });
+
+                // Select this option
+                var target = event.currentTarget;
+                target.classList.add('selected');
+                target.setAttribute('aria-checked', 'true');
+                this.selectedOption = optionKey;
+            },
+
+            isSelected: function(optionKey) {
+                return this.selectedOption === optionKey;
+            },
+
+            submitAnswer: function() {
+                if (!this.canSubmit) return;
+
+                var self = this;
+                this.isSubmitting = true;
+                this.feedback = '';
+                this.feedbackHtml = '';
+
+                fetch(this.submitUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CrushUtils.getCsrfToken()
+                    },
+                    body: JSON.stringify({
+                        challenge_id: this.challengeId,
+                        answer: this.selectedOption
+                    })
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.success && data.is_correct) {
+                        self.feedbackType = 'success';
+                        self.feedbackHtml = self.buildSuccessHtml(data);
+                        self.disableOptions();
+                    } else {
+                        self.isSubmitting = false;
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error:', error);
+                    self.feedbackType = 'error';
+                    self.feedback = 'An error occurred. Please try again.';
+                    self.isSubmitting = false;
+                });
+            },
+
+            buildSuccessHtml: function(data) {
+                var isChapter4 = this.chapterNumber === 4;
+                var iconHtml = isChapter4
+                    ? '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'
+                    : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+                var title = isChapter4 ? 'Thank you for sharing!' : 'Great choice!';
+
+                return '<h3 class="flex items-center justify-center gap-2 text-lg font-bold mb-3">' + iconHtml + ' ' + title + '</h3>' +
+                    '<div class="personal-message">' + (data.success_message || '') + '</div>' +
+                    '<p class="font-bold my-4">🏆 Points Earned: ' + data.points_earned + '</p>' +
+                    '<a href="' + this.chapterUrl + '" class="journey-btn-primary">' +
+                    'Continue <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
+                    '</a>';
+            },
+
+            disableOptions: function() {
+                var optionsSection = this.$el.querySelector('#optionsSection');
+                if (optionsSection) {
+                    optionsSection.style.opacity = '0.5';
+                }
+                var cards = this.$el.querySelectorAll('.option-card');
+                cards.forEach(function(card) {
+                    card.style.cursor = 'default';
+                    card.style.pointerEvents = 'none';
+                });
+            },
+
+            handleKeypress: function(optionKey, event) {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    this.selectOption(optionKey, event);
+                }
+            }
+        };
+    });
+
+    /**
+     * Open Text Challenge Component
+     * For free-form text response challenges
+     *
+     * Usage:
+     * <article x-data="openText"
+     *          data-challenge-id="123"
+     *          data-submit-url="/api/journey/submit/"
+     *          data-chapter-url="/journey/chapter/1/"
+     *          data-chapter-number="2"
+     *          data-min-length="10"
+     *          data-max-length="2000">
+     */
+    Alpine.data('openText', function() {
+        return {
+            challengeId: 0,
+            answer: '',
+            isSubmitting: false,
+            feedback: '',
+            feedbackType: '',
+            feedbackHtml: '',
+            submitUrl: '',
+            chapterUrl: '',
+            chapterNumber: 1,
+            minLength: 10,
+            maxLength: 2000,
+
+            // CSP-safe computed getters
+            get charCount() { return this.answer.length; },
+            get hasMinLength() { return this.answer.trim().length >= this.minLength; },
+            get canSubmit() { return this.hasMinLength && !this.isSubmitting; },
+            get showFeedback() { return this.feedback !== '' || this.feedbackHtml !== ''; },
+            get isSuccess() { return this.feedbackType === 'success'; },
+            get isNotSuccess() { return !this.isSuccess; },
+            get isError() { return this.feedbackType === 'error'; },
+            get isNotError() { return !this.isError; },
+            get isSubmittingState() { return this.isSubmitting; },
+            get isNotSubmitting() { return !this.isSubmitting; },
+            get submitBtnDisabled() { return this.canSubmit ? undefined : true; },
+            get feedbackClass() {
+                if (this.feedbackType === 'success') return 'journey-message-success p-6 text-center mt-6';
+                if (this.feedbackType === 'error') return 'journey-message-error p-6 text-center mt-6';
+                return 'hidden mt-6';
+            },
+            get charCounterClass() {
+                if (this.charCount > this.maxLength * 0.9) return 'char-counter error';
+                if (this.charCount > this.maxLength * 0.75) return 'char-counter warning';
+                return 'char-counter';
+            },
+
+            init: function() {
+                var el = this.$el;
+                var self = this;
+
+                this.challengeId = parseInt(el.dataset.challengeId, 10) || 0;
+                this.submitUrl = el.dataset.submitUrl || '';
+                this.chapterUrl = el.dataset.chapterUrl || '';
+                this.chapterNumber = parseInt(el.dataset.chapterNumber, 10) || 1;
+                this.minLength = parseInt(el.dataset.minLength, 10) || 10;
+                this.maxLength = parseInt(el.dataset.maxLength, 10) || 2000;
+
+                // Auto-focus on input
+                this.$nextTick(function() {
+                    var textInput = self.$el.querySelector('#textInput');
+                    if (textInput) {
+                        setTimeout(function() {
+                            textInput.focus();
+                        }, 500);
+                    }
+                });
+            },
+
+            submitAnswer: function() {
+                if (!this.canSubmit) return;
+
+                var self = this;
+                this.isSubmitting = true;
+                this.feedback = '';
+                this.feedbackHtml = '';
+
+                fetch(this.submitUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CrushUtils.getCsrfToken()
+                    },
+                    body: JSON.stringify({
+                        challenge_id: this.challengeId,
+                        answer: this.answer.trim()
+                    })
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.success && data.is_correct) {
+                        self.feedbackType = 'success';
+                        self.feedbackHtml = self.buildSuccessHtml(data);
+                    } else {
+                        self.feedbackType = 'error';
+                        self.feedback = 'Something went wrong. Please try again.';
+                        self.isSubmitting = false;
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error:', error);
+                    self.feedbackType = 'error';
+                    self.feedback = 'An error occurred. Please try again.';
+                    self.isSubmitting = false;
+                });
+            },
+
+            buildSuccessHtml: function(data) {
+                var chapterNum = this.chapterNumber;
+                var isQuestionnaire = (chapterNum === 2 || chapterNum === 4 || chapterNum === 5);
+                var iconHtml = isQuestionnaire
+                    ? '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'
+                    : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+                var title = isQuestionnaire ? 'Thank you for sharing!' : 'Submitted!';
+
+                return '<h3 class="flex items-center justify-center gap-2 text-lg font-bold mb-3">' + iconHtml + ' ' + title + '</h3>' +
+                    '<div class="personal-message">' + (data.success_message || '') + '</div>' +
+                    '<p class="font-bold my-4">🏆 Points Earned: ' + data.points_earned + '</p>' +
+                    '<a href="' + this.chapterUrl + '" class="journey-btn-primary">' +
+                    'Continue <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
+                    '</a>';
+            }
+        };
+    });
+
+    /**
+     * Hint Box Component
+     * For displaying unlocked hints
+     *
+     * Usage:
+     * <div x-data="hintBox" data-hint-num="1" @hint-unlocked.window="showHint($event.detail)">
+     */
+    Alpine.data('hintBox', function() {
+        return {
+            hintNum: 0,
+            hintText: '',
+            isActive: false,
+
+            get showHint() { return this.isActive; },
+            get hintClass() {
+                return this.isActive ? 'journey-hint-box active' : 'journey-hint-box';
+            },
+
+            init: function() {
+                this.hintNum = parseInt(this.$el.dataset.hintNum, 10) || 0;
+            },
+
+            handleHintUnlocked: function(detail) {
+                if (detail.hintNum === this.hintNum) {
+                    this.hintText = detail.hintText;
+                    this.isActive = true;
+                }
+            }
+        };
+    });
+
 });

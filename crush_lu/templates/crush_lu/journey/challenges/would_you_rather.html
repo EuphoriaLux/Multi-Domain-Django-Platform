@@ -3,80 +3,59 @@
 
 {% block extra_journey_css %}
 <style>
-    .challenge-container {
-        max-width: 900px;
-        margin: 40px auto;
-    }
-
-    .challenge-card {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(15px);
-        border-radius: 20px;
-        padding: 40px;
-        border: 2px solid rgba(255, 255, 255, 0.2);
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    }
-
-    .challenge-type-badge {
-        display: inline-block;
-        padding: 8px 20px;
-        border-radius: 20px;
-        background: rgba(155, 89, 182, 0.3);
-        border: 1px solid rgba(155, 89, 182, 0.5);
-        margin-bottom: 20px;
-        font-weight: bold;
-    }
-
-    .question-text {
+    /* Page-specific: Question text with gradient (pure CSS - no @apply) */
+    .wyr-question {
         font-size: 1.5rem;
-        line-height: 1.8;
-        margin: 30px 0;
-        text-align: center;
         font-weight: 600;
-        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        text-align: center;
+        margin: 2rem 0;
+        line-height: 1.625;
+        background: linear-gradient(135deg, var(--color-crush-purple), var(--color-crush-pink));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
     }
 
+    /* Page-specific: VS separator */
     .vs-separator {
         text-align: center;
-        margin: 30px 0;
+        margin: 2rem 0;
         position: relative;
     }
 
     .vs-text {
         display: inline-block;
-        padding: 10px 30px;
+        padding: 0.625rem 2rem;
+        border-radius: 9999px;
+        font-size: 1.5rem;
+        font-weight: 700;
         background: rgba(255, 255, 255, 0.1);
         border: 2px solid rgba(255, 255, 255, 0.3);
-        border-radius: 30px;
-        font-size: 1.5rem;
-        font-weight: bold;
-        color: var(--journey-secondary);
+        color: var(--color-crush-pink);
     }
 
+    /* Page-specific: Option cards grid */
     .options-container {
         display: grid;
+        gap: 2rem;
+        margin: 2rem 0;
         grid-template-columns: 1fr 1fr;
-        gap: 30px;
-        margin: 30px 0;
     }
 
     .option-card {
-        background: rgba(255, 255, 255, 0.05);
-        border: 3px solid rgba(255, 255, 255, 0.2);
-        border-radius: 20px;
-        padding: 40px 30px;
-        cursor: pointer;
-        transition: all 0.4s ease;
         display: flex;
         flex-direction: column;
         align-items: center;
         text-align: center;
-        min-height: 250px;
+        padding: 2.5rem;
+        border-radius: 1rem;
+        border: 3px solid rgba(255, 255, 255, 0.2);
+        cursor: pointer;
         position: relative;
         overflow: hidden;
+        background: rgba(255, 255, 255, 0.05);
+        min-height: 250px;
+        transition: all 0.4s ease;
     }
 
     .option-card::before {
@@ -86,14 +65,14 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
         opacity: 0;
         transition: opacity 0.4s ease;
+        background: linear-gradient(135deg, var(--color-crush-purple), var(--color-crush-pink));
     }
 
     .option-card:hover {
-        transform: translateY(-10px) scale(1.05);
-        border-color: var(--journey-primary);
+        transform: translateY(-0.625rem) scale(1.05);
+        border-color: var(--color-crush-purple);
         box-shadow: 0 20px 40px rgba(155, 89, 182, 0.4);
     }
 
@@ -102,9 +81,9 @@
     }
 
     .option-card.selected {
-        border-color: var(--journey-primary);
-        background: rgba(155, 89, 182, 0.3);
+        border-color: var(--color-crush-purple);
         transform: scale(1.05);
+        background: rgba(155, 89, 182, 0.3);
         box-shadow: 0 20px 50px rgba(155, 89, 182, 0.5);
     }
 
@@ -114,18 +93,18 @@
 
     .option-label {
         font-size: 3rem;
-        font-weight: bold;
-        margin-bottom: 20px;
-        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        font-weight: 700;
+        margin-bottom: 1.25rem;
+        z-index: 1;
+        background: linear-gradient(135deg, var(--color-crush-purple), var(--color-crush-pink));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        z-index: 1;
     }
 
     .option-text {
-        font-size: 1.3rem;
-        line-height: 1.6;
+        font-size: 1.25rem;
+        line-height: 1.625;
         flex: 1;
         display: flex;
         align-items: center;
@@ -134,254 +113,140 @@
 
     .option-icon {
         font-size: 3rem;
-        margin-top: 20px;
+        margin-top: 1.25rem;
         opacity: 0.7;
         z-index: 1;
     }
 
-    .submit-btn {
-        display: block;
-        width: 100%;
-        padding: 18px;
-        font-size: 1.3rem;
-        font-weight: bold;
-        border-radius: 15px;
-        border: none;
-        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
-        color: white;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        margin-top: 30px;
-        text-decoration: none;
-        text-align: center;
-        box-sizing: border-box;
-    }
-
-    .submit-btn:hover:not(:disabled) {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(155, 89, 182, 0.5);
-    }
-
-    .submit-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .message-box {
-        padding: 25px;
-        border-radius: 15px;
-        margin: 25px 0;
-        display: none;
-    }
-
-    .message-box.success {
-        background: rgba(46, 204, 113, 0.2);
-        border: 2px solid rgba(46, 204, 113, 0.5);
-        color: white;
-    }
-
-    .message-box.active {
-        display: block;
-        animation: fadeInUp 0.5s ease;
-    }
-
+    /* Page-specific: Personal message quote style */
     .personal-message {
-        font-size: 1.2rem;
-        line-height: 1.6;
+        font-size: 1.125rem;
+        line-height: 1.625;
         font-style: italic;
-        margin: 20px 0;
-        padding: 20px;
+        margin: 1.25rem 0;
+        padding: 1.25rem;
+        border-radius: 0.75rem;
         background: rgba(0, 0, 0, 0.2);
-        border-radius: 10px;
-        border-left: 4px solid var(--journey-secondary);
+        border-left: 4px solid var(--color-crush-pink);
     }
 
-    .points-display {
-        text-align: center;
-        font-size: 2rem;
-        font-weight: bold;
-        color: var(--journey-secondary);
-        margin: 20px 0;
+    @media (min-width: 768px) {
+        .wyr-question {
+            font-size: 1.875rem;
+        }
     }
 
     @media (max-width: 768px) {
         .options-container {
             grid-template-columns: 1fr;
-            gap: 20px;
+            gap: 1.25rem;
         }
 
         .option-card {
             min-height: 200px;
-            padding: 30px 20px;
+            padding: 2rem 1.25rem;
         }
 
         .option-text {
-            font-size: 1.1rem;
-        }
-
-        .question-text {
-            font-size: 1.2rem;
+            font-size: 1.125rem;
         }
     }
 </style>
 {% endblock %}
 
 {% block journey_content %}
-<div class="challenge-container animate-fade-in">
-    <!-- Back Button -->
-    <div class="mb-4">
-        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Chapter" %}
-        </a>
-    </div>
+<div class="journey-container-content journey-animate-fade-in">
+    {% include "crush_lu/journey/partials/challenge_header.html" %}
 
-    <div class="challenge-card">
-        <div class="challenge-type-badge">
-            {% include "shared/icons/question-mark-circle.html" with class="w-5 h-5" %} {% trans "Would You Rather" %}
+    <article
+        x-data="wouldYouRather"
+        data-challenge-id="{{ challenge.id }}"
+        data-submit-url="{% url 'crush_lu:api_submit_challenge' %}"
+        data-chapter-url="{% url 'crush_lu:chapter_view' chapter.chapter_number %}"
+        data-chapter-number="{{ chapter.chapter_number }}"
+        class="journey-card"
+    >
+        <!-- Challenge Type Badge -->
+        <div class="journey-badge mb-6">
+            {% include "shared/icons/question-mark-circle.html" with class="w-5 h-5" %}
+            {% trans "Would You Rather" %}
         </div>
 
-        <div class="points-display">
-            {% blocktrans with points=challenge.points_awarded %}💎 {{ points }} Points{% endblocktrans %}
+        <!-- Points Display -->
+        <div class="points-display text-3xl md:text-4xl font-bold text-center my-6 text-crush-pink" aria-label="{% blocktrans with points=challenge.points_awarded %}{{ points }} points available{% endblocktrans %}">
+            <span aria-hidden="true">&#128142;</span>
+            {{ challenge.points_awarded }}
+            {% trans "Points" %}
         </div>
 
         <!-- Question -->
-        <div class="question-text">
+        <h2 class="wyr-question">
             {{ challenge.question }}
-        </div>
+        </h2>
 
         {% if existing_attempt %}
         <!-- Already Completed -->
-        <div class="message-box success active">
-            <h3>{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} {% trans "Already Answered!" %}</h3>
-            <p>{% blocktrans with points=existing_attempt.points_earned %}You've already shared your choice and earned <strong>{{ points }} points</strong>.{% endblocktrans %}</p>
-
-            <div class="personal-message">
-                {{ challenge.success_message|linebreaks }}
-            </div>
-
-            <div class="mt-3">
-                <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
-                    {% trans "Continue to Next Challenge" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
-                </a>
-            </div>
-        </div>
+        {% with completion_message=_("You've already shared your choice and earned <strong>")|add:existing_attempt.points_earned|stringformat:"s"|add:" points</strong>."|safe %}
+        {% include "crush_lu/journey/partials/already_completed.html" %}
+        {% endwith %}
         {% else %}
         <!-- Options -->
-        <div class="vs-separator">
+        <div x-show="isNotSuccess" x-cloak class="vs-separator" aria-hidden="true">
             <span class="vs-text">VS</span>
         </div>
 
-        <div id="optionsSection" class="options-container">
+        <div x-show="isNotSuccess" x-cloak class="options-container" role="radiogroup" aria-label="{% trans 'Choose an option' %}">
             {% for key, value in challenge.options.items %}
-            <div class="option-card" data-option="{{ key }}">
+            <div
+                class="option-card"
+                @click="selectOption('{{ key }}', $event)"
+                @keypress.enter="selectOption('{{ key }}', $event)"
+                @keypress.space.prevent="selectOption('{{ key }}', $event)"
+                role="radio"
+                aria-checked="false"
+                tabindex="0"
+            >
                 <div class="option-label">{{ key }}</div>
                 <div class="option-text">{{ value }}</div>
                 <div class="option-icon">
                     {% if forloop.first %}
-                    ⚡
+                    &#9889;
                     {% else %}
-                    ☁️
+                    &#9729;&#65039;
                     {% endif %}
                 </div>
             </div>
             {% endfor %}
         </div>
 
-        <button id="submitBtn" class="submit-btn" disabled>
-            {% trans "Select Your Choice First" %}
+        <button
+            x-show="isNotSuccess"
+            x-cloak
+            @click="submitAnswer"
+            x-bind:disabled="submitBtnDisabled"
+            class="journey-btn-primary w-full text-lg py-4"
+        >
+            <span x-show="hasNoSelection">{% trans "Select Your Choice First" %}</span>
+            <span x-show="hasSelection && isNotSubmitting" x-cloak>{% trans "Submit Choice" %}</span>
+            <span x-show="isSubmitting" x-cloak>{% trans "Submitting..." %}</span>
+            {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}
         </button>
 
-        <!-- Message Box -->
-        <div id="messageBox" class="message-box"></div>
+        <!-- Feedback Message Box -->
+        <div
+            x-show="showFeedback"
+            x-cloak
+            x-bind:class="feedbackClass"
+            role="alert"
+            aria-live="assertive"
+        >
+            <!-- Error feedback (simple text) -->
+            <div x-show="isError" x-text="feedback"></div>
+            <!-- Success feedback (HTML) -->
+            <div x-show="isSuccess" x-html="feedbackHtml"></div>
+        </div>
         {% endif %}
-    </div>
+    </article>
 </div>
 {% endblock %}
 
-{% block extra_journey_js %}
-<script nonce="{{ request.csp_nonce }}">
-document.addEventListener('DOMContentLoaded', function() {
-    const challengeId = {{ challenge.id }};
-    const submitBtn = document.getElementById('submitBtn');
-    const messageBox = document.getElementById('messageBox');
-    let selectedOption = null;
-
-    // Option selection
-    document.querySelectorAll('.option-card').forEach(card => {
-        card.addEventListener('click', function() {
-            // Remove previous selection
-            document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
-
-            // Select this option
-            this.classList.add('selected');
-            selectedOption = this.dataset.option;
-
-            // Enable submit button
-            submitBtn.removeAttribute('disabled');
-            submitBtn.innerHTML = `Submit Choice {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}`;
-        });
-    });
-
-    // Submit answer
-    submitBtn.addEventListener('click', function() {
-        if (!selectedOption) {
-            return;
-        }
-
-        submitBtn.setAttribute('disabled', 'disabled');
-        submitBtn.innerHTML = `{% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Submitting...`;
-
-        fetch('{% url "crush_lu:api_submit_challenge" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': CrushUtils.getCsrfToken()
-            },
-            body: JSON.stringify({
-                challenge_id: challengeId,
-                answer: selectedOption
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.is_correct) {
-                // Answer submitted successfully
-                const isChapter4 = {{ chapter.chapter_number }} === 4;
-                const title = isChapter4
-                    ? `{% include "shared/icons/heart.html" with class="w-5 h-5" %} Thank you for sharing!`
-                    : `{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Correct!`;
-
-                messageBox.innerHTML = `
-                    <h3>${title}</h3>
-                    <div class="personal-message">${data.success_message}</div>
-                    <div class="mt-3">
-                        <strong>🏆 Points Earned: ${data.points_earned}</strong>
-                    </div>
-                    <div class="mt-4">
-                        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
-                            Continue {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
-                        </a>
-                    </div>
-                `;
-                messageBox.className = 'message-box success active';
-
-                // Hide options section
-                document.getElementById('optionsSection').style.opacity = '0.5';
-                document.querySelectorAll('.option-card').forEach(c => c.style.cursor = 'default');
-                submitBtn.style.display = 'none';
-
-            } else {
-                // Shouldn't happen with proper setup
-                submitBtn.removeAttribute('disabled');
-                submitBtn.innerHTML = `Submit Choice {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}`;
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            submitBtn.removeAttribute('disabled');
-            submitBtn.innerHTML = `Submit Choice {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}`;
-        });
-    });
-});
-</script>
-{% endblock %}

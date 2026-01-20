@@ -90,6 +90,29 @@
   --shadow-powerup-md: 0 4px 20px rgba(254, 73, 1, 0.15);
   --shadow-powerup-lg: 0 10px 30px rgba(254, 73, 1, 0.2);
   --shadow-powerup-orange: 0 5px 15px rgba(254, 73, 1, 0.4);
+
+  /* ===================
+     JOURNEY SYSTEM TOKENS
+     For Wonderland/Journey experience
+     =================== */
+
+  /* Journey-specific colors (dark theme) */
+  --color-journey-dark: #1a1a2e;
+  --color-journey-dark-mid: #16213e;
+  --color-journey-dark-light: #0f3460;
+  --color-journey-success: #2ecc71;
+  --color-journey-warning: #f39c12;
+
+  /* Journey container widths (3-tier system) */
+  --container-journey-wide: 1200px;
+  --container-journey-content: 900px;
+  --container-journey-narrow: 700px;
+
+  /* Journey-specific shadows */
+  --shadow-journey-glow-purple: 0 0 30px rgba(155, 89, 182, 0.6);
+  --shadow-journey-glow-pink: 0 0 40px rgba(255, 107, 157, 0.9);
+  --shadow-journey-glow-success: 0 0 30px rgba(46, 204, 113, 0.6);
+  --shadow-journey-card: 0 10px 40px rgba(0, 0, 0, 0.3);
 }
 
 /* =============================================================================
@@ -98,11 +121,30 @@
    Usage: background: var(--gradient-crush-primary);
    ============================================================================= */
 :root {
+  /* Crush.lu gradients */
   --gradient-crush-primary: linear-gradient(135deg, #9B59B6, #FF6B9D);
   --gradient-crush-hover: linear-gradient(135deg, #8E44AD, #D94D7B);
   --gradient-crush-vertical: linear-gradient(180deg, #9B59B6, #FF6B9D);
+
+  /* Power-UP gradients */
   --gradient-powerup-primary: linear-gradient(135deg, #fe4901, #ff6a2d);
   --gradient-powerup-hover: linear-gradient(135deg, #d93e00, #fe4901);
+
+  /* Journey system gradients (Wonderland experience) */
+  --gradient-journey-bg: linear-gradient(135deg, var(--color-journey-dark) 0%, var(--color-journey-dark-mid) 50%, var(--color-journey-dark-light) 100%);
+  --gradient-journey-title: linear-gradient(135deg, #FF6B9D, #C850C0, #9B59B6);
+  --gradient-journey-shimmer: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+}
+
+/* =============================================================================
+   JOURNEY BACKGROUND - UNLAYERED
+   Must be outside @layer to override critical CSS body{background:#F8F9FA}
+   CSS Cascade Layers: Unlayered styles beat layered styles
+   ============================================================================= */
+body.journey-bg {
+  background: linear-gradient(135deg, var(--color-journey-dark) 0%, var(--color-journey-dark-mid) 50%, var(--color-journey-dark-light) 100%);
+  min-height: 100vh;
+  color: white;
 }
 
 /* =============================================================================
@@ -893,6 +935,445 @@
   .ms-auto { @apply ml-auto; }
   .me-auto { @apply mr-auto; }
   /* mx-auto, my-auto already exist in Tailwind with same names */
+
+  /* =========================================================================
+     JOURNEY SYSTEM COMPONENTS
+     Wonderland/Journey experience components (dark theme)
+     ========================================================================= */
+
+  /* Journey Container - 3-tier system */
+  .journey-container {
+    @apply mx-auto px-4 md:px-6;
+    max-width: var(--container-journey-wide);
+  }
+
+  .journey-container-content {
+    @apply mx-auto px-4 md:px-6;
+    max-width: var(--container-journey-content);
+  }
+
+  .journey-container-narrow {
+    @apply mx-auto px-4 md:px-6;
+    max-width: var(--container-journey-narrow);
+  }
+
+  /* Journey Background - NOTE: Main rule is UNLAYERED above (body.journey-bg)
+     to override critical CSS. This layered version is kept for reference only. */
+
+  /* Journey Card - Glassmorphic style */
+  .journey-card {
+    @apply rounded-2xl p-6 md:p-8;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: var(--shadow-journey-card);
+  }
+
+  .journey-card-hover {
+    @apply rounded-2xl p-6 md:p-8 transition-all duration-300;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: var(--shadow-journey-card);
+  }
+
+  .journey-card-hover:hover {
+    @apply -translate-y-2;
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Journey Navigation Button */
+  .journey-nav-btn {
+    @apply inline-flex items-center gap-2 px-4 py-2.5
+           text-white/90 text-sm font-medium
+           rounded-[25px] border border-white/20
+           transition-all duration-200;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .journey-nav-btn:hover {
+    @apply text-white;
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .journey-nav-btn:focus-visible {
+    @apply outline-none ring-2 ring-crush-purple ring-offset-2;
+    --tw-ring-offset-color: var(--color-journey-dark);
+  }
+
+  /* Journey Primary Button - Gradient */
+  .journey-btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           px-6 py-3 rounded-xl font-semibold text-white
+           transition-all duration-200
+           disabled:opacity-50 disabled:cursor-not-allowed;
+    background: linear-gradient(135deg, var(--color-crush-purple), var(--color-crush-pink));
+    box-shadow: 0 5px 15px rgba(255, 107, 157, 0.3);
+  }
+
+  .journey-btn-primary:hover:not(:disabled) {
+    @apply -translate-y-0.5;
+    box-shadow: 0 8px 25px rgba(255, 107, 157, 0.5);
+  }
+
+  .journey-btn-primary:focus-visible {
+    @apply outline-none ring-2 ring-crush-purple ring-offset-2;
+    --tw-ring-offset-color: var(--color-journey-dark);
+  }
+
+  /* Journey Secondary Button */
+  .journey-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           px-6 py-3 rounded-xl font-semibold text-white
+           border border-white/30
+           transition-all duration-200
+           disabled:opacity-50 disabled:cursor-not-allowed;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .journey-btn-secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .journey-btn-secondary:focus-visible {
+    @apply outline-none ring-2 ring-white/50 ring-offset-2;
+    --tw-ring-offset-color: var(--color-journey-dark);
+  }
+
+  /* Journey Section Title - Gradient text */
+  .journey-title {
+    @apply text-3xl md:text-4xl font-bold;
+    background: linear-gradient(135deg, var(--color-crush-purple), var(--color-crush-pink));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .journey-title-xl {
+    @apply text-4xl md:text-5xl lg:text-6xl font-bold;
+    background: linear-gradient(135deg, #FF6B9D, #C850C0, #9B59B6, #FF6B9D);
+    background-size: 300% 300%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: journey-shimmer 4s ease infinite;
+  }
+
+  /* Journey Subtitle */
+  .journey-subtitle {
+    @apply text-lg md:text-xl font-medium italic;
+    color: #FFB6C1;
+  }
+
+  /* Journey Message Boxes */
+  .journey-message {
+    @apply p-4 rounded-xl border backdrop-blur-sm text-sm font-medium;
+  }
+
+  .journey-message-success {
+    @apply p-4 rounded-xl border backdrop-blur-sm text-sm font-medium;
+    background: rgba(46, 204, 113, 0.2);
+    border-color: rgba(46, 204, 113, 0.5);
+    color: #a7f3d0;
+  }
+
+  .journey-message-error {
+    @apply p-4 rounded-xl border backdrop-blur-sm text-sm font-medium;
+    background: rgba(231, 76, 60, 0.2);
+    border-color: rgba(231, 76, 60, 0.5);
+    color: #fecaca;
+  }
+
+  .journey-message-warning {
+    @apply p-4 rounded-xl border backdrop-blur-sm text-sm font-medium;
+    background: rgba(243, 156, 18, 0.2);
+    border-color: rgba(243, 156, 18, 0.5);
+    color: #fde68a;
+  }
+
+  .journey-message-info {
+    @apply p-4 rounded-xl border backdrop-blur-sm text-sm font-medium;
+    background: rgba(155, 89, 182, 0.2);
+    border-color: rgba(155, 89, 182, 0.5);
+    color: #d8b4fe;
+  }
+
+  /* Journey Progress Bar */
+  .journey-progress-bar {
+    @apply relative rounded-full overflow-hidden;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 107, 157, 0.3);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .journey-progress-fill {
+    @apply h-full flex items-center justify-end pr-4 font-bold text-white text-sm;
+    background: linear-gradient(90deg, #FF6B9D, #C850C0, #9B59B6);
+    background-size: 200% 100%;
+    animation: journey-progress-shimmer 3s ease infinite;
+    transition: width 1s ease;
+  }
+
+  /* Journey Stat Card */
+  .journey-stat-card {
+    @apply text-center rounded-2xl p-5 md:p-6;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 2px solid rgba(255, 107, 157, 0.3);
+    transition: all 0.4s ease;
+  }
+
+  .journey-stat-card:hover {
+    @apply -translate-y-2;
+    border-color: var(--color-crush-pink);
+    box-shadow: 0 15px 40px rgba(255, 107, 157, 0.4);
+  }
+
+  .journey-stat-value {
+    @apply text-3xl md:text-4xl font-bold;
+    background: linear-gradient(135deg, #FF6B9D, #C850C0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .journey-stat-label {
+    @apply text-sm opacity-80 mt-2 uppercase tracking-wide;
+  }
+
+  /* Journey Badge */
+  .journey-badge {
+    @apply inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold;
+    background: rgba(155, 89, 182, 0.3);
+    border: 1px solid rgba(155, 89, 182, 0.5);
+  }
+
+  .journey-badge-success {
+    background: rgba(46, 204, 113, 0.25);
+    border-color: rgba(46, 204, 113, 0.6);
+    color: #2ecc71;
+  }
+
+  .journey-badge-warning {
+    background: rgba(243, 156, 18, 0.25);
+    border-color: rgba(243, 156, 18, 0.6);
+    color: #f39c12;
+  }
+
+  .journey-badge-danger {
+    background: rgba(231, 76, 60, 0.25);
+    border-color: rgba(231, 76, 60, 0.6);
+    color: #e74c3c;
+  }
+
+  /* Journey Input */
+  .journey-input {
+    @apply w-full px-5 py-4 text-lg rounded-xl text-white
+           placeholder:text-white/50
+           transition-all duration-300;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+  }
+
+  .journey-input:focus {
+    @apply outline-none;
+    border-color: var(--color-crush-purple);
+    box-shadow: 0 0 20px rgba(155, 89, 182, 0.3);
+  }
+
+  /* Journey Hint Button */
+  .journey-hint-btn {
+    @apply px-4 py-2.5 rounded-xl text-white cursor-pointer
+           transition-all duration-300
+           disabled:opacity-50 disabled:cursor-not-allowed;
+    background: rgba(255, 215, 0, 0.2);
+    border: 2px solid rgba(255, 215, 0, 0.5);
+  }
+
+  .journey-hint-btn:hover:not(:disabled) {
+    background: rgba(255, 215, 0, 0.3);
+    @apply -translate-y-0.5;
+  }
+
+  /* Journey Hint Box */
+  .journey-hint-box {
+    @apply mt-4 p-5 rounded-xl hidden;
+    background: rgba(255, 215, 0, 0.1);
+    border: 2px solid rgba(255, 215, 0, 0.3);
+  }
+
+  .journey-hint-box.active {
+    @apply block;
+    animation: journey-fade-in-up 0.5s ease;
+  }
+
+  /* Journey Chapter States */
+  .journey-chapter-locked {
+    @apply opacity-60;
+  }
+
+  .journey-chapter-unlocked .journey-chapter-icon {
+    border-color: var(--color-crush-purple);
+    color: var(--color-crush-purple);
+    box-shadow: var(--shadow-journey-glow-purple);
+  }
+
+  .journey-chapter-current .journey-chapter-icon {
+    border-color: var(--color-crush-pink);
+    color: var(--color-crush-pink);
+    box-shadow: var(--shadow-journey-glow-pink);
+    animation: journey-pulse 2s ease-in-out infinite;
+  }
+
+  .journey-chapter-completed .journey-chapter-icon {
+    border-color: var(--color-journey-success);
+    color: var(--color-journey-success);
+    box-shadow: var(--shadow-journey-glow-success);
+  }
+
+  /* Journey Chapter Icon */
+  .journey-chapter-icon {
+    @apply w-full h-full rounded-full flex items-center justify-center
+           text-4xl md:text-5xl font-bold
+           transition-all duration-400 cursor-pointer;
+    background: rgba(26, 26, 46, 0.95);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 5px solid rgba(255, 255, 255, 0.15);
+  }
+
+  /* Journey Completion Badge */
+  .journey-completion-badge {
+    @apply absolute -top-3 -right-3 w-12 h-12
+           rounded-full flex items-center justify-center text-2xl;
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
+    box-shadow: 0 5px 20px rgba(46, 204, 113, 0.6);
+    border: 3px solid var(--color-journey-dark);
+    animation: journey-bounce-in 0.6s ease;
+  }
+
+  /* Journey riddle text styling */
+  .journey-riddle-text {
+    @apply text-lg md:text-xl leading-relaxed italic
+           text-center p-6 md:p-8 rounded-2xl;
+    background: rgba(0, 0, 0, 0.2);
+    border-left: 4px solid var(--color-crush-purple);
+  }
+}
+
+/* =============================================================================
+   JOURNEY ANIMATIONS
+   Keyframes for Journey system
+   ============================================================================= */
+@keyframes journey-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes journey-shimmer {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes journey-progress-shimmer {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes journey-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 40px rgba(255, 107, 157, 0.9), 0 0 60px rgba(255, 107, 157, 0.5);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 50px rgba(255, 107, 157, 1), 0 0 80px rgba(255, 107, 157, 0.7);
+  }
+}
+
+@keyframes journey-bounce-in {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes journey-shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-5px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(5px);
+  }
+}
+
+@keyframes journey-float-hearts {
+  0% {
+    transform: translateY(100vh) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.3;
+  }
+  90% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(-100px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* Journey Animation Utilities */
+.journey-animate-fade-in {
+  animation: journey-fade-in-up 0.6s ease-out;
+}
+
+.journey-animate-shake {
+  animation: journey-shake 0.5s ease;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .journey-title-xl,
+  .journey-progress-fill,
+  .journey-chapter-current .journey-chapter-icon,
+  .journey-completion-badge,
+  .journey-animate-fade-in,
+  .journey-animate-shake,
+  [class*="journey-"] {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 /* =============================================================================

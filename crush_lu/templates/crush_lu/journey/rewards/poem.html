@@ -3,199 +3,144 @@
 
 {% block extra_journey_css %}
 <style>
-    .reward-container {
-        max-width: 800px;
-        margin: 60px auto;
-    }
-
-    .reward-card {
+    /* Page-specific: Golden reward card with shimmer */
+    .poem-card {
+        @apply rounded-2xl p-8 md:p-12 border-2 relative overflow-hidden;
         background: rgba(255, 255, 255, 0.1);
         backdrop-filter: blur(20px);
-        border-radius: 25px;
-        padding: 50px;
-        border: 2px solid rgba(255, 215, 0, 0.3);
+        border-color: rgba(255, 215, 0, 0.3);
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-        position: relative;
-        overflow: hidden;
     }
 
-    .reward-card::before {
+    .poem-card::before {
         content: '';
         position: absolute;
         top: -50%;
         left: -50%;
         width: 200%;
         height: 200%;
-        background: linear-gradient(
-            45deg,
-            transparent,
-            rgba(255, 215, 0, 0.1),
-            transparent
-        );
-        animation: shimmer 3s infinite;
+        background: linear-gradient(45deg, transparent, rgba(255, 215, 0, 0.1), transparent);
+        animation: poemShimmer 3s infinite linear;
     }
 
-    @keyframes shimmer {
-        0% {
-            transform: rotate(0deg);
-        }
-        100% {
-            transform: rotate(360deg);
-        }
+    @keyframes poemShimmer {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
     }
 
-    .reward-content {
-        position: relative;
-        z-index: 1;
+    .poem-card-content {
+        @apply relative z-10;
     }
 
-    .reward-icon {
-        text-align: center;
+    .poem-icon {
+        @apply text-center mb-5;
         font-size: 4rem;
-        margin-bottom: 20px;
-        animation: float 3s ease-in-out infinite;
+        animation: poemFloat 3s ease-in-out infinite;
     }
 
-    @keyframes float {
-        0%, 100% {
-            transform: translateY(0);
-        }
-        50% {
-            transform: translateY(-10px);
-        }
+    @keyframes poemFloat {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
     }
 
-    .reward-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        text-align: center;
+    .poem-title {
+        @apply text-3xl md:text-4xl font-bold text-center mb-10;
         background: linear-gradient(135deg, #FFD700, #FFA500);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        margin-bottom: 40px;
     }
 
     .poem-content {
-        font-size: 1.3rem;
-        line-height: 2;
+        @apply text-xl md:text-2xl leading-loose italic text-center whitespace-pre-line p-8 md:p-10 rounded-xl;
         font-family: 'Georgia', serif;
-        font-style: italic;
-        text-align: center;
-        white-space: pre-line;
-        padding: 40px;
         background: rgba(0, 0, 0, 0.2);
-        border-radius: 15px;
         border-left: 4px solid rgba(255, 215, 0, 0.5);
         color: #f8f9fa;
     }
 
-    .signature {
-        text-align: right;
-        font-size: 1.2rem;
-        margin-top: 30px;
-        font-style: italic;
-        opacity: 0.9;
+    .poem-signature {
+        @apply text-right text-lg mt-8 italic opacity-90;
     }
 
-    .continue-btn {
-        display: block;
-        width: fit-content;
-        margin: 40px auto 0;
-        padding: 15px 40px;
-        border-radius: 25px;
-        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
-        color: white;
-        text-decoration: none;
-        font-weight: bold;
-        font-size: 1.1rem;
-        transition: all 0.3s ease;
-        text-align: center;
+    .poem-audio {
+        @apply mt-10 text-center;
     }
 
-    .continue-btn:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 10px 30px rgba(155, 89, 182, 0.4);
-        color: white;
-        text-decoration: none;
+    .poem-audio-label {
+        @apply text-lg mb-4 opacity-90 flex items-center justify-center gap-2;
     }
 
-    /* Sparkle Animation */
-    .sparkle {
-        position: absolute;
-        width: 4px;
-        height: 4px;
-        background: white;
-        border-radius: 50%;
-        animation: sparkle 2s infinite;
+    .poem-audio audio {
+        @apply w-full max-w-md rounded-xl;
     }
 
-    @keyframes sparkle {
-        0%, 100% {
-            opacity: 0;
-            transform: scale(0);
-        }
-        50% {
-            opacity: 1;
-            transform: scale(1);
+    /* Page-specific: Sparkle animation */
+    .poem-sparkle {
+        @apply absolute w-1 h-1 bg-white rounded-full;
+        animation: poemSparkle 2s infinite;
+    }
+
+    @keyframes poemSparkle {
+        0%, 100% { opacity: 0; transform: scale(0); }
+        50% { opacity: 1; transform: scale(1); }
+    }
+
+    /* Accessibility - Reduced Motion */
+    @media (prefers-reduced-motion: reduce) {
+        .poem-card::before,
+        .poem-icon,
+        .poem-sparkle {
+            animation: none;
         }
     }
 
-    /* Mobile Responsive */
     @media (max-width: 768px) {
-        .reward-card {
-            padding: 30px 20px;
+        .poem-card {
+            @apply p-5;
         }
-
-        .reward-title {
-            font-size: 2rem;
-        }
-
         .poem-content {
-            font-size: 1.1rem;
-            padding: 25px;
+            @apply text-lg p-5;
         }
     }
 </style>
 {% endblock %}
 
 {% block journey_content %}
-<div class="reward-container animate-fade-in">
+<div class="journey-container-content my-12 journey-animate-fade-in">
     <!-- Back Button -->
-    <div class="text-center mb-4">
-        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Chapter" %}
+    <nav class="text-center mb-6" aria-label="{% trans 'Navigation' %}">
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="journey-nav-btn">
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
+            {% trans "Back to Chapter" %}
         </a>
-    </div>
+    </nav>
 
-    <div class="reward-card">
+    <article class="poem-card" aria-labelledby="poem-heading">
         <!-- Sparkles -->
-        <div class="sparkle" style="top: 10%; left: 20%; animation-delay: 0s;"></div>
-        <div class="sparkle" style="top: 30%; right: 15%; animation-delay: 0.5s;"></div>
-        <div class="sparkle" style="bottom: 20%; left: 30%; animation-delay: 1s;"></div>
-        <div class="sparkle" style="top: 60%; right: 25%; animation-delay: 1.5s;"></div>
+        <div class="poem-sparkle" style="top: 10%; left: 20%; animation-delay: 0s;" aria-hidden="true"></div>
+        <div class="poem-sparkle" style="top: 30%; right: 15%; animation-delay: 0.5s;" aria-hidden="true"></div>
+        <div class="poem-sparkle" style="bottom: 20%; left: 30%; animation-delay: 1s;" aria-hidden="true"></div>
+        <div class="poem-sparkle" style="top: 60%; right: 25%; animation-delay: 1.5s;" aria-hidden="true"></div>
 
-        <div class="reward-content">
-            <div class="reward-icon">
-                📜
-            </div>
+        <div class="poem-card-content">
+            <div class="poem-icon" aria-hidden="true">&#128220;</div>
 
-            <h1 class="reward-title">{{ reward.title }}</h1>
+            <h1 id="poem-heading" class="poem-title">{{ reward.title }}</h1>
 
-            <div class="poem-content">
-                {{ reward.message }}
-            </div>
+            <div class="poem-content">{{ reward.message }}</div>
 
-            <div class="signature">
-                — {% trans "With all my heart 💜" %}
+            <div class="poem-signature">
+                — {% trans "With all my heart" %} &#128156;
             </div>
 
             {% if reward.audio_file %}
-            <div style="margin-top: 40px; text-align: center;">
-                <p style="font-size: 1.1rem; margin-bottom: 15px; opacity: 0.9;">
-                    {% include "shared/icons/musical-note.html" with class="w-5 h-5" %} {% trans "Listen to this special message" %}
+            <div class="poem-audio">
+                <p class="poem-audio-label">
+                    {% include "shared/icons/musical-note.html" with class="w-5 h-5" %}
+                    {% trans "Listen to this special message" %}
                 </p>
-                <audio controls style="width: 100%; max-width: 500px; border-radius: 10px;">
+                <audio controls>
                     <source src="{{ reward.audio_file.url|safe }}" type="audio/mpeg">
                     <source src="{{ reward.audio_file.url|safe }}" type="audio/mp3">
                     {% trans "Your browser does not support the audio element." %}
@@ -203,22 +148,23 @@
             </div>
             {% endif %}
 
-            <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="continue-btn">
-                {% trans "Continue Your Journey" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+            <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="journey-btn-primary block w-fit mx-auto mt-10">
+                {% trans "Continue Your Journey" %}
+                {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
             </a>
         </div>
-    </div>
+    </article>
 </div>
 
-<!-- Create more sparkles with JavaScript -->
 <script nonce="{{ request.csp_nonce }}">
-document.addEventListener('DOMContentLoaded', () => {
-    const card = document.querySelector('.reward-card');
-    const sparkleCount = 20;
+document.addEventListener('DOMContentLoaded', function() {
+    var card = document.querySelector('.poem-card');
+    var sparkleCount = 20;
 
-    for (let i = 0; i < sparkleCount; i++) {
-        const sparkle = document.createElement('div');
-        sparkle.className = 'sparkle';
+    for (var i = 0; i < sparkleCount; i++) {
+        var sparkle = document.createElement('div');
+        sparkle.className = 'poem-sparkle';
+        sparkle.setAttribute('aria-hidden', 'true');
         sparkle.style.top = Math.random() * 100 + '%';
         sparkle.style.left = Math.random() * 100 + '%';
         sparkle.style.animationDelay = Math.random() * 2 + 's';

@@ -142,14 +142,19 @@
     </style>
 
     <!-- Tailwind CSS (all styles bundled) -->
-    <link rel="stylesheet" href="{% static 'crush_lu/css/tailwind.css' %}">
-
+    {% if debug %}
+        {% now "U" as ts %}
+        <link rel="stylesheet" href="{% static 'crush_lu/css/tailwind.css' %}?v={{ ts }}">
+    {% else %}
+        <link rel="stylesheet" href="{% static 'crush_lu/css/tailwind.css' %}">
+    {% endif %}
+    
     <!-- HTMX Configuration -->
     <meta name="htmx-config" content='{"defaultSwapStyle":"innerHTML","globalViewTransitions":true}'>
 
     {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
     {# HTMX CSRF Token - Read from hidden input for reliable cross-language support #}
     {# This works correctly when CSRF_COOKIE_HTTPONLY=True #}
     <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}" id="csrf-token-input">
@@ -904,8 +909,12 @@
             crossorigin="anonymous"></script>
 
     <!-- Alpine.js CSP Components (defer maintains order - runs BEFORE Alpine.js) -->
-    <script defer src="{% static 'crush_lu/js/alpine-components.js' %}"></script>
-
+    {% if debug %}
+        {% now "U" as ts %}
+        <script defer src="{% static 'crush_lu/js/alpine-components.js' %}?v={{ ts }}"></script>
+    {% else %}
+        <script defer src="{% static 'crush_lu/js/alpine-components.js' %}"></script>
+    {% endif %}
     <!-- Alpine.js CSP Build (CSP-compliant, no unsafe-eval required) -->
     <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/csp@3.13.3/dist/cdn.min.js"
             integrity="sha384-EkI5VI1qflXkHKn4NX4W76cYYqh8dAx7UKkCc4QJ10k8jdtauy8Qs3BkF21ZXcZj"
@@ -934,8 +943,13 @@
     <!-- PWA Update Handler -->
     <script defer src="{% static 'crush_lu/js/pwa-update.js' %}"></script>
 
-    <!-- PWA Service Worker Registration (externalized for performance) -->
+    <!-- PWA Service Worker Registration -->
+    {% if debug %}
+    <!-- DEBUG mode: Unregister any existing SW to prevent caching issues -->
+    <script defer src="{% static 'crush_lu/js/sw-unregister.js' %}"></script>
+    {% else %}
     <script defer src="{% static 'crush_lu/js/sw-register.js' %}"></script>
+    {% endif %}
 
     <!-- Facebook JS SDK for social login (loaded on login/signup pages via extra_js block) -->
     {% block social_js %}{% endblock %}

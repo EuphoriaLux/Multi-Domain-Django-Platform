@@ -3,73 +3,38 @@
 
 {% block extra_journey_css %}
 <style>
-    .challenge-container {
-        max-width: 800px;
-        margin: 40px auto;
-    }
-
-    .challenge-card {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(15px);
-        border-radius: 20px;
-        padding: 40px;
-        border: 2px solid rgba(255, 255, 255, 0.2);
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    }
-
-    .challenge-type-badge {
-        display: inline-block;
-        padding: 8px 20px;
-        border-radius: 20px;
-        background: rgba(155, 89, 182, 0.3);
-        border: 1px solid rgba(155, 89, 182, 0.5);
-        margin-bottom: 20px;
-        font-weight: bold;
-    }
-
-    .question-text {
+    /* Page-specific: Question text with gradient (pure CSS - no @apply) */
+    .open-question {
         font-size: 1.5rem;
-        line-height: 1.8;
-        margin: 30px 0;
-        text-align: center;
         font-weight: 600;
-        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
+        text-align: center;
+        margin: 2rem 0;
+        line-height: 1.625;
+        background: linear-gradient(135deg, var(--color-crush-purple), var(--color-crush-pink));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
     }
 
-    .instruction-text {
-        text-align: center;
-        font-size: 1rem;
-        opacity: 0.8;
-        margin-bottom: 30px;
-        font-style: italic;
-    }
-
-    .text-input-container {
-        margin: 30px 0;
-        position: relative;
-    }
-
+    /* Page-specific: Text input area */
     .text-input {
         width: 100%;
-        min-height: 200px;
-        padding: 20px;
-        font-size: 1.1rem;
-        line-height: 1.8;
-        border-radius: 15px;
+        padding: 1.25rem;
+        font-size: 1.125rem;
+        line-height: 1.625;
+        border-radius: 1rem;
         border: 2px solid rgba(255, 255, 255, 0.3);
-        background: rgba(255, 255, 255, 0.05);
         color: white;
         resize: vertical;
         transition: all 0.3s ease;
+        background: rgba(255, 255, 255, 0.05);
+        min-height: 200px;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
 
     .text-input:focus {
         outline: none;
-        border-color: var(--journey-primary);
+        border-color: var(--color-crush-purple);
         background: rgba(255, 255, 255, 0.08);
         box-shadow: 0 0 30px rgba(155, 89, 182, 0.3);
     }
@@ -79,194 +44,151 @@
         font-style: italic;
     }
 
+    /* Page-specific: Character counter */
     .char-counter {
         text-align: right;
-        font-size: 0.9rem;
+        font-size: 0.875rem;
+        margin-top: 0.625rem;
         opacity: 0.6;
-        margin-top: 10px;
     }
 
     .char-counter.warning {
-        color: #f39c12;
+        color: #facc15;
         opacity: 1;
     }
 
     .char-counter.error {
-        color: #e74c3c;
+        color: #f87171;
         opacity: 1;
     }
 
-    .submit-btn {
-        display: block;
-        width: 100%;
-        padding: 18px;
-        font-size: 1.3rem;
-        font-weight: bold;
-        border-radius: 15px;
-        border: none;
-        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
-        color: white;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        margin-top: 30px;
-        text-decoration: none;
-        text-align: center;
-        box-sizing: border-box;
-    }
-
-    .submit-btn:hover:not(:disabled) {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(155, 89, 182, 0.5);
-    }
-
-    .submit-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .message-box {
-        padding: 25px;
-        border-radius: 15px;
-        margin: 25px 0;
-        display: none;
-    }
-
-    .message-box.success {
-        background: rgba(46, 204, 113, 0.2);
-        border: 2px solid rgba(46, 204, 113, 0.5);
-        color: white;
-    }
-
-    .message-box.active {
-        display: block;
-        animation: fadeInUp 0.5s ease;
-    }
-
-    .personal-message {
-        font-size: 1.2rem;
-        line-height: 1.6;
-        font-style: italic;
-        margin: 20px 0;
-        padding: 20px;
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 10px;
-        border-left: 4px solid var(--journey-secondary);
-    }
-
-    .points-display {
-        text-align: center;
-        font-size: 2rem;
-        font-weight: bold;
-        color: var(--journey-secondary);
-        margin: 20px 0;
-    }
-
+    /* Page-specific: Writing prompt box */
     .writing-prompt {
+        padding: 1.25rem;
+        border-radius: 1rem;
+        margin: 1.25rem 0;
         background: rgba(255, 215, 0, 0.1);
         border: 2px solid rgba(255, 215, 0, 0.3);
-        border-radius: 15px;
-        padding: 20px;
-        margin: 20px 0;
     }
 
     .writing-prompt h4 {
-        color: #FFD700;
-        margin-bottom: 15px;
-        font-size: 1.1rem;
+        color: #fde047;
+        margin-bottom: 1rem;
+        font-size: 1.125rem;
+        font-weight: 600;
     }
 
     .writing-prompt ul {
-        margin: 0;
-        padding-left: 20px;
+        list-style-type: disc;
+        padding-left: 1.25rem;
         opacity: 0.9;
     }
 
     .writing-prompt li {
-        margin: 8px 0;
+        margin-bottom: 0.5rem;
     }
 
-    /* Typewriter effect for placeholder */
-    @keyframes blink {
-        0%, 50%, 100% { opacity: 1; }
-        25%, 75% { opacity: 0; }
+    /* Page-specific: Personal message quote style */
+    .personal-message {
+        font-size: 1.125rem;
+        line-height: 1.625;
+        font-style: italic;
+        margin: 1.25rem 0;
+        padding: 1.25rem;
+        border-radius: 0.75rem;
+        background: rgba(0, 0, 0, 0.2);
+        border-left: 4px solid var(--color-crush-pink);
     }
 
-    .cursor {
-        animation: blink 1s infinite;
+    /* Page-specific: User response display */
+    .user-response {
+        padding: 1.25rem;
+        margin-top: 1rem;
+        border-radius: 0.75rem;
+        font-style: italic;
+        opacity: 0.9;
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    @media (min-width: 768px) {
+        .open-question {
+            font-size: 1.875rem;
+        }
     }
 
     @media (max-width: 768px) {
-        .question-text {
-            font-size: 1.2rem;
-        }
-
         .text-input {
             min-height: 150px;
             font-size: 1rem;
-            padding: 15px;
-        }
-
-        .challenge-card {
-            padding: 25px;
+            padding: 1rem;
         }
     }
 </style>
 {% endblock %}
 
 {% block journey_content %}
-<div class="challenge-container animate-fade-in">
-    <!-- Back Button -->
-    <div class="mb-4">
-        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Chapter" %}
-        </a>
-    </div>
+<div class="journey-container-content journey-animate-fade-in">
+    {% include "crush_lu/journey/partials/challenge_header.html" %}
 
-    <div class="challenge-card">
-        <div class="challenge-type-badge">
-            {% include "shared/icons/pencil.html" with class="w-5 h-5" %} {% trans "Open Response" %}
+    <article
+        x-data="openText"
+        data-challenge-id="{{ challenge.id }}"
+        data-submit-url="{% url 'crush_lu:api_submit_challenge' %}"
+        data-chapter-url="{% url 'crush_lu:chapter_view' chapter.chapter_number %}"
+        data-chapter-number="{{ chapter.chapter_number }}"
+        data-min-length="10"
+        data-max-length="2000"
+        class="journey-card"
+    >
+        <!-- Challenge Type Badge -->
+        <div class="journey-badge mb-6">
+            {% include "shared/icons/pencil.html" with class="w-5 h-5" %}
+            {% trans "Open Response" %}
         </div>
 
-        <div class="points-display">
-            {% blocktrans with points=challenge.points_awarded %}💎 {{ points }} Points{% endblocktrans %}
+        <!-- Points Display -->
+        <div class="points-display text-3xl md:text-4xl font-bold text-center my-6 text-crush-pink" aria-label="{% blocktrans with points=challenge.points_awarded %}{{ points }} points available{% endblocktrans %}">
+            <span aria-hidden="true">&#128142;</span>
+            {{ challenge.points_awarded }}
+            {% trans "Points" %}
         </div>
 
         <!-- Question -->
-        <div class="question-text">
+        <h2 class="open-question">
             {{ challenge.question }}
-        </div>
+        </h2>
 
-        <div class="instruction-text">
-            {% trans "Share your thoughts freely - there are no wrong answers ✨" %}
-        </div>
+        <p class="text-center text-white/80 italic mb-8">
+            {% trans "Share your thoughts freely - there are no wrong answers" %} &#10024;
+        </p>
 
         {% if existing_attempt %}
         <!-- Already Completed -->
-        <div class="message-box success active">
-            <h3>{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} {% trans "Already Submitted!" %}</h3>
+        <div class="journey-message-success p-6 text-center">
+            <h3 class="flex items-center justify-center gap-2 text-lg font-bold mb-3">
+                {% include "shared/icons/check-circle.html" with class="w-6 h-6" %}
+                {% trans "Already Submitted!" %}
+            </h3>
             <p>{% blocktrans with points=existing_attempt.points_earned %}You've already shared your response and earned <strong>{{ points }} points</strong>.{% endblocktrans %}</p>
 
             <div class="personal-message">
                 {{ challenge.success_message|linebreaks }}
             </div>
 
-            <div class="mt-3" style="padding: 20px; background: rgba(255, 255, 255, 0.05); border-radius: 10px;">
+            <div class="user-response">
                 <strong>{% trans "Your Response:" %}</strong>
-                <div style="margin-top: 10px; font-style: italic; opacity: 0.9;">
-                    "{{ existing_attempt.user_answer }}"
-                </div>
+                <p class="mt-2">"{{ existing_attempt.user_answer }}"</p>
             </div>
 
-            <div class="mt-4">
-                <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
-                    {% trans "Continue to Next Challenge" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
-                </a>
-            </div>
+            <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="journey-btn-primary mt-6">
+                {% trans "Continue to Next Challenge" %}
+                {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+            </a>
         </div>
         {% else %}
         <!-- Writing Prompts (optional help) -->
-        <div class="writing-prompt">
-            <h4>{% trans "💭 Not sure what to write? Consider:" %}</h4>
+        <div x-show="isNotSuccess" x-cloak class="writing-prompt">
+            <h4>{% trans "Not sure what to write? Consider:" %} &#128173;</h4>
             <ul>
                 <li>{% trans "What immediately comes to mind?" %}</li>
                 <li>{% trans "How does this question make you feel?" %}</li>
@@ -275,145 +197,50 @@
         </div>
 
         <!-- Text Input -->
-        <div id="inputSection" class="text-input-container">
+        <div x-show="isNotSuccess" x-cloak class="mt-8">
+            <label for="textInput" class="sr-only">{% trans "Your response" %}</label>
             <textarea
                 id="textInput"
+                x-model="answer"
                 class="text-input"
-                placeholder="{% trans "Start typing your thoughts here..." %}"
-                maxlength="2000"
+                placeholder="{% trans 'Start typing your thoughts here...' %}"
+                x-bind:maxlength="maxLength"
                 rows="8"
+                aria-describedby="charCounter inputHelp"
             ></textarea>
-            <div id="charCounter" class="char-counter">
-                <span id="charCount">0</span> / {% trans "2000 characters" %}
+            <p id="inputHelp" class="sr-only">{% trans "Write at least 10 characters to submit your response" %}</p>
+            <div x-bind:class="charCounterClass">
+                <span x-text="charCount">0</span> / {% trans "2000 characters" %}
             </div>
         </div>
 
-        <button id="submitBtn" class="submit-btn" disabled>
-            {% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %} {% trans "Submit Response" %}
+        <button
+            x-show="isNotSuccess"
+            x-cloak
+            @click="submitAnswer"
+            x-bind:disabled="submitBtnDisabled"
+            class="journey-btn-primary w-full text-lg py-4 mt-6"
+        >
+            {% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %}
+            <span x-show="isNotSubmitting">{% trans "Submit Response" %}</span>
+            <span x-show="isSubmittingState" x-cloak>{% trans "Submitting..." %}</span>
         </button>
 
-        <!-- Message Box -->
-        <div id="messageBox" class="message-box"></div>
+        <!-- Feedback Message Box -->
+        <div
+            x-show="showFeedback"
+            x-cloak
+            x-bind:class="feedbackClass"
+            role="alert"
+            aria-live="assertive"
+        >
+            <!-- Error feedback (simple text) -->
+            <div x-show="isError" x-text="feedback"></div>
+            <!-- Success feedback (HTML) -->
+            <div x-show="isSuccess" x-html="feedbackHtml"></div>
+        </div>
         {% endif %}
-    </div>
+    </article>
 </div>
 {% endblock %}
 
-{% block extra_journey_js %}
-<script nonce="{{ request.csp_nonce }}">
-document.addEventListener('DOMContentLoaded', function() {
-    const challengeId = {{ challenge.id }};
-    const textInput = document.getElementById('textInput');
-    const submitBtn = document.getElementById('submitBtn');
-    const messageBox = document.getElementById('messageBox');
-    const charCount = document.getElementById('charCount');
-    const charCounter = document.getElementById('charCounter');
-
-    if (textInput) {
-        // Character counter
-        textInput.addEventListener('input', function() {
-            const length = this.value.length;
-            charCount.textContent = length;
-
-            // Enable submit button if there's meaningful content (at least 10 characters)
-            if (length >= 10) {
-                submitBtn.removeAttribute('disabled');
-                submitBtn.innerHTML = `{% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %} Submit Response`;
-            } else {
-                submitBtn.setAttribute('disabled', 'disabled');
-                submitBtn.innerHTML = `{% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %} Submit Response (min 10 characters)`;
-            }
-
-            // Color coding for character count
-            charCounter.classList.remove('warning', 'error');
-            if (length > 1800) {
-                charCounter.classList.add('error');
-            } else if (length > 1500) {
-                charCounter.classList.add('warning');
-            }
-        });
-
-        // Auto-focus on input
-        setTimeout(() => {
-            textInput.focus();
-        }, 500);
-    }
-
-    // Submit answer
-    if (submitBtn) {
-        submitBtn.addEventListener('click', function() {
-            const answer = textInput.value.trim();
-
-            if (answer.length < 10) {
-                showMessage('Please write at least 10 characters to share your thoughts.', 'error');
-                return;
-            }
-
-            submitBtn.setAttribute('disabled', 'disabled');
-            submitBtn.innerHTML = `{% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Submitting...`;
-
-            fetch('{% url "crush_lu:api_submit_challenge" %}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': CrushUtils.getCsrfToken()
-                },
-                body: JSON.stringify({
-                    challenge_id: challengeId,
-                    answer: answer
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.is_correct) {
-                    // Answer submitted successfully
-                    const isQuestionnaire = {{ chapter.chapter_number }} in [2, 4, 5];
-                    const title = isQuestionnaire
-                        ? `{% include "shared/icons/heart.html" with class="w-5 h-5" %} Thank you for sharing!`
-                        : `{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Submitted!`;
-
-                    messageBox.innerHTML = `
-                        <h3>${title}</h3>
-                        <div class="personal-message">${data.success_message}</div>
-                        <div class="mt-3">
-                            <strong>🏆 Points Earned: ${data.points_earned}</strong>
-                        </div>
-                        <div class="mt-4">
-                            <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
-                                Continue {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
-                            </a>
-                        </div>
-                    `;
-                    messageBox.className = 'message-box success active';
-
-                    // Hide input section
-                    document.getElementById('inputSection').style.display = 'none';
-                    submitBtn.style.display = 'none';
-                    document.querySelector('.writing-prompt')?.remove();
-
-                } else {
-                    // Shouldn't happen with open text
-                    submitBtn.removeAttribute('disabled');
-                    submitBtn.innerHTML = `{% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %} Submit Response`;
-                    showMessage('Something went wrong. Please try again.', 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                submitBtn.removeAttribute('disabled');
-                submitBtn.innerHTML = `{% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %} Submit Response`;
-                showMessage('An error occurred. Please try again.', 'error');
-            });
-        });
-    }
-
-    function showMessage(text, type) {
-        messageBox.innerHTML = `<div>${text}</div>`;
-        messageBox.className = `message-box ${type} active`;
-        setTimeout(() => {
-            messageBox.classList.remove('active');
-        }, 3000);
-    }
-});
-</script>
-{% endblock %}

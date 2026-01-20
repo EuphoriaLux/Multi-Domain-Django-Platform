@@ -1,0 +1,11 @@
+{% load i18n %}
+{# Challenge Header Partial - Back navigation and badge #}
+{# Required context: chapter, badge_icon, badge_text #}
+
+<!-- Back Button -->
+<nav class="mb-6" aria-label="{% trans 'Navigation' %}">
+    <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="journey-nav-btn">
+        {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
+        {% trans "Back to Chapter" %}
+    </a>
+</nav>

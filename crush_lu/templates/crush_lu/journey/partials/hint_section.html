@@ -1,0 +1,98 @@
+{% load i18n %}
+{# Hint Section Partial - Reusable hint buttons and boxes #}
+{# Required context: challenge #}
+{# Alpine.js: Must be inside a component with hint getters (hint1Used, hint1NotUsed, etc.) #}
+
+{% if challenge.hint_1 or challenge.hint_2 or challenge.hint_3 %}
+<section class="mt-8 pt-6 border-t border-white/10" aria-labelledby="hints-heading">
+    <h4 id="hints-heading" class="text-center text-white/80 mb-4 flex items-center justify-center gap-2">
+        {% include "shared/icons/information-circle.html" with class="w-5 h-5" %}
+        {% trans "Need help? Use hints (costs points)" %}
+    </h4>
+    <div class="flex flex-wrap justify-center gap-3">
+        {% if challenge.hint_1 %}
+        <button
+            class="journey-hint-btn"
+            @click="unlockHint(1, {{ challenge.hint_1_cost }})"
+            x-bind:disabled="hint1Used"
+            x-bind:class="hint1BtnClass"
+        >
+            <span x-show="hint1Used" x-cloak>&#10003;</span>
+            <span x-show="hint1Used" x-cloak>{% trans "Hint 1 Used" %}</span>
+            <span x-show="hint1NotUsed">&#128161;</span>
+            <span x-show="hint1NotUsed">{% blocktrans with cost=challenge.hint_1_cost %}Hint 1 (-{{ cost }} pts){% endblocktrans %}</span>
+        </button>
+        {% endif %}
+        {% if challenge.hint_2 %}
+        <button
+            class="journey-hint-btn"
+            @click="unlockHint(2, {{ challenge.hint_2_cost }})"
+            x-bind:disabled="hint2Used"
+            x-bind:class="hint2BtnClass"
+        >
+            <span x-show="hint2Used" x-cloak>&#10003;</span>
+            <span x-show="hint2Used" x-cloak>{% trans "Hint 2 Used" %}</span>
+            <span x-show="hint2NotUsed">&#128161;</span>
+            <span x-show="hint2NotUsed">{% blocktrans with cost=challenge.hint_2_cost %}Hint 2 (-{{ cost }} pts){% endblocktrans %}</span>
+        </button>
+        {% endif %}
+        {% if challenge.hint_3 %}
+        <button
+            class="journey-hint-btn"
+            @click="unlockHint(3, {{ challenge.hint_3_cost }})"
+            x-bind:disabled="hint3Used"
+            x-bind:class="hint3BtnClass"
+        >
+            <span x-show="hint3Used" x-cloak>&#10003;</span>
+            <span x-show="hint3Used" x-cloak>{% trans "Hint 3 Used" %}</span>
+            <span x-show="hint3NotUsed">&#128161;</span>
+            <span x-show="hint3NotUsed">{% blocktrans with cost=challenge.hint_3_cost %}Hint 3 (-{{ cost }} pts){% endblocktrans %}</span>
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Hint Boxes - Listen for hint-unlocked events -->
+    {% if challenge.hint_1 %}
+    <div
+        x-data="hintBox"
+        data-hint-num="1"
+        @hint-unlocked.window="handleHintUnlocked($event.detail)"
+        x-bind:class="hintClass"
+        x-show="showHint"
+        x-cloak
+        role="region"
+        aria-live="polite"
+    >
+        <strong>&#128161; {% trans "Hint" %} 1:</strong> <span x-text="hintText"></span>
+    </div>
+    {% endif %}
+    {% if challenge.hint_2 %}
+    <div
+        x-data="hintBox"
+        data-hint-num="2"
+        @hint-unlocked.window="handleHintUnlocked($event.detail)"
+        x-bind:class="hintClass"
+        x-show="showHint"
+        x-cloak
+        role="region"
+        aria-live="polite"
+    >
+        <strong>&#128161; {% trans "Hint" %} 2:</strong> <span x-text="hintText"></span>
+    </div>
+    {% endif %}
+    {% if challenge.hint_3 %}
+    <div
+        x-data="hintBox"
+        data-hint-num="3"
+        @hint-unlocked.window="handleHintUnlocked($event.detail)"
+        x-bind:class="hintClass"
+        x-show="showHint"
+        x-cloak
+        role="region"
+        aria-live="polite"
+    >
+        <strong>&#128161; {% trans "Hint" %} 3:</strong> <span x-text="hintText"></span>
+    </div>
+    {% endif %}
+</section>
+{% endif %}

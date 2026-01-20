@@ -1,0 +1,21 @@
+{% load i18n %}
+{# Already Completed Partial - Shown when user has already completed this challenge #}
+{# Required context: existing_attempt, chapter, completion_message (optional) #}
+
+<div class="journey-message-success p-6 text-center">
+    <h3 class="flex items-center justify-center gap-2 text-lg font-bold mb-3">
+        {% include "shared/icons/check-circle.html" with class="w-6 h-6" %}
+        {% trans "Already Completed!" %}
+    </h3>
+    <p>
+        {% if completion_message %}
+            {{ completion_message }}
+        {% else %}
+            {% blocktrans with points=existing_attempt.points_earned %}You already completed this challenge and earned <strong>{{ points }} points</strong>.{% endblocktrans %}
+        {% endif %}
+    </p>
+    <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="journey-btn-primary mt-6">
+        {% trans "Continue to Next Challenge" %}
+        {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+    </a>
+</div>

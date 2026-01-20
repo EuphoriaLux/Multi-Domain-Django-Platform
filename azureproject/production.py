@@ -117,7 +117,9 @@ ROOT_URLCONF = "azureproject.urls_entreprinder"
 
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-# STATICFILES_STORAGE is now configured in STORAGES above (Django 4.2+)
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),

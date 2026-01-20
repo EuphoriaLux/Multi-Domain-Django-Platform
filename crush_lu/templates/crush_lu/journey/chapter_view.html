@@ -3,313 +3,102 @@
 
 {% block extra_journey_css %}
 <style>
-    /* Chapter-Specific Background Themes */
+    /* Page-specific: Dynamic background themes based on chapter */
     {% if chapter.background_theme == 'wonderland_night' %}
-    body {
-        background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
-    }
+    body.journey-bg { background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%); }
     {% elif chapter.background_theme == 'enchanted_garden' %}
-    body {
-        background: linear-gradient(135deg, #2c3e50 0%, #4ca1af 50%, #c471f5 100%);
-    }
+    body.journey-bg { background: linear-gradient(135deg, #2c3e50 0%, #4ca1af 50%, #c471f5 100%); }
     {% elif chapter.background_theme == 'art_gallery' %}
-    body {
-        background: linear-gradient(135deg, #1e1e1e 0%, #3a2f2f 50%, #2d2424 100%);
-    }
+    body.journey-bg { background: linear-gradient(135deg, #1e1e1e 0%, #3a2f2f 50%, #2d2424 100%); }
     {% elif chapter.background_theme == 'carnival' %}
-    body {
-        background: linear-gradient(135deg, #4a148c 0%, #d32f2f 50%, #f57c00 100%);
-    }
+    body.journey-bg { background: linear-gradient(135deg, #4a148c 0%, #d32f2f 50%, #f57c00 100%); }
     {% elif chapter.background_theme == 'starlit_sky' %}
-    body {
-        background: linear-gradient(135deg, #000428 0%, #004e92 50%, #000428 100%);
-    }
+    body.journey-bg { background: linear-gradient(135deg, #000428 0%, #004e92 50%, #000428 100%); }
     {% elif chapter.background_theme == 'magical_door' %}
-    body {
-        background: linear-gradient(135deg, #ff6b6b 0%, #feca57 50%, #48dbfb 100%);
-    }
+    body.journey-bg { background: linear-gradient(135deg, #ff6b6b 0%, #feca57 50%, #48dbfb 100%); }
     {% endif %}
 
-    /* Chapter Header */
-    .chapter-header {
-        text-align: center;
-        margin: 40px 0;
-    }
-
-    .chapter-number {
-        font-size: 1.2rem;
-        opacity: 0.7;
-        margin-bottom: 10px;
-    }
-
-    .chapter-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        margin-bottom: 10px;
-    }
-
-    .chapter-theme {
-        font-size: 1.2rem;
-        opacity: 0.8;
-    }
-
-    /* Story Introduction */
-    .story-section {
-        max-width: 800px;
-        margin: 40px auto;
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(15px);
-        border-radius: 20px;
-        padding: 40px;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    }
-
-    .story-text {
-        font-size: 1.2rem;
-        line-height: 1.8;
-        font-style: italic;
-        color: var(--journey-light);
-    }
-
-    /* Challenges Section */
-    .challenges-section {
-        max-width: 900px;
-        margin: 40px auto;
-    }
-
-    .section-title {
-        font-size: 2rem;
-        text-align: center;
-        margin-bottom: 30px;
-        color: var(--journey-light);
-    }
-
+    /* Page-specific: Challenge card with completion state (pure CSS - no @apply) */
     .challenge-card {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        border-radius: 15px;
-        padding: 25px;
-        padding-top: 45px;
-        margin-bottom: 20px;
+        position: relative;
+        padding: 1.5rem;
+        padding-top: 3rem;
+        margin-bottom: 1.25rem;
+        border-radius: 1rem;
         border: 2px solid rgba(255, 255, 255, 0.2);
         transition: all 0.3s ease;
-        position: relative;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
     }
-
     .challenge-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 30px rgba(155, 89, 182, 0.3);
+        transform: translateY(-0.25rem);
+        box-shadow: var(--shadow-journey-glow-purple);
     }
-
-    .challenge-completed {
-        border-color: var(--journey-success);
+    .challenge-card.completed {
+        border-color: var(--color-journey-success);
         background: rgba(46, 204, 113, 0.1);
     }
 
-    .challenge-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 15px;
-    }
-
-    .challenge-type {
-        font-size: 0.9rem;
-        padding: 5px 15px;
-        border-radius: 12px;
-        background: rgba(155, 89, 182, 0.3);
-        border: 1px solid rgba(155, 89, 182, 0.5);
-    }
-
-    .challenge-points {
-        font-size: 1.1rem;
-        font-weight: bold;
-        color: var(--journey-secondary);
-    }
-
-    .challenge-question {
-        font-size: 1.1rem;
-        margin-bottom: 15px;
-        line-height: 1.6;
-    }
-
-    .challenge-btn {
-        display: inline-block;
-        padding: 12px 30px;
-        border-radius: 25px;
-        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
-        color: white;
-        text-decoration: none;
-        font-weight: bold;
-        transition: all 0.3s ease;
-        border: none;
-    }
-
-    .challenge-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 20px rgba(155, 89, 182, 0.4);
-        color: white;
-        text-decoration: none;
-    }
-
-    .completed-badge {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: var(--journey-success);
-        color: white;
-        padding: 5px 15px;
-        border-radius: 20px;
-        font-size: 0.9rem;
-        font-weight: bold;
-    }
-
-    /* Rewards Section */
-    .rewards-section {
-        max-width: 800px;
-        margin: 40px auto;
-        text-align: center;
-    }
-
+    /* Page-specific: Reward card with golden theme */
     .reward-card {
-        background: rgba(255, 215, 0, 0.1);
-        backdrop-filter: blur(10px);
-        border-radius: 15px;
-        padding: 30px;
-        border: 2px solid rgba(255, 215, 0, 0.3);
-        margin-bottom: 20px;
-    }
-
-    .reward-icon {
-        font-size: 3rem;
-        margin-bottom: 15px;
-    }
-
-    .reward-title {
-        font-size: 1.5rem;
-        font-weight: bold;
-        margin-bottom: 10px;
-    }
-
-    /* Completion Message */
-    .completion-message {
-        max-width: 800px;
-        margin: 40px auto;
-        background: rgba(46, 204, 113, 0.2);
-        backdrop-filter: blur(15px);
-        border-radius: 20px;
-        padding: 40px;
-        border: 2px solid rgba(46, 204, 113, 0.5);
+        padding: 2rem;
+        margin-bottom: 1.25rem;
+        border-radius: 1rem;
         text-align: center;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        background: rgba(255, 215, 0, 0.1);
+        border: 2px solid rgba(255, 215, 0, 0.3);
     }
 
-    .completion-text {
-        font-size: 1.3rem;
-        line-height: 1.8;
-        font-style: italic;
-        margin: 20px 0;
-    }
-
-    /* Navigation */
-    .chapter-navigation {
-        display: flex;
-        justify-content: space-between;
-        max-width: 800px;
-        margin: 40px auto;
-    }
-
-    .nav-btn {
+    /* Page-specific: Final response buttons (Chapter 6) */
+    .final-response-btn {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 0.5rem;
-        padding: 12px 30px;
-        border-radius: 25px;
-        background: rgba(255, 255, 255, 0.2);
-        color: white;
-        text-decoration: none;
-        font-weight: bold;
-        transition: all 0.3s ease;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-    }
-
-    .nav-btn:hover {
-        background: rgba(255, 255, 255, 0.3);
-        color: white;
-        text-decoration: none;
-    }
-
-    /* Final Response Buttons (Chapter 6) */
-    .final-response-btn {
-        padding: 20px 40px;
+        padding: 1.25rem 2.5rem;
         border-radius: 30px;
-        font-size: 1.2rem;
-        font-weight: bold;
-        border: none;
+        font-size: 1.25rem;
+        font-weight: 700;
         cursor: pointer;
         transition: all 0.3s ease;
+        color: white;
         min-width: 280px;
+        border: none;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     }
-
-    .final-response-yes {
-        background: linear-gradient(135deg, #FF6B9D, #C850C0);
-        color: white;
-    }
-
-    .final-response-yes:hover {
-        transform: translateY(-5px) scale(1.05);
-        box-shadow: 0 15px 40px rgba(255, 107, 157, 0.5);
-    }
-
-    .final-response-thinking {
-        background: linear-gradient(135deg, #9B59B6, #667eea);
-        color: white;
-    }
-
-    .final-response-thinking:hover {
-        transform: translateY(-5px) scale(1.05);
-        box-shadow: 0 15px 40px rgba(155, 89, 182, 0.5);
-    }
-
     .final-response-btn:disabled {
         opacity: 0.6;
         cursor: not-allowed;
         transform: none;
     }
+    .final-response-btn:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5), 0 0 0 4px rgba(255, 255, 255, 0.25);
+    }
+    .final-response-yes {
+        background: linear-gradient(135deg, var(--color-crush-pink), #C850C0);
+    }
+    .final-response-yes:hover:not(:disabled) {
+        transform: translateY(-0.25rem) scale(1.05);
+        box-shadow: 0 15px 40px rgba(255, 107, 157, 0.5);
+    }
+    .final-response-thinking {
+        background: linear-gradient(135deg, var(--color-crush-purple), #667eea);
+    }
+    .final-response-thinking:hover:not(:disabled) {
+        transform: translateY(-0.25rem) scale(1.05);
+        box-shadow: 0 15px 40px rgba(155, 89, 182, 0.5);
+    }
 
-    /* Mobile Responsive */
     @media (max-width: 768px) {
-        .chapter-title {
-            font-size: 2rem;
-        }
-
-        .story-section {
-            padding: 25px;
-        }
-
-        .story-text {
-            font-size: 1.1rem;
-        }
-
-        .challenge-card {
-            padding: 20px;
-            padding-top: 40px;
-        }
-
-        .chapter-navigation {
-            flex-direction: column;
-            gap: 10px;
-        }
-
         .final-response-btn {
-            min-width: 100%;
-            padding: 18px 30px;
-            font-size: 1.1rem;
+            width: 100%;
+            min-width: 0;
+            padding: 1rem 2rem;
+            font-size: 1.125rem;
         }
     }
 </style>
@@ -317,111 +106,126 @@
 
 {% block journey_content %}
 <!-- Back to Map -->
-<div class="text-center mb-4">
-    <a href="{% url 'crush_lu:journey_map' %}" class="nav-btn">
-        {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Journey Map" %}
+<nav class="text-center mb-6" aria-label="{% trans 'Navigation' %}">
+    <a href="{% url 'crush_lu:journey_map' %}" class="journey-nav-btn">
+        {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
+        {% trans "Back to Journey Map" %}
     </a>
-</div>
+</nav>
 
 <!-- Chapter Header -->
-<div class="chapter-header animate-fade-in">
-    <div class="chapter-number">{% blocktrans with num=chapter.chapter_number total=journey_progress.journey.total_chapters %}Chapter {{ num }} of {{ total }}{% endblocktrans %}</div>
-    <h1 class="chapter-title">{{ chapter.title }}</h1>
-    <div class="chapter-theme">{{ chapter.theme }}</div>
-</div>
+<header class="text-center my-10 journey-animate-fade-in">
+    <p class="text-lg text-white/70 mb-2.5">
+        {% blocktrans with num=chapter.chapter_number total=journey_progress.journey.total_chapters %}Chapter {{ num }} of {{ total }}{% endblocktrans %}
+    </p>
+    <h1 class="journey-title">{{ chapter.title }}</h1>
+    <p class="journey-subtitle">{{ chapter.theme }}</p>
+</header>
 
 <!-- Story Introduction -->
-<div class="story-section animate-fade-in" style="animation-delay: 0.2s;">
-    <p class="story-text">{{ chapter.story_introduction|linebreaks }}</p>
-</div>
+<section class="journey-card journey-container-narrow mx-auto journey-animate-fade-in" style="animation-delay: 0.2s;" aria-labelledby="story-heading">
+    <h2 id="story-heading" class="sr-only">{% trans "Story Introduction" %}</h2>
+    <div class="text-lg md:text-xl leading-relaxed italic text-crush-light">
+        {{ chapter.story_introduction|linebreaks }}
+    </div>
+</section>
 
 <!-- Challenges Section -->
 {% if challenges %}
-<div class="challenges-section animate-fade-in" style="animation-delay: 0.4s;">
-    <h2 class="section-title">
+<section class="journey-container-content my-10 journey-animate-fade-in" style="animation-delay: 0.4s;" aria-labelledby="challenges-heading">
+    <h2 id="challenges-heading" class="text-2xl md:text-3xl text-center mb-8 text-crush-light">
         {% if is_completed %}
-            {% trans "Completed Challenges ✅" %}
+            {% trans "Completed Challenges" %} &#x2705;
         {% else %}
             {% trans "Your Challenges" %}
         {% endif %}
     </h2>
 
     {% for challenge in challenges %}
-    <div class="challenge-card {% if challenge.id in challenge_attempts %}challenge-completed{% endif %}">
+    <article class="challenge-card {% if challenge.id in challenge_attempts %}completed{% endif %}">
         {% if challenge.id in challenge_attempts %}
-        <div class="completed-badge">
-            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} {% trans "Completed" %}
+        <div class="absolute top-2.5 right-2.5 bg-crush-success text-white py-1 px-4 rounded-full text-sm font-bold flex items-center gap-1">
+            {% include "shared/icons/check-circle.html" with class="w-4 h-4" %}
+            {% trans "Completed" %}
         </div>
         {% endif %}
 
-        <div class="challenge-header">
-            <span class="challenge-type">
-                {% include "shared/icons/puzzle-piece.html" with class="w-5 h-5" %} {{ challenge.get_challenge_type_display }}
+        <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+            <span class="journey-badge">
+                {% include "shared/icons/puzzle-piece.html" with class="w-4 h-4" %}
+                {{ challenge.get_challenge_type_display }}
             </span>
-            <span class="challenge-points">
-                {% include "shared/icons/sparkles.html" with class="w-5 h-5" %} {% blocktrans with points=challenge.points_awarded %}{{ points }} points{% endblocktrans %}
+            <span class="text-lg font-bold text-crush-pink flex items-center gap-1">
+                {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
+                {% blocktrans with points=challenge.points_awarded %}{{ points }} points{% endblocktrans %}
             </span>
         </div>
 
-        <div class="challenge-question">
+        <p class="text-lg leading-relaxed mb-4">
             {{ challenge.question|truncatewords:30 }}
-        </div>
+        </p>
 
         {% if challenge.id in challenge_attempts %}
-            <div style="color: var(--journey-success); margin-top: 10px;">
-                {% include "shared/icons/check.html" with class="w-5 h-5" %} {% trans "You solved this challenge!" %}
-            </div>
+            <p class="text-crush-success mt-2.5 flex items-center gap-1">
+                {% include "shared/icons/check.html" with class="w-5 h-5" %}
+                {% trans "You solved this challenge!" %}
+            </p>
         {% else %}
             <a href="{% url 'crush_lu:challenge_view' chapter.chapter_number challenge.id %}"
-               class="challenge-btn">
-                {% trans "Start Challenge" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+               class="journey-btn-primary inline-flex items-center gap-2">
+                {% trans "Start Challenge" %}
+                {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
             </a>
         {% endif %}
-    </div>
+    </article>
     {% endfor %}
-</div>
+</section>
 {% endif %}
 
 <!-- Completion Message -->
 {% if is_completed %}
-<div class="completion-message animate-fade-in" style="animation-delay: 0.6s;">
-    <div style="font-size: 3rem; margin-bottom: 20px;">🎉</div>
-    <h2>{% trans "Chapter Complete!" %}</h2>
-    <p class="completion-text">{{ chapter.completion_message|linebreaks }}</p>
+<section class="journey-message-success journey-container-narrow mx-auto my-10 p-10 text-center journey-animate-fade-in" style="animation-delay: 0.6s;" aria-labelledby="completion-heading">
+    <div class="text-5xl mb-5" aria-hidden="true">&#127881;</div>
+    <h2 id="completion-heading" class="text-2xl font-bold mb-4">{% trans "Chapter Complete!" %}</h2>
+    <div class="text-xl leading-relaxed italic my-5">
+        {{ chapter.completion_message|linebreaks }}
+    </div>
 
     <!-- Chapter 6 Final Response (Special Handling) -->
     {% if chapter.chapter_number == 6 and not journey_progress.final_response %}
-    <div id="finalResponseSection" style="margin-top: 40px;">
-        <div style="background: rgba(255, 107, 157, 0.1); border: 2px solid rgba(255, 107, 157, 0.3); border-radius: 20px; padding: 40px; margin-top: 30px;">
-            <h3 style="font-size: 1.8rem; margin-bottom: 20px; color: var(--journey-primary);">💫 The Final Question 💫</h3>
-            <p style="font-size: 1.3rem; line-height: 1.8; margin-bottom: 30px;">
+    <div id="finalResponseSection" class="mt-10">
+        <div class="bg-crush-pink/10 border-2 border-crush-pink/30 rounded-2xl p-10 mt-8">
+            <h3 class="text-2xl md:text-3xl mb-5 text-crush-purple">&#128171; {% trans "The Final Question" %} &#128171;</h3>
+            <div class="text-xl leading-relaxed mb-8">
                 {{ journey_progress.journey.final_message|linebreaks }}
-            </p>
-            <p style="font-size: 1.2rem; font-weight: bold; margin-bottom: 30px;">
+            </div>
+            <p class="text-lg font-bold mb-8">
                 {% trans "Will you give this a chance?" %}
             </p>
-            <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+            <div class="flex gap-5 justify-center flex-wrap">
                 <button onclick="submitFinalResponse('yes')" class="final-response-btn final-response-yes" id="btnYes">
-                    {% include "shared/icons/heart.html" with class="w-5 h-5" %} {% trans "Yes, let's see where this goes 💫" %}
+                    {% include "shared/icons/heart.html" with class="w-5 h-5" %}
+                    {% trans "Yes, let's see where this goes" %} &#128171;
                 </button>
                 <button onclick="submitFinalResponse('thinking')" class="final-response-btn final-response-thinking" id="btnThinking">
-                    {% include "shared/icons/hourglass.html" with class="w-5 h-5" %} {% trans "I need to think about this ✨" %}
+                    {% include "shared/icons/hourglass.html" with class="w-5 h-5" %}
+                    {% trans "I need to think about this" %} &#10024;
                 </button>
             </div>
-            <div id="responseStatus" style="margin-top: 20px; font-size: 1.1rem;"></div>
+            <div id="responseStatus" class="mt-5 text-lg" role="status" aria-live="polite"></div>
         </div>
     </div>
     {% elif chapter.chapter_number == 6 and journey_progress.final_response %}
-    <div style="margin-top: 30px; padding: 30px; background: rgba(46, 204, 113, 0.1); border: 2px solid rgba(46, 204, 113, 0.3); border-radius: 20px;">
-        <h3 style="margin-bottom: 15px;">{% trans "💖 Your Response" %}</h3>
-        <p style="font-size: 1.2rem;">
+    <div class="mt-8 p-8 bg-crush-success/10 border-2 border-crush-success/30 rounded-2xl">
+        <h3 class="text-xl font-bold mb-4">&#128150; {% trans "Your Response" %}</h3>
+        <p class="text-lg">
             {% if journey_progress.final_response == 'yes' %}
-                {% trans "You chose:" %} <strong>"{% trans "Yes, let's see where this goes 💫" %}"</strong>
+                {% trans "You chose:" %} <strong>"{% trans "Yes, let's see where this goes" %} &#128171;"</strong>
             {% else %}
-                {% trans "You chose:" %} <strong>"{% trans "I need to think about this ✨" %}"</strong>
+                {% trans "You chose:" %} <strong>"{% trans "I need to think about this" %} &#10024;"</strong>
             {% endif %}
         </p>
-        <p style="font-size: 0.9rem; opacity: 0.8; margin-top: 10px;">
+        <p class="text-sm opacity-80 mt-2.5">
             {% trans "Responded on" %} {{ journey_progress.final_response_at|date:"F j, Y \a\t g:i A" }}
         </p>
     </div>
@@ -429,119 +233,117 @@
 
     <!-- Show Rewards -->
     {% if rewards %}
-    <div style="margin-top: 30px;">
-        <h3 style="margin-bottom: 20px;">{% trans "✨ Rewards Unlocked ✨" %}</h3>
+    <div class="mt-8">
+        <h3 class="text-xl font-bold mb-5">&#10024; {% trans "Rewards Unlocked" %} &#10024;</h3>
         {% for reward in rewards %}
-        <div class="reward-card">
-            <div class="reward-icon">
-                {% if reward.reward_type == 'photo_reveal' %}📷
-                {% elif reward.reward_type == 'poem' %}📜
-                {% elif reward.reward_type == 'voice_message' %}🎵
-                {% elif reward.reward_type == 'video_message' %}🎬
-                {% elif reward.reward_type == 'photo_slideshow' %}🖼️
-                {% elif reward.reward_type == 'future_letter' %}💌
-                {% else %}🎁
+        <article class="reward-card">
+            <div class="text-5xl mb-4" aria-hidden="true">
+                {% if reward.reward_type == 'photo_reveal' %}&#128247;
+                {% elif reward.reward_type == 'poem' %}&#128220;
+                {% elif reward.reward_type == 'voice_message' %}&#127925;
+                {% elif reward.reward_type == 'video_message' %}&#127916;
+                {% elif reward.reward_type == 'photo_slideshow' %}&#128444;&#65039;
+                {% elif reward.reward_type == 'future_letter' %}&#128140;
+                {% else %}&#127873;
                 {% endif %}
             </div>
-            <div class="reward-title">{{ reward.title }}</div>
-            <a href="{% url 'crush_lu:reward_view' reward.id %}" class="challenge-btn mt-3">
-                {% trans "View Reward" %} {% include "shared/icons/gift.html" with class="w-5 h-5" %}
+            <h4 class="text-2xl font-bold mb-2.5">{{ reward.title }}</h4>
+            <a href="{% url 'crush_lu:reward_view' reward.id %}" class="journey-btn-primary inline-flex items-center gap-2 mt-4">
+                {% trans "View Reward" %}
+                {% include "shared/icons/gift.html" with class="w-5 h-5" %}
             </a>
-        </div>
+        </article>
         {% endfor %}
     </div>
     {% endif %}
-</div>
+</section>
 {% endif %}
 
 <!-- Navigation -->
-<div class="chapter-navigation">
+<nav class="flex flex-col md:flex-row justify-between gap-4 journey-container-narrow mx-auto my-10" aria-label="{% trans 'Chapter navigation' %}">
     {% if chapter.chapter_number > 1 %}
-        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number|add:"-1" %}" class="nav-btn">
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Previous Chapter" %}
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number|add:"-1" %}" class="journey-nav-btn">
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
+            {% trans "Previous Chapter" %}
         </a>
     {% else %}
         <div></div>
     {% endif %}
 
     {% if is_completed and chapter.chapter_number < journey_progress.journey.total_chapters %}
-        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number|add:"1" %}" class="nav-btn">
-            {% trans "Next Chapter" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number|add:"1" %}" class="journey-nav-btn">
+            {% trans "Next Chapter" %}
+            {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
         </a>
     {% elif is_completed %}
-        <a href="{% url 'crush_lu:journey_map' %}" class="nav-btn">
-            {% include "shared/icons/map.html" with class="w-5 h-5" %} {% trans "Return to Map" %}
+        <a href="{% url 'crush_lu:journey_map' %}" class="journey-nav-btn">
+            {% include "shared/icons/map.html" with class="w-5 h-5" %}
+            {% trans "Return to Map" %}
         </a>
     {% else %}
         <div></div>
     {% endif %}
-</div>
-
+</nav>
 {% endblock %}
 
 {% block extra_journey_js %}
 <script nonce="{{ request.csp_nonce }}">
-// Custom template filter helper
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function() {
     console.log('Chapter {{ chapter.chapter_number }} loaded');
 });
 
 // Final Response Submission (Chapter 6)
-async function submitFinalResponse(response) {
-    const btnYes = document.getElementById('btnYes');
-    const btnThinking = document.getElementById('btnThinking');
-    const statusDiv = document.getElementById('responseStatus');
+function submitFinalResponse(response) {
+    var btnYes = document.getElementById('btnYes');
+    var btnThinking = document.getElementById('btnThinking');
+    var statusDiv = document.getElementById('responseStatus');
 
     // Disable both buttons
     btnYes.disabled = true;
     btnThinking.disabled = true;
 
-    // Show loading message
-    statusDiv.innerHTML = `{% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Submitting your response...`;
-    statusDiv.style.color = 'var(--journey-secondary)';
+    // Show loading message (use emoji instead of SVG to avoid multi-line string issues)
+    statusDiv.innerHTML = '\u23F3 {% trans "Submitting your response..." %}';
+    statusDiv.style.color = 'var(--color-crush-pink)';
 
-    try {
-        // Get CSRF token using CrushUtils (handles hidden input, form input, and cookie)
-        const csrftoken = CrushUtils.getCsrfToken();
-
-        const apiResponse = await fetch('{% url "crush_lu:api_record_final_response" %}', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': csrftoken,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ response: response })
-        });
-
-        const data = await apiResponse.json();
-
+    fetch('{% url "crush_lu:api_record_final_response" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': CrushUtils.getCsrfToken(),
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ response: response })
+    })
+    .then(function(apiResponse) { return apiResponse.json(); })
+    .then(function(data) {
         if (data.success) {
             // Show success message
-            statusDiv.innerHTML = `{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Thank you for your response! 💖`;
-            statusDiv.style.color = 'var(--journey-success)';
+            statusDiv.innerHTML = '\u2705 {% trans "Thank you for your response!" %} \uD83D\uDC96';
+            statusDiv.style.color = 'var(--color-crush-success)';
 
             // Reload page after 2 seconds to show the confirmed response
-            setTimeout(() => {
+            setTimeout(function() {
                 window.location.reload();
             }, 2000);
         } else {
             // Show error
-            statusDiv.innerHTML = `{% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %} ` + (data.message || 'An error occurred. Please try again.');
-            statusDiv.style.color = 'var(--journey-error)';
+            statusDiv.innerHTML = '\u26A0\uFE0F ' + (data.message || '{% trans "An error occurred. Please try again." %}');
+            statusDiv.style.color = 'var(--color-crush-danger)';
 
             // Re-enable buttons
             btnYes.disabled = false;
             btnThinking.disabled = false;
         }
-    } catch (error) {
+    })
+    .catch(function(error) {
         console.error('Error submitting final response:', error);
-        statusDiv.innerHTML = `{% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %} Network error. Please check your connection and try again.`;
-        statusDiv.style.color = 'var(--journey-error)';
+        statusDiv.innerHTML = '\u26A0\uFE0F {% trans "Network error. Please check your connection and try again." %}';
+        statusDiv.style.color = 'var(--color-crush-danger)';
 
         // Re-enable buttons
         btnYes.disabled = false;
         btnThinking.disabled = false;
-    }
+    });
 }
 </script>
 {% endblock %}

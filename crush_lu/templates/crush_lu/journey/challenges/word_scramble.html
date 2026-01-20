@@ -3,456 +3,151 @@
 
 {% block extra_journey_css %}
 <style>
-    .challenge-container {
-        max-width: 700px;
-        margin: 40px auto;
-    }
-
-    .challenge-card {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(15px);
-        border-radius: 20px;
-        padding: 40px;
-        border: 2px solid rgba(255, 255, 255, 0.2);
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    }
-
-    .challenge-type-badge {
-        display: inline-block;
-        padding: 8px 20px;
-        border-radius: 20px;
-        background: rgba(155, 89, 182, 0.3);
-        border: 1px solid rgba(155, 89, 182, 0.5);
-        margin-bottom: 20px;
-        font-weight: bold;
-    }
-
+    /* Page-specific: Scrambled word display (pure CSS - no @apply) */
     .scrambled-word {
-        font-size: 2rem;
-        font-weight: bold;
+        font-size: 1.5rem;
+        font-weight: 700;
+        text-align: center;
+        margin: 2rem 0;
+        padding: 2rem;
+        border-radius: 1rem;
+        text-transform: uppercase;
         letter-spacing: 3px;
         word-spacing: 15px;
-        text-align: center;
-        margin: 30px 0;
-        padding: 30px;
         background: rgba(0, 0, 0, 0.2);
-        border-radius: 15px;
-        border: 3px dashed var(--journey-primary);
-        color: var(--journey-secondary);
-        text-transform: uppercase;
+        border: 3px dashed var(--color-crush-purple);
+        color: var(--color-crush-pink);
         line-height: 1.5;
+        transition: transform 0.2s ease;
     }
 
-    .word-instruction {
-        text-align: center;
-        font-size: 1.2rem;
-        margin: 20px 0;
-        opacity: 0.9;
-    }
-
-    .answer-input {
-        width: 100%;
-        padding: 15px 20px;
-        font-size: 1.1rem;
-        border-radius: 10px;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        background: rgba(255, 255, 255, 0.1);
-        color: white;
-        margin: 20px 0;
-        transition: all 0.3s ease;
-        text-align: center;
-        text-transform: uppercase;
-    }
-
-    .answer-input:focus {
-        outline: none;
-        border-color: var(--journey-primary);
-        box-shadow: 0 0 20px rgba(155, 89, 182, 0.3);
-    }
-
-    .answer-input::placeholder {
-        color: rgba(255, 255, 255, 0.5);
-        text-transform: none;
-    }
-
-    .submit-btn {
-        display: block;
-        width: 100%;
-        padding: 15px;
-        font-size: 1.2rem;
-        font-weight: bold;
-        border-radius: 10px;
-        border: none;
-        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
-        color: white;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        text-decoration: none;
-        text-align: center;
-        box-sizing: border-box;
-    }
-
-    .submit-btn:hover:not(:disabled) {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 20px rgba(155, 89, 182, 0.4);
-    }
-
-    .submit-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .hint-section {
-        margin: 30px 0;
-    }
-
-    .hint-btn {
-        padding: 10px 20px;
-        border-radius: 10px;
-        border: 2px solid rgba(255, 215, 0, 0.5);
-        background: rgba(255, 215, 0, 0.2);
-        color: white;
-        cursor: pointer;
-        margin: 5px;
-        transition: all 0.3s ease;
-    }
-
-    .hint-btn:hover:not(:disabled) {
-        background: rgba(255, 215, 0, 0.3);
-        transform: translateY(-2px);
-    }
-
-    .hint-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .hint-box {
-        margin-top: 15px;
-        padding: 20px;
-        border-radius: 10px;
-        background: rgba(255, 215, 0, 0.1);
-        border: 2px solid rgba(255, 215, 0, 0.3);
-        display: none;
-    }
-
-    .hint-box.active {
-        display: block;
-        animation: fadeInUp 0.5s ease;
-    }
-
-    .message-box {
-        padding: 20px;
-        border-radius: 10px;
-        margin: 20px 0;
-        display: none;
-    }
-
-    .message-box.success {
-        background: rgba(46, 204, 113, 0.2);
-        border: 2px solid rgba(46, 204, 113, 0.5);
-        color: white;
-    }
-
-    .message-box.error {
-        background: rgba(231, 76, 60, 0.2);
-        border: 2px solid rgba(231, 76, 60, 0.5);
-        color: white;
-    }
-
-    .message-box.active {
-        display: block;
-        animation: fadeInUp 0.5s ease;
-    }
-
-    .success-message {
-        font-size: 1.2rem;
-        line-height: 1.6;
-        margin-top: 10px;
-    }
-
-    .points-display {
-        text-align: center;
-        font-size: 2rem;
-        font-weight: bold;
-        color: var(--journey-secondary);
-        margin: 20px 0;
-    }
-
+    /* Page-specific: Shuffle button */
     .shuffle-btn {
-        display: block;
-        margin: 20px auto;
-        padding: 10px 25px;
-        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin: 0 auto;
+        padding: 0.625rem 1.5rem;
+        border-radius: 0.75rem;
         border: 2px solid rgba(255, 255, 255, 0.3);
-        background: rgba(255, 255, 255, 0.1);
         color: white;
         cursor: pointer;
         transition: all 0.3s ease;
+        background: rgba(255, 255, 255, 0.1);
     }
 
     .shuffle-btn:hover {
         background: rgba(255, 255, 255, 0.2);
         transform: rotate(360deg);
     }
+
+    @media (min-width: 768px) {
+        .scrambled-word {
+            font-size: 1.875rem;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block journey_content %}
-<div class="challenge-container animate-fade-in">
-    <!-- Back Button -->
-    <div class="mb-4">
-        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Chapter" %}
-        </a>
-    </div>
+<div class="journey-container-narrow journey-animate-fade-in">
+    {% include "crush_lu/journey/partials/challenge_header.html" %}
 
-    <div class="challenge-card">
-        <div class="challenge-type-badge">
-            {% include "shared/icons/arrows-right-left.html" with class="w-5 h-5" %} {% trans "Word Scramble Challenge" %}
+    <article
+        x-data="wordScramble"
+        data-challenge-id="{{ challenge.id }}"
+        data-submit-url="{% url 'crush_lu:api_submit_challenge' %}"
+        data-hint-url="{% url 'crush_lu:api_unlock_hint' %}"
+        data-chapter-url="{% url 'crush_lu:chapter_view' chapter.chapter_number %}"
+        data-initial-points="{{ challenge.points_awarded }}"
+        data-scrambled-words="{{ challenge.options.scrambled }}"
+        class="journey-card"
+    >
+        <!-- Challenge Type Badge -->
+        <div class="journey-badge mb-6">
+            {% include "shared/icons/arrows-right-left.html" with class="w-5 h-5" %}
+            {% trans "Word Scramble Challenge" %}
         </div>
 
-        <div class="points-display">
-            💎 <span id="pointsValue">{{ challenge.points_awarded }}</span> {% trans "Points" %}
+        <!-- Points Display -->
+        <div class="points-display text-3xl md:text-4xl font-bold text-center my-6 text-crush-pink" aria-label="{% blocktrans with points=challenge.points_awarded %}{{ points }} points available{% endblocktrans %}">
+            <span aria-hidden="true">&#128142;</span>
+            <span x-text="currentPoints">{{ challenge.points_awarded }}</span>
+            {% trans "Points" %}
         </div>
 
-        <div class="word-instruction">
+        <!-- Word Instruction -->
+        <p class="text-center text-lg mb-6 text-white/90">
             {{ challenge.question }}
-        </div>
+        </p>
 
         <!-- Scrambled Word Display -->
-        <div class="scrambled-word" id="scrambledDisplay">
+        <div class="scrambled-word" x-text="displayText" aria-live="polite">
             {{ challenge.options.scrambled }}
         </div>
 
-        <button class="shuffle-btn" id="shuffleBtn" title="{% trans "Shuffle letters" %}">
-            {% include "shared/icons/arrows-right-left.html" with class="w-5 h-5" %} {% trans "Shuffle" %}
+        <button
+            x-show="isNotSuccess"
+            @click="shuffleWords"
+            class="shuffle-btn"
+            title="{% trans 'Shuffle letters' %}"
+        >
+            {% include "shared/icons/arrows-right-left.html" with class="w-5 h-5" %}
+            {% trans "Shuffle" %}
         </button>
 
         {% if existing_attempt %}
         <!-- Already Completed -->
-        <div class="message-box success active">
-            <h3>{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} {% trans "Already Completed!" %}</h3>
-            <p>{% blocktrans with points=existing_attempt.points_earned %}You already unscrambled this word and earned <strong>{{ points }} points</strong>.{% endblocktrans %}</p>
-            <div class="mt-3">
-                <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
-                    {% trans "Continue to Next Challenge" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
-                </a>
-            </div>
-        </div>
+        {% with completion_message=_("You already unscrambled this word and earned <strong>")|add:existing_attempt.points_earned|stringformat:"s"|add:" points</strong>." %}
+        {% include "crush_lu/journey/partials/already_completed.html" %}
+        {% endwith %}
         {% else %}
-        <!-- Answer Input -->
-        <div id="answerSection">
+        <!-- Answer Input Section -->
+        <div x-show="isNotSuccess" x-cloak class="mt-8">
+            <label for="answerInput" class="sr-only">{% trans "Your answer" %}</label>
             <input
                 type="text"
                 id="answerInput"
-                class="answer-input"
-                placeholder="{% trans "Type the unscrambled word..." %}"
+                x-model="answer"
+                @keypress="handleKeypress($event)"
+                class="journey-input mb-4 text-center uppercase"
+                placeholder="{% trans 'Type the unscrambled word...' %}"
                 autocomplete="off"
+                aria-describedby="answerHelp"
             >
+            <p id="answerHelp" class="sr-only">{% trans "Enter the unscrambled word or phrase" %}</p>
 
-            <button id="submitBtn" class="submit-btn">
-                {% trans "Submit Answer" %} {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}
+            <button
+                @click="submitAnswer"
+                x-bind:disabled="submitBtnDisabled"
+                class="journey-btn-primary w-full"
+            >
+                <span x-show="isNotSubmitting">{% trans "Submit Answer" %}</span>
+                <span x-show="isSubmitting" x-cloak>{% trans "Checking..." %}</span>
+                {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}
             </button>
         </div>
 
         <!-- Hints Section -->
-        {% if challenge.hint_1 or challenge.hint_2 or challenge.hint_3 %}
-        <div class="hint-section">
-            <div class="text-center mb-3" style="opacity: 0.8;">
-                {% include "shared/icons/information-circle.html" with class="w-5 h-5" %} {% trans "Need help? Use hints (costs points)" %}
-            </div>
-            <div class="text-center">
-                {% if challenge.hint_1 %}
-                <button class="hint-btn" id="hint1Btn" data-hint-num="1" data-cost="{{ challenge.hint_1_cost }}">
-                    💡 Hint 1 (-{{ challenge.hint_1_cost }} pts)
-                </button>
-                {% endif %}
-                {% if challenge.hint_2 %}
-                <button class="hint-btn" id="hint2Btn" data-hint-num="2" data-cost="{{ challenge.hint_2_cost }}">
-                    💡 Hint 2 (-{{ challenge.hint_2_cost }} pts)
-                </button>
-                {% endif %}
-                {% if challenge.hint_3 %}
-                <button class="hint-btn" id="hint3Btn" data-hint-num="3" data-cost="{{ challenge.hint_3_cost }}">
-                    💡 Hint 3 (-{{ challenge.hint_3_cost }} pts)
-                </button>
-                {% endif %}
-            </div>
+        <div x-show="isNotSuccess" x-cloak>
+            {% include "crush_lu/journey/partials/hint_section.html" %}
+        </div>
 
-            <div id="hint1Box" class="hint-box"></div>
-            <div id="hint2Box" class="hint-box"></div>
-            <div id="hint3Box" class="hint-box"></div>
+        <!-- Feedback Message Box -->
+        <div
+            x-show="showFeedback"
+            x-cloak
+            x-bind:class="feedbackClass"
+            role="alert"
+            aria-live="assertive"
+        >
+            <!-- Error feedback (simple text) -->
+            <div x-show="isError" x-text="feedback"></div>
+            <!-- Success feedback (HTML) -->
+            <div x-show="isSuccess" x-html="feedbackHtml"></div>
         </div>
         {% endif %}
-
-        <!-- Message Box -->
-        <div id="messageBox" class="message-box"></div>
-        {% endif %}
-    </div>
+    </article>
 </div>
-{% endblock %}
-
-{% block extra_journey_js %}
-<script nonce="{{ request.csp_nonce }}">
-const challengeId = {{ challenge.id }};
-const answerInput = document.getElementById('answerInput');
-const submitBtn = document.getElementById('submitBtn');
-const messageBox = document.getElementById('messageBox');
-const pointsValue = document.getElementById('pointsValue');
-const scrambledDisplay = document.getElementById('scrambledDisplay');
-const shuffleBtn = document.getElementById('shuffleBtn');
-let currentPoints = {{ challenge.points_awarded }};
-// Split by words (spaces) to keep words together when shuffling
-let scrambledWords = '{{ challenge.options.scrambled }}'.split(/\s+/).filter(w => w.trim());
-
-// Shuffle function - shuffles words, not individual letters
-if (shuffleBtn) {
-    shuffleBtn.addEventListener('click', function() {
-        const currentOrder = scrambledWords.join(' ');
-        let attempts = 0;
-        let newOrder;
-
-        // Keep shuffling until we get a different arrangement (or max 50 attempts)
-        do {
-            newOrder = [...scrambledWords];
-            // Fisher-Yates shuffle for words
-            for (let i = newOrder.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [newOrder[i], newOrder[j]] = [newOrder[j], newOrder[i]];
-            }
-            attempts++;
-        } while (newOrder.join(' ') === currentOrder && attempts < 50);
-
-        scrambledWords = newOrder;
-        // Join words with a bullet separator for clear visual separation
-        scrambledDisplay.textContent = scrambledWords.join('  •  ');
-
-        // Animate
-        scrambledDisplay.style.transform = 'scale(1.1)';
-        setTimeout(() => {
-            scrambledDisplay.style.transform = 'scale(1)';
-        }, 200);
-    });
-}
-
-// Submit answer
-if (submitBtn) {
-    submitBtn.addEventListener('click', submitAnswer);
-    answerInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            submitAnswer();
-        }
-    });
-}
-
-function submitAnswer() {
-    const answer = answerInput.value.trim();
-
-    if (!answer) {
-        showMessage('Please enter an answer!', 'error');
-        return;
-    }
-
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = `{% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Checking...`;
-
-    fetch('{% url "crush_lu:api_submit_challenge" %}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': CrushUtils.getCsrfToken()
-        },
-        body: JSON.stringify({
-            challenge_id: challengeId,
-            answer: answer
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success && data.is_correct) {
-            // Correct answer!
-            showMessage(`
-                <h3>{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Correct!</h3>
-                <div class="success-message">${data.success_message}</div>
-                <div class="mt-3">
-                    <strong>🏆 Points Earned: ${data.points_earned}</strong>
-                </div>
-                <div class="mt-4">
-                    <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="submit-btn">
-                        Continue {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
-                    </a>
-                </div>
-            `, 'success');
-
-            // Hide answer section
-            document.getElementById('answerSection').style.display = 'none';
-            document.querySelector('.hint-section')?.remove();
-            shuffleBtn.style.display = 'none';
-
-        } else {
-            // Wrong answer
-            showMessage('Not quite right. Try again! 💪', 'error');
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = `Submit Answer {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}`;
-            answerInput.value = '';
-            answerInput.focus();
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showMessage('An error occurred. Please try again.', 'error');
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = `Submit Answer {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}`;
-    });
-}
-
-// Hint buttons
-document.querySelectorAll('.hint-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const hintNum = this.dataset.hintNum;
-        const cost = parseInt(this.dataset.cost);
-        unlockHint(hintNum, cost, this);
-    });
-});
-
-function unlockHint(hintNum, cost, button) {
-    fetch('{% url "crush_lu:api_unlock_hint" %}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': CrushUtils.getCsrfToken()
-        },
-        body: JSON.stringify({
-            challenge_id: challengeId,
-            hint_number: parseInt(hintNum)
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Show hint
-            const hintBox = document.getElementById(`hint${hintNum}Box`);
-            hintBox.innerHTML = `<strong>💡 Hint ${hintNum}:</strong> ${data.hint_text}`;
-            hintBox.classList.add('active');
-
-            // Update points
-            currentPoints -= cost;
-            pointsValue.textContent = currentPoints;
-
-            // Disable button
-            button.disabled = true;
-            button.textContent = `✓ Hint ${hintNum} Used`;
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-    });
-}
-
-function showMessage(html, type) {
-    messageBox.innerHTML = html;
-    messageBox.className = `message-box ${type} active`;
-}
-</script>
 {% endblock %}

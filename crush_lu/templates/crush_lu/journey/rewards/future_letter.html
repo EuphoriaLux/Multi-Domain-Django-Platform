@@ -3,244 +3,198 @@
 
 {% block extra_journey_css %}
 <style>
-    .reward-container {
-        max-width: 900px;
-        margin: 60px auto;
-    }
-
-    /* Envelope Animation */
-    .envelope-wrapper {
+    /* Page-specific: Envelope Animation */
+    .letter-envelope-wrapper {
         perspective: 1000px;
-        margin-bottom: 40px;
+        @apply mb-10;
     }
 
-    .envelope {
+    .letter-envelope {
+        @apply relative mx-auto mb-10;
         width: 300px;
         height: 200px;
-        margin: 0 auto 40px;
-        position: relative;
-        animation: float 3s ease-in-out infinite;
+        animation: letterFloat 3s ease-in-out infinite;
     }
 
-    @keyframes float {
-        0%, 100% {
-            transform: translateY(0) rotateY(0deg);
-        }
-        50% {
-            transform: translateY(-15px) rotateY(5deg);
-        }
+    @keyframes letterFloat {
+        0%, 100% { transform: translateY(0) rotateY(0deg); }
+        50% { transform: translateY(-15px) rotateY(5deg); }
     }
 
-    .envelope-flap {
+    .letter-envelope-flap {
+        @apply absolute top-0 left-0;
         width: 0;
         height: 0;
         border-left: 150px solid transparent;
         border-right: 150px solid transparent;
         border-top: 100px solid rgba(255, 215, 0, 0.3);
-        position: absolute;
-        top: 0;
-        left: 0;
         transform-origin: top;
-        animation: flap-open 2s ease forwards;
+        animation: letterFlapOpen 2s ease forwards;
         animation-delay: 0.5s;
     }
 
-    @keyframes flap-open {
-        0% {
-            transform: rotateX(0deg);
-        }
-        100% {
-            transform: rotateX(-180deg);
-        }
+    @keyframes letterFlapOpen {
+        0% { transform: rotateX(0deg); }
+        100% { transform: rotateX(-180deg); }
     }
 
-    .envelope-body {
+    .letter-envelope-body {
+        @apply absolute bottom-0 rounded;
         width: 300px;
         height: 150px;
         background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.2));
         border: 2px solid rgba(255, 215, 0, 0.4);
-        border-radius: 5px;
-        position: absolute;
-        bottom: 0;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     }
 
-    .envelope-seal {
+    .letter-envelope-seal {
+        @apply absolute rounded-full flex items-center justify-center;
         width: 50px;
         height: 50px;
         background: linear-gradient(135deg, #FF6B9D, #C850C0);
-        border-radius: 50%;
-        position: absolute;
         top: 60px;
         left: 50%;
         transform: translateX(-50%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
         font-size: 1.5rem;
         box-shadow: 0 5px 15px rgba(255, 107, 157, 0.5);
         border: 3px solid rgba(255, 255, 255, 0.3);
     }
 
+    /* Page-specific: Letter paper */
     .letter-paper {
+        @apply rounded-2xl p-8 md:p-12 mx-auto my-10 relative;
+        max-width: 700px;
         background: rgba(255, 255, 255, 0.95);
         backdrop-filter: blur(10px);
-        border-radius: 15px;
-        padding: 50px;
-        margin: 40px auto;
-        max-width: 700px;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-        position: relative;
-        animation: slide-up 1s ease forwards;
+        animation: letterSlideUp 1s ease forwards;
         animation-delay: 2s;
         opacity: 0;
         transform: translateY(50px);
     }
 
-    @keyframes slide-up {
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
+    @keyframes letterSlideUp {
+        to { opacity: 1; transform: translateY(0); }
     }
 
-    .paper-texture {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-image:
-            repeating-linear-gradient(
-                0deg,
-                transparent,
-                transparent 31px,
-                rgba(0, 0, 0, 0.03) 31px,
-                rgba(0, 0, 0, 0.03) 32px
-            );
-        pointer-events: none;
-        border-radius: 15px;
+    .letter-paper-texture {
+        @apply absolute inset-0 rounded-2xl pointer-events-none;
+        background-image: repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(0, 0, 0, 0.03) 31px, rgba(0, 0, 0, 0.03) 32px);
     }
 
     .letter-header {
-        text-align: center;
-        margin-bottom: 30px;
-        position: relative;
-        z-index: 1;
+        @apply text-center mb-8 relative z-10;
     }
 
     .letter-date {
-        font-style: italic;
+        @apply italic mb-2.5;
         color: #666;
-        margin-bottom: 10px;
     }
 
     .letter-title {
-        font-size: 2rem;
-        font-weight: 700;
+        @apply text-2xl md:text-3xl font-bold mb-8;
         background: linear-gradient(135deg, #FF6B9D, #C850C0);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        margin-bottom: 30px;
     }
 
     .letter-content {
-        font-size: 1.2rem;
-        line-height: 2;
+        @apply text-lg md:text-xl leading-loose whitespace-pre-line text-left relative z-10;
         font-family: 'Georgia', serif;
         color: #333;
-        white-space: pre-line;
-        text-align: left;
-        position: relative;
-        z-index: 1;
     }
 
     .letter-content p {
-        margin-bottom: 20px;
+        @apply mb-5;
     }
 
     .letter-signature {
-        margin-top: 40px;
-        text-align: right;
-        font-style: italic;
+        @apply mt-10 text-right italic relative z-10;
         color: #666;
-        font-size: 1.1rem;
     }
 
     .letter-closing {
-        text-align: right;
-        margin-top: 20px;
+        @apply mt-5;
         font-family: 'Brush Script MT', cursive;
         font-size: 1.5rem;
         color: #9B59B6;
     }
 
-    .postscript {
-        margin-top: 30px;
-        padding-top: 20px;
+    .letter-postscript {
+        @apply mt-8 pt-5 italic;
         border-top: 1px dashed #ccc;
-        font-style: italic;
         color: #666;
-        font-size: 1rem;
     }
 
-    .continue-btn {
-        display: block;
-        width: fit-content;
-        margin: 40px auto 0;
-        padding: 15px 40px;
-        border-radius: 25px;
-        background: linear-gradient(135deg, var(--journey-primary), var(--journey-secondary));
-        color: white;
-        text-decoration: none;
-        font-weight: bold;
-        font-size: 1.1rem;
-        transition: all 0.3s ease;
-        text-align: center;
-        position: relative;
-        z-index: 1;
+    .letter-postscript-photo {
+        @apply mt-5 text-center;
     }
 
-    .continue-btn:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 10px 30px rgba(155, 89, 182, 0.4);
-        color: white;
-        text-decoration: none;
+    .letter-postscript-photo img {
+        @apply max-w-full rounded-xl;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
     }
 
-    /* Floating hearts around letter */
-    .heart-decoration {
-        position: absolute;
+    .letter-audio {
+        @apply mt-8 pt-8 text-center relative z-10;
+        border-top: 1px dashed rgba(255, 255, 255, 0.3);
+    }
+
+    .letter-audio-label {
+        @apply text-lg mb-4 italic flex items-center justify-center gap-2;
+        color: #f8f9fa;
+    }
+
+    .letter-audio audio {
+        @apply w-full max-w-md rounded-xl;
+    }
+
+    /* Page-specific: Floating heart decorations */
+    .letter-heart-decoration {
+        @apply absolute;
         font-size: 1.5rem;
         opacity: 0.2;
-        animation: float-hearts 4s infinite ease-in-out;
+        animation: letterHeartFloat 4s infinite ease-in-out;
     }
 
-    @keyframes float-hearts {
+    @keyframes letterHeartFloat {
         0%, 100% { transform: translateY(0) rotate(0deg); }
         50% { transform: translateY(-20px) rotate(10deg); }
     }
 
-    /* Mobile Responsive */
+    /* Accessibility - Reduced Motion */
+    @media (prefers-reduced-motion: reduce) {
+        .letter-envelope,
+        .letter-envelope-flap,
+        .letter-paper,
+        .letter-heart-decoration {
+            animation: none;
+        }
+        .letter-paper {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
     @media (max-width: 768px) {
-        .envelope {
+        .letter-envelope {
             width: 200px;
             height: 133px;
         }
 
-        .envelope-flap {
+        .letter-envelope-flap {
             border-left: 100px solid transparent;
             border-right: 100px solid transparent;
             border-top: 67px solid rgba(255, 215, 0, 0.3);
         }
 
-        .envelope-body {
+        .letter-envelope-body {
             width: 200px;
             height: 100px;
         }
 
-        .envelope-seal {
+        .letter-envelope-seal {
             width: 40px;
             height: 40px;
             font-size: 1.2rem;
@@ -248,83 +202,68 @@
         }
 
         .letter-paper {
-            padding: 30px 20px;
-        }
-
-        .letter-title {
-            font-size: 1.5rem;
-        }
-
-        .letter-content {
-            font-size: 1.1rem;
+            @apply p-5;
         }
     }
 </style>
 {% endblock %}
 
 {% block journey_content %}
-<div class="reward-container animate-fade-in">
+<div class="journey-container-content my-12 journey-animate-fade-in">
     <!-- Back Button -->
-    <div class="text-center mb-4">
-        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="nav-btn">
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Chapter" %}
+    <nav class="text-center mb-6" aria-label="{% trans 'Navigation' %}">
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="journey-nav-btn">
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
+            {% trans "Back to Chapter" %}
         </a>
-    </div>
+    </nav>
 
     <!-- Envelope Animation -->
-    <div class="envelope-wrapper">
-        <div class="envelope">
-            <div class="envelope-flap"></div>
-            <div class="envelope-body"></div>
-            <div class="envelope-seal">💌</div>
+    <div class="letter-envelope-wrapper" aria-hidden="true">
+        <div class="letter-envelope">
+            <div class="letter-envelope-flap"></div>
+            <div class="letter-envelope-body"></div>
+            <div class="letter-envelope-seal">&#128140;</div>
         </div>
     </div>
 
     <!-- Letter Paper -->
-    <div class="letter-paper">
-        <div class="paper-texture"></div>
+    <article class="letter-paper" aria-labelledby="letter-heading">
+        <div class="letter-paper-texture" aria-hidden="true"></div>
 
         <!-- Floating heart decorations -->
-        <div class="heart-decoration" style="top: 20px; right: 30px; animation-delay: 0s;">💕</div>
-        <div class="heart-decoration" style="bottom: 40px; left: 20px; animation-delay: 1s;">💖</div>
-        <div class="heart-decoration" style="top: 50%; right: 10px; animation-delay: 2s;">💗</div>
+        <div class="letter-heart-decoration" style="top: 20px; right: 30px; animation-delay: 0s;" aria-hidden="true">&#128149;</div>
+        <div class="letter-heart-decoration" style="bottom: 40px; left: 20px; animation-delay: 1s;" aria-hidden="true">&#128150;</div>
+        <div class="letter-heart-decoration" style="top: 50%; right: 10px; animation-delay: 2s;" aria-hidden="true">&#128151;</div>
 
-        <div class="letter-header">
-            <div class="letter-date">
-                {% now "F j, Y" %}
-            </div>
-            <h1 class="letter-title">{{ reward.title }}</h1>
-        </div>
+        <header class="letter-header">
+            <div class="letter-date">{% now "F j, Y" %}</div>
+            <h1 id="letter-heading" class="letter-title">{{ reward.title }}</h1>
+        </header>
 
-        <div class="letter-content">
-            {{ reward.message }}
-        </div>
+        <div class="letter-content">{{ reward.message }}</div>
 
-        <div class="letter-signature">
-            <div class="letter-closing">
-                {% trans "With love," %}
-            </div>
-            <div style="margin-top: 10px; font-size: 1.3rem; color: #9B59B6;">
-                💜
-            </div>
-        </div>
+        <footer class="letter-signature">
+            <div class="letter-closing">{% trans "With love," %}</div>
+            <div class="mt-2.5 text-xl" style="color: #9B59B6;" aria-hidden="true">&#128156;</div>
+        </footer>
 
         {% if reward.photo %}
-        <div class="postscript">
+        <div class="letter-postscript">
             <strong>{% trans "P.S." %}</strong> {% trans "I've included something special for you below..." %}
-            <div style="margin-top: 20px; text-align: center;">
-                <img src="{{ reward.photo.url|safe }}" alt="{% trans "Special Memory" %}"
-                     style="max-width: 100%; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.3);">
+            <div class="letter-postscript-photo">
+                <img src="{{ reward.photo.url|safe }}" alt="{% trans 'Special Memory' %}">
             </div>
         </div>
         {% endif %}
 
         {% if reward.audio_file %}
-        <div style="margin-top: 30px; padding-top: 30px; border-top: 1px dashed rgba(255, 255, 255, 0.3); text-align: center;">
-            <p style="font-size: 1.1rem; margin-bottom: 15px; font-style: italic; color: #f8f9fa;">
-                {% include "shared/icons/musical-note.html" with class="w-5 h-5" %} {% trans "A special voice message for you..." %}
+        <div class="letter-audio">
+            <p class="letter-audio-label">
+                {% include "shared/icons/musical-note.html" with class="w-5 h-5" %}
+                {% trans "A special voice message for you..." %}
             </p>
-            <audio controls style="width: 100%; max-width: 500px; border-radius: 10px;">
+            <audio controls>
                 <source src="{{ reward.audio_file.url|safe }}" type="audio/mpeg">
                 <source src="{{ reward.audio_file.url|safe }}" type="audio/mp3">
                 {% trans "Your browser does not support the audio element." %}
@@ -332,20 +271,21 @@
         </div>
         {% endif %}
 
-        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="continue-btn">
-            {% trans "Continue Your Journey" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="journey-btn-primary block w-fit mx-auto mt-10 relative z-10">
+            {% trans "Continue Your Journey" %}
+            {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
         </a>
-    </div>
+    </article>
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
-document.addEventListener('DOMContentLoaded', () => {
-    // Add some sparkle effects
-    const paper = document.querySelector('.letter-paper');
+document.addEventListener('DOMContentLoaded', function() {
+    var paper = document.querySelector('.letter-paper');
 
     function createSparkle() {
-        const sparkle = document.createElement('div');
-        sparkle.textContent = '✨';
+        var sparkle = document.createElement('div');
+        sparkle.textContent = '\u2728';
+        sparkle.setAttribute('aria-hidden', 'true');
         sparkle.style.position = 'absolute';
         sparkle.style.left = Math.random() * 100 + '%';
         sparkle.style.top = Math.random() * 100 + '%';
@@ -355,21 +295,19 @@ document.addEventListener('DOMContentLoaded', () => {
         sparkle.style.pointerEvents = 'none';
         paper.appendChild(sparkle);
 
-        setTimeout(() => {
+        setTimeout(function() {
             sparkle.style.opacity = '0.3';
         }, 100);
 
-        setTimeout(() => {
+        setTimeout(function() {
             sparkle.style.opacity = '0';
-            setTimeout(() => sparkle.remove(), 500);
+            setTimeout(function() { sparkle.remove(); }, 500);
         }, 2000);
     }
 
-    // Create sparkles periodically
     setInterval(createSparkle, 3000);
 
-    // Initial sparkles
-    for (let i = 0; i < 3; i++) {
+    for (var i = 0; i < 3; i++) {
         setTimeout(createSparkle, i * 1000);
     }
 });
