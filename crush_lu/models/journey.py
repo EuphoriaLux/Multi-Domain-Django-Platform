@@ -65,9 +65,9 @@ class JourneyConfiguration(models.Model):
     Supports multiple journey types per user (Wonderland, Advent Calendar, etc.)
     """
     JOURNEY_TYPES = [
-        ('wonderland', 'The Wonderland of You'),
-        ('advent_calendar', 'Advent Calendar'),
-        ('custom', 'Custom Journey'),
+        ('wonderland', _('The Wonderland of You')),
+        ('advent_calendar', _('Advent Calendar')),
+        ('custom', _('Custom Journey')),
     ]
 
     special_experience = models.ForeignKey(
@@ -141,18 +141,18 @@ class JourneyChapter(models.Model):
     Individual chapter in a journey with theme, challenges, and rewards.
     """
     BACKGROUND_THEMES = [
-        ('wonderland_night', 'Wonderland Night (Dark starry sky)'),
-        ('enchanted_garden', 'Enchanted Garden (Flowers & butterflies)'),
-        ('art_gallery', 'Art Gallery (Golden frames & vintage)'),
-        ('carnival', 'Carnival (Warm lights & mirrors)'),
-        ('starlit_sky', 'Starlit Observatory (Deep space & cosmos)'),
-        ('magical_door', 'Magical Door (Sunrise & celebration)'),
+        ('wonderland_night', _('Wonderland Night (Dark starry sky)')),
+        ('enchanted_garden', _('Enchanted Garden (Flowers & butterflies)')),
+        ('art_gallery', _('Art Gallery (Golden frames & vintage)')),
+        ('carnival', _('Carnival (Warm lights & mirrors)')),
+        ('starlit_sky', _('Starlit Observatory (Deep space & cosmos)')),
+        ('magical_door', _('Magical Door (Sunrise & celebration)')),
     ]
 
     DIFFICULTY_CHOICES = [
-        ('easy', 'Easy'),
-        ('medium', 'Medium'),
-        ('hard', 'Hard'),
+        ('easy', _('Easy')),
+        ('medium', _('Medium')),
+        ('hard', _('Hard')),
     ]
 
     journey = models.ForeignKey(
@@ -219,17 +219,17 @@ class JourneyChallenge(models.Model):
     Individual challenges/puzzles within a chapter.
     """
     CHALLENGE_TYPES = [
-        ('riddle', 'Riddle'),
-        ('word_scramble', 'Word Scramble'),
-        ('multiple_choice', 'Multiple Choice'),
-        ('memory_match', 'Memory Matching Game'),
-        ('photo_puzzle', 'Photo Jigsaw Puzzle'),
-        ('timeline_sort', 'Timeline Sorting'),
-        ('interactive_story', 'Interactive Story Choice'),
-        ('open_text', 'Open Text Response'),
-        ('would_you_rather', 'Would You Rather'),
-        ('constellation', 'Constellation Drawing'),
-        ('star_catcher', 'Star Catcher Mini-Game'),
+        ('riddle', _('Riddle')),
+        ('word_scramble', _('Word Scramble')),
+        ('multiple_choice', _('Multiple Choice')),
+        ('memory_match', _('Memory Matching Game')),
+        ('photo_puzzle', _('Photo Jigsaw Puzzle')),
+        ('timeline_sort', _('Timeline Sorting')),
+        ('interactive_story', _('Interactive Story Choice')),
+        ('open_text', _('Open Text Response')),
+        ('would_you_rather', _('Would You Rather')),
+        ('constellation', _('Constellation Drawing')),
+        ('star_catcher', _('Star Catcher Mini-Game')),
     ]
 
     chapter = models.ForeignKey(
@@ -304,13 +304,13 @@ class JourneyReward(models.Model):
     Rewards unlocked after completing chapters (photos, poems, videos, etc.)
     """
     REWARD_TYPES = [
-        ('photo_reveal', 'Photo Reveal (Jigsaw)'),
-        ('poem', 'Poem/Letter'),
-        ('voice_message', 'Voice Recording'),
-        ('video_message', 'Video Message'),
-        ('photo_slideshow', 'Photo Slideshow'),
-        ('future_letter', 'Future Letter'),
-        ('certificate', 'Completion Certificate'),
+        ('photo_reveal', _('Photo Reveal (Jigsaw)')),
+        ('poem', _('Poem/Letter')),
+        ('voice_message', _('Voice Recording')),
+        ('video_message', _('Video Message')),
+        ('photo_slideshow', _('Photo Slideshow')),
+        ('future_letter', _('Future Letter')),
+        ('certificate', _('Completion Certificate')),
     ]
 
     chapter = models.ForeignKey(
@@ -336,19 +336,22 @@ class JourneyReward(models.Model):
         upload_to=journey_reward_photo_path,
         blank=True,
         null=True,
-        storage=crush_photo_storage
+        storage=crush_photo_storage,
+        max_length=255
     )
     audio_file = models.FileField(
         upload_to=journey_reward_audio_path,
         blank=True,
         null=True,
-        storage=crush_photo_storage
+        storage=crush_photo_storage,
+        max_length=255
     )
     video_file = models.FileField(
         upload_to=journey_reward_video_path,
         blank=True,
         null=True,
-        storage=crush_photo_storage
+        storage=crush_photo_storage,
+        max_length=255
     )
 
     # For puzzles
@@ -370,8 +373,8 @@ class JourneyProgress(models.Model):
     Tracks user's progress through a journey.
     """
     FINAL_RESPONSE_CHOICES = [
-        ('yes', 'Yes, let\'s see where this goes 💫'),
-        ('thinking', 'I need to think about this ✨'),
+        ('yes', _('Yes, let\'s see where this goes 💫')),
+        ('thinking', _('I need to think about this ✨')),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)

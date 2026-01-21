@@ -7,6 +7,7 @@ Handles AJAX requests for challenge submissions, hints, progress tracking, etc.
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from .decorators import crush_login_required
 from .models import (
     JourneyChallenge, JourneyProgress, ChapterProgress, ChallengeAttempt,
@@ -33,7 +34,7 @@ def submit_challenge(request):
         if not challenge_id or not user_answer:
             return JsonResponse({
                 'success': False,
-                'message': 'Missing challenge ID or answer'
+                'message': _('Missing challenge ID or answer')
             }, status=400)
 
         # Get the challenge
@@ -42,7 +43,7 @@ def submit_challenge(request):
         except JourneyChallenge.DoesNotExist:
             return JsonResponse({
                 'success': False,
-                'message': 'Challenge not found'
+                'message': _('Challenge not found')
             }, status=404)
 
         # Get user's chapter progress
@@ -53,7 +54,7 @@ def submit_challenge(request):
         if not journey_progress:
             return JsonResponse({
                 'success': False,
-                'message': 'No active journey found'
+                'message': _('No active journey found')
             }, status=404)
 
         chapter_progress, created = ChapterProgress.objects.get_or_create(
@@ -72,7 +73,7 @@ def submit_challenge(request):
             return JsonResponse({
                 'success': True,
                 'already_completed': True,
-                'message': 'You already completed this challenge!',
+                'message': _('You already completed this challenge!'),
                 'points_earned': existing_attempt.points_earned
             })
 
@@ -145,20 +146,20 @@ def submit_challenge(request):
                 'points_earned': points_earned,
                 'total_points': journey_progress.total_points,
                 'success_message': challenge.success_message,
-                'message': 'Correct! Well done! 🎉'
+                'message': _('Correct! Well done! 🎉')
             })
         else:
             return JsonResponse({
                 'success': True,
                 'is_correct': False,
-                'message': 'Not quite right. Try again! 💪'
+                'message': _('Not quite right. Try again! 💪')
             })
 
     except Exception as e:
         logger.error(f"❌ Error submitting challenge: {e}", exc_info=True)
         return JsonResponse({
             'success': False,
-            'message': 'An error occurred processing your answer'
+            'message': _('An error occurred processing your answer')
         }, status=500)
 
 
@@ -179,7 +180,7 @@ def unlock_hint(request):
         if not challenge_id or not hint_number:
             return JsonResponse({
                 'success': False,
-                'message': 'Missing challenge ID or hint number'
+                'message': _('Missing challenge ID or hint number')
             }, status=400)
 
         # Get the challenge - must belong to user's journey
@@ -187,7 +188,7 @@ def unlock_hint(request):
         if not journey_progress:
             return JsonResponse({
                 'success': False,
-                'message': 'No active journey found'
+                'message': _('No active journey found')
             }, status=404)
 
         try:
@@ -198,7 +199,7 @@ def unlock_hint(request):
         except JourneyChallenge.DoesNotExist:
             return JsonResponse({
                 'success': False,
-                'message': 'Challenge not found'
+                'message': _('Challenge not found')
             }, status=404)
 
         # Get hint text and cost
@@ -217,18 +218,18 @@ def unlock_hint(request):
         else:
             return JsonResponse({
                 'success': False,
-                'message': 'Invalid hint number'
+                'message': _('Invalid hint number')
             }, status=400)
 
         if not hint_text:
             return JsonResponse({
                 'success': False,
-                'message': 'Hint not available'
+                'message': _('Hint not available')
             }, status=404)
 
         # Track hint usage in database (tamper-proof)
         # Get or create chapter progress
-        chapter_progress, _ = ChapterProgress.objects.get_or_create(
+        chapter_progress, created = ChapterProgress.objects.get_or_create(
             journey_progress=journey_progress,
             chapter=challenge.chapter
         )
@@ -266,7 +267,7 @@ def unlock_hint(request):
         logger.error(f"❌ Error unlocking hint: {e}", exc_info=True)
         return JsonResponse({
             'success': False,
-            'message': 'An error occurred unlocking the hint'
+            'message': _('An error occurred unlocking the hint')
         }, status=500)
 
 
@@ -285,7 +286,7 @@ def get_progress(request):
         if not journey_progress:
             return JsonResponse({
                 'success': False,
-                'message': 'No active journey found'
+                'message': _('No active journey found')
             }, status=404)
 
         # Get completed chapters count
@@ -311,7 +312,7 @@ def get_progress(request):
         logger.error(f"❌ Error getting progress: {e}", exc_info=True)
         return JsonResponse({
             'success': False,
-            'message': 'An error occurred retrieving progress'
+            'message': _('An error occurred retrieving progress')
         }, status=500)
 
 
@@ -339,7 +340,7 @@ def save_state(request):
         if not journey_progress:
             return JsonResponse({
                 'success': False,
-                'message': 'No active journey found'
+                'message': _('No active journey found')
             }, status=404)
 
         # Update time spent
@@ -358,7 +359,7 @@ def save_state(request):
         logger.error(f"❌ Error saving state: {e}", exc_info=True)
         return JsonResponse({
             'success': False,
-            'message': 'An error occurred saving state'
+            'message': _('An error occurred saving state')
         }, status=500)
 
 
@@ -376,7 +377,7 @@ def record_final_response(request):
         if response_choice not in ['yes', 'thinking']:
             return JsonResponse({
                 'success': False,
-                'message': 'Invalid response choice'
+                'message': _('Invalid response choice')
             }, status=400)
 
         journey_progress = JourneyProgress.objects.filter(
@@ -386,7 +387,7 @@ def record_final_response(request):
         if not journey_progress:
             return JsonResponse({
                 'success': False,
-                'message': 'No active journey found'
+                'message': _('No active journey found')
             }, status=404)
 
         # Update final response
@@ -451,7 +452,7 @@ def record_final_response(request):
 
         return JsonResponse({
             'success': True,
-            'message': 'Response recorded',
+            'message': _('Response recorded'),
             'response': response_choice,
             'completed': True
         })
@@ -460,7 +461,7 @@ def record_final_response(request):
         logger.error(f"❌ Error recording final response: {e}", exc_info=True)
         return JsonResponse({
             'success': False,
-            'message': 'An error occurred recording your response'
+            'message': _('An error occurred recording your response')
         }, status=500)
 
 
@@ -479,7 +480,7 @@ def unlock_puzzle_piece(request):
         if reward_id is None or piece_index is None:
             return JsonResponse({
                 'success': False,
-                'message': 'Missing reward ID or piece index'
+                'message': _('Missing reward ID or piece index')
             }, status=400)
 
         # Get user's journey progress
@@ -490,7 +491,7 @@ def unlock_puzzle_piece(request):
         if not journey_progress:
             return JsonResponse({
                 'success': False,
-                'message': 'No active journey found'
+                'message': _('No active journey found')
             }, status=404)
 
         # Get the reward
@@ -499,7 +500,7 @@ def unlock_puzzle_piece(request):
         except JourneyReward.DoesNotExist:
             return JsonResponse({
                 'success': False,
-                'message': 'Reward not found'
+                'message': _('Reward not found')
             }, status=404)
 
         # Get or create reward progress
@@ -515,7 +516,7 @@ def unlock_puzzle_piece(request):
         if piece_index in reward_progress.unlocked_pieces:
             return JsonResponse({
                 'success': False,
-                'message': 'This piece is already unlocked',
+                'message': _('This piece is already unlocked'),
                 'already_unlocked': True
             })
 
@@ -523,7 +524,7 @@ def unlock_puzzle_piece(request):
         if journey_progress.total_points < PIECE_COST:
             return JsonResponse({
                 'success': False,
-                'message': f'Not enough points! You need {PIECE_COST} points to unlock this piece.',
+                'message': _('Not enough points! You need %(points)s points to unlock this piece.') % {'points': PIECE_COST},
                 'insufficient_points': True,
                 'points_needed': PIECE_COST,
                 'current_points': journey_progress.total_points
@@ -555,14 +556,14 @@ def unlock_puzzle_piece(request):
             'points_spent': PIECE_COST,
             'is_completed': reward_progress.is_completed,
             'total_unlocked': len(reward_progress.unlocked_pieces),
-            'message': f'Piece unlocked! -{PIECE_COST} points'
+            'message': _('Piece unlocked! -%(points)s points') % {'points': PIECE_COST}
         })
 
     except Exception as e:
         logger.error(f"❌ Error unlocking puzzle piece: {e}", exc_info=True)
         return JsonResponse({
             'success': False,
-            'message': 'An error occurred unlocking the piece'
+            'message': _('An error occurred unlocking the piece')
         }, status=500)
 
 
@@ -581,7 +582,7 @@ def get_reward_progress(request, reward_id):
         if not journey_progress:
             return JsonResponse({
                 'success': False,
-                'message': 'No active journey found'
+                'message': _('No active journey found')
             }, status=404)
 
         # Get reward progress if exists
@@ -608,5 +609,5 @@ def get_reward_progress(request, reward_id):
         logger.error(f"❌ Error getting reward progress: {e}", exc_info=True)
         return JsonResponse({
             'success': False,
-            'message': 'An error occurred retrieving reward progress'
+            'message': _('An error occurred retrieving reward progress')
         }, status=500)

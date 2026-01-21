@@ -7,7 +7,7 @@ This module handles all views related to the personalized journey experience.
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
-from django.utils.translation import get_language
+from django.utils.translation import get_language, gettext as _
 from django.db.models import Q
 from django.http import JsonResponse
 from .decorators import crush_login_required
@@ -40,7 +40,7 @@ def journey_selector(request):
     ).first()
 
     if not special_experience:
-        messages.warning(request, 'No special journey found for your account.')
+        messages.warning(request, _('No special journey found for your account.'))
         return redirect('crush_lu:home')
 
     # Get all active journeys for this user
@@ -50,7 +50,7 @@ def journey_selector(request):
     ).order_by('journey_type')
 
     if not journeys.exists():
-        messages.info(request, 'Welcome! Your journey is being prepared.')
+        messages.info(request, _('Welcome! Your journey is being prepared.'))
         return redirect('crush_lu:special_welcome')
 
     # If only one journey, redirect directly to it
@@ -80,11 +80,11 @@ def journey_selector(request):
         if journey.journey_type == 'wonderland':
             url = 'crush_lu:journey_map_wonderland'
             icon = '🗺️'
-            description = 'A magical 6-chapter adventure through the Wonderland of You'
+            description = _('A magical 6-chapter adventure through the Wonderland of You')
         elif journey.journey_type == 'advent_calendar':
             url = 'crush_lu:advent_calendar'
             icon = '🎄'
-            description = '24 doors of surprises waiting to be discovered'
+            description = _('24 doors of surprises waiting to be discovered')
         else:
             url = 'crush_lu:journey_map_wonderland'
             icon = '✨'
@@ -140,7 +140,7 @@ def journey_map_wonderland(request):
         logger.info(f"Special experience found: {special_experience is not None}")
 
         if not special_experience:
-            messages.warning(request, 'No special journey found for your account.')
+            messages.warning(request, _('No special journey found for your account.'))
             return redirect('crush_lu:home')
 
         # Get the Wonderland journey specifically
@@ -219,7 +219,7 @@ def journey_map_wonderland(request):
 
     except Exception as e:
         logger.error(f"❌ Error loading journey map: {e}", exc_info=True)
-        messages.error(request, 'An error occurred loading your journey. Please contact support if this persists.')
+        messages.error(request, _('An error occurred loading your journey. Please contact support if this persists.'))
         # For special journey users, redirect to home, not dashboard
         # They may not have a regular Crush profile
         return redirect('crush_lu:home')
@@ -237,7 +237,7 @@ def chapter_view(request, chapter_number):
         ).select_related('journey').first()
 
         if not journey_progress:
-            messages.warning(request, 'No active journey found.')
+            messages.warning(request, _('No active journey found.'))
             return redirect('crush_lu:dashboard')
 
         # Get the chapter
@@ -259,10 +259,10 @@ def chapter_view(request, chapter_number):
                     chapter=previous_chapter
                 )
                 if not previous_progress.is_completed:
-                    messages.warning(request, f'Please complete Chapter {chapter_number - 1} first.')
+                    messages.warning(request, _('Please complete Chapter %(chapter)s first.') % {'chapter': chapter_number - 1})
                     return redirect('crush_lu:journey_map')
             except ChapterProgress.DoesNotExist:
-                messages.warning(request, f'Please complete Chapter {chapter_number - 1} first.')
+                messages.warning(request, _('Please complete Chapter %(chapter)s first.') % {'chapter': chapter_number - 1})
                 return redirect('crush_lu:journey_map')
 
         # Get or create chapter progress
@@ -316,7 +316,7 @@ def chapter_view(request, chapter_number):
 
     except Exception as e:
         logger.error(f"❌ Error loading chapter {chapter_number}: {e}", exc_info=True)
-        messages.error(request, f'An error occurred loading Chapter {chapter_number}. Please try again or contact support.')
+        messages.error(request, _('An error occurred loading Chapter %(chapter)s. Please try again or contact support.') % {'chapter': chapter_number})
         # Always redirect back to journey map on chapter errors
         return redirect('crush_lu:journey_map')
 
@@ -333,7 +333,7 @@ def challenge_view(request, chapter_number, challenge_id):
         ).select_related('journey').first()
 
         if not journey_progress:
-            messages.warning(request, 'No active journey found.')
+            messages.warning(request, _('No active journey found.'))
             return redirect('crush_lu:dashboard')
 
         # Get the chapter
@@ -408,7 +408,7 @@ def challenge_view(request, chapter_number, challenge_id):
 
     except Exception as e:
         logger.error(f"❌ Error loading challenge {challenge_id} in chapter {chapter_number}: {e}", exc_info=True)
-        messages.error(request, 'An error occurred loading this challenge. Please try again.')
+        messages.error(request, _('An error occurred loading this challenge. Please try again.'))
         # Redirect back to chapter view so user can try another challenge
         return redirect('crush_lu:chapter_view', chapter_number=chapter_number)
 
@@ -428,7 +428,7 @@ def reward_view(request, reward_id):
         ).first()
 
         if not journey_progress:
-            messages.warning(request, 'No active journey found.')
+            messages.warning(request, _('No active journey found.'))
             return redirect('crush_lu:dashboard')
 
         # SECURITY: Fetch reward AND verify it belongs to user's journey in ONE query
@@ -447,10 +447,10 @@ def reward_view(request, reward_id):
             )
 
             if not chapter_progress.is_completed:
-                messages.warning(request, 'Complete all challenges to unlock this reward.')
+                messages.warning(request, _('Complete all challenges to unlock this reward.'))
                 return redirect('crush_lu:chapter_view', chapter_number=reward.chapter.chapter_number)
         except ChapterProgress.DoesNotExist:
-            messages.warning(request, 'You must complete the chapter first.')
+            messages.warning(request, _('You must complete the chapter first.'))
             return redirect('crush_lu:chapter_view', chapter_number=reward.chapter.chapter_number)
 
         context = {
@@ -466,7 +466,7 @@ def reward_view(request, reward_id):
 
     except Exception as e:
         logger.error(f"❌ Error loading reward {reward_id}: {e}", exc_info=True)
-        messages.error(request, 'An error occurred loading this reward. Please try again.')
+        messages.error(request, _('An error occurred loading this reward. Please try again.'))
         # Redirect to journey map so user can see all available rewards
         return redirect('crush_lu:journey_map')
 
@@ -484,7 +484,7 @@ def certificate_view(request):
         ).select_related('journey').first()
 
         if not journey_progress:
-            messages.warning(request, 'Complete the journey to unlock your certificate.')
+            messages.warning(request, _('Complete the journey to unlock your certificate.'))
             return redirect('crush_lu:journey_map')
 
         # Calculate statistics
@@ -510,6 +510,6 @@ def certificate_view(request):
 
     except Exception as e:
         logger.error(f"❌ Error generating certificate for {request.user.username}: {e}", exc_info=True)
-        messages.error(request, 'An error occurred generating your certificate. Please contact support.')
+        messages.error(request, _('An error occurred generating your certificate. Please contact support.'))
         # Redirect to journey map so user can still access the journey
         return redirect('crush_lu:journey_map')

@@ -1,54 +1,7 @@
 {% extends "crush_lu/journey/journey_base.html" %}
 {% load static i18n %}
 
-{% block extra_journey_css %}
-<style>
-    /* Page-specific: Scrambled word display (pure CSS - no @apply) */
-    .scrambled-word {
-        font-size: 1.5rem;
-        font-weight: 700;
-        text-align: center;
-        margin: 2rem 0;
-        padding: 2rem;
-        border-radius: 1rem;
-        text-transform: uppercase;
-        letter-spacing: 3px;
-        word-spacing: 15px;
-        background: rgba(0, 0, 0, 0.2);
-        border: 3px dashed var(--color-crush-purple);
-        color: var(--color-crush-pink);
-        line-height: 1.5;
-        transition: transform 0.2s ease;
-    }
-
-    /* Page-specific: Shuffle button */
-    .shuffle-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        margin: 0 auto;
-        padding: 0.625rem 1.5rem;
-        border-radius: 0.75rem;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        color: white;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        background: rgba(255, 255, 255, 0.1);
-    }
-
-    .shuffle-btn:hover {
-        background: rgba(255, 255, 255, 0.2);
-        transform: rotate(360deg);
-    }
-
-    @media (min-width: 768px) {
-        .scrambled-word {
-            font-size: 1.875rem;
-        }
-    }
-</style>
-{% endblock %}
+{% block extra_journey_css %}{% endblock %}
 
 {% block journey_content %}
 <div class="journey-container-narrow journey-animate-fade-in">
@@ -62,6 +15,11 @@
         data-chapter-url="{% url 'crush_lu:chapter_view' chapter.chapter_number %}"
         data-initial-points="{{ challenge.points_awarded }}"
         data-scrambled-words="{{ challenge.options.scrambled }}"
+        data-i18n-correct="{% trans 'Correct!' %}"
+        data-i18n-points-earned="{% trans 'Points Earned:' %}"
+        data-i18n-continue="{% trans 'Continue' %}"
+        data-i18n-error-default="{% trans 'Not quite right. Try again!' %}"
+        data-i18n-error-generic="{% trans 'An error occurred. Please try again.' %}"
         class="journey-card"
     >
         <!-- Challenge Type Badge -->
@@ -71,7 +29,7 @@
         </div>
 
         <!-- Points Display -->
-        <div class="points-display text-3xl md:text-4xl font-bold text-center my-6 text-crush-pink" aria-label="{% blocktrans with points=challenge.points_awarded %}{{ points }} points available{% endblocktrans %}">
+        <div class="journey-points-display" aria-label="{% blocktrans with points=challenge.points_awarded %}{{ points }} points available{% endblocktrans %}">
             <span aria-hidden="true">&#128142;</span>
             <span x-text="currentPoints">{{ challenge.points_awarded }}</span>
             {% trans "Points" %}
@@ -83,14 +41,14 @@
         </p>
 
         <!-- Scrambled Word Display -->
-        <div class="scrambled-word" x-text="displayText" aria-live="polite">
+        <div class="journey-scrambled-word" x-text="displayText" aria-live="polite">
             {{ challenge.options.scrambled }}
         </div>
 
         <button
             x-show="isNotSuccess"
             @click="shuffleWords"
-            class="shuffle-btn"
+            class="journey-shuffle-btn"
             title="{% trans 'Shuffle letters' %}"
         >
             {% include "shared/icons/arrows-right-left.html" with class="w-5 h-5" %}

@@ -3476,6 +3476,14 @@ document.addEventListener('alpine:init', function() {
             hint1BtnClass: '',
             hint2BtnClass: '',
             hint3BtnClass: '',
+            // i18n translations (loaded from data attributes)
+            i18n: {
+                correct: 'Correct!',
+                pointsEarned: 'Points Earned:',
+                continue: 'Continue',
+                errorDefault: 'Not quite right. Try again!',
+                errorGeneric: 'An error occurred. Please try again.'
+            },
 
             init: function() {
                 var el = this.$el;
@@ -3490,6 +3498,13 @@ document.addEventListener('alpine:init', function() {
                 this.dateFormat = el.dataset.dateFormat || 'DD/MM/YYYY';
                 this.isDateInput = this.inputType === 'date';
                 this.isTextInput = !this.isDateInput;
+
+                // Load i18n translations from data attributes
+                if (el.dataset.i18nCorrect) this.i18n.correct = el.dataset.i18nCorrect;
+                if (el.dataset.i18nPointsEarned) this.i18n.pointsEarned = el.dataset.i18nPointsEarned;
+                if (el.dataset.i18nContinue) this.i18n.continue = el.dataset.i18nContinue;
+                if (el.dataset.i18nErrorDefault) this.i18n.errorDefault = el.dataset.i18nErrorDefault;
+                if (el.dataset.i18nErrorGeneric) this.i18n.errorGeneric = el.dataset.i18nErrorGeneric;
 
                 // CSP-safe: use $watch to update derived state
                 var self = this;
@@ -3564,7 +3579,7 @@ document.addEventListener('alpine:init', function() {
                         self.feedbackHtml = self.buildSuccessHtml(data);
                     } else {
                         self.feedbackType = 'error';
-                        self.feedback = data.message || 'Not quite right. Try again!';
+                        self.feedback = data.message || self.i18n.errorDefault;
                         self.answer = '';
                         self.isSubmitting = false;
                         self.shakeInput();
@@ -3573,7 +3588,7 @@ document.addEventListener('alpine:init', function() {
                 .catch(function(error) {
                     console.error('Error:', error);
                     self.feedbackType = 'error';
-                    self.feedback = 'An error occurred. Please try again.';
+                    self.feedback = self.i18n.errorGeneric;
                     self.isSubmitting = false;
                 });
             },
@@ -3581,11 +3596,11 @@ document.addEventListener('alpine:init', function() {
             buildSuccessHtml: function(data) {
                 return '<h3 class="flex items-center justify-center gap-2 text-lg font-bold mb-3">' +
                     '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' +
-                    ' Correct!</h3>' +
+                    ' ' + this.i18n.correct + '</h3>' +
                     '<p class="mb-4">' + (data.success_message || '') + '</p>' +
-                    '<p class="font-bold mb-6">🏆 Points Earned: ' + data.points_earned + '</p>' +
+                    '<p class="font-bold mb-6">🏆 ' + this.i18n.pointsEarned + ' ' + data.points_earned + '</p>' +
                     '<a href="' + this.chapterUrl + '" class="journey-btn-primary">' +
-                    'Continue <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
+                    this.i18n.continue + ' <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
                     '</a>';
             },
 
@@ -3750,6 +3765,14 @@ document.addEventListener('alpine:init', function() {
             hint1BtnClass: '',
             hint2BtnClass: '',
             hint3BtnClass: '',
+            // i18n translations (loaded from data attributes)
+            i18n: {
+                correct: 'Correct!',
+                pointsEarned: 'Points Earned:',
+                continue: 'Continue',
+                errorDefault: 'Not quite right. Try again!',
+                errorGeneric: 'An error occurred. Please try again.'
+            },
 
             init: function() {
                 var el = this.$el;
@@ -3762,6 +3785,13 @@ document.addEventListener('alpine:init', function() {
                 var scrambled = el.dataset.scrambledWords || '';
                 this.scrambledWords = scrambled.split(/\s+/).filter(function(w) { return w.trim(); });
                 this.displayText = this.scrambledWords.join('  •  ');
+
+                // Load i18n translations from data attributes
+                if (el.dataset.i18nCorrect) this.i18n.correct = el.dataset.i18nCorrect;
+                if (el.dataset.i18nPointsEarned) this.i18n.pointsEarned = el.dataset.i18nPointsEarned;
+                if (el.dataset.i18nContinue) this.i18n.continue = el.dataset.i18nContinue;
+                if (el.dataset.i18nErrorDefault) this.i18n.errorDefault = el.dataset.i18nErrorDefault;
+                if (el.dataset.i18nErrorGeneric) this.i18n.errorGeneric = el.dataset.i18nErrorGeneric;
 
                 // CSP-safe: use $watch to update derived state
                 var self = this;
@@ -3857,7 +3887,7 @@ document.addEventListener('alpine:init', function() {
                         self.feedbackHtml = self.buildSuccessHtml(data);
                     } else {
                         self.feedbackType = 'error';
-                        self.feedback = data.message || 'Not quite right. Try again!';
+                        self.feedback = data.message || self.i18n.errorDefault;
                         self.answer = '';
                         self.isSubmitting = false;
                         self.shakeInput();
@@ -3866,7 +3896,7 @@ document.addEventListener('alpine:init', function() {
                 .catch(function(error) {
                     console.error('Error:', error);
                     self.feedbackType = 'error';
-                    self.feedback = 'An error occurred. Please try again.';
+                    self.feedback = self.i18n.errorGeneric;
                     self.isSubmitting = false;
                 });
             },
@@ -3874,11 +3904,11 @@ document.addEventListener('alpine:init', function() {
             buildSuccessHtml: function(data) {
                 return '<h3 class="flex items-center justify-center gap-2 text-lg font-bold mb-3">' +
                     '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' +
-                    ' Correct!</h3>' +
+                    ' ' + this.i18n.correct + '</h3>' +
                     '<p class="mb-4">' + (data.success_message || '') + '</p>' +
-                    '<p class="font-bold mb-6">🏆 Points Earned: ' + data.points_earned + '</p>' +
+                    '<p class="font-bold mb-6">🏆 ' + this.i18n.pointsEarned + ' ' + data.points_earned + '</p>' +
                     '<a href="' + this.chapterUrl + '" class="journey-btn-primary">' +
-                    'Continue <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
+                    this.i18n.continue + ' <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
                     '</a>';
             },
 
@@ -3992,7 +4022,17 @@ document.addEventListener('alpine:init', function() {
             isError: false,
             isNotError: true,
             isNotSubmitting: true,
+            showSubmitLabel: false,
             feedbackClass: 'hidden mt-6',
+            // i18n translations (loaded from data attributes)
+            i18n: {
+                correct: 'Correct!',
+                thankYou: 'Thank you for sharing!',
+                pointsEarned: 'Points Earned:',
+                continue: 'Continue',
+                errorDefault: 'Not quite right! Try a different answer.',
+                errorGeneric: 'An error occurred. Please try again.'
+            },
 
             init: function() {
                 var el = this.$el;
@@ -4000,6 +4040,14 @@ document.addEventListener('alpine:init', function() {
                 this.submitUrl = el.dataset.submitUrl || '';
                 this.chapterUrl = el.dataset.chapterUrl || '';
                 this.chapterNumber = parseInt(el.dataset.chapterNumber, 10) || 1;
+
+                // Load i18n translations from data attributes
+                if (el.dataset.i18nCorrect) this.i18n.correct = el.dataset.i18nCorrect;
+                if (el.dataset.i18nThankYou) this.i18n.thankYou = el.dataset.i18nThankYou;
+                if (el.dataset.i18nPointsEarned) this.i18n.pointsEarned = el.dataset.i18nPointsEarned;
+                if (el.dataset.i18nContinue) this.i18n.continue = el.dataset.i18nContinue;
+                if (el.dataset.i18nErrorDefault) this.i18n.errorDefault = el.dataset.i18nErrorDefault;
+                if (el.dataset.i18nErrorGeneric) this.i18n.errorGeneric = el.dataset.i18nErrorGeneric;
 
                 // CSP-safe: use $watch to update derived state
                 var self = this;
@@ -4017,6 +4065,18 @@ document.addEventListener('alpine:init', function() {
                 var canSubmit = this.hasSelection && !this.isSubmitting;
                 this.submitBtnDisabled = !canSubmit;
                 this.isNotSubmitting = !this.isSubmitting;
+                this.showSubmitLabel = this.hasSelection && this.isNotSubmitting;
+                this._syncOptionState();
+            },
+
+            _syncOptionState: function() {
+                var selected = this.selectedOption;
+                var cards = this.$el.querySelectorAll('.option-card');
+                cards.forEach(function(card) {
+                    var isSelected = selected && card.dataset.optionKey === selected;
+                    card.classList.toggle('selected', !!isSelected);
+                    card.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+                });
             },
 
             _updateFeedbackState: function() {
@@ -4035,14 +4095,17 @@ document.addEventListener('alpine:init', function() {
             },
 
             selectOption: function(optionKey, event) {
-                // Deselect all options
-                var cards = this.$el.querySelectorAll('.option-card');
-                cards.forEach(function(card) {
-                    card.classList.remove('selected');
-                    card.setAttribute('aria-checked', 'false');
-                });
+                var isSameOption = this.selectedOption === optionKey;
+                this.clearSelection();
 
-                // Select this option
+                if (isSameOption) {
+                    this.selectedOption = null;
+                    if (event && event.currentTarget && event.currentTarget.blur) {
+                        event.currentTarget.blur();
+                    }
+                    return;
+                }
+
                 var target = event.currentTarget;
                 target.classList.add('selected');
                 target.setAttribute('aria-checked', 'true');
@@ -4051,6 +4114,15 @@ document.addEventListener('alpine:init', function() {
 
             isSelected: function(optionKey) {
                 return this.selectedOption === optionKey;
+            },
+
+            clearSelection: function() {
+                var cards = this.$el.querySelectorAll('.option-card');
+                cards.forEach(function(card) {
+                    card.classList.remove('selected');
+                    card.setAttribute('aria-checked', 'false');
+                    card.blur();
+                });
             },
 
             submitAnswer: function() {
@@ -4081,7 +4153,7 @@ document.addEventListener('alpine:init', function() {
                         self.feedbackHtml = self.buildSuccessHtml(data);
                     } else {
                         self.feedbackType = 'error';
-                        self.feedback = 'Not quite right! Try a different answer.';
+                        self.feedback = self.i18n.errorDefault;
                         self.markIncorrect();
                         self.selectedOption = null;
                         self.isSubmitting = false;
@@ -4098,7 +4170,7 @@ document.addEventListener('alpine:init', function() {
                 .catch(function(error) {
                     console.error('Error:', error);
                     self.feedbackType = 'error';
-                    self.feedback = 'An error occurred. Please try again.';
+                    self.feedback = self.i18n.errorGeneric;
                     self.isSubmitting = false;
                 });
             },
@@ -4108,13 +4180,13 @@ document.addEventListener('alpine:init', function() {
                 var iconHtml = isChapter2
                     ? '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'
                     : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
-                var title = isChapter2 ? 'Thank you for sharing!' : 'Correct!';
+                var title = isChapter2 ? this.i18n.thankYou : this.i18n.correct;
 
                 return '<h3 class="flex items-center justify-center gap-2 text-lg font-bold mb-3">' + iconHtml + ' ' + title + '</h3>' +
                     '<div class="personal-message">' + (data.success_message || '') + '</div>' +
-                    '<p class="font-bold my-4">🏆 Points Earned: ' + data.points_earned + '</p>' +
+                    '<p class="font-bold my-4">🏆 ' + this.i18n.pointsEarned + ' ' + data.points_earned + '</p>' +
                     '<a href="' + this.chapterUrl + '" class="journey-btn-primary">' +
-                    'Continue <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
+                    this.i18n.continue + ' <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
                     '</a>';
             },
 
@@ -4186,8 +4258,19 @@ document.addEventListener('alpine:init', function() {
             isError: false,
             isNotError: true,
             isNotSubmitting: true,
+            showSubmitLabel: false,
             feedbackClass: 'hidden mt-6',
             instructionText: 'Drag and drop the events to arrange them in chronological order',
+            // i18n translations (loaded from data attributes)
+            i18n: {
+                perfect: 'Perfect!',
+                pointsEarned: 'Points Earned:',
+                continue: 'Continue',
+                errorDefault: 'Not quite right. Try rearranging the events!',
+                errorGeneric: 'An error occurred. Please try again.',
+                instructionDesktop: 'Drag and drop the events to arrange them in chronological order',
+                instructionTouch: 'Touch and drag the events to arrange them in chronological order'
+            },
 
             init: function() {
                 var el = this.$el;
@@ -4197,6 +4280,15 @@ document.addEventListener('alpine:init', function() {
                 this.submitUrl = el.dataset.submitUrl || '';
                 this.chapterUrl = el.dataset.chapterUrl || '';
                 this.isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+                // Load i18n translations from data attributes
+                if (el.dataset.i18nPerfect) this.i18n.perfect = el.dataset.i18nPerfect;
+                if (el.dataset.i18nPointsEarned) this.i18n.pointsEarned = el.dataset.i18nPointsEarned;
+                if (el.dataset.i18nContinue) this.i18n.continue = el.dataset.i18nContinue;
+                if (el.dataset.i18nErrorDefault) this.i18n.errorDefault = el.dataset.i18nErrorDefault;
+                if (el.dataset.i18nErrorGeneric) this.i18n.errorGeneric = el.dataset.i18nErrorGeneric;
+                if (el.dataset.i18nInstructionDesktop) this.i18n.instructionDesktop = el.dataset.i18nInstructionDesktop;
+                if (el.dataset.i18nInstructionTouch) this.i18n.instructionTouch = el.dataset.i18nInstructionTouch;
 
                 // CSP-safe: update instruction text based on device type
                 this._updateInstructionText();
@@ -4211,6 +4303,16 @@ document.addEventListener('alpine:init', function() {
                 this.$nextTick(function() {
                     self.initSortable();
                     self.shuffleItems();
+
+                    // CSP-safe: Manually bind click handler as fallback
+                    // Alpine CSP build sometimes fails to bind @click on dynamically shown elements
+                    var submitBtn = el.querySelector('button.journey-btn-primary');
+                    if (submitBtn) {
+                        submitBtn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            self.submitAnswer();
+                        });
+                    }
                 });
             },
 
@@ -4238,8 +4340,8 @@ document.addEventListener('alpine:init', function() {
 
             _updateInstructionText: function() {
                 this.instructionText = this.isTouchDevice
-                    ? 'Touch and drag the events to arrange them in chronological order'
-                    : 'Drag and drop the events to arrange them in chronological order';
+                    ? this.i18n.instructionTouch
+                    : this.i18n.instructionDesktop;
             },
 
             initSortable: function() {
@@ -4326,7 +4428,7 @@ document.addEventListener('alpine:init', function() {
                         self.disableSorting();
                     } else {
                         self.feedbackType = 'error';
-                        self.feedback = 'Not quite right. Try rearranging the events!';
+                        self.feedback = self.i18n.errorDefault;
                         self.isSubmitting = false;
 
                         // Auto-hide error after 3 seconds
@@ -4341,7 +4443,7 @@ document.addEventListener('alpine:init', function() {
                 .catch(function(error) {
                     console.error('Error:', error);
                     self.feedbackType = 'error';
-                    self.feedback = 'An error occurred. Please try again.';
+                    self.feedback = self.i18n.errorGeneric;
                     self.isSubmitting = false;
                 });
             },
@@ -4349,11 +4451,11 @@ document.addEventListener('alpine:init', function() {
             buildSuccessHtml: function(data) {
                 return '<h3 class="flex items-center justify-center gap-2 text-lg font-bold mb-3">' +
                     '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' +
-                    ' Perfect!</h3>' +
+                    ' ' + this.i18n.perfect + '</h3>' +
                     '<p class="text-lg my-5">' + (data.success_message || '') + '</p>' +
-                    '<p class="font-bold my-4">🏆 Points Earned: ' + data.points_earned + '</p>' +
+                    '<p class="font-bold my-4">🏆 ' + this.i18n.pointsEarned + ' ' + data.points_earned + '</p>' +
                     '<a href="' + this.chapterUrl + '" class="journey-btn-primary">' +
-                    'Continue <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
+                    this.i18n.continue + ' <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
                     '</a>';
             },
 
@@ -4401,7 +4503,16 @@ document.addEventListener('alpine:init', function() {
             isError: false,
             isNotError: true,
             isNotSubmitting: true,
+            showSubmitLabel: false,
             feedbackClass: 'hidden mt-6',
+            // i18n translations (loaded from data attributes)
+            i18n: {
+                greatChoice: 'Great choice!',
+                thankYou: 'Thank you for sharing!',
+                pointsEarned: 'Points Earned:',
+                continue: 'Continue',
+                errorGeneric: 'An error occurred. Please try again.'
+            },
 
             init: function() {
                 var el = this.$el;
@@ -4409,6 +4520,13 @@ document.addEventListener('alpine:init', function() {
                 this.submitUrl = el.dataset.submitUrl || '';
                 this.chapterUrl = el.dataset.chapterUrl || '';
                 this.chapterNumber = parseInt(el.dataset.chapterNumber, 10) || 1;
+
+                // Load i18n translations from data attributes
+                if (el.dataset.i18nGreatChoice) this.i18n.greatChoice = el.dataset.i18nGreatChoice;
+                if (el.dataset.i18nThankYou) this.i18n.thankYou = el.dataset.i18nThankYou;
+                if (el.dataset.i18nPointsEarned) this.i18n.pointsEarned = el.dataset.i18nPointsEarned;
+                if (el.dataset.i18nContinue) this.i18n.continue = el.dataset.i18nContinue;
+                if (el.dataset.i18nErrorGeneric) this.i18n.errorGeneric = el.dataset.i18nErrorGeneric;
 
                 // CSP-safe: use $watch to update derived state
                 var self = this;
@@ -4426,6 +4544,18 @@ document.addEventListener('alpine:init', function() {
                 var canSubmit = this.hasSelection && !this.isSubmitting;
                 this.submitBtnDisabled = !canSubmit;
                 this.isNotSubmitting = !this.isSubmitting;
+                this.showSubmitLabel = this.hasSelection && this.isNotSubmitting;
+                this._syncOptionState();
+            },
+
+            _syncOptionState: function() {
+                var selected = this.selectedOption;
+                var cards = this.$el.querySelectorAll('.option-card');
+                cards.forEach(function(card) {
+                    var isSelected = selected && card.dataset.optionKey === selected;
+                    card.classList.toggle('selected', !!isSelected);
+                    card.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+                });
             },
 
             _updateFeedbackState: function() {
@@ -4444,18 +4574,27 @@ document.addEventListener('alpine:init', function() {
             },
 
             selectOption: function(optionKey, event) {
-                // Deselect all options
-                var cards = this.$el.querySelectorAll('.option-card');
-                cards.forEach(function(card) {
-                    card.classList.remove('selected');
-                    card.setAttribute('aria-checked', 'false');
-                });
+                var isSameOption = this.selectedOption === optionKey;
+                this.clearSelection();
 
-                // Select this option
+                if (isSameOption) {
+                    this.selectedOption = null;
+                    return;
+                }
+
                 var target = event.currentTarget;
                 target.classList.add('selected');
                 target.setAttribute('aria-checked', 'true');
                 this.selectedOption = optionKey;
+            },
+
+            clearSelection: function() {
+                var cards = this.$el.querySelectorAll('.option-card');
+                cards.forEach(function(card) {
+                    card.classList.remove('selected');
+                    card.setAttribute('aria-checked', 'false');
+                    card.blur();
+                });
             },
 
             isSelected: function(optionKey) {
@@ -4496,7 +4635,7 @@ document.addEventListener('alpine:init', function() {
                 .catch(function(error) {
                     console.error('Error:', error);
                     self.feedbackType = 'error';
-                    self.feedback = 'An error occurred. Please try again.';
+                    self.feedback = self.i18n.errorGeneric;
                     self.isSubmitting = false;
                 });
             },
@@ -4506,13 +4645,13 @@ document.addEventListener('alpine:init', function() {
                 var iconHtml = isChapter4
                     ? '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'
                     : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
-                var title = isChapter4 ? 'Thank you for sharing!' : 'Great choice!';
+                var title = isChapter4 ? this.i18n.thankYou : this.i18n.greatChoice;
 
                 return '<h3 class="flex items-center justify-center gap-2 text-lg font-bold mb-3">' + iconHtml + ' ' + title + '</h3>' +
                     '<div class="personal-message">' + (data.success_message || '') + '</div>' +
-                    '<p class="font-bold my-4">🏆 Points Earned: ' + data.points_earned + '</p>' +
+                    '<p class="font-bold my-4">🏆 ' + this.i18n.pointsEarned + ' ' + data.points_earned + '</p>' +
                     '<a href="' + this.chapterUrl + '" class="journey-btn-primary">' +
-                    'Continue <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
+                    this.i18n.continue + ' <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
                     '</a>';
             },
 
@@ -4594,6 +4733,13 @@ document.addEventListener('alpine:init', function() {
             isNotSubmitting: true,
             feedbackClass: 'hidden mt-6',
             charCounterClass: 'char-counter',
+            // i18n translations (loaded from data attributes)
+            i18n: {
+                thankYou: 'Thank you for sharing!',
+                pointsEarned: 'Points Earned:',
+                continue: 'Continue',
+                errorGeneric: 'An error occurred. Please try again.'
+            },
 
             init: function() {
                 var el = this.$el;
@@ -4605,6 +4751,12 @@ document.addEventListener('alpine:init', function() {
                 this.chapterNumber = parseInt(el.dataset.chapterNumber, 10) || 1;
                 this.minLength = parseInt(el.dataset.minLength, 10) || 10;
                 this.maxLength = parseInt(el.dataset.maxLength, 10) || 2000;
+
+                // Load i18n translations from data attributes
+                if (el.dataset.i18nThankYou) this.i18n.thankYou = el.dataset.i18nThankYou;
+                if (el.dataset.i18nPointsEarned) this.i18n.pointsEarned = el.dataset.i18nPointsEarned;
+                if (el.dataset.i18nContinue) this.i18n.continue = el.dataset.i18nContinue;
+                if (el.dataset.i18nErrorGeneric) this.i18n.errorGeneric = el.dataset.i18nErrorGeneric;
 
                 // CSP-safe: use $watch to update derived state
                 this.$watch('answer', function() { self._updateSubmitState(); self._updateCharCounterClass(); });
@@ -4687,14 +4839,14 @@ document.addEventListener('alpine:init', function() {
                         self.feedbackHtml = self.buildSuccessHtml(data);
                     } else {
                         self.feedbackType = 'error';
-                        self.feedback = 'Something went wrong. Please try again.';
+                        self.feedback = self.i18n.errorGeneric;
                         self.isSubmitting = false;
                     }
                 })
                 .catch(function(error) {
                     console.error('Error:', error);
                     self.feedbackType = 'error';
-                    self.feedback = 'An error occurred. Please try again.';
+                    self.feedback = self.i18n.errorGeneric;
                     self.isSubmitting = false;
                 });
             },
@@ -4705,13 +4857,13 @@ document.addEventListener('alpine:init', function() {
                 var iconHtml = isQuestionnaire
                     ? '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'
                     : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
-                var title = isQuestionnaire ? 'Thank you for sharing!' : 'Submitted!';
+                var title = this.i18n.thankYou;
 
                 return '<h3 class="flex items-center justify-center gap-2 text-lg font-bold mb-3">' + iconHtml + ' ' + title + '</h3>' +
                     '<div class="personal-message">' + (data.success_message || '') + '</div>' +
-                    '<p class="font-bold my-4">🏆 Points Earned: ' + data.points_earned + '</p>' +
+                    '<p class="font-bold my-4">🏆 ' + this.i18n.pointsEarned + ' ' + data.points_earned + '</p>' +
                     '<a href="' + this.chapterUrl + '" class="journey-btn-primary">' +
-                    'Continue <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
+                    this.i18n.continue + ' <svg class="w-5 h-5 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>' +
                     '</a>';
             },
 
@@ -4768,6 +4920,59 @@ document.addEventListener('alpine:init', function() {
                     this.hintText = detail.hintText;
                     this.isActive = true;
                 }
+            }
+        };
+    });
+
+    // PWA Install Banner component
+    // Listens for custom events from pwa-install.js
+    Alpine.data('pwaInstallBanner', function() {
+        return {
+            show: false,
+
+            init: function() {
+                var self = this;
+                // Listen for show/hide events from pwa-install.js
+                window.addEventListener('pwa-show-install', function() {
+                    self.show = true;
+                });
+                window.addEventListener('pwa-hide-install', function() {
+                    self.show = false;
+                });
+            },
+
+            dismiss: function() {
+                this.show = false;
+                // Trigger the dismiss handler in pwa-install.js
+                window.dispatchEvent(new CustomEvent('pwa-dismiss-install'));
+            }
+        };
+    });
+
+    // PWA Success Toast component
+    // Shows success message after PWA install, auto-hides after 5 seconds
+    Alpine.data('pwaSuccessToast', function() {
+        return {
+            show: false,
+
+            init: function() {
+                var self = this;
+                window.addEventListener('pwa-install-success', function() {
+                    self.showToast();
+                });
+            },
+
+            showToast: function() {
+                var self = this;
+                this.show = true;
+                // Auto-hide after 5 seconds
+                setTimeout(function() {
+                    self.show = false;
+                }, 5000);
+            },
+
+            close: function() {
+                this.show = false;
             }
         };
     });

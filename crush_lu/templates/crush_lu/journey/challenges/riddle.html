@@ -1,26 +1,7 @@
 {% extends "crush_lu/journey/journey_base.html" %}
 {% load static i18n %}
 
-{% block extra_journey_css %}
-<style>
-    /* Page-specific: Points display with gradient (pure CSS - no @apply) */
-    .points-display {
-        font-size: 1.875rem;
-        font-weight: 700;
-        text-align: center;
-        margin: 1.5rem 0;
-        background: linear-gradient(135deg, #FF6B9D, #C850C0);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    @media (min-width: 768px) {
-        .points-display {
-            font-size: 2.25rem;
-        }
-    }
-</style>
-{% endblock %}
+{% block extra_journey_css %}{% endblock %}
 
 {% block journey_content %}
 <div class="journey-container-narrow journey-animate-fade-in">
@@ -35,6 +16,11 @@
         data-initial-points="{{ challenge.points_awarded }}"
         data-input-type="{{ challenge.options.input_type|default:'' }}"
         data-date-format="{{ challenge.options.date_format|default:'DD/MM/YYYY' }}"
+        data-i18n-correct="{% trans 'Correct!' %}"
+        data-i18n-points-earned="{% trans 'Points Earned:' %}"
+        data-i18n-continue="{% trans 'Continue' %}"
+        data-i18n-error-default="{% trans 'Not quite right. Try again!' %}"
+        data-i18n-error-generic="{% trans 'An error occurred. Please try again.' %}"
         class="journey-card"
     >
         <!-- Challenge Type Badge -->
@@ -44,7 +30,7 @@
         </div>
 
         <!-- Points Display -->
-        <div class="points-display" aria-label="{% blocktrans with points=challenge.points_awarded %}{{ points }} points available{% endblocktrans %}">
+        <div class="journey-points-display" aria-label="{% blocktrans with points=challenge.points_awarded %}{{ points }} points available{% endblocktrans %}">
             <span aria-hidden="true">&#128142;</span>
             <span x-text="currentPoints">{{ challenge.points_awarded }}</span>
             {% trans "Points" %}
