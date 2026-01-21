@@ -1,212 +1,7 @@
 {% extends "crush_lu/journey/journey_base.html" %}
 {% load static i18n %}
 
-{% block extra_journey_css %}
-<style>
-    /* Page-specific: Envelope Animation */
-    .letter-envelope-wrapper {
-        perspective: 1000px;
-        @apply mb-10;
-    }
-
-    .letter-envelope {
-        @apply relative mx-auto mb-10;
-        width: 300px;
-        height: 200px;
-        animation: letterFloat 3s ease-in-out infinite;
-    }
-
-    @keyframes letterFloat {
-        0%, 100% { transform: translateY(0) rotateY(0deg); }
-        50% { transform: translateY(-15px) rotateY(5deg); }
-    }
-
-    .letter-envelope-flap {
-        @apply absolute top-0 left-0;
-        width: 0;
-        height: 0;
-        border-left: 150px solid transparent;
-        border-right: 150px solid transparent;
-        border-top: 100px solid rgba(255, 215, 0, 0.3);
-        transform-origin: top;
-        animation: letterFlapOpen 2s ease forwards;
-        animation-delay: 0.5s;
-    }
-
-    @keyframes letterFlapOpen {
-        0% { transform: rotateX(0deg); }
-        100% { transform: rotateX(-180deg); }
-    }
-
-    .letter-envelope-body {
-        @apply absolute bottom-0 rounded;
-        width: 300px;
-        height: 150px;
-        background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.2));
-        border: 2px solid rgba(255, 215, 0, 0.4);
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    }
-
-    .letter-envelope-seal {
-        @apply absolute rounded-full flex items-center justify-center;
-        width: 50px;
-        height: 50px;
-        background: linear-gradient(135deg, #FF6B9D, #C850C0);
-        top: 60px;
-        left: 50%;
-        transform: translateX(-50%);
-        font-size: 1.5rem;
-        box-shadow: 0 5px 15px rgba(255, 107, 157, 0.5);
-        border: 3px solid rgba(255, 255, 255, 0.3);
-    }
-
-    /* Page-specific: Letter paper */
-    .letter-paper {
-        @apply rounded-2xl p-8 md:p-12 mx-auto my-10 relative;
-        max-width: 700px;
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-        animation: letterSlideUp 1s ease forwards;
-        animation-delay: 2s;
-        opacity: 0;
-        transform: translateY(50px);
-    }
-
-    @keyframes letterSlideUp {
-        to { opacity: 1; transform: translateY(0); }
-    }
-
-    .letter-paper-texture {
-        @apply absolute inset-0 rounded-2xl pointer-events-none;
-        background-image: repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(0, 0, 0, 0.03) 31px, rgba(0, 0, 0, 0.03) 32px);
-    }
-
-    .letter-header {
-        @apply text-center mb-8 relative z-10;
-    }
-
-    .letter-date {
-        @apply italic mb-2.5;
-        color: #666;
-    }
-
-    .letter-title {
-        @apply text-2xl md:text-3xl font-bold mb-8;
-        background: linear-gradient(135deg, #FF6B9D, #C850C0);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-
-    .letter-content {
-        @apply text-lg md:text-xl leading-loose whitespace-pre-line text-left relative z-10;
-        font-family: 'Georgia', serif;
-        color: #333;
-    }
-
-    .letter-content p {
-        @apply mb-5;
-    }
-
-    .letter-signature {
-        @apply mt-10 text-right italic relative z-10;
-        color: #666;
-    }
-
-    .letter-closing {
-        @apply mt-5;
-        font-family: 'Brush Script MT', cursive;
-        font-size: 1.5rem;
-        color: #9B59B6;
-    }
-
-    .letter-postscript {
-        @apply mt-8 pt-5 italic;
-        border-top: 1px dashed #ccc;
-        color: #666;
-    }
-
-    .letter-postscript-photo {
-        @apply mt-5 text-center;
-    }
-
-    .letter-postscript-photo img {
-        @apply max-w-full rounded-xl;
-        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
-    }
-
-    .letter-audio {
-        @apply mt-8 pt-8 text-center relative z-10;
-        border-top: 1px dashed rgba(255, 255, 255, 0.3);
-    }
-
-    .letter-audio-label {
-        @apply text-lg mb-4 italic flex items-center justify-center gap-2;
-        color: #f8f9fa;
-    }
-
-    .letter-audio audio {
-        @apply w-full max-w-md rounded-xl;
-    }
-
-    /* Page-specific: Floating heart decorations */
-    .letter-heart-decoration {
-        @apply absolute;
-        font-size: 1.5rem;
-        opacity: 0.2;
-        animation: letterHeartFloat 4s infinite ease-in-out;
-    }
-
-    @keyframes letterHeartFloat {
-        0%, 100% { transform: translateY(0) rotate(0deg); }
-        50% { transform: translateY(-20px) rotate(10deg); }
-    }
-
-    /* Accessibility - Reduced Motion */
-    @media (prefers-reduced-motion: reduce) {
-        .letter-envelope,
-        .letter-envelope-flap,
-        .letter-paper,
-        .letter-heart-decoration {
-            animation: none;
-        }
-        .letter-paper {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    @media (max-width: 768px) {
-        .letter-envelope {
-            width: 200px;
-            height: 133px;
-        }
-
-        .letter-envelope-flap {
-            border-left: 100px solid transparent;
-            border-right: 100px solid transparent;
-            border-top: 67px solid rgba(255, 215, 0, 0.3);
-        }
-
-        .letter-envelope-body {
-            width: 200px;
-            height: 100px;
-        }
-
-        .letter-envelope-seal {
-            width: 40px;
-            height: 40px;
-            font-size: 1.2rem;
-            top: 40px;
-        }
-
-        .letter-paper {
-            @apply p-5;
-        }
-    }
-</style>
-{% endblock %}
+{% block extra_journey_css %}{% endblock %}
 
 {% block journey_content %}
 <div class="journey-container-content my-12 journey-animate-fade-in">
@@ -232,9 +27,9 @@
         <div class="letter-paper-texture" aria-hidden="true"></div>
 
         <!-- Floating heart decorations -->
-        <div class="letter-heart-decoration" style="top: 20px; right: 30px; animation-delay: 0s;" aria-hidden="true">&#128149;</div>
-        <div class="letter-heart-decoration" style="bottom: 40px; left: 20px; animation-delay: 1s;" aria-hidden="true">&#128150;</div>
-        <div class="letter-heart-decoration" style="top: 50%; right: 10px; animation-delay: 2s;" aria-hidden="true">&#128151;</div>
+        <div class="letter-heart-decoration letter-heart-1" aria-hidden="true">&#128149;</div>
+        <div class="letter-heart-decoration letter-heart-2" aria-hidden="true">&#128150;</div>
+        <div class="letter-heart-decoration letter-heart-3" aria-hidden="true">&#128151;</div>
 
         <header class="letter-header">
             <div class="letter-date">{% now "F j, Y" %}</div>
@@ -243,33 +38,48 @@
 
         <div class="letter-content">{{ reward.message }}</div>
 
-        <footer class="letter-signature">
+        <div class="letter-signature" role="contentinfo">
             <div class="letter-closing">{% trans "With love," %}</div>
-            <div class="mt-2.5 text-xl" style="color: #9B59B6;" aria-hidden="true">&#128156;</div>
-        </footer>
+            <div class="letter-heart-signature" aria-hidden="true">&#128156;</div>
+        </div>
 
-        {% if reward.photo %}
-        <div class="letter-postscript">
-            <strong>{% trans "P.S." %}</strong> {% trans "I've included something special for you below..." %}
-            <div class="letter-postscript-photo">
-                <img src="{{ reward.photo.url|safe }}" alt="{% trans 'Special Memory' %}">
+        <div class="letter-extras">
+            {% if reward.photo and reward.photo.name %}
+            <div class="letter-postscript">
+                <strong>{% trans "P.S." %}</strong> {% trans "I've included something special for you below..." %}
+                <div class="letter-postscript-photo">
+                    <img src="{{ reward.photo.url|safe }}" alt="{% trans 'Special Memory' %}">
+                </div>
             </div>
-        </div>
-        {% endif %}
+            {% endif %}
 
-        {% if reward.audio_file %}
-        <div class="letter-audio">
-            <p class="letter-audio-label">
-                {% include "shared/icons/musical-note.html" with class="w-5 h-5" %}
-                {% trans "A special voice message for you..." %}
-            </p>
-            <audio controls>
-                <source src="{{ reward.audio_file.url|safe }}" type="audio/mpeg">
-                <source src="{{ reward.audio_file.url|safe }}" type="audio/mp3">
-                {% trans "Your browser does not support the audio element." %}
-            </audio>
+            {% if reward.audio_file %}
+            <div class="letter-audio">
+                <p class="letter-audio-label">
+                    {% include "shared/icons/musical-note.html" with class="w-5 h-5" %}
+                    {% trans "A special voice message for you..." %}
+                </p>
+                <audio controls>
+                    <source src="{{ reward.audio_file.url|safe }}" type="audio/mpeg">
+                    <source src="{{ reward.audio_file.url|safe }}" type="audio/mp3">
+                    {% trans "Your browser does not support the audio element." %}
+                </audio>
+            </div>
+            {% endif %}
+
+            {% if reward.video_file %}
+            <div class="letter-video">
+                <p class="letter-video-label">
+                    {% include "shared/icons/video-camera.html" with class="w-5 h-5" %}
+                    {% trans "A special video message for you..." %}
+                </p>
+                <video controls>
+                    <source src="{{ reward.video_file.url|safe }}" type="video/mp4">
+                    {% trans "Your browser does not support the video element." %}
+                </video>
+            </div>
+            {% endif %}
         </div>
-        {% endif %}
 
         <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="journey-btn-primary block w-fit mx-auto mt-10 relative z-10">
             {% trans "Continue Your Journey" %}
@@ -278,38 +88,4 @@
     </article>
 </div>
 
-<script nonce="{{ request.csp_nonce }}">
-document.addEventListener('DOMContentLoaded', function() {
-    var paper = document.querySelector('.letter-paper');
-
-    function createSparkle() {
-        var sparkle = document.createElement('div');
-        sparkle.textContent = '\u2728';
-        sparkle.setAttribute('aria-hidden', 'true');
-        sparkle.style.position = 'absolute';
-        sparkle.style.left = Math.random() * 100 + '%';
-        sparkle.style.top = Math.random() * 100 + '%';
-        sparkle.style.fontSize = Math.random() * 20 + 15 + 'px';
-        sparkle.style.opacity = '0';
-        sparkle.style.transition = 'opacity 0.5s';
-        sparkle.style.pointerEvents = 'none';
-        paper.appendChild(sparkle);
-
-        setTimeout(function() {
-            sparkle.style.opacity = '0.3';
-        }, 100);
-
-        setTimeout(function() {
-            sparkle.style.opacity = '0';
-            setTimeout(function() { sparkle.remove(); }, 500);
-        }, 2000);
-    }
-
-    setInterval(createSparkle, 3000);
-
-    for (var i = 0; i < 3; i++) {
-        setTimeout(createSparkle, i * 1000);
-    }
-});
-</script>
 {% endblock %}

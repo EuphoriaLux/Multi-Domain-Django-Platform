@@ -1,127 +1,7 @@
 {% extends "crush_lu/journey/journey_base.html" %}
 {% load static i18n %}
 
-{% block extra_journey_css %}
-<style>
-    /* Page-specific: Video message card with purple shimmer */
-    .video-card {
-        @apply rounded-2xl p-8 md:p-12 border-2 relative overflow-hidden;
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(20px);
-        border-color: rgba(155, 89, 182, 0.3);
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-    }
-
-    .video-card::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: linear-gradient(45deg, transparent, rgba(155, 89, 182, 0.1), transparent);
-        animation: videoShimmer 3s infinite linear;
-    }
-
-    @keyframes videoShimmer {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-    .video-card-content {
-        @apply relative z-10;
-    }
-
-    .video-icon {
-        @apply text-center mb-5;
-        font-size: 4rem;
-        animation: videoPulse 2s ease-in-out infinite;
-    }
-
-    @keyframes videoPulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.1); }
-    }
-
-    .video-title {
-        @apply text-3xl md:text-4xl font-bold text-center mb-8;
-        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-
-    .video-intro {
-        @apply text-xl text-center mb-8 italic;
-        color: rgba(255, 255, 255, 0.9);
-    }
-
-    .video-media-container {
-        @apply rounded-2xl p-4 md:p-5 my-8;
-        background: rgba(0, 0, 0, 0.4);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .video-player-wrapper {
-        @apply flex flex-col items-center;
-    }
-
-    .video-player-wrapper video {
-        @apply w-full max-w-3xl rounded-2xl;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-    }
-
-    .video-audio-fallback {
-        @apply text-center p-10;
-    }
-
-    .video-audio-fallback-icon {
-        font-size: 4rem;
-        @apply mb-5;
-    }
-
-    .video-audio-fallback audio {
-        @apply w-full max-w-md;
-    }
-
-    .video-text-message {
-        @apply text-lg md:text-xl text-center p-6 md:p-8 rounded-xl mt-8 whitespace-pre-line;
-        background: rgba(255, 255, 255, 0.05);
-        border-left: 4px solid rgba(155, 89, 182, 0.5);
-    }
-
-    /* Page-specific: Twinkling stars */
-    .video-star {
-        @apply absolute rounded-full bg-white;
-        width: 4px;
-        height: 4px;
-        animation: videoTwinkle 2s infinite;
-    }
-
-    @keyframes videoTwinkle {
-        0%, 100% { opacity: 0.3; transform: scale(0.8); }
-        50% { opacity: 1; transform: scale(1.2); }
-    }
-
-    /* Accessibility - Reduced Motion */
-    @media (prefers-reduced-motion: reduce) {
-        .video-card::before,
-        .video-icon,
-        .video-star {
-            animation: none;
-        }
-    }
-
-    @media (max-width: 768px) {
-        .video-card {
-            @apply p-4;
-        }
-        .video-media-container {
-            @apply p-2;
-        }
-    }
-</style>
-{% endblock %}
+{% block extra_journey_css %}{% endblock %}
 
 {% block journey_content %}
 <div class="journey-container-content my-12 journey-animate-fade-in">
@@ -135,11 +15,11 @@
 
     <article class="video-card" aria-labelledby="video-heading">
         <!-- Stars -->
-        <div class="video-star" style="top: 5%; left: 10%; animation-delay: 0s;" aria-hidden="true"></div>
-        <div class="video-star" style="top: 15%; right: 20%; animation-delay: 0.3s;" aria-hidden="true"></div>
-        <div class="video-star" style="bottom: 25%; left: 15%; animation-delay: 0.6s;" aria-hidden="true"></div>
-        <div class="video-star" style="top: 40%; right: 8%; animation-delay: 0.9s;" aria-hidden="true"></div>
-        <div class="video-star" style="bottom: 10%; right: 30%; animation-delay: 1.2s;" aria-hidden="true"></div>
+        <div class="video-star video-star-1" aria-hidden="true"></div>
+        <div class="video-star video-star-2" aria-hidden="true"></div>
+        <div class="video-star video-star-3" aria-hidden="true"></div>
+        <div class="video-star video-star-4" aria-hidden="true"></div>
+        <div class="video-star video-star-5" aria-hidden="true"></div>
 
         <div class="video-card-content">
             <div class="video-icon" aria-hidden="true">&#127916;</div>
@@ -187,23 +67,4 @@
     </article>
 </div>
 
-<script nonce="{{ request.csp_nonce }}">
-document.addEventListener('DOMContentLoaded', function() {
-    var card = document.querySelector('.video-card');
-    var starCount = 25;
-
-    for (var i = 0; i < starCount; i++) {
-        var star = document.createElement('div');
-        star.className = 'video-star';
-        star.setAttribute('aria-hidden', 'true');
-        star.style.top = (Math.random() * 90 + 5) + '%';
-        star.style.left = (Math.random() * 90 + 5) + '%';
-        star.style.animationDelay = (Math.random() * 2) + 's';
-        var size = (Math.random() * 3 + 2) + 'px';
-        star.style.width = size;
-        star.style.height = size;
-        card.appendChild(star);
-    }
-});
-</script>
 {% endblock %}

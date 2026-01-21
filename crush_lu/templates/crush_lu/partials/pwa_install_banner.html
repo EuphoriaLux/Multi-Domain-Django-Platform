@@ -1,6 +1,16 @@
 {% load i18n %}
-{# PWA Install Banner - Hidden by default, shown by JavaScript when install is available #}
-<div id="pwa-install-banner" class="pwa-install-banner" style="display: none;">
+{# PWA Install Banner - Alpine.js controlled visibility #}
+<div id="pwa-install-banner"
+     x-data="pwaInstallBanner"
+     x-show="show"
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0 -translate-y-full"
+     x-transition:enter-end="opacity-100 translate-y-0"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100 translate-y-0"
+     x-transition:leave-end="opacity-0 -translate-y-full"
+     x-cloak
+     class="pwa-install-banner">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between py-3 gap-4">
             <!-- Icon and Text -->
@@ -24,7 +34,7 @@
                     </svg>
                     <span class="mobile-hidden-sm-inline">{% trans "Install" %}</span>
                 </button>
-                <button id="pwa-dismiss-button" class="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors" aria-label="{% trans "Dismiss" %}">
+                <button id="pwa-dismiss-button" @click="dismiss" class="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors" aria-label="{% trans "Dismiss" %}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
@@ -34,13 +44,23 @@
     </div>
 </div>
 
-{# PWA Success Toast - Hidden by default, shown after successful install #}
-<div id="pwa-install-success" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-50 border border-green-200 rounded-lg shadow-lg px-4 py-3 flex items-center gap-3" style="display: none;">
+{# PWA Success Toast - Alpine.js controlled with auto-hide #}
+<div id="pwa-install-success"
+     x-data="pwaSuccessToast"
+     x-show="show"
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0 -translate-y-4"
+     x-transition:enter-end="opacity-100 translate-y-0"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100 translate-y-0"
+     x-transition:leave-end="opacity-0 -translate-y-4"
+     x-cloak
+     class="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-50 border border-green-200 rounded-lg shadow-lg px-4 py-3 flex items-center gap-3">
     <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
     </svg>
     <span class="text-green-800 font-medium text-sm">{% trans "Crush.lu installed! Access it from your home screen." %}</span>
-    <button type="button" id="pwa-success-close" class="ml-2 text-green-400 hover:text-green-600 transition-colors">
+    <button type="button" @click="close" class="ml-2 text-green-400 hover:text-green-600 transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>

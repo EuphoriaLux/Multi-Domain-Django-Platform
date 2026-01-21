@@ -3,273 +3,50 @@
 
 {% block title %}{% trans "Your Special Journeys" %} - Crush.lu{% endblock %}
 
-{% block extra_css %}
-<style>
-    :root {
-        --journey-primary: #9B59B6;
-        --journey-secondary: #FF6B9D;
-        --journey-success: #2ecc71;
-        --journey-dark: #1a1a2e;
-        --journey-light: #f8f9fa;
-    }
+{% block extra_css %}{% endblock %}
 
-    body {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-        min-height: 100vh;
-    }
-
-    .journey-selector-container {
-        max-width: 900px;
-        margin: 0 auto;
-        padding: 40px 20px;
-    }
-
-    .selector-header {
-        text-align: center;
-        margin-bottom: 50px;
-        color: var(--journey-light);
-    }
-
-    .selector-header h1 {
-        font-size: 2.5rem;
-        margin-bottom: 10px;
-        background: linear-gradient(90deg, var(--journey-primary), var(--journey-secondary));
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-
-    .selector-header p {
-        font-size: 1.2rem;
-        opacity: 0.8;
-    }
-
-    .journey-cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-        gap: 30px;
-        margin-top: 30px;
-    }
-
-    .journey-card {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 20px;
-        padding: 30px;
-        border: 2px solid rgba(255, 255, 255, 0.1);
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-        text-decoration: none;
-        color: var(--journey-light);
-        display: block;
-    }
-
-    .journey-card:hover {
-        transform: translateY(-10px);
-        border-color: var(--journey-primary);
-        box-shadow: 0 20px 40px rgba(155, 89, 182, 0.3);
-        color: var(--journey-light);
-        text-decoration: none;
-    }
-
-    .journey-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 5px;
-        background: linear-gradient(90deg, var(--journey-primary), var(--journey-secondary));
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }
-
-    .journey-card:hover::before {
-        opacity: 1;
-    }
-
-    .journey-card.completed {
-        border-color: var(--journey-success);
-    }
-
-    .journey-card.completed::before {
-        background: var(--journey-success);
-        opacity: 1;
-    }
-
-    .journey-icon {
-        font-size: 4rem;
-        margin-bottom: 20px;
-        display: block;
-    }
-
-    .journey-card h2 {
-        font-size: 1.5rem;
-        margin-bottom: 10px;
-        color: var(--journey-light);
-    }
-
-    .journey-card p {
-        opacity: 0.8;
-        margin-bottom: 20px;
-        min-height: 50px;
-    }
-
-    .journey-progress {
-        margin-top: 20px;
-    }
-
-    .progress-label {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 8px;
-        font-size: 0.9rem;
-    }
-
-    .progress-bar-container {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
-        height: 10px;
-        overflow: hidden;
-    }
-
-    .progress-bar-fill {
-        height: 100%;
-        border-radius: 10px;
-        transition: width 0.5s ease;
-        background: linear-gradient(90deg, var(--journey-primary), var(--journey-secondary));
-    }
-
-    .progress-bar-fill.completed {
-        background: var(--journey-success);
-    }
-
-    .journey-status {
-        display: inline-block;
-        padding: 5px 15px;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        margin-top: 15px;
-    }
-
-    .status-new {
-        background: rgba(155, 89, 182, 0.3);
-        color: #d4a5e8;
-    }
-
-    .status-in-progress {
-        background: rgba(241, 196, 15, 0.3);
-        color: #f7dc6f;
-    }
-
-    .status-completed {
-        background: rgba(46, 204, 113, 0.3);
-        color: #82e0aa;
-    }
-
-    .enter-btn {
-        display: inline-block;
-        margin-top: 20px;
-        padding: 12px 30px;
-        background: linear-gradient(90deg, var(--journey-primary), var(--journey-secondary));
-        color: white;
-        border-radius: 30px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        transition: all 0.3s ease;
-    }
-
-    .journey-card:hover .enter-btn {
-        transform: scale(1.05);
-        box-shadow: 0 5px 20px rgba(155, 89, 182, 0.4);
-    }
-
-    /* Advent Calendar Special Styling */
-    .journey-card.advent {
-        background: linear-gradient(135deg, rgba(34, 139, 34, 0.1) 0%, rgba(139, 0, 0, 0.1) 100%);
-    }
-
-    .journey-card.advent::before {
-        background: linear-gradient(90deg, #c0392b, #27ae60);
-    }
-
-    /* Wonderland Special Styling */
-    .journey-card.wonderland {
-        background: linear-gradient(135deg, rgba(155, 89, 182, 0.1) 0%, rgba(255, 107, 157, 0.1) 100%);
-    }
-
-    /* Back button */
-    .back-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        color: rgba(255, 255, 255, 0.7);
-        text-decoration: none;
-        margin-bottom: 30px;
-        transition: color 0.3s ease;
-    }
-
-    .back-link:hover {
-        color: var(--journey-light);
-    }
-
-    @media (max-width: 768px) {
-        .journey-cards {
-            grid-template-columns: 1fr;
-        }
-
-        .selector-header h1 {
-            font-size: 1.8rem;
-        }
-
-        .journey-icon {
-            font-size: 3rem;
-        }
-    }
-</style>
-{% endblock %}
+{% block body_class %}journey-bg{% endblock %}
 
 {% block content %}
 <div class="journey-selector-container">
-    <a href="{% url 'crush_lu:special_welcome' %}" class="back-link">
+    <a href="{% url 'crush_lu:special_welcome' %}" class="journey-back-link">
         {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Welcome" %}
     </a>
 
-    <div class="selector-header">
-        <h1>{% trans "Your Special Journeys" %}</h1>
-        <p>{% blocktrans with name=special_experience.first_name %}Choose your adventure, {{ name }}{% endblocktrans %}</p>
+    <div class="journey-selector-header">
+        <h1 class="journey-selector-title">{% trans "Your Special Journeys" %}</h1>
+        <p class="journey-selector-subtitle">{% blocktrans with name=special_experience.first_name %}Choose your adventure, {{ name }}{% endblocktrans %}</p>
     </div>
 
-    <div class="journey-cards">
+    <div class="journey-selector-grid">
         {% for item in journeys %}
-        <a href="{% url item.url %}" class="journey-card {% if item.journey.journey_type == 'advent_calendar' %}advent{% elif item.journey.journey_type == 'wonderland' %}wonderland{% endif %} {% if item.is_completed %}completed{% endif %}">
-            <span class="journey-icon">{{ item.icon }}</span>
+        <a href="{% url item.url %}" class="journey-selector-card {% if item.journey.journey_type == 'advent_calendar' %}advent{% elif item.journey.journey_type == 'wonderland' %}wonderland{% endif %} {% if item.is_completed %}completed{% endif %}">
+            <span class="journey-selector-icon">{{ item.icon }}</span>
 
-            <h2>{{ item.journey.journey_name }}</h2>
-            <p>{{ item.description }}</p>
+            <h2 class="journey-selector-card-title">{{ item.journey.journey_name }}</h2>
+            <p class="journey-selector-card-desc">{{ item.description }}</p>
 
-            <div class="journey-progress">
-                <div class="progress-label">
+            <div class="journey-selector-progress">
+                <div class="journey-selector-progress-label">
                     <span>{% trans "Progress" %}</span>
                     <span>{{ item.completion_percentage }}%</span>
                 </div>
-                <div class="progress-bar-container">
-                    <div class="progress-bar-fill {% if item.is_completed %}completed{% endif %}"
-                         style="width: {{ item.completion_percentage }}%"></div>
+                <div class="journey-selector-progress-bar">
+                    <progress class="journey-selector-progress-meter {% if item.is_completed %}completed{% endif %}" value="{{ item.completion_percentage }}" max="100">
+                        {{ item.completion_percentage }}%
+                    </progress>
                 </div>
             </div>
 
             {% if item.is_completed %}
-                <span class="journey-status status-completed">{% trans "Completed" %}</span>
+                <span class="journey-status-pill journey-status-completed">{% trans "Completed" %}</span>
             {% elif item.completion_percentage > 0 %}
-                <span class="journey-status status-in-progress">{% trans "In Progress" %}</span>
+                <span class="journey-status-pill journey-status-in-progress">{% trans "In Progress" %}</span>
             {% else %}
-                <span class="journey-status status-new">{% trans "New Adventure" %}</span>
+                <span class="journey-status-pill journey-status-new">{% trans "New Adventure" %}</span>
             {% endif %}
 
-            <span class="enter-btn">
+            <span class="journey-enter-btn">
                 {% if item.is_completed %}
                     {% trans "View Again" %}
                 {% elif item.completion_percentage > 0 %}

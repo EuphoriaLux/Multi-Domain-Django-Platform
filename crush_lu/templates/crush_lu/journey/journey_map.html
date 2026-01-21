@@ -1,247 +1,27 @@
 {% extends "crush_lu/journey/journey_base.html" %}
 {% load static i18n %}
 
-{% block extra_journey_css %}
-<style>
-    /* Page-specific: Floating Hearts Animation */
-    .heart-bg {
-        position: fixed;
-        width: 30px;
-        height: 30px;
-        opacity: 0.2;
-        pointer-events: none;
-        z-index: 0;
-        animation: journey-float-hearts linear infinite;
-    }
-
-    /* Page-specific: Chapter Path Layout */
-    .chapter-path {
-        position: relative;
-        max-width: 1000px;
-        margin: 80px auto;
-        padding: 40px 0;
-    }
-
-    .chapter-path::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 0;
-        right: 0;
-        height: 6px;
-        background: linear-gradient(90deg, rgba(155, 89, 182, 0.2) 0%, rgba(255, 107, 157, 0.6) 50%, rgba(155, 89, 182, 0.2) 100%);
-        transform: translateY(-50%);
-        z-index: 0;
-        border-radius: 10px;
-        box-shadow: 0 0 20px rgba(255, 107, 157, 0.3);
-    }
-
-    /* Page-specific: Chapter Nodes Layout */
-    .chapter-node {
-        position: relative;
-        margin: 80px 0;
-        display: flex;
-        align-items: center;
-        z-index: 1;
-    }
-
-    .chapter-node:nth-child(even) {
-        flex-direction: row-reverse;
-    }
-
-    .chapter-icon-wrapper {
-        position: relative;
-        width: 140px;
-        height: 140px;
-        flex-shrink: 0;
-    }
-
-    /* Page-specific: Romantic Lock Component */
-    .romantic-lock {
-        position: relative;
-        width: 60px;
-        height: 70px;
-    }
-
-    .lock-body {
-        position: absolute;
-        bottom: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 50px;
-        height: 45px;
-        background: linear-gradient(135deg, #4a4a4a, #2a2a2a);
-        border-radius: 8px;
-        box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
-    }
-
-    .lock-shackle {
-        position: absolute;
-        top: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 40px;
-        height: 40px;
-        border: 6px solid #4a4a4a;
-        border-bottom: none;
-        border-radius: 20px 20px 0 0;
-    }
-
-    .lock-heart {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        color: #555;
-        font-size: 1.2rem;
-    }
-
-    /* Page-specific: Chapter Info Card */
-    .chapter-info {
-        flex: 1;
-        margin: 0 40px;
-        background: rgba(255, 255, 255, 0.08);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border-radius: 20px;
-        padding: 30px;
-        border: 2px solid rgba(255, 107, 157, 0.2);
-        transition: all 0.4s ease;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .chapter-info::before {
-        content: '';
-        position: absolute;
-        top: -2px;
-        left: -2px;
-        right: -2px;
-        bottom: -2px;
-        background: linear-gradient(135deg, #FF6B9D, #C850C0, #9B59B6);
-        border-radius: 20px;
-        opacity: 0;
-        transition: opacity 0.4s ease;
-        z-index: -1;
-    }
-
-    .chapter-unlocked .chapter-info:hover::before,
-    .chapter-current .chapter-info:hover::before {
-        opacity: 0.3;
-    }
-
-    .chapter-unlocked .chapter-info:hover,
-    .chapter-current .chapter-info:hover {
-        background: rgba(255, 255, 255, 0.12);
-        transform: translateY(-8px) scale(1.02);
-        box-shadow: 0 15px 40px rgba(255, 107, 157, 0.4);
-    }
-
-    /* Page-specific: Difficulty badges */
-    .chapter-difficulty {
-        @apply inline-block px-4 py-1.5 rounded-full text-sm font-semibold uppercase tracking-wide;
-        margin-top: 8px;
-    }
-
-    .difficulty-easy {
-        background: rgba(46, 204, 113, 0.25);
-        border: 2px solid rgba(46, 204, 113, 0.6);
-        color: #2ecc71;
-    }
-
-    .difficulty-medium {
-        background: rgba(243, 156, 18, 0.25);
-        border: 2px solid rgba(243, 156, 18, 0.6);
-        color: #f39c12;
-    }
-
-    .difficulty-hard {
-        background: rgba(231, 76, 60, 0.25);
-        border: 2px solid rgba(231, 76, 60, 0.6);
-        color: #e74c3c;
-    }
-
-    /* Page-specific: Progress bar shine effect */
-    .journey-progress-fill::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-        animation: progress-shine 2s infinite;
-    }
-
-    @keyframes progress-shine {
-        0% { transform: translateX(-100%); }
-        100% { transform: translateX(100%); }
-    }
-
-    /* Mobile Responsive */
-    @media (max-width: 768px) {
-        .chapter-path {
-            padding-left: 10px;
-        }
-
-        .chapter-path::before {
-            left: 60px;
-            right: auto;
-            width: 3px;
-            height: calc(100% - 80px);
-            top: 40px;
-            transform: none;
-            border-radius: 3px;
-            background: linear-gradient(180deg, rgba(155, 89, 182, 0.2) 0%, rgba(255, 107, 157, 0.4) 50%, rgba(155, 89, 182, 0.2) 100%);
-        }
-
-        .chapter-node {
-            flex-direction: row !important;
-            margin: 40px 0;
-        }
-
-        .chapter-icon-wrapper {
-            width: 100px;
-            height: 100px;
-        }
-
-        .romantic-lock {
-            width: 50px;
-            height: 60px;
-        }
-
-        .lock-body {
-            width: 40px;
-            height: 35px;
-        }
-
-        .lock-shackle {
-            width: 30px;
-            height: 30px;
-            border-width: 5px;
-        }
-
-        .lock-heart {
-            font-size: 1rem;
-        }
-
-        .chapter-info {
-            margin: 0 0 0 25px;
-            padding: 20px;
-        }
-    }
-
-    /* Sparkle animation for JS hover effect */
-    @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-    }
-</style>
-{% endblock %}
+{% block extra_journey_css %}{% endblock %}
 
 {% block journey_content %}
 <!-- Floating Hearts Background -->
-<div id="hearts-container" aria-hidden="true"></div>
+<div id="hearts-container" class="journey-hearts" aria-hidden="true">
+    <div class="heart-bg heart-bg-1">&#128149;</div>
+    <div class="heart-bg heart-bg-2">&#128150;</div>
+    <div class="heart-bg heart-bg-3">&#128151;</div>
+    <div class="heart-bg heart-bg-4">&#128148;</div>
+    <div class="heart-bg heart-bg-5">&#128149;</div>
+    <div class="heart-bg heart-bg-6">&#10084;&#65039;</div>
+    <div class="heart-bg heart-bg-7">&#128150;</div>
+    <div class="heart-bg heart-bg-8">&#128151;</div>
+    <div class="heart-bg heart-bg-9">&#128148;</div>
+    <div class="heart-bg heart-bg-10">&#128149;</div>
+    <div class="heart-bg heart-bg-11">&#128150;</div>
+    <div class="heart-bg heart-bg-12">&#128151;</div>
+    <div class="heart-bg heart-bg-13">&#128148;</div>
+    <div class="heart-bg heart-bg-14">&#128149;</div>
+    <div class="heart-bg heart-bg-15">&#128150;</div>
+</div>
 
 <!-- Journey Header -->
 <header class="text-center my-10 relative z-10 journey-animate-fade-in">
@@ -255,9 +35,8 @@
 
 <!-- Progress Bar -->
 <div class="journey-progress-bar max-w-xl mx-auto my-8 journey-animate-fade-in" role="progressbar" aria-valuenow="{{ completion_percentage }}" aria-valuemin="0" aria-valuemax="100" aria-label="{% trans 'Journey progress' %}">
-    <div class="journey-progress-fill relative" style="width: {{ completion_percentage }}%;">
-        {{ completion_percentage }}%
-    </div>
+    <progress class="journey-progress-meter" value="{{ completion_percentage }}" max="100">{{ completion_percentage }}%</progress>
+    <span class="journey-progress-label">{{ completion_percentage }}%</span>
 </div>
 
 <!-- Stats -->
@@ -277,18 +56,18 @@
 </div>
 
 <!-- Chapter Path -->
-<nav class="chapter-path" aria-label="{% trans 'Journey chapters' %}">
+<nav class="journey-chapter-path" aria-label="{% trans 'Journey chapters' %}">
     {% for chapter_item in chapters %}
-    <article class="chapter-node journey-animate-fade-in
+    <article class="journey-chapter-node journey-animate-fade-in
         {% if chapter_item.is_completed %}journey-chapter-completed chapter-completed{% elif chapter_item.is_current %}journey-chapter-current chapter-current{% elif chapter_item.is_unlocked %}journey-chapter-unlocked chapter-unlocked{% else %}journey-chapter-locked chapter-locked{% endif %}">
 
-        <div class="chapter-icon-wrapper">
+        <div class="journey-chapter-icon-wrapper">
             <div class="journey-chapter-icon">
                 {% if chapter_item.is_locked %}
-                    <div class="romantic-lock" aria-label="{% trans 'Locked' %}">
-                        <div class="lock-shackle"></div>
-                        <div class="lock-body">
-                            <div class="lock-heart" aria-hidden="true">&#128148;</div>
+                    <div class="journey-romantic-lock" aria-label="{% trans 'Locked' %}">
+                        <div class="journey-lock-shackle"></div>
+                        <div class="journey-lock-body">
+                            <div class="journey-lock-heart" aria-hidden="true">&#128148;</div>
                         </div>
                     </div>
                 {% else %}
@@ -302,14 +81,14 @@
             {% endif %}
         </div>
 
-        <div class="chapter-info">
+        <div class="journey-chapter-info">
             <h3 class="text-xl md:text-2xl font-bold text-white mb-3">{{ chapter_item.chapter.title }}</h3>
             <p class="journey-subtitle text-base mb-4">
                 <span aria-hidden="true">&#128171;</span>
                 {{ chapter_item.chapter.theme }}
             </p>
             <div class="flex flex-wrap items-center gap-3">
-                <span class="chapter-difficulty difficulty-{{ chapter_item.chapter.difficulty }}">
+                <span class="journey-difficulty journey-difficulty-{{ chapter_item.chapter.difficulty }}">
                     {{ chapter_item.chapter.get_difficulty_display }}
                 </span>
                 <span class="text-white/70 text-sm">
@@ -368,33 +147,8 @@
 
 {% block extra_journey_js %}
 <script nonce="{{ request.csp_nonce }}">
-    // Create floating hearts background (respects reduced motion)
-    function createFloatingHearts() {
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            return;
-        }
-
-        const container = document.getElementById('hearts-container');
-        if (!container) return;
-
-        const heartSymbols = ['\uD83D\uDC95', '\uD83D\uDC96', '\uD83D\uDC97', '\uD83D\uDC93', '\uD83D\uDC9D', '\u2764\uFE0F'];
-
-        for (let i = 0; i < 15; i++) {
-            const heart = document.createElement('div');
-            heart.className = 'heart-bg';
-            heart.textContent = heartSymbols[Math.floor(Math.random() * heartSymbols.length)];
-            heart.style.left = Math.random() * 100 + '%';
-            heart.style.animationDuration = (Math.random() * 10 + 15) + 's';
-            heart.style.animationDelay = Math.random() * 5 + 's';
-            heart.style.fontSize = (Math.random() * 20 + 15) + 'px';
-            container.appendChild(heart);
-        }
-    }
-
     // Smooth scroll to current chapter on page load
     document.addEventListener('DOMContentLoaded', function() {
-        createFloatingHearts();
-
         const currentChapter = document.querySelector('.chapter-current');
         if (currentChapter && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
             setTimeout(function() {
@@ -405,34 +159,5 @@
             }, 800);
         }
     });
-
-    // Enhanced hover effects (desktop only)
-    if (window.matchMedia('(hover: hover)').matches) {
-        document.querySelectorAll('.chapter-unlocked, .chapter-current').forEach(function(node) {
-            const icon = node.querySelector('.journey-chapter-icon');
-            if (!icon) return;
-
-            node.addEventListener('mouseenter', function() {
-                icon.style.transform = 'scale(1.15) rotate(5deg)';
-            });
-
-            node.addEventListener('mouseleave', function() {
-                icon.style.transform = 'scale(1) rotate(0deg)';
-            });
-        });
-
-        // Add sparkle effect on hover
-        document.querySelectorAll('.chapter-unlocked .journey-chapter-icon, .chapter-current .journey-chapter-icon').forEach(function(icon) {
-            icon.addEventListener('mouseenter', function() {
-                if (!this.querySelector('.sparkle')) {
-                    const sparkle = document.createElement('div');
-                    sparkle.className = 'sparkle';
-                    sparkle.textContent = '\u2728';
-                    sparkle.style.cssText = 'position:absolute;top:0;right:0;font-size:1.5rem;animation:spin 1s linear infinite;';
-                    this.appendChild(sparkle);
-                }
-            });
-        });
-    }
 </script>
 {% endblock %}

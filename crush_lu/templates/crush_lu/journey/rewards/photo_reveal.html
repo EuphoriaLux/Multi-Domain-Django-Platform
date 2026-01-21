@@ -6,242 +6,7 @@
 <meta name="csrf-token" content="{{ csrf_token }}">
 {% endblock %}
 
-{% block extra_journey_css %}
-<style>
-    /* Page-specific: Photo reveal card with golden shimmer */
-    .reveal-card {
-        @apply rounded-2xl p-8 md:p-12 border-2 relative overflow-hidden;
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(20px);
-        border-color: rgba(255, 215, 0, 0.3);
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-    }
-
-    .reveal-card::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: linear-gradient(45deg, transparent, rgba(255, 215, 0, 0.1), transparent);
-        animation: revealShimmer 3s infinite linear;
-    }
-
-    @keyframes revealShimmer {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-    .reveal-card-content {
-        @apply relative z-10;
-    }
-
-    .reveal-icon {
-        @apply text-center mb-5;
-        font-size: 4rem;
-        animation: revealFloat 3s ease-in-out infinite;
-    }
-
-    @keyframes revealFloat {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-10px); }
-    }
-
-    .reveal-title {
-        @apply text-3xl md:text-4xl font-bold text-center mb-5;
-        background: linear-gradient(135deg, #FFD700, #FFA500);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-
-    .reveal-message {
-        @apply text-xl text-center mb-10 italic;
-        color: rgba(255, 255, 255, 0.9);
-    }
-
-    .reveal-instruction {
-        @apply text-center text-lg opacity-80 mb-5;
-    }
-
-    .reveal-points-badge {
-        @apply inline-flex items-center gap-2 text-xl py-2.5 px-5 rounded-xl font-bold;
-        background: linear-gradient(135deg, #FFD700, #FFA500);
-        color: white;
-    }
-
-    /* Page-specific: Puzzle container and grid */
-    .reveal-puzzle-container {
-        @apply relative mx-auto my-10;
-        max-width: 600px;
-        aspect-ratio: 1;
-    }
-
-    .reveal-puzzle-grid {
-        @apply grid w-full h-full rounded-2xl p-0.5 relative;
-        grid-template-columns: repeat(4, 1fr);
-        grid-template-rows: repeat(4, 1fr);
-        gap: 2px;
-        background: rgba(0, 0, 0, 0.3);
-    }
-
-    .reveal-puzzle-piece {
-        @apply cursor-pointer border border-white/10 relative overflow-hidden;
-        background-size: 400% 400%;
-        background-position: 0 0;
-        transition: all 0.3s ease;
-    }
-
-    .reveal-puzzle-piece.locked {
-        filter: brightness(0.3) blur(3px);
-    }
-
-    .reveal-puzzle-piece.unlocked {
-        filter: brightness(1) blur(0);
-        animation: revealPieceReveal 0.5s ease;
-    }
-
-    @keyframes revealPieceReveal {
-        0% {
-            filter: brightness(0.3) blur(3px);
-            transform: scale(0.8);
-        }
-        100% {
-            filter: brightness(1) blur(0);
-            transform: scale(1);
-        }
-    }
-
-    .reveal-puzzle-piece:hover:not(.unlocked) {
-        transform: scale(1.05);
-        border-color: var(--color-crush-purple);
-        box-shadow: 0 0 20px rgba(155, 89, 182, 0.5);
-    }
-
-    .reveal-puzzle-piece:focus-visible:not(.unlocked) {
-        @apply ring-2 ring-crush-purple ring-offset-2;
-        ring-offset-color: #1a1a2e;
-        transform: scale(1.05);
-    }
-
-    .reveal-piece-number {
-        @apply absolute font-bold text-white;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: 2rem;
-        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
-        opacity: 0;
-        transition: opacity 0.3s;
-    }
-
-    .reveal-puzzle-piece.locked:hover .reveal-piece-number,
-    .reveal-puzzle-piece.locked:focus-visible .reveal-piece-number {
-        opacity: 1;
-    }
-
-    .reveal-puzzle-piece.unlocked .reveal-piece-number {
-        @apply hidden;
-    }
-
-    /* Page-specific: Puzzle overlay and completion message */
-    .reveal-puzzle-overlay {
-        @apply absolute inset-0 flex items-center justify-center rounded-2xl pointer-events-none;
-        background: rgba(0, 0, 0, 0.5);
-        opacity: 0;
-        transition: opacity 0.5s;
-    }
-
-    .reveal-puzzle-overlay.show {
-        opacity: 1;
-    }
-
-    .reveal-complete-message {
-        @apply text-2xl md:text-3xl font-bold text-white text-center py-6 px-10 rounded-2xl;
-        background: linear-gradient(135deg, var(--color-crush-purple), var(--color-crush-pink));
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-        animation: revealBounceIn 0.8s ease;
-    }
-
-    @keyframes revealBounceIn {
-        0% { transform: scale(0); }
-        50% { transform: scale(1.1); }
-        100% { transform: scale(1); }
-    }
-
-    /* Page-specific: Progress bar */
-    .reveal-progress-bar {
-        @apply w-full max-w-xl h-8 mx-auto my-8 rounded-2xl overflow-hidden border-2;
-        background: rgba(255, 255, 255, 0.1);
-        border-color: rgba(255, 215, 0, 0.3);
-    }
-
-    .reveal-progress-fill {
-        @apply h-full flex items-center justify-center font-bold text-white;
-        background: linear-gradient(90deg, #FFD700, #FFA500);
-        width: 0%;
-        transition: width 0.5s ease;
-    }
-
-    /* Page-specific: Completion buttons */
-    .reveal-completion-buttons {
-        @apply hidden text-center;
-    }
-
-    .reveal-completion-buttons.show {
-        @apply block;
-    }
-
-    .reveal-tip {
-        @apply text-sm mt-3 italic;
-        color: rgba(255, 255, 255, 0.7);
-    }
-
-    /* Page-specific: Notification animation */
-    @keyframes revealSlideIn {
-        from { transform: translateX(400px); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
-
-    @keyframes revealSlideOut {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(400px); opacity: 0; }
-    }
-
-    /* Accessibility - Reduced Motion */
-    @media (prefers-reduced-motion: reduce) {
-        .reveal-card::before,
-        .reveal-icon,
-        .reveal-puzzle-piece.unlocked,
-        .reveal-complete-message {
-            animation: none;
-        }
-        .reveal-puzzle-piece.unlocked {
-            filter: brightness(1) blur(0);
-            transform: scale(1);
-        }
-        .reveal-complete-message {
-            transform: scale(1);
-        }
-    }
-
-    @media (max-width: 768px) {
-        .reveal-card {
-            @apply p-5;
-        }
-        .reveal-puzzle-container {
-            max-width: 90vw;
-        }
-        .reveal-piece-number {
-            font-size: 1.5rem;
-        }
-        .reveal-complete-message {
-            @apply text-xl py-5 px-6;
-        }
-    }
-</style>
-{% endblock %}
+{% block extra_journey_css %}{% endblock %}
 
 {% block journey_content %}
 <div class="journey-container-content my-12 journey-animate-fade-in">
@@ -276,13 +41,31 @@
 
             <!-- Progress Bar -->
             <div class="reveal-progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="{% trans 'Puzzle completion progress' %}">
-                <div class="reveal-progress-fill" id="progressFill">0%</div>
+                <progress class="reveal-progress-meter" id="progressMeter" value="0" max="100">0%</progress>
+                <span class="reveal-progress-label" id="progressLabel">0%</span>
             </div>
 
             <!-- Puzzle Grid -->
             <div class="reveal-puzzle-container">
                 <div class="reveal-puzzle-grid" id="puzzleGrid" role="grid" aria-label="{% trans 'Photo puzzle - click pieces to reveal' %}">
-                    <!-- Pieces will be generated by JavaScript -->
+                    {% if reward.photo %}
+                        {% with reward.photo.url as photo_url %}
+                            {% for i in "0123456789abcdef"|make_list %}
+                                <div class="reveal-puzzle-piece locked reveal-piece-{{ forloop.counter0 }}" data-index="{{ forloop.counter0 }}" role="gridcell" tabindex="0" aria-label="{% trans 'Puzzle piece' %} {{ forloop.counter }} - {% trans 'locked, click to unlock for 50 points' %}">
+                                    <img src="{{ photo_url|safe }}" alt="" class="reveal-piece-image reveal-piece-image-{{ forloop.counter0 }}">
+                                    <div class="reveal-piece-number" aria-hidden="true">{{ forloop.counter }}</div>
+                                </div>
+                            {% endfor %}
+                        {% endwith %}
+                    {% else %}
+                        {% static 'crush_lu/images/placeholders/special-memory.svg' as placeholder_url %}
+                            {% for i in "0123456789abcdef"|make_list %}
+                                <div class="reveal-puzzle-piece locked reveal-piece-{{ forloop.counter0 }}" data-index="{{ forloop.counter0 }}" role="gridcell" tabindex="0" aria-label="{% trans 'Puzzle piece' %} {{ forloop.counter }} - {% trans 'locked, click to unlock for 50 points' %}">
+                                    <img src="{{ placeholder_url }}" alt="" class="reveal-piece-image reveal-piece-image-{{ forloop.counter0 }}">
+                                    <div class="reveal-piece-number" aria-hidden="true">{{ forloop.counter }}</div>
+                                </div>
+                            {% endfor %}
+                    {% endif %}
                 </div>
                 <div class="reveal-puzzle-overlay" id="puzzleOverlay" aria-hidden="true">
                     <div class="reveal-complete-message">
@@ -292,10 +75,12 @@
             </div>
 
             <div class="reveal-completion-buttons" id="completionButtons">
-                <a href="#" id="downloadBtn" class="journey-btn-primary inline-flex items-center gap-2 mx-2.5 my-5">
+                {% if reward.photo %}
+                <a href="{{ reward.photo.url|safe }}" download class="journey-btn-primary inline-flex items-center gap-2 mx-2.5 my-5">
                     {% include "shared/icons/arrow-down-tray.html" with class="w-5 h-5" %}
                     {% trans "Download Photo" %}
                 </a>
+                {% endif %}
                 <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="journey-btn-primary inline-flex items-center gap-2 mx-2.5 my-5">
                     {% trans "Continue Your Journey" %}
                     {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
@@ -311,24 +96,17 @@
 <script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     var puzzleGrid = document.getElementById('puzzleGrid');
-    var progressFill = document.getElementById('progressFill');
-    var progressBar = progressFill.parentElement;
+    var progressMeter = document.getElementById('progressMeter');
+    var progressLabel = document.getElementById('progressLabel');
+    var progressBar = progressMeter.parentElement;
     var puzzleOverlay = document.getElementById('puzzleOverlay');
     var completionButtons = document.getElementById('completionButtons');
-    var downloadBtn = document.getElementById('downloadBtn');
     var currentPointsEl = document.getElementById('currentPoints');
 
     var rewardId = {{ reward.id }};
     var totalPieces = 16;
     var unlockedPieces = [];
     var currentPoints = 0;
-
-    // Get the photo URL
-    {% if reward.photo %}
-    var photoUrl = '{{ reward.photo.url|safe }}';
-    {% else %}
-    var photoUrl = 'https://via.placeholder.com/600x600/9B59B6/FFFFFF?text=Special+Memory';
-    {% endif %}
 
     // Load existing progress from server
     loadProgress();
@@ -367,48 +145,27 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function createPuzzlePieces() {
-        for (var i = 0; i < totalPieces; i++) {
-            var piece = document.createElement('div');
-            piece.className = 'reveal-puzzle-piece';
-            piece.dataset.index = i;
-            piece.setAttribute('role', 'gridcell');
-            piece.setAttribute('tabindex', '0');
-            piece.setAttribute('aria-label', '{% trans "Puzzle piece" %} ' + (i + 1));
-
-            var row = Math.floor(i / 4);
-            var col = i % 4;
-
-            piece.style.backgroundImage = 'url(\'' + photoUrl + '\')';
-            piece.style.backgroundPosition = (col * 33.33) + '% ' + (row * 33.33) + '%';
-
-            var number = document.createElement('div');
-            number.className = 'reveal-piece-number';
-            number.textContent = i + 1;
-            number.setAttribute('aria-hidden', 'true');
-            piece.appendChild(number);
-
-            // Check if already unlocked
-            if (unlockedPieces.indexOf(i) !== -1) {
-                piece.classList.add('unlocked');
-                piece.setAttribute('aria-label', '{% trans "Puzzle piece" %} ' + (i + 1) + ' - {% trans "unlocked" %}');
-            } else {
-                piece.classList.add('locked');
-                piece.setAttribute('aria-label', '{% trans "Puzzle piece" %} ' + (i + 1) + ' - {% trans "locked, click to unlock for 50 points" %}');
-                (function(pieceEl, index) {
-                    pieceEl.addEventListener('click', function() { unlockPiece(pieceEl, index); });
-                    pieceEl.addEventListener('keydown', function(e) {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            unlockPiece(pieceEl, index);
-                        }
-                    });
-                })(piece, i);
+        var pieces = puzzleGrid.querySelectorAll('.reveal-puzzle-piece');
+        pieces.forEach(function(pieceEl) {
+            var index = parseInt(pieceEl.dataset.index, 10);
+            if (unlockedPieces.indexOf(index) !== -1) {
+                pieceEl.classList.remove('locked');
+                pieceEl.classList.add('unlocked');
+                pieceEl.setAttribute('aria-label', '{% trans "Puzzle piece" %} ' + (index + 1) + ' - {% trans "unlocked" %}');
+                return;
             }
 
-            puzzleGrid.appendChild(piece);
-        }
+            pieceEl.classList.add('locked');
+            pieceEl.setAttribute('aria-label', '{% trans "Puzzle piece" %} ' + (index + 1) + ' - {% trans "locked, click to unlock for 50 points" %}');
+            pieceEl.addEventListener('click', function() { unlockPiece(pieceEl, index); });
+            pieceEl.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    unlockPiece(pieceEl, index);
+                }
+            });
+        });
 
-        // Update progress bar
         updateProgress();
     }
 
@@ -474,7 +231,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         puzzleOverlay.classList.add('show');
                         puzzleOverlay.setAttribute('aria-hidden', 'false');
                         completionButtons.classList.add('show');
-                        createConfetti();
                     }, 500);
                 }
             } else {
@@ -496,61 +252,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateProgress() {
         var progress = Math.round((unlockedPieces.length / totalPieces) * 100);
-        progressFill.style.width = progress + '%';
-        progressFill.textContent = progress + '%';
+        progressMeter.value = progress;
+        progressLabel.textContent = progress + '%';
         progressBar.setAttribute('aria-valuenow', progress);
     }
 
     function showNotification(message, type) {
-        var bgColor = type === 'success' ? '#28a745' : (type === 'error' ? '#dc3545' : '#17a2b8');
         var notification = document.createElement('div');
         notification.setAttribute('role', 'alert');
         notification.setAttribute('aria-live', 'polite');
-        notification.style.cssText = 'position: fixed; top: 20px; right: 20px; background: ' + bgColor + '; color: white; padding: 15px 25px; border-radius: 10px; font-weight: bold; z-index: 99999; animation: revealSlideIn 0.3s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.3);';
+        notification.className = 'journey-toast journey-toast-' + type;
         notification.innerHTML = message;
         document.body.appendChild(notification);
 
         setTimeout(function() {
-            notification.style.animation = 'revealSlideOut 0.3s ease';
+            notification.classList.add('journey-toast-exit');
             setTimeout(function() { notification.remove(); }, 300);
         }, 3000);
-    }
-
-    function createConfetti() {
-        var colors = ['#FFD700', '#FF6B9D', '#C850C0', '#9B59B6'];
-        for (var i = 0; i < 50; i++) {
-            (function(index) {
-                setTimeout(function() {
-                    var confetti = document.createElement('div');
-                    confetti.setAttribute('aria-hidden', 'true');
-                    confetti.style.position = 'fixed';
-                    confetti.style.left = Math.random() * 100 + 'vw';
-                    confetti.style.top = '-10px';
-                    confetti.style.width = '10px';
-                    confetti.style.height = '10px';
-                    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                    confetti.style.transform = 'rotate(' + Math.random() * 360 + 'deg)';
-                    confetti.style.opacity = String(Math.random());
-                    confetti.style.zIndex = '9999';
-                    confetti.style.pointerEvents = 'none';
-                    document.body.appendChild(confetti);
-
-                    var pos = -10;
-                    var rotation = Math.random() * 360;
-                    var fall = setInterval(function() {
-                        pos += 5;
-                        rotation += 10;
-                        confetti.style.top = pos + 'px';
-                        confetti.style.transform = 'rotate(' + rotation + 'deg)';
-
-                        if (pos > window.innerHeight) {
-                            clearInterval(fall);
-                            confetti.remove();
-                        }
-                    }, 30);
-                }, index * 50);
-            })(i);
-        }
     }
 
     function getCookie(name) {
@@ -568,28 +286,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return cookieValue;
     }
 
-    // Download functionality
-    downloadBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-
-        fetch(photoUrl)
-            .then(function(response) { return response.blob(); })
-            .then(function(blob) {
-                var url = window.URL.createObjectURL(blob);
-                var a = document.createElement('a');
-                a.href = url;
-                a.download = 'special-memory.jpg';
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-                showNotification('&#9989; {% trans "Photo downloaded successfully!" %}', 'success');
-            })
-            .catch(function(error) {
-                console.error('Download error:', error);
-                showNotification('&#10060; {% trans "Download failed. Please try right-clicking the image." %}', 'error');
-            });
-    });
 });
 </script>
 {% endblock %}

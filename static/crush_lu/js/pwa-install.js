@@ -43,25 +43,18 @@ class PWAInstaller {
             return;
         }
 
-        // Use the existing banner from the template (translated by Django)
-        const banner = document.getElementById('pwa-install-banner');
+        // Dispatch event to show banner (Alpine.js handles visibility)
+        window.dispatchEvent(new CustomEvent('pwa-show-install'));
+
+        // Set up install button listener
         this.installButton = document.getElementById('pwa-install-button');
-
-        if (banner && this.installButton) {
-            // Show the banner
-            banner.style.display = 'block';
-
-            // Add event listeners if not already added
-            if (!this.installButton.hasAttribute('data-listeners-added')) {
-                this.installButton.addEventListener('click', () => this.handleInstall());
-                this.installButton.setAttribute('data-listeners-added', 'true');
-
-                const dismissButton = document.getElementById('pwa-dismiss-button');
-                if (dismissButton) {
-                    dismissButton.addEventListener('click', () => this.dismissBanner());
-                }
-            }
+        if (this.installButton && !this.installButton.hasAttribute('data-listeners-added')) {
+            this.installButton.addEventListener('click', () => this.handleInstall());
+            this.installButton.setAttribute('data-listeners-added', 'true');
         }
+
+        // Listen for dismiss event from Alpine component
+        window.addEventListener('pwa-dismiss-install', () => this.dismissBanner());
     }
 
     async handleInstall() {
@@ -91,10 +84,8 @@ class PWAInstaller {
     }
 
     hideInstallButton() {
-        const banner = document.getElementById('pwa-install-banner');
-        if (banner) {
-            banner.style.display = 'none';
-        }
+        // Dispatch event to hide banner (Alpine.js handles visibility)
+        window.dispatchEvent(new CustomEvent('pwa-hide-install'));
     }
 
     dismissBanner() {
@@ -104,27 +95,8 @@ class PWAInstaller {
     }
 
     showInstallSuccess() {
-        // Use the existing success banner from the template (translated by Django)
-        const successBanner = document.getElementById('pwa-install-success');
-
-        if (successBanner) {
-            // Show the success banner
-            successBanner.style.display = 'flex';
-
-            // Add close button handler if not already added
-            const closeButton = document.getElementById('pwa-success-close');
-            if (closeButton && !closeButton.hasAttribute('data-listeners-added')) {
-                closeButton.addEventListener('click', function() {
-                    successBanner.style.display = 'none';
-                });
-                closeButton.setAttribute('data-listeners-added', 'true');
-            }
-
-            // Auto-hide after 5 seconds
-            setTimeout(function() {
-                successBanner.style.display = 'none';
-            }, 5000);
-        }
+        // Dispatch event to show success toast (Alpine.js handles visibility and auto-hide)
+        window.dispatchEvent(new CustomEvent('pwa-install-success'));
     }
 }
 

@@ -7,7 +7,7 @@
 {% block extra_journey_css %}{% endblock %}
 {% endblock %}
 
-{% block body_class %}journey-bg{% endblock %}
+{% block body_class %}journey-bg{% block journey_body_class %}{% endblock %}{% endblock %}
 
 {% block content %}
 {# Journey State Manager - Alpine.js component for auto-save and time tracking #}

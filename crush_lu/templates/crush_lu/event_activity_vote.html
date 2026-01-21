@@ -89,7 +89,7 @@
 
 {% block content %}
 <!-- Hidden data for JavaScript -->
-<div id="event-id-data" data-event-id="{{ event.id }}" data-results-url="{% url 'crush_lu:event_voting_results' event.id %}" style="display: none;"></div>
+<div id="event-id-data" class="hidden" data-event-id="{{ event.id }}" data-results-url="{% url 'crush_lu:event_voting_results' event.id %}"></div>
 
 <div class="flex justify-center">
     <div class="w-full max-w-4xl px-4">

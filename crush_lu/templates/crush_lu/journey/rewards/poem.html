@@ -1,110 +1,7 @@
 {% extends "crush_lu/journey/journey_base.html" %}
 {% load static i18n %}
 
-{% block extra_journey_css %}
-<style>
-    /* Page-specific: Golden reward card with shimmer */
-    .poem-card {
-        @apply rounded-2xl p-8 md:p-12 border-2 relative overflow-hidden;
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(20px);
-        border-color: rgba(255, 215, 0, 0.3);
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-    }
-
-    .poem-card::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: linear-gradient(45deg, transparent, rgba(255, 215, 0, 0.1), transparent);
-        animation: poemShimmer 3s infinite linear;
-    }
-
-    @keyframes poemShimmer {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-    .poem-card-content {
-        @apply relative z-10;
-    }
-
-    .poem-icon {
-        @apply text-center mb-5;
-        font-size: 4rem;
-        animation: poemFloat 3s ease-in-out infinite;
-    }
-
-    @keyframes poemFloat {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-10px); }
-    }
-
-    .poem-title {
-        @apply text-3xl md:text-4xl font-bold text-center mb-10;
-        background: linear-gradient(135deg, #FFD700, #FFA500);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-
-    .poem-content {
-        @apply text-xl md:text-2xl leading-loose italic text-center whitespace-pre-line p-8 md:p-10 rounded-xl;
-        font-family: 'Georgia', serif;
-        background: rgba(0, 0, 0, 0.2);
-        border-left: 4px solid rgba(255, 215, 0, 0.5);
-        color: #f8f9fa;
-    }
-
-    .poem-signature {
-        @apply text-right text-lg mt-8 italic opacity-90;
-    }
-
-    .poem-audio {
-        @apply mt-10 text-center;
-    }
-
-    .poem-audio-label {
-        @apply text-lg mb-4 opacity-90 flex items-center justify-center gap-2;
-    }
-
-    .poem-audio audio {
-        @apply w-full max-w-md rounded-xl;
-    }
-
-    /* Page-specific: Sparkle animation */
-    .poem-sparkle {
-        @apply absolute w-1 h-1 bg-white rounded-full;
-        animation: poemSparkle 2s infinite;
-    }
-
-    @keyframes poemSparkle {
-        0%, 100% { opacity: 0; transform: scale(0); }
-        50% { opacity: 1; transform: scale(1); }
-    }
-
-    /* Accessibility - Reduced Motion */
-    @media (prefers-reduced-motion: reduce) {
-        .poem-card::before,
-        .poem-icon,
-        .poem-sparkle {
-            animation: none;
-        }
-    }
-
-    @media (max-width: 768px) {
-        .poem-card {
-            @apply p-5;
-        }
-        .poem-content {
-            @apply text-lg p-5;
-        }
-    }
-</style>
-{% endblock %}
+{% block extra_journey_css %}{% endblock %}
 
 {% block journey_content %}
 <div class="journey-container-content my-12 journey-animate-fade-in">
@@ -118,10 +15,10 @@
 
     <article class="poem-card" aria-labelledby="poem-heading">
         <!-- Sparkles -->
-        <div class="poem-sparkle" style="top: 10%; left: 20%; animation-delay: 0s;" aria-hidden="true"></div>
-        <div class="poem-sparkle" style="top: 30%; right: 15%; animation-delay: 0.5s;" aria-hidden="true"></div>
-        <div class="poem-sparkle" style="bottom: 20%; left: 30%; animation-delay: 1s;" aria-hidden="true"></div>
-        <div class="poem-sparkle" style="top: 60%; right: 25%; animation-delay: 1.5s;" aria-hidden="true"></div>
+        <div class="poem-sparkle poem-sparkle-1" aria-hidden="true"></div>
+        <div class="poem-sparkle poem-sparkle-2" aria-hidden="true"></div>
+        <div class="poem-sparkle poem-sparkle-3" aria-hidden="true"></div>
+        <div class="poem-sparkle poem-sparkle-4" aria-hidden="true"></div>
 
         <div class="poem-card-content">
             <div class="poem-icon" aria-hidden="true">&#128220;</div>
@@ -156,20 +53,4 @@
     </article>
 </div>
 
-<script nonce="{{ request.csp_nonce }}">
-document.addEventListener('DOMContentLoaded', function() {
-    var card = document.querySelector('.poem-card');
-    var sparkleCount = 20;
-
-    for (var i = 0; i < sparkleCount; i++) {
-        var sparkle = document.createElement('div');
-        sparkle.className = 'poem-sparkle';
-        sparkle.setAttribute('aria-hidden', 'true');
-        sparkle.style.top = Math.random() * 100 + '%';
-        sparkle.style.left = Math.random() * 100 + '%';
-        sparkle.style.animationDelay = Math.random() * 2 + 's';
-        card.appendChild(sparkle);
-    }
-});
-</script>
 {% endblock %}

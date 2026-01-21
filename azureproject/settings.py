@@ -15,6 +15,8 @@ from datetime import timedelta
 from pathlib import Path
 
 from django.utils.translation import gettext_lazy as _
+from django.core.exceptions import ImproperlyConfigured
+import logging
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -23,12 +25,44 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-# Development fallback - production.py uses environment variable only
-SECRET_KEY = os.getenv("SECRET_KEY", "dev-insecure-key-change-in-production")
+# Load .env for local development if present (optional)
+# If you want to use this, install python-dotenv and create a .env at BASE_DIR
+DOTENV_PATH = BASE_DIR / ".env"
+if DOTENV_PATH.exists():
+    try:
+        from dotenv import load_dotenv
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+        load_dotenv(dotenv_path=DOTENV_PATH)
+    except Exception:
+        # dotenv is optional; ignore if it's not installed or fails
+        logging.getLogger(__name__).debug("python-dotenv not available or failed to load .env")
+
+
+def _env_bool(name, default=False):
+    val = os.getenv(name)
+    if val is None:
+        return default
+    return str(val).lower() in ("1", "true", "yes", "on")
+
+
+# SECURITY: require SECRET_KEY in production. Allow an explicit dev fallback
+# only when debug is enabled to avoid accidental leakage in production.
+SECRET_KEY = os.getenv("SECRET_KEY")
+
+# Use DJANGO_DEBUG env var to control debug mode (default False)
+DEBUG = _env_bool("DJANGO_DEBUG", False)
+
+if not SECRET_KEY:
+    if DEBUG or _env_bool("ALLOW_INSECURE_SECRET", False):
+        # Development fallback explicitly allowed
+        SECRET_KEY = "dev-insecure-key-change-in-production"
+        logging.getLogger(__name__).warning(
+            "Using insecure fallback SECRET_KEY because DJANGO_DEBUG is true or ALLOW_INSECURE_SECRET is set"
+        )
+    else:
+        raise ImproperlyConfigured(
+            "The SECRET_KEY environment variable must be set in production."
+        )
 
 # Required for django.template.context_processors.debug to expose 'debug' in templates
 INTERNAL_IPS = [

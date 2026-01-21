@@ -8,6 +8,27 @@ from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, E
 from PIL import Image
 import os
 
+# Tailwind CSS classes for form inputs (replacing Bootstrap form-control)
+TAILWIND_INPUT = (
+    'w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 '
+    'placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 '
+    'transition-colors'
+)
+TAILWIND_INPUT_LG = (
+    'w-full px-4 py-3 text-lg border border-gray-300 rounded-lg bg-white text-gray-900 '
+    'placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 '
+    'transition-colors'
+)
+TAILWIND_SELECT = (
+    'w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 '
+    'focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors'
+)
+TAILWIND_TEXTAREA = (
+    'w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 '
+    'placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 '
+    'transition-colors resize-y'
+)
+
 
 class CrushSignupForm(SignupForm):
     """
@@ -19,7 +40,7 @@ class CrushSignupForm(SignupForm):
         required=True,
         widget=forms.TextInput(attrs={
             'placeholder': _('First Name'),
-            'class': 'form-control'
+            'class': TAILWIND_INPUT
         })
     )
     last_name = forms.CharField(
@@ -27,7 +48,7 @@ class CrushSignupForm(SignupForm):
         required=True,
         widget=forms.TextInput(attrs={
             'placeholder': _('Last Name'),
-            'class': 'form-control'
+            'class': TAILWIND_INPUT
         })
     )
 
@@ -82,7 +103,7 @@ class CrushProfileForm(forms.ModelForm):
         widget=forms.TextInput(attrs={
             'type': 'tel',
             'placeholder': '+352 XX XX XX XX',
-            'class': 'form-control form-control-lg'
+            'class': TAILWIND_INPUT_LG
         }),
         help_text=_('Required for coach screening and event coordination')
     )
@@ -93,7 +114,7 @@ class CrushProfileForm(forms.ModelForm):
         widget=forms.DateInput(
             attrs={
                 'type': 'date',
-                'class': 'form-control'
+                'class': TAILWIND_INPUT
             },
             format='%Y-%m-%d'
         ),
@@ -108,7 +129,7 @@ class CrushProfileForm(forms.ModelForm):
         widget=forms.Textarea(attrs={
             'rows': 4,
             'placeholder': _('Tell us about yourself... What do you love? What makes you smile? (Optional)'),
-            'class': 'form-control'
+            'class': TAILWIND_TEXTAREA
         }),
         help_text=_('Share what makes you unique! (Optional, max 500 characters)')
     )
@@ -119,7 +140,7 @@ class CrushProfileForm(forms.ModelForm):
         widget=forms.Textarea(attrs={
             'rows': 3,
             'placeholder': _('Or select categories below...'),
-            'class': 'form-control'
+            'class': TAILWIND_TEXTAREA
         }),
         help_text=_('Select interest categories below or write your own (Optional)')
     )
@@ -128,7 +149,7 @@ class CrushProfileForm(forms.ModelForm):
     gender = forms.ChoiceField(
         required=True,
         choices=CrushProfile.GENDER_CHOICES,
-        widget=forms.Select(attrs={'class': 'form-control'}),
+        widget=forms.Select(attrs={'class': TAILWIND_SELECT}),
         help_text=_('Required')
     )
 
@@ -166,7 +187,7 @@ class CrushProfileForm(forms.ModelForm):
     looking_for = forms.ChoiceField(
         required=True,
         choices=CrushProfile.LOOKING_FOR_CHOICES,
-        widget=forms.Select(attrs={'class': 'form-control'}),
+        widget=forms.Select(attrs={'class': TAILWIND_SELECT}),
         help_text=_('Required')
     )
 
@@ -499,7 +520,7 @@ class CrushCoachForm(forms.ModelForm):
         widget=forms.Textarea(attrs={
             'rows': 4,
             'placeholder': _('Share your coaching philosophy and approach...'),
-            'class': 'form-control'
+            'class': TAILWIND_TEXTAREA
         }),
         help_text=_('Tell users about your coaching style and experience (max 500 characters)')
     )
@@ -509,7 +530,7 @@ class CrushCoachForm(forms.ModelForm):
         max_length=200,
         widget=forms.TextInput(attrs={
             'placeholder': _('e.g., Young professionals, Students, 35+, LGBTQ+'),
-            'class': 'form-control'
+            'class': TAILWIND_INPUT
         }),
         help_text=_('What groups or demographics do you specialize in coaching?')
     )
@@ -517,7 +538,7 @@ class CrushCoachForm(forms.ModelForm):
     photo = forms.ImageField(
         required=False,
         widget=forms.FileInput(attrs={
-            'class': 'form-control',
+            'class': TAILWIND_INPUT,
             'accept': 'image/*'
         }),
         help_text=_('Upload a professional photo that users will see')
@@ -538,7 +559,7 @@ class CrushSetPasswordForm(forms.Form):
     password1 = forms.CharField(
         label=_('New Password'),
         widget=forms.PasswordInput(attrs={
-            'class': 'form-control form-control-lg',
+            'class': TAILWIND_INPUT_LG,
             'placeholder': _('Enter new password'),
             'autocomplete': 'new-password',
         }),
@@ -547,7 +568,7 @@ class CrushSetPasswordForm(forms.Form):
     password2 = forms.CharField(
         label=_('Confirm Password'),
         widget=forms.PasswordInput(attrs={
-            'class': 'form-control form-control-lg',
+            'class': TAILWIND_INPUT_LG,
             'placeholder': _('Confirm new password'),
             'autocomplete': 'new-password',
         })

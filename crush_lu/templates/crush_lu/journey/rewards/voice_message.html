@@ -1,159 +1,7 @@
 {% extends "crush_lu/journey/journey_base.html" %}
 {% load static i18n %}
 
-{% block extra_journey_css %}
-<style>
-    /* Page-specific: Voice message card with pink shimmer */
-    .voice-card {
-        @apply rounded-2xl p-8 md:p-12 border-2 relative overflow-hidden;
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(20px);
-        border-color: rgba(255, 107, 157, 0.3);
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-    }
-
-    .voice-card::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: linear-gradient(45deg, transparent, rgba(255, 107, 157, 0.1), transparent);
-        animation: voiceShimmer 3s infinite linear;
-    }
-
-    @keyframes voiceShimmer {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-    .voice-card-content {
-        @apply relative z-10;
-    }
-
-    .voice-icon {
-        @apply text-center mb-5;
-        font-size: 4rem;
-        animation: voicePulse 2s ease-in-out infinite;
-    }
-
-    @keyframes voicePulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.1); }
-    }
-
-    .voice-title {
-        @apply text-3xl md:text-4xl font-bold text-center mb-8;
-        background: linear-gradient(135deg, #FF6B9D, #9B59B6);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-
-    .voice-intro {
-        @apply text-xl text-center mb-8 italic;
-        color: rgba(255, 255, 255, 0.9);
-    }
-
-    .voice-media-container {
-        @apply rounded-2xl p-8 md:p-10 my-8;
-        background: rgba(0, 0, 0, 0.3);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .voice-audio-wrapper {
-        @apply flex flex-col items-center gap-5;
-    }
-
-    .voice-audio-visual {
-        @apply w-32 h-32 md:w-36 md:h-36 rounded-full flex items-center justify-center;
-        background: linear-gradient(135deg, var(--color-crush-purple), var(--color-crush-pink));
-        font-size: 4rem;
-        animation: voiceGlow 2s ease-in-out infinite;
-        box-shadow: 0 10px 40px rgba(155, 89, 182, 0.4);
-    }
-
-    @keyframes voiceGlow {
-        0%, 100% { box-shadow: 0 10px 40px rgba(155, 89, 182, 0.4); }
-        50% { box-shadow: 0 10px 60px rgba(255, 107, 157, 0.6); }
-    }
-
-    .voice-audio-wrapper audio {
-        @apply w-full max-w-md rounded-xl;
-    }
-
-    .voice-video-wrapper {
-        @apply flex flex-col items-center gap-5;
-    }
-
-    .voice-video-wrapper video {
-        @apply w-full max-w-xl rounded-2xl;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-    }
-
-    .voice-text-message {
-        @apply text-lg md:text-xl text-center p-6 md:p-8 rounded-xl mt-8 whitespace-pre-line;
-        background: rgba(255, 255, 255, 0.05);
-        border-left: 4px solid rgba(255, 107, 157, 0.5);
-    }
-
-    /* Page-specific: Floating hearts */
-    .voice-heart {
-        @apply absolute w-2.5 h-2.5;
-        background: #FF6B9D;
-        transform: rotate(45deg);
-        animation: voiceHeartFloat 4s infinite;
-        opacity: 0.6;
-    }
-
-    .voice-heart::before,
-    .voice-heart::after {
-        content: '';
-        @apply absolute w-2.5 h-2.5 rounded-full;
-        background: #FF6B9D;
-    }
-
-    .voice-heart::before {
-        top: -5px;
-        left: 0;
-    }
-
-    .voice-heart::after {
-        left: -5px;
-        top: 0;
-    }
-
-    @keyframes voiceHeartFloat {
-        0% { opacity: 0; transform: rotate(45deg) translateY(0) scale(0.5); }
-        50% { opacity: 0.6; }
-        100% { opacity: 0; transform: rotate(45deg) translateY(-100px) scale(1); }
-    }
-
-    /* Accessibility - Reduced Motion */
-    @media (prefers-reduced-motion: reduce) {
-        .voice-card::before,
-        .voice-icon,
-        .voice-audio-visual,
-        .voice-heart {
-            animation: none;
-        }
-    }
-
-    @media (max-width: 768px) {
-        .voice-card {
-            @apply p-5;
-        }
-        .voice-media-container {
-            @apply p-5;
-        }
-        .voice-audio-visual {
-            @apply w-24 h-24;
-            font-size: 3rem;
-        }
-    }
-</style>
-{% endblock %}
+{% block extra_journey_css %}{% endblock %}
 
 {% block journey_content %}
 <div class="journey-container-content my-12 journey-animate-fade-in">
@@ -167,10 +15,10 @@
 
     <article class="voice-card" aria-labelledby="voice-heading">
         <!-- Hearts -->
-        <div class="voice-heart" style="top: 10%; left: 10%; animation-delay: 0s;" aria-hidden="true"></div>
-        <div class="voice-heart" style="top: 20%; right: 15%; animation-delay: 1s;" aria-hidden="true"></div>
-        <div class="voice-heart" style="bottom: 30%; left: 20%; animation-delay: 2s;" aria-hidden="true"></div>
-        <div class="voice-heart" style="top: 50%; right: 10%; animation-delay: 3s;" aria-hidden="true"></div>
+        <div class="voice-heart voice-heart-1" aria-hidden="true"></div>
+        <div class="voice-heart voice-heart-2" aria-hidden="true"></div>
+        <div class="voice-heart voice-heart-3" aria-hidden="true"></div>
+        <div class="voice-heart voice-heart-4" aria-hidden="true"></div>
 
         <div class="voice-card-content">
             <div class="voice-icon" aria-hidden="true">
@@ -225,34 +73,20 @@
 
 <script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
-    var card = document.querySelector('.voice-card');
-    var heartCount = 15;
-
-    for (var i = 0; i < heartCount; i++) {
-        var heart = document.createElement('div');
-        heart.className = 'voice-heart';
-        heart.setAttribute('aria-hidden', 'true');
-        heart.style.top = (Math.random() * 80 + 10) + '%';
-        heart.style.left = (Math.random() * 80 + 10) + '%';
-        heart.style.animationDelay = (Math.random() * 4) + 's';
-        heart.style.transform = 'rotate(45deg) scale(' + (Math.random() * 0.5 + 0.5) + ')';
-        card.appendChild(heart);
-    }
-
     var audioPlayer = document.getElementById('audioPlayer');
     var audioVisual = document.getElementById('audioVisual');
 
     if (audioPlayer && audioVisual) {
         audioPlayer.addEventListener('play', function() {
-            audioVisual.style.animation = 'voicePulse 0.5s ease-in-out infinite, voiceGlow 1s ease-in-out infinite';
+            audioVisual.classList.add('is-playing');
         });
 
         audioPlayer.addEventListener('pause', function() {
-            audioVisual.style.animation = 'voiceGlow 2s ease-in-out infinite';
+            audioVisual.classList.remove('is-playing');
         });
 
         audioPlayer.addEventListener('ended', function() {
-            audioVisual.style.animation = 'voiceGlow 2s ease-in-out infinite';
+            audioVisual.classList.remove('is-playing');
         });
     }
 });

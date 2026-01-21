@@ -138,8 +138,21 @@ class CSPMiddleware:
             "data:",
             "blob:",
             "https:",  # Allow all HTTPS images (CDNs, Azure Blob, etc.)
+            # Local Azurite (dev storage) for journey media
+            "http://127.0.0.1:10000",
+            "http://localhost:10000",
         ]
         directives.append(f"img-src {' '.join(img_src)}")
+
+        # media-src: Allow audio/video from local dev storage and HTTPS
+        media_src = [
+            "'self'",
+            "blob:",
+            "https:",
+            "http://127.0.0.1:10000",
+            "http://localhost:10000",
+        ]
+        directives.append(f"media-src {' '.join(media_src)}")
 
         # font-src: Google Fonts and CDN
         font_src = [

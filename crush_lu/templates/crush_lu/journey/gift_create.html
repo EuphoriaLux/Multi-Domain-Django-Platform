@@ -3,342 +3,6 @@
 
 {% block title %}{% trans "Create a Journey Gift" %} - Crush.lu{% endblock %}
 
-{% block extra_gift_css %}
-<style>
-    .create-form {
-        margin-top: 10px;
-    }
-
-    .create-form .form-group {
-        margin-bottom: 20px;
-    }
-
-    .create-form .form-group label {
-        display: block;
-        font-weight: 600;
-        margin-bottom: 8px;
-        color: var(--journey-light);
-    }
-
-    .create-form .gift-input {
-        width: 100%;
-        padding: 12px 16px;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 10px;
-        background: rgba(255, 255, 255, 0.1);
-        color: white;
-        font-size: 1rem;
-        transition: border-color 0.3s, box-shadow 0.3s;
-    }
-
-    .create-form .gift-input:focus {
-        outline: none;
-        border-color: var(--journey-primary);
-        box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.3);
-    }
-
-    .create-form .gift-input::placeholder {
-        color: rgba(255, 255, 255, 0.5);
-    }
-
-    .create-form textarea.gift-input {
-        min-height: 120px;
-        resize: vertical;
-    }
-
-    .create-form .help-text {
-        font-size: 0.85rem;
-        opacity: 0.7;
-        margin-top: 6px;
-    }
-
-    .create-form .error-text {
-        font-size: 0.85rem;
-        color: #e74c3c;
-        margin-top: 6px;
-    }
-
-    .create-form .gift-input.is-invalid {
-        border-color: #e74c3c;
-    }
-
-    .form-submit {
-        text-align: center;
-        margin-top: 30px;
-    }
-
-    .form-submit .btn-gift {
-        min-width: 200px;
-    }
-
-    /* Step Navigation */
-    .step-nav {
-        display: flex;
-        justify-content: center;
-        gap: 10px;
-        margin-bottom: 30px;
-    }
-
-    .step-indicator {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 16px;
-        border-radius: 20px;
-        font-size: 0.9rem;
-        background: rgba(255, 255, 255, 0.1);
-        color: rgba(255, 255, 255, 0.5);
-        transition: all 0.3s;
-    }
-
-    .step-indicator.active {
-        background: linear-gradient(135deg, var(--journey-primary), #e91e63);
-        color: white;
-    }
-
-    .step-indicator.completed {
-        background: rgba(46, 204, 113, 0.3);
-        color: #2ecc71;
-    }
-
-    .step-number {
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.2);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        font-size: 0.8rem;
-    }
-
-    .step-indicator.active .step-number {
-        background: rgba(255, 255, 255, 0.3);
-    }
-
-    .step-indicator.completed .step-number {
-        background: #2ecc71;
-        color: white;
-    }
-
-    /* Step Content */
-    .step-content {
-        display: none;
-    }
-
-    .step-content.active {
-        display: block;
-        animation: fadeIn 0.3s ease;
-    }
-
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* File Upload Styling */
-    .media-section {
-        margin-bottom: 30px;
-    }
-
-    .media-section-title {
-        font-size: 1.1rem;
-        font-weight: 600;
-        margin-bottom: 15px;
-        color: var(--journey-light);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .media-section-title .emoji {
-        font-size: 1.3rem;
-    }
-
-    .file-upload-wrapper {
-        border: 2px dashed rgba(255, 255, 255, 0.3);
-        border-radius: 12px;
-        padding: 20px;
-        text-align: center;
-        transition: all 0.3s;
-        cursor: pointer;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .file-upload-wrapper:hover {
-        border-color: var(--journey-primary);
-        background: rgba(155, 89, 182, 0.1);
-    }
-
-    .file-upload-wrapper.has-file {
-        border-color: #2ecc71;
-        background: rgba(46, 204, 113, 0.1);
-    }
-
-    .file-upload-wrapper input[type="file"] {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        opacity: 0;
-        cursor: pointer;
-    }
-
-    .file-upload-icon {
-        font-size: 2rem;
-        margin-bottom: 10px;
-    }
-
-    .file-upload-text {
-        font-size: 0.9rem;
-        color: rgba(255, 255, 255, 0.7);
-    }
-
-    .file-upload-preview {
-        display: none;
-        margin-top: 10px;
-    }
-
-    .file-upload-preview.show {
-        display: block;
-    }
-
-    .file-upload-preview img {
-        max-width: 150px;
-        max-height: 150px;
-        border-radius: 8px;
-        object-fit: cover;
-    }
-
-    .file-name {
-        font-size: 0.85rem;
-        color: #2ecc71;
-        margin-top: 8px;
-    }
-
-    /* Slideshow Grid */
-    .slideshow-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: 15px;
-    }
-
-    .slideshow-item {
-        aspect-ratio: 1;
-    }
-
-    .slideshow-item .file-upload-wrapper {
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-    }
-
-    .slideshow-item .file-upload-icon {
-        font-size: 1.5rem;
-        margin-bottom: 5px;
-    }
-
-    .slideshow-item .file-upload-text {
-        font-size: 0.75rem;
-    }
-
-    /* Media Info Box */
-    .media-info {
-        background: rgba(155, 89, 182, 0.15);
-        border: 1px solid rgba(155, 89, 182, 0.3);
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 25px;
-    }
-
-    .media-info p {
-        margin: 0;
-        font-size: 0.9rem;
-        color: rgba(255, 255, 255, 0.8);
-    }
-
-    .media-info strong {
-        color: var(--journey-primary);
-    }
-
-    /* Button Group */
-    .btn-group {
-        display: flex;
-        gap: 15px;
-        justify-content: center;
-        flex-wrap: wrap;
-    }
-
-    .btn-gift-secondary {
-        background: transparent;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        color: white;
-        padding: 12px 30px;
-        border-radius: 25px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s;
-    }
-
-    .btn-gift-secondary:hover {
-        background: rgba(255, 255, 255, 0.1);
-        border-color: rgba(255, 255, 255, 0.5);
-    }
-
-    /* Mobile Responsive */
-    @media (max-width: 600px) {
-        .step-nav {
-            flex-direction: column;
-            align-items: stretch;
-        }
-
-        .step-indicator {
-            justify-content: center;
-        }
-
-        .create-form .form-group {
-            margin-bottom: 16px;
-        }
-
-        .create-form .gift-input {
-            font-size: 16px;
-            padding: 14px 16px;
-        }
-
-        .create-form textarea.gift-input {
-            min-height: 100px;
-        }
-
-        .form-submit {
-            margin-top: 25px;
-        }
-
-        .form-submit .btn-gift {
-            width: 100%;
-            min-width: auto;
-        }
-
-        .slideshow-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-        }
-
-        .btn-group {
-            flex-direction: column;
-        }
-
-        .btn-group .btn-gift,
-        .btn-group .btn-gift-secondary {
-            width: 100%;
-        }
-    }
-</style>
-{% endblock %}
-
 {% block gift_content %}
 <div class="gift-card" x-data="giftCreateForm">
     <h1 class="gift-title">{% trans "Create a Wonderland Journey" %}</h1>
@@ -422,7 +86,7 @@
                         {% trans "Next: Add Media" %} &rarr;
                     </button>
                 </div>
-                <p class="help-text" style="margin-top: 15px;">
+                <p class="help-text mt-4">
                     {% trans "You can skip media and create a basic gift" %}
                 </p>
             </div>
@@ -443,7 +107,7 @@
                     <span class="emoji">🧩</span>
                     {% trans "Chapter 1: Photo Puzzle" %}
                 </h3>
-                <p class="help-text" style="margin-bottom: 15px;">
+                <p class="help-text mb-4">
                     {% trans "This photo will be revealed piece by piece as a puzzle. Best with a square image (800x800px)." %}
                 </p>
                 <div class="file-upload-wrapper" x-bind:class="chapter1HasFile">
@@ -466,7 +130,7 @@
                     <span class="emoji">🎞️</span>
                     {% trans "Chapter 3: Photo Slideshow" %}
                 </h3>
-                <p class="help-text" style="margin-bottom: 15px;">
+                <p class="help-text mb-4">
                     {% trans "Add up to 5 photos for a beautiful slideshow reveal. Add memories of your time together!" %}
                 </p>
                 <div class="slideshow-grid">
@@ -514,13 +178,13 @@
                     <span class="emoji">💬</span>
                     {% trans "Chapter 4: Personal Message" %}
                 </h3>
-                <p class="help-text" style="margin-bottom: 15px;">
+                <p class="help-text mb-4">
                     {% trans "Record a heartfelt voice or video message. This will be the emotional finale of the journey!" %}
                 </p>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
-                        <label style="font-size: 0.9rem; color: var(--journey-light); margin-bottom: 10px; display: block;">
+                        <label class="block text-sm text-white/80 mb-2">
                             🎤 {% trans "Voice Message" %}
                         </label>
                         <div class="file-upload-wrapper" x-bind:class="audioHasFile">
@@ -528,10 +192,10 @@
                             <div class="file-upload-icon" x-show="audioDefaultVisible">🎵</div>
                             <div class="file-upload-text" x-show="audioDefaultVisible">{% trans "MP3, WAV, M4A (max 10MB)" %}</div>
                             <!-- Audio file info display -->
-                            <div class="file-info" x-show="audioInfoVisible" style="margin-top: 10px;">
-                                <div style="font-size: 2rem; margin-bottom: 5px;">🎵</div>
+                            <div class="mt-2.5" x-show="audioInfoVisible">
+                                <div class="text-2xl mb-1">🎵</div>
                                 <div class="file-name" x-text="audioFileName"></div>
-                                <div style="font-size: 0.8rem; color: rgba(255,255,255,0.6); margin-top: 4px;" x-text="audioFileSize"></div>
+                                <div class="text-xs text-white/60 mt-1" x-text="audioFileSize"></div>
                             </div>
                         </div>
                         <!-- Client-side validation error -->
@@ -542,7 +206,7 @@
                     </div>
 
                     <div>
-                        <label style="font-size: 0.9rem; color: var(--journey-light); margin-bottom: 10px; display: block;">
+                        <label class="block text-sm text-white/80 mb-2">
                             📹 {% trans "Video Message" %}
                         </label>
                         <div class="file-upload-wrapper" x-bind:class="videoHasFile">
@@ -550,10 +214,10 @@
                             <div class="file-upload-icon" x-show="videoDefaultVisible">🎬</div>
                             <div class="file-upload-text" x-show="videoDefaultVisible">{% trans "MP4, MOV (max 50MB)" %}</div>
                             <!-- Video file info display -->
-                            <div class="file-info" x-show="videoInfoVisible" style="margin-top: 10px;">
-                                <div style="font-size: 2rem; margin-bottom: 5px;">🎬</div>
+                            <div class="mt-2.5" x-show="videoInfoVisible">
+                                <div class="text-2xl mb-1">🎬</div>
                                 <div class="file-name" x-text="videoFileName"></div>
-                                <div style="font-size: 0.8rem; color: rgba(255,255,255,0.6); margin-top: 4px;" x-text="videoFileSize"></div>
+                                <div class="text-xs text-white/60 mt-1" x-text="videoFileSize"></div>
                             </div>
                         </div>
                         <!-- Client-side validation error -->

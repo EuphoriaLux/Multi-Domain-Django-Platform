@@ -130,8 +130,8 @@ document.body.addEventListener('htmx:afterSwap', function(event) {
     if (event.detail.target.id === 'form-container') {
         initCharacterCounters();
 
-        // Scroll to first error if present
-        const firstError = event.detail.target.querySelector('.invalid-feedback');
+        // Scroll to first error if present (Tailwind uses text-red-600 for errors)
+        const firstError = event.detail.target.querySelector('.text-red-600');
         if (firstError) {
             firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
