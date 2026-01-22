@@ -553,9 +553,9 @@ if DEBUG:
     WHITENOISE_AUTOREFRESH = True  # Re-check files on every request
     WHITENOISE_MAX_AGE = 0  # No caching in development
 
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, "static"),
-]
+# STATICFILES_DIRS removed - all static files now in app-level directories
+# (e.g., crush_lu/static/crush_lu/, vinsdelux/static/vinsdelux/)
+# Django's AppDirectoriesFinder handles these automatically
 
 # =============================================================================
 # CONTENT IMAGE URLS (Development Fallbacks)

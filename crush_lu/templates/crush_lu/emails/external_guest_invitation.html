@@ -16,6 +16,7 @@
             background-color: #f8f9fa;
         }
         .container {
+            background-color: #9B59B6; /* Solid fallback for Outlook */
             background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
             border-radius: 16px;
             padding: 40px;
@@ -61,8 +62,9 @@
         }
         .cta-button {
             display: inline-block;
+            background-color: #9B59B6; /* Solid fallback for Outlook */
             background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
-            color: white;
+            color: white !important;
             padding: 15px 40px;
             text-decoration: none;
             border-radius: 30px;
@@ -101,9 +103,9 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container" style="background-color: #9B59B6; padding: 40px;">
         <div class="inner-content">
-            <h1>💌 {% trans "You're Invited!" %}</h1>
+            <h1 style="color: #9B59B6;">💌 {% trans "You're Invited!" %}</h1>
             <p class="subtitle">{% trans "Someone special wants you to join them on Crush.lu" %}</p>
 
             <p>{% blocktrans with first_name=guest_first_name %}Hi {{ first_name }},{% endblocktrans %}</p>
@@ -158,7 +160,7 @@
                 {% trans "4. Once approved, you can register for the event" %}
             </div>
 
-            <a href="{{ invitation_url }}" class="cta-button">
+            <a href="{{ invitation_url }}" class="cta-button" style="background-color: #9B59B6; color: white; padding: 15px 40px; text-decoration: none; border-radius: 30px; font-weight: bold; display: inline-block;">
                 {% trans "Accept Invitation & Create Account" %}
             </a>
 

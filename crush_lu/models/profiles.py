@@ -428,6 +428,13 @@ class CrushProfile(models.Model):
         help_text=_("Show profile photo on wallet card")
     )
 
+    # Outlook contact sync
+    outlook_contact_id = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text=_("Microsoft Graph contact ID for Outlook sync")
+    )
+
     # Referral Rewards
     MEMBERSHIP_TIER_CHOICES = [
         ('basic', _('Basic')),

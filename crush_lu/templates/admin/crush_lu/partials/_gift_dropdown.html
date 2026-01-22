@@ -1,0 +1,11 @@
+{# Journey gift dropdown options for email template manager #}
+<option value="">-- Select a Journey Gift --</option>
+{% for gift in gifts %}
+<option value="{{ gift.id }}">
+    {{ gift.gift_code }} - {{ gift.recipient_name|default:"Unknown" }}
+    (from {{ gift.sender.first_name|default:"Unknown" }})
+    {% if gift.is_claimed %}[CLAIMED]{% endif %}
+</option>
+{% empty %}
+<option value="">No journey gifts found</option>
+{% endfor %}

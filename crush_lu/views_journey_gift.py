@@ -37,8 +37,11 @@ def gift_create(request):
             gift.sender = request.user
             gift.save()
 
-            # Generate QR code
-            save_gift_qr_code(gift)
+            # Generate QR code (non-critical - gift works without it)
+            try:
+                save_gift_qr_code(gift)
+            except Exception as e:
+                logger.warning(f"Failed to generate QR code for gift {gift.gift_code}: {e}")
 
             # Send email notification if recipient email provided
             if gift.recipient_email:

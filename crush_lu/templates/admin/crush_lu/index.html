@@ -1,0 +1,260 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n log %}
+
+{# Enable the Django sidebar on the index page #}
+{% block nav-sidebar %}
+    {% include "admin/nav_sidebar.html" %}
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    /* Quick Links Panel */
+    .quick-links-panel {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 25px;
+    }
+
+    .quick-links-panel h3 {
+        margin: 0 0 15px 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .quick-links-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+    }
+
+    .quick-link {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        text-decoration: none;
+        color: #495057;
+        font-weight: 500;
+        font-size: 14px;
+        transition: all 0.2s ease;
+    }
+
+    .quick-link:hover {
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        color: white;
+        border-color: transparent;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
+    }
+
+    .quick-link-icon {
+        font-size: 18px;
+        width: 24px;
+        text-align: center;
+    }
+
+    .quick-link-text {
+        flex: 1;
+    }
+
+    .quick-link-badge {
+        background: #9B59B6;
+        color: white;
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+
+    .quick-link:hover .quick-link-badge {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Dashboard Banner */
+    .dashboard-banner {
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        color: white;
+        padding: 30px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    }
+
+    .dashboard-banner h2 {
+        margin: 0 0 10px 0;
+        font-size: 28px;
+        font-weight: 600;
+        color: white !important;
+    }
+
+    .dashboard-banner p {
+        margin: 0 0 20px 0;
+        opacity: 0.9;
+        color: white !important;
+    }
+
+    .dashboard-btn {
+        display: inline-block;
+        padding: 12px 30px;
+        background: rgba(255, 255, 255, 0.95);
+        color: #9B59B6 !important;
+        text-decoration: none;
+        border-radius: 6px;
+        font-weight: 600;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .dashboard-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        color: #9B59B6 !important;
+        background: white;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .quick-links-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block title %}{{ site_header }} | {% trans 'Site administration' %}{% endblock %}
+
+{% block branding %}
+<h1 id="site-name"><a href="{% url 'crush_admin:index' %}">{{ site_header|default:_('Django administration') }}</a></h1>
+{% endblock %}
+
+{% block content %}
+{# Quick Links Panel - Always visible for fast navigation #}
+<div class="quick-links-panel">
+    <h3><span>🚀</span> Quick Links</h3>
+    <div class="quick-links-grid">
+        <a href="{% url 'crush_admin_dashboard' %}" class="quick-link">
+            <span class="quick-link-icon">📊</span>
+            <span class="quick-link-text">Analytics Dashboard</span>
+        </a>
+        <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?status__exact=pending" class="quick-link">
+            <span class="quick-link-icon">📝</span>
+            <span class="quick-link-text">Pending Reviews</span>
+        </a>
+        <a href="{% url 'user_segments_dashboard' %}" class="quick-link">
+            <span class="quick-link-icon">👥</span>
+            <span class="quick-link-text">User Segments</span>
+        </a>
+        <a href="{% url 'profile_reminders_panel' %}" class="quick-link">
+            <span class="quick-link-icon">📬</span>
+            <span class="quick-link-text">Profile Reminders</span>
+        </a>
+        <a href="{% url 'email_template_manager' %}" class="quick-link">
+            <span class="quick-link-icon">📧</span>
+            <span class="quick-link-text">Email Templates</span>
+        </a>
+        <a href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}" class="quick-link">
+            <span class="quick-link-icon">🎉</span>
+            <span class="quick-link-text">Manage Events</span>
+        </a>
+        <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?is_approved__exact=0" class="quick-link">
+            <span class="quick-link-icon">⏳</span>
+            <span class="quick-link-text">Unapproved Profiles</span>
+        </a>
+        <a href="{% url 'crush_admin:crush_lu_eventconnection_changelist' %}" class="quick-link">
+            <span class="quick-link-icon">💕</span>
+            <span class="quick-link-text">Connections</span>
+        </a>
+    </div>
+</div>
+
+{% if show_dashboard_link %}
+<div class="dashboard-banner">
+    <h2>{{ site_header }}</h2>
+    <p>View comprehensive analytics, metrics, and insights for the Crush.lu platform</p>
+    <a href="{{ dashboard_url }}" class="dashboard-btn">
+        Open Analytics Dashboard
+    </a>
+</div>
+{% endif %}
+
+<div id="content-main">
+{% if app_list %}
+    {% for app in app_list %}
+    <div class="app-{{ app.app_label }} module">
+    <table>
+    <caption>
+    <a href="{{ app.app_url }}" class="section" title="{% blocktrans with name=app.name %}Models in the {{ name }} application{% endblocktrans %}">{{ app.name }}</a>
+    </caption>
+    {% for model in app.models %}
+    <tr class="model-{{ model.object_name|lower }}">
+    {% if model.admin_url %}
+    <th scope="row"><a href="{{ model.admin_url }}">{{ model.name }}</a></th>
+    {% else %}
+    <th scope="row">{{ model.name }}</th>
+    {% endif %}
+
+    {% if model.add_url %}
+    <td><a href="{{ model.add_url }}" class="addlink">{% trans 'Add' %}</a></td>
+    {% else %}
+    <td>&nbsp;</td>
+    {% endif %}
+
+    {% if model.admin_url and show_changelinks %}
+    {% if model.view_only %}
+    <td><a href="{{ model.admin_url }}" class="viewlink">{% trans 'View' %}</a></td>
+    {% else %}
+    <td><a href="{{ model.admin_url }}" class="changelink">{% trans 'Change' %}</a></td>
+    {% endif %}
+    {% elif show_changelinks %}
+    <td>&nbsp;</td>
+    {% endif %}
+    </tr>
+    {% endfor %}
+    </table>
+    </div>
+    {% endfor %}
+{% else %}
+    <p>{% trans 'You don\'t have permission to view or edit anything.' %}</p>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block sidebar %}
+<div id="content-related">
+    <div class="module" id="recent-actions-module">
+        <h2>{% trans 'Recent actions' %}</h2>
+        <h3>{% trans 'My actions' %}</h3>
+        {% get_admin_log 10 as admin_log for_user user %}
+        {% if not admin_log %}
+        <p>{% trans 'None available' %}</p>
+        {% else %}
+        <ul class="actionlist">
+        {% for entry in admin_log %}
+        <li class="{% if entry.is_addition %}addlink{% endif %}{% if entry.is_change %}changelink{% endif %}{% if entry.is_deletion %}deletelink{% endif %}">
+            {% if entry.is_deletion or not entry.get_admin_url %}
+                {{ entry.object_repr }}
+            {% else %}
+                <a href="{{ entry.get_admin_url }}">{{ entry.object_repr }}</a>
+            {% endif %}
+            <br>
+            {% if entry.content_type %}
+                <span class="mini quiet">{% filter capfirst %}{{ entry.content_type }}{% endfilter %}</span>
+            {% else %}
+                <span class="mini quiet">{% trans 'Unknown content' %}</span>
+            {% endif %}
+        </li>
+        {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

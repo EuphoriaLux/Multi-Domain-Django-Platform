@@ -1,0 +1,1097 @@
+{% extends "admin/base_site.html" %}
+{% load static math_filters %}
+
+{% block title %}Email Template Manager - Crush.lu{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+<script defer src="https://unpkg.com/alpinejs@3.13.3/dist/cdn.min.js"></script>
+<style>
+    :root {
+        --card-bg: #ffffff;
+        --card-shadow: rgba(0,0,0,0.1);
+        --text-primary: #333333;
+        --text-secondary: #666666;
+        --text-muted: #999999;
+        --border-color: #e0e0e0;
+        --hover-bg: #f8f9fa;
+        --selected-bg: #f3e8ff;
+        --purple: #9B59B6;
+        --pink: #FF6B9D;
+        --blue: #3b82f6;
+        --green: #22c55e;
+        --orange: #f97316;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --card-bg: #1e1e2e;
+            --card-shadow: rgba(0,0,0,0.3);
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --text-muted: #888888;
+            --border-color: #3a3a4e;
+            --hover-bg: #2a2a3e;
+            --selected-bg: #3a2a4e;
+        }
+    }
+
+    [data-theme="dark"] {
+        --card-bg: #1e1e2e;
+        --card-shadow: rgba(0,0,0,0.3);
+        --text-primary: #e0e0e0;
+        --text-secondary: #b0b0b0;
+        --text-muted: #888888;
+        --border-color: #3a3a4e;
+        --hover-bg: #2a2a3e;
+        --selected-bg: #3a2a4e;
+    }
+
+    .email-manager-container {
+        display: grid;
+        grid-template-columns: 280px 1fr 1fr;
+        gap: 20px;
+        height: calc(100vh - 120px);
+        padding: 20px;
+    }
+
+    .panel {
+        background: var(--card-bg);
+        border-radius: 8px;
+        box-shadow: 0 2px 4px var(--card-shadow);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .panel-header {
+        padding: 15px 20px;
+        border-bottom: 1px solid var(--border-color);
+        background: linear-gradient(135deg, var(--purple), var(--pink));
+        color: white;
+    }
+
+    .panel-header h2 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .panel-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+    }
+
+    /* Template List Panel */
+    .category-section {
+        margin-bottom: 15px;
+    }
+
+    .category-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        font-weight: 600;
+        font-size: 13px;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        border-radius: 6px;
+        transition: background 0.2s;
+    }
+
+    .category-header:hover {
+        background: var(--hover-bg);
+    }
+
+    .category-header.purple { border-left: 3px solid var(--purple); }
+    .category-header.pink { border-left: 3px solid var(--pink); }
+    .category-header.blue { border-left: 3px solid var(--blue); }
+    .category-header.green { border-left: 3px solid var(--green); }
+    .category-header.orange { border-left: 3px solid var(--orange); }
+
+    .category-icon {
+        width: 18px;
+        height: 18px;
+    }
+
+    .template-list {
+        margin-left: 15px;
+        margin-top: 5px;
+    }
+
+    .template-item {
+        padding: 8px 12px;
+        font-size: 13px;
+        color: var(--text-primary);
+        cursor: pointer;
+        border-radius: 4px;
+        margin-bottom: 2px;
+        transition: all 0.2s;
+    }
+
+    .template-item:hover {
+        background: var(--hover-bg);
+    }
+
+    .template-item.selected {
+        background: var(--selected-bg);
+        border-left: 2px solid var(--purple);
+        font-weight: 500;
+    }
+
+    .template-description {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 3px;
+    }
+
+    /* Context Panel */
+    .context-section {
+        margin-bottom: 20px;
+    }
+
+    .context-section label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .search-input-wrapper {
+        position: relative;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        font-size: 14px;
+        background: var(--card-bg);
+        color: var(--text-primary);
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: var(--purple);
+        box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.2);
+    }
+
+    .search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        box-shadow: 0 4px 12px var(--card-shadow);
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 100;
+        margin-top: 4px;
+    }
+
+    .user-result {
+        padding: 10px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid var(--border-color);
+        transition: background 0.2s;
+    }
+
+    .user-result:last-child {
+        border-bottom: none;
+    }
+
+    .user-result:hover {
+        background: var(--hover-bg);
+    }
+
+    .user-name {
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+
+    .user-email {
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+
+    .selected-user {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        background: var(--selected-bg);
+        border-radius: 6px;
+        margin-top: 8px;
+    }
+
+    .selected-user-info {
+        flex: 1;
+    }
+
+    .clear-user-btn {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 4px;
+    }
+
+    .clear-user-btn:hover {
+        color: #dc3545;
+    }
+
+    .context-select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        font-size: 14px;
+        background: var(--card-bg);
+        color: var(--text-primary);
+    }
+
+    /* Preview Panel */
+    .preview-tabs {
+        display: flex;
+        gap: 5px;
+        padding: 10px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .preview-tab {
+        padding: 8px 16px;
+        background: none;
+        border: none;
+        font-size: 13px;
+        color: var(--text-secondary);
+        cursor: pointer;
+        border-radius: 4px;
+        transition: all 0.2s;
+    }
+
+    .preview-tab:hover {
+        background: var(--hover-bg);
+    }
+
+    .preview-tab.active {
+        background: var(--purple);
+        color: white;
+    }
+
+    .preview-actions {
+        display: flex;
+        gap: 10px;
+        padding: 10px;
+        border-top: 1px solid var(--border-color);
+        background: var(--hover-bg);
+    }
+
+    .action-btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--purple), var(--pink));
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
+    }
+
+    .btn-secondary {
+        background: var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .btn-secondary:hover {
+        background: var(--text-muted);
+        color: white;
+    }
+
+    .preview-iframe-container {
+        flex: 1;
+        overflow: hidden;
+        padding: 10px;
+    }
+
+    .preview-iframe {
+        width: 100%;
+        height: 100%;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        background: white;
+    }
+
+    .preview-plain {
+        flex: 1;
+        overflow: auto;
+        padding: 15px;
+        font-family: monospace;
+        font-size: 13px;
+        white-space: pre-wrap;
+        color: var(--text-primary);
+        background: var(--hover-bg);
+        margin: 10px;
+        border-radius: 6px;
+    }
+
+    .preview-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: var(--text-muted);
+        text-align: center;
+        padding: 40px;
+    }
+
+    .preview-placeholder-icon {
+        font-size: 48px;
+        margin-bottom: 15px;
+    }
+
+    .alert {
+        padding: 12px 16px;
+        border-radius: 6px;
+        margin: 10px;
+        font-size: 13px;
+    }
+
+    .alert-success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .alert-error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    .alert-info {
+        background: #cce5ff;
+        color: #004085;
+        border: 1px solid #b8daff;
+    }
+
+    .subject-line {
+        padding: 10px 15px;
+        background: var(--hover-bg);
+        border-bottom: 1px solid var(--border-color);
+        font-size: 13px;
+    }
+
+    .subject-label {
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-right: 8px;
+    }
+
+    .loading-spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid var(--border-color);
+        border-top-color: var(--purple);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .htmx-request .loading-indicator {
+        display: block;
+    }
+
+    .loading-indicator {
+        display: none;
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+        .email-manager-container {
+            grid-template-columns: 250px 1fr;
+            grid-template-rows: auto 1fr;
+        }
+
+        .preview-panel {
+            grid-column: 1 / -1;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .email-manager-container {
+            grid-template-columns: 1fr;
+            height: auto;
+        }
+
+        .panel {
+            min-height: 300px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div x-data="emailTemplateManager()" class="email-manager-container">
+    <!-- Template List Panel -->
+    <div class="panel">
+        <div class="panel-header">
+            <h2>Email Templates</h2>
+        </div>
+        <div class="panel-content">
+            {% for cat_key, cat_info in categories.items %}
+            <div class="category-section">
+                <div class="category-header {{ cat_info.color }}"
+                     @click="toggleCategory('{{ cat_key }}')"
+                     :class="{ 'expanded': expandedCategories.includes('{{ cat_key }}') }">
+                    <span class="category-icon">
+                        {% if cat_info.icon == 'user-circle' %}
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        {% elif cat_info.icon == 'calendar' %}
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
+                        {% elif cat_info.icon == 'heart' %}
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" /></svg>
+                        {% elif cat_info.icon == 'envelope-open' %}
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 9v.906a2.25 2.25 0 01-1.183 1.981l-6.478 3.488M2.25 9v.906a2.25 2.25 0 001.183 1.981l6.478 3.488m8.839 2.51l-4.66-2.51m0 0l-1.023-.55a2.25 2.25 0 00-2.134 0l-1.022.55m0 0l-4.661 2.51m16.5 1.615a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V8.844a2.25 2.25 0 011.183-1.98l7.5-4.04a2.25 2.25 0 012.134 0l7.5 4.04a2.25 2.25 0 011.183 1.98V19.5z" /></svg>
+                        {% elif cat_info.icon == 'gift' %}
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>
+                        {% endif %}
+                    </span>
+                    {{ cat_info.name }}
+                    <span style="margin-left: auto; font-size: 10px;">
+                        ({{ templates_by_category|get_item:cat_key|length }})
+                    </span>
+                </div>
+
+                <div class="template-list" x-show="expandedCategories.includes('{{ cat_key }}')" x-transition>
+                    {% for template in templates_by_category|get_item:cat_key %}
+                    <div class="template-item"
+                         :class="{ 'selected': selectedTemplate === '{{ template.key }}' }"
+                         @click="selectTemplate('{{ template.key }}', '{{ template.name|escapejs }}')">
+                        {{ template.name }}
+                        <div class="template-description">{{ template.description|truncatewords:10 }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Context Panel -->
+    <div class="panel">
+        <div class="panel-header">
+            <h2>Context & Recipients</h2>
+        </div>
+        <div class="panel-content">
+            <!-- User Search -->
+            <div class="context-section">
+                <label>Select User</label>
+                <div class="search-input-wrapper">
+                    <input type="text"
+                           class="search-input"
+                           placeholder="Search by name or email..."
+                           x-model="userSearchQuery"
+                           @input.debounce.300ms="searchUsers()"
+                           @focus="showSearchResults = true"
+                           @blur.debounce.200ms="showSearchResults = false">
+                    <div class="search-results"
+                         x-show="showSearchDropdown"
+                         x-transition
+                         id="user-search-results">
+                        <template x-for="user in searchResults" :key="user.id">
+                            <div class="user-result" @mousedown.prevent="selectUser(user)">
+                                <div class="user-name" x-text="user.name"></div>
+                                <div class="user-email" x-text="user.email"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Selected User Display -->
+                <div class="selected-user" x-show="hasSelectedUser" x-transition>
+                    <div class="selected-user-info">
+                        <div class="user-name" x-text="selectedUserName"></div>
+                        <div class="user-email" x-text="selectedUserEmail"></div>
+                    </div>
+                    <button class="clear-user-btn" @click="clearUser()" title="Clear selection">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="18" height="18">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Event Selector (shown for event templates) -->
+            <div class="context-section" x-show="templateRequiresEvent" x-transition>
+                <label>Select Event</label>
+                <select class="context-select"
+                        x-model="selectedEventId"
+                        @change="loadPreview()"
+                        hx-get="{% url 'email_template_load_events' %}"
+                        hx-trigger="load"
+                        hx-target="this"
+                        hx-swap="innerHTML">
+                    <option value="">Loading events...</option>
+                </select>
+            </div>
+
+            <!-- Connection Selector (shown for connection templates) -->
+            <div class="context-section" x-show="showConnectionSelector" x-transition>
+                <label>Select Connection</label>
+                <select class="context-select"
+                        x-model="selectedConnectionId"
+                        @change="loadPreview()"
+                        :hx-get="'{% url 'email_template_load_connections' %}?user_id=' + (selectedUser?.id || '')"
+                        hx-trigger="load"
+                        hx-target="this"
+                        hx-swap="innerHTML">
+                    <option value="">Select a user first...</option>
+                </select>
+            </div>
+
+            <!-- Invitation Selector (shown for invitation templates) -->
+            <div class="context-section" x-show="templateRequiresInvitation" x-transition>
+                <label>Select Invitation</label>
+                <select class="context-select"
+                        x-model="selectedInvitationId"
+                        @change="loadPreview()"
+                        hx-get="{% url 'email_template_load_invitations' %}"
+                        hx-trigger="load"
+                        hx-target="this"
+                        hx-swap="innerHTML">
+                    <option value="">Loading invitations...</option>
+                </select>
+            </div>
+
+            <!-- Gift Selector (shown for journey templates) -->
+            <div class="context-section" x-show="templateRequiresGift" x-transition>
+                <label>Select Journey Gift</label>
+                <select class="context-select"
+                        x-model="selectedGiftId"
+                        @change="loadPreview()"
+                        hx-get="{% url 'email_template_load_gifts' %}"
+                        hx-trigger="load"
+                        hx-target="this"
+                        hx-swap="innerHTML">
+                    <option value="">Loading gifts...</option>
+                </select>
+            </div>
+
+            <!-- Info Box -->
+            <div class="alert alert-info" x-show="showUserRequiredMessage">
+                Select a user to preview this email template.
+            </div>
+
+            <!-- Load Preview Button -->
+            <button class="action-btn btn-primary" style="width: 100%; margin-top: 20px;"
+                    @click="loadPreview()"
+                    :disabled="cannotLoadPreview"
+                    x-show="selectedTemplate">
+                <span class="loading-indicator"><span class="loading-spinner"></span></span>
+                <span>Load Preview</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Preview Panel -->
+    <div class="panel preview-panel">
+        <div class="panel-header">
+            <h2>Email Preview</h2>
+        </div>
+
+        <!-- Subject Line -->
+        <div class="subject-line" x-show="hasPreview">
+            <span class="subject-label">Subject:</span>
+            <span x-text="previewSubject"></span>
+        </div>
+
+        <!-- Preview Tabs -->
+        <div class="preview-tabs" x-show="hasPreview">
+            <button class="preview-tab" :class="{ 'active': isHtmlTabActive }" @click="setHtmlMode()">
+                HTML Preview
+            </button>
+            <button class="preview-tab" :class="{ 'active': isPlainTabActive }" @click="setPlainMode()">
+                Plain Text
+            </button>
+        </div>
+
+        <!-- Preview Content -->
+        <div class="preview-iframe-container" x-show="showHtmlPreview">
+            <iframe class="preview-iframe" :srcdoc="previewHtml" sandbox="allow-same-origin"></iframe>
+        </div>
+
+        <div class="preview-plain" x-show="showPlainPreview" x-text="previewPlain"></div>
+
+        <!-- Placeholder when no preview -->
+        <div class="preview-placeholder" x-show="noPreview">
+            <div class="preview-placeholder-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" width="64" height="64">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                </svg>
+            </div>
+            <p>Select a template and user to preview the email</p>
+        </div>
+
+        <!-- Actions -->
+        <div class="preview-actions" x-show="hasPreview">
+            <button class="action-btn btn-secondary" @click="copyHtml()" :disabled="noPreview">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                </svg>
+                Copy HTML
+            </button>
+            <button class="action-btn btn-secondary" @click="copyPlain()" :disabled="noPreview">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                </svg>
+                Copy Plain Text
+            </button>
+            <button class="action-btn btn-secondary" @click="openInOutlook()" :disabled="cannotCreateDraft" title="Create draft in Outlook with full HTML formatting">
+                <span x-show="creatingDraft" class="loading-spinner"></span>
+                <svg x-show="notCreatingDraft" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                </svg>
+                <span x-text="outlookButtonText"></span>
+            </button>
+            <button class="action-btn btn-primary" @click="sendEmail()" :disabled="cannotSendEmail">
+                <span x-show="sending" class="loading-spinner"></span>
+                <svg x-show="notSending" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                </svg>
+                <span x-text="sendButtonText"></span>
+            </button>
+        </div>
+
+        <!-- Status Messages -->
+        <div class="alert alert-success" x-show="successMessage" x-text="successMessage" x-transition></div>
+        <div class="alert alert-error" x-show="errorMessage" x-text="errorMessage" x-transition></div>
+    </div>
+</div>
+
+<script>
+function emailTemplateManager() {
+    return {
+        // State
+        expandedCategories: ['profile'],
+        selectedTemplate: null,
+        selectedTemplateName: '',
+        selectedUser: null,
+        userSearchQuery: '',
+        searchResults: [],
+        showSearchResults: false,
+        selectedEventId: '',
+        selectedConnectionId: '',
+        selectedInvitationId: '',
+        selectedGiftId: '',
+        previewMode: 'html',
+        previewHtml: '',
+        previewPlain: '',
+        previewSubject: '',
+        sending: false,
+        creatingDraft: false,
+        successMessage: '',
+        errorMessage: '',
+
+        // Template categories that require specific context
+        eventTemplates: ['event_registration_confirmation', 'event_reminder', 'event_waitlist', 'event_cancellation', 'existing_user_invitation'],
+        connectionTemplates: ['new_connection_request', 'connection_accepted', 'new_message'],
+        invitationTemplates: ['external_guest_invitation', 'invitation_approved', 'invitation_rejected'],
+        giftTemplates: ['journey_gift_notification'],
+
+        // Computed properties (CSP-safe getters)
+        get templateRequiresEvent() {
+            return this.eventTemplates.includes(this.selectedTemplate);
+        },
+        get templateRequiresConnection() {
+            return this.connectionTemplates.includes(this.selectedTemplate);
+        },
+        get templateRequiresInvitation() {
+            return this.invitationTemplates.includes(this.selectedTemplate);
+        },
+        get templateRequiresGift() {
+            return this.giftTemplates.includes(this.selectedTemplate);
+        },
+        get showHtmlPreview() {
+            return this.previewMode === 'html' && this.previewHtml;
+        },
+        get showPlainPreview() {
+            return this.previewMode === 'plain' && this.previewPlain;
+        },
+        get hasPreview() {
+            return !!this.previewHtml;
+        },
+        get noPreview() {
+            return !this.previewHtml;
+        },
+        get hasSelectedUser() {
+            return !!this.selectedUser;
+        },
+        get noSelectedUser() {
+            return !this.selectedUser;
+        },
+        get showUserRequiredMessage() {
+            return this.selectedTemplate && !this.selectedUser;
+        },
+        get canLoadPreview() {
+            return this.selectedTemplate && this.selectedUser;
+        },
+        get cannotLoadPreview() {
+            return !this.selectedTemplate || !this.selectedUser;
+        },
+        get canSendEmail() {
+            return this.previewHtml && !this.sending;
+        },
+        get cannotSendEmail() {
+            return !this.previewHtml || this.sending;
+        },
+        get isHtmlTabActive() {
+            return this.previewMode === 'html';
+        },
+        get isPlainTabActive() {
+            return this.previewMode === 'plain';
+        },
+        get showSearchDropdown() {
+            return this.showSearchResults && this.searchResults.length > 0;
+        },
+        get showConnectionSelector() {
+            return this.templateRequiresConnection && this.selectedUser;
+        },
+        get sendButtonText() {
+            return this.sending ? 'Sending...' : 'Send Email';
+        },
+        get notSending() {
+            return !this.sending;
+        },
+        get canCreateDraft() {
+            return this.previewHtml && !this.creatingDraft;
+        },
+        get cannotCreateDraft() {
+            return !this.previewHtml || this.creatingDraft;
+        },
+        get notCreatingDraft() {
+            return !this.creatingDraft;
+        },
+        get outlookButtonText() {
+            return this.creatingDraft ? 'Creating...' : 'Open in Outlook';
+        },
+        get selectedUserName() {
+            return this.selectedUser ? this.selectedUser.name : '';
+        },
+        get selectedUserEmail() {
+            return this.selectedUser ? this.selectedUser.email : '';
+        },
+        get selectedUserId() {
+            return this.selectedUser ? this.selectedUser.id : '';
+        },
+
+        // Methods
+        toggleCategory(category) {
+            const index = this.expandedCategories.indexOf(category);
+            if (index > -1) {
+                this.expandedCategories.splice(index, 1);
+            } else {
+                this.expandedCategories.push(category);
+            }
+        },
+
+        setHtmlMode() {
+            this.previewMode = 'html';
+        },
+
+        setPlainMode() {
+            this.previewMode = 'plain';
+        },
+
+        copyHtml() {
+            this.copyToClipboard('html');
+        },
+
+        copyPlain() {
+            this.copyToClipboard('plain');
+        },
+
+        selectTemplate(key, name) {
+            this.selectedTemplate = key;
+            this.selectedTemplateName = name;
+            this.clearMessages();
+
+            // Auto-load preview if user is already selected
+            if (this.selectedUser) {
+                this.loadPreview();
+            }
+        },
+
+        async searchUsers() {
+            if (this.userSearchQuery.length < 2) {
+                this.searchResults = [];
+                return;
+            }
+
+            try {
+                const response = await fetch(`{% url 'email_template_user_search' %}?q=${encodeURIComponent(this.userSearchQuery)}`);
+                const html = await response.text();
+
+                // Parse user results from the HTML response
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const userItems = doc.querySelectorAll('[data-user-id]');
+
+                this.searchResults = Array.from(userItems).map(el => ({
+                    id: el.dataset.userId,
+                    name: el.dataset.userName,
+                    email: el.dataset.userEmail
+                }));
+            } catch (error) {
+                console.error('Search error:', error);
+                this.searchResults = [];
+            }
+        },
+
+        selectUser(user) {
+            this.selectedUser = user;
+            this.userSearchQuery = '';
+            this.searchResults = [];
+            this.showSearchResults = false;
+            this.clearMessages();
+
+            // Reload connection dropdown if needed
+            if (this.templateRequiresConnection) {
+                htmx.trigger(document.querySelector('[hx-get*="load-connections"]'), 'htmx:trigger');
+            }
+
+            // Auto-load preview
+            if (this.selectedTemplate) {
+                this.loadPreview();
+            }
+        },
+
+        clearUser() {
+            this.selectedUser = null;
+            this.previewHtml = '';
+            this.previewPlain = '';
+            this.previewSubject = '';
+            this.clearMessages();
+        },
+
+        async loadPreview() {
+            if (!this.selectedTemplate || !this.selectedUser) return;
+
+            this.clearMessages();
+
+            const params = new URLSearchParams({
+                template_key: this.selectedTemplate,
+                user_id: this.selectedUser.id
+            });
+
+            if (this.selectedEventId) params.append('event_id', this.selectedEventId);
+            if (this.selectedConnectionId) params.append('connection_id', this.selectedConnectionId);
+            if (this.selectedInvitationId) params.append('invitation_id', this.selectedInvitationId);
+            if (this.selectedGiftId) params.append('gift_id', this.selectedGiftId);
+
+            try {
+                const response = await fetch(`{% url 'email_template_preview' %}?${params}`);
+                const html = await response.text();
+
+                // Parse the response
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                // Check for error
+                const errorEl = doc.querySelector('[data-error]');
+                if (errorEl) {
+                    this.errorMessage = errorEl.textContent;
+                    return;
+                }
+
+                // Extract preview data from base64-encoded attributes
+                const previewEl = doc.querySelector('#preview-response');
+                if (previewEl) {
+                    const htmlBase64 = previewEl.dataset.htmlBase64;
+                    const plainBase64 = previewEl.dataset.plainBase64;
+                    const subject = previewEl.dataset.subject;
+
+                    // Decode base64 content with proper UTF-8 handling
+                    if (htmlBase64) this.previewHtml = this.decodeBase64Utf8(htmlBase64);
+                    if (plainBase64) this.previewPlain = this.decodeBase64Utf8(plainBase64);
+                    if (subject) this.previewSubject = subject;
+                }
+
+            } catch (error) {
+                console.error('Preview error:', error);
+                this.errorMessage = 'Failed to load preview: ' + error.message;
+            }
+        },
+
+        async copyToClipboard(type) {
+            const content = type === 'html' ? this.previewHtml : this.previewPlain;
+            try {
+                await navigator.clipboard.writeText(content);
+                this.successMessage = `${type === 'html' ? 'HTML' : 'Plain text'} copied to clipboard!`;
+                setTimeout(() => this.successMessage = '', 3000);
+            } catch (error) {
+                this.errorMessage = 'Failed to copy to clipboard';
+                setTimeout(() => this.errorMessage = '', 3000);
+            }
+        },
+
+        async openInOutlook() {
+            if (!this.selectedUser || !this.previewHtml || this.creatingDraft) return;
+
+            this.creatingDraft = true;
+            this.clearMessages();
+
+            const formData = new FormData();
+            formData.append('template_key', this.selectedTemplate);
+            formData.append('user_id', this.selectedUser.id);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+            if (this.selectedEventId) formData.append('event_id', this.selectedEventId);
+            if (this.selectedConnectionId) formData.append('connection_id', this.selectedConnectionId);
+            if (this.selectedInvitationId) formData.append('invitation_id', this.selectedInvitationId);
+            if (this.selectedGiftId) formData.append('gift_id', this.selectedGiftId);
+
+            try {
+                const response = await fetch('{% url "email_template_create_draft" %}', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Open the draft in Outlook Web
+                    if (result.web_link) {
+                        window.open(result.web_link, '_blank');
+                        this.successMessage = 'Draft created! Opening in Outlook...';
+                    } else {
+                        this.successMessage = 'Draft created in Outlook. Check your Drafts folder.';
+                    }
+                } else {
+                    // In DEBUG mode or if Graph API fails, fall back to mailto with plain text
+                    if (result.error && result.error.includes('production')) {
+                        this.fallbackToMailto();
+                    } else {
+                        this.errorMessage = result.error || 'Failed to create draft';
+                    }
+                }
+            } catch (error) {
+                console.error('Draft creation error:', error);
+                // Fall back to mailto
+                this.fallbackToMailto();
+            } finally {
+                this.creatingDraft = false;
+            }
+        },
+
+        fallbackToMailto() {
+            // Fallback to mailto for local development (plain text only)
+            const recipient = this.selectedUser.email;
+            const subject = encodeURIComponent(this.previewSubject);
+            const body = encodeURIComponent(this.previewPlain);
+
+            // Truncate if too long
+            const maxBodyLength = 1500;
+            let truncatedBody = body;
+            if (body.length > maxBodyLength) {
+                truncatedBody = body.substring(0, maxBodyLength) + encodeURIComponent('\n\n[Message truncated - use Copy HTML for full content]');
+            }
+
+            const mailtoUrl = `mailto:${recipient}?subject=${subject}&body=${truncatedBody}`;
+            window.location.href = mailtoUrl;
+
+            this.successMessage = 'Opening in Outlook... (plain text only in dev mode)';
+            setTimeout(() => this.successMessage = '', 3000);
+        },
+
+        async sendEmail() {
+            if (!this.selectedTemplate || !this.selectedUser || this.sending) return;
+
+            this.sending = true;
+            this.clearMessages();
+
+            const formData = new FormData();
+            formData.append('template_key', this.selectedTemplate);
+            formData.append('user_id', this.selectedUser.id);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+            if (this.selectedEventId) formData.append('event_id', this.selectedEventId);
+            if (this.selectedConnectionId) formData.append('connection_id', this.selectedConnectionId);
+            if (this.selectedInvitationId) formData.append('invitation_id', this.selectedInvitationId);
+            if (this.selectedGiftId) formData.append('gift_id', this.selectedGiftId);
+
+            try {
+                const response = await fetch('{% url 'email_template_send' %}', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    this.successMessage = result.message;
+                } else {
+                    this.errorMessage = result.error || 'Failed to send email';
+                }
+            } catch (error) {
+                console.error('Send error:', error);
+                this.errorMessage = 'Failed to send email: ' + error.message;
+            } finally {
+                this.sending = false;
+            }
+        },
+
+        clearMessages() {
+            this.successMessage = '';
+            this.errorMessage = '';
+        },
+
+        // Decode base64 with proper UTF-8 handling
+        decodeBase64Utf8(base64String) {
+            try {
+                // Decode base64 to binary string
+                const binaryString = atob(base64String);
+                // Convert binary string to Uint8Array
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                // Decode UTF-8 bytes to string
+                const decoder = new TextDecoder('utf-8');
+                return decoder.decode(bytes);
+            } catch (error) {
+                console.error('Base64 decode error:', error);
+                return '';
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

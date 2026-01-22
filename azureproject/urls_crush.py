@@ -19,6 +19,17 @@ from crush_lu.admin import crush_admin_site
 from crush_lu.admin.user_segments import user_segments_dashboard, segment_detail
 from crush_lu.admin.profile_reminders import profile_reminders_panel
 from crush_lu import admin_views, views, views_phone_verification, views_profile
+from crush_lu.admin_views import (
+    email_template_manager,
+    email_template_user_search,
+    email_template_preview,
+    email_template_send,
+    email_template_create_draft,
+    email_template_load_events,
+    email_template_load_connections,
+    email_template_load_invitations,
+    email_template_load_gifts,
+)
 from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
@@ -161,6 +172,18 @@ urlpatterns = base_patterns + api_patterns + [
     path('crush-admin/user-segments/', user_segments_dashboard, name='user_segments_dashboard'),
     path('crush-admin/user-segments/<str:segment_key>/', segment_detail, name='segment_detail'),
     path('crush-admin/profile-reminders/', profile_reminders_panel, name='profile_reminders_panel'),
+
+    # Email Template Manager
+    path('crush-admin/email-templates/', email_template_manager, name='email_template_manager'),
+    path('crush-admin/email-templates/search-users/', email_template_user_search, name='email_template_user_search'),
+    path('crush-admin/email-templates/preview/', email_template_preview, name='email_template_preview'),
+    path('crush-admin/email-templates/send/', email_template_send, name='email_template_send'),
+    path('crush-admin/email-templates/create-draft/', email_template_create_draft, name='email_template_create_draft'),
+    path('crush-admin/email-templates/load-events/', email_template_load_events, name='email_template_load_events'),
+    path('crush-admin/email-templates/load-connections/', email_template_load_connections, name='email_template_load_connections'),
+    path('crush-admin/email-templates/load-invitations/', email_template_load_invitations, name='email_template_load_invitations'),
+    path('crush-admin/email-templates/load-gifts/', email_template_load_gifts, name='email_template_load_gifts'),
+
     path('crush-admin/', crush_admin_site.urls),
 
     # Standard Django Admin (all platforms)

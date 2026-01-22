@@ -44,8 +44,6 @@ urlpatterns += i18n_patterns(
     path('admin/', admin.site.urls),
     path('', entreprinder_views.home, name='home'),
     path('', include('entreprinder.urls', namespace='entreprinder')), # Entreprinder URLs
-    # FinOps Hub URLs - included directly for top-level namespace access
-    path('finops/', include(('entreprinder.finops.urls', 'finops_hub'))),
     # Vibe Coding URLs - included directly for top-level namespace access
     path('vibe-coding/', include(('entreprinder.vibe.urls', 'vibe_coding'))),
     path('vinsdelux/', include('vinsdelux.urls', namespace='vinsdelux')), # VinsDelux app

@@ -398,10 +398,11 @@ class GridMigrationTests(TestCase):
 
 
 class InlineStyleExtractionTests(TestCase):
-    """Test that inline styles have been extracted to CSS files."""
+    """Test that inline styles have been extracted to Tailwind CSS."""
 
     TEMPLATE_DIR = Path('crush_lu/templates/crush_lu')
-    CSS_DIR = Path('static/crush_lu/css')
+    # Updated to app-specific static folder
+    CSS_DIR = Path('crush_lu/static/crush_lu/css')
 
     # Templates that should NOT have inline <style> blocks
     STYLE_FREE_TEMPLATES = [
@@ -410,13 +411,6 @@ class InlineStyleExtractionTests(TestCase):
         'voting_demo.html',
         'my_presentation_scores.html',
         'coach_presentation_control.html',
-    ]
-
-    # CSS files that should exist for page-specific styles
-    EXPECTED_CSS_FILES = [
-        'pages/voting.css',
-        'pages/scoring.css',
-        'pages/coach-presentation.css',
     ]
 
     def test_no_inline_styles_in_migrated_templates(self):
@@ -455,31 +449,15 @@ class InlineStyleExtractionTests(TestCase):
         )
 
     def test_page_css_files_exist(self):
-        """Verify expected page-specific CSS files exist."""
-        missing_files = []
-
-        for css_file in self.EXPECTED_CSS_FILES:
-            css_path = self.CSS_DIR / css_file
-            if not css_path.exists():
-                missing_files.append(css_file)
-
-        self.assertEqual(
-            missing_files, [],
-            f"Missing CSS files:\n" + "\n".join(missing_files)
+        """Verify tailwind.css exists (page-specific styles now consolidated)."""
+        # Page-specific CSS files have been consolidated into tailwind.css
+        # This test now verifies the main CSS file exists
+        tailwind_path = self.CSS_DIR / 'tailwind.css'
+        self.assertTrue(
+            tailwind_path.exists(),
+            "tailwind.css should exist in crush_lu/static/crush_lu/css/"
         )
 
     def test_css_imported_in_modular(self):
-        """Verify page CSS files are imported in crush-modular.css."""
-        modular_path = self.CSS_DIR / 'crush-modular.css'
-        if not modular_path.exists():
-            self.skipTest("crush-modular.css not found")
-
-        content = modular_path.read_text(encoding='utf-8')
-
-        for css_file in self.EXPECTED_CSS_FILES:
-            css_name = css_file.split('/')[-1]
-            self.assertIn(
-                css_name,
-                content,
-                f"CSS file {css_file} not imported in crush-modular.css"
-            )
+        """Skip - modular CSS architecture replaced with Tailwind."""
+        self.skipTest("Page-specific CSS consolidated into tailwind.css")

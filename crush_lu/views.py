@@ -1736,7 +1736,6 @@ def coach_review_profile(request, submission_id):
                         'form': form,
                     }
                     return render(request, 'crush_lu/coach_review_profile.html', context)
-
                 submission.profile.is_approved = True
                 submission.profile.approved_at = timezone.now()
                 submission.profile.save()
@@ -3627,8 +3626,8 @@ def service_worker_view(request):
     from django.conf import settings
     import os
 
-    # Read the service worker file
-    sw_path = os.path.join(settings.BASE_DIR, 'static', 'crush_lu', 'sw-workbox.js')
+    # Read the service worker file from app-specific static folder
+    sw_path = os.path.join(settings.BASE_DIR, 'crush_lu', 'static', 'crush_lu', 'sw-workbox.js')
 
     try:
         with open(sw_path, 'r', encoding='utf-8') as f:

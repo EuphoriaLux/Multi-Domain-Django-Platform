@@ -24,39 +24,43 @@ def _normalize_domain(domain):
     return domain
 
 
-# Domain-specific email configurations
-# Note: www.* variants are handled by _normalize_domain() in get_domain_email_config()
-DOMAIN_EMAIL_CONFIG = {
-    'crush.lu': {
-        # Microsoft Graph API configuration (Graph API only - SMTP disabled by M365)
-        'USE_GRAPH_API': True,
-        'GRAPH_TENANT_ID': os.getenv('GRAPH_TENANT_ID'),
-        'GRAPH_CLIENT_ID': os.getenv('GRAPH_CLIENT_ID'),
-        'GRAPH_CLIENT_SECRET': os.getenv('GRAPH_CLIENT_SECRET'),
-        'DEFAULT_FROM_EMAIL': os.getenv('CRUSH_DEFAULT_FROM_EMAIL', 'noreply@crush.lu'),
-    },
-    'powerup.lu': {
-        'USE_GRAPH_API': True,
-        'GRAPH_TENANT_ID': os.getenv('GRAPH_TENANT_ID'),
-        'GRAPH_CLIENT_ID': os.getenv('GRAPH_CLIENT_ID'),
-        'GRAPH_CLIENT_SECRET': os.getenv('GRAPH_CLIENT_SECRET'),
-        'DEFAULT_FROM_EMAIL': os.getenv('POWERUP_DEFAULT_FROM_EMAIL', 'info@powerup.lu'),
-    },
-    'vinsdelux.com': {
-        'USE_GRAPH_API': True,
-        'GRAPH_TENANT_ID': os.getenv('GRAPH_TENANT_ID'),
-        'GRAPH_CLIENT_ID': os.getenv('GRAPH_CLIENT_ID'),
-        'GRAPH_CLIENT_SECRET': os.getenv('GRAPH_CLIENT_SECRET'),
-        'DEFAULT_FROM_EMAIL': os.getenv('VINSDELUX_DEFAULT_FROM_EMAIL', 'info@vinsdelux.com'),
-    },
-    'arborist.lu': {
-        'USE_GRAPH_API': True,
-        'GRAPH_TENANT_ID': os.getenv('GRAPH_TENANT_ID'),
-        'GRAPH_CLIENT_ID': os.getenv('GRAPH_CLIENT_ID'),
-        'GRAPH_CLIENT_SECRET': os.getenv('GRAPH_CLIENT_SECRET'),
-        'DEFAULT_FROM_EMAIL': 'tom@arborist.lu',
-    },
-}
+def _get_domain_email_configs():
+    """
+    Get domain-specific email configurations.
+    This is a function (not a constant) to ensure environment variables are read
+    at runtime after dotenv has loaded the .env file.
+    """
+    return {
+        'crush.lu': {
+            # Microsoft Graph API configuration (Graph API only - SMTP disabled by M365)
+            'USE_GRAPH_API': True,
+            'GRAPH_TENANT_ID': os.getenv('GRAPH_TENANT_ID'),
+            'GRAPH_CLIENT_ID': os.getenv('GRAPH_CLIENT_ID'),
+            'GRAPH_CLIENT_SECRET': os.getenv('GRAPH_CLIENT_SECRET'),
+            'DEFAULT_FROM_EMAIL': os.getenv('CRUSH_DEFAULT_FROM_EMAIL', 'noreply@crush.lu'),
+        },
+        'powerup.lu': {
+            'USE_GRAPH_API': True,
+            'GRAPH_TENANT_ID': os.getenv('GRAPH_TENANT_ID'),
+            'GRAPH_CLIENT_ID': os.getenv('GRAPH_CLIENT_ID'),
+            'GRAPH_CLIENT_SECRET': os.getenv('GRAPH_CLIENT_SECRET'),
+            'DEFAULT_FROM_EMAIL': os.getenv('POWERUP_DEFAULT_FROM_EMAIL', 'info@powerup.lu'),
+        },
+        'vinsdelux.com': {
+            'USE_GRAPH_API': True,
+            'GRAPH_TENANT_ID': os.getenv('GRAPH_TENANT_ID'),
+            'GRAPH_CLIENT_ID': os.getenv('GRAPH_CLIENT_ID'),
+            'GRAPH_CLIENT_SECRET': os.getenv('GRAPH_CLIENT_SECRET'),
+            'DEFAULT_FROM_EMAIL': os.getenv('VINSDELUX_DEFAULT_FROM_EMAIL', 'info@vinsdelux.com'),
+        },
+        'arborist.lu': {
+            'USE_GRAPH_API': True,
+            'GRAPH_TENANT_ID': os.getenv('GRAPH_TENANT_ID'),
+            'GRAPH_CLIENT_ID': os.getenv('GRAPH_CLIENT_ID'),
+            'GRAPH_CLIENT_SECRET': os.getenv('GRAPH_CLIENT_SECRET'),
+            'DEFAULT_FROM_EMAIL': 'tom@arborist.lu',
+        },
+    }
 
 
 def get_domain_email_config(request=None, domain=None):
@@ -81,8 +85,11 @@ def get_domain_email_config(request=None, domain=None):
     # Normalize domain (strip www.) to use single config for both variants
     host = _normalize_domain(host)
 
+    # Get configs at runtime (ensures .env is loaded)
+    configs = _get_domain_email_configs()
+
     # Get config for this domain, or fallback to powerup.lu
-    return DOMAIN_EMAIL_CONFIG.get(host, DOMAIN_EMAIL_CONFIG['powerup.lu'])
+    return configs.get(host, configs['powerup.lu'])
 
 
 def send_domain_email(subject, message, recipient_list, request=None, domain=None,
@@ -115,11 +122,15 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
     # Use configured from_email or domain default
     email_from = from_email or config['DEFAULT_FROM_EMAIL']
 
-    # In DEBUG mode, use console backend to print emails to terminal
+    # In DEBUG mode, use file backend to save emails (avoids Windows console encoding issues)
     if settings.DEBUG:
-        logger.info(f"📧 [DEBUG] Printing email to console (from {email_from})")
+        import os
+        email_folder = os.path.join(settings.BASE_DIR, 'sent_emails')
+        os.makedirs(email_folder, exist_ok=True)
+        logger.info(f"📧 [DEBUG] Saving email to {email_folder} (from {email_from})")
         connection = get_connection(
-            backend='django.core.mail.backends.console.EmailBackend',
+            backend='django.core.mail.backends.filebased.EmailBackend',
+            file_path=email_folder,
             fail_silently=fail_silently,
         )
     else:
@@ -161,7 +172,7 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
                 fail_silently=fail_silently,
             )
 
-    # Create email message
+    # Create email message with proper UTF-8 encoding
     email = EmailMessage(
         subject=subject,
         body=html_message if html_message else message,
@@ -170,6 +181,9 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
         cc=cc or [],
         connection=connection,
     )
+
+    # Ensure UTF-8 encoding for all content
+    email.encoding = 'utf-8'
 
     # Set content type to HTML if html_message provided
     if html_message:

@@ -1,0 +1,23 @@
+{# User search results partial for email template manager #}
+{% for user in users %}
+<div class="user-result"
+     data-user-id="{{ user.id }}"
+     data-user-name="{{ user.get_full_name|default:user.username }}"
+     data-user-email="{{ user.email }}">
+    <div class="user-name">{{ user.get_full_name|default:user.username }}</div>
+    <div class="user-email">{{ user.email }}</div>
+    {% if user.crushprofile %}
+    <div style="font-size: 11px; color: #999; margin-top: 2px;">
+        {% if user.crushprofile.is_approved %}
+        <span style="color: #28a745;">Approved</span>
+        {% else %}
+        <span style="color: #ffc107;">Pending</span>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% empty %}
+<div style="padding: 15px; color: #999; text-align: center;">
+    No users found
+</div>
+{% endfor %}

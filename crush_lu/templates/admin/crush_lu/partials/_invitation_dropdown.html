@@ -1,0 +1,11 @@
+{# Invitation dropdown options for email template manager #}
+<option value="">-- Select an Invitation --</option>
+{% for inv in invitations %}
+<option value="{{ inv.id }}">
+    {{ inv.guest_first_name }} ({{ inv.guest_email }})
+    - {{ inv.event.title }}
+    [{{ inv.status }}]
+</option>
+{% empty %}
+<option value="">No invitations found</option>
+{% endfor %}

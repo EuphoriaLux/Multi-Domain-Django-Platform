@@ -23,7 +23,7 @@
     "@type": "WebSite",
     "name": "Crush.lu",
     "url": "https://crush.lu",
-    "description": "Privacy-first dating platform for Luxembourg with coach-curated events and meaningful connections.",
+    "description": "{% trans "Privacy-first dating platform for Luxembourg with coach-curated events and meaningful connections." %}",
     "potentialAction": {
         "@type": "SearchAction",
         "target": "https://crush.lu/events/?q={search_term_string}",
@@ -40,26 +40,26 @@
     "mainEntity": [
         {
             "@type": "Question",
-            "name": "How does Crush.lu work?",
+            "name": "{% trans "How does Crush.lu work?" %}",
             "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Create your profile, get coach approval within 24-48 hours, then join speed dating nights and social meetups to meet real people in person."
+                "text": "{% trans "Create your profile, get coach approval within 24-48 hours, then join speed dating nights and social meetups to meet real people in person." %}"
             }
         },
         {
             "@type": "Question",
-            "name": "Is Crush.lu free to join?",
+            "name": "{% trans "Is Crush.lu free to join?" %}",
             "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Yes! Creating a profile is free. Some events may have a small registration fee to cover venue costs."
+                "text": "{% trans "Yes! Creating a profile is free. Some events may have a small registration fee to cover venue costs." %}"
             }
         },
         {
             "@type": "Question",
-            "name": "What makes Crush.lu different from other dating apps?",
+            "name": "{% trans "What makes Crush.lu different from other dating apps?" %}",
             "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Crush.lu focuses on privacy-first, event-based dating. All profiles are reviewed by Crush Coaches, and you meet people at organized events instead of endless swiping."
+                "text": "{% trans "Crush.lu focuses on privacy-first, event-based dating. All profiles are reviewed by Crush Coaches, and you meet people at organized events instead of endless swiping." %}"
             }
         }
     ]
@@ -72,6 +72,7 @@
 {% endblock %}
 
 {% block content %}
+<div class="home-page">
 <!-- Hero Section -->
 <section class="hero-section" aria-labelledby="hero-heading">
     <div class="hero-content">
@@ -137,28 +138,28 @@
         <div class="lg:w-2/3">
             <div class="step-item">
                 <div class="step-number" aria-hidden="true">1</div>
-                <div class="step-content">
+                <div class="step-text">
                     <h3>{% trans "Create Your Profile" %}</h3>
                     <p>{% trans "Sign up and tell us about yourself. Share your interests and what you're looking for." %}</p>
                 </div>
             </div>
             <div class="step-item">
                 <div class="step-number" aria-hidden="true">2</div>
-                <div class="step-content">
+                <div class="step-text">
                     <h3>{% trans "Get Coach Approval" %}</h3>
                     <p>{% trans "A Crush Coach reviews your profile and provides feedback within 24-48 hours." %}</p>
                 </div>
             </div>
             <div class="step-item">
                 <div class="step-number" aria-hidden="true">3</div>
-                <div class="step-content">
+                <div class="step-text">
                     <h3>{% trans "Join Events" %}</h3>
                     <p>{% trans "Browse and register for upcoming speed dating nights and social meetups." %}</p>
                 </div>
             </div>
             <div class="step-item">
                 <div class="step-number" aria-hidden="true">4</div>
-                <div class="step-content">
+                <div class="step-text">
                     <h3>{% trans "Make Connections" %}</h3>
                     <p>{% trans "Meet people in real life and build authentic relationships." %}</p>
                 </div>
@@ -221,28 +222,32 @@
         <p class="cta-text">
             {% trans "Join Luxembourg's most authentic way to meet new people and build real relationships." %}
         </p>
-        <a href="{% url 'crush_lu:signup' %}" class="btn-hero-primary" style="background: white; color: #9B59B6;">
-            {% trans "Create Your Profile Now" %}
+        <a href="{% url 'crush_lu:signup' %}" class="btn-cta">
+            <span>{% trans "Create Your Profile Now" %}</span>
         </a>
-        <p class="mt-4 mb-0" style="opacity: 0.9;">
-            <small>{% trans "No credit card required • Free to join • Cancel anytime" %}</small>
+        <p class="cta-subtext">
+            <span>{% trans "No credit card required" %}</span>
+            <span>{% trans "Free to join" %}</span>
+            <span>{% trans "Cancel anytime" %}</span>
         </p>
     </div>
 </section>
+</div><!-- /.home-page -->
 {% endblock %}
 
 {% block extra_js %}
 <script nonce="{{ request.csp_nonce }}">
     // Intersection Observer for scroll animations
     const observerOptions = {
-        threshold: 0.15,
-        rootMargin: '0px 0px -100px 0px'
+        threshold: 0.05,
+        rootMargin: '50px 0px 50px 0px'
     };
 
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
                 entry.target.classList.add('visible');
+                observer.unobserve(entry.target);
             }
         });
     }, observerOptions);
@@ -251,5 +256,12 @@
     document.querySelectorAll('.animate-on-scroll').forEach(el => {
         observer.observe(el);
     });
+
+    // Fallback: Make all elements visible after 1 second if observer doesn't trigger
+    setTimeout(() => {
+        document.querySelectorAll('.animate-on-scroll:not(.visible)').forEach(el => {
+            el.classList.add('visible');
+        });
+    }, 1000);
 </script>
 {% endblock %}

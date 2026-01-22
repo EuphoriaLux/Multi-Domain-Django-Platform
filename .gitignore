@@ -187,3 +187,6 @@ LOCAL_DEV_SETUP.md
 
 # Claude Code temporary files
 tmpclaude-*
+
+# Development email files (DEBUG mode file backend)
+sent_emails/

@@ -1136,3 +1136,119 @@ def manage_coach_staff_status(sender, instance, created, **kwargs):
 
     except Exception as e:
         logger.error(f"Error managing staff status for coach {user.id}: {e}")
+
+
+# =============================================================================
+# OUTLOOK CONTACT SYNC
+# =============================================================================
+
+# Fields that should trigger an Outlook contact update when changed
+OUTLOOK_SYNC_PROFILE_FIELDS = {
+    'phone_number',
+    'location',
+    'date_of_birth',
+    'gender',
+    'is_approved',
+    'photo_1',
+}
+
+# User fields that should trigger an Outlook contact update
+OUTLOOK_SYNC_USER_FIELDS = {
+    'first_name',
+    'last_name',
+    'email',
+}
+
+
+@receiver(post_save, sender=CrushProfile)
+def sync_profile_to_outlook(sender, instance, created, update_fields, **kwargs):
+    """
+    Automatically sync profile to Outlook contacts when saved (production only).
+
+    This signal fires on CrushProfile save and syncs the contact to Outlook
+    if the profile has a phone number.
+
+    Only runs in production when OUTLOOK_CONTACT_SYNC_ENABLED=true.
+
+    Args:
+        sender: The model class (CrushProfile)
+        instance: The CrushProfile instance being saved
+        created: True if this is a new profile
+        update_fields: Set of field names being updated (if using update_fields)
+        **kwargs: Additional signal arguments
+    """
+    from crush_lu.services.graph_contacts import GraphContactsService, is_sync_enabled
+
+    # Skip sync if not in production environment
+    if not is_sync_enabled():
+        return
+
+    # Only sync if phone number exists (required for caller ID)
+    if not instance.phone_number:
+        return
+
+    # Check if relevant fields were updated (if update_fields provided)
+    should_sync = False
+
+    if created:
+        # Always sync new profiles with phone numbers
+        should_sync = True
+    elif update_fields is not None:
+        # Check if any Outlook-relevant fields were updated
+        updated_fields = set(update_fields)
+        if updated_fields & OUTLOOK_SYNC_PROFILE_FIELDS:
+            should_sync = True
+    else:
+        # Full save (no update_fields) - sync to be safe
+        should_sync = True
+
+    if should_sync:
+        try:
+            service = GraphContactsService()
+            service.sync_profile(instance)
+        except Exception as e:
+            # Don't fail the save if Outlook sync fails
+            logger.warning(f"Failed to sync profile {instance.pk} to Outlook: {e}")
+
+
+@receiver(post_save, sender=User)
+def sync_user_to_outlook_on_name_change(sender, instance, created, update_fields, **kwargs):
+    """
+    Sync Outlook contact when User name/email changes.
+
+    This handles cases where the User model is updated independently
+    of CrushProfile (e.g., admin changes name, user changes email).
+
+    Only runs in production when OUTLOOK_CONTACT_SYNC_ENABLED=true.
+    """
+    from crush_lu.services.graph_contacts import GraphContactsService, is_sync_enabled
+
+    # Skip for new users (no profile yet)
+    if created:
+        return
+
+    # Skip sync if not in production environment
+    if not is_sync_enabled():
+        return
+
+    # Check if relevant fields were updated
+    if update_fields is not None:
+        updated_fields = set(update_fields)
+        if not (updated_fields & OUTLOOK_SYNC_USER_FIELDS):
+            return
+
+    # Check if user has a CrushProfile with Outlook sync
+    try:
+        profile = instance.crushprofile
+    except CrushProfile.DoesNotExist:
+        return
+
+    # Only sync if profile has phone number and is already synced
+    if not profile.phone_number or not profile.outlook_contact_id:
+        return
+
+    try:
+        service = GraphContactsService()
+        service.sync_profile(profile)
+    except Exception as e:
+        logger.warning(f"Failed to sync user {instance.pk} to Outlook: {e}")

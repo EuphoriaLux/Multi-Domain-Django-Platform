@@ -121,9 +121,9 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, "static"),
-]
+# STATICFILES_DIRS removed - all static files now in app-level directories
+# (e.g., crush_lu/static/crush_lu/, core/static/core/ for shared vendor files)
+# Django's AppDirectoriesFinder handles these automatically
 
 
 # SITE_ID = 1

@@ -179,7 +179,7 @@
     }
 
     .step-card p {
-        color: #6c757d;
+        color: #374151;
         line-height: 1.7;
         font-size: clamp(0.95rem, 2vw, 1rem);
     }
@@ -287,8 +287,8 @@
         font-size: 1.5rem;
     }
 
-    /* CTA Section - Full width like hero */
-    .cta-section {
+    /* CTA Section - Full width like hero (scoped to how-it-works page) */
+    .hiw-cta-section {
         text-align: center;
         padding: 4rem 1rem;
         background: linear-gradient(135deg, rgba(155, 89, 182, 0.15), rgba(255, 107, 157, 0.15));
@@ -303,13 +303,13 @@
         margin-bottom: 0;
     }
 
-    .cta-section h2 {
+    .hiw-cta-section h2 {
         font-size: clamp(1.75rem, 4vw, 2.5rem);
         margin-bottom: 1.5rem;
         color: #2C3E50;
     }
 
-    .cta-section p {
+    .hiw-cta-section p {
         font-size: clamp(1rem, 2.5vw, 1.25rem);
         color: #6c757d;
         margin-bottom: 2rem;
@@ -392,6 +392,7 @@
 {% endblock %}
 
 {% block content %}
+<div class="how-it-works-page">
 <!-- Hero Section -->
 <div class="how-it-works-hero">
     <h1>{% trans "How Crush.lu Works" %}</h1>
@@ -522,23 +523,23 @@
         <div class="text-center p-6">
             <div class="text-5xl mb-4">🚫</div>
             <h5 class="font-semibold mb-2">{% trans "No Endless Swiping" %}</h5>
-            <p class="text-gray-500">{% trans "We focus on quality over quantity. Real events, real people." %}</p>
+            <p class="text-gray-600">{% trans "We focus on quality over quantity. Real events, real people." %}</p>
         </div>
         <div class="text-center p-6">
             <div class="text-5xl mb-4">👥</div>
             <h5 class="font-semibold mb-2">{% trans "Human-Curated" %}</h5>
-            <p class="text-gray-500">{% trans "Every profile reviewed by real coaches, not algorithms." %}</p>
+            <p class="text-gray-600">{% trans "Every profile reviewed by real coaches, not algorithms." %}</p>
         </div>
         <div class="text-center p-6">
             <div class="text-5xl mb-4">🇱🇺</div>
             <h5 class="font-semibold mb-2">{% trans "Luxembourg-Focused" %}</h5>
-            <p class="text-gray-500">{% trans "Built for our small community with privacy in mind." %}</p>
+            <p class="text-gray-600">{% trans "Built for our small community with privacy in mind." %}</p>
         </div>
     </div>
 </div>
 
 <!-- CTA Section -->
-<div class="cta-section fade-in">
+<div class="hiw-cta-section fade-in">
     <h2>{% trans "Ready to Meet Your Crush?" %}</h2>
     <p>{% trans "Join Luxembourg's most authentic way to meet new people and make real connections." %}</p>
     <a href="{% url 'crush_lu:signup' %}" class="btn-crush-primary inline-flex items-center justify-center py-4 px-12 text-lg">
@@ -550,6 +551,7 @@
         </small>
     </div>
 </div>
+</div><!-- /.how-it-works-page -->
 {% endblock %}
 
 {% block extra_js %}

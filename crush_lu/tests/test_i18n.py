@@ -672,10 +672,10 @@ class JavaScriptI18nTests(TestCase):
         set by the template using {% url %} tag with language prefix.
         """
         import os
-        # Navigate from crush_lu/tests/ up to project root, then to static/
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        # Navigate from crush_lu/tests/ up to crush_lu/static/crush_lu/js/
+        crush_lu_dir = os.path.dirname(os.path.dirname(__file__))
         js_path = os.path.join(
-            project_root,
+            crush_lu_dir,
             'static', 'crush_lu', 'js', 'event-voting.js'
         )
 

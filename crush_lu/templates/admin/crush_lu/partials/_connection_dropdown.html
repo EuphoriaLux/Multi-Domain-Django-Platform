@@ -1,0 +1,11 @@
+{# Connection dropdown options for email template manager #}
+<option value="">-- Select a Connection --</option>
+{% for conn in connections %}
+<option value="{{ conn.id }}">
+    {{ conn.requester.first_name }} &harr; {{ conn.recipient.first_name }}
+    {% if conn.event %} @ {{ conn.event.title }}{% endif %}
+    ({{ conn.status }})
+</option>
+{% empty %}
+<option value="">No connections found</option>
+{% endfor %}

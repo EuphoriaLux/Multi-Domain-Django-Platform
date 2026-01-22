@@ -16,6 +16,7 @@
             background-color: #f8f9fa;
         }
         .container {
+            background-color: #9B59B6; /* Solid fallback for Outlook */
             background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
             border-radius: 16px;
             padding: 40px;
@@ -61,8 +62,9 @@
         }
         .cta-button {
             display: inline-block;
+            background-color: #9B59B6; /* Solid fallback for Outlook */
             background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
-            color: white;
+            color: white !important;
             padding: 15px 40px;
             text-decoration: none;
             border-radius: 30px;
@@ -98,9 +100,9 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container" style="background-color: #9B59B6; padding: 40px;">
         <div class="inner-content">
-            <h1>🎉 {% trans "You're Invited!" %}</h1>
+            <h1 style="color: #9B59B6;">🎉 {% trans "You're Invited!" %}</h1>
             <p class="subtitle">{% trans "You've been personally invited to an exclusive Crush.lu event" %}</p>
 
             <p>{% blocktrans with first_name=user.first_name|default:user.username %}Hi {{ first_name }},{% endblocktrans %}</p>
@@ -149,7 +151,7 @@
 
             <p>{% trans "This is an exclusive, invitation-only event. You're one of the select few invited!" %}</p>
 
-            <a href="{{ event_url }}" class="cta-button">
+            <a href="{{ event_url }}" class="cta-button" style="background-color: #9B59B6; color: white; padding: 15px 40px; text-decoration: none; border-radius: 30px; font-weight: bold; display: inline-block;">
                 {% trans "View Event Details & Register" %}
             </a>
 

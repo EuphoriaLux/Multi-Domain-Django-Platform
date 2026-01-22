@@ -1,0 +1,8 @@
+{# Email template preview partial #}
+{# Provides structured data for Alpine.js to parse #}
+{# Using data attributes with base64 encoding for safe HTML transfer #}
+<div id="preview-response"
+     data-subject="{{ subject }}"
+     data-html-base64="{{ html_content_base64 }}"
+     data-plain-base64="{{ plain_content_base64 }}">
+</div>

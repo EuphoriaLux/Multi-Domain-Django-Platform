@@ -162,3 +162,93 @@ class GraphEmailBackend(BaseEmailBackend):
             raise Exception(f"Failed to send email via Graph API: HTTP {response.status_code} - {error_msg}")
 
         logger.info(f"Email sent successfully via Graph API to {message.to} from {from_email}")
+
+
+def create_outlook_draft(subject, html_content, recipient_email, from_email=None):
+    """
+    Create a draft email in Outlook using Microsoft Graph API.
+
+    Args:
+        subject: Email subject
+        html_content: HTML body content
+        recipient_email: Recipient email address
+        from_email: Sender email (defaults to CRUSH_DEFAULT_FROM_EMAIL)
+
+    Returns:
+        dict: {'success': True, 'web_link': '...'} or {'success': False, 'error': '...'}
+    """
+    import os
+    import requests
+
+    try:
+        import msal
+    except ImportError:
+        return {'success': False, 'error': 'msal package not installed'}
+
+    # Get Graph API credentials
+    tenant_id = os.getenv('GRAPH_TENANT_ID')
+    client_id = os.getenv('GRAPH_CLIENT_ID')
+    client_secret = os.getenv('GRAPH_CLIENT_SECRET')
+    from_email = from_email or os.getenv('CRUSH_DEFAULT_FROM_EMAIL', 'noreply@crush.lu')
+
+    if not all([tenant_id, client_id, client_secret]):
+        return {'success': False, 'error': 'Graph API credentials not configured'}
+
+    # Get access token
+    authority = f"https://login.microsoftonline.com/{tenant_id}"
+    scope = ["https://graph.microsoft.com/.default"]
+
+    app = msal.ConfidentialClientApplication(
+        client_id,
+        authority=authority,
+        client_credential=client_secret,
+    )
+
+    result = app.acquire_token_silent(scope, account=None)
+    if not result:
+        result = app.acquire_token_for_client(scopes=scope)
+
+    if "access_token" not in result:
+        error = result.get("error_description", result.get("error", "Unknown error"))
+        return {'success': False, 'error': f'Failed to get access token: {error}'}
+
+    token = result["access_token"]
+
+    # Create draft email payload
+    draft_payload = {
+        "subject": subject,
+        "body": {
+            "contentType": "HTML",
+            "content": html_content
+        },
+        "toRecipients": [
+            {"emailAddress": {"address": recipient_email}}
+        ]
+    }
+
+    # Create draft via Graph API
+    endpoint = f"https://graph.microsoft.com/v1.0/users/{from_email}/messages"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(endpoint, headers=headers, json=draft_payload, timeout=30)
+
+    if response.status_code in [200, 201]:
+        data = response.json()
+        # Get the web link to open in Outlook
+        web_link = data.get('webLink', '')
+        message_id = data.get('id', '')
+
+        logger.info(f"Draft created successfully for {recipient_email} from {from_email}")
+
+        return {
+            'success': True,
+            'web_link': web_link,
+            'message_id': message_id
+        }
+    else:
+        error_msg = response.text
+        logger.error(f"Graph API draft creation error (status {response.status_code}): {error_msg}")
+        return {'success': False, 'error': f'HTTP {response.status_code} - {error_msg}'}

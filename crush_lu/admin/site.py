@@ -17,6 +17,9 @@ class CrushLuAdminSite(admin.AdminSite):
     site_title = 'Crush.lu Coach Panel'
     index_title = 'Welcome to Crush.lu Coach Management'
 
+    # Use custom index template with Quick Links and sidebar
+    index_template = 'admin/crush_lu/index.html'
+
     def has_permission(self, request):
         """
         Custom permission check: Only Crush coaches can access this admin panel.

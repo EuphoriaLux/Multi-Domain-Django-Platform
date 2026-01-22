@@ -113,7 +113,7 @@ def get_segment_definitions():
         is_approved=True,
         is_active=True
     ).exclude(
-        user__pushsubscription__isnull=False
+        user__push_subscriptions__isnull=False
     )
 
     # Unsubscribed from all emails

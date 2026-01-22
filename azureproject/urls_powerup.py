@@ -30,12 +30,8 @@ urlpatterns = base_patterns + api_patterns + [
     # Entreprinder home page
     path('', entreprinder_views.home, name='home'),
 
-    # Entreprinder app URLs (includes matching, finops, and vibe_coding - all merged)
+    # Entreprinder app URLs (includes matching and vibe_coding)
     path('', include('entreprinder.urls', namespace='entreprinder')),
-
-    # FinOps Hub URLs - included directly for top-level namespace access
-    # This allows templates to use {% url 'finops_hub:dashboard' %} without entreprinder prefix
-    path('finops/', include(('entreprinder.finops.urls', 'finops_hub'))),
 
     # Vibe Coding URLs - included directly for top-level namespace access
     # This allows templates to use {% url 'vibe_coding:index' %} without entreprinder prefix

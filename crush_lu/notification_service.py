@@ -21,19 +21,42 @@ logger = logging.getLogger(__name__)
 
 class NotificationType(Enum):
     """
-    Notification types mapped to preference keys.
-    The value matches the suffix in both PushSubscription (notify_*)
-    and EmailPreference (email_*) fields.
+    Notification types with unique identifiers.
+
+    The preference_key property maps to the suffix in both PushSubscription (notify_*)
+    and EmailPreference (email_*) fields for preference checking.
+
+    IMPORTANT: Each enum member MUST have a unique value to avoid Python's enum aliasing
+    behavior where members with the same value become aliases of the first member.
     """
-    PROFILE_APPROVED = 'profile_updates'
-    PROFILE_REVISION = 'profile_updates'
-    PROFILE_REJECTED = 'profile_updates'  # Email-only typically
-    NEW_MESSAGE = 'new_messages'
-    NEW_CONNECTION = 'new_connections'
-    CONNECTION_ACCEPTED = 'new_connections'
-    EVENT_REMINDER = 'event_reminders'
-    EVENT_REGISTRATION = 'event_reminders'
-    EVENT_WAITLIST = 'event_reminders'
+    PROFILE_APPROVED = 'profile_approved'
+    PROFILE_REVISION = 'profile_revision'
+    PROFILE_REJECTED = 'profile_rejected'
+    NEW_MESSAGE = 'new_message'
+    NEW_CONNECTION = 'new_connection'
+    CONNECTION_ACCEPTED = 'connection_accepted'
+    EVENT_REMINDER = 'event_reminder'
+    EVENT_REGISTRATION = 'event_registration'
+    EVENT_WAITLIST = 'event_waitlist'
+
+    @property
+    def preference_key(self) -> str:
+        """
+        Map notification type to the preference field suffix.
+        Multiple notification types can share a preference key.
+        """
+        preference_mapping = {
+            'profile_approved': 'profile_updates',
+            'profile_revision': 'profile_updates',
+            'profile_rejected': 'profile_updates',
+            'new_message': 'new_messages',
+            'new_connection': 'new_connections',
+            'connection_accepted': 'new_connections',
+            'event_reminder': 'event_reminders',
+            'event_registration': 'event_reminders',
+            'event_waitlist': 'event_reminders',
+        }
+        return preference_mapping.get(self.value, self.value)
 
 
 @dataclass
@@ -99,7 +122,7 @@ class NotificationService:
             NotificationResult with delivery status
         """
         result = NotificationResult()
-        preference_key = notification_type.value
+        preference_key = notification_type.preference_key
 
         # Step 1: Check if user has active push subscriptions for this type
         try:

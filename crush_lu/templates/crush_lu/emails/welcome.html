@@ -15,6 +15,7 @@
             padding: 20px;
         }
         .header {
+            background-color: #9B59B6; /* Solid fallback for Outlook */
             background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
             color: white;
             padding: 30px;
@@ -24,6 +25,7 @@
         .header h1 {
             margin: 0;
             font-size: 28px;
+            color: #ffffff; /* Explicit white for Outlook */
         }
         .content {
             background: #ffffff;
@@ -69,8 +71,8 @@
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🎉 {% trans "Welcome to Crush.lu!" %}</h1>
+    <div class="header" style="background-color: #9B59B6; color: white; padding: 30px; text-align: center;">
+        <h1 style="margin: 0; font-size: 28px; color: #ffffff;">🎉 {% trans "Welcome to Crush.lu!" %}</h1>
     </div>
 
     <div class="content">

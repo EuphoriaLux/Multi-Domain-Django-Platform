@@ -638,3 +638,727 @@ def crush_admin_dashboard(request):
     }
 
     return render(request, 'admin/crush_lu/dashboard.html', context)
+
+
+# =============================================================================
+# EMAIL TEMPLATE MANAGER VIEWS
+# =============================================================================
+
+@login_required
+def email_template_manager(request):
+    """
+    Main Email Template Manager page.
+
+    Displays all email templates grouped by category with search and preview functionality.
+    Access: Superusers and active Crush coaches only.
+    """
+    from .admin.email_templates_config import (
+        EMAIL_CATEGORIES,
+        get_templates_by_category,
+    )
+
+    # Permission check
+    if not _has_email_template_access(request.user):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("You must be a Crush coach or superuser to access this page.")
+
+    templates_by_category = get_templates_by_category()
+
+    context = {
+        'categories': EMAIL_CATEGORIES,
+        'templates_by_category': templates_by_category,
+        'title': 'Email Template Manager',
+    }
+
+    return render(request, 'admin/crush_lu/email_template_manager.html', context)
+
+
+@login_required
+def email_template_user_search(request):
+    """
+    HTMX endpoint: Search users by name or email.
+
+    Returns a partial template with matching users for autocomplete.
+    """
+    from django.contrib.auth.models import User
+
+    if not _has_email_template_access(request.user):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("Access denied")
+
+    query = request.GET.get('q', '').strip()
+
+    if len(query) < 2:
+        return render(request, 'admin/crush_lu/partials/_user_search_results.html', {'users': []})
+
+    # Search by email, first name, or last name
+    users = User.objects.filter(
+        Q(email__icontains=query) |
+        Q(first_name__icontains=query) |
+        Q(last_name__icontains=query)
+    ).select_related('crushprofile').order_by('first_name', 'last_name')[:10]
+
+    return render(request, 'admin/crush_lu/partials/_user_search_results.html', {'users': users})
+
+
+@login_required
+def email_template_preview(request):
+    """
+    HTMX endpoint: Render email template preview with selected user/context.
+
+    GET parameters:
+        - template_key: Template identifier (e.g., 'welcome')
+        - user_id: Selected user ID
+        - event_id: (optional) Event ID for event templates
+        - connection_id: (optional) Connection ID for connection templates
+        - invitation_id: (optional) Invitation ID for invitation templates
+        - gift_id: (optional) Gift ID for journey templates
+    """
+    from django.template.loader import render_to_string
+    from django.utils.html import strip_tags
+    from .admin.email_templates_config import get_template_by_key
+
+    if not _has_email_template_access(request.user):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("Access denied")
+
+    template_key = request.GET.get('template_key')
+    user_id = request.GET.get('user_id')
+
+    template_meta = get_template_by_key(template_key)
+    if not template_meta:
+        return render(request, 'admin/crush_lu/partials/_template_preview_error.html', {
+            'error': f'Template "{template_key}" not found'
+        })
+
+    # Build context based on template requirements
+    try:
+        context = _build_template_context(request, template_meta, user_id)
+    except ValueError as e:
+        return render(request, 'admin/crush_lu/partials/_template_preview_error.html', {
+            'error': str(e)
+        })
+
+    # Render the email template
+    try:
+        html_content = render_to_string(template_meta['template'], context)
+        plain_content = _html_to_plain_text(html_content)
+    except Exception as e:
+        return render(request, 'admin/crush_lu/partials/_template_preview_error.html', {
+            'error': f'Error rendering template: {str(e)}'
+        })
+
+    # Base64 encode for safe transfer through HTML attributes
+    import base64
+    html_content_base64 = base64.b64encode(html_content.encode('utf-8')).decode('ascii')
+    plain_content_base64 = base64.b64encode(plain_content.encode('utf-8')).decode('ascii')
+
+    return render(request, 'admin/crush_lu/partials/_template_preview.html', {
+        'template_meta': template_meta,
+        'template_key': template_key,
+        'html_content_base64': html_content_base64,
+        'plain_content_base64': plain_content_base64,
+        'subject': template_meta.get('subject', ''),
+        'user_id': user_id,
+        'context': context,
+    })
+
+
+@login_required
+def email_template_send(request):
+    """
+    POST endpoint: Send email using Django email backend.
+
+    POST parameters:
+        - template_key: Template identifier
+        - user_id: Recipient user ID
+        - (optional context params based on template)
+    """
+    from django.http import JsonResponse
+    from django.template.loader import render_to_string
+    from django.utils.html import strip_tags
+    from azureproject.email_utils import send_domain_email
+    from .admin.email_templates_config import get_template_by_key
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+
+    if not _has_email_template_access(request.user):
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+
+    template_key = request.POST.get('template_key')
+    user_id = request.POST.get('user_id')
+
+    template_meta = get_template_by_key(template_key)
+    if not template_meta:
+        return JsonResponse({'success': False, 'error': f'Template "{template_key}" not found'})
+
+    # Build context
+    try:
+        context = _build_template_context(request, template_meta, user_id)
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+    # Get recipient email
+    recipient_email = _get_recipient_email(template_meta, context)
+    if not recipient_email:
+        return JsonResponse({'success': False, 'error': 'Could not determine recipient email'})
+
+    # Render email
+    try:
+        html_content = render_to_string(template_meta['template'], context)
+        plain_content = strip_tags(html_content)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Error rendering template: {str(e)}'})
+
+    # Send email
+    try:
+        result = send_domain_email(
+            subject=template_meta.get('subject', 'Crush.lu Notification'),
+            message=plain_content,
+            html_message=html_content,
+            recipient_list=[recipient_email],
+            request=request,
+            fail_silently=False,
+        )
+
+        if result > 0:
+            return JsonResponse({
+                'success': True,
+                'message': f'Email sent successfully to {recipient_email}'
+            })
+        else:
+            return JsonResponse({'success': False, 'error': 'Email send returned 0 (possible delivery issue)'})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Failed to send email: {str(e)}'})
+
+
+@login_required
+def email_template_create_draft(request):
+    """
+    POST endpoint: Create a draft email in Outlook via Microsoft Graph API.
+
+    This creates a draft in the sender's Outlook mailbox that can be opened and sent manually.
+    Supports full HTML formatting unlike mailto: links.
+
+    POST parameters:
+        - template_key: Template identifier
+        - user_id: Recipient user ID
+        - (optional context params based on template)
+
+    Returns:
+        JSON with web_link to open the draft in Outlook Web
+    """
+    from django.http import JsonResponse
+    from django.template.loader import render_to_string
+    from django.conf import settings
+    from .admin.email_templates_config import get_template_by_key
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+
+    if not _has_email_template_access(request.user):
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+
+    # Check if Graph API credentials are available using the domain config
+    from azureproject.email_utils import get_domain_email_config
+    config = get_domain_email_config(request=request)
+    if not all([config.get('GRAPH_TENANT_ID'), config.get('GRAPH_CLIENT_ID'), config.get('GRAPH_CLIENT_SECRET')]):
+        return JsonResponse({
+            'success': False,
+            'error': 'Graph API credentials not configured. Set GRAPH_TENANT_ID, GRAPH_CLIENT_ID, and GRAPH_CLIENT_SECRET environment variables.'
+        })
+
+    template_key = request.POST.get('template_key')
+    user_id = request.POST.get('user_id')
+
+    template_meta = get_template_by_key(template_key)
+    if not template_meta:
+        return JsonResponse({'success': False, 'error': f'Template "{template_key}" not found'})
+
+    # Build context
+    try:
+        context = _build_template_context(request, template_meta, user_id)
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+    # Get recipient email
+    recipient_email = _get_recipient_email(template_meta, context)
+    if not recipient_email:
+        return JsonResponse({'success': False, 'error': 'Could not determine recipient email'})
+
+    # Render email
+    try:
+        html_content = render_to_string(template_meta['template'], context)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Error rendering template: {str(e)}'})
+
+    # Create draft via Graph API
+    try:
+        from azureproject.graph_email_backend import create_outlook_draft
+
+        result = create_outlook_draft(
+            subject=template_meta.get('subject', 'Crush.lu Notification'),
+            html_content=html_content,
+            recipient_email=recipient_email,
+        )
+
+        if result['success']:
+            return JsonResponse({
+                'success': True,
+                'message': f'Draft created for {recipient_email}',
+                'web_link': result.get('web_link', '')
+            })
+        else:
+            return JsonResponse({'success': False, 'error': result.get('error', 'Unknown error')})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Failed to create draft: {str(e)}'})
+
+
+@login_required
+def email_template_load_events(request):
+    """
+    HTMX endpoint: Load events for dropdown.
+
+    Returns upcoming events plus recent past events for preview testing.
+    """
+    if not _has_email_template_access(request.user):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("Access denied")
+
+    # Get upcoming events + some recent past events (for testing)
+    events = MeetupEvent.objects.filter(
+        is_published=True
+    ).order_by('-date_time')[:20]
+
+    return render(request, 'admin/crush_lu/partials/_event_dropdown.html', {'events': events})
+
+
+@login_required
+def email_template_load_connections(request):
+    """
+    HTMX endpoint: Load connections for dropdown based on selected user.
+    """
+    if not _has_email_template_access(request.user):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("Access denied")
+
+    user_id = request.GET.get('user_id')
+    if not user_id:
+        return render(request, 'admin/crush_lu/partials/_connection_dropdown.html', {'connections': []})
+
+    connections = EventConnection.objects.filter(
+        Q(requester_id=user_id) | Q(recipient_id=user_id)
+    ).select_related('requester', 'recipient', 'event').order_by('-requested_at')[:20]
+
+    return render(request, 'admin/crush_lu/partials/_connection_dropdown.html', {'connections': connections})
+
+
+@login_required
+def email_template_load_invitations(request):
+    """
+    HTMX endpoint: Load invitations for dropdown.
+    """
+    from .models import EventInvitation
+
+    if not _has_email_template_access(request.user):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("Access denied")
+
+    invitations = EventInvitation.objects.select_related(
+        'event', 'created_user'
+    ).order_by('-invitation_sent_at')[:20]
+
+    return render(request, 'admin/crush_lu/partials/_invitation_dropdown.html', {'invitations': invitations})
+
+
+@login_required
+def email_template_load_gifts(request):
+    """
+    HTMX endpoint: Load journey gifts for dropdown.
+    """
+    from .models import JourneyGift
+
+    if not _has_email_template_access(request.user):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("Access denied")
+
+    gifts = JourneyGift.objects.select_related('sender').order_by('-created_at')[:20]
+
+    return render(request, 'admin/crush_lu/partials/_gift_dropdown.html', {'gifts': gifts})
+
+
+def _has_email_template_access(user):
+    """
+    Check if user has access to email template manager.
+
+    Returns True for superusers and active Crush coaches.
+    """
+    if user.is_superuser:
+        return True
+    try:
+        return user.crushcoach.is_active
+    except Exception:
+        return False
+
+
+def _build_template_context(request, template_meta, user_id):
+    """
+    Build context dictionary for rendering email template.
+
+    Args:
+        request: Django request object
+        template_meta: Template metadata dict
+        user_id: Selected user ID
+
+    Returns:
+        dict: Context for template rendering
+
+    Raises:
+        ValueError: If required context cannot be built
+    """
+    from django.contrib.auth.models import User
+    from .email_helpers import get_email_context_with_unsubscribe, get_user_language_url
+
+    context = {}
+    required = template_meta.get('required_context', [])
+
+    # Handle templates that require a user
+    if 'user' in required:
+        if not user_id:
+            raise ValueError('Please select a user')
+        try:
+            user = User.objects.select_related('crushprofile').get(id=user_id)
+            context['user'] = user
+            context['first_name'] = user.first_name
+        except User.DoesNotExist:
+            raise ValueError(f'User with ID {user_id} not found')
+
+    # Add profile if user has one
+    if 'profile' in required or 'profile' in template_meta.get('optional_context', []):
+        user = context.get('user')
+        if user and hasattr(user, 'crushprofile'):
+            context['profile'] = user.crushprofile
+            context['completion_status'] = user.crushprofile.completion_status
+
+    # Handle profile submission context
+    if 'submission' in required:
+        user = context.get('user')
+        if user:
+            try:
+                submission = ProfileSubmission.objects.filter(
+                    profile__user=user
+                ).select_related('profile', 'coach').latest('submitted_at')
+                context['submission'] = submission
+                context['profile'] = submission.profile
+            except ProfileSubmission.DoesNotExist:
+                # Create mock submission for preview
+                context['submission'] = _create_mock_submission(user)
+
+    # Handle event context
+    if 'event' in required:
+        event_id = request.GET.get('event_id') or request.POST.get('event_id')
+        if event_id:
+            try:
+                event = MeetupEvent.objects.get(id=event_id)
+                context['event'] = event
+            except MeetupEvent.DoesNotExist:
+                # Use first upcoming event as fallback
+                event = MeetupEvent.objects.filter(is_published=True).first()
+                context['event'] = event
+        else:
+            # Use first upcoming event for preview
+            event = MeetupEvent.objects.filter(is_published=True).first()
+            context['event'] = event
+
+    # Handle registration context
+    if 'registration' in required:
+        user = context.get('user')
+        event = context.get('event')
+        if user and event:
+            try:
+                registration = EventRegistration.objects.get(user=user, event=event)
+                context['registration'] = registration
+            except EventRegistration.DoesNotExist:
+                # Create mock registration for preview
+                context['registration'] = _create_mock_registration(user, event)
+
+    # Handle connection context
+    if 'connection' in required:
+        connection_id = request.GET.get('connection_id') or request.POST.get('connection_id')
+        if connection_id:
+            try:
+                connection = EventConnection.objects.select_related(
+                    'requester', 'recipient', 'event'
+                ).get(id=connection_id)
+                context['connection'] = connection
+                # Set requester/accepter names for templates
+                if context.get('user'):
+                    user = context['user']
+                    if connection.requester == user:
+                        other_user = connection.recipient
+                    else:
+                        other_user = connection.requester
+                    if hasattr(other_user, 'crushprofile'):
+                        context['requester_name'] = other_user.crushprofile.display_name
+                        context['accepter_name'] = other_user.crushprofile.display_name
+                    else:
+                        context['requester_name'] = other_user.first_name
+                        context['accepter_name'] = other_user.first_name
+                    if connection.event:
+                        context['event_title'] = connection.event.title
+                        context['event_date'] = connection.event.date_time.strftime('%B %d, %Y')
+            except EventConnection.DoesNotExist:
+                pass
+
+    # Handle message context
+    if 'message' in required:
+        from .models import ConnectionMessage
+        message_id = request.GET.get('message_id') or request.POST.get('message_id')
+        if message_id:
+            try:
+                message = ConnectionMessage.objects.select_related(
+                    'sender', 'connection'
+                ).get(id=message_id)
+                context['message'] = message
+                if hasattr(message.sender, 'crushprofile'):
+                    context['sender_name'] = message.sender.crushprofile.display_name
+                else:
+                    context['sender_name'] = message.sender.first_name
+                context['message_preview'] = message.message[:100] + ('...' if len(message.message) > 100 else '')
+            except ConnectionMessage.DoesNotExist:
+                # Create mock message for preview
+                context['message'] = _create_mock_message()
+                context['sender_name'] = 'Jane'
+                context['message_preview'] = 'Hey! It was great meeting you at the event...'
+
+    # Handle invitation context
+    if 'invitation' in required:
+        from .models import EventInvitation
+        invitation_id = request.GET.get('invitation_id') or request.POST.get('invitation_id')
+        if invitation_id:
+            try:
+                invitation = EventInvitation.objects.select_related('event', 'created_user').get(id=invitation_id)
+                context['invitation'] = invitation
+                context['event'] = invitation.event
+                context['guest_first_name'] = invitation.guest_first_name
+                # Build invitation URL for preview
+                context['invitation_url'] = f'https://crush.lu/en/invitation/{invitation.invitation_code}/'
+            except EventInvitation.DoesNotExist:
+                pass
+        elif context.get('event'):
+            # Create mock invitation for preview
+            context['guest_first_name'] = context.get('user', type('obj', (object,), {'first_name': 'Guest'})).first_name
+            context['invitation_url'] = 'https://crush.lu/en/invitation/MOCK123/'
+
+    # Handle gift context
+    if 'gift' in required:
+        from .models import JourneyGift
+        gift_id = request.GET.get('gift_id') or request.POST.get('gift_id')
+        if gift_id:
+            try:
+                gift = JourneyGift.objects.select_related('sender').get(id=gift_id)
+                context['gift'] = gift
+                context['recipient_name'] = gift.recipient_name
+                context['sender_name'] = gift.sender.first_name
+                context['sender_message'] = gift.sender_message
+                context['gift_code'] = gift.gift_code
+                context['claim_url'] = f'https://crush.lu/en/journey/gift/{gift.gift_code}/'
+            except JourneyGift.DoesNotExist:
+                pass
+        else:
+            # Create mock gift context for preview
+            user = context.get('user')
+            context['recipient_name'] = user.first_name if user else 'Alice'
+            context['sender_name'] = 'Someone Special'
+            context['sender_message'] = 'I created this magical journey just for you!'
+            context['gift_code'] = 'MOCK123'
+            context['claim_url'] = 'https://crush.lu/en/journey/gift/MOCK123/'
+
+    # Add common URLs
+    user = context.get('user')
+    if user:
+        try:
+            context['profile_url'] = get_user_language_url(user, 'crush_lu:create_profile', request)
+            context['events_url'] = get_user_language_url(user, 'crush_lu:event_list', request)
+            context['how_it_works_url'] = get_user_language_url(user, 'crush_lu:how_it_works', request)
+            context['connections_url'] = get_user_language_url(user, 'crush_lu:my_connections', request)
+
+            # Add base URLs for footer
+            from .email_helpers import get_email_base_urls, get_unsubscribe_url
+            base_urls = get_email_base_urls(user, request)
+            context.update(base_urls)
+            context['unsubscribe_url'] = get_unsubscribe_url(user, request)
+        except Exception:
+            # Fallback URLs for preview
+            context['profile_url'] = 'https://crush.lu/en/create-profile/'
+            context['events_url'] = 'https://crush.lu/en/events/'
+            context['how_it_works_url'] = 'https://crush.lu/en/how-it-works/'
+            context['connections_url'] = 'https://crush.lu/en/connections/'
+            context['home_url'] = 'https://crush.lu/en/'
+            context['about_url'] = 'https://crush.lu/en/about/'
+            context['settings_url'] = 'https://crush.lu/en/account/settings/'
+            context['unsubscribe_url'] = 'https://crush.lu/en/email/unsubscribe/TOKEN/'
+
+    # Add event-specific URLs
+    event = context.get('event')
+    if event and user:
+        try:
+            context['event_url'] = get_user_language_url(
+                user, 'crush_lu:event_detail', request, kwargs={'event_id': event.id}
+            )
+            context['cancel_url'] = get_user_language_url(
+                user, 'crush_lu:event_cancel', request, kwargs={'event_id': event.id}
+            )
+        except Exception:
+            context['event_url'] = f'https://crush.lu/en/events/{event.id}/'
+            context['cancel_url'] = f'https://crush.lu/en/events/{event.id}/cancel/'
+
+    # Add connection-specific URLs
+    connection = context.get('connection')
+    if connection and user:
+        try:
+            context['connection_url'] = get_user_language_url(
+                user, 'crush_lu:connection_detail', request, kwargs={'connection_id': connection.id}
+            )
+        except Exception:
+            context['connection_url'] = f'https://crush.lu/en/connections/{connection.id}/'
+
+    # Add optional context fields with mock data for preview
+    optional = template_meta.get('optional_context', [])
+    if 'coach_notes' in optional and 'coach_notes' not in context:
+        context['coach_notes'] = 'Great profile! Looking forward to seeing you at events.'
+    if 'feedback' in optional and 'feedback' not in context:
+        context['feedback'] = 'Please add at least one clear photo of yourself.'
+    if 'reason' in optional and 'reason' not in context:
+        context['reason'] = 'Profile does not meet our community guidelines.'
+    if 'days_until_event' in optional and 'days_until_event' not in context:
+        context['days_until_event'] = 3
+
+    return context
+
+
+def _get_recipient_email(template_meta, context):
+    """
+    Determine recipient email based on template type and context.
+    """
+    recipient_type = template_meta.get('recipient_type', 'user')
+
+    if recipient_type == 'coach':
+        # Coach assignment emails go to the coach
+        submission = context.get('submission')
+        if submission and submission.coach:
+            return submission.coach.user.email
+        return None
+
+    # Check for invitation (external guest email)
+    invitation = context.get('invitation')
+    if invitation and hasattr(invitation, 'guest_email') and invitation.guest_email:
+        return invitation.guest_email
+
+    # Check for gift recipient
+    gift = context.get('gift')
+    if gift and hasattr(gift, 'recipient_email') and gift.recipient_email:
+        return gift.recipient_email
+
+    # Default: user's email
+    user = context.get('user')
+    if user:
+        return user.email
+
+    return None
+
+
+def _create_mock_submission(user):
+    """Create a mock ProfileSubmission object for preview."""
+    class MockSubmission:
+        def __init__(self, user):
+            self.profile = user.crushprofile if hasattr(user, 'crushprofile') else None
+            self.coach = None
+            self.status = 'pending'
+            self.submitted_at = timezone.now()
+    return MockSubmission(user)
+
+
+def _create_mock_registration(user, event):
+    """Create a mock EventRegistration object for preview."""
+    class MockRegistration:
+        def __init__(self, user, event):
+            self.user = user
+            self.event = event
+            self.status = 'confirmed'
+            self.registered_at = timezone.now()
+            self.dietary_restrictions = ''
+    return MockRegistration(user, event)
+
+
+def _create_mock_message():
+    """Create a mock ConnectionMessage object for preview."""
+    class MockMessage:
+        def __init__(self):
+            self.message = "Hey! It was great meeting you at the event. Would love to grab coffee sometime!"
+            self.sent_at = timezone.now()
+    return MockMessage()
+
+
+def _html_to_plain_text(html_content):
+    """
+    Convert HTML email to clean plain text.
+
+    Removes style/script tags, converts common HTML elements to text equivalents,
+    and cleans up whitespace.
+    """
+    import re
+    from django.utils.html import strip_tags
+
+    text = html_content
+
+    # Remove style and script tags with their content
+    text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
+
+    # Remove HTML comments
+    text = re.sub(r'<!--.*?-->', '', text, flags=re.DOTALL)
+
+    # Convert <br> and <br/> to newlines
+    text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+
+    # Convert </p>, </div>, </tr>, </li> to double newlines
+    text = re.sub(r'</p>', '\n\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'</div>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'</tr>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'</li>', '\n', text, flags=re.IGNORECASE)
+
+    # Convert <li> to bullet points
+    text = re.sub(r'<li[^>]*>', '  • ', text, flags=re.IGNORECASE)
+
+    # Convert headings to uppercase with newlines
+    text = re.sub(r'<h[1-6][^>]*>(.*?)</h[1-6]>', r'\n\n\1\n', text, flags=re.DOTALL | re.IGNORECASE)
+
+    # Extract href from links and show as [text](url)
+    text = re.sub(r'<a[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)</a>', r'\2 (\1)', text, flags=re.DOTALL | re.IGNORECASE)
+
+    # Now strip remaining HTML tags
+    text = strip_tags(text)
+
+    # Decode HTML entities
+    import html
+    text = html.unescape(text)
+
+    # Clean up whitespace
+    # Replace multiple spaces with single space
+    text = re.sub(r'[ \t]+', ' ', text)
+
+    # Replace 3+ newlines with 2 newlines
+    text = re.sub(r'\n{3,}', '\n\n', text)
+
+    # Strip leading/trailing whitespace from each line
+    lines = [line.strip() for line in text.split('\n')]
+    text = '\n'.join(lines)
+
+    # Remove leading/trailing whitespace from entire text
+    text = text.strip()
+
+    return text

@@ -23,6 +23,7 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .header {
+            background-color: #9B59B6; /* Solid fallback for Outlook */
             background: linear-gradient(135deg, #9B59B6, #FF6B9D);
             color: white;
             padding: 30px 20px;
@@ -32,6 +33,7 @@
             margin: 0;
             font-size: 28px;
             font-weight: 600;
+            color: #ffffff; /* Explicit white for Outlook */
         }
         .content {
             padding: 30px 20px;
@@ -48,6 +50,7 @@
         .button {
             display: inline-block;
             padding: 12px 30px;
+            background-color: #9B59B6; /* Solid fallback for Outlook */
             background: linear-gradient(135deg, #9B59B6, #FF6B9D);
             color: white !important;
             text-decoration: none;
@@ -85,8 +88,8 @@
 </head>
 <body>
     <div class="email-container">
-        <div class="header">
-            <h1>{% block header_title %}Crush.lu{% endblock %}</h1>
+        <div class="header" style="background-color: #9B59B6; color: white; padding: 30px 20px; text-align: center;">
+            <h1 style="margin: 0; font-size: 28px; font-weight: 600; color: #ffffff;">{% block header_title %}Crush.lu{% endblock %}</h1>
         </div>
         <div class="content">
             {% block content %}

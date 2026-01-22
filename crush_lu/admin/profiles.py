@@ -134,7 +134,7 @@ class ProfileSubmissionProfileInline(admin.TabularInline):
 
 
 class CrushProfileAdmin(admin.ModelAdmin):
-    list_display = ('get_user_link', 'get_email', 'age', 'gender', 'location', 'get_language_display', 'phone_verified_icon', 'completion_status', 'get_assigned_coach', 'get_referral_code', 'get_referral_count', 'is_approved', 'is_active', 'created_at', 'is_coach')
+    list_display = ('get_user_link', 'get_email', 'age', 'gender', 'location', 'get_language_display', 'phone_verified_icon', 'completion_status', 'get_assigned_coach', 'get_referral_code', 'get_referral_count', 'is_approved', 'is_active', 'outlook_synced', 'created_at', 'is_coach')
     list_filter = (
         'is_approved', 'is_active', PhoneVerificationFilter, AgeRangeFilter, LastLoginFilter,
         DaysSinceSignupFilter, ProfileCompletenessFilter, EventParticipationFilter,
@@ -153,8 +153,9 @@ class CrushProfileAdmin(admin.ModelAdmin):
         'get_referral_code',
         'get_referral_count',
         'get_journey_progress',
+        'outlook_contact_id',
     )
-    actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'reset_phone_verification', 'export_profiles_csv', 'send_bulk_email']
+    actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'reset_phone_verification', 'sync_to_outlook', 'export_profiles_csv', 'send_bulk_email']
     inlines = [ProfileSubmissionProfileInline]
     change_list_template = 'admin/crush_lu/crushprofile/change_list.html'
     fieldsets = (
@@ -214,6 +215,11 @@ class CrushProfileAdmin(admin.ModelAdmin):
         ('Journey Progress', {
             'fields': ('get_journey_progress',),
             'description': _('Interactive journey experiences (Wonderland, etc.)'),
+        }),
+        ('Outlook Contact Sync', {
+            'fields': ('outlook_contact_id',),
+            'classes': ('collapse',),
+            'description': _('Microsoft Graph contact sync for caller ID'),
         }),
     )
 
@@ -303,6 +309,17 @@ class CrushProfileAdmin(admin.ModelAdmin):
         return hasattr(obj.user, 'crushcoach')
     is_coach.boolean = True
     is_coach.short_description = _('Is Coach')
+
+    def outlook_synced(self, obj):
+        """Display Outlook contact sync status with icon"""
+        if obj.outlook_contact_id:
+            return format_html('<span style="color: green;" title="Synced to Outlook">📇</span>')
+        elif obj.phone_number:
+            return format_html('<span style="color: orange;" title="Not synced (has phone)">⏳</span>')
+        else:
+            return format_html('<span style="color: gray;" title="No phone number">—</span>')
+    outlook_synced.short_description = _('Outlook')
+    outlook_synced.admin_order_field = 'outlook_contact_id'
 
     def get_assigned_coach(self, obj):
         """Display the assigned coach from ProfileSubmission with clickable link"""
@@ -680,6 +697,50 @@ class CrushProfileAdmin(admin.ModelAdmin):
             )
         else:
             django_messages.warning(request, "No profiles had phone verification to reset.")
+
+    @admin.action(description=_('Sync selected profiles to Outlook contacts'))
+    def sync_to_outlook(self, request, queryset):
+        """Sync selected profiles to Outlook contacts via Microsoft Graph API."""
+        from crush_lu.services.graph_contacts import GraphContactsService, is_sync_enabled
+
+        if not is_sync_enabled():
+            django_messages.warning(
+                request,
+                "Outlook contact sync is disabled for this environment. "
+                "Set OUTLOOK_CONTACT_SYNC_ENABLED=true in production."
+            )
+            return
+
+        try:
+            service = GraphContactsService()
+        except Exception as e:
+            django_messages.error(request, f"Failed to initialize sync service: {e}")
+            return
+
+        synced = 0
+        skipped = 0
+        errors = 0
+
+        for profile in queryset.select_related('user'):
+            if not profile.phone_number:
+                skipped += 1
+                continue
+
+            try:
+                result = service.sync_profile(profile)
+                if result:
+                    synced += 1
+                else:
+                    errors += 1
+            except Exception as e:
+                errors += 1
+
+        if synced > 0:
+            django_messages.success(request, f"Synced {synced} profile(s) to Outlook contacts.")
+        if skipped > 0:
+            django_messages.info(request, f"Skipped {skipped} profile(s) without phone numbers.")
+        if errors > 0:
+            django_messages.error(request, f"Failed to sync {errors} profile(s).")
 
     @admin.action(description=_('Export selected profiles to CSV'))
     def export_profiles_csv(self, request, queryset):

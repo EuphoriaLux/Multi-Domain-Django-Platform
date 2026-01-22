@@ -11,11 +11,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Entreprinder{% endblock %}</title>
-    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <link rel="icon" type="image/x-icon" href="{% static 'core/favicon.ico' %}">
 
     <!-- Vendor assets -->
-    <link rel="stylesheet" href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}">
-    <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
+    <link rel="stylesheet" href="{% static 'core/vendor/bootstrap/css/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'core/vendor/fontawesome/css/all.min.css' %}">
     <!-- Core shared assets -->
     <link rel="stylesheet" href="{% static 'core/css/bootstrap-overrides.css' %}">
     <!-- Entreprinder Design System -->
@@ -27,17 +27,17 @@
           display: inline-block;
           width: 250px;  /* Adjust width if necessary */
           height: 60px;  /* Adjust height if necessary */
-          background: url("{% static 'vendor/linkedin/Retina/Sign-In-Small---Default.png' %}") no-repeat center center;
+          background: url("{% static 'core/vendor/linkedin/Retina/Sign-In-Small---Default.png' %}") no-repeat center center;
           background-size: contain;
           border: none;
           text-indent: -9999px; /* Hides text but remains accessible */
           cursor: pointer;
       }
       .linkedin-login-button:hover {
-          background-image: url("{% static 'vendor/linkedin/Retina/Sign-In-Small---Hover.png' %}");
+          background-image: url("{% static 'core/vendor/linkedin/Retina/Sign-In-Small---Hover.png' %}");
       }
       .linkedin-login-button:active {
-          background-image: url("{% static 'vendor/linkedin/Retina/Sign-In-Small---Active.png' %}");
+          background-image: url("{% static 'core/vendor/linkedin/Retina/Sign-In-Small---Active.png' %}");
       }
     </style>
     {% endblock %}
@@ -181,7 +181,7 @@
         </div>
     </footer>
 
-    <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    <script src="{% static 'core/vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
     {% block extra_js %}{% endblock %}
 
     {% include "includes/cookie_banner.html" %}

@@ -2,10 +2,6 @@ from django.contrib import admin
 from django.utils.html import format_html
 from .models import EntrepreneurProfile, Skill, Industry, Match, Like, Dislike
 
-# Import FinOps models and admin classes
-from .finops.models import CostExport, CostRecord, CostAggregation
-from .finops.admin import CostExportAdmin, CostRecordAdmin, CostAggregationAdmin
-
 # Import Vibe models and admin classes
 from .vibe.models import PixelCanvas, Pixel, PixelHistory, UserPixelCooldown, UserPixelStats
 from .vibe.admin import (
@@ -44,12 +40,7 @@ class EntreprinderAdminSite(admin.AdminSite):
             'industry': {'order': 20, 'icon': '🏭', 'group': 'Categories'},
             'skill': {'order': 21, 'icon': '⚡', 'group': 'Categories'},
 
-            # 4. FinOps (if included)
-            'costexport': {'order': 30, 'icon': '📊', 'group': 'FinOps'},
-            'costrecord': {'order': 31, 'icon': '💰', 'group': 'FinOps'},
-            'costaggregation': {'order': 32, 'icon': '📈', 'group': 'FinOps'},
-
-            # 5. Vibe Coding (if included)
+            # 4. Vibe Coding
             'pixelcanvas': {'order': 40, 'icon': '🎨', 'group': 'Vibe Coding'},
             'pixel': {'order': 41, 'icon': '🔲', 'group': 'Vibe Coding'},
             'pixelhistory': {'order': 42, 'icon': '📜', 'group': 'Vibe Coding'},
@@ -92,12 +83,11 @@ class EntreprinderAdminSite(admin.AdminSite):
                     groups[group_name].sort(key=lambda x: x.get('_order', 999))
 
                 # Create new apps for each group
-                group_order = ['Profiles', 'Matching', 'Categories', 'FinOps', 'Vibe Coding', 'Other']
+                group_order = ['Profiles', 'Matching', 'Categories', 'Vibe Coding', 'Other']
                 group_icons = {
                     'Profiles': '👤',
                     'Matching': '💼',
                     'Categories': '🏷️',
-                    'FinOps': '💰',
                     'Vibe Coding': '🎮',
                     'Other': '📋',
                 }
@@ -217,11 +207,6 @@ entreprinder_admin_site.register(Dislike, DislikeAdmin)
 # Categories
 entreprinder_admin_site.register(Industry, IndustryAdmin)
 entreprinder_admin_site.register(Skill, SkillAdmin)
-
-# FinOps
-entreprinder_admin_site.register(CostExport, CostExportAdmin)
-entreprinder_admin_site.register(CostRecord, CostRecordAdmin)
-entreprinder_admin_site.register(CostAggregation, CostAggregationAdmin)
 
 # Vibe Coding
 entreprinder_admin_site.register(PixelCanvas, PixelCanvasAdmin)
