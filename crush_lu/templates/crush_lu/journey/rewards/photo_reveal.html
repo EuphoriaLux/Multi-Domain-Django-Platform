@@ -151,12 +151,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (unlockedPieces.indexOf(index) !== -1) {
                 pieceEl.classList.remove('locked');
                 pieceEl.classList.add('unlocked');
-                pieceEl.setAttribute('aria-label', '{% trans "Puzzle piece" %} ' + (index + 1) + ' - {% trans "unlocked" %}');
+                pieceEl.setAttribute('aria-label', '{% filter escapejs %}{% trans "Puzzle piece" %}{% endfilter %} ' + (index + 1) + ' - {% filter escapejs %}{% trans "unlocked" %}{% endfilter %}');
                 return;
             }
 
             pieceEl.classList.add('locked');
-            pieceEl.setAttribute('aria-label', '{% trans "Puzzle piece" %} ' + (index + 1) + ' - {% trans "locked, click to unlock for 50 points" %}');
+            pieceEl.setAttribute('aria-label', '{% filter escapejs %}{% trans "Puzzle piece" %}{% endfilter %} ' + (index + 1) + ' - {% filter escapejs %}{% trans "locked, click to unlock for 50 points" %}{% endfilter %}');
             pieceEl.addEventListener('click', function() { unlockPiece(pieceEl, index); });
             pieceEl.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Remove loading state on error
             piece.classList.remove('loading');
             piece.style.pointerEvents = '';
-            showNotification('&#10060; {% trans "Security token missing. Please refresh the page." %}', 'error');
+            showNotification('&#10060; {% filter escapejs %}{% trans "Security token missing. Please refresh the page." %}{% endfilter %}', 'error');
             return;
         }
 
@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Unlock the piece visually
                 piece.classList.remove('locked');
                 piece.classList.add('unlocked');
-                piece.setAttribute('aria-label', '{% trans "Puzzle piece" %} ' + (index + 1) + ' - {% trans "unlocked" %}');
+                piece.setAttribute('aria-label', '{% filter escapejs %}{% trans "Puzzle piece" %}{% endfilter %} ' + (index + 1) + ' - {% filter escapejs %}{% trans "unlocked" %}{% endfilter %}');
 
                 // Update points display
                 currentPoints = data.points_remaining;
@@ -231,7 +231,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateProgress();
 
                 // Show success message
-                showNotification('&#10024; {% trans "Piece unlocked! -50 points" %}', 'success');
+                showNotification('&#10024; {% filter escapejs %}{% trans "Piece unlocked! -50 points" %}{% endfilter %}', 'success');
 
                 // Check if complete
                 if (data.is_completed) {
@@ -247,9 +247,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Show error message
                 if (data.insufficient_points) {
-                    showNotification('&#10060; {% trans "Not enough points! You need" %} ' + data.points_needed + ' {% trans "points." %}', 'error');
+                    showNotification('&#10060; {% filter escapejs %}{% trans "Not enough points! You need" %}{% endfilter %} ' + data.points_needed + ' {% filter escapejs %}{% trans "points." %}{% endfilter %}', 'error');
                 } else if (data.already_unlocked) {
-                    showNotification('&#8505; {% trans "This piece is already unlocked" %}', 'info');
+                    showNotification('&#8505; {% filter escapejs %}{% trans "This piece is already unlocked" %}{% endfilter %}', 'info');
                     // Mark as unlocked since it already is
                     piece.classList.remove('locked');
                     piece.classList.add('unlocked');
@@ -263,7 +263,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Remove loading state and re-enable clicking
             piece.classList.remove('loading');
             piece.style.pointerEvents = '';
-            showNotification('&#10060; {% trans "An error occurred. Please try again." %}', 'error');
+            showNotification('&#10060; {% filter escapejs %}{% trans "An error occurred. Please try again." %}{% endfilter %}', 'error');
         });
     }
 

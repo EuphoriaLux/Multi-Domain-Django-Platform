@@ -85,6 +85,7 @@ class Command(BaseCommand):
     def update_chapter(self, chapter, journey, dry_run):
         """Update chapter with DE/FR translations."""
         chapter_num = chapter.chapter_number
+        content_en = self.get_chapter_content('en', chapter_num)
         content_de = self.get_chapter_content('de', chapter_num)
         content_fr = self.get_chapter_content('fr', chapter_num)
 
@@ -143,12 +144,12 @@ class Command(BaseCommand):
             chapter.save()
 
         # Update challenges based on chapter number
-        self.update_chapter_challenges(chapter, chapter_num, content_de, content_fr, journey, dry_run)
+        self.update_chapter_challenges(chapter, chapter_num, content_en, content_de, content_fr, journey, dry_run)
 
         # Update rewards
         self.update_chapter_rewards(chapter, content_de, content_fr, first_name, dry_run)
 
-    def update_chapter_challenges(self, chapter, chapter_num, content_de, content_fr, journey, dry_run):
+    def update_chapter_challenges(self, chapter, chapter_num, content_en, content_de, content_fr, journey, dry_run):
         """Update challenges based on chapter-specific structure."""
         challenges = list(chapter.challenges.all().order_by('challenge_order'))
 
@@ -178,13 +179,17 @@ class Command(BaseCommand):
                 )
                 # Also update events in options JSONField
                 if not dry_run:
+                    events_en = content_en.get('timeline_events', [])
                     events_de = content_de.get('timeline_events', [])
                     events_fr = content_fr.get('timeline_events', [])
                     location_met = journey.location_first_met or ''
+                    formatted_events_en = [e.format(location_met=location_met) for e in events_en]
                     formatted_events_de = [e.format(location_met=location_met) for e in events_de]
                     formatted_events_fr = [e.format(location_met=location_met) for e in events_fr]
                     # Update options to include all language versions
                     options = timeline_challenge.options or {}
+                    options['events'] = formatted_events_en  # Default/fallback
+                    options['events_en'] = formatted_events_en
                     options['events_de'] = formatted_events_de
                     options['events_fr'] = formatted_events_fr
                     timeline_challenge.options = options

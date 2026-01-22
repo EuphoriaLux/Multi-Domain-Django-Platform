@@ -3843,15 +3843,19 @@ document.addEventListener('alpine:init', function() {
                 var newOrder;
                 var attempts = 0;
 
-                // Fisher-Yates shuffle
+                // Fisher-Yates shuffle for letters within each word
                 do {
-                    newOrder = this.scrambledWords.slice();
-                    for (var i = newOrder.length - 1; i > 0; i--) {
-                        var j = Math.floor(Math.random() * (i + 1));
-                        var temp = newOrder[i];
-                        newOrder[i] = newOrder[j];
-                        newOrder[j] = temp;
-                    }
+                    newOrder = this.scrambledWords.map(function(word) {
+                        var letters = word.split('');
+                        // Fisher-Yates shuffle on letters array
+                        for (var i = letters.length - 1; i > 0; i--) {
+                            var j = Math.floor(Math.random() * (i + 1));
+                            var temp = letters[i];
+                            letters[i] = letters[j];
+                            letters[j] = temp;
+                        }
+                        return letters.join('');
+                    });
                     attempts++;
                 } while (newOrder.join(' ') === currentOrder && attempts < 50);
 

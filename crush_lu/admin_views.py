@@ -72,8 +72,28 @@ def crush_admin_dashboard(request):
         count=Count('id')
     ).order_by('-count')
 
-    # Location distribution (top 5)
-    location_stats = CrushProfile.objects.values('location').annotate(
+    # Location distribution (top 10 with percentages)
+    location_stats_raw = CrushProfile.objects.values('location').annotate(
+        count=Count('id')
+    ).order_by('-count')[:10]
+
+    # Convert to list and add percentages
+    location_stats = []
+    max_location_count = 0
+    for stat in location_stats_raw:
+        percentage = round(stat['count'] / total_profiles * 100, 1) if total_profiles > 0 else 0
+        location_stats.append({
+            'location': stat['location'],
+            'count': stat['count'],
+            'percentage': percentage,
+        })
+        if stat['count'] > max_location_count:
+            max_location_count = stat['count']
+
+    # New users by location (last 30 days)
+    location_recent = CrushProfile.objects.filter(
+        created_at__gte=thirty_days_ago
+    ).values('location').annotate(
         count=Count('id')
     ).order_by('-count')[:5]
 
@@ -525,6 +545,8 @@ def crush_admin_dashboard(request):
         'recent_signups': recent_signups,
         'gender_stats': gender_stats,
         'location_stats': location_stats,
+        'location_recent': location_recent,
+        'max_location_count': max_location_count,
         # New funnel metrics - users currently at each step
         'funnel_not_started': funnel_not_started,
         'funnel_step1': funnel_step1,

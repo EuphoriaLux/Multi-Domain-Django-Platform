@@ -1,6 +1,6 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v27 - Fix CSP errors in coach push preferences (use Django template instead of x-for)
+// Version: v28 - Remove obsolete crush-modular.css from precache (merged into tailwind.css)
 
 // ============================================================================
 // CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
@@ -71,7 +71,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v27-csp-fix';
+  const CACHE_VERSION = 'crush-v28-remove-modular-css';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -199,7 +199,6 @@ if (workbox) {
 
     // CSS (critical for rendering)
     { url: '/static/crush_lu/css/tailwind.css', revision: CACHE_VERSION },
-    { url: '/static/crush_lu/css/crush-modular.css', revision: CACHE_VERSION },
 
     // Core JavaScript
     { url: '/static/crush_lu/js/page-loading.js', revision: CACHE_VERSION },

@@ -537,28 +537,60 @@
             </table>
         </div>
 
-        <div class="table-container">
-            <h3 style="margin-top: 0; color: #333;">Top Locations</h3>
+        <div class="table-container" style="border-left: 4px solid #9B59B6;">
+            <h3 style="margin-top: 0; color: var(--text-primary);">📍 Top 10 Locations</h3>
             <table class="stats-table">
                 <thead>
                     <tr>
+                        <th style="width: 40px;">#</th>
                         <th>Location</th>
-                        <th>Count</th>
+                        <th style="width: 80px;">Count</th>
+                        <th style="width: 200px;">Distribution</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for stat in location_stats %}
                     <tr>
-                        <td>{{ stat.location|default:"Not specified" }}</td>
+                        <td style="font-weight: bold; color: #9B59B6;">{{ forloop.counter }}</td>
+                        <td>
+                            <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?location__exact={{ stat.location|urlencode }}"
+                               style="color: #9B59B6; text-decoration: none; font-weight: 500;"
+                               title="View all profiles from {{ stat.location }}">
+                                {{ stat.location|default:"Not specified" }}
+                            </a>
+                        </td>
                         <td>{{ stat.count }}</td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="flex: 1; background: var(--progress-bg); border-radius: 4px; height: 12px; overflow: hidden;">
+                                    <div style="width: {% widthratio stat.count max_location_count 100 %}%; height: 100%; background: linear-gradient(90deg, #9B59B6, #FF6B9D);"></div>
+                                </div>
+                                <span style="font-size: 12px; color: var(--text-muted); min-width: 45px;">{{ stat.percentage }}%</span>
+                            </div>
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="2">No data available</td>
+                        <td colspan="4">No data available</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+
+            {% if location_recent %}
+            <div style="margin-top: 20px; padding: 15px; background: var(--funnel-bg); border-radius: 8px;">
+                <h4 style="margin: 0 0 12px 0; color: var(--text-primary); font-size: 14px;">🆕 New This Month (by location)</h4>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                    {% for loc in location_recent %}
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?location__exact={{ loc.location|urlencode }}&created_at__gte={{ recent_signups_start_date|default:'' }}"
+                       style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--card-bg); border-radius: 16px; text-decoration: none; border: 1px solid var(--table-border);">
+                        <span style="color: var(--text-primary);">{{ loc.location|default:"Not specified" }}</span>
+                        <span style="background: linear-gradient(135deg, #9B59B6, #FF6B9D); color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold;">+{{ loc.count }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 
