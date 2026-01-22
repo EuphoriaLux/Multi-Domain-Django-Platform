@@ -2892,9 +2892,10 @@ body.journey-bg {
     max-width: none;
     max-height: none;
     display: block;
-    object-fit: cover;
-    object-position: top left;
+    object-fit: contain;
+    object-position: center center;
     transform-origin: top left;
+    background-color: var(--color-journey-dark, #1a1a2e);
   }
 
   .reveal-piece-image-0 { transform: translate(0%, 0%); }

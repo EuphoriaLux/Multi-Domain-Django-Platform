@@ -325,7 +325,9 @@ def _create_chapter_2(journey, recipient_name):
                 'success_message_de': q_de.get('success_message', ''),
                 'question_fr': q_fr.get('question', ''),
                 'success_message_fr': q_fr.get('success_message', ''),
-                'options': q_en.get('options', {}),
+                'options_en': q_en.get('options', {}),
+                'options_de': q_de.get('options', {}),
+                'options_fr': q_fr.get('options', {}),
                 'correct_answer': '',  # Questionnaire mode - all answers accepted
                 'points_awarded': 80,
             }
@@ -425,7 +427,9 @@ def _create_chapter_3(journey, location_met):
             'success_message_de': content_de.get('moment_success', ''),
             'question_fr': content_fr.get('moment_question', ''),
             'success_message_fr': content_fr.get('moment_success', ''),
-            'options': content_en.get('moment_options', {}),
+            'options_en': content_en.get('moment_options', {}),
+            'options_de': content_de.get('moment_options', {}),
+            'options_fr': content_fr.get('moment_options', {}),
             'correct_answer': content_en.get('moment_answer', 'C'),
             'points_awarded': 200,
         }
@@ -504,7 +508,9 @@ def _create_chapter_4(journey):
                 'success_message_de': wyr_success_de,
                 'question_fr': q_fr.get('question', ''),
                 'success_message_fr': wyr_success_fr,
-                'options': q_en.get('options', {}),
+                'options_en': q_en.get('options', {}),
+                'options_de': q_de.get('options', {}),
+                'options_fr': q_fr.get('options', {}),
                 'correct_answer': '',  # Questionnaire mode
                 'points_awarded': 100,
             }
@@ -589,7 +595,9 @@ def _create_chapter_5(journey, recipient_name):
             'success_message_de': content_de.get('dream_success', ''),
             'question_fr': content_fr.get('dream_question', ''),
             'success_message_fr': content_fr.get('dream_success', ''),
-            'options': content_en.get('dream_options', {}),
+            'options_en': content_en.get('dream_options', {}),
+            'options_de': content_de.get('dream_options', {}),
+            'options_fr': content_fr.get('dream_options', {}),
             'correct_answer': '',  # Questionnaire mode
             'points_awarded': 150,
         }

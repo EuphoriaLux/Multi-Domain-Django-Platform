@@ -38,11 +38,14 @@ class JourneyChallengeTranslationOptions(TranslationOptions):
     """
     Translatable fields for journey challenges.
 
-    Note: 'options', 'correct_answer', and 'alternative_answers' are NOT translated
-    because they contain data/logic values, not display text.
+    Note: 'correct_answer' and 'alternative_answers' are NOT translated
+    because they contain validation logic values.
+
+    The 'options' field IS translated because it contains display text
+    for multiple choice answers that users see.
     """
 
-    fields = ('question', 'hint_1', 'hint_2', 'hint_3', 'success_message')
+    fields = ('question', 'hint_1', 'hint_2', 'hint_3', 'success_message', 'options')
 
 
 class JourneyRewardTranslationOptions(TranslationOptions):

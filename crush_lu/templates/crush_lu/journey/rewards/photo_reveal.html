@@ -175,10 +175,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Confirm if user wants to spend points
-        if (!confirm('{% trans "Unlock this piece for 50 points?" %}')) {
-            return;
-        }
+        // Add loading state IMMEDIATELY to prevent double clicks
+        piece.classList.add('loading');
+        piece.style.pointerEvents = 'none';
 
         // Get CSRF token from cookie or meta tag
         var csrfToken = getCookie('csrftoken') ||
@@ -187,13 +186,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (!csrfToken) {
             console.error('CSRF token not found');
+            // Remove loading state on error
+            piece.classList.remove('loading');
+            piece.style.pointerEvents = '';
             showNotification('&#10060; {% trans "Security token missing. Please refresh the page." %}', 'error');
             return;
         }
-
-        // Add loading state - prevent double clicks and show visual feedback
-        piece.classList.add('loading');
-        piece.style.pointerEvents = 'none';
 
         fetch('/api/journey/unlock-puzzle-piece/', {
             method: 'POST',

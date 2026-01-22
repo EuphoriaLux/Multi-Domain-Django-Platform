@@ -388,18 +388,11 @@ def challenge_view(request, chapter_number, challenge_id):
             else:
                 context['localized_events'] = []
 
-        # For multiple_choice challenges, get language-specific options
+        # For multiple_choice challenges, use django-modeltranslation
+        # challenge.options automatically returns the translated version (options_de, options_fr)
+        # based on the current language activation
         if challenge.challenge_type == 'multiple_choice' and challenge.options:
-            # Try to get language-specific options (e.g., options_de, options_fr)
-            options_key = f'options_{lang_code}'
-            if options_key in challenge.options:
-                context['localized_options'] = challenge.options[options_key]
-            else:
-                # Fallback: use top-level options (A, B, C, D keys)
-                # Filter out language-specific keys to get base options
-                base_options = {k: v for k, v in challenge.options.items()
-                               if not k.startswith('options_')}
-                context['localized_options'] = base_options
+            context['localized_options'] = challenge.options
 
         # Render challenge template based on type
         template_name = f'crush_lu/journey/challenges/{challenge.challenge_type}.html'
