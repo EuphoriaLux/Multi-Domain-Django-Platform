@@ -548,6 +548,295 @@ class APIAuthenticationTests(SiteTestMixin, TestCase):
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
+class PhotoPuzzleAPITests(SiteTestMixin, TestCase):
+    """Test Photo Puzzle (Reward) API endpoints."""
+
+    def setUp(self):
+        """Set up test data for photo puzzle tests."""
+        from crush_lu.models import (
+            CrushProfile, JourneyConfiguration, JourneyChapter,
+            JourneyReward, JourneyProgress, SpecialUserExperience
+        )
+
+        self.client = Client()
+
+        self.user = User.objects.create_user(
+            username='puzzle@example.com',
+            email='puzzle@example.com',
+            password='testpass123',
+            first_name='Puzzle',
+            last_name='User'
+        )
+
+        CrushProfile.objects.create(
+            user=self.user,
+            date_of_birth=date(1995, 5, 15),
+            gender='M',
+            location='Luxembourg',
+            is_approved=True
+        )
+
+        # Create special experience and journey
+        self.experience = SpecialUserExperience.objects.create(
+            first_name='Puzzle',
+            last_name='User',
+            custom_welcome_message='Welcome to your puzzle journey!',
+            is_active=True
+        )
+
+        self.journey = JourneyConfiguration.objects.create(
+            special_experience=self.experience,
+            journey_name='Puzzle Test Journey',
+            total_chapters=1,
+            is_active=True
+        )
+
+        self.chapter = JourneyChapter.objects.create(
+            journey=self.journey,
+            chapter_number=1,
+            title='Puzzle Chapter',
+            theme='Mystery',
+            story_introduction='A puzzle awaits...',
+            completion_message='Great job!'
+        )
+
+        # Create photo reveal reward
+        self.reward = JourneyReward.objects.create(
+            chapter=self.chapter,
+            reward_type='photo_reveal',
+            title='Mystery Photo',
+            message='Unlock pieces to reveal the photo!'
+        )
+
+        # Create journey progress with enough points for testing
+        self.progress = JourneyProgress.objects.create(
+            user=self.user,
+            journey=self.journey,
+            current_chapter=1,
+            total_points=500  # Enough for 10 pieces
+        )
+
+    def test_unlock_puzzle_piece_success(self):
+        """Test successfully unlocking a puzzle piece."""
+        self.client.login(username='puzzle@example.com', password='testpass123')
+
+        response = self.client.post(
+            '/api/journey/unlock-puzzle-piece/',
+            data=json.dumps({
+                'reward_id': self.reward.id,
+                'piece_index': 0
+            }),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['points_remaining'], 450)  # 500 - 50
+        self.assertIn(0, data['unlocked_pieces'])
+        self.assertEqual(data['total_unlocked'], 1)
+
+    def test_unlock_puzzle_piece_insufficient_points(self):
+        """Test unlocking piece with insufficient points."""
+        # Set points to less than 50
+        self.progress.total_points = 30
+        self.progress.save()
+
+        self.client.login(username='puzzle@example.com', password='testpass123')
+
+        response = self.client.post(
+            '/api/journey/unlock-puzzle-piece/',
+            data=json.dumps({
+                'reward_id': self.reward.id,
+                'piece_index': 0
+            }),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertFalse(data['success'])
+        self.assertTrue(data['insufficient_points'])
+        self.assertEqual(data['points_needed'], 50)
+
+    def test_unlock_puzzle_piece_already_unlocked(self):
+        """Test unlocking an already unlocked piece."""
+        from crush_lu.models import RewardProgress
+
+        # Create reward progress with piece 0 already unlocked
+        RewardProgress.objects.create(
+            journey_progress=self.progress,
+            reward=self.reward,
+            unlocked_pieces=[0]
+        )
+
+        self.client.login(username='puzzle@example.com', password='testpass123')
+
+        response = self.client.post(
+            '/api/journey/unlock-puzzle-piece/',
+            data=json.dumps({
+                'reward_id': self.reward.id,
+                'piece_index': 0
+            }),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertFalse(data['success'])
+        self.assertTrue(data['already_unlocked'])
+
+    def test_unlock_multiple_pieces(self):
+        """Test unlocking multiple pieces sequentially."""
+        self.client.login(username='puzzle@example.com', password='testpass123')
+
+        # Unlock piece 0
+        response1 = self.client.post(
+            '/api/journey/unlock-puzzle-piece/',
+            data=json.dumps({
+                'reward_id': self.reward.id,
+                'piece_index': 0
+            }),
+            content_type='application/json'
+        )
+        self.assertEqual(response1.status_code, 200)
+        self.assertTrue(response1.json()['success'])
+
+        # Unlock piece 5
+        response2 = self.client.post(
+            '/api/journey/unlock-puzzle-piece/',
+            data=json.dumps({
+                'reward_id': self.reward.id,
+                'piece_index': 5
+            }),
+            content_type='application/json'
+        )
+        self.assertEqual(response2.status_code, 200)
+        data2 = response2.json()
+        self.assertTrue(data2['success'])
+        self.assertEqual(data2['points_remaining'], 400)  # 500 - 100
+        self.assertEqual(data2['total_unlocked'], 2)
+        self.assertIn(0, data2['unlocked_pieces'])
+        self.assertIn(5, data2['unlocked_pieces'])
+
+    def test_unlock_all_pieces_completes_puzzle(self):
+        """Test that unlocking all 16 pieces marks reward as completed."""
+        from crush_lu.models import RewardProgress
+
+        # Give enough points for all pieces
+        self.progress.total_points = 1000
+        self.progress.save()
+
+        # Pre-unlock 15 pieces
+        reward_progress = RewardProgress.objects.create(
+            journey_progress=self.progress,
+            reward=self.reward,
+            unlocked_pieces=list(range(15)),  # 0-14 already unlocked
+            points_spent=750  # 15 * 50
+        )
+
+        self.client.login(username='puzzle@example.com', password='testpass123')
+
+        # Unlock the final piece (15)
+        response = self.client.post(
+            '/api/journey/unlock-puzzle-piece/',
+            data=json.dumps({
+                'reward_id': self.reward.id,
+                'piece_index': 15
+            }),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertTrue(data['is_completed'])
+        self.assertEqual(data['total_unlocked'], 16)
+
+    def test_get_reward_progress(self):
+        """Test getting reward progress."""
+        from crush_lu.models import RewardProgress
+
+        # Create some progress
+        RewardProgress.objects.create(
+            journey_progress=self.progress,
+            reward=self.reward,
+            unlocked_pieces=[0, 3, 7],
+            points_spent=150
+        )
+
+        self.client.login(username='puzzle@example.com', password='testpass123')
+
+        response = self.client.get(
+            f'/api/journey/reward-progress/{self.reward.id}/'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['unlocked_pieces'], [0, 3, 7])
+        self.assertEqual(data['total_unlocked'], 3)
+        self.assertFalse(data['is_completed'])
+        self.assertEqual(data['current_points'], 500)
+
+    def test_get_reward_progress_no_progress(self):
+        """Test getting reward progress when none exists."""
+        self.client.login(username='puzzle@example.com', password='testpass123')
+
+        response = self.client.get(
+            f'/api/journey/reward-progress/{self.reward.id}/'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['unlocked_pieces'], [])
+        self.assertEqual(data['total_unlocked'], 0)
+        self.assertFalse(data['is_completed'])
+
+    def test_unlock_puzzle_piece_requires_auth(self):
+        """Test that puzzle unlock requires authentication."""
+        response = self.client.post(
+            '/api/journey/unlock-puzzle-piece/',
+            data=json.dumps({
+                'reward_id': self.reward.id,
+                'piece_index': 0
+            }),
+            content_type='application/json'
+        )
+
+        # Should redirect to login
+        self.assertEqual(response.status_code, 302)
+
+    def test_unlock_puzzle_piece_missing_data(self):
+        """Test unlocking piece with missing data."""
+        self.client.login(username='puzzle@example.com', password='testpass123')
+
+        response = self.client.post(
+            '/api/journey/unlock-puzzle-piece/',
+            data=json.dumps({}),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_unlock_puzzle_piece_invalid_reward(self):
+        """Test unlocking piece for nonexistent reward."""
+        self.client.login(username='puzzle@example.com', password='testpass123')
+
+        response = self.client.post(
+            '/api/journey/unlock-puzzle-piece/',
+            data=json.dumps({
+                'reward_id': 99999,
+                'piece_index': 0
+            }),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+
+@override_settings(**CRUSH_LU_URL_SETTINGS)
 class APIErrorHandlingTests(SiteTestMixin, TestCase):
     """Test API error handling."""
 

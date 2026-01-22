@@ -170,7 +170,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function unlockPiece(piece, index) {
-        if (piece.classList.contains('unlocked')) return;
+        // Prevent if already unlocked or currently loading
+        if (piece.classList.contains('unlocked') || piece.classList.contains('loading')) {
+            return;
+        }
 
         // Confirm if user wants to spend points
         if (!confirm('{% trans "Unlock this piece for 50 points?" %}')) {
@@ -187,6 +190,10 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification('&#10060; {% trans "Security token missing. Please refresh the page." %}', 'error');
             return;
         }
+
+        // Add loading state - prevent double clicks and show visual feedback
+        piece.classList.add('loading');
+        piece.style.pointerEvents = 'none';
 
         fetch('/api/journey/unlock-puzzle-piece/', {
             method: 'POST',
@@ -206,6 +213,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return response.json();
         })
         .then(function(data) {
+            // Remove loading state
+            piece.classList.remove('loading');
+
             if (data.success) {
                 // Unlock the piece visually
                 piece.classList.remove('locked');
@@ -234,11 +244,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     }, 500);
                 }
             } else {
+                // Re-enable clicking on error
+                piece.style.pointerEvents = '';
+
                 // Show error message
                 if (data.insufficient_points) {
                     showNotification('&#10060; {% trans "Not enough points! You need" %} ' + data.points_needed + ' {% trans "points." %}', 'error');
                 } else if (data.already_unlocked) {
                     showNotification('&#8505; {% trans "This piece is already unlocked" %}', 'info');
+                    // Mark as unlocked since it already is
+                    piece.classList.remove('locked');
+                    piece.classList.add('unlocked');
                 } else {
                     showNotification('&#10060; ' + data.message, 'error');
                 }
@@ -246,6 +262,9 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(function(error) {
             console.error('Error unlocking piece:', error);
+            // Remove loading state and re-enable clicking
+            piece.classList.remove('loading');
+            piece.style.pointerEvents = '';
             showNotification('&#10060; {% trans "An error occurred. Please try again." %}', 'error');
         });
     }

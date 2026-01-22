@@ -131,14 +131,15 @@ class CrushLuAdminSite(admin.AdminSite):
             # GROUP 5: Special Journey System (VIP personalized experiences)
             # ═══════════════════════════════════════════════════════════════════
             'special_user_experience': {'order': 1, 'icon': '✨', 'group': 'Special Journey'},
-            'journeyconfiguration': {'order': 2, 'icon': '🗺️', 'group': 'Special Journey'},
-            'journeychapter': {'order': 3, 'icon': '📖', 'group': 'Special Journey'},
-            'journeychallenge': {'order': 4, 'icon': '🎯', 'group': 'Special Journey'},
-            'journeyreward': {'order': 5, 'icon': '🎁', 'group': 'Special Journey'},
-            'journeyprogress': {'order': 6, 'icon': '📊', 'group': 'Special Journey'},
-            'chapterprogress': {'order': 7, 'icon': '📈', 'group': 'Special Journey'},
-            'challengeattempt': {'order': 8, 'icon': '🎮', 'group': 'Special Journey'},
-            'rewardprogress': {'order': 9, 'icon': '🏆', 'group': 'Special Journey'},
+            'journeygift': {'order': 2, 'icon': '🎁', 'group': 'Special Journey'},  # Gifts sent via QR
+            'journeyconfiguration': {'order': 3, 'icon': '🗺️', 'group': 'Special Journey'},
+            'journeychapter': {'order': 4, 'icon': '📖', 'group': 'Special Journey'},
+            'journeychallenge': {'order': 5, 'icon': '🎯', 'group': 'Special Journey'},
+            'journeyreward': {'order': 6, 'icon': '🏆', 'group': 'Special Journey'},
+            'journeyprogress': {'order': 7, 'icon': '📊', 'group': 'Special Journey'},
+            'chapterprogress': {'order': 8, 'icon': '📈', 'group': 'Special Journey'},
+            'challengeattempt': {'order': 9, 'icon': '🎮', 'group': 'Special Journey'},
+            'rewardprogress': {'order': 10, 'icon': '✅', 'group': 'Special Journey'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 6: Advent Calendar (Seasonal feature)

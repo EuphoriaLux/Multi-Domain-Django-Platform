@@ -569,14 +569,17 @@ class JourneyGiftAdmin(admin.ModelAdmin):
     """
     list_display = (
         'gift_code', 'get_sender', 'recipient_name', 'status',
-        'get_claimed_by', 'created_at', 'claimed_at'
+        'has_media_icon', 'get_claimed_by', 'created_at', 'claimed_at'
     )
     list_filter = ('status', 'created_at', 'claimed_at')
     search_fields = (
         'gift_code', 'sender__username', 'sender__email',
         'recipient_name', 'recipient_email', 'claimed_by__username'
     )
-    readonly_fields = ('gift_code', 'created_at', 'claimed_at', 'qr_code_image')
+    readonly_fields = (
+        'gift_code', 'created_at', 'claimed_at', 'qr_code_image',
+        'has_media_icon', 'get_media_summary'
+    )
     ordering = ['-created_at']
     actions = ['mark_as_expired']
 
@@ -589,6 +592,18 @@ class JourneyGiftAdmin(admin.ModelAdmin):
         }),
         ('💝 Recipient & Personalization', {
             'fields': ('recipient_name', 'recipient_email', 'date_first_met', 'location_first_met')
+        }),
+        ('🖼️ Media Content', {
+            'fields': (
+                'get_media_summary',
+                'chapter1_image',
+                ('chapter3_image_1', 'chapter3_image_2'),
+                ('chapter3_image_3', 'chapter3_image_4'),
+                'chapter3_image_5',
+                'chapter4_audio',
+                'chapter4_video',
+            ),
+            'description': 'Media files attached to the gift journey'
         }),
         ('✅ Claim Status', {
             'fields': ('claimed_by', 'claimed_at', 'journey', 'special_experience'),
@@ -610,6 +625,46 @@ class JourneyGiftAdmin(admin.ModelAdmin):
             return f"{obj.claimed_by.first_name} {obj.claimed_by.last_name}"
         return "-"
     get_claimed_by.short_description = _('Claimed By')
+
+    def has_media_icon(self, obj):
+        """Show icon indicating if gift has media files"""
+        if obj.has_media:
+            media_types = []
+            if obj.chapter1_image:
+                media_types.append("🖼️")
+            if obj.chapter3_images:
+                media_types.append(f"📸×{len(obj.chapter3_images)}")
+            if obj.chapter4_audio:
+                media_types.append("🎵")
+            if obj.chapter4_video:
+                media_types.append("🎬")
+            return " ".join(media_types)
+        return "—"
+    has_media_icon.short_description = _('Media')
+
+    def get_media_summary(self, obj):
+        """Summary of all media attached to this gift"""
+        summary = []
+        if obj.chapter1_image:
+            summary.append("✅ Chapter 1 puzzle image uploaded")
+        else:
+            summary.append("❌ Chapter 1 puzzle image missing")
+
+        ch3_count = len(obj.chapter3_images)
+        if ch3_count > 0:
+            summary.append(f"✅ Chapter 3 slideshow: {ch3_count}/5 images")
+        else:
+            summary.append("❌ Chapter 3 slideshow images missing")
+
+        if obj.chapter4_video:
+            summary.append("✅ Chapter 4 video message uploaded")
+        elif obj.chapter4_audio:
+            summary.append("✅ Chapter 4 audio message uploaded")
+        else:
+            summary.append("❌ Chapter 4 voice/video message missing")
+
+        return " | ".join(summary)
+    get_media_summary.short_description = _('Media Status')
 
     @admin.action(description=_('⏰ Mark selected gifts as expired'))
     def mark_as_expired(self, request, queryset):

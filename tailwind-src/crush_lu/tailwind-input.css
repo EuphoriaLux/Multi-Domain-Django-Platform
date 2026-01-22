@@ -2815,13 +2815,47 @@ body.journey-bg {
     animation: reveal-piece-reveal 0.5s ease;
   }
 
-  .reveal-puzzle-piece:hover:not(.unlocked) {
+  .reveal-puzzle-piece.loading {
+    cursor: wait;
+    filter: brightness(0.5) blur(2px);
+    animation: reveal-piece-pulse 1s ease-in-out infinite;
+  }
+
+  .reveal-puzzle-piece.loading .reveal-piece-number {
+    opacity: 1;
+  }
+
+  .reveal-puzzle-piece.loading .reveal-piece-number::after {
+    content: '...';
+    animation: reveal-loading-dots 1.5s steps(4, end) infinite;
+  }
+
+  @keyframes reveal-piece-pulse {
+    0%, 100% {
+      filter: brightness(0.4) blur(2px);
+      box-shadow: inset 0 0 0 2px rgba(155, 89, 182, 0.5);
+    }
+    50% {
+      filter: brightness(0.6) blur(1px);
+      box-shadow: inset 0 0 0 2px rgba(155, 89, 182, 0.9),
+                  0 0 15px rgba(155, 89, 182, 0.5);
+    }
+  }
+
+  @keyframes reveal-loading-dots {
+    0% { content: ''; }
+    25% { content: '.'; }
+    50% { content: '..'; }
+    75% { content: '...'; }
+  }
+
+  .reveal-puzzle-piece:hover:not(.unlocked):not(.loading) {
     transform: scale(1.05);
     box-shadow: inset 0 0 0 1px var(--color-crush-purple),
                 0 0 20px rgba(155, 89, 182, 0.5);
   }
 
-  .reveal-puzzle-piece:focus-visible:not(.unlocked) {
+  .reveal-puzzle-piece:focus-visible:not(.unlocked):not(.loading) {
     @apply ring-2 ring-crush-purple ring-offset-2;
     --tw-ring-offset-color: var(--color-journey-dark);
     transform: scale(1.05);
