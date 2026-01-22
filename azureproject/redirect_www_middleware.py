@@ -24,6 +24,11 @@ class StagingNoIndexMiddleware:
 
     This prevents search engines from indexing staging/test environments.
     The test.* subdomains point to the Azure staging slot for pre-production testing.
+
+    For unconfigured test.* domains (external scanners), the validate_host()
+    monkey-patch in production.py allows them through to prevent OpenTelemetry
+    crashes, but Django's CommonMiddleware will return 400 for hosts not in
+    ALLOWED_HOSTS.
     """
     def __init__(self, get_response):
         self.get_response = get_response

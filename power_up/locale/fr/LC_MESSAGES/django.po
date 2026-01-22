@@ -1,12 +1,12 @@
 # Translations for power_up app.
 # Copyright (C) 2024-2025 Entreprinder
 # This file is distributed under the same license as the project.
-#
+# 
 msgid ""
 msgstr ""
 "Project-Id-Version: power_up 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-21 20:29\n"
+"POT-Creation-Date: 2026-01-22 02:09+0100\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: FR\n"
@@ -16,26 +16,52 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: .\entreprinder\templates\entreprinder\contact.html:9
-#: .\power_up\templates\power_up\about.html:141
-#: .\power_up\templates\power_up\contact.html:10
-msgid "Contact Us"
-msgstr "Contact"
+#: .\power_up\finops\views.py:104
+msgid "FinOps Hub - Cost Dashboard"
+msgstr ""
+
+#: .\power_up\finops\views.py:159
+msgid "FinOps Hub - Subscriptions"
+msgstr ""
+
+#: .\power_up\finops\views.py:218
+msgid "FinOps Hub - Services"
+msgstr ""
+
+#: .\power_up\finops\views.py:289
+msgid "FinOps Hub - Resources"
+msgstr ""
+
+#: .\power_up\finops\views.py:315
+msgid "FinOps Hub - Import Data"
+msgstr ""
+
+#: .\power_up\finops\views.py:340
+msgid "Update Subscription ID"
+msgstr ""
+
+#: .\power_up\finops\views.py:359
+msgid "FinOps Hub - FAQ & Data Flow"
+msgstr ""
 
 #: .\power_up\platforms.py:14
 msgid "Privacy-first dating for Luxembourg"
 msgstr "Rencontres axees sur la vie privee pour le Luxembourg"
 
 #: .\power_up\platforms.py:16
+#, fuzzy
+#| msgid ""
+#| "A coach-curated dating platform focused on real connections "
+#| "throughorganized events. No endless swiping - just authentic meetups "
+#| "withpeople who share your values."
 msgid ""
-"A coach-curated dating platform focused on real connections through"
-"organized events. No endless swiping - just authentic meetups with"
-"people who share your values."
+"A coach-curated dating platform focused on real connections through "
+"organized events. No endless swiping - just authentic meetups with people "
+"who share your values."
 msgstr ""
-"Une plateforme de rencontres organisee par des coachs, axee sur les"
-"vraies connexions a travers des evenements organises. Pas de swipe"
-"sans fin - juste des rencontres authentiques avec des personnes qui"
-"partagent tes valeurs."
+"Une plateforme de rencontres organisee par des coachs, axee sur lesvraies "
+"connexions a travers des evenements organises. Pas de swipesans fin - juste "
+"des rencontres authentiques avec des personnes quipartagent tes valeurs."
 
 #: .\power_up\platforms.py:25
 msgid "Event-based matchmaking"
@@ -58,15 +84,19 @@ msgid "Adopt a vineyard plot in Luxembourg"
 msgstr "Adopte une parcelle de vignoble au Luxembourg"
 
 #: .\power_up\platforms.py:36
+#, fuzzy
+#| msgid ""
+#| "Premium wine e-commerce with a unique twist - adopt your own vineyardplot "
+#| "and receive wines from your personal vines. ExperienceLuxembourg's "
+#| "Moselle wine culture firsthand."
 msgid ""
-"Premium wine e-commerce with a unique twist - adopt your own vineyard"
-"plot and receive wines from your personal vines. Experience"
-"Luxembourg's Moselle wine culture firsthand."
+"Premium wine e-commerce with a unique twist - adopt your own vineyard plot "
+"and receive wines from your personal vines. Experience Luxembourg's Moselle "
+"wine culture firsthand."
 msgstr ""
-"E-commerce de vins premium avec une touche unique - adopte ta propre"
-"parcelle de vignoble et recois des vins de tes propres vignes."
-"Decouvre la culture viticole de la Moselle luxembourgeoise de"
-"premiere main."
+"E-commerce de vins premium avec une touche unique - adopte ta propreparcelle "
+"de vignoble et recois des vins de tes propres vignes.Decouvre la culture "
+"viticole de la Moselle luxembourgeoise depremiere main."
 
 #: .\power_up\platforms.py:45
 msgid "Plot adoption program"
@@ -89,14 +119,17 @@ msgid "Entrepreneur networking for Luxembourg"
 msgstr "Entreprinder - Connecter les entrepreneurs au Luxembourg"
 
 #: .\power_up\platforms.py:56
+#, fuzzy
+#| msgid ""
+#| "Connect with fellow entrepreneurs using smart matching. Findco-founders, "
+#| "mentors, and business partners in Luxembourg's growingstartup ecosystem."
 msgid ""
-"Connect with fellow entrepreneurs using smart matching. Find"
-"co-founders, mentors, and business partners in Luxembourg's growing"
-"startup ecosystem."
+"Connect with fellow entrepreneurs using smart matching. Find co-founders, "
+"mentors, and business partners in Luxembourg's growing startup ecosystem."
 msgstr ""
-"Connecte-toi avec d'autres entrepreneurs grace au matching"
-"intelligent. Trouve des cofondateurs, mentors et partenaires"
-"commerciaux dans l'ecosysteme startup en croissance du Luxembourg."
+"Connecte-toi avec d'autres entrepreneurs grace au matchingintelligent. "
+"Trouve des cofondateurs, mentors et partenairescommerciaux dans l'ecosysteme "
+"startup en croissance du Luxembourg."
 
 #: .\power_up\platforms.py:65
 msgid "Smart matching algorithm"
@@ -119,14 +152,19 @@ msgid "Azure cost management & analytics"
 msgstr "Gestion des couts Azure et analytiques"
 
 #: .\power_up\platforms.py:76
+#, fuzzy
+#| msgid ""
+#| "Comprehensive Azure cost management dashboard for enterprises. Trackcloud "
+#| "spending, analyze trends, and optimize costs across all yourAzure "
+#| "subscriptions in real-time."
 msgid ""
-"Comprehensive Azure cost management dashboard for enterprises. Track"
-"cloud spending, analyze trends, and optimize costs across all your"
-"Azure subscriptions in real-time."
+"Comprehensive Azure cost management dashboard for enterprises. Track cloud "
+"spending, analyze trends, and optimize costs across all your Azure "
+"subscriptions in real-time."
 msgstr ""
-"Tableau de bord complet de gestion des couts Azure pour les"
-"entreprises. Suis les depenses cloud, analyse les tendances et"
-"optimise les couts sur tous tes abonnements Azure en temps reel."
+"Tableau de bord complet de gestion des couts Azure pour lesentreprises. Suis "
+"les depenses cloud, analyse les tendances etoptimise les couts sur tous tes "
+"abonnements Azure en temps reel."
 
 #: .\power_up\platforms.py:85
 msgid "Multi-subscription tracking"
@@ -150,9 +188,9 @@ msgstr ""
 
 #: .\power_up\platforms.py:96
 msgid ""
-"Discover unique artwork created by artificial intelligence. Each"
-"piece is one of a kind, designed to evoke emotion and transform your"
-"space with museum-quality prints."
+"Discover unique artwork created by artificial intelligence. Each piece is "
+"one of a kind, designed to evoke emotion and transform your space with "
+"museum-quality prints."
 msgstr ""
 
 #: .\power_up\platforms.py:105
@@ -177,10 +215,9 @@ msgstr ""
 
 #: .\power_up\platforms.py:116
 msgid ""
-"A national platform supporting companies and workers in managing"
-"delegation assignments. Get guidance, coordination, and"
-"administrative clarity for cross-border and national delegation"
-"processes."
+"A national platform supporting companies and workers in managing delegation "
+"assignments. Get guidance, coordination, and administrative clarity for "
+"cross-border and national delegation processes."
 msgstr ""
 
 #: .\power_up\platforms.py:125
@@ -209,43 +246,63 @@ msgid "About Power-Up"
 msgstr "À propos de nous"
 
 #: .\power_up\templates\power_up\about.html:13
+#, fuzzy
+#| msgid ""
+#| "We're a Luxembourg-based company building digital platforms thatmatter."
 msgid ""
-"We're a Luxembourg-based company building digital platforms that"
-"matter."
+"We're a Luxembourg-based company building digital platforms that matter."
 msgstr ""
-"Nous sommes une entreprise basee au Luxembourg qui cree des"
-"plateformes numeriques qui comptent."
+"Nous sommes une entreprise basee au Luxembourg qui cree desplateformes "
+"numeriques qui comptent."
+
+#: .\power_up\templates\power_up\about.html:25
+#, fuzzy
+#| msgid "Our Platforms"
+msgid "Our Story"
+msgstr "Nos plateformes"
 
 #: .\power_up\templates\power_up\about.html:29
+#, fuzzy
+#| msgid ""
+#| "Power-Up was founded with a simple belief: Luxembourg deservesworld-class "
+#| "digital platforms designed for its unique community."
 msgid ""
-"Power-Up was founded with a simple belief: Luxembourg deserves"
-"world-class digital platforms designed for its unique community."
+"Power-Up was founded with a simple belief: Luxembourg deserves world-class "
+"digital platforms designed for its unique community."
 msgstr ""
-"Power-Up a ete fondee avec une croyance simple : le Luxembourg merite"
-"des plateformes numeriques de classe mondiale concues pour sa"
-"communaute unique."
+"Power-Up a ete fondee avec une croyance simple : le Luxembourg meritedes "
+"plateformes numeriques de classe mondiale concues pour sacommunaute unique."
 
 #: .\power_up\templates\power_up\about.html:32
+#, fuzzy
+#| msgid ""
+#| "In a country where everyone seems to know everyone, we recognized theneed "
+#| "for platforms that respect privacy while fostering genuineconnections. "
+#| "Whether it's dating, wine appreciation, or professionalnetworking, we "
+#| "build with Luxembourg's values at heart."
 msgid ""
-"In a country where everyone seems to know everyone, we recognized the"
-"need for platforms that respect privacy while fostering genuine"
-"connections. Whether it's dating, wine appreciation, or professional"
-"networking, we build with Luxembourg's values at heart."
+"In a country where everyone seems to know everyone, we recognized the need "
+"for platforms that respect privacy while fostering genuine connections. "
+"Whether it's dating, wine appreciation, or professional networking, we build "
+"with Luxembourg's values at heart."
 msgstr ""
-"Dans un pays ou tout le monde semble connaitre tout le monde, nous"
-"avons reconnu le besoin de plateformes qui respectent la vie privee"
-"tout en favorisant les connexions authentiques. Que ce soit pour les"
-"rencontres, l'appreciation du vin ou le networking professionnel,"
-"nous construisons avec les valeurs luxembourgeoises au coeur."
+"Dans un pays ou tout le monde semble connaitre tout le monde, nousavons "
+"reconnu le besoin de plateformes qui respectent la vie priveetout en "
+"favorisant les connexions authentiques. Que ce soit pour lesrencontres, "
+"l'appreciation du vin ou le networking professionnel,nous construisons avec "
+"les valeurs luxembourgeoises au coeur."
 
 #: .\power_up\templates\power_up\about.html:35
+#, fuzzy
+#| msgid ""
+#| "Today, our platforms serve thousands of users across Luxembourg andthe "
+#| "Greater Region, and we're just getting started."
 msgid ""
-"Today, our platforms serve thousands of users across Luxembourg and"
-"the Greater Region, and we're just getting started."
+"Today, our platforms serve thousands of users across Luxembourg and the "
+"Greater Region, and we're just getting started."
 msgstr ""
-"Aujourd'hui, nos plateformes servent des milliers d'utilisateurs a"
-"travers le Luxembourg et la Grande Region, et nous ne faisons que"
-"commencer."
+"Aujourd'hui, nos plateformes servent des milliers d'utilisateurs atravers le "
+"Luxembourg et la Grande Region, et nous ne faisons quecommencer."
 
 #: .\power_up\templates\power_up\about.html:43
 msgid "Live Platforms"
@@ -272,92 +329,134 @@ msgid "Privacy by Design"
 msgstr "Confidentialité d'abord"
 
 #: .\power_up\templates\power_up\about.html:81
+#, fuzzy
+#| msgid ""
+#| "In Luxembourg's close-knit community, privacy isn't optional. Webuild "
+#| "data protection into the foundation of every platform, givingusers "
+#| "control over their information."
 msgid ""
-"In Luxembourg's close-knit community, privacy isn't optional. We"
-"build data protection into the foundation of every platform, giving"
-"users control over their information."
+"In Luxembourg's close-knit community, privacy isn't optional. We build data "
+"protection into the foundation of every platform, giving users control over "
+"their information."
 msgstr ""
-"Dans la communaute soudee du Luxembourg, la vie privee n'est pas"
-"optionnelle. Nous integrons la protection des donnees dans les"
-"fondations de chaque plateforme, donnant aux utilisateurs le controle"
-"sur leurs informations."
+"Dans la communaute soudee du Luxembourg, la vie privee n'est pasoptionnelle. "
+"Nous integrons la protection des donnees dans lesfondations de chaque "
+"plateforme, donnant aux utilisateurs le controlesur leurs informations."
 
 #: .\power_up\templates\power_up\about.html:92
 msgid "Human Connection"
 msgstr "Créer des connexions"
 
 #: .\power_up\templates\power_up\about.html:94
+#, fuzzy
+#| msgid ""
+#| "Technology should bring people together, not replace humaninteraction. "
+#| "Our platforms facilitate real connections - whetherromantic, "
+#| "professional, or experiential."
 msgid ""
-"Technology should bring people together, not replace human"
-"interaction. Our platforms facilitate real connections - whether"
-"romantic, professional, or experiential."
+"Technology should bring people together, not replace human interaction. Our "
+"platforms facilitate real connections - whether romantic, professional, or "
+"experiential."
 msgstr ""
-"La technologie devrait rapprocher les gens, pas remplacer"
-"l'interaction humaine. Nos plateformes facilitent les vraies"
-"connexions - qu'elles soient romantiques, professionnelles ou"
-"experientielles."
+"La technologie devrait rapprocher les gens, pas remplacerl'interaction "
+"humaine. Nos plateformes facilitent les vraiesconnexions - qu'elles soient "
+"romantiques, professionnelles ouexperientielles."
 
 #: .\power_up\templates\power_up\about.html:105
 msgid "Local Focus"
 msgstr "Focus local"
 
 #: .\power_up\templates\power_up\about.html:107
+#, fuzzy
+#| msgid ""
+#| "We understand Luxembourg's unique multilingual, multiculturalcontext. Our "
+#| "platforms are designed specifically for this community,not adapted from "
+#| "solutions built elsewhere."
 msgid ""
-"We understand Luxembourg's unique multilingual, multicultural"
-"context. Our platforms are designed specifically for this community,"
-"not adapted from solutions built elsewhere."
+"We understand Luxembourg's unique multilingual, multicultural context. Our "
+"platforms are designed specifically for this community, not adapted from "
+"solutions built elsewhere."
 msgstr ""
-"Nous comprenons le contexte multilingue et multiculturel unique du"
-"Luxembourg. Nos plateformes sont concues specifiquement pour cette"
-"communaute, pas adaptees de solutions construites ailleurs."
+"Nous comprenons le contexte multilingue et multiculturel unique "
+"duLuxembourg. Nos plateformes sont concues specifiquement pour "
+"cettecommunaute, pas adaptees de solutions construites ailleurs."
 
 #: .\power_up\templates\power_up\about.html:118
 msgid "Quality First"
 msgstr "Note de qualité"
 
 #: .\power_up\templates\power_up\about.html:120
+#, fuzzy
+#| msgid ""
+#| "We'd rather have fewer platforms that work exceptionally well thanmany "
+#| "mediocre ones. Every feature is carefully considered andthoroughly tested."
 msgid ""
-"We'd rather have fewer platforms that work exceptionally well than"
-"many mediocre ones. Every feature is carefully considered and"
-"thoroughly tested."
+"We'd rather have fewer platforms that work exceptionally well than many "
+"mediocre ones. Every feature is carefully considered and thoroughly tested."
 msgstr ""
-"Nous preferons avoir moins de plateformes qui fonctionnent"
-"exceptionnellement bien plutot que plusieurs mediocres. Chaque"
-"fonctionnalite est soigneusement consideree et testee en profondeur."
+"Nous preferons avoir moins de plateformes qui fonctionnentexceptionnellement "
+"bien plutot que plusieurs mediocres. Chaquefonctionnalite est soigneusement "
+"consideree et testee en profondeur."
 
 #: .\power_up\templates\power_up\about.html:131
 msgid "Want to Know More?"
 msgstr "Tu veux en savoir plus ?"
 
 #: .\power_up\templates\power_up\about.html:134
+#, fuzzy
+#| msgid ""
+#| "Explore our platforms or get in touch to discuss partnershipopportunities."
 msgid ""
-"Explore our platforms or get in touch to discuss partnership"
-"opportunities."
+"Explore our platforms or get in touch to discuss partnership opportunities."
 msgstr ""
-"Explore nos plateformes ou contacte-nous pour discuter d'opportunites"
-"de partenariat."
+"Explore nos plateformes ou contacte-nous pour discuter d'opportunitesde "
+"partenariat."
 
 #: .\power_up\templates\power_up\about.html:138
 msgid "View Our Platforms"
 msgstr "Voir vos correspondances"
 
+#: .\power_up\templates\power_up\about.html:141
+#: .\power_up\templates\power_up\contact.html:10
+msgid "Contact Us"
+msgstr "Contact"
+
 #: .\power_up\templates\power_up\contact.html:13
 msgid "We'd love to hear from you. Get in touch with our team."
 msgstr "Nous serions ravis de t'entendre. Contacte notre equipe."
 
-#: .\power_up\templates\power_up\contact.html:29
-msgid ""
-"Whether you're interested in partnership opportunities, have"
-"questions about our platforms, or just want to say hello - we're here"
-"to help."
+#: .\power_up\templates\power_up\contact.html:26
+#: .\power_up\templates\power_up\home.html:120
+#: .\power_up\templates\power_up\investors.html:184
+msgid "Get in Touch"
 msgstr ""
-"Que tu sois interesse par des opportunites de partenariat, que tu"
-"aies des questions sur nos plateformes, ou que tu veuilles simplement"
-"dire bonjour - nous sommes la pour t'aider."
+
+#: .\power_up\templates\power_up\contact.html:29
+#, fuzzy
+#| msgid ""
+#| "Whether you're interested in partnership opportunities, havequestions "
+#| "about our platforms, or just want to say hello - we're hereto help."
+msgid ""
+"Whether you're interested in partnership opportunities, have questions about "
+"our platforms, or just want to say hello - we're here to help."
+msgstr ""
+"Que tu sois interesse par des opportunites de partenariat, que tuaies des "
+"questions sur nos plateformes, ou que tu veuilles simplementdire bonjour - "
+"nous sommes la pour t'aider."
+
+#: .\power_up\templates\power_up\contact.html:41
+msgid "Email"
+msgstr ""
 
 #: .\power_up\templates\power_up\contact.html:48
 msgid "We typically respond within 24 hours."
 msgstr "Nous repondons generalement dans les 24 heures."
+
+#: .\power_up\templates\power_up\contact.html:62
+#, fuzzy
+#| msgid "Population"
+msgid "Location"
+msgstr "Production"
 
 #: .\power_up\templates\power_up\contact.html:64
 msgid "Luxembourg City, Luxembourg"
@@ -407,22 +506,25 @@ msgstr "h Support"
 #: .\power_up\templates\power_up\contact.html:131
 msgid "Need help with one of our platforms? Visit the platform directly:"
 msgstr ""
-"Besoin d'aide avec l'une de nos plateformes ? Visitez directement la"
-"plateforme :Besoin d'aide avec une de nos plateformes ? Visite"
-"directement la plateforme :"
+"Besoin d'aide avec l'une de nos plateformes ? Visitez directement "
+"laplateforme :Besoin d'aide avec une de nos plateformes ? Visitedirectement "
+"la plateforme :"
 
 #: .\power_up\templates\power_up\contact.html:176
 msgid "Part of Luxembourg's Tech Ecosystem"
 msgstr "Partie de l'ecosysteme tech du Luxembourg"
 
 #: .\power_up\templates\power_up\contact.html:179
+#, fuzzy
+#| msgid ""
+#| "We're proud to be building in Luxembourg alongside a vibrantcommunity of "
+#| "innovators, startups, and tech enthusiasts."
 msgid ""
-"We're proud to be building in Luxembourg alongside a vibrant"
-"community of innovators, startups, and tech enthusiasts."
+"We're proud to be building in Luxembourg alongside a vibrant community of "
+"innovators, startups, and tech enthusiasts."
 msgstr ""
-"Nous sommes fiers de construire au Luxembourg aux cotes d'une"
-"communaute dynamique d'innovateurs, de startups et de passionnes de"
-"tech."
+"Nous sommes fiers de construire au Luxembourg aux cotes d'unecommunaute "
+"dynamique d'innovateurs, de startups et de passionnes detech."
 
 #: .\power_up\templates\power_up\home.html:11
 msgid "Building Luxembourg's"
@@ -433,13 +535,17 @@ msgid "Digital Future"
 msgstr "Caractéristiques spéciales"
 
 #: .\power_up\templates\power_up\home.html:15
+#, fuzzy
+#| msgid ""
+#| "We create innovative digital platforms that connect people, "
+#| "fostercommunities, and drive growth in Luxembourg and beyond."
 msgid ""
-"We create innovative digital platforms that connect people, foster"
+"We create innovative digital platforms that connect people, foster "
 "communities, and drive growth in Luxembourg and beyond."
 msgstr ""
-"Nous creons des plateformes numeriques innovantes qui connectent les"
-"gens, favorisent les communautes et stimulent la croissance au"
-"Luxembourg et au-dela."
+"Nous creons des plateformes numeriques innovantes qui connectent lesgens, "
+"favorisent les communautes et stimulent la croissance auLuxembourg et au-"
+"dela."
 
 #: .\power_up\templates\power_up\home.html:19
 msgid "Explore Platforms"
@@ -449,52 +555,71 @@ msgstr "Explorer les vignobles"
 msgid "Partner With Us"
 msgstr "Deviens partenaire"
 
-#: .\power_up\templates\power_up\home.html:37
-msgid ""
-"We believe technology should bring people together, not drive them"
-"apart. Our platforms are designed to create meaningful connections"
-"and lasting value for Luxembourg's communities."
+#: .\power_up\templates\power_up\home.html:34
+msgid "Our Mission"
 msgstr ""
-"Nous croyons que la technologie devrait rapprocher les gens, pas les"
-"separer. Nos plateformes sont concues pour creer des connexions"
-"significatives et une valeur durable pour les communautes"
-"luxembourgeoises."
+
+#: .\power_up\templates\power_up\home.html:37
+#, fuzzy
+#| msgid ""
+#| "We believe technology should bring people together, not drive themapart. "
+#| "Our platforms are designed to create meaningful connectionsand lasting "
+#| "value for Luxembourg's communities."
+msgid ""
+"We believe technology should bring people together, not drive them apart. "
+"Our platforms are designed to create meaningful connections and lasting "
+"value for Luxembourg's communities."
+msgstr ""
+"Nous croyons que la technologie devrait rapprocher les gens, pas lesseparer. "
+"Nos plateformes sont concues pour creer des connexionssignificatives et une "
+"valeur durable pour les communautesluxembourgeoises."
 
 #: .\power_up\templates\power_up\home.html:49
 msgid "Community First"
 msgstr "Communaute d'abord"
 
 #: .\power_up\templates\power_up\home.html:51
+#, fuzzy
+#| msgid ""
+#| "Every platform we build serves Luxembourg's unique communities withcare "
+#| "and understanding."
 msgid ""
-"Every platform we build serves Luxembourg's unique communities with"
-"care and understanding."
+"Every platform we build serves Luxembourg's unique communities with care and "
+"understanding."
 msgstr ""
-"Chaque plateforme que nous construisons sert les communautes uniques"
-"du Luxembourg avec soin et comprehension."
+"Chaque plateforme que nous construisons sert les communautes uniquesdu "
+"Luxembourg avec soin et comprehension."
 
 #: .\power_up\templates\power_up\home.html:62
 msgid "Privacy Focused"
 msgstr "Confidentialité d'abord"
 
 #: .\power_up\templates\power_up\home.html:64
+#, fuzzy
+#| msgid ""
+#| "In a small country, privacy matters. We build with data protectionand "
+#| "user trust at the core."
 msgid ""
-"In a small country, privacy matters. We build with data protection"
-"and user trust at the core."
+"In a small country, privacy matters. We build with data protection and user "
+"trust at the core."
 msgstr ""
-"Dans un petit pays, la vie privee compte. Nous construisons avec la"
-"protection des donnees et la confiance des utilisateurs au coeur."
+"Dans un petit pays, la vie privee compte. Nous construisons avec "
+"laprotection des donnees et la confiance des utilisateurs au coeur."
 
 #: .\power_up\templates\power_up\home.html:75
 msgid "Innovation Driven"
 msgstr "Motive par l'innovation"
 
 #: .\power_up\templates\power_up\home.html:77
+#, fuzzy
+#| msgid ""
+#| "We combine proven technology with creative solutions tailored tolocal "
+#| "needs."
 msgid ""
-"We combine proven technology with creative solutions tailored to"
-"local needs."
+"We combine proven technology with creative solutions tailored to local needs."
 msgstr ""
-"Nous combinons une technologie eprouvee avec des solutions creatives"
-"adaptees aux besoins locaux."
+"Nous combinons une technologie eprouvee avec des solutions creativesadaptees "
+"aux besoins locaux."
 
 #: .\power_up\templates\power_up\home.html:89
 #: .\power_up\templates\power_up\partials\footer.html:50
@@ -503,12 +628,14 @@ msgid "Our Platforms"
 msgstr "Nos plateformes"
 
 #: .\power_up\templates\power_up\home.html:92
+#, fuzzy
+#| msgid ""
+#| "Discover the digital experiences we've built for Luxembourg'scommunities."
 msgid ""
-"Discover the digital experiences we've built for Luxembourg's"
-"communities."
+"Discover the digital experiences we've built for Luxembourg's communities."
 msgstr ""
-"Decouvre les experiences numeriques que nous avons construites pour"
-"les communautes luxembourgeoises."
+"Decouvre les experiences numeriques que nous avons construites pourles "
+"communautes luxembourgeoises."
 
 #: .\power_up\templates\power_up\home.html:104
 msgid "Learn More About Our Platforms"
@@ -519,12 +646,16 @@ msgid "Ready to Partner?"
 msgstr "Pret a devenir partenaire ?"
 
 #: .\power_up\templates\power_up\home.html:117
+#, fuzzy
+#| msgid ""
+#| "We're always looking for partners who share our vision forLuxembourg's "
+#| "digital future."
 msgid ""
-"We're always looking for partners who share our vision for"
-"Luxembourg's digital future."
+"We're always looking for partners who share our vision for Luxembourg's "
+"digital future."
 msgstr ""
-"Nous recherchons toujours des partenaires qui partagent notre vision"
-"pour l'avenir numerique du Luxembourg."
+"Nous recherchons toujours des partenaires qui partagent notre visionpour "
+"l'avenir numerique du Luxembourg."
 
 #: .\power_up\templates\power_up\investors.html:13
 msgid "Join us in building Luxembourg's digital future."
@@ -535,38 +666,51 @@ msgid "Why Power-Up?"
 msgstr "Pourquoi Power-Up ?"
 
 #: .\power_up\templates\power_up\investors.html:29
+#, fuzzy
+#| msgid ""
+#| "Luxembourg represents a unique market opportunity. With one ofEurope's "
+#| "highest GDP per capita, a highly international population,and strong "
+#| "digital infrastructure, it's an ideal testbed forinnovative platforms."
 msgid ""
-"Luxembourg represents a unique market opportunity. With one of"
-"Europe's highest GDP per capita, a highly international population,"
-"and strong digital infrastructure, it's an ideal testbed for"
-"innovative platforms."
+"Luxembourg represents a unique market opportunity. With one of Europe's "
+"highest GDP per capita, a highly international population, and strong "
+"digital infrastructure, it's an ideal testbed for innovative platforms."
 msgstr ""
-"Le Luxembourg represente une opportunite de marche unique. Avec l'un"
-"des PIB par habitant les plus eleves d'Europe, une population"
-"hautement internationale et une solide infrastructure numerique,"
-"c'est un terrain d'essai ideal pour les plateformes innovantes."
+"Le Luxembourg represente une opportunite de marche unique. Avec l'undes PIB "
+"par habitant les plus eleves d'Europe, une populationhautement "
+"internationale et une solide infrastructure numerique,c'est un terrain "
+"d'essai ideal pour les plateformes innovantes."
 
 #: .\power_up\templates\power_up\investors.html:32
+#, fuzzy
+#| msgid ""
+#| "Yet despite its wealth, Luxembourg has been underserved by "
+#| "homegrowndigital platforms. Most residents rely on platforms designed "
+#| "forlarger markets that don't understand local nuances."
 msgid ""
-"Yet despite its wealth, Luxembourg has been underserved by homegrown"
-"digital platforms. Most residents rely on platforms designed for"
-"larger markets that don't understand local nuances."
+"Yet despite its wealth, Luxembourg has been underserved by homegrown digital "
+"platforms. Most residents rely on platforms designed for larger markets that "
+"don't understand local nuances."
 msgstr ""
-"Pourtant, malgre sa richesse, le Luxembourg a ete mal desservi par"
-"les plateformes numeriques locales. La plupart des residents"
-"s'appuient sur des plateformes concues pour des marches plus grands"
-"qui ne comprennent pas les nuances locales."
+"Pourtant, malgre sa richesse, le Luxembourg a ete mal desservi parles "
+"plateformes numeriques locales. La plupart des residentss'appuient sur des "
+"plateformes concues pour des marches plus grandsqui ne comprennent pas les "
+"nuances locales."
 
 #: .\power_up\templates\power_up\investors.html:35
+#, fuzzy
+#| msgid ""
+#| "Power-Up is changing that. We build platforms specifically forLuxembourg "
+#| "- with the right languages, the right features, and theright approach to "
+#| "privacy for a small, interconnected community."
 msgid ""
-"Power-Up is changing that. We build platforms specifically for"
-"Luxembourg - with the right languages, the right features, and the"
-"right approach to privacy for a small, interconnected community."
+"Power-Up is changing that. We build platforms specifically for Luxembourg - "
+"with the right languages, the right features, and the right approach to "
+"privacy for a small, interconnected community."
 msgstr ""
-"Power-Up change cela. Nous construisons des plateformes"
-"specifiquement pour le Luxembourg - avec les bonnes langues, les"
-"bonnes fonctionnalites et la bonne approche de la vie privee pour une"
-"petite communaute interconnectee."
+"Power-Up change cela. Nous construisons des plateformesspecifiquement pour "
+"le Luxembourg - avec les bonnes langues, lesbonnes fonctionnalites et la "
+"bonne approche de la vie privee pour unepetite communaute interconnectee."
 
 #: .\power_up\templates\power_up\investors.html:40
 msgid "Market Highlights"
@@ -593,51 +737,65 @@ msgid "Partnership Opportunities"
 msgstr "Opportunites de partenariat"
 
 #: .\power_up\templates\power_up\investors.html:98
+#, fuzzy
+#| msgid ""
+#| "We're looking for partners who share our vision for Luxembourg'sdigital "
+#| "future."
 msgid ""
-"We're looking for partners who share our vision for Luxembourg's"
-"digital future."
+"We're looking for partners who share our vision for Luxembourg's digital "
+"future."
 msgstr ""
-"Nous recherchons des partenaires qui partagent notre vision pour"
-"l'avenir numerique du Luxembourg."
+"Nous recherchons des partenaires qui partagent notre vision pourl'avenir "
+"numerique du Luxembourg."
 
 #: .\power_up\templates\power_up\investors.html:110
 msgid "Investment"
 msgstr "Choisir investissement"
 
 #: .\power_up\templates\power_up\investors.html:112
+#, fuzzy
+#| msgid ""
+#| "We welcome discussions with investors interested in Luxembourg'sgrowing "
+#| "tech ecosystem. Seed and Series A opportunities available."
 msgid ""
-"We welcome discussions with investors interested in Luxembourg's"
-"growing tech ecosystem. Seed and Series A opportunities available."
+"We welcome discussions with investors interested in Luxembourg's growing "
+"tech ecosystem. Seed and Series A opportunities available."
 msgstr ""
-"Nous accueillons les discussions avec des investisseurs interesses"
-"par l'ecosysteme tech en croissance du Luxembourg. Opportunites de"
-"Seed et Serie A disponibles."
+"Nous accueillons les discussions avec des investisseurs interessespar "
+"l'ecosysteme tech en croissance du Luxembourg. Opportunites deSeed et Serie "
+"A disponibles."
 
 #: .\power_up\templates\power_up\investors.html:123
 msgid "Strategic Partners"
 msgstr "Partenaires strategiques"
 
 #: .\power_up\templates\power_up\investors.html:125
+#, fuzzy
+#| msgid ""
+#| "Looking for organizations that can help us scale our platforms orbring "
+#| "complementary services to our users."
 msgid ""
-"Looking for organizations that can help us scale our platforms or"
-"bring complementary services to our users."
+"Looking for organizations that can help us scale our platforms or bring "
+"complementary services to our users."
 msgstr ""
-"Nous recherchons des organisations qui peuvent nous aider a faire"
-"evoluer nos plateformes ou a apporter des services complementaires a"
-"nos utilisateurs."
+"Nous recherchons des organisations qui peuvent nous aider a faireevoluer nos "
+"plateformes ou a apporter des services complementaires anos utilisateurs."
 
 #: .\power_up\templates\power_up\investors.html:136
 msgid "Local Businesses"
 msgstr "Entreprises locales"
 
 #: .\power_up\templates\power_up\investors.html:138
+#, fuzzy
+#| msgid ""
+#| "Luxembourg businesses looking to reach our engaged user base "
+#| "throughtasteful, relevant partnerships."
 msgid ""
-"Luxembourg businesses looking to reach our engaged user base through"
+"Luxembourg businesses looking to reach our engaged user base through "
 "tasteful, relevant partnerships."
 msgstr ""
-"Entreprises luxembourgeoises cherchant a atteindre notre base"
-"d'utilisateurs engages a travers des partenariats de bon gout et"
-"pertinents."
+"Entreprises luxembourgeoises cherchant a atteindre notre based'utilisateurs "
+"engages a travers des partenariats de bon gout etpertinents."
 
 #: .\power_up\templates\power_up\investors.html:150
 msgid "Track Record"
@@ -668,12 +826,28 @@ msgid "Interested in learning more? We'd love to hear from you."
 msgstr "Interesse d'en savoir plus ? Nous serions ravis de t'entendre."
 
 #: .\power_up\templates\power_up\partials\footer.html:14
+#, fuzzy
+#| msgid ""
+#| "Building Luxembourg's digital future through innovative platformsthat "
+#| "connect people and create value."
 msgid ""
-"Building Luxembourg's digital future through innovative platforms"
-"that connect people and create value."
+"Building Luxembourg's digital future through innovative platforms that "
+"connect people and create value."
 msgstr ""
-"Construire l'avenir numerique du Luxembourg a travers des plateformes"
-"innovantes qui connectent les gens et creent de la valeur."
+"Construire l'avenir numerique du Luxembourg a travers des "
+"plateformesinnovantes qui connectent les gens et creent de la valeur."
+
+#: .\power_up\templates\power_up\partials\footer.html:21
+#, fuzzy
+#| msgid "Company Founded"
+msgid "Company"
+msgstr "Entreprise"
+
+#: .\power_up\templates\power_up\partials\footer.html:26
+#: .\power_up\templates\power_up\partials\navigation.html:22
+#: .\power_up\templates\power_up\partials\navigation.html:56
+msgid "About"
+msgstr ""
 
 #: .\power_up\templates\power_up\partials\footer.html:31
 #: .\power_up\templates\power_up\partials\navigation.html:26
@@ -687,13 +861,35 @@ msgstr "Plateformes"
 msgid "Investors"
 msgstr "Investisseurs"
 
+#: .\power_up\templates\power_up\partials\footer.html:41
+#: .\power_up\templates\power_up\partials\navigation.html:34
+#: .\power_up\templates\power_up\partials\navigation.html:68
+#, fuzzy
+#| msgid "Contact Us"
+msgid "Contact"
+msgstr "Contact"
+
+#: .\power_up\templates\power_up\partials\footer.html:97
+msgid "All rights reserved."
+msgstr ""
+
 #: .\power_up\templates\power_up\partials\footer.html:100
 msgid "Made in Luxembourg"
 msgstr "Luxembourg"
 
+#: .\power_up\templates\power_up\partials\language_switcher.html:30
+msgid "Go"
+msgstr ""
+
 #: .\power_up\templates\power_up\partials\platform_card.html:46
 msgid "Live"
 msgstr "En ligne"
+
+#: .\power_up\templates\power_up\partials\platform_card.html:48
+#, fuzzy
+#| msgid "More Coming Soon"
+msgid "Coming Soon"
+msgstr "Carte interactive bientôt disponible"
 
 #: .\power_up\templates\power_up\partials\platform_card.html:76
 msgid "Visit Platform"
@@ -716,13 +912,16 @@ msgid "More Coming Soon"
 msgstr "Carte interactive bientôt disponible"
 
 #: .\power_up\templates\power_up\platforms.html:102
+#, fuzzy
+#| msgid ""
+#| "We're constantly working on new ideas to serve Luxembourg'scommunities. "
+#| "Stay tuned for more platforms."
 msgid ""
-"We're constantly working on new ideas to serve Luxembourg's"
-"communities. Stay tuned for more platforms."
+"We're constantly working on new ideas to serve Luxembourg's communities. "
+"Stay tuned for more platforms."
 msgstr ""
-"Nous travaillons constamment sur de nouvelles idees pour servir les"
-"communautes luxembourgeoises. Restez a l'ecoute pour plus de"
-"plateformes."
+"Nous travaillons constamment sur de nouvelles idees pour servir "
+"lescommunautes luxembourgeoises. Restez a l'ecoute pour plus deplateformes."
 
 #: .\power_up\templates\power_up\platforms.html:105
 msgid "Get Updates"
@@ -733,54 +932,73 @@ msgid "Power-Up - Building Luxembourg's Digital Future"
 msgstr "Power-Up - Construire l'avenir numerique du Luxembourg"
 
 #: .\power_up\views.py:22
+#, fuzzy
+#| msgid ""
+#| "Power-Up builds digital platforms for Luxembourg. Discover ourportfolio: "
+#| "Crush.lu, VinsDelux, and Entreprinder."
 msgid ""
-"Power-Up builds digital platforms for Luxembourg. Discover our"
-"portfolio: Crush.lu, VinsDelux, and Entreprinder."
+"Power-Up builds digital platforms for Luxembourg. Discover our portfolio: "
+"Crush.lu, VinsDelux, and Entreprinder."
 msgstr ""
-"Power-Up cree des plateformes numeriques pour le Luxembourg. Decouvre"
-"notre portfolio : Crush.lu, VinsDelux et Entreprinder."
+"Power-Up cree des plateformes numeriques pour le Luxembourg. Decouvrenotre "
+"portfolio : Crush.lu, VinsDelux et Entreprinder."
 
 #: .\power_up\views.py:35
+#, fuzzy
+#| msgid ""
+#| "Learn about Power-Up, the company building Luxembourg's digitalfuture "
+#| "through innovative platforms."
 msgid ""
-"Learn about Power-Up, the company building Luxembourg's digital"
-"future through innovative platforms."
+"Learn about Power-Up, the company building Luxembourg's digital future "
+"through innovative platforms."
 msgstr ""
-"Decouvre Power-Up, l'entreprise qui construit l'avenir numerique du"
-"Luxembourg a travers des plateformes innovantes."
+"Decouvre Power-Up, l'entreprise qui construit l'avenir numerique "
+"duLuxembourg a travers des plateformes innovantes."
 
 #: .\power_up\views.py:47
 msgid "Our Platforms - Power-Up"
 msgstr "Nos plateformes - Power-Up"
 
 #: .\power_up\views.py:49
+#, fuzzy
+#| msgid ""
+#| "Explore Power-Up's portfolio of digital platforms: Crush.lu dating,"
+#| "VinsDelux wine adoption, and Entreprinder networking."
 msgid ""
-"Explore Power-Up's portfolio of digital platforms: Crush.lu dating,"
+"Explore Power-Up's portfolio of digital platforms: Crush.lu dating, "
 "VinsDelux wine adoption, and Entreprinder networking."
 msgstr ""
-"Explore le portfolio de plateformes numeriques de Power-Up : Crush.lu"
-"rencontres, VinsDelux adoption de vin et Entreprinder networking."
+"Explore le portfolio de plateformes numeriques de Power-Up : Crush."
+"lurencontres, VinsDelux adoption de vin et Entreprinder networking."
 
 #: .\power_up\views.py:60
 msgid "Investors & Partners - Power-Up"
 msgstr "Investisseurs et Partenaires - Power-Up"
 
 #: .\power_up\views.py:62
+#, fuzzy
+#| msgid ""
+#| "Partner with Power-Up to build Luxembourg's digital future.Investment and "
+#| "partnership opportunities."
 msgid ""
-"Partner with Power-Up to build Luxembourg's digital future."
-"Investment and partnership opportunities."
+"Partner with Power-Up to build Luxembourg's digital future. Investment and "
+"partnership opportunities."
 msgstr ""
-"Associe-toi a Power-Up pour construire l'avenir numerique du"
-"Luxembourg. Opportunites d'investissement et de partenariat."
+"Associe-toi a Power-Up pour construire l'avenir numerique duLuxembourg. "
+"Opportunites d'investissement et de partenariat."
 
 #: .\power_up\views.py:73
 msgid "Contact Us - Power-Up"
 msgstr "Contactez-nous - Power-Up"
 
 #: .\power_up\views.py:75
+#, fuzzy
+#| msgid ""
+#| "Get in touch with Power-Up. Contact information for investors,partners, "
+#| "and general inquiries."
 msgid ""
-"Get in touch with Power-Up. Contact information for investors,"
-"partners, and general inquiries."
+"Get in touch with Power-Up. Contact information for investors, partners, and "
+"general inquiries."
 msgstr ""
-"Contacte Power-Up. Informations de contact pour investisseurs,"
-"partenaires et demandes generales."
-
+"Contacte Power-Up. Informations de contact pour investisseurs,partenaires et "
+"demandes generales."

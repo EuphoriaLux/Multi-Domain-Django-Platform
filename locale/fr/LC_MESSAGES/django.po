@@ -1,12 +1,12 @@
 # Translations for azureproject app.
 # Copyright (C) 2024-2025 Entreprinder
 # This file is distributed under the same license as the project.
-#
+# 
 msgid ""
 msgstr ""
 "Project-Id-Version: azureproject 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-21 20:29\n"
+"POT-Creation-Date: 2026-01-22 02:09+0100\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: FR\n"
@@ -16,12 +16,23 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
+#: .\azureproject\settings.py:525
+msgid "English"
+msgstr ""
+
+#: .\azureproject\settings.py:526
+msgid "German"
+msgstr ""
+
+#: .\azureproject\settings.py:527
+msgid "French"
+msgstr ""
+
 #: .\core\templates\admin\base_site.html:4
 msgid "Django site admin"
 msgstr "Administration du site Django"
 
 #: .\core\templates\admin\base_site.html:7
-#: .\crush_lu\templates\admin\index.html:52
 msgid "Django administration"
 msgstr "Administration Django"
 
@@ -31,8 +42,8 @@ msgstr ""
 
 #: .\core\templates\admin\login.html:104
 msgid ""
-"Microsoft login is restricted to organization employees. Google login"
-"is available for authorized coaches."
+"Microsoft login is restricted to organization employees. Google login is "
+"available for authorized coaches."
 msgstr ""
 
 #: .\core\templates\admin\login.html:107
@@ -56,14 +67,19 @@ msgid "Cookie Settings"
 msgstr "Paramètres des cookies"
 
 #: .\core\templates\includes\cookie_banner.html:11
+#, fuzzy
+#| msgid ""
+#| "We use cookies to enhance your experience. Analytics cookies help "
+#| "usunderstand how you use our site. You can accept all cookies orcustomize "
+#| "your preferences."
 msgid ""
-"We use cookies to enhance your experience. Analytics cookies help us"
-"understand how you use our site. You can accept all cookies or"
-"customize your preferences."
+"We use cookies to enhance your experience. Analytics cookies help us "
+"understand how you use our site. You can accept all cookies or customize "
+"your preferences."
 msgstr ""
-"Nous utilisons des cookies pour améliorer ton expérience. Les cookies"
-"d'analyse nous aident à comprendre comment tu utilises notre site. Tu"
-"peux accepter tous les cookies ou personnaliser tes préférences."
+"Nous utilisons des cookies pour améliorer ton expérience. Les "
+"cookiesd'analyse nous aident à comprendre comment tu utilises notre site. "
+"Tupeux accepter tous les cookies ou personnaliser tes préférences."
 
 #: .\core\templates\includes\cookie_banner.html:16
 msgid "Customize"
@@ -82,7 +98,6 @@ msgid "Cookie Preferences"
 msgstr "Préférences de cookies"
 
 #: .\core\templates\includes\cookie_banner.html:33
-#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:219
 msgid "Close"
 msgstr "Fermer"
 
@@ -95,47 +110,62 @@ msgid "Always Active"
 msgstr "Toujours actif"
 
 #: .\core\templates\includes\cookie_banner.html:48
+#, fuzzy
+#| msgid ""
+#| "These cookies are necessary for the website to function and cannot "
+#| "beswitched off. They are usually only set in response to actions madeby "
+#| "you such as logging in or filling in forms."
 msgid ""
-"These cookies are necessary for the website to function and cannot be"
-"switched off. They are usually only set in response to actions made"
-"by you such as logging in or filling in forms."
+"These cookies are necessary for the website to function and cannot be "
+"switched off. They are usually only set in response to actions made by you "
+"such as logging in or filling in forms."
 msgstr ""
-"Ces cookies sont nécessaires au fonctionnement du site web et ne"
-"peuvent pas être désactivés. Ils sont généralement définis uniquement"
-"en réponse à tes actions, comme la connexion ou le remplissage de"
-"formulaires."
+"Ces cookies sont nécessaires au fonctionnement du site web et nepeuvent pas "
+"être désactivés. Ils sont généralement définis uniquementen réponse à tes "
+"actions, comme la connexion ou le remplissage deformulaires."
 
 #: .\core\templates\includes\cookie_banner.html:59
 msgid "Analytics Cookies"
 msgstr "Cookies analytiques"
 
 #: .\core\templates\includes\cookie_banner.html:63
+#, fuzzy
+#| msgid ""
+#| "These cookies allow us to count visits and traffic sources so we "
+#| "canmeasure and improve the performance of our site. They help us "
+#| "knowwhich pages are the most and least popular."
 msgid ""
-"These cookies allow us to count visits and traffic sources so we can"
-"measure and improve the performance of our site. They help us know"
-"which pages are the most and least popular."
+"These cookies allow us to count visits and traffic sources so we can measure "
+"and improve the performance of our site. They help us know which pages are "
+"the most and least popular."
 msgstr ""
-"Ces cookies nous permettent de compter les visites et les sources de"
-"trafic afin de mesurer et d'améliorer les performances de notre site."
-"Ils nous aident à savoir quelles pages sont les plus et les moins"
-"populaires."
+"Ces cookies nous permettent de compter les visites et les sources detrafic "
+"afin de mesurer et d'améliorer les performances de notre site.Ils nous "
+"aident à savoir quelles pages sont les plus et les moinspopulaires."
 
 #: .\core\templates\includes\cookie_banner.html:74
 msgid "Marketing Cookies"
 msgstr "Cookies marketing"
 
 #: .\core\templates\includes\cookie_banner.html:78
+#, fuzzy
+#| msgid ""
+#| "These cookies may be set through our site by our advertisingpartners. "
+#| "They may be used to build a profile of your interests andshow you "
+#| "relevant adverts on other sites."
 msgid ""
-"These cookies may be set through our site by our advertising"
-"partners. They may be used to build a profile of your interests and"
-"show you relevant adverts on other sites."
+"These cookies may be set through our site by our advertising partners. They "
+"may be used to build a profile of your interests and show you relevant "
+"adverts on other sites."
 msgstr ""
-"Ces cookies peuvent être définis via notre site par nos partenaires"
-"publicitaires. Ils peuvent être utilisés pour créer un profil de tes"
-"intérêts et te montrer des publicités pertinentes sur d'autres sites."
+"Ces cookies peuvent être définis via notre site par nos "
+"partenairespublicitaires. Ils peuvent être utilisés pour créer un profil de "
+"tesintérêts et te montrer des publicités pertinentes sur d'autres sites."
+
+#: .\core\templates\includes\cookie_banner.html:83
+msgid "Cancel"
+msgstr ""
 
 #: .\core\templates\includes\cookie_banner.html:84
-#: .\crush_lu\templates\crush_lu\account_settings.html:401
 msgid "Save Preferences"
 msgstr "Enregistrer les préférences"
-

@@ -1,12 +1,12 @@
 # Translations for vinsdelux app.
 # Copyright (C) 2024-2025 Entreprinder
 # This file is distributed under the same license as the project.
-#
+# 
 msgid ""
 msgstr ""
 "Project-Id-Version: vinsdelux 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-21 20:29\n"
+"POT-Creation-Date: 2026-01-22 02:09+0100\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: DE\n"
@@ -16,53 +16,11 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: .\crush_lu\templates\crush_lu\about.html:24
-#: .\crush_lu\templates\crush_lu\how_it_works.html:24
-#: .\entreprinder\templates\base.html:62
-#: .\vinsdelux\templates\vinsdelux\base.html:64
-#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:12
-#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:12
-#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:12
-msgid "Home"
-msgstr "Startseite"
-
-#: .\crush_lu\templates\crush_lu\account_settings.html:198
 #: .\vinsdelux\models.py:396
 #: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:32
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:122
 msgid "Available"
 msgstr "Verfügbar"
-
-#: .\crush_lu\templates\crush_lu\dashboard.html:195
-#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:158
-#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:126
-msgid "Learn More"
-msgstr "Mehr erfahren"
-
-#: .\crush_lu\templates\crush_lu\edit_profile.html:37
-#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:36
-#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:72
-#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:116
-#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:151
-msgid "Step"
-msgstr "Schritt"
-
-#: .\crush_lu\templates\crush_lu\voting_demo.html:16
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:874
-#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:33
-#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:33
-#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:108
-msgid "Previous"
-msgstr "Zurück"
-
-#: .\crush_lu\templates\crush_lu\voting_demo.html:17
-#: .\crush_lu\templates\crush_lu\voting_demo.html:781
-#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:884
-#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:37
-#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:37
-#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:118
-msgid "Next"
-msgstr "Weiter"
 
 #: .\vinsdelux\models.py:397
 #: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:37
@@ -84,6 +42,13 @@ msgstr "Adoptiert"
 #: .\vinsdelux\templates\admin\base_site.html:29
 msgid "VinsDelux Management"
 msgstr "VinsDelux Verwaltung"
+
+#: .\vinsdelux\templates\vinsdelux\base.html:64
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:12
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:12
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:12
+msgid "Home"
+msgstr "Startseite"
 
 #: .\vinsdelux\templates\vinsdelux\base.html:69
 msgid "Products"
@@ -150,12 +115,14 @@ msgid "Discover Vinsdelux"
 msgstr "Vinsdelux entdecken"
 
 #: .\vinsdelux\templates\vinsdelux\index.html:45
+#, fuzzy
+#| msgid ""
+#| "Explore our exquisite selection of wines and unique adoptionopportunities."
 msgid ""
-"Explore our exquisite selection of wines and unique adoption"
-"opportunities."
+"Explore our exquisite selection of wines and unique adoption opportunities."
 msgstr ""
-"Entdecken Sie unsere exquisite Weinauswahl und einzigartige"
-"Adoptionsmöglichkeiten."
+"Entdecken Sie unsere exquisite Weinauswahl und "
+"einzigartigeAdoptionsmöglichkeiten."
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\loading_states.html:20
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:385
@@ -243,9 +210,22 @@ msgstr "Qualitätsbewertung"
 msgid "Select This Plot"
 msgstr "Diese Parzelle auswählen"
 
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:194
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:185
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:91
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:83
+#, fuzzy
+#| msgid "View Coffret Details"
+msgid "View Details"
+msgstr "Coffret-Details ansehen"
+
 #: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:199
 msgid "Currently Unavailable"
 msgstr "Derzeit nicht verfügbar"
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:206
+msgid "Join Waitlist"
+msgstr ""
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:276
 msgid "Waitlist functionality coming soon!"
@@ -258,8 +238,14 @@ msgstr "Ihre Weinadoptions-Reise"
 #: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:18
 msgid "Follow these steps to complete your vineyard plot adoption"
 msgstr ""
-"Folgen Sie diesen Schritten, um Ihre Weinberg-Parzellenadoption"
-"abzuschließen"
+"Folgen Sie diesen Schritten, um Ihre Weinberg-Parzellenadoptionabzuschließen"
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:36
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:72
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:116
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:151
+msgid "Step"
+msgstr "Schritt"
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:37
 msgid "Select Your Plot"
@@ -268,8 +254,7 @@ msgstr "Wählen Sie Ihre Parzelle"
 #: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:39
 msgid "Choose your perfect vineyard plot from our premium locations"
 msgstr ""
-"Wählen Sie Ihre perfekte Weinbergparzelle aus unseren"
-"Premium-Standorten"
+"Wählen Sie Ihre perfekte Weinbergparzelle aus unserenPremium-Standorten"
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:45
 msgid "Explore interactive map"
@@ -290,6 +275,18 @@ msgstr "Wählen Sie Ihren Plan"
 #: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:75
 msgid "Select from Bronze, Silver, or Gold adoption plans"
 msgstr "Wählen Sie aus Bronze-, Silber- oder Gold-Adoptionsplänen"
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:83
+msgid "Bronze"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:89
+msgid "Silver"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:95
+msgid "Gold"
+msgstr ""
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:117
 msgid "Personal Details"
@@ -369,6 +366,10 @@ msgstr "Beinhaltet Weinbergmanagement & Weinproduktion"
 msgid "Premium Service"
 msgstr "Premium-Service"
 
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:84
+msgid "What happens next?"
+msgstr ""
+
 #: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:86
 msgid "Choose your preferred adoption plan (Bronze, Silver, or Gold)"
 msgstr "Wählen Sie Ihren bevorzugten Adoptionsplan (Bronze, Silber oder Gold)"
@@ -420,14 +421,21 @@ msgid "Adoption Investment"
 msgstr "Adoptionsinvestition"
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:209
+#, fuzzy
+#| msgid ""
+#| "Annual adoption fee includes full vineyard management, grapecultivation, "
+#| "wine production, and personalized bottles delivered toyour door."
 msgid ""
-"Annual adoption fee includes full vineyard management, grape"
-"cultivation, wine production, and personalized bottles delivered to"
-"your door."
+"Annual adoption fee includes full vineyard management, grape cultivation, "
+"wine production, and personalized bottles delivered to your door."
 msgstr ""
-"Die jährliche Adoptionsgebühr beinhaltet die vollständige"
-"Weinbergbewirtschaftung, den Weinanbau, die Weinproduktion und die"
-"Lieferung personalisierter Flaschen an Ihre Haustür."
+"Die jährliche Adoptionsgebühr beinhaltet die "
+"vollständigeWeinbergbewirtschaftung, den Weinanbau, die Weinproduktion und "
+"dieLieferung personalisierter Flaschen an Ihre Haustür."
+
+#: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:219
+msgid "Close"
+msgstr ""
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\selection_modal.html:223
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:243
@@ -462,15 +470,20 @@ msgid "Choose Your Wine Producer"
 msgstr "Wählen Sie Ihren Weinproduzenten"
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:76
+#, fuzzy
+#| msgid ""
+#| "Begin your wine adoption journey by selecting a prestigious producer."
+#| "Click on any marker on the map below to explore their vineyard plotsand "
+#| "discover the perfect match for your wine preferences."
 msgid ""
-"Begin your wine adoption journey by selecting a prestigious producer."
-"Click on any marker on the map below to explore their vineyard plots"
-"and discover the perfect match for your wine preferences."
+"Begin your wine adoption journey by selecting a prestigious producer. Click "
+"on any marker on the map below to explore their vineyard plots and discover "
+"the perfect match for your wine preferences."
 msgstr ""
-"Beginnen Sie Ihre Weineinführungsreise mit der Auswahl eines"
-"renommierten Produzenten. Klicken Sie auf eine beliebige Markierung"
-"auf der Karte unten, um die Weinbergparzellen zu erkunden und den"
-"perfekten Wein für Ihre Vorlieben zu finden."
+"Beginnen Sie Ihre Weineinführungsreise mit der Auswahl einesrenommierten "
+"Produzenten. Klicken Sie auf eine beliebige Markierungauf der Karte unten, "
+"um die Weinbergparzellen zu erkunden und denperfekten Wein für Ihre "
+"Vorlieben zu finden."
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:83
 msgid "Explore Vineyards"
@@ -479,34 +492,40 @@ msgstr "Weinberge erkunden"
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:85
 msgid "Navigate to the interactive vineyard map to select your plot"
 msgstr ""
-"Navigieren Sie zur interaktiven Weinbergkarte, um Ihre Parzelle"
-"auszuwählen"
+"Navigieren Sie zur interaktiven Weinbergkarte, um Ihre Parzelleauszuwählen"
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:98
 msgid "Vineyard Plot Selection"
 msgstr "Weinberg-Parzellenauswahl"
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:99
+#, fuzzy
+#| msgid ""
+#| "Interactive map and plot selection interface. Use the map to "
+#| "exploreavailable vineyard plots and select your preferred options."
 msgid ""
-"Interactive map and plot selection interface. Use the map to explore"
+"Interactive map and plot selection interface. Use the map to explore "
 "available vineyard plots and select your preferred options."
 msgstr ""
-"Interaktive Schnittstelle zur Karten- und Grundstücksauswahl. Nutzen"
-"Sie die Karte, um verfügbare Weinbergparzellen zu erkunden und Ihre"
-"bevorzugten Optionen auszuwählen."
+"Interaktive Schnittstelle zur Karten- und Grundstücksauswahl. NutzenSie die "
+"Karte, um verfügbare Weinbergparzellen zu erkunden und Ihrebevorzugten "
+"Optionen auszuwählen."
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:110
 msgid "Interactive Plot Selection"
 msgstr "Interaktive Parzellenauswahl"
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:113
+#, fuzzy
+#| msgid ""
+#| "Click on any available plot to view detailed information includingsoil "
+#| "composition, sun exposure, and wine characteristics."
 msgid ""
-"Click on any available plot to view detailed information including"
-"soil composition, sun exposure, and wine characteristics."
+"Click on any available plot to view detailed information including soil "
+"composition, sun exposure, and wine characteristics."
 msgstr ""
-"Klicken Sie auf eine verfügbare Parzelle, um detaillierte"
-"Informationen wie Bodenzusammensetzung, Sonneneinstrahlung und"
-"Weineigenschaften anzuzeigen."
+"Klicken Sie auf eine verfügbare Parzelle, um detaillierteInformationen wie "
+"Bodenzusammensetzung, Sonneneinstrahlung undWeineigenschaften anzuzeigen."
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:118
 msgid "Plot Status Legend"
@@ -529,27 +548,34 @@ msgid "Interactive Vineyard Map"
 msgstr "Interaktive Weinbergkarte"
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:141
+#, fuzzy
+#| msgid ""
+#| "Map showing available vineyard plots. Use mouse or keyboard tonavigate "
+#| "and select plots. Plot details will appear in the sidebar."
 msgid ""
-"Map showing available vineyard plots. Use mouse or keyboard to"
-"navigate and select plots. Plot details will appear in the sidebar."
+"Map showing available vineyard plots. Use mouse or keyboard to navigate and "
+"select plots. Plot details will appear in the sidebar."
 msgstr ""
-"Karte mit verfügbaren Weinbergparzellen. Navigieren Sie mit der Maus"
-"oder der Tastatur und wählen Sie Plots aus. Details zur Handlung"
-"werden in der Seitenleiste angezeigt."
+"Karte mit verfügbaren Weinbergparzellen. Navigieren Sie mit der Mausoder der "
+"Tastatur und wählen Sie Plots aus. Details zur Handlungwerden in der "
+"Seitenleiste angezeigt."
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:147
 msgid "Interactive vineyard map for plot selection"
 msgstr "Interaktive Weinbergkarte für Parzellenauswahl"
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:151
+#, fuzzy
+#| msgid ""
+#| "Use arrow keys to navigate the map. Press Enter or Space to select aplot. "
+#| "Press Tab to move between plots."
 msgid ""
-"Use arrow keys to navigate the map. Press Enter or Space to select a"
-"plot. Press Tab to move between plots."
+"Use arrow keys to navigate the map. Press Enter or Space to select a plot. "
+"Press Tab to move between plots."
 msgstr ""
-"Verwenden Sie die Pfeiltasten, um durch die Karte zu navigieren."
-"Drücken Sie die Eingabetaste oder die Leertaste, um einen Plot"
-"auszuwählen. Drücken Sie die Tabulatortaste, um zwischen den"
-"Diagrammen zu wechseln."
+"Verwenden Sie die Pfeiltasten, um durch die Karte zu navigieren.Drücken Sie "
+"die Eingabetaste oder die Leertaste, um einen Plotauszuwählen. Drücken Sie "
+"die Tabulatortaste, um zwischen denDiagrammen zu wechseln."
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:163
 msgid "Your Selection"
@@ -631,8 +657,8 @@ msgstr "Zur Adoption fortfahren"
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:258
 msgid "Continue to the next step to complete your vineyard plot adoption"
 msgstr ""
-"Fahren Sie mit dem nächsten Schritt fort, um Ihre"
-"Weinberg-Parzellenadoption abzuschließen"
+"Fahren Sie mit dem nächsten Schritt fort, um IhreWeinberg-Parzellenadoption "
+"abzuschließen"
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:261
 msgid "Clear all selected plots"
@@ -708,12 +734,16 @@ msgid "You have selected the following plots for adoption:"
 msgstr "Sie haben folgende Parzellen zur Adoption ausgewählt:"
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:363
+#, fuzzy
+#| msgid ""
+#| "You'll be redirected to choose your adoption plan and complete "
+#| "theregistration process."
 msgid ""
-"You'll be redirected to choose your adoption plan and complete the"
+"You'll be redirected to choose your adoption plan and complete the "
 "registration process."
 msgstr ""
-"Sie werden weitergeleitet, um Ihren Adoptionsplan auszuwählen und den"
-"Registrierungsprozess abzuschließen."
+"Sie werden weitergeleitet, um Ihren Adoptionsplan auszuwählen und "
+"denRegistrierungsprozess abzuschließen."
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:372
 msgid "Confirm & Continue"
@@ -730,8 +760,8 @@ msgstr "Internetverbindung wiederhergestellt"
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:736
 msgid "Internet connection lost. Some features may not be available"
 msgstr ""
-"Internetverbindung verloren. Einige Funktionen sind möglicherweise"
-"nicht verfügbar"
+"Internetverbindung verloren. Einige Funktionen sind möglicherweisenicht "
+"verfügbar"
 
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:9
 msgid "VinsDelux Interactive Journey"
@@ -761,6 +791,10 @@ msgstr "Lieferung"
 msgid "Legacy"
 msgstr "Vermächtnis"
 
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:81
+msgid "Points"
+msgstr ""
+
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:86
 msgid "Time"
 msgstr "Uhrzeit"
@@ -778,12 +812,16 @@ msgid "Select Your Perfect Plot"
 msgstr "Wählen Sie Ihre perfekte Parzelle"
 
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:122
+#, fuzzy
+#| msgid ""
+#| "Explore our exclusive vineyard plots and find the one that matchesyour "
+#| "vision"
 msgid ""
-"Explore our exclusive vineyard plots and find the one that matches"
-"your vision"
+"Explore our exclusive vineyard plots and find the one that matches your "
+"vision"
 msgstr ""
-"Erkunden Sie unsere exklusiven Weinbergparzellen und finden Sie die"
-"Parzelle, die Ihren Vorstellungen entspricht"
+"Erkunden Sie unsere exklusiven Weinbergparzellen und finden Sie dieParzelle, "
+"die Ihren Vorstellungen entspricht"
 
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:140
 msgid "Terroir Types"
@@ -852,8 +890,8 @@ msgstr "Gestalten Sie Ihren Signaturwein"
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:280
 msgid "Work with our master winemakers to create your unique blend"
 msgstr ""
-"Arbeiten Sie mit unseren Winzermeistern zusammen, um Ihre"
-"einzigartige Mischung zu kreieren"
+"Arbeiten Sie mit unseren Winzermeistern zusammen, um Ihreeinzigartige "
+"Mischung zu kreieren"
 
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:288
 msgid "Select Grape Varieties"
@@ -930,12 +968,16 @@ msgid "Tasting Notes"
 msgstr "Verkostungsnotizen"
 
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:426
+#, fuzzy
+#| msgid ""
+#| "Welcome! I'm here to help you create your perfect wine. What styleare you "
+#| "aiming for?"
 msgid ""
-"Welcome! I'm here to help you create your perfect wine. What style"
-"are you aiming for?"
+"Welcome! I'm here to help you create your perfect wine. What style are you "
+"aiming for?"
 msgstr ""
-"Willkommen! Ich bin hier, um Ihnen bei der Kreation Ihres perfekten"
-"Weins zu helfen. Welchen Stil streben Sie an?"
+"Willkommen! Ich bin hier, um Ihnen bei der Kreation Ihres perfektenWeins zu "
+"helfen. Welchen Stil streben Sie an?"
 
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:430
 msgid "Bold & Full-bodied"
@@ -1064,8 +1106,7 @@ msgstr "vor 1 Woche"
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:607
 msgid "We've completed the green harvest to ensure optimal ripening..."
 msgstr ""
-"Wir haben die Grünlese abgeschlossen, um optimale Reifung zu"
-"gewährleisten..."
+"Wir haben die Grünlese abgeschlossen, um optimale Reifung zugewährleisten..."
 
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:620
 msgid "Receive Your Masterpiece"
@@ -1178,6 +1219,10 @@ msgstr "Geschmack"
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:730
 msgid "Savor the flavors and texture"
 msgstr "Genießen Sie die Aromen und Textur"
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:736
+msgid "Finish"
+msgstr ""
 
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:737
 msgid "Note the aftertaste and length"
@@ -1319,6 +1364,20 @@ msgstr "Schließen Sie Ihre Reise ab"
 msgid "Share Your Experience"
 msgstr "Teilen Sie Ihre Erfahrung"
 
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:874
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:33
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:33
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:108
+msgid "Previous"
+msgstr "Zurück"
+
+#: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:884
+#: .\vinsdelux\templates\vinsdelux\products\adoption_plan_detail.html:37
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:37
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:118
+msgid "Next"
+msgstr "Weiter"
+
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:896
 msgid "Journey Guide"
 msgstr "Reiseführer"
@@ -1354,8 +1413,7 @@ msgstr "Tipps"
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:914
 msgid "Complete each step thoroughly to earn maximum points"
 msgstr ""
-"Schließen Sie jeden Schritt gründlich ab, um maximale Punkte zu"
-"verdienen"
+"Schließen Sie jeden Schritt gründlich ab, um maximale Punkte zuverdienen"
 
 #: .\vinsdelux\templates\vinsdelux\journey\interactive_form.html:915
 msgid "Your progress is automatically saved"
@@ -1374,15 +1432,19 @@ msgid "Select Your Adoption Plan"
 msgstr "Wählen Sie Ihren Adoptionsplan"
 
 #: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1150
+#, fuzzy
+#| msgid ""
+#| "Choose from our exclusive collection of vineyard adoption plans. Eachplan "
+#| "offers a unique terroir, producer story, and wine experiencetailored to "
+#| "your preferences."
 msgid ""
-"Choose from our exclusive collection of vineyard adoption plans. Each"
-"plan offers a unique terroir, producer story, and wine experience"
-"tailored to your preferences."
+"Choose from our exclusive collection of vineyard adoption plans. Each plan "
+"offers a unique terroir, producer story, and wine experience tailored to "
+"your preferences."
 msgstr ""
-"Wählen Sie aus unserer exklusiven Sammlung von Adoptionsplänen für"
-"Weinberge. Jeder Plan bietet ein einzigartiges Terroir, eine"
-"Erzeugergeschichte und ein Weinerlebnis, das auf Ihre Vorlieben"
-"zugeschnitten ist."
+"Wählen Sie aus unserer exklusiven Sammlung von Adoptionsplänen fürWeinberge. "
+"Jeder Plan bietet ein einzigartiges Terroir, eineErzeugergeschichte und ein "
+"Weinerlebnis, das auf Ihre Vorliebenzugeschnitten ist."
 
 #: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1184
 #: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:20
@@ -1469,12 +1531,16 @@ msgid "Interactive Map Coming Soon"
 msgstr "Interaktive Karte kommt bald"
 
 #: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1290
+#, fuzzy
+#| msgid ""
+#| "We're integrating advanced mapping features to help you explorevineyard "
+#| "locations in detail."
 msgid ""
-"We're integrating advanced mapping features to help you explore"
-"vineyard locations in detail."
+"We're integrating advanced mapping features to help you explore vineyard "
+"locations in detail."
 msgstr ""
-"Wir integrieren erweiterte Kartenfunktionen, um Ihnen dabei zu"
-"helfen, Weinberge im Detail zu erkunden."
+"Wir integrieren erweiterte Kartenfunktionen, um Ihnen dabei zuhelfen, "
+"Weinberge im Detail zu erkunden."
 
 #: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1296
 msgid "Legend"
@@ -1621,12 +1687,16 @@ msgid "Prêt à découvrir cette étape ?"
 msgstr "Bereit, diesen Schritt zu entdecken?"
 
 #: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:706
+#, fuzzy
+#| msgid ""
+#| "Explorez notre sélection de coffrets et plans d'adoption pourcommencer "
+#| "votre aventure vinicole."
 msgid ""
-"Explorez notre sélection de coffrets et plans d'adoption pour"
-"commencer votre aventure vinicole."
+"Explorez notre sélection de coffrets et plans d'adoption pour commencer "
+"votre aventure vinicole."
 msgstr ""
-"Entdecken Sie unsere Auswahl an Koffern und Adoptionsplänen für den"
-"Beginn Ihres Vinicole-Abenteuers."
+"Entdecken Sie unsere Auswahl an Koffern und Adoptionsplänen für denBeginn "
+"Ihres Vinicole-Abenteuers."
 
 #: .\vinsdelux\templates\vinsdelux\journey\step_detail.html:708
 msgid "Voir nos coffrets"
@@ -1769,6 +1839,11 @@ msgstr "Personalisierte Medaille"
 msgid "Club membership"
 msgstr "Clubmitgliedschaft"
 
+#: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:158
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:126
+msgid "Learn More"
+msgstr "Mehr erfahren"
+
 #: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:174
 msgid "More from"
 msgstr "Mehr von"
@@ -1852,8 +1927,8 @@ msgstr "Unsere Weinproduzenten"
 #: .\vinsdelux\templates\vinsdelux\products\producer_list.html:11
 msgid "Discover the passionate winemakers behind our exceptional coffrets"
 msgstr ""
-"Entdecken Sie die leidenschaftlichen Winzer hinter unseren"
-"außergewöhnlichen Coffrets"
+"Entdecken Sie die leidenschaftlichen Winzer hinter unserenaußergewöhnlichen "
+"Coffrets"
 
 #: .\vinsdelux\templates\vinsdelux\products\producer_list.html:42
 msgid "coffret"
@@ -1885,14 +1960,18 @@ msgid "Votre Parcours VinsDeLux"
 msgstr "Ihre VinsDeLux-Reise"
 
 #: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:20
+#, fuzzy
+#| msgid ""
+#| "Découvrez les étapes clés de votre aventure œnologique personnaliséeavec "
+#| "VinsDeLux, de la sélection de votre parcelle à la création devotre "
+#| "héritage vinicole."
 msgid ""
-"Découvrez les étapes clés de votre aventure œnologique personnalisée"
-"avec VinsDeLux, de la sélection de votre parcelle à la création de"
-"votre héritage vinicole."
+"Découvrez les étapes clés de votre aventure œnologique personnalisée avec "
+"VinsDeLux, de la sélection de votre parcelle à la création de votre héritage "
+"vinicole."
 msgstr ""
-"Entdecken Sie die Etappen Ihres persönlichen Weinabenteuers mit"
-"VinsDeLux, der Auswahl Ihrer Parzelle für die Schaffung Ihres"
-"Weinkulturerbes."
+"Entdecken Sie die Etappen Ihres persönlichen Weinabenteuers mitVinsDeLux, "
+"der Auswahl Ihrer Parzelle für die Schaffung IhresWeinkulturerbes."
 
 #: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:34
 msgid "Journey Steps Navigation"
@@ -2002,12 +2081,16 @@ msgid "Favoris"
 msgstr "Favoriten"
 
 #: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:263
+#, fuzzy
+#| msgid ""
+#| "Détails techniques et informations complémentaires sur cette étape "
+#| "devotre parcours vinicole."
 msgid ""
-"Détails techniques et informations complémentaires sur cette étape de"
-"votre parcours vinicole."
+"Détails techniques et informations complémentaires sur cette étape de votre "
+"parcours vinicole."
 msgstr ""
-"Einzelheiten zu Techniken und ergänzenden Informationen zu diesem"
-"Abschnitt Ihres Vinicole-Parcours."
+"Einzelheiten zu Techniken und ergänzenden Informationen zu diesemAbschnitt "
+"Ihres Vinicole-Parcours."
 
 #: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:266
 msgid "Suivi personnalisé"
@@ -2058,12 +2141,16 @@ msgid "Prêt à commencer votre aventure ?"
 msgstr "Bereit, Ihr Abenteuer zu beginnen?"
 
 #: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:302
+#, fuzzy
+#| msgid ""
+#| "Rejoignez des milliers de passionnés qui ont déjà créé leur "
+#| "héritagevinicole."
 msgid ""
-"Rejoignez des milliers de passionnés qui ont déjà créé leur héritage"
+"Rejoignez des milliers de passionnés qui ont déjà créé leur héritage "
 "vinicole."
 msgstr ""
-"Rejoignez der Milliers de Passionnés, die gerade erst ihre"
-"historische Vinicole erschaffen haben."
+"Rejoignez der Milliers de Passionnés, die gerade erst ihrehistorische "
+"Vinicole erschaffen haben."
 
 #: .\vinsdelux\templates\vinsdelux\sections\client_journey_futuristic.html:306
 msgid "Commencer maintenant"
@@ -2145,8 +2232,8 @@ msgstr "Derzeit keine Coffrets für diesen Produzenten verfügbar."
 #: .\vinsdelux\templates\vinsdelux\sections\wine_plots.html:83
 msgid "No featured producers available at the moment. Please check back soon!"
 msgstr ""
-"Derzeit keine ausgewählten Produzenten verfügbar. Schauen Sie bald"
-"wieder vorbei!"
+"Derzeit keine ausgewählten Produzenten verfügbar. Schauen Sie baldwieder "
+"vorbei!"
 
 #: .\vinsdelux\templates\vinsdelux\testing\test_runner.html:9
 msgid "VinsDeLux Journey Test Suite"
@@ -2177,12 +2264,16 @@ msgid "Confirm adoption"
 msgstr "Adoption bestätigen"
 
 #: .\vinsdelux\views.py:354
+#, fuzzy
+#| msgid ""
+#| "Choose from our exclusive collection of premium vineyard plots "
+#| "acrossrenowned wine regions."
 msgid ""
-"Choose from our exclusive collection of premium vineyard plots across"
+"Choose from our exclusive collection of premium vineyard plots across "
 "renowned wine regions."
 msgstr ""
-"Wählen Sie aus unserer exklusiven Sammlung erstklassiger"
-"Weinbergparzellen in renommierten Weinregionen."
+"Wählen Sie aus unserer exklusiven Sammlung erstklassigerWeinbergparzellen in "
+"renommierten Weinregionen."
 
 #: .\vinsdelux\views.py:371
 msgid "No plots selected"
@@ -2203,4 +2294,3 @@ msgstr "Ungültiges Anfrageformat"
 #: .\vinsdelux\views.py:425
 msgid "An error occurred while processing your selection"
 msgstr "Bei der Verarbeitung Ihrer Auswahl ist ein Fehler aufgetreten"
-

@@ -1,7 +1,7 @@
 {% extends "crush_lu/base.html" %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Email Preferences - Crush.lu{% endblock %}
+{% block title %}{% trans "Email Preferences" %} - Crush.lu{% endblock %}
 
 {% block content %}
 <div class="max-w-xl mx-auto py-8 px-4">
@@ -10,18 +10,18 @@
     <div class="bg-white rounded-xl shadow-sm">
         <div class="text-center py-12 px-6">
             {% include "shared/icons/exclamation-circle.html" with class="w-16 h-16 text-red-500 mx-auto mb-4" %}
-            <h2 class="text-2xl font-bold mb-3">Invalid Unsubscribe Link</h2>
+            <h2 class="text-2xl font-bold mb-3">{% trans "Invalid Unsubscribe Link" %}</h2>
             <p class="text-gray-500 mb-4">
-                This unsubscribe link is invalid or has expired.
+                {% trans "This unsubscribe link is invalid or has expired." %}
             </p>
             <p class="text-gray-600 mb-6">
-                If you need to manage your email preferences, please
-                <a href="{% url 'crush_lu:login' %}" class="text-purple-600 hover:underline">log in to your account</a>
-                and visit your account settings.
+                {% trans "If you need to manage your email preferences, please" %}
+                <a href="{% url 'crush_lu:login' %}" class="text-purple-600 hover:underline">{% trans "log in to your account" %}</a>
+                {% trans "and visit your account settings." %}
             </p>
             <a href="{% url 'crush_lu:home' %}" class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3">
                 {% include "shared/icons/home.html" with class="w-4 h-4" %}
-                Go to Homepage
+                {% trans "Go to Homepage" %}
             </a>
         </div>
     </div>
@@ -31,35 +31,35 @@
     <div class="bg-white rounded-xl shadow-sm">
         <div class="text-center py-12 px-6">
             {% include "shared/icons/check-circle.html" with class="w-16 h-16 text-green-500 mx-auto mb-4" %}
-            <h2 class="text-2xl font-bold mb-3">Preferences Updated!</h2>
+            <h2 class="text-2xl font-bold mb-3">{% trans "Preferences Updated!" %}</h2>
 
             {% if email_prefs.unsubscribed_all %}
             <p class="text-gray-500 mb-4">
-                You have been unsubscribed from all Crush.lu emails.
+                {% trans "You have been unsubscribed from all Crush.lu emails." %}
             </p>
             <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-4 inline-flex items-center gap-2">
                 {% include "shared/icons/info.html" with class="w-5 h-5 flex-shrink-0" %}
-                Changed your mind? You can re-subscribe below.
+                {% trans "Changed your mind? You can re-subscribe below." %}
             </div>
             <form method="post" class="mt-4">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="resubscribe">
                 <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 border border-purple-500 text-purple-600 hover:bg-purple-50 rounded-lg font-medium transition-colors">
                     {% include "shared/icons/bell.html" with class="w-4 h-4" %}
-                    Re-subscribe to Emails
+                    {% trans "Re-subscribe to Emails" %}
                 </button>
             </form>
             {% else %}
             <p class="text-gray-500">
-                Your email preferences have been updated successfully.
+                {% trans "Your email preferences have been updated successfully." %}
             </p>
             {% endif %}
 
             <hr class="my-6 border-gray-200">
             <p class="text-sm text-gray-500">
-                Want more control?
-                <a href="{% url 'crush_lu:login' %}" class="text-purple-600 hover:underline">Log in</a>
-                to manage all your notification settings.
+                {% trans "Want more control?" %}
+                <a href="{% url 'crush_lu:login' %}" class="text-purple-600 hover:underline">{% trans "Log in" %}</a>
+                {% trans "to manage all your notification settings." %}
             </p>
         </div>
     </div>
@@ -70,18 +70,18 @@
         <div class="border-b border-gray-100 px-6 py-4">
             <h4 class="font-semibold flex items-center gap-2">
                 {% include "shared/icons/envelope.html" with class="w-5 h-5" %}
-                Email Preferences
+                {% trans "Email Preferences" %}
             </h4>
         </div>
         <div class="p-6">
             <p class="text-gray-500 mb-4">
-                Hi{% if user.first_name %} {{ user.first_name }}{% endif %}! Choose how you'd like to manage your email preferences:
+                {% if user.first_name %}{% blocktrans with name=user.first_name %}Hi {{ name }}!{% endblocktrans %}{% else %}{% trans "Hi!" %}{% endif %} {% trans "Choose how you'd like to manage your email preferences:" %}
             </p>
 
             {% if email_prefs.unsubscribed_all %}
             <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 mb-4 flex items-center gap-2">
                 {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 flex-shrink-0" %}
-                You are currently unsubscribed from all emails.
+                {% trans "You are currently unsubscribed from all emails." %}
             </div>
 
             <form method="post" class="mb-4">
@@ -89,14 +89,14 @@
                 <input type="hidden" name="action" value="resubscribe">
                 <button type="submit" class="btn-crush-primary w-full py-3 inline-flex items-center justify-center gap-2">
                     {% include "shared/icons/bell.html" with class="w-4 h-4" %}
-                    Re-subscribe to Emails
+                    {% trans "Re-subscribe to Emails" %}
                 </button>
             </form>
 
             {% else %}
             <!-- Current subscription status -->
             <div class="mb-6">
-                <h6 class="text-gray-500 text-sm font-medium mb-3">Your current email subscriptions:</h6>
+                <h6 class="text-gray-500 text-sm font-medium mb-3">{% trans "Your current email subscriptions:" %}</h6>
                 <ul class="space-y-2">
                     <li class="flex items-center gap-2">
                         {% if email_prefs.email_profile_updates %}
@@ -104,7 +104,7 @@
                         {% else %}
                         {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
                         {% endif %}
-                        Profile Updates
+                        {% trans "Profile Updates" %}
                     </li>
                     <li class="flex items-center gap-2">
                         {% if email_prefs.email_event_reminders %}
@@ -112,7 +112,7 @@
                         {% else %}
                         {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
                         {% endif %}
-                        Event Reminders
+                        {% trans "Event Reminders" %}
                     </li>
                     <li class="flex items-center gap-2">
                         {% if email_prefs.email_new_connections %}
@@ -120,7 +120,7 @@
                         {% else %}
                         {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
                         {% endif %}
-                        New Connections
+                        {% trans "New Connections" %}
                     </li>
                     <li class="flex items-center gap-2">
                         {% if email_prefs.email_new_messages %}
@@ -128,7 +128,7 @@
                         {% else %}
                         {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
                         {% endif %}
-                        New Messages
+                        {% trans "New Messages" %}
                     </li>
                     <li class="flex items-center gap-2">
                         {% if email_prefs.email_marketing %}
@@ -136,7 +136,7 @@
                         {% else %}
                         {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
                         {% endif %}
-                        Marketing & Promotions
+                        {% trans "Marketing & Promotions" %}
                     </li>
                 </ul>
             </div>
@@ -144,7 +144,7 @@
             <hr class="my-4 border-gray-200">
 
             <!-- Unsubscribe options -->
-            <h6 class="text-gray-500 text-sm font-medium mb-3">Quick unsubscribe options:</h6>
+            <h6 class="text-gray-500 text-sm font-medium mb-3">{% trans "Quick unsubscribe options:" %}</h6>
 
             {% if email_prefs.email_marketing %}
             <form method="post" class="mb-3">
@@ -152,10 +152,10 @@
                 <input type="hidden" name="action" value="unsubscribe_marketing">
                 <button type="submit" class="w-full py-3 px-4 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg font-medium transition-colors inline-flex items-center justify-center gap-2">
                     {% include "shared/icons/megaphone.html" with class="w-4 h-4" %}
-                    Unsubscribe from Marketing Only
+                    {% trans "Unsubscribe from Marketing Only" %}
                 </button>
                 <small class="text-gray-500 block mt-1">
-                    You'll still receive important account and event notifications.
+                    {% trans "You'll still receive important account and event notifications." %}
                 </small>
             </form>
             {% endif %}
@@ -165,10 +165,10 @@
                 <input type="hidden" name="action" value="unsubscribe_all">
                 <button type="submit" class="w-full py-3 px-4 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors inline-flex items-center justify-center gap-2">
                     {% include "shared/icons/envelope-x.html" with class="w-4 h-4" %}
-                    Unsubscribe from ALL Emails
+                    {% trans "Unsubscribe from ALL Emails" %}
                 </button>
                 <small class="text-gray-500 block mt-1">
-                    You won't receive any emails from Crush.lu.
+                    {% trans "You won't receive any emails from Crush.lu." %}
                 </small>
             </form>
             {% endif %}
@@ -177,10 +177,10 @@
 
             <p class="text-sm text-gray-500 text-center flex items-center justify-center gap-1">
                 {% include "shared/icons/cog.html" with class="w-4 h-4" %}
-                For more detailed control,
-                <a href="{% url 'crush_lu:login' %}" class="text-purple-600 hover:underline">log in</a>
-                and visit your
-                <a href="{% url 'crush_lu:account_settings' %}" class="text-purple-600 hover:underline">account settings</a>.
+                {% trans "For more detailed control," %}
+                <a href="{% url 'crush_lu:login' %}" class="text-purple-600 hover:underline">{% trans "log in" %}</a>
+                {% trans "and visit your" %}
+                <a href="{% url 'crush_lu:account_settings' %}" class="text-purple-600 hover:underline">{% trans "account settings" %}</a>.
             </p>
         </div>
     </div>

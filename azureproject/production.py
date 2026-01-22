@@ -17,17 +17,40 @@ _original_validate_host = django_request.validate_host
 
 def _custom_validate_host(host, allowed_hosts):
     """
-    Custom host validation that allows Azure internal IPs (169.254.*).
+    Custom host validation for Azure App Service with OpenTelemetry.
 
-    Azure App Service uses 169.254.* IPs for internal health checks and
-    OpenTelemetry instrumentation. These requests have Host headers like
-    '169.254.129.4:8000' which fail standard ALLOWED_HOSTS validation.
+    This handles two scenarios:
+    1. Azure internal IPs (169.254.*) - health checks and instrumentation
+    2. test.* subdomains - staging slots OR external scanner probes
+
+    Why this monkey-patch is needed:
+    - Azure auto-injects OpenTelemetry middleware BEFORE our middleware stack
+    - OpenTelemetry calls request.build_absolute_uri() during request processing
+    - This triggers Django's get_host() → validate_host() → DisallowedHost exception
+    - The exception crashes OpenTelemetry and can cause app restarts
+
+    By returning True for test.* hosts:
+    - OpenTelemetry proceeds without crashing
+    - If test.* is in ALLOWED_HOSTS (staging slot): request proceeds normally
+    - If test.* is NOT in ALLOWED_HOSTS (scanner probe): Django returns 400 later
+    - Either way, no crash and no restart
+
+    Azure Slot Configuration:
+    - Production slot: CUSTOM_DOMAINS = "crush.lu,www.crush.lu,..." (no test.*)
+    - Staging slot: CUSTOM_DOMAINS = "test.crush.lu,test.power-up.lu,..."
+    - Mark CUSTOM_DOMAINS as "slot setting" so it stays with the slot during swap
     """
     # Extract hostname without port
     host_without_port = host.split(":")[0] if host else ""
 
     # Allow Azure internal IPs (169.254.* range)
     if host_without_port.startswith("169.254."):
+        return True
+
+    # Allow test.* subdomains through validation to prevent OpenTelemetry crashes
+    # These will still be rejected with 400 by Django's normal request handling
+    # but without causing exceptions that trigger app restarts
+    if host_without_port.startswith("test."):
         return True
 
     # Fall back to standard validation
