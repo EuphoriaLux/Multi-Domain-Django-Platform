@@ -727,24 +727,24 @@ class JourneyGiftForm(forms.ModelForm):
         label=_('Slideshow Photo 5'),
     )
 
-    chapter4_audio = forms.FileField(
-        required=False,
-        widget=forms.FileInput(attrs={
-            'accept': 'audio/*',
-            'class': 'gift-file-input'
-        }),
-        label=_('Voice Message'),
-        help_text=_('Record a personal voice message for Chapter 4. Formats: MP3, WAV, M4A (max 10MB).')
-    )
-
     chapter4_video = forms.FileField(
         required=False,
         widget=forms.FileInput(attrs={
             'accept': 'video/*',
             'class': 'gift-file-input'
         }),
-        label=_('Video Message (Alternative)'),
-        help_text=_('Alternatively, record a video message. Formats: MP4, MOV (max 50MB).')
+        label=_('Video Message'),
+        help_text=_('Record a video message for Chapter 4. Formats: MP4, MOV (max 50MB).')
+    )
+
+    chapter5_letter_music = forms.FileField(
+        required=False,
+        widget=forms.FileInput(attrs={
+            'accept': 'audio/*',
+            'class': 'gift-file-input'
+        }),
+        label=_('Letter Music'),
+        help_text=_('Add background music for the Future Letter (Chapter 5). Formats: MP3, WAV, M4A (max 10MB).')
     )
 
     class Meta:
@@ -755,7 +755,7 @@ class JourneyGiftForm(forms.ModelForm):
             'chapter1_image',
             'chapter3_image_1', 'chapter3_image_2', 'chapter3_image_3',
             'chapter3_image_4', 'chapter3_image_5',
-            'chapter4_audio', 'chapter4_video'
+            'chapter4_video', 'chapter5_letter_music'
         ]
 
     def clean_date_first_met(self):
@@ -796,8 +796,8 @@ class JourneyGiftForm(forms.ModelForm):
     def clean_chapter3_image_5(self):
         return self._validate_image_size(self.cleaned_data.get('chapter3_image_5'), max_size_mb=5)
 
-    def clean_chapter4_audio(self):
-        audio = self.cleaned_data.get('chapter4_audio')
+    def clean_chapter5_letter_music(self):
+        audio = self.cleaned_data.get('chapter5_letter_music')
         if audio:
             # Validate file size (10MB max)
             if audio.size > 10 * 1024 * 1024:

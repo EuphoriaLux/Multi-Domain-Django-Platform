@@ -11,9 +11,9 @@
                       placeholder="{% trans 'Add a note (optional)...' %}"
                       class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"></textarea>
         </div>
-        <div class="flex gap-2">
+        <div class="flex flex-col sm:flex-row gap-2">
             <button type="submit"
-                    class="btn-crush-primary px-3 py-1.5 text-sm inline-flex items-center gap-1">
+                    class="btn-crush-primary px-4 py-2.5 inline-flex items-center justify-center gap-2">
                 <span class="htmx-indicator">
                     {% include "shared/icons/loading.html" with class="w-4 h-4 animate-spin" %}
                 </span>
@@ -26,7 +26,7 @@
                     hx-get="{% url 'crush_lu:connection_actions' event.id recipient.id %}"
                     hx-target="#connection-actions-{{ recipient.id }}"
                     hx-swap="outerHTML"
-                    class="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                    class="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-center">
                 {% trans "Cancel" %}
             </button>
         </div>

@@ -54,12 +54,21 @@
             {% endif %}
 
             {% if reward.audio_file %}
-            <div class="letter-audio">
+            <div class="letter-audio" x-data="letterAudioPlayer">
                 <p class="letter-audio-label">
                     {% include "shared/icons/musical-note.html" with class="w-5 h-5" %}
-                    {% trans "A special voice message for you..." %}
+                    {% trans "Music for this letter..." %}
                 </p>
-                <audio controls>
+
+                <!-- Autoplay blocked prompt - shown when browser blocks autoplay -->
+                <div x-show="showPlayPrompt" class="letter-audio-prompt">
+                    <button type="button" @click="playMusic" class="letter-audio-play-btn">
+                        {% include "shared/icons/play.html" with class="w-6 h-6" %}
+                        <span>{% trans "Click to play music" %}</span>
+                    </button>
+                </div>
+
+                <audio x-ref="audio" controls x-bind:class="playButtonClass">
                     <source src="{{ reward.audio_file.url|safe }}" type="audio/mpeg">
                     <source src="{{ reward.audio_file.url|safe }}" type="audio/mp3">
                     {% trans "Your browser does not support the audio element." %}

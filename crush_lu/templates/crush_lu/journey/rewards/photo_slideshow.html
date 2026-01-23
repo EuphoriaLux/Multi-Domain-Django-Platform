@@ -29,19 +29,134 @@
 
             <h1 id="slideshow-heading" class="slideshow-title">{{ reward.title }}</h1>
 
-            {% if reward.photo %}
+            {% if slideshow_images %}
+            {# Multi-image slideshow with Alpine.js component #}
+            <div x-data="photoSlideshow"
+                 data-images='{{ slideshow_images_json|escapejs }}'
+                 class="slideshow-carousel"
+                 @touchstart="handleTouchStart"
+                 @touchmove="handleTouchMove"
+                 @touchend="handleTouchEnd">
+
+                {# Loading state #}
+                <div x-show="isLoading" class="slideshow-loading">
+                    <div class="slideshow-loading-spinner"></div>
+                </div>
+
+                {# Main photo container #}
+                <div x-show="isNotLoading" class="slideshow-photo-container">
+                    <img x-bind:src="currentImageUrl"
+                         x-bind:alt="'{{ reward.title|escapejs }} - Photo ' + currentImageNumber"
+                         class="slideshow-photo slideshow-photo-transition">
+                    <div class="slideshow-photo-frame" aria-hidden="true"></div>
+
+                    {# Navigation arrows (only show if multiple images) #}
+                    <template x-if="hasMultipleImages">
+                        <div class="slideshow-nav-arrows">
+                            <button @click="prev"
+                                    class="slideshow-nav-btn slideshow-nav-prev"
+                                    aria-label="{% trans 'Previous photo' %}">
+                                {% include "shared/icons/chevron-left.html" with class="w-6 h-6" %}
+                            </button>
+                            <button @click="next"
+                                    class="slideshow-nav-btn slideshow-nav-next"
+                                    aria-label="{% trans 'Next photo' %}">
+                                {% include "shared/icons/chevron-right.html" with class="w-6 h-6" %}
+                            </button>
+                        </div>
+                    </template>
+                </div>
+
+                {# Dot indicators (only show if multiple images) #}
+                <template x-if="hasMultipleImages">
+                    <div class="slideshow-dots" role="tablist" aria-label="{% trans 'Photo navigation' %}">
+                        <template x-if="hasDot0">
+                            <button @click="goToDot0"
+                                    class="slideshow-dot"
+                                    x-bind:class="isDot0Active ? 'slideshow-dot-active' : ''"
+                                    role="tab"
+                                    x-bind:aria-selected="isDot0Active ? 'true' : 'false'"
+                                    aria-label="{% trans 'Photo' %} 1">
+                            </button>
+                        </template>
+                        <template x-if="hasDot1">
+                            <button @click="goToDot1"
+                                    class="slideshow-dot"
+                                    x-bind:class="isDot1Active ? 'slideshow-dot-active' : ''"
+                                    role="tab"
+                                    x-bind:aria-selected="isDot1Active ? 'true' : 'false'"
+                                    aria-label="{% trans 'Photo' %} 2">
+                            </button>
+                        </template>
+                        <template x-if="hasDot2">
+                            <button @click="goToDot2"
+                                    class="slideshow-dot"
+                                    x-bind:class="isDot2Active ? 'slideshow-dot-active' : ''"
+                                    role="tab"
+                                    x-bind:aria-selected="isDot2Active ? 'true' : 'false'"
+                                    aria-label="{% trans 'Photo' %} 3">
+                            </button>
+                        </template>
+                        <template x-if="hasDot3">
+                            <button @click="goToDot3"
+                                    class="slideshow-dot"
+                                    x-bind:class="isDot3Active ? 'slideshow-dot-active' : ''"
+                                    role="tab"
+                                    x-bind:aria-selected="isDot3Active ? 'true' : 'false'"
+                                    aria-label="{% trans 'Photo' %} 4">
+                            </button>
+                        </template>
+                        <template x-if="hasDot4">
+                            <button @click="goToDot4"
+                                    class="slideshow-dot"
+                                    x-bind:class="isDot4Active ? 'slideshow-dot-active' : ''"
+                                    role="tab"
+                                    x-bind:aria-selected="isDot4Active ? 'true' : 'false'"
+                                    aria-label="{% trans 'Photo' %} 5">
+                            </button>
+                        </template>
+                    </div>
+                </template>
+
+                {# Photo counter #}
+                <template x-if="hasMultipleImages">
+                    <div class="slideshow-counter">
+                        <span x-text="currentImageNumber"></span> / <span x-text="totalImages"></span>
+                    </div>
+                </template>
+
+                {# Download button #}
+                <div x-show="isNotLoading" class="text-center mt-6">
+                    <button @click="downloadCurrent" class="slideshow-download-btn">
+                        {% include "shared/icons/arrow-down-tray.html" with class="w-5 h-5" %}
+                        {% trans "Download Photo" %}
+                    </button>
+                </div>
+
+                {# Keyboard navigation hint #}
+                <template x-if="hasMultipleImages">
+                    <p class="slideshow-hint">
+                        {% trans "Use arrow keys or swipe to navigate" %}
+                    </p>
+                </template>
+            </div>
+
+            {% elif reward.photo %}
+            {# Fallback: Single image (legacy support) #}
             <div class="slideshow-photo-container">
                 <img src="{{ reward.photo.url }}" alt="{{ reward.title }}" class="slideshow-photo">
                 <div class="slideshow-photo-frame" aria-hidden="true"></div>
             </div>
 
-            <div class="text-center">
+            <div class="text-center mt-6">
                 <a href="{{ reward.photo.url|safe }}" download class="slideshow-download-btn">
                     {% include "shared/icons/arrow-down-tray.html" with class="w-5 h-5" %}
                     {% trans "Download Photo" %}
                 </a>
             </div>
+
             {% else %}
+            {# No photos placeholder #}
             <div class="slideshow-photo-container slideshow-photo-placeholder">
                 <div class="slideshow-photo-placeholder-icon" aria-hidden="true">&#128247;</div>
                 <p class="mt-5 text-lg">{% trans "A special memory awaits..." %}</p>

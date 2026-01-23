@@ -360,12 +360,60 @@ class JourneyReward(models.Model):
         help_text=_("Number of jigsaw pieces (4x4=16, 5x4=20, 6x5=30)")
     )
 
+    # For photo slideshows - stores multiple image paths
+    # Format: [{"path": "users/1/journey_rewards/photos/abc.jpg", "order": 1}, ...]
+    slideshow_photos = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=_("Additional photos for slideshow rewards (up to 5 images)")
+    )
+
     class Meta:
         verbose_name = _("Journey Reward")
         verbose_name_plural = _("🎁 5. Journey Rewards")
 
     def __str__(self):
         return f"{self.chapter.title} - {self.title}"
+
+    @property
+    def all_slideshow_images(self):
+        """
+        Get all slideshow images as a list of URLs.
+        Combines the legacy single photo field with the new slideshow_photos JSON field.
+        Returns URLs ready for template rendering.
+        """
+        images = []
+
+        # Add legacy single photo first (for backwards compatibility)
+        if self.photo:
+            images.append({
+                'url': self.photo.url,
+                'order': 0
+            })
+
+        # Add additional slideshow photos from JSON field
+        if self.slideshow_photos:
+            from .profiles import get_crush_photo_storage
+            storage = get_crush_photo_storage()
+            for item in self.slideshow_photos:
+                if isinstance(item, dict) and item.get('path'):
+                    # Generate URL from stored path using the same storage backend
+                    url = storage.url(item['path'])
+                    images.append({
+                        'url': url,
+                        'order': item.get('order', len(images))
+                    })
+
+        # Sort by order and return
+        images.sort(key=lambda x: x.get('order', 0))
+        return images
+
+    @property
+    def slideshow_image_count(self):
+        """Return total number of slideshow images available."""
+        count = 1 if self.photo else 0
+        count += len(self.slideshow_photos) if self.slideshow_photos else 0
+        return count
 
 
 class JourneyProgress(models.Model):
