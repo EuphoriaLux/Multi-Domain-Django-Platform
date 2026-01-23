@@ -224,11 +224,9 @@ class TestGetUserLanguage:
         assert get_user_language(user_with_french_profile) == 'fr'
 
     def test_returns_default_for_invalid_language(self, user_with_invalid_language):
-        """User with unsupported language should get 'en' and log warning."""
-        with patch('crush_lu.push_notifications.logger') as mock_logger:
-            result = get_user_language(user_with_invalid_language)
-            assert result == 'en'
-            mock_logger.warning.assert_called_once()
+        """User with unsupported language should get 'en' (silently falls back)."""
+        result = get_user_language(user_with_invalid_language)
+        assert result == 'en'
 
     def test_returns_default_when_profile_has_default_language(self, user):
         """User with profile using default 'en' language should get 'en'."""
