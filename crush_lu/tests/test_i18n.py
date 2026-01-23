@@ -773,6 +773,7 @@ class EmailI18nURLTests(TestCase):
         """Test get_user_language_url falls back to English when no preference."""
         from crush_lu.email_helpers import get_user_language_url
         from django.test import RequestFactory
+        from django.utils.translation import deactivate
 
         factory = RequestFactory()
         request = factory.get('/fr/dashboard/')
@@ -780,6 +781,10 @@ class EmailI18nURLTests(TestCase):
         # Remove language preference
         self.profile.preferred_language = ''
         self.profile.save()
+
+        # Deactivate any thread-local language to ensure clean fallback test
+        # This prevents interference from other tests running in parallel
+        deactivate()
 
         url = get_user_language_url(self.user, 'crush_lu:event_list', request)
 
