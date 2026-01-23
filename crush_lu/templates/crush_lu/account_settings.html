@@ -93,7 +93,7 @@
                         <form method="post" action="{% url 'crush_lu:disconnect_social_account' social.id %}"
                               onsubmit="return confirm('{% blocktrans with provider=social.provider|title %}Are you sure you want to disconnect this {{ provider }} account?{% endblocktrans %}');">
                             {% csrf_token %}
-                            <button type="submit" class="border border-red-300 text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg text-sm transition-colors flex items-center">
+                            <button type="submit" class="border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-1">
                                 {% include "shared/icons/x-mark.html" with class="w-5 h-5" %}{% trans "Disconnect" %}
                             </button>
                         </form>

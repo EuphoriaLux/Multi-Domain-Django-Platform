@@ -321,6 +321,59 @@ def chapter_view(request, chapter_number):
         return redirect('crush_lu:journey_map')
 
 
+def _get_timeline_events_with_fallback(challenge, requested_lang='en'):
+    """
+    Extract timeline events with multi-language fallback.
+
+    Handles:
+    1. Clean structure: {'events': [...]} in options_{lang}
+    2. Legacy nested: {'events_de': [...], 'events_en': [...]} inside single options
+    3. Empty options: fallback to other languages
+
+    Args:
+        challenge: JourneyChallenge instance
+        requested_lang: Language code ('en', 'de', 'fr')
+
+    Returns:
+        List of event dictionaries for timeline display
+    """
+    SUPPORTED_LANGUAGES = ['en', 'de', 'fr']
+    fallback_order = [requested_lang] + [lang for lang in SUPPORTED_LANGUAGES if lang != requested_lang]
+
+    for lang in fallback_order:
+        # Access language-specific field directly (bypass modeltranslation)
+        options = getattr(challenge, f'options_{lang}', None)
+
+        if not options or not isinstance(options, dict):
+            continue
+
+        # Clean structure: {'events': [...]}
+        if 'events' in options and options['events']:
+            if lang != requested_lang:
+                logger.debug(
+                    f"Timeline challenge {challenge.id}: using {lang} fallback "
+                    f"(requested: {requested_lang})"
+                )
+            return options['events']
+
+        # Legacy nested structure: try requested lang key first
+        events_key = f'events_{requested_lang}'
+        if events_key in options and options[events_key]:
+            return options[events_key]
+
+        # Try any available nested key
+        for fb_lang in fallback_order:
+            nested_key = f'events_{fb_lang}'
+            if nested_key in options and options[nested_key]:
+                logger.debug(
+                    f"Timeline challenge {challenge.id}: using nested {fb_lang} events"
+                )
+                return options[nested_key]
+
+    logger.warning(f"Timeline challenge {challenge.id}: no events found in any language")
+    return []
+
+
 @crush_login_required
 def challenge_view(request, chapter_number, challenge_id):
     """
@@ -376,18 +429,11 @@ def challenge_view(request, chapter_number, challenge_id):
         current_lang = get_language() or 'en'
         lang_code = current_lang[:2] if '-' in current_lang else current_lang
 
-        # For timeline_sort challenges, get language-specific events
-        # django-modeltranslation returns the correct language version via challenge.options
-        if challenge.challenge_type == 'timeline_sort' and challenge.options:
-            options = challenge.options  # modeltranslation returns correct language version
-
-            # New structure: {'events': [...]}
-            if 'events' in options:
-                context['localized_events'] = options['events']
-            # Backward compat: old structure had events_{lang} inside single options field
-            else:
-                events_key = f'events_{lang_code}'
-                context['localized_events'] = options.get(events_key, [])
+        # For timeline_sort challenges, get language-specific events with fallback
+        if challenge.challenge_type == 'timeline_sort':
+            context['localized_events'] = _get_timeline_events_with_fallback(
+                challenge, lang_code
+            )
 
         # For multiple_choice challenges, use django-modeltranslation
         # challenge.options automatically returns the translated version (options_de, options_fr)
@@ -452,6 +498,14 @@ def reward_view(request, reward_id):
             'chapter': reward.chapter,
             'journey_progress': journey_progress,
         }
+
+        # For photo slideshows, add the list of all images as JSON for Alpine.js
+        if reward.reward_type == 'photo_slideshow':
+            import json
+            slideshow_images = reward.all_slideshow_images
+            if slideshow_images:
+                context['slideshow_images'] = slideshow_images
+                context['slideshow_images_json'] = json.dumps(slideshow_images)
 
         # Render reward template based on type
         template_name = f'crush_lu/journey/rewards/{reward.reward_type}.html'

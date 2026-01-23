@@ -2326,11 +2326,27 @@ document.addEventListener('alpine:init', function() {
 
     // Auto-submit language select on change (mobile version)
     // Uses event delegation for CSP compliance
+    // Also updates the 'next' URL to use the correct language prefix
     (function() {
         document.addEventListener('change', function(event) {
             if (event.target.classList.contains('lang-select-auto-submit')) {
                 var form = event.target.closest('form');
                 if (form) {
+                    // Update the 'next' hidden input with the correct localized URL
+                    var nextInput = form.querySelector('input[name="next"]');
+                    var currentPath = form.dataset.currentPath || window.location.pathname;
+                    var selectedLang = event.target.value;
+
+                    if (nextInput && currentPath) {
+                        // Replace language prefix in path (e.g., /en/about/ -> /de/about/)
+                        // Pattern matches /xx/ at the start where xx is a 2-letter language code
+                        var newPath = currentPath.replace(/^\/[a-z]{2}\//, '/' + selectedLang + '/');
+                        // If path didn't have a language prefix, add one
+                        if (newPath === currentPath && !currentPath.match(/^\/[a-z]{2}\//)) {
+                            newPath = '/' + selectedLang + currentPath;
+                        }
+                        nextInput.value = newPath;
+                    }
                     form.submit();
                 }
             }
@@ -5241,6 +5257,286 @@ document.addEventListener('alpine:init', function() {
                 var url = new URL(window.location);
                 url.searchParams.set('range', this.selectedRange);
                 window.location.href = url.toString();
+            }
+        };
+    });
+
+    // Photo slideshow component for journey rewards
+    // Reads images from data-images JSON attribute
+    // Supports keyboard navigation, touch swipe, and auto-play
+    Alpine.data('photoSlideshow', function() {
+        return {
+            images: [],
+            currentIndex: 0,
+            isLoading: true,
+            touchStartX: 0,
+            touchEndX: 0,
+            autoPlayInterval: null,
+            autoPlayEnabled: false,
+
+            // Computed getters for CSP compatibility
+            get hasMultipleImages() { return this.images.length > 1; },
+            get hasSingleImage() { return this.images.length === 1; },
+            get hasNoImages() { return this.images.length === 0; },
+            get totalImages() { return this.images.length; },
+            get currentImageNumber() { return this.currentIndex + 1; },
+            get currentImage() { return this.images[this.currentIndex] || null; },
+            get currentImageUrl() {
+                var img = this.images[this.currentIndex];
+                return img ? img.url : '';
+            },
+            get canGoNext() { return this.currentIndex < this.images.length - 1; },
+            get canGoPrev() { return this.currentIndex > 0; },
+            get isNotLoading() { return !this.isLoading; },
+            get progressPercent() {
+                if (this.images.length <= 1) return 100;
+                return ((this.currentIndex + 1) / this.images.length) * 100;
+            },
+
+            // Dot navigation helpers - returns array of booleans for each dot
+            get dotStates() {
+                var self = this;
+                return this.images.map(function(_, idx) {
+                    return idx === self.currentIndex;
+                });
+            },
+
+            // Individual dot state getters (for up to 5 images)
+            get isDot0Active() { return this.currentIndex === 0; },
+            get isDot1Active() { return this.currentIndex === 1; },
+            get isDot2Active() { return this.currentIndex === 2; },
+            get isDot3Active() { return this.currentIndex === 3; },
+            get isDot4Active() { return this.currentIndex === 4; },
+            get hasDot0() { return this.images.length > 0; },
+            get hasDot1() { return this.images.length > 1; },
+            get hasDot2() { return this.images.length > 2; },
+            get hasDot3() { return this.images.length > 3; },
+            get hasDot4() { return this.images.length > 4; },
+
+            init: function() {
+                var self = this;
+
+                // Load images from data attribute
+                var imagesData = this.$el.getAttribute('data-images');
+                if (imagesData) {
+                    try {
+                        this.images = JSON.parse(imagesData);
+                    } catch (e) {
+                        console.error('[PhotoSlideshow] Failed to parse images:', e);
+                        this.images = [];
+                    }
+                }
+
+                // Preload first image
+                if (this.images.length > 0) {
+                    var img = new Image();
+                    img.onload = function() {
+                        self.isLoading = false;
+                    };
+                    img.onerror = function() {
+                        self.isLoading = false;
+                    };
+                    img.src = this.images[0].url;
+                } else {
+                    this.isLoading = false;
+                }
+
+                // Setup keyboard navigation
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'ArrowLeft') {
+                        self.prev();
+                    } else if (e.key === 'ArrowRight') {
+                        self.next();
+                    }
+                });
+
+                // Preload all images in background
+                this._preloadImages();
+            },
+
+            _preloadImages: function() {
+                var self = this;
+                this.images.forEach(function(imgData, idx) {
+                    if (idx === 0) return; // Already loaded
+                    var img = new Image();
+                    img.src = imgData.url;
+                });
+            },
+
+            next: function() {
+                if (this.currentIndex < this.images.length - 1) {
+                    this.currentIndex++;
+                } else {
+                    // Loop to beginning
+                    this.currentIndex = 0;
+                }
+            },
+
+            prev: function() {
+                if (this.currentIndex > 0) {
+                    this.currentIndex--;
+                } else {
+                    // Loop to end
+                    this.currentIndex = this.images.length - 1;
+                }
+            },
+
+            goTo: function(index) {
+                if (index >= 0 && index < this.images.length) {
+                    this.currentIndex = index;
+                }
+            },
+
+            // Individual goTo methods for CSP compatibility (avoid inline expressions)
+            goToDot0: function() { this.goTo(0); },
+            goToDot1: function() { this.goTo(1); },
+            goToDot2: function() { this.goTo(2); },
+            goToDot3: function() { this.goTo(3); },
+            goToDot4: function() { this.goTo(4); },
+
+            // Touch event handlers for swipe support
+            handleTouchStart: function(event) {
+                this.touchStartX = event.touches[0].clientX;
+            },
+
+            handleTouchMove: function(event) {
+                this.touchEndX = event.touches[0].clientX;
+            },
+
+            handleTouchEnd: function() {
+                var diff = this.touchStartX - this.touchEndX;
+                var threshold = 50; // Minimum swipe distance
+
+                if (Math.abs(diff) > threshold) {
+                    if (diff > 0) {
+                        // Swiped left - go next
+                        this.next();
+                    } else {
+                        // Swiped right - go prev
+                        this.prev();
+                    }
+                }
+
+                // Reset touch positions
+                this.touchStartX = 0;
+                this.touchEndX = 0;
+            },
+
+            // Auto-play functionality
+            toggleAutoPlay: function() {
+                var self = this;
+                if (this.autoPlayEnabled) {
+                    this.stopAutoPlay();
+                } else {
+                    this.autoPlayEnabled = true;
+                    this.autoPlayInterval = setInterval(function() {
+                        self.next();
+                    }, 3000);
+                }
+            },
+
+            stopAutoPlay: function() {
+                this.autoPlayEnabled = false;
+                if (this.autoPlayInterval) {
+                    clearInterval(this.autoPlayInterval);
+                    this.autoPlayInterval = null;
+                }
+            },
+
+            // Download current image
+            downloadCurrent: function() {
+                if (this.currentImage) {
+                    var link = document.createElement('a');
+                    link.href = this.currentImage.url;
+                    link.download = 'photo-' + (this.currentIndex + 1) + '.jpg';
+                    link.target = '_blank';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+            }
+        };
+    });
+
+    // Letter audio player with autoplay fallback for browser compatibility
+    // Most browsers block autoplay without user interaction, so we provide
+    // a graceful fallback with a "click to play" prompt
+    Alpine.data('letterAudioPlayer', function() {
+        return {
+            isPlaying: false,
+            autoplayBlocked: false,
+            audioElement: null,
+            hasInteracted: false,
+
+            // Computed getters for CSP compatibility
+            get showPlayPrompt() { return this.autoplayBlocked && !this.isPlaying; },
+            get isNotPlaying() { return !this.isPlaying; },
+            get playButtonClass() {
+                return this.isPlaying ? 'letter-audio-playing' : 'letter-audio-paused';
+            },
+
+            init: function() {
+                var self = this;
+                this.audioElement = this.$refs.audio;
+
+                if (this.audioElement) {
+                    // Listen for play/pause events
+                    this.audioElement.addEventListener('play', function() {
+                        self.isPlaying = true;
+                        self.autoplayBlocked = false;
+                    });
+
+                    this.audioElement.addEventListener('pause', function() {
+                        self.isPlaying = false;
+                    });
+
+                    this.audioElement.addEventListener('ended', function() {
+                        self.isPlaying = false;
+                    });
+
+                    // Attempt autoplay
+                    this.attemptAutoplay();
+                }
+            },
+
+            attemptAutoplay: function() {
+                var self = this;
+                if (!this.audioElement) return;
+
+                // Try to play - browsers may block this
+                var playPromise = this.audioElement.play();
+
+                if (playPromise !== undefined) {
+                    playPromise.then(function() {
+                        // Autoplay succeeded
+                        self.isPlaying = true;
+                        self.autoplayBlocked = false;
+                    }).catch(function(error) {
+                        // Autoplay was blocked by browser
+                        self.autoplayBlocked = true;
+                        self.isPlaying = false;
+                        console.log('Autoplay blocked by browser. User interaction required.');
+                    });
+                }
+            },
+
+            togglePlay: function() {
+                if (!this.audioElement) return;
+
+                this.hasInteracted = true;
+
+                if (this.isPlaying) {
+                    this.audioElement.pause();
+                } else {
+                    this.audioElement.play();
+                }
+            },
+
+            playMusic: function() {
+                if (!this.audioElement) return;
+
+                this.hasInteracted = true;
+                this.audioElement.play();
             }
         };
     });

@@ -172,60 +172,63 @@
                 </div>
             </div>
 
-            <!-- Chapter 4: Voice/Video Message -->
+            <!-- Chapter 4: Video Message -->
             <div class="media-section">
                 <h3 class="media-section-title">
-                    <span class="emoji">💬</span>
-                    {% trans "Chapter 4: Personal Message" %}
+                    <span class="emoji">📹</span>
+                    {% trans "Chapter 4: Video Message" %}
                 </h3>
                 <p class="help-text mb-4">
-                    {% trans "Record a heartfelt voice or video message. This will be the emotional finale of the journey!" %}
+                    {% trans "Record a heartfelt video message. This will be revealed as the emotional finale of the journey!" %}
                 </p>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                        <label class="block text-sm text-white/80 mb-2">
-                            🎤 {% trans "Voice Message" %}
-                        </label>
-                        <div class="file-upload-wrapper" x-bind:class="audioHasFile">
-                            {{ form.chapter4_audio }}
-                            <div class="file-upload-icon" x-show="audioDefaultVisible">🎵</div>
-                            <div class="file-upload-text" x-show="audioDefaultVisible">{% trans "MP3, WAV, M4A (max 10MB)" %}</div>
-                            <!-- Audio file info display -->
-                            <div class="mt-2.5" x-show="audioInfoVisible">
-                                <div class="text-2xl mb-1">🎵</div>
-                                <div class="file-name" x-text="audioFileName"></div>
-                                <div class="text-xs text-white/60 mt-1" x-text="audioFileSize"></div>
-                            </div>
+                <div>
+                    <div class="file-upload-wrapper" x-bind:class="videoHasFile">
+                        {{ form.chapter4_video }}
+                        <div class="file-upload-icon" x-show="videoDefaultVisible">🎬</div>
+                        <div class="file-upload-text" x-show="videoDefaultVisible">{% trans "MP4, MOV (max 50MB)" %}</div>
+                        <!-- Video file info display -->
+                        <div class="mt-2.5" x-show="videoInfoVisible">
+                            <div class="text-2xl mb-1">🎬</div>
+                            <div class="file-name" x-text="videoFileName"></div>
+                            <div class="text-xs text-white/60 mt-1" x-text="videoFileSize"></div>
                         </div>
-                        <!-- Client-side validation error -->
-                        <p class="error-text" x-show="audioHasError" x-text="audioError"></p>
-                        {% if form.chapter4_audio.errors %}
-                        <p class="error-text">{{ form.chapter4_audio.errors.0 }}</p>
-                        {% endif %}
                     </div>
+                    <!-- Client-side validation error -->
+                    <p class="error-text" x-show="videoHasError" x-text="videoError"></p>
+                    {% if form.chapter4_video.errors %}
+                    <p class="error-text">{{ form.chapter4_video.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
 
-                    <div>
-                        <label class="block text-sm text-white/80 mb-2">
-                            📹 {% trans "Video Message" %}
-                        </label>
-                        <div class="file-upload-wrapper" x-bind:class="videoHasFile">
-                            {{ form.chapter4_video }}
-                            <div class="file-upload-icon" x-show="videoDefaultVisible">🎬</div>
-                            <div class="file-upload-text" x-show="videoDefaultVisible">{% trans "MP4, MOV (max 50MB)" %}</div>
-                            <!-- Video file info display -->
-                            <div class="mt-2.5" x-show="videoInfoVisible">
-                                <div class="text-2xl mb-1">🎬</div>
-                                <div class="file-name" x-text="videoFileName"></div>
-                                <div class="text-xs text-white/60 mt-1" x-text="videoFileSize"></div>
-                            </div>
+            <!-- Chapter 5: Letter Music -->
+            <div class="media-section">
+                <h3 class="media-section-title">
+                    <span class="emoji">🎵</span>
+                    {% trans "Chapter 5: Letter Music" %}
+                </h3>
+                <p class="help-text mb-4">
+                    {% trans "Add background music that plays while reading your Future Letter in Chapter 5!" %}
+                </p>
+
+                <div>
+                    <div class="file-upload-wrapper" x-bind:class="audioHasFile">
+                        {{ form.chapter5_letter_music }}
+                        <div class="file-upload-icon" x-show="audioDefaultVisible">🎵</div>
+                        <div class="file-upload-text" x-show="audioDefaultVisible">{% trans "MP3, WAV, M4A (max 10MB)" %}</div>
+                        <!-- Audio file info display -->
+                        <div class="mt-2.5" x-show="audioInfoVisible">
+                            <div class="text-2xl mb-1">🎵</div>
+                            <div class="file-name" x-text="audioFileName"></div>
+                            <div class="text-xs text-white/60 mt-1" x-text="audioFileSize"></div>
                         </div>
-                        <!-- Client-side validation error -->
-                        <p class="error-text" x-show="videoHasError" x-text="videoError"></p>
-                        {% if form.chapter4_video.errors %}
-                        <p class="error-text">{{ form.chapter4_video.errors.0 }}</p>
-                        {% endif %}
                     </div>
+                    <!-- Client-side validation error -->
+                    <p class="error-text" x-show="audioHasError" x-text="audioError"></p>
+                    {% if form.chapter5_letter_music.errors %}
+                    <p class="error-text">{{ form.chapter5_letter_music.errors.0 }}</p>
+                    {% endif %}
                 </div>
             </div>
 

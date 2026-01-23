@@ -9,10 +9,10 @@
 {% block content %}
 {# Track dashboard view with profile status in Application Insights #}
 {% if profile %}{% appinsights_event "dashboard_viewed" profile_approved=profile.is_approved %}{% else %}{% appinsights_event "dashboard_viewed" profile_approved="no_profile" %}{% endif %}
-<div class="flex justify-between items-center mb-6">
+<div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
     <h2 class="text-2xl font-bold">{% blocktrans with name=user.first_name %}Welcome back, {{ name }}! 👋{% endblocktrans %}</h2>
-    <a href="{% url 'crush_lu:account_settings' %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-        {% include "shared/icons/cog.html" with class="w-4 h-4" %} {% trans "Settings" %}
+    <a href="{% url 'crush_lu:account_settings' %}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors w-full sm:w-auto">
+        {% include "shared/icons/cog.html" with class="w-5 h-5" %} {% trans "Settings" %}
     </a>
 </div>
 
@@ -21,13 +21,13 @@
 
 {% if profile and not profile.phone_verified %}
 <!-- Phone Verification Banner -->
-<div class="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-4 mb-6 flex items-center justify-between" role="alert">
+<div class="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3" role="alert">
     <div class="flex items-center">
-        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 mr-2" %}
-        <strong>{% trans "Phone verification required!" %}</strong> {% trans "Please verify your phone number to access all features." %}
+        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 mr-2 flex-shrink-0" %}
+        <span><strong>{% trans "Phone verification required!" %}</strong> {% trans "Please verify your phone number to access all features." %}</span>
     </div>
-    <a href="{% url 'crush_lu:verify_phone' %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-yellow-500 text-white hover:bg-yellow-600 rounded-lg transition-colors">
-        {% include "shared/icons/phone.html" with class="w-4 h-4" %} {% trans "Verify Now" %}
+    <a href="{% url 'crush_lu:verify_phone' %}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 font-medium bg-yellow-500 text-white hover:bg-yellow-600 rounded-lg transition-colors w-full sm:w-auto">
+        {% include "shared/icons/phone.html" with class="w-5 h-5" %} {% trans "Verify Now" %}
     </a>
 </div>
 {% endif %}
@@ -255,16 +255,16 @@
                                 {% endif %}
                             </div>
                         </div>
-                        <div class="mt-3 flex gap-2 flex-wrap">
-                            <a href="{% url 'crush_lu:event_detail' registration.event.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium border border-purple-500 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors">
+                        <div class="mt-3 flex flex-col sm:flex-row gap-2">
+                            <a href="{% url 'crush_lu:event_detail' registration.event.id %}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium border border-purple-500 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors">
                                 {% trans "View Event" %}
                             </a>
                             {% if registration.status == 'attended' %}
-                                <a href="{% url 'crush_lu:event_attendees' registration.event.id %}" class="btn-crush-primary inline-flex items-center gap-1 text-sm px-3 py-1.5">
+                                <a href="{% url 'crush_lu:event_attendees' registration.event.id %}" class="btn-crush-primary inline-flex items-center justify-center gap-2 text-sm px-4 py-2.5">
                                     {% include "shared/icons/users.html" with class="w-4 h-4" %} {% trans "Make Connections" %}
                                 </a>
                             {% elif registration.status == 'confirmed' or registration.status == 'waitlist' %}
-                                <a href="{% url 'crush_lu:event_cancel' registration.event.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium border border-red-500 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                <a href="{% url 'crush_lu:event_cancel' registration.event.id %}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium border border-red-500 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                                     {% trans "Cancel Registration" %}
                                 </a>
                             {% endif %}

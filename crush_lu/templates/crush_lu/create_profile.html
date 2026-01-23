@@ -164,7 +164,8 @@
                         </span>
                     </label>
 
-                    <div class="flex gap-2">
+                    {# Phone input and verify button - stacks on mobile for better UX #}
+                    <div class="flex flex-col sm:flex-row gap-2">
                         <div class="flex-1">
                             <input type="tel"
                                    name="phone_number"
@@ -179,7 +180,7 @@
                                 x-show="notVerified"
                                 @click="startVerification"
                                 x-bind:disabled="cannotVerify"
-                                class="px-5 py-3 bg-gradient-to-r from-purple-600 to-pink-500 text-white font-semibold rounded-lg hover:from-purple-700 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105 disabled:hover:scale-100"
+                                class="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-purple-600 to-pink-500 text-white font-semibold rounded-lg hover:from-purple-700 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:scale-105 disabled:hover:scale-100"
                                 x-bind:class="verifyButtonPulseClass">
                             {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}
                             <span>{% trans "Verify" %}</span>
@@ -638,8 +639,8 @@
                     <p class="text-gray-500 text-sm">{% trans "Upload at least one photo (optional but recommended)" %}</p>
                 </div>
 
-                <!-- Photo Upload Grid -->
-                <div class="grid grid-cols-3 gap-4 mb-6"
+                <!-- Photo Upload Grid - smaller gap on mobile for better fit -->
+                <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-6"
                      x-data="photoUpload"
                      data-photo-1-exists="{{ profile.photo_1|yesno:'true,false' }}"
                      data-photo-1-url="{% if profile.photo_1 %}{{ profile.photo_1.url }}{% endif %}"

@@ -16,9 +16,11 @@
 {# Mobile version - full-width form with select dropdown #}
 {# Uses Django's set_language view to save preference in cookie #}
 <div class="px-2 py-2">
-    <form action="{% url 'set_language' %}" method="post" id="language-form-mobile" class="flex items-center gap-2">
+    <form action="{% url 'set_language' %}" method="post" id="language-form-mobile" class="flex items-center gap-2"
+          data-current-path="{{ request.path }}">
         {% csrf_token %}
-        <input type="hidden" name="next" value="{{ request.path }}">
+        {# The next value will be updated by JavaScript based on selected language #}
+        <input type="hidden" name="next" id="language-next-mobile" value="{{ request.path }}">
         <label for="language-mobile" class="text-white/80 text-sm flex items-center gap-1">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
