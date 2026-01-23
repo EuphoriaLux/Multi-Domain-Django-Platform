@@ -69,6 +69,14 @@ class CrushLuAdminSite(admin.AdminSite):
         """
         Override index to add custom dashboard link and analytics.
         """
+        from django.db.models import Count, Q
+        from django.utils import timezone
+        from datetime import timedelta
+        from ..models import (
+            CrushProfile, ProfileSubmission, MeetupEvent,
+            EventConnection, EventRegistration
+        )
+
         extra_context = extra_context or {}
         extra_context['show_dashboard_link'] = True
         extra_context['dashboard_url'] = reverse('crush_admin_dashboard')
@@ -80,6 +88,63 @@ class CrushLuAdminSite(admin.AdminSite):
             extra_context['coach_name'] = request.user.get_full_name() or request.user.username
         except (AttributeError, ObjectDoesNotExist):
             extra_context['is_coach'] = False
+
+        # Quick stats for index page
+        extra_context['total_profiles'] = CrushProfile.objects.count()
+        extra_context['approved_profiles'] = CrushProfile.objects.filter(is_approved=True).count()
+        extra_context['mutual_connections'] = EventConnection.objects.filter(status='mutual').count()
+
+        # Upcoming events count
+        now = timezone.now()
+        extra_context['upcoming_events'] = MeetupEvent.objects.filter(
+            date_time__gte=now,
+            is_published=True,
+            is_cancelled=False
+        ).count()
+
+        # Pending actions for Action Center
+        cutoff_24h = now - timedelta(hours=24)
+        pending_reviews = ProfileSubmission.objects.filter(status='pending').count()
+        urgent_reviews = ProfileSubmission.objects.filter(
+            status='pending',
+            submitted_at__lt=cutoff_24h
+        ).count()
+        awaiting_call = ProfileSubmission.objects.filter(
+            status='pending',
+            coach__isnull=False,
+            review_call_completed=False
+        ).count()
+        ready_to_approve = ProfileSubmission.objects.filter(
+            status='pending',
+            coach__isnull=False,
+            review_call_completed=True
+        ).count()
+        unassigned = ProfileSubmission.objects.filter(
+            status='pending',
+            coach__isnull=True
+        ).count()
+
+        extra_context['pending_actions'] = {
+            'total_pending': pending_reviews,
+            'urgent_reviews': urgent_reviews,
+            'awaiting_call': awaiting_call,
+            'ready_to_approve': ready_to_approve,
+            'unassigned': unassigned,
+        }
+
+        # Recent submissions for Today's Focus
+        extra_context['recent_submissions'] = ProfileSubmission.objects.filter(
+            status='pending'
+        ).select_related('profile__user', 'coach__user').order_by('-submitted_at')[:5]
+
+        # Upcoming events list for Today's Focus
+        extra_context['upcoming_events_list'] = MeetupEvent.objects.filter(
+            date_time__gte=now,
+            is_published=True,
+            is_cancelled=False
+        ).annotate(
+            registration_count=Count('eventregistration')
+        ).order_by('date_time')[:5]
 
         return super().index(request, extra_context)
 

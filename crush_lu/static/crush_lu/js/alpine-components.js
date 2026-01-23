@@ -4981,4 +4981,268 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // Journey Final Response component (Chapter 6 - The Final Question)
+    // Handles yes/thinking response submission with loading states
+    Alpine.data('finalResponse', function() {
+        return {
+            isSubmitting: false,
+            statusMessage: '',
+            statusType: '',  // 'info', 'success', 'error'
+
+            // CSP-safe computed getters
+            get isNotSubmitting() { return !this.isSubmitting; },
+            get showStatus() { return this.statusMessage !== ''; },
+            get statusClass() {
+                if (this.statusType === 'success') return 'journey-status-success';
+                if (this.statusType === 'error') return 'journey-status-error';
+                return 'journey-status-info';
+            },
+
+            init: function() {
+                // Read config from data attributes
+                this.submitUrl = this.$el.dataset.submitUrl || '';
+                this.i18nSubmitting = this.$el.dataset.i18nSubmitting || 'Submitting your response...';
+                this.i18nSuccess = this.$el.dataset.i18nSuccess || 'Thank you for your response!';
+                this.i18nError = this.$el.dataset.i18nError || 'An error occurred. Please try again.';
+                this.i18nNetworkError = this.$el.dataset.i18nNetworkError || 'Network error. Please check your connection and try again.';
+            },
+
+            submitYes: function() {
+                this._submit('yes');
+            },
+
+            submitThinking: function() {
+                this._submit('thinking');
+            },
+
+            _submit: function(response) {
+                var self = this;
+
+                if (this.isSubmitting) return;
+                this.isSubmitting = true;
+                this.statusMessage = '\u23F3 ' + this.i18nSubmitting;
+                this.statusType = 'info';
+
+                fetch(this.submitUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': CrushUtils.getCsrfToken(),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ response: response })
+                })
+                .then(function(apiResponse) { return apiResponse.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        self.statusMessage = '\u2705 ' + self.i18nSuccess + ' \uD83D\uDC96';
+                        self.statusType = 'success';
+                        // Reload page after 2 seconds to show the confirmed response
+                        setTimeout(function() {
+                            window.location.reload();
+                        }, 2000);
+                    } else {
+                        self.statusMessage = '\u26A0\uFE0F ' + (data.message || self.i18nError);
+                        self.statusType = 'error';
+                        self.isSubmitting = false;
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error submitting final response:', error);
+                    self.statusMessage = '\u26A0\uFE0F ' + self.i18nNetworkError;
+                    self.statusType = 'error';
+                    self.isSubmitting = false;
+                });
+            }
+        };
+    });
+
+    // =========================================================================
+    // Admin Dashboard Components (CSP-compliant)
+    // =========================================================================
+
+    // Dashboard Tabs component for organizing analytics sections
+    // Reads initial tab from data-initial-tab attribute
+    Alpine.data('dashboardTabs', function() {
+        return {
+            activeTab: 'overview',
+
+            // CSP-compatible computed getters for each tab
+            get isOverview() { return this.activeTab === 'overview'; },
+            get isUsers() { return this.activeTab === 'users'; },
+            get isEvents() { return this.activeTab === 'events'; },
+            get isEngagement() { return this.activeTab === 'engagement'; },
+            get isTechnical() { return this.activeTab === 'technical'; },
+
+            // Tab active state classes
+            get overviewTabClass() { return this.activeTab === 'overview' ? 'active' : ''; },
+            get usersTabClass() { return this.activeTab === 'users' ? 'active' : ''; },
+            get eventsTabClass() { return this.activeTab === 'events' ? 'active' : ''; },
+            get engagementTabClass() { return this.activeTab === 'engagement' ? 'active' : ''; },
+            get technicalTabClass() { return this.activeTab === 'technical' ? 'active' : ''; },
+
+            init: function() {
+                // Read initial tab from data attribute
+                var initialTab = this.$el.getAttribute('data-initial-tab');
+                if (initialTab) {
+                    this.activeTab = initialTab;
+                }
+                // Also check URL hash for direct linking
+                if (window.location.hash) {
+                    var hashTab = window.location.hash.substring(1);
+                    if (['overview', 'users', 'events', 'engagement', 'technical'].indexOf(hashTab) !== -1) {
+                        this.activeTab = hashTab;
+                    }
+                }
+            },
+
+            setOverview: function() {
+                this.activeTab = 'overview';
+                history.replaceState(null, '', '#overview');
+            },
+            setUsers: function() {
+                this.activeTab = 'users';
+                history.replaceState(null, '', '#users');
+            },
+            setEvents: function() {
+                this.activeTab = 'events';
+                history.replaceState(null, '', '#events');
+            },
+            setEngagement: function() {
+                this.activeTab = 'engagement';
+                history.replaceState(null, '', '#engagement');
+            },
+            setTechnical: function() {
+                this.activeTab = 'technical';
+                history.replaceState(null, '', '#technical');
+            }
+        };
+    });
+
+    // Collapsible model group component for admin index page
+    // Reads initial state from data-default-open attribute
+    Alpine.data('modelGroup', function() {
+        return {
+            isOpen: true,
+
+            // CSP-compatible computed getters
+            get isClosed() { return !this.isOpen; },
+            get toggleClass() { return this.isOpen ? '' : 'collapsed'; },
+            get contentClass() { return this.isOpen ? '' : 'collapsed'; },
+            get ariaExpanded() { return this.isOpen ? 'true' : 'false'; },
+
+            init: function() {
+                // Read initial state from data attribute
+                var defaultOpen = this.$el.getAttribute('data-default-open');
+                this.isOpen = defaultOpen !== 'false';
+
+                // Restore state from localStorage if available
+                var groupId = this.$el.getAttribute('data-group-id');
+                if (groupId) {
+                    var savedState = localStorage.getItem('admin-group-' + groupId);
+                    if (savedState !== null) {
+                        this.isOpen = savedState === 'true';
+                    }
+                }
+            },
+
+            toggle: function() {
+                this.isOpen = !this.isOpen;
+                // Save state to localStorage
+                var groupId = this.$el.getAttribute('data-group-id');
+                if (groupId) {
+                    localStorage.setItem('admin-group-' + groupId, this.isOpen);
+                }
+            }
+        };
+    });
+
+    // Action Center component with collapse persistence
+    Alpine.data('actionCenter', function() {
+        return {
+            isCollapsed: false,
+
+            // CSP-compatible computed getters
+            get isExpanded() { return !this.isCollapsed; },
+            get toggleIcon() { return this.isCollapsed ? '+' : '-'; },
+            get contentClass() { return this.isCollapsed ? 'collapsed' : ''; },
+
+            init: function() {
+                // Restore state from localStorage
+                var savedState = localStorage.getItem('admin-action-center-collapsed');
+                if (savedState !== null) {
+                    this.isCollapsed = savedState === 'true';
+                }
+            },
+
+            toggle: function() {
+                this.isCollapsed = !this.isCollapsed;
+                localStorage.setItem('admin-action-center-collapsed', this.isCollapsed);
+            }
+        };
+    });
+
+    // Today's Focus tabs for index page
+    Alpine.data('todaysFocus', function() {
+        return {
+            activeTab: 'events',
+
+            // CSP-compatible computed getters
+            get isEventsTab() { return this.activeTab === 'events'; },
+            get isSubmissionsTab() { return this.activeTab === 'submissions'; },
+            get isAlertsTab() { return this.activeTab === 'alerts'; },
+
+            get eventsTabClass() { return this.activeTab === 'events' ? 'active' : ''; },
+            get submissionsTabClass() { return this.activeTab === 'submissions' ? 'active' : ''; },
+            get alertsTabClass() { return this.activeTab === 'alerts' ? 'active' : ''; },
+
+            setEvents: function() {
+                this.activeTab = 'events';
+            },
+            setSubmissions: function() {
+                this.activeTab = 'submissions';
+            },
+            setAlerts: function() {
+                this.activeTab = 'alerts';
+            }
+        };
+    });
+
+    // Date filter component for dashboard
+    Alpine.data('dateFilter', function() {
+        return {
+            selectedRange: '30d',
+
+            // CSP-compatible computed getters
+            get is7d() { return this.selectedRange === '7d'; },
+            get is30d() { return this.selectedRange === '30d'; },
+            get is90d() { return this.selectedRange === '90d'; },
+            get isAll() { return this.selectedRange === 'all'; },
+
+            init: function() {
+                // Read initial value from URL param or data attribute
+                var urlParams = new URLSearchParams(window.location.search);
+                var rangeParam = urlParams.get('range');
+                if (rangeParam) {
+                    this.selectedRange = rangeParam;
+                } else {
+                    var defaultRange = this.$el.getAttribute('data-default-range');
+                    if (defaultRange) {
+                        this.selectedRange = defaultRange;
+                    }
+                }
+            },
+
+            setRange: function(range) {
+                this.selectedRange = range;
+            },
+
+            apply: function() {
+                // Update URL with new range and reload
+                var url = new URL(window.location);
+                url.searchParams.set('range', this.selectedRange);
+                window.location.href = url.toString();
+            }
+        };
+    });
+
 });

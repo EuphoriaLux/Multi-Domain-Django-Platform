@@ -936,7 +936,8 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
     Returns:
         bool: True if email was sent successfully
     """
-    from django.utils import timezone
+    from django.utils import timezone, translation
+    from django.utils.translation import gettext as _
     from .models import CrushProfile, ProfileReminder, UserActivity, EmailPreference
 
     # Check email preferences
@@ -967,13 +968,8 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
         logger.error(f"Unknown reminder type: {reminder_type}")
         return False
 
-    # Subject lines
-    subject_map = {
-        '24h': "Complete Your Profile - Crush.lu",
-        '72h': "Don't Miss Out - Your Profile is Waiting",
-        '7d': "Last Chance to Complete Your Profile - Crush.lu",
-    }
-    subject = subject_map[reminder_type]
+    # Get user's preferred language for email content
+    lang = getattr(profile, 'preferred_language', 'en') or 'en'
 
     # Build profile URL - need to handle case where request is None
     if request:
@@ -984,8 +980,6 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
         )
     else:
         # Create minimal context for batch sending without request
-        # Use user's preferred language for URL
-        lang = getattr(profile, 'preferred_language', 'en') or 'en'
         profile_url = f"https://crush.lu/{lang}/create-profile/"
 
         # Get or create email preferences for unsubscribe URL
@@ -1003,9 +997,20 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
             'settings_url': f'https://crush.lu/{lang}/account/settings/',
         }
 
-    # Render email
-    html_message = render_to_string(template, context)
-    plain_message = strip_tags(html_message)
+    # Render email and send in user's preferred language
+    # Use translation.override() for thread-safety
+    with translation.override(lang):
+        # Subject lines - translated based on user's language
+        subject_map = {
+            '24h': _("Complete Your Profile - Crush.lu"),
+            '72h': _("Don't Miss Out - Your Profile is Waiting"),
+            '7d': _("Last Chance to Complete Your Profile - Crush.lu"),
+        }
+        subject = subject_map[reminder_type]
+
+        # Render email template in user's language
+        html_message = render_to_string(template, context)
+        plain_message = strip_tags(html_message)
 
     # Send email
     try:
@@ -1034,12 +1039,12 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
             except UserActivity.DoesNotExist:
                 pass
 
-            logger.info(f"✅ Sent {reminder_type} profile reminder to {user.email}")
+            logger.info(f"Sent {reminder_type} profile reminder to {user.email} (lang={lang})")
             return True
         else:
             logger.warning(f"Email send returned 0 for {user.email}")
             return False
 
     except Exception as e:
-        logger.error(f"❌ Failed to send {reminder_type} reminder to {user.email}: {e}", exc_info=True)
+        logger.error(f"Failed to send {reminder_type} reminder to {user.email}: {e}", exc_info=True)
         return False

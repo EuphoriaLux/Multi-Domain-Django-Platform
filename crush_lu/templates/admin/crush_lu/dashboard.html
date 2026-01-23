@@ -3,1384 +3,936 @@
 
 {% block title %}Crush.lu Analytics Dashboard{% endblock %}
 
-{% block extrastyle %}
-{{ block.super }}
-<style>
-    /* Theme-aware CSS variables */
-    :root {
-        --card-bg: #ffffff;
-        --card-shadow: rgba(0,0,0,0.1);
-        --text-primary: #333333;
-        --text-secondary: #666666;
-        --text-muted: #999999;
-        --table-header-bg: #f8f9fa;
-        --table-border: #dee2e6;
-        --table-hover: #f8f9fa;
-        --progress-bg: #e9ecef;
-        --funnel-bg: #f8f9fa;
-    }
-
-    /* Dark mode overrides - Django admin uses prefers-color-scheme or data-theme */
-    @media (prefers-color-scheme: dark) {
-        :root {
-            --card-bg: #1e1e2e;
-            --card-shadow: rgba(0,0,0,0.3);
-            --text-primary: #e0e0e0;
-            --text-secondary: #b0b0b0;
-            --text-muted: #888888;
-            --table-header-bg: #2a2a3e;
-            --table-border: #3a3a4e;
-            --table-hover: #2a2a3e;
-            --progress-bg: #2a2a3e;
-            --funnel-bg: #2a2a3e;
-        }
-    }
-
-    /* Also support Django's theme toggle via data attribute */
-    [data-theme="dark"] {
-        --card-bg: #1e1e2e;
-        --card-shadow: rgba(0,0,0,0.3);
-        --text-primary: #e0e0e0;
-        --text-secondary: #b0b0b0;
-        --text-muted: #888888;
-        --table-header-bg: #2a2a3e;
-        --table-border: #3a3a4e;
-        --table-hover: #2a2a3e;
-        --progress-bg: #2a2a3e;
-        --funnel-bg: #2a2a3e;
-    }
-
-    .dashboard-container {
-        padding: 20px;
-    }
-
-    .dashboard-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 20px;
-        margin-bottom: 30px;
-    }
-
-    .metric-card {
-        background: var(--card-bg);
-        border-radius: 8px;
-        padding: 20px;
-        box-shadow: 0 2px 4px var(--card-shadow);
-        transition: transform 0.2s, box-shadow 0.2s;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .metric-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px var(--card-shadow);
-    }
-
-    .metric-card.purple {
-        border-left: 4px solid #9B59B6;
-    }
-
-    .metric-card.pink {
-        border-left: 4px solid #FF6B9D;
-    }
-
-    .metric-card.green {
-        border-left: 4px solid #28a745;
-    }
-
-    .metric-card.blue {
-        border-left: 4px solid #007bff;
-    }
-
-    .metric-card.orange {
-        border-left: 4px solid #ffc107;
-    }
-
-    .metric-value {
-        font-size: 36px;
-        font-weight: bold;
-        color: var(--text-primary);
-        margin: 10px 0;
-    }
-
-    .metric-label {
-        font-size: 14px;
-        color: var(--text-secondary);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .metric-subtitle {
-        font-size: 12px;
-        color: var(--text-muted);
-        margin-top: 5px;
-    }
-
-    .section-header {
-        font-size: 24px;
-        font-weight: 600;
-        margin: 30px 0 20px 0;
-        color: var(--text-primary);
-        border-bottom: 2px solid #9B59B6;
-        padding-bottom: 10px;
-    }
-
-    .table-container {
-        background: var(--card-bg);
-        border-radius: 8px;
-        padding: 20px;
-        box-shadow: 0 2px 4px var(--card-shadow);
-        margin-bottom: 20px;
-        overflow-x: auto;
-    }
-
-    .table-container h3 {
-        color: var(--text-primary);
-    }
-
-    .stats-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    .stats-table th {
-        background: var(--table-header-bg);
-        padding: 12px;
-        text-align: left;
-        font-weight: 600;
-        border-bottom: 2px solid var(--table-border);
-        color: var(--text-primary);
-    }
-
-    .stats-table td {
-        padding: 12px;
-        border-bottom: 1px solid var(--table-border);
-        color: var(--text-secondary);
-    }
-
-    .stats-table td a {
-        color: #9B59B6;
-    }
-
-    .stats-table tr:hover {
-        background: var(--table-hover);
-    }
-
-    .progress-bar-container {
-        background: var(--progress-bg);
-        border-radius: 4px;
-        height: 20px;
-        overflow: hidden;
-        margin-top: 10px;
-    }
-
-    .progress-bar {
-        background: linear-gradient(90deg, #9B59B6, #FF6B9D);
-        height: 100%;
-        transition: width 0.3s;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 12px;
-        font-weight: bold;
-    }
-
-    .badge {
-        display: inline-block;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: bold;
-    }
-
-    .badge-success {
-        background: #28a74533;
-        color: #28a745;
-    }
-
-    .badge-warning {
-        background: #ffc10733;
-        color: #ffc107;
-    }
-
-    .badge-danger {
-        background: #dc354533;
-        color: #dc3545;
-    }
-
-    .badge-info {
-        background: #17a2b833;
-        color: #17a2b8;
-    }
-
-    .quick-actions {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        margin-top: 20px;
-    }
-
-    .quick-action-btn {
-        padding: 10px 20px;
-        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
-        color: white;
-        text-decoration: none;
-        border-radius: 6px;
-        font-weight: 600;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .quick-action-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(155, 89, 182, 0.3);
-        color: white;
-    }
-
-    .chart-container {
-        background: var(--card-bg);
-        border-radius: 8px;
-        padding: 20px;
-        box-shadow: 0 2px 4px var(--card-shadow);
-        margin-bottom: 20px;
-    }
-
-    .chart-container h3 {
-        color: var(--text-primary);
-    }
-
-    .chart-container p {
-        color: var(--text-secondary);
-    }
-
-    .funnel-step {
-        padding: 15px;
-        margin: 10px 0;
-        background: var(--funnel-bg);
-        border-left: 4px solid #9B59B6;
-        border-radius: 4px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .funnel-step-name {
-        font-weight: 600;
-        font-size: 16px;
-        color: var(--text-primary);
-    }
-
-    .funnel-step-value {
-        font-size: 24px;
-        font-weight: bold;
-        color: #9B59B6;
-    }
-
-    .icon-large {
-        font-size: 48px;
-        opacity: 0.1;
-        position: absolute;
-        right: 20px;
-        top: 20px;
-    }
-
-    /* Dashboard header styling */
-    .dashboard-container > h1 {
-        color: #9B59B6 !important;
-    }
-
-    .dashboard-container > p {
-        color: var(--text-secondary) !important;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="dashboard-container">
-    <h1 style="font-size: 32px; margin-bottom: 10px; color: #9B59B6;">💕 Crush.lu Analytics Dashboard</h1>
-    <p style="color: #666; margin-bottom: 30px;">Real-time insights and metrics for the Crush.lu platform</p>
-
-    <!-- Quick Actions -->
-    <div class="quick-actions">
-        <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}" class="quick-action-btn">👤 View All Profiles</a>
-        <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?status__exact=pending" class="quick-action-btn">📝 Pending Approvals ({{ pending_reviews }})</a>
-        <a href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}" class="quick-action-btn">🎉 Manage Events</a>
-        <a href="{% url 'crush_admin:crush_lu_specialuserexperience_changelist' %}" class="quick-action-btn">✨ Special Experiences</a>
-        <a href="{% url 'user_segments_dashboard' %}" class="quick-action-btn">🎯 User Segments</a>
-        <a href="{% url 'email_template_manager' %}" class="quick-action-btn">📧 Email Templates</a>
+<div class="dashboard-container" x-data="dashboardTabs">
+        <div class="dashboard-header">
+        <h1>Analytics Dashboard</h1>
+        <p>Real-time insights and metrics for the Crush.lu platform</p>
     </div>
 
-    <!-- Pending Actions Alert Box -->
-    {% if pending_actions.total_pending > 0 %}
-    <div class="chart-container" style="margin-top: 20px; border-left: 4px solid #dc3545;">
-        <h3 style="margin-top: 0; color: #dc3545;">⚡ Pending Actions</h3>
-        <p style="color: var(--text-secondary); margin-bottom: 15px;">Quick links to submissions that need your attention</p>
-
-        <div class="dashboard-grid" style="gap: 15px;">
+        {% if pending_actions.total_pending > 0 %}
+    <div class="action-center" style="margin-bottom: var(--spacing-lg);">
+        <div class="action-center-header">
+            <h2 class="action-center-title">
+                <span>&#x26A1;</span> Pending Actions
+            </h2>
+        </div>
+        <div class="action-center-grid">
             {% if pending_actions.urgent_reviews > 0 %}
-            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?pending_time=24h"
-               style="text-decoration: none;" class="metric-card"
-               style="background: #dc354515; border-left: 4px solid #dc3545; cursor: pointer;">
-                <div class="metric-label" style="color: #dc3545;">🚨 Urgent Reviews</div>
-                <div class="metric-value" style="color: #dc3545;">{{ pending_actions.urgent_reviews }}</div>
-                <div class="metric-subtitle">Pending > 24 hours</div>
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?pending_time=24h" class="action-item urgent">
+                <span class="action-item-count">{{ pending_actions.urgent_reviews }}</span>
+                <span class="action-item-label">Urgent (&gt;24h)</span>
             </a>
             {% endif %}
-
-            {% if pending_actions.unassigned > 0 %}
-            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?coach__isnull=True&status__exact=pending"
-               style="text-decoration: none;" class="metric-card"
-               style="background: #ffc10715; border-left: 4px solid #ffc107; cursor: pointer;">
-                <div class="metric-label" style="color: #ffc107;">👤 Needs Coach</div>
-                <div class="metric-value" style="color: #ffc107;">{{ pending_actions.unassigned }}</div>
-                <div class="metric-subtitle">No coach assigned</div>
-            </a>
-            {% endif %}
-
             {% if pending_actions.awaiting_call > 0 %}
-            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?workflow=awaiting_call"
-               style="text-decoration: none;" class="metric-card"
-               style="background: #17a2b815; border-left: 4px solid #17a2b8; cursor: pointer;">
-                <div class="metric-label" style="color: #17a2b8;">📞 Awaiting Call</div>
-                <div class="metric-value" style="color: #17a2b8;">{{ pending_actions.awaiting_call }}</div>
-                <div class="metric-subtitle">Screening call needed</div>
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?workflow=awaiting_call" class="action-item warning">
+                <span class="action-item-count">{{ pending_actions.awaiting_call }}</span>
+                <span class="action-item-label">Awaiting Call</span>
             </a>
             {% endif %}
-
             {% if pending_actions.ready_to_approve > 0 %}
-            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?workflow=ready_approve"
-               style="text-decoration: none;" class="metric-card"
-               style="background: #28a74515; border-left: 4px solid #28a745; cursor: pointer;">
-                <div class="metric-label" style="color: #28a745;">✅ Ready to Approve</div>
-                <div class="metric-value" style="color: #28a745;">{{ pending_actions.ready_to_approve }}</div>
-                <div class="metric-subtitle">Call completed, ready!</div>
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?workflow=ready_approve" class="action-item success">
+                <span class="action-item-count">{{ pending_actions.ready_to_approve }}</span>
+                <span class="action-item-label">Ready to Approve</span>
+            </a>
+            {% endif %}
+            {% if pending_actions.unassigned > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?coach__isnull=True&status__exact=pending" class="action-item">
+                <span class="action-item-count">{{ pending_actions.unassigned }}</span>
+                <span class="action-item-label">Unassigned</span>
             </a>
             {% endif %}
         </div>
     </div>
     {% endif %}
 
-    <!-- User Metrics Section -->
-    <h2 class="section-header">👥 User Metrics</h2>
-    <div class="dashboard-grid">
-        <div class="metric-card purple">
-            <div class="icon-large">👤</div>
-            <div class="metric-label">Total Profiles</div>
-            <div class="metric-value">{{ total_profiles }}</div>
-            <div class="metric-subtitle">{{ active_profiles }} active</div>
+        <div class="tab-nav">
+        <button class="tab-btn" :class="overviewTabClass" @click="setOverview">
+            &#x1F4CA; Overview
+        </button>
+        <button class="tab-btn" :class="usersTabClass" @click="setUsers">
+            &#x1F465; Users
+        </button>
+        <button class="tab-btn" :class="eventsTabClass" @click="setEvents">
+            &#x1F389; Events
+        </button>
+        <button class="tab-btn" :class="engagementTabClass" @click="setEngagement">
+            &#x1F4AC; Engagement
+        </button>
+        <button class="tab-btn" :class="technicalTabClass" @click="setTechnical">
+            &#x1F527; Technical
+        </button>
+    </div>
+
+        <div class="date-filter-bar" x-data="dateFilter" data-default-range="{{ date_range|default:'30d' }}">
+        <span class="date-filter-label">Date Range:</span>
+        <select class="date-filter-select" x-model="selectedRange">
+            <option value="7d">Last 7 Days</option>
+            <option value="30d">Last 30 Days</option>
+            <option value="90d">Last 90 Days</option>
+            <option value="all">All Time</option>
+        </select>
+        <button class="date-filter-btn" @click="apply">Apply</button>
+    </div>
+
+        <div class="tab-panel" :class="overviewTabClass" x-show="isOverview">
+        {# Key Metrics #}
+        <div class="metric-grid">
+            <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}" class="metric-card purple">
+                <span class="metric-icon">&#x1F464;</span>
+                <div class="metric-label">Total Profiles</div>
+                <div class="metric-value">{{ total_profiles }}</div>
+                <div class="metric-subtitle">{{ active_profiles }} active</div>
+            </a>
+            <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?is_approved__exact=1" class="metric-card green">
+                <span class="metric-icon">&#x2705;</span>
+                <div class="metric-label">Approved</div>
+                <div class="metric-value">{{ approved_profiles }}</div>
+                <div class="metric-subtitle">{{ approval_rate }}% approval rate</div>
+            </a>
+            <a href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}" class="metric-card blue">
+                <span class="metric-icon">&#x1F4C5;</span>
+                <div class="metric-label">Upcoming Events</div>
+                <div class="metric-value">{{ upcoming_events }}</div>
+                <div class="metric-subtitle">{{ total_events }} total</div>
+            </a>
+            <a href="{% url 'crush_admin:crush_lu_eventconnection_changelist' %}?status__exact=mutual" class="metric-card pink">
+                <span class="metric-icon">&#x1F495;</span>
+                <div class="metric-label">Connections</div>
+                <div class="metric-value">{{ mutual_connections }}</div>
+                <div class="metric-subtitle">{{ connection_rate }}% match rate</div>
+            </a>
         </div>
 
-        <div class="metric-card green">
-            <div class="icon-large">✅</div>
-            <div class="metric-label">Approved Profiles</div>
-            <div class="metric-value">{{ approved_profiles }}</div>
-            <div class="metric-subtitle">{{ approval_rate }}% approval rate</div>
+        {# Quick Actions #}
+        <div style="display: flex; flex-wrap: wrap; gap: var(--spacing-sm); margin-bottom: var(--spacing-lg);">
+            <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}" class="btn btn-primary">&#x1F464; All Profiles</a>
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?status__exact=pending" class="btn btn-primary">&#x1F4DD; Pending Reviews ({{ pending_reviews }})</a>
+            <a href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}" class="btn btn-primary">&#x1F389; Events</a>
+            <a href="{% url 'user_segments_dashboard' %}" class="btn btn-secondary">&#x1F3AF; User Segments</a>
+            <a href="{% url 'email_template_manager' %}" class="btn btn-secondary">&#x1F4E7; Email Templates</a>
         </div>
 
-        <div class="metric-card orange">
-            <div class="icon-large">⏳</div>
-            <div class="metric-label">Pending Approval</div>
-            <div class="metric-value">{{ pending_approval }}</div>
-            <div class="metric-subtitle">Awaiting review</div>
+        {# Profile Completion Funnel (Simplified) #}
+        <div class="chart-container">
+            <h3>Profile Completion Status</h3>
+            <p style="margin-bottom: var(--spacing-md);">Where users are currently stuck in the profile creation process</p>
+
+            <div class="funnel-step not-started">
+                <div>
+                    <span class="funnel-step-name">&#x274C; Not Started</span>
+                </div>
+                <div style="text-align: right;">
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=not_started" class="funnel-step-value" style="color: var(--status-danger);">{{ funnel_not_started }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_not_started_pct }}%</div>
+                </div>
+            </div>
+
+            <div class="funnel-step step1">
+                <div>
+                    <span class="funnel-step-name">&#x1F4DD; Step 1: Basic Info</span>
+                </div>
+                <div style="text-align: right;">
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step1" class="funnel-step-value" style="color: #d39e00;">{{ funnel_step1 }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step1_pct }}%</div>
+                </div>
+            </div>
+
+            <div class="funnel-step step2">
+                <div>
+                    <span class="funnel-step-name">&#x1F4F7; Step 2: Photos & Bio</span>
+                </div>
+                <div style="text-align: right;">
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step2" class="funnel-step-value" style="color: var(--status-info);">{{ funnel_step2 }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step2_pct }}%</div>
+                </div>
+            </div>
+
+            <div class="funnel-step submitted">
+                <div>
+                    <span class="funnel-step-name">&#x2705; Submitted for Review</span>
+                </div>
+                <div style="text-align: right;">
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=submitted" class="funnel-step-value" style="color: var(--status-success);">{{ funnel_submitted }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_submitted_pct }}%</div>
+                </div>
+            </div>
         </div>
 
-        <div class="metric-card blue">
-            <div class="icon-large">📈</div>
-            <div class="metric-label">New This Month</div>
-            <div class="metric-value">{{ recent_signups }}</div>
-            <div class="metric-subtitle">Last 30 days</div>
+        {# Recent Activity (Combined) #}
+        <div class="two-col">
+            <div class="table-container">
+                <h3>Recent Profile Submissions</h3>
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Status</th>
+                            <th>Submitted</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for submission in recent_submissions %}
+                        <tr>
+                            <td><a href="{% url 'crush_admin:crush_lu_profilesubmission_change' submission.id %}">{{ submission.profile.user.get_full_name|default:submission.profile.user.username }}</a></td>
+                            <td><span class="badge badge-warning">{{ submission.get_status_display }}</span></td>
+                            <td>{{ submission.submitted_at|timesince }} ago</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="empty-state">No recent submissions</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-container">
+                <h3>Recent Event Registrations</h3>
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Event</th>
+                            <th>Registered</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for registration in recent_event_registrations %}
+                        <tr>
+                            <td>{{ registration.user.get_full_name|default:registration.user.username }}</td>
+                            <td><a href="{% url 'crush_admin:crush_lu_meetupevent_change' registration.event.id %}">{{ registration.event.title|truncatechars:25 }}</a></td>
+                            <td>{{ registration.registered_at|timesince }} ago</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="empty-state">No recent registrations</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
-    <!-- Profile Completion Funnel - Shows users CURRENTLY at each step -->
-    <div class="chart-container">
-        <h3 style="margin-top: 0;">Profile Completion Status</h3>
-        <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 14px;">
-            Shows where users are currently stuck in the profile creation process
-        </p>
+        <div class="tab-panel" :class="usersTabClass" x-show="isUsers">
+        {# User Metrics #}
+        <div class="metric-grid">
+            <div class="metric-card purple">
+                <span class="metric-icon">&#x1F464;</span>
+                <div class="metric-label">Total Profiles</div>
+                <div class="metric-value">{{ total_profiles }}</div>
+                <div class="metric-subtitle">{{ active_profiles }} active</div>
+            </div>
+            <div class="metric-card green">
+                <span class="metric-icon">&#x2705;</span>
+                <div class="metric-label">Approved</div>
+                <div class="metric-value">{{ approved_profiles }}</div>
+                <div class="metric-subtitle">{{ approval_rate }}% approval rate</div>
+            </div>
+            <div class="metric-card orange">
+                <span class="metric-icon">&#x23F3;</span>
+                <div class="metric-label">Pending Approval</div>
+                <div class="metric-value">{{ pending_approval }}</div>
+                <div class="metric-subtitle">Awaiting review</div>
+            </div>
+            <div class="metric-card blue">
+                <span class="metric-icon">&#x1F4C8;</span>
+                <div class="metric-label">New This Period</div>
+                <div class="metric-value">{{ recent_signups }}</div>
+                <div class="metric-subtitle">Based on date filter</div>
+            </div>
+        </div>
 
-        <!-- Not Started -->
-        <div class="funnel-step" style="border-left-color: #dc3545;">
-            <div>
-                <span class="funnel-step-name">❌ Not Started</span>
-                <div class="progress-bar-container" style="width: 200px; height: 8px; margin-top: 5px;">
-                    <div class="progress-bar" style="width: {{ funnel_not_started_pct }}%; background: linear-gradient(90deg, #dc3545, #ff6b6b);"></div>
+        {# Full Profile Funnel #}
+        <div class="chart-container">
+            <h3>Profile Completion Funnel</h3>
+            <p>Shows where users are currently stuck in the profile creation process</p>
+
+            <div class="funnel-step not-started">
+                <div>
+                    <span class="funnel-step-name">&#x274C; Not Started</span>
+                    <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
+                        <div class="progress-bar" style="width: {{ funnel_not_started_pct }}%; background: linear-gradient(90deg, #dc3545, #ff6b6b);"></div>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=not_started" class="funnel-step-value" style="color: var(--status-danger);">{{ funnel_not_started }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_not_started_pct }}%</div>
                 </div>
             </div>
-            <div style="text-align: right;">
-                <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=not_started"
-                   class="funnel-step-value" style="color: #dc3545; text-decoration: none;"
-                   title="View users who haven't started their profile">{{ funnel_not_started }}</a>
-                <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_not_started_pct }}%</div>
-            </div>
-        </div>
 
-        <!-- Step 1 -->
-        <div class="funnel-step" style="border-left-color: #ffc107;">
-            <div>
-                <span class="funnel-step-name">📝 Step 1: Basic Info</span>
-                <div class="progress-bar-container" style="width: 200px; height: 8px; margin-top: 5px;">
-                    <div class="progress-bar" style="width: {{ funnel_step1_pct }}%; background: linear-gradient(90deg, #ffc107, #ffda6a);"></div>
+            <div class="funnel-step step1">
+                <div>
+                    <span class="funnel-step-name">&#x1F4DD; Step 1: Basic Info</span>
+                    <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
+                        <div class="progress-bar" style="width: {{ funnel_step1_pct }}%; background: linear-gradient(90deg, #ffc107, #ffda6a);"></div>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step1" class="funnel-step-value" style="color: #d39e00;">{{ funnel_step1 }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step1_pct }}%</div>
                 </div>
             </div>
-            <div style="text-align: right;">
-                <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step1"
-                   class="funnel-step-value" style="color: #ffc107; text-decoration: none;"
-                   title="View users stuck at Step 1 (Basic Info)">{{ funnel_step1 }}</a>
-                <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step1_pct }}%</div>
-            </div>
-        </div>
 
-        <!-- Step 2 -->
-        <div class="funnel-step" style="border-left-color: #17a2b8;">
-            <div>
-                <span class="funnel-step-name">📷 Step 2: Photos & Bio</span>
-                <div class="progress-bar-container" style="width: 200px; height: 8px; margin-top: 5px;">
-                    <div class="progress-bar" style="width: {{ funnel_step2_pct }}%; background: linear-gradient(90deg, #17a2b8, #63d5eb);"></div>
+            <div class="funnel-step step2">
+                <div>
+                    <span class="funnel-step-name">&#x1F4F7; Step 2: Photos & Bio</span>
+                    <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
+                        <div class="progress-bar" style="width: {{ funnel_step2_pct }}%; background: linear-gradient(90deg, #17a2b8, #63d5eb);"></div>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step2" class="funnel-step-value" style="color: var(--status-info);">{{ funnel_step2 }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step2_pct }}%</div>
                 </div>
             </div>
-            <div style="text-align: right;">
-                <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step2"
-                   class="funnel-step-value" style="color: #17a2b8; text-decoration: none;"
-                   title="View users stuck at Step 2 (Photos & Bio)">{{ funnel_step2 }}</a>
-                <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step2_pct }}%</div>
-            </div>
-        </div>
 
-        <!-- Step 3 -->
-        <div class="funnel-step" style="border-left-color: #6f42c1;">
-            <div>
-                <span class="funnel-step-name">🔒 Step 3: Privacy Settings</span>
-                <div class="progress-bar-container" style="width: 200px; height: 8px; margin-top: 5px;">
-                    <div class="progress-bar" style="width: {{ funnel_step3_pct }}%; background: linear-gradient(90deg, #6f42c1, #a855f7);"></div>
+            <div class="funnel-step step3">
+                <div>
+                    <span class="funnel-step-name">&#x1F512; Step 3: Privacy Settings</span>
+                    <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
+                        <div class="progress-bar" style="width: {{ funnel_step3_pct }}%; background: linear-gradient(90deg, #6f42c1, #a855f7);"></div>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step3" class="funnel-step-value" style="color: #6f42c1;">{{ funnel_step3 }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step3_pct }}%</div>
                 </div>
             </div>
-            <div style="text-align: right;">
-                <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step3"
-                   class="funnel-step-value" style="color: #6f42c1; text-decoration: none;"
-                   title="View users stuck at Step 3 (Privacy Settings)">{{ funnel_step3 }}</a>
-                <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step3_pct }}%</div>
-            </div>
-        </div>
 
-        <!-- Completed but not submitted -->
-        <div class="funnel-step" style="border-left-color: #fd7e14;">
-            <div>
-                <span class="funnel-step-name">✏️ Completed (Not Submitted)</span>
-                <div class="progress-bar-container" style="width: 200px; height: 8px; margin-top: 5px;">
-                    <div class="progress-bar" style="width: {{ funnel_completed_pct }}%; background: linear-gradient(90deg, #fd7e14, #ffb347);"></div>
+            <div class="funnel-step completed">
+                <div>
+                    <span class="funnel-step-name">&#x270F;&#xFE0F; Completed (Not Submitted)</span>
+                    <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
+                        <div class="progress-bar" style="width: {{ funnel_completed_pct }}%; background: linear-gradient(90deg, #fd7e14, #ffb347);"></div>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=completed" class="funnel-step-value" style="color: #fd7e14;">{{ funnel_completed }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_completed_pct }}%</div>
                 </div>
             </div>
-            <div style="text-align: right;">
-                <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=completed"
-                   class="funnel-step-value" style="color: #fd7e14; text-decoration: none;"
-                   title="View users who completed but haven't submitted">{{ funnel_completed }}</a>
-                <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_completed_pct }}%</div>
-            </div>
-        </div>
 
-        <!-- Submitted for review -->
-        <div class="funnel-step" style="border-left-color: #28a745;">
-            <div>
-                <span class="funnel-step-name">✅ Submitted for Review</span>
-                <div class="progress-bar-container" style="width: 200px; height: 8px; margin-top: 5px;">
-                    <div class="progress-bar" style="width: {{ funnel_submitted_pct }}%; background: linear-gradient(90deg, #28a745, #5cb85c);"></div>
+            <div class="funnel-step submitted">
+                <div>
+                    <span class="funnel-step-name">&#x2705; Submitted for Review</span>
+                    <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
+                        <div class="progress-bar" style="width: {{ funnel_submitted_pct }}%; background: linear-gradient(90deg, #28a745, #5cb85c);"></div>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=submitted" class="funnel-step-value" style="color: var(--status-success);">{{ funnel_submitted }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_submitted_pct }}%</div>
                 </div>
             </div>
-            <div style="text-align: right;">
-                <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=submitted"
-                   class="funnel-step-value" style="color: #28a745; text-decoration: none;"
-                   title="View users who submitted for review">{{ funnel_submitted }}</a>
-                <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_submitted_pct }}%</div>
+
+            <div class="insight-box">
+                <strong>&#x1F4A1; Insight:</strong>
+                <span>
+                    {% if funnel_not_started > funnel_submitted %}
+                        {{ funnel_not_started }} users haven't started their profile yet - consider sending reminder emails.
+                    {% elif funnel_step1 > 0 or funnel_step2 > 0 %}
+                        {{ funnel_step1|add:funnel_step2 }} users are stuck in steps 1-2 - they may need help with photos or bio.
+                    {% else %}
+                        Great progress! Most users are completing their profiles.
+                    {% endif %}
+                </span>
             </div>
         </div>
 
-        <div style="margin-top: 20px; padding: 15px; background: var(--funnel-bg); border-radius: 8px;">
-            <strong style="color: var(--text-primary);">💡 Insight:</strong>
-            <span style="color: var(--text-secondary);">
-                {% if funnel_not_started > funnel_submitted %}
-                    {{ funnel_not_started }} users haven't started their profile yet - consider sending reminder emails.
-                {% elif funnel_step1 > 0 or funnel_step2 > 0 %}
-                    {{ funnel_step1|add:funnel_step2 }} users are stuck in steps 1-2 - they may need help with photos or bio.
-                {% else %}
-                    Great progress! Most users are completing their profiles.
-                {% endif %}
-            </span>
-        </div>
-    </div>
+        {# Demographics #}
+        <div class="two-col">
+            <div class="table-container">
+                <h3>Gender Distribution</h3>
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th>Gender</th>
+                            <th>Count</th>
+                            <th>%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in gender_stats %}
+                        <tr>
+                            <td>{{ stat.gender|default:"Not specified" }}</td>
+                            <td>{{ stat.count }}</td>
+                            <td>{% widthratio stat.count total_profiles 100 %}%</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="empty-state">No data available</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
 
-    <!-- Demographics -->
-    <div class="dashboard-grid">
-        <div class="table-container">
-            <h3 style="margin-top: 0; color: #333;">Gender Distribution</h3>
-            <table class="stats-table">
-                <thead>
-                    <tr>
-                        <th>Gender</th>
-                        <th>Count</th>
-                        <th>Percentage</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for stat in gender_stats %}
-                    <tr>
-                        <td>{{ stat.gender|default:"Not specified" }}</td>
-                        <td>{{ stat.count }}</td>
-                        <td>{{ stat.count|floatformat:0|add:"0"|mul:100|div:total_profiles|floatformat:1 }}%</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="3">No data available</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        <div class="table-container" style="border-left: 4px solid #9B59B6;">
-            <h3 style="margin-top: 0; color: var(--text-primary);">📍 Top 10 Locations</h3>
-            <table class="stats-table">
-                <thead>
-                    <tr>
-                        <th style="width: 40px;">#</th>
-                        <th>Location</th>
-                        <th style="width: 80px;">Count</th>
-                        <th style="width: 200px;">Distribution</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for stat in location_stats %}
-                    <tr>
-                        <td style="font-weight: bold; color: #9B59B6;">{{ forloop.counter }}</td>
-                        <td>
-                            <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?location__exact={{ stat.location|urlencode }}"
-                               style="color: #9B59B6; text-decoration: none; font-weight: 500;"
-                               title="View all profiles from {{ stat.location }}">
-                                {{ stat.location|default:"Not specified" }}
-                            </a>
-                        </td>
-                        <td>{{ stat.count }}</td>
-                        <td>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <div style="flex: 1; background: var(--progress-bg); border-radius: 4px; height: 12px; overflow: hidden;">
-                                    <div style="width: {% widthratio stat.count max_location_count 100 %}%; height: 100%; background: linear-gradient(90deg, #9B59B6, #FF6B9D);"></div>
+            <div class="table-container" style="border-left: 4px solid var(--crush-purple);">
+                <h3>&#x1F4CD; Top 10 Locations</h3>
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">#</th>
+                            <th>Location</th>
+                            <th style="width: 60px;">Count</th>
+                            <th style="width: 150px;">Distribution</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in location_stats %}
+                        <tr>
+                            <td style="font-weight: bold; color: var(--crush-purple);">{{ forloop.counter }}</td>
+                            <td>
+                                <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?location__exact={{ stat.location|urlencode }}">
+                                    {{ stat.location|default:"Not specified" }}
+                                </a>
+                            </td>
+                            <td>{{ stat.count }}</td>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div style="flex: 1; background: var(--progress-bg); border-radius: 4px; height: 12px; overflow: hidden;">
+                                        <div style="width: {% widthratio stat.count max_location_count 100 %}%; height: 100%; background: var(--crush-gradient);"></div>
+                                    </div>
+                                    <span style="font-size: 11px; color: var(--text-muted); min-width: 35px;">{{ stat.percentage }}%</span>
                                 </div>
-                                <span style="font-size: 12px; color: var(--text-muted); min-width: 45px;">{{ stat.percentage }}%</span>
-                            </div>
-                        </td>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="empty-state">No data available</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {# Coach Performance #}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F3AF;</span> Coach Performance</h2>
+        <div class="metric-grid">
+            <div class="metric-card purple">
+                <span class="metric-icon">&#x1F468;&#x200D;&#x1F3EB;</span>
+                <div class="metric-label">Active Coaches</div>
+                <div class="metric-value">{{ active_coaches }}</div>
+                <div class="metric-subtitle">Out of {{ total_coaches }} total</div>
+            </div>
+            <div class="metric-card orange">
+                <span class="metric-icon">&#x23F0;</span>
+                <div class="metric-label">Avg Review Time</div>
+                <div class="metric-value">{{ avg_review_hours }}h</div>
+                <div class="metric-subtitle">Per profile</div>
+            </div>
+            <div class="metric-card pink">
+                <span class="metric-icon">&#x1F4CB;</span>
+                <div class="metric-label">Pending Reviews</div>
+                <div class="metric-value">{{ pending_reviews }}</div>
+                <div class="metric-subtitle">Across all coaches</div>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <h3>Top Coach Performance</h3>
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>Coach</th>
+                        <th>Total Reviews</th>
+                        <th>Pending</th>
+                        <th>Approved</th>
+                        <th>Rejected</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for coach in coach_performance %}
+                    <tr>
+                        <td>{{ coach.user.get_full_name|default:coach.user.username }}</td>
+                        <td>{{ coach.total_reviews }}</td>
+                        <td><span class="badge badge-warning">{{ coach.pending_count }}</span></td>
+                        <td><span class="badge badge-success">{{ coach.approved_count }}</span></td>
+                        <td><span class="badge badge-danger">{{ coach.rejected_count }}</span></td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="4">No data available</td>
+                        <td colspan="5" class="empty-state">No coach performance data available</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+    </div>
 
-            {% if location_recent %}
-            <div style="margin-top: 20px; padding: 15px; background: var(--funnel-bg); border-radius: 8px;">
-                <h4 style="margin: 0 0 12px 0; color: var(--text-primary); font-size: 14px;">🆕 New This Month (by location)</h4>
-                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-                    {% for loc in location_recent %}
-                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?location__exact={{ loc.location|urlencode }}&created_at__gte={{ recent_signups_start_date|default:'' }}"
-                       style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--card-bg); border-radius: 16px; text-decoration: none; border: 1px solid var(--table-border);">
-                        <span style="color: var(--text-primary);">{{ loc.location|default:"Not specified" }}</span>
-                        <span style="background: linear-gradient(135deg, #9B59B6, #FF6B9D); color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold;">+{{ loc.count }}</span>
-                    </a>
+        <div class="tab-panel" :class="eventsTabClass" x-show="isEvents">
+        {# Event Metrics #}
+        <div class="metric-grid">
+            <div class="metric-card blue">
+                <span class="metric-icon">&#x1F4C5;</span>
+                <div class="metric-label">Upcoming Events</div>
+                <div class="metric-value">{{ upcoming_events }}</div>
+                <div class="metric-subtitle">{{ total_events }} total events</div>
+            </div>
+            <div class="metric-card green">
+                <span class="metric-icon">&#x2705;</span>
+                <div class="metric-label">Confirmed Registrations</div>
+                <div class="metric-value">{{ confirmed_registrations }}</div>
+                <div class="metric-subtitle">{{ total_registrations }} total</div>
+            </div>
+            <div class="metric-card purple">
+                <span class="metric-icon">&#x1F4B0;</span>
+                <div class="metric-label">Total Revenue</div>
+                <div class="metric-value">&#x20AC;{{ total_revenue }}</div>
+                <div class="metric-subtitle">From confirmed payments</div>
+            </div>
+            <div class="metric-card pink">
+                <span class="metric-icon">&#x1F4CA;</span>
+                <div class="metric-label">Attendance Rate</div>
+                <div class="metric-value">{{ attendance_rate }}%</div>
+                <div class="metric-subtitle">Show-up rate</div>
+            </div>
+        </div>
+
+        {# Popular Events #}
+        <div class="table-container">
+            <h3>Most Popular Events</h3>
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>Event</th>
+                        <th>Type</th>
+                        <th>Date</th>
+                        <th>Registrations</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in popular_events %}
+                    <tr>
+                        <td><a href="{% url 'crush_admin:crush_lu_meetupevent_change' event.id %}">{{ event.title }}</a></td>
+                        <td>{{ event.get_event_type_display }}</td>
+                        <td>{{ event.date_time|date:"M d, Y" }}</td>
+                        <td>{{ event.registration_count }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="empty-state">No events available</td>
+                    </tr>
                     {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {# Event Invitations #}
+        {% if invitation_metrics.total_invitations > 0 %}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F48C;</span> Event Invitations</h2>
+        <div class="metric-grid">
+            <div class="metric-card green">
+                <span class="metric-icon">&#x2705;</span>
+                <div class="metric-label">Accepted</div>
+                <div class="metric-value">{{ invitation_metrics.accepted_invitations }}</div>
+                <div class="metric-subtitle">{{ invitation_metrics.acceptance_rate }}% acceptance rate</div>
+            </div>
+            <div class="metric-card orange">
+                <span class="metric-icon">&#x23F3;</span>
+                <div class="metric-label">Pending</div>
+                <div class="metric-value">{{ invitation_metrics.pending_invitations }}</div>
+                <div class="metric-subtitle">Awaiting response</div>
+            </div>
+            <div class="metric-card pink">
+                <span class="metric-icon">&#x274C;</span>
+                <div class="metric-label">Declined</div>
+                <div class="metric-value">{{ invitation_metrics.declined_invitations }}</div>
+                <div class="metric-subtitle">{{ invitation_metrics.expired_invitations }} expired</div>
+            </div>
+            <div class="metric-card blue">
+                <span class="metric-icon">&#x1F464;</span>
+                <div class="metric-label">External Guests</div>
+                <div class="metric-value">{{ invitation_metrics.external_guests }}</div>
+                <div class="metric-subtitle">Non-registered invitees</div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+        <div class="tab-panel" :class="engagementTabClass" x-show="isEngagement">
+        {# Connection Metrics #}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F495;</span> Connections</h2>
+        <div class="metric-grid">
+            <div class="metric-card pink">
+                <span class="metric-icon">&#x1F491;</span>
+                <div class="metric-label">Mutual Connections</div>
+                <div class="metric-value">{{ mutual_connections }}</div>
+                <div class="metric-subtitle">{{ connection_rate }}% match rate</div>
+            </div>
+            <div class="metric-card blue">
+                <span class="metric-icon">&#x1F517;</span>
+                <div class="metric-label">Total Connections</div>
+                <div class="metric-value">{{ total_connections }}</div>
+                <div class="metric-subtitle">All connection requests</div>
+            </div>
+            <div class="metric-card orange">
+                <span class="metric-icon">&#x23F3;</span>
+                <div class="metric-label">Pending</div>
+                <div class="metric-value">{{ pending_connections }}</div>
+                <div class="metric-subtitle">Awaiting response</div>
+            </div>
+        </div>
+
+        {# Messages #}
+        {% if message_metrics.total_messages > 0 %}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F4AC;</span> Messages</h2>
+        <div class="metric-grid">
+            <div class="metric-card purple">
+                <span class="metric-icon">&#x1F4AC;</span>
+                <div class="metric-label">Total Messages</div>
+                <div class="metric-value">{{ message_metrics.total_messages }}</div>
+                <div class="metric-subtitle">{{ message_metrics.avg_messages_per_connection }} avg per connection</div>
+            </div>
+            <div class="metric-card pink">
+                <span class="metric-icon">&#x1F465;</span>
+                <div class="metric-label">User Messages</div>
+                <div class="metric-value">{{ message_metrics.user_messages }}</div>
+                <div class="metric-subtitle">Between connections</div>
+            </div>
+            <div class="metric-card orange">
+                <span class="metric-icon">&#x1F4ED;</span>
+                <div class="metric-label">Unread</div>
+                <div class="metric-value">{{ message_metrics.unread_messages }}</div>
+                <div class="metric-subtitle">Awaiting response</div>
+            </div>
+        </div>
+        {% endif %}
+
+        {# Journey System #}
+        <h2 class="section-header"><span class="section-header-icon">&#x2728;</span> Special Journey System</h2>
+        <div class="metric-grid">
+            <div class="metric-card purple">
+                <span class="metric-icon">&#x1F3AD;</span>
+                <div class="metric-label">Active Experiences</div>
+                <div class="metric-value">{{ active_special_experiences }}</div>
+                <div class="metric-subtitle">{{ total_special_experiences }} total</div>
+            </div>
+            <div class="metric-card pink">
+                <span class="metric-icon">&#x1F5FA;&#xFE0F;</span>
+                <div class="metric-label">Active Journeys</div>
+                <div class="metric-value">{{ total_journeys }}</div>
+                <div class="metric-subtitle">{{ completed_journeys }} completed</div>
+            </div>
+            <div class="metric-card green">
+                <span class="metric-icon">&#x1F3C6;</span>
+                <div class="metric-label">Avg Points</div>
+                <div class="metric-value">{{ avg_points }}</div>
+                <div class="metric-subtitle">Per journey</div>
+            </div>
+            <div class="metric-card blue">
+                <span class="metric-icon">&#x23F1;&#xFE0F;</span>
+                <div class="metric-label">Avg Time</div>
+                <div class="metric-value">{{ avg_time_minutes }}m</div>
+                <div class="metric-subtitle">Per journey</div>
+            </div>
+        </div>
+
+        {% if total_journeys > 0 %}
+        <div class="chart-container">
+            <h3>Journey Completion Rate</h3>
+            <div class="progress-bar-container">
+                <div class="progress-bar" style="width: {{ journey_completion_rate }}%;">
+                    {{ journey_completion_rate }}% Complete
                 </div>
             </div>
+            <p style="margin-top: 10px;">
+                {{ completed_journeys }} out of {{ total_journeys }} journeys completed
+            </p>
+        </div>
+        {% endif %}
+
+        {# Referral Program #}
+        {% if referral_metrics.total_codes > 0 or referral_metrics.total_attributions > 0 %}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F9F2;</span> Referral Program</h2>
+        <div class="metric-grid">
+            <div class="metric-card purple">
+                <span class="metric-icon">&#x1F517;</span>
+                <div class="metric-label">Active Codes</div>
+                <div class="metric-value">{{ referral_metrics.active_codes }}</div>
+                <div class="metric-subtitle">{{ referral_metrics.total_codes }} total codes</div>
+            </div>
+            <div class="metric-card green">
+                <span class="metric-icon">&#x2705;</span>
+                <div class="metric-label">Conversions</div>
+                <div class="metric-value">{{ referral_metrics.converted_attributions }}</div>
+                <div class="metric-subtitle">{{ referral_metrics.conversion_rate }}% conversion rate</div>
+            </div>
+            <div class="metric-card blue">
+                <span class="metric-icon">&#x1F3C6;</span>
+                <div class="metric-label">Reward Points Given</div>
+                <div class="metric-value">{{ referral_metrics.total_reward_points }}</div>
+                <div class="metric-subtitle">{{ referral_metrics.rewards_applied }} rewards applied</div>
+            </div>
+        </div>
+
+        {% if top_referrers %}
+        <div class="table-container">
+            <h3>&#x1F31F; Top Referrers</h3>
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Referral Code</th>
+                        <th>Conversions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for code in top_referrers %}
+                    <tr>
+                        <td>{{ code.referrer.user.get_full_name|default:code.referrer.user.email }}</td>
+                        <td><code>{{ code.code }}</code></td>
+                        <td><span class="badge badge-success">{{ code.conversion_count }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        {% endif %}
+
+        {# Email Preferences #}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F4E7;</span> Email Preferences</h2>
+        <div class="metric-grid">
+            <div class="metric-card blue">
+                <span class="metric-icon">&#x1F4EC;</span>
+                <div class="metric-label">Active Email Users</div>
+                <div class="metric-value">{{ email_active_users }}</div>
+                <div class="metric-subtitle">{{ total_email_preferences }} total preferences</div>
+            </div>
+            <div class="metric-card pink">
+                <span class="metric-icon">&#x1F4E2;</span>
+                <div class="metric-label">Marketing Opt-ins</div>
+                <div class="metric-value">{{ marketing_opted_in }}</div>
+                <div class="metric-subtitle">{{ marketing_opt_in_rate }}% opt-in rate</div>
+            </div>
+            <div class="metric-card orange">
+                <span class="metric-icon">&#x1F6AB;</span>
+                <div class="metric-label">Unsubscribed All</div>
+                <div class="metric-value">{{ unsubscribed_all }}</div>
+                <div class="metric-subtitle">Opted out of all emails</div>
+            </div>
+        </div>
+    </div>
+
+        <div class="tab-panel" :class="technicalTabClass" x-show="isTechnical">
+        {# PWA Analytics #}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F4F1;</span> PWA Analytics</h2>
+        <div class="metric-grid">
+            <div class="metric-card purple">
+                <span class="metric-icon">&#x1F4F2;</span>
+                <div class="metric-label">Total Installations</div>
+                <div class="metric-value">{{ pwa_metrics.total_installations }}</div>
+                <div class="metric-subtitle">{{ pwa_metrics.unique_users }} unique users</div>
+            </div>
+            <div class="metric-card green">
+                <span class="metric-icon">&#x2705;</span>
+                <div class="metric-label">Active (7 Days)</div>
+                <div class="metric-value">{{ pwa_metrics.active_7d }}</div>
+                <div class="metric-subtitle">Recently active</div>
+            </div>
+            <div class="metric-card orange">
+                <span class="metric-icon">&#x1F4F4;</span>
+                <div class="metric-label">Likely Uninstalled</div>
+                <div class="metric-value">{{ pwa_metrics.inactive_7d }}</div>
+                <div class="metric-subtitle">No activity 7+ days</div>
+            </div>
+            <div class="metric-card blue">
+                <span class="metric-icon">&#x1F4C8;</span>
+                <div class="metric-label">New This Month</div>
+                <div class="metric-value">{{ pwa_metrics.new_this_month }}</div>
+                <div class="metric-subtitle">Last 30 days</div>
+            </div>
+        </div>
+
+        {# Platform & Browser Distribution #}
+        <div class="two-col">
+            <div class="table-container">
+                <h3>&#x1F4CA; Platform Distribution</h3>
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th>Platform</th>
+                            <th>Count</th>
+                            <th>%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in pwa_metrics.os_distribution %}
+                        <tr>
+                            <td>
+                                {% if item.os_type == 'ios' %}&#x1F34E; iOS
+                                {% elif item.os_type == 'android' %}&#x1F916; Android
+                                {% elif item.os_type == 'windows' %}&#x1FA9F; Windows
+                                {% elif item.os_type == 'macos' %}&#x1F34F; macOS
+                                {% elif item.os_type == 'linux' %}&#x1F427; Linux
+                                {% else %}&#x2753; {{ item.os_type|title }}
+                                {% endif %}
+                            </td>
+                            <td>{{ item.count }}</td>
+                            <td>{% if pwa_metrics.total_installations > 0 %}{% widthratio item.count pwa_metrics.total_installations 100 %}%{% else %}0%{% endif %}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="empty-state">No PWA installations yet</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-container">
+                <h3>&#x1F310; Browser Distribution</h3>
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th>Browser</th>
+                            <th>Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in pwa_metrics.browser_distribution %}
+                        <tr>
+                            <td>
+                                {% if item.browser == 'Chrome' %}&#x1F7E2; Chrome
+                                {% elif item.browser == 'Safari' %}&#x1F535; Safari
+                                {% elif item.browser == 'Edge' %}&#x1F537; Edge
+                                {% elif item.browser == 'Firefox' %}&#x1F98A; Firefox
+                                {% else %}{{ item.browser|default:"Unknown" }}
+                                {% endif %}
+                            </td>
+                            <td>{{ item.count }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" class="empty-state">No data</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {# OAuth State (if data exists) #}
+        {% if oauth_metrics.total_states > 0 %}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F510;</span> OAuth State (Debugging)</h2>
+        <div class="metric-grid">
+            <div class="metric-card blue">
+                <span class="metric-icon">&#x1F504;</span>
+                <div class="metric-label">Active States</div>
+                <div class="metric-value">{{ oauth_metrics.active_states }}</div>
+                <div class="metric-subtitle">Unused, not expired</div>
+            </div>
+            <div class="metric-card green">
+                <span class="metric-icon">&#x2705;</span>
+                <div class="metric-label">Completed Auth</div>
+                <div class="metric-value">{{ oauth_metrics.completed_auth }}</div>
+                <div class="metric-subtitle">Successful authentications</div>
+            </div>
+            <div class="metric-card orange">
+                <span class="metric-icon">&#x23F0;</span>
+                <div class="metric-label">Expired States</div>
+                <div class="metric-value">{{ oauth_metrics.expired_states }}</div>
+                <div class="metric-subtitle">Should be cleaned up</div>
+            </div>
+            <div class="metric-card purple">
+                <span class="metric-icon">&#x1F552;</span>
+                <div class="metric-label">Recent (1h)</div>
+                <div class="metric-value">{{ oauth_metrics.recent_states }}</div>
+                <div class="metric-subtitle">Created in last hour</div>
+            </div>
+        </div>
+        {% endif %}
+
+        {# PassKit Device Registration (Apple Wallet) #}
+        {% if passkit_metrics.total_registrations > 0 %}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F34E;</span> Apple Wallet Devices</h2>
+        <div class="metric-grid">
+            <div class="metric-card purple">
+                <span class="metric-icon">&#x1F4F2;</span>
+                <div class="metric-label">Total Registrations</div>
+                <div class="metric-value">{{ passkit_metrics.total_registrations }}</div>
+                <div class="metric-subtitle">Device-pass pairings</div>
+            </div>
+            <div class="metric-card blue">
+                <span class="metric-icon">&#x1F4F1;</span>
+                <div class="metric-label">Unique Devices</div>
+                <div class="metric-value">{{ passkit_metrics.unique_devices }}</div>
+                <div class="metric-subtitle">Apple Wallet devices</div>
+            </div>
+            <div class="metric-card pink">
+                <span class="metric-icon">&#x1F3AB;</span>
+                <div class="metric-label">Unique Passes</div>
+                <div class="metric-value">{{ passkit_metrics.unique_passes }}</div>
+                <div class="metric-subtitle">Installed passes</div>
+            </div>
+            <div class="metric-card green">
+                <span class="metric-icon">&#x1F195;</span>
+                <div class="metric-label">New This Month</div>
+                <div class="metric-value">{{ passkit_metrics.recent_registrations }}</div>
+                <div class="metric-subtitle">Last 30 days</div>
+            </div>
+        </div>
+        {% endif %}
+
+        {# Profile Reminders #}
+        {% if reminder_metrics.total_reminders > 0 %}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F4EC;</span> Profile Reminders</h2>
+        <div class="metric-grid">
+            <div class="metric-card purple">
+                <span class="metric-icon">&#x1F4E7;</span>
+                <div class="metric-label">Total Sent</div>
+                <div class="metric-value">{{ reminder_metrics.total_reminders }}</div>
+                <div class="metric-subtitle">{{ reminder_metrics.recent_reminders }} this month</div>
+            </div>
+            <div class="metric-card orange">
+                <span class="metric-icon">&#x23F0;</span>
+                <div class="metric-label">24h Reminders</div>
+                <div class="metric-value">{{ reminder_metrics.reminders_24h }}</div>
+                <div class="metric-subtitle">First reminder</div>
+            </div>
+            <div class="metric-card blue">
+                <span class="metric-icon">&#x1F4C5;</span>
+                <div class="metric-label">72h Reminders</div>
+                <div class="metric-value">{{ reminder_metrics.reminders_72h }}</div>
+                <div class="metric-subtitle">Second reminder</div>
+            </div>
+            <div class="metric-card pink">
+                <span class="metric-icon">&#x1F514;</span>
+                <div class="metric-label">7d Final</div>
+                <div class="metric-value">{{ reminder_metrics.reminders_7d }}</div>
+                <div class="metric-subtitle">Final push</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <h3>&#x1F4C8; Reminder Effectiveness</h3>
+            <div class="progress-bar-container">
+                <div class="progress-bar" style="width: {{ reminder_metrics.effectiveness_rate }}%;">
+                    {{ reminder_metrics.effectiveness_rate }}% Completed After Reminder
+                </div>
+            </div>
+            <p style="margin-top: 10px;">
+                Percentage of users who completed their profile after receiving a reminder
+            </p>
+        </div>
+        {% endif %}
+
+        {# Quick Links to Technical Admin Pages #}
+        <div style="display: flex; flex-wrap: wrap; gap: var(--spacing-sm); margin-top: var(--spacing-lg);">
+            <a href="{% url 'crush_admin:crush_lu_pwadeviceinstallation_changelist' %}" class="btn btn-secondary">View All PWA Devices</a>
+            {% if oauth_metrics.total_states > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_oauthstate_changelist' %}" class="btn btn-secondary">View OAuth States</a>
             {% endif %}
-        </div>
-    </div>
-
-    <!-- Coach Metrics Section -->
-    <h2 class="section-header">🎯 Coach Performance</h2>
-    <div class="dashboard-grid">
-        <div class="metric-card purple">
-            <div class="icon-large">👨‍🏫</div>
-            <div class="metric-label">Active Coaches</div>
-            <div class="metric-value">{{ active_coaches }}</div>
-            <div class="metric-subtitle">Out of {{ total_coaches }} total</div>
-        </div>
-
-        <div class="metric-card orange">
-            <div class="icon-large">⏰</div>
-            <div class="metric-label">Avg Review Time</div>
-            <div class="metric-value">{{ avg_review_hours }}h</div>
-            <div class="metric-subtitle">Per profile</div>
-        </div>
-
-        <div class="metric-card pink">
-            <div class="icon-large">📋</div>
-            <div class="metric-label">Pending Reviews</div>
-            <div class="metric-value">{{ pending_reviews }}</div>
-            <div class="metric-subtitle">Across all coaches</div>
-        </div>
-    </div>
-
-    <!-- Top Coaches -->
-    <div class="table-container">
-        <h3 style="margin-top: 0; color: #333;">Top Coach Performance</h3>
-        <table class="stats-table">
-            <thead>
-                <tr>
-                    <th>Coach</th>
-                    <th>Total Reviews</th>
-                    <th>Pending</th>
-                    <th>Approved</th>
-                    <th>Rejected</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for coach in coach_performance %}
-                <tr>
-                    <td>{{ coach.user.get_full_name|default:coach.user.username }}</td>
-                    <td>{{ coach.total_reviews }}</td>
-                    <td><span class="badge badge-warning">{{ coach.pending_count }}</span></td>
-                    <td><span class="badge badge-success">{{ coach.approved_count }}</span></td>
-                    <td><span class="badge badge-danger">{{ coach.rejected_count }}</span></td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="5">No coach performance data available</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Event Metrics Section -->
-    <h2 class="section-header">🎉 Event Metrics</h2>
-    <div class="dashboard-grid">
-        <div class="metric-card blue">
-            <div class="icon-large">📅</div>
-            <div class="metric-label">Upcoming Events</div>
-            <div class="metric-value">{{ upcoming_events }}</div>
-            <div class="metric-subtitle">{{ total_events }} total events</div>
-        </div>
-
-        <div class="metric-card green">
-            <div class="icon-large">✅</div>
-            <div class="metric-label">Confirmed Registrations</div>
-            <div class="metric-value">{{ confirmed_registrations }}</div>
-            <div class="metric-subtitle">{{ total_registrations }} total</div>
-        </div>
-
-        <div class="metric-card purple">
-            <div class="icon-large">💰</div>
-            <div class="metric-label">Total Revenue</div>
-            <div class="metric-value">€{{ total_revenue }}</div>
-            <div class="metric-subtitle">From confirmed payments</div>
-        </div>
-
-        <div class="metric-card pink">
-            <div class="icon-large">📊</div>
-            <div class="metric-label">Attendance Rate</div>
-            <div class="metric-value">{{ attendance_rate }}%</div>
-            <div class="metric-subtitle">Show-up rate</div>
-        </div>
-    </div>
-
-    <!-- Popular Events -->
-    <div class="table-container">
-        <h3 style="margin-top: 0; color: #333;">Most Popular Events</h3>
-        <table class="stats-table">
-            <thead>
-                <tr>
-                    <th>Event</th>
-                    <th>Type</th>
-                    <th>Date</th>
-                    <th>Registrations</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for event in popular_events %}
-                <tr>
-                    <td><a href="{% url 'crush_admin:crush_lu_meetupevent_change' event.id %}">{{ event.title }}</a></td>
-                    <td>{{ event.get_event_type_display }}</td>
-                    <td>{{ event.date_time|date:"M d, Y" }}</td>
-                    <td>{{ event.registration_count }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="4">No events available</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Connection Metrics Section -->
-    <h2 class="section-header">💕 Connection Metrics</h2>
-    <div class="dashboard-grid">
-        <div class="metric-card pink">
-            <div class="icon-large">💑</div>
-            <div class="metric-label">Mutual Connections</div>
-            <div class="metric-value">{{ mutual_connections }}</div>
-            <div class="metric-subtitle">{{ connection_rate }}% match rate</div>
-        </div>
-
-        <div class="metric-card blue">
-            <div class="icon-large">🔗</div>
-            <div class="metric-label">Total Connections</div>
-            <div class="metric-value">{{ total_connections }}</div>
-            <div class="metric-subtitle">All connection requests</div>
-        </div>
-
-        <div class="metric-card orange">
-            <div class="icon-large">⏳</div>
-            <div class="metric-label">Pending Connections</div>
-            <div class="metric-value">{{ pending_connections }}</div>
-            <div class="metric-subtitle">Awaiting response</div>
-        </div>
-    </div>
-
-    <!-- Journey System Metrics -->
-    <h2 class="section-header">✨ Special Journey System</h2>
-    <div class="dashboard-grid">
-        <div class="metric-card purple">
-            <div class="icon-large">🎭</div>
-            <div class="metric-label">Active Special Experiences</div>
-            <div class="metric-value">{{ active_special_experiences }}</div>
-            <div class="metric-subtitle">{{ total_special_experiences }} total</div>
-        </div>
-
-        <div class="metric-card pink">
-            <div class="icon-large">🗺️</div>
-            <div class="metric-label">Active Journeys</div>
-            <div class="metric-value">{{ total_journeys }}</div>
-            <div class="metric-subtitle">{{ completed_journeys }} completed</div>
-        </div>
-
-        <div class="metric-card green">
-            <div class="icon-large">🏆</div>
-            <div class="metric-label">Avg Points Earned</div>
-            <div class="metric-value">{{ avg_points }}</div>
-            <div class="metric-subtitle">Per journey</div>
-        </div>
-
-        <div class="metric-card blue">
-            <div class="icon-large">⏱️</div>
-            <div class="metric-label">Avg Time Spent</div>
-            <div class="metric-value">{{ avg_time_minutes }}m</div>
-            <div class="metric-subtitle">Per journey</div>
-        </div>
-    </div>
-
-    <!-- Journey Completion Rate -->
-    <div class="chart-container">
-        <h3 style="margin-top: 0; color: #333;">Journey Completion Rate</h3>
-        <div class="progress-bar-container">
-            <div class="progress-bar" style="width: {{ journey_completion_rate }}%;">
-                {{ journey_completion_rate }}% Complete
-            </div>
-        </div>
-        <p style="margin-top: 10px; color: #666; font-size: 14px;">
-            {{ completed_journeys }} out of {{ total_journeys }} journeys completed
-        </p>
-    </div>
-
-    <!-- Email Preferences Section -->
-    <h2 class="section-header">📧 Email Preferences</h2>
-    <div class="dashboard-grid">
-        <div class="metric-card blue">
-            <div class="icon-large">📬</div>
-            <div class="metric-label">Active Email Users</div>
-            <div class="metric-value">{{ email_active_users }}</div>
-            <div class="metric-subtitle">{{ total_email_preferences }} total preferences</div>
-        </div>
-
-        <div class="metric-card pink">
-            <div class="icon-large">📢</div>
-            <div class="metric-label">Marketing Opt-ins</div>
-            <div class="metric-value">{{ marketing_opted_in }}</div>
-            <div class="metric-subtitle">{{ marketing_opt_in_rate }}% opt-in rate</div>
-        </div>
-
-        <div class="metric-card orange">
-            <div class="icon-large">🚫</div>
-            <div class="metric-label">Unsubscribed All</div>
-            <div class="metric-value">{{ unsubscribed_all }}</div>
-            <div class="metric-subtitle">Opted out of all emails</div>
-        </div>
-    </div>
-
-    <!-- Email Category Stats -->
-    <div class="table-container">
-        <h3 style="margin-top: 0; color: #333;">Email Category Subscriptions</h3>
-        <table class="stats-table">
-            <thead>
-                <tr>
-                    <th>Category</th>
-                    <th>Subscribed</th>
-                    <th>Opt-in Rate</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>📝 Profile Updates</td>
-                    <td>{{ email_category_stats.profile_updates }}</td>
-                    <td>{% widthratio email_category_stats.profile_updates email_active_users 100 %}%</td>
-                </tr>
-                <tr>
-                    <td>🎉 Event Reminders</td>
-                    <td>{{ email_category_stats.event_reminders }}</td>
-                    <td>{% widthratio email_category_stats.event_reminders email_active_users 100 %}%</td>
-                </tr>
-                <tr>
-                    <td>💕 New Connections</td>
-                    <td>{{ email_category_stats.new_connections }}</td>
-                    <td>{% widthratio email_category_stats.new_connections email_active_users 100 %}%</td>
-                </tr>
-                <tr>
-                    <td>💬 New Messages</td>
-                    <td>{{ email_category_stats.new_messages }}</td>
-                    <td>{% widthratio email_category_stats.new_messages email_active_users 100 %}%</td>
-                </tr>
-                <tr>
-                    <td>📢 Marketing</td>
-                    <td>{{ email_category_stats.marketing }}</td>
-                    <td>{{ marketing_opt_in_rate }}%</td>
-                </tr>
-            </tbody>
-        </table>
-        <p style="margin-top: 15px;">
-            <a href="{% url 'crush_admin:crush_lu_emailpreference_changelist' %}" class="quick-action-btn" style="display: inline-block;">
-                Manage Email Preferences
-            </a>
-        </p>
-    </div>
-
-    <!-- PWA Analytics Section -->
-    <h2 class="section-header">📱 PWA Analytics</h2>
-    <div class="dashboard-grid">
-        <div class="metric-card purple">
-            <div class="icon-large">📲</div>
-            <div class="metric-label">Total Installations</div>
-            <div class="metric-value">{{ pwa_metrics.total_installations }}</div>
-            <div class="metric-subtitle">{{ pwa_metrics.unique_users }} unique users</div>
-        </div>
-
-        <div class="metric-card green">
-            <div class="icon-large">✅</div>
-            <div class="metric-label">Active (7 Days)</div>
-            <div class="metric-value">{{ pwa_metrics.active_7d }}</div>
-            <div class="metric-subtitle">Recently active</div>
-        </div>
-
-        <div class="metric-card orange">
-            <div class="icon-large">📴</div>
-            <div class="metric-label">Likely Uninstalled</div>
-            <div class="metric-value">{{ pwa_metrics.inactive_7d }}</div>
-            <div class="metric-subtitle">No activity 7+ days</div>
-        </div>
-
-        <div class="metric-card blue">
-            <div class="icon-large">📈</div>
-            <div class="metric-label">New This Month</div>
-            <div class="metric-value">{{ pwa_metrics.new_this_month }}</div>
-            <div class="metric-subtitle">Last 30 days</div>
-        </div>
-    </div>
-
-    <!-- Platform & Browser Distribution -->
-    <div class="dashboard-grid">
-        <div class="table-container">
-            <h3 style="margin-top: 0;">📊 Platform Distribution</h3>
-            <table class="stats-table">
-                <thead>
-                    <tr>
-                        <th>Platform</th>
-                        <th>Count</th>
-                        <th>%</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in pwa_metrics.os_distribution %}
-                    <tr>
-                        <td>
-                            {% if item.os_type == 'ios' %}🍎 iOS
-                            {% elif item.os_type == 'android' %}🤖 Android
-                            {% elif item.os_type == 'windows' %}🪟 Windows
-                            {% elif item.os_type == 'macos' %}🍏 macOS
-                            {% elif item.os_type == 'linux' %}🐧 Linux
-                            {% elif item.os_type == 'chromeos' %}💻 ChromeOS
-                            {% else %}❓ {{ item.os_type|title }}
-                            {% endif %}
-                        </td>
-                        <td>{{ item.count }}</td>
-                        <td>{% if pwa_metrics.total_installations > 0 %}{% widthratio item.count pwa_metrics.total_installations 100 %}%{% else %}0%{% endif %}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="3" style="text-align: center; color: var(--text-muted);">No PWA installations yet</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        <div class="table-container">
-            <h3 style="margin-top: 0;">🌐 Browser Distribution</h3>
-            <table class="stats-table">
-                <thead>
-                    <tr>
-                        <th>Browser</th>
-                        <th>Count</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in pwa_metrics.browser_distribution %}
-                    <tr>
-                        <td>
-                            {% if item.browser == 'Chrome' %}🟢 Chrome
-                            {% elif item.browser == 'Safari' %}🔵 Safari
-                            {% elif item.browser == 'Edge' %}🔷 Edge
-                            {% elif item.browser == 'Firefox' %}🦊 Firefox
-                            {% elif item.browser == 'Samsung Internet' %}🟣 Samsung
-                            {% else %}{{ item.browser|default:"Unknown" }}
-                            {% endif %}
-                        </td>
-                        <td>{{ item.count }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="2" style="text-align: center; color: var(--text-muted);">No data</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Recent Installations & Inactive Devices -->
-    <div class="dashboard-grid">
-        <div class="table-container">
-            <h3 style="margin-top: 0;">🆕 Recent Installations</h3>
-            <table class="stats-table">
-                <thead>
-                    <tr>
-                        <th>User</th>
-                        <th>Device</th>
-                        <th>Installed</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for device in pwa_metrics.recent_installations %}
-                    <tr>
-                        <td>{{ device.user.first_name|default:device.user.username }}</td>
-                        <td>{{ device.device_category }}</td>
-                        <td>{{ device.installed_at|timesince }} ago</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="3" style="text-align: center; color: var(--text-muted);">No installations yet</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        <div class="table-container">
-            <h3 style="margin-top: 0; color: #ffc107;">⚠️ Likely Uninstalled (7+ days inactive)</h3>
-            <table class="stats-table">
-                <thead>
-                    <tr>
-                        <th>User</th>
-                        <th>Device</th>
-                        <th>Last Active</th>
-                        <th>Days</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for device in pwa_metrics.inactive_devices %}
-                    <tr>
-                        <td>{{ device.user.first_name|default:device.user.username }}</td>
-                        <td>{{ device.device_category }}</td>
-                        <td>{{ device.last_used_at|date:"M d, Y" }}</td>
-                        <td style="color: #dc3545; font-weight: bold;">{{ device.days_since_last_use }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="4" style="text-align: center; color: #28a745;">✅ No inactive devices - all PWA users are active!</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <p style="margin-bottom: 30px;">
-        <a href="{% url 'crush_admin:crush_lu_pwadeviceinstallation_changelist' %}" class="quick-action-btn" style="display: inline-block;">
-            View All PWA Devices
-        </a>
-    </p>
-
-    <!-- OAuth State Section (Technical/Debugging) -->
-    {% if oauth_metrics.total_states > 0 %}
-    <h2 class="section-header">🔐 OAuth State (Debugging)</h2>
-    <div class="dashboard-grid">
-        <div class="metric-card blue">
-            <div class="icon-large">🔄</div>
-            <div class="metric-label">Active States</div>
-            <div class="metric-value">{{ oauth_metrics.active_states }}</div>
-            <div class="metric-subtitle">Unused, not expired</div>
-        </div>
-
-        <div class="metric-card green">
-            <div class="icon-large">✅</div>
-            <div class="metric-label">Completed Auth</div>
-            <div class="metric-value">{{ oauth_metrics.completed_auth }}</div>
-            <div class="metric-subtitle">Successful authentications</div>
-        </div>
-
-        <div class="metric-card orange">
-            <div class="icon-large">⏰</div>
-            <div class="metric-label">Expired States</div>
-            <div class="metric-value">{{ oauth_metrics.expired_states }}</div>
-            <div class="metric-subtitle">Should be cleaned up</div>
-        </div>
-
-        <div class="metric-card purple">
-            <div class="icon-large">🕐</div>
-            <div class="metric-label">Recent (1h)</div>
-            <div class="metric-value">{{ oauth_metrics.recent_states }}</div>
-            <div class="metric-subtitle">Created in last hour</div>
-        </div>
-    </div>
-
-    {% if oauth_metrics.provider_distribution %}
-    <div class="table-container">
-        <h3 style="margin-top: 0;">OAuth Provider Distribution</h3>
-        <table class="stats-table">
-            <thead>
-                <tr>
-                    <th>Provider</th>
-                    <th>Count</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in oauth_metrics.provider_distribution %}
-                <tr>
-                    <td>
-                        {% if item.provider == 'facebook' %}📘 Facebook
-                        {% elif item.provider == 'google' %}🔵 Google
-                        {% elif item.provider == 'apple' %}🍎 Apple
-                        {% else %}{{ item.provider|title }}
-                        {% endif %}
-                    </td>
-                    <td>{{ item.count }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% endif %}
-
-    <p style="margin-bottom: 30px;">
-        <a href="{% url 'crush_admin:crush_lu_oauthstate_changelist' %}" class="quick-action-btn" style="display: inline-block;">
-            View OAuth States
-        </a>
-    </p>
-    {% endif %}
-
-    <!-- PassKit Device Registration Section (Apple Wallet) -->
-    {% if passkit_metrics.total_registrations > 0 %}
-    <h2 class="section-header">🍎 Apple Wallet Devices</h2>
-    <div class="dashboard-grid">
-        <div class="metric-card purple">
-            <div class="icon-large">📲</div>
-            <div class="metric-label">Total Registrations</div>
-            <div class="metric-value">{{ passkit_metrics.total_registrations }}</div>
-            <div class="metric-subtitle">Device-pass pairings</div>
-        </div>
-
-        <div class="metric-card blue">
-            <div class="icon-large">📱</div>
-            <div class="metric-label">Unique Devices</div>
-            <div class="metric-value">{{ passkit_metrics.unique_devices }}</div>
-            <div class="metric-subtitle">Apple Wallet devices</div>
-        </div>
-
-        <div class="metric-card pink">
-            <div class="icon-large">🎫</div>
-            <div class="metric-label">Unique Passes</div>
-            <div class="metric-value">{{ passkit_metrics.unique_passes }}</div>
-            <div class="metric-subtitle">Installed passes</div>
-        </div>
-
-        <div class="metric-card green">
-            <div class="icon-large">🆕</div>
-            <div class="metric-label">New This Month</div>
-            <div class="metric-value">{{ passkit_metrics.recent_registrations }}</div>
-            <div class="metric-subtitle">Last 30 days</div>
-        </div>
-    </div>
-
-    <p style="margin-bottom: 30px;">
-        <a href="{% url 'crush_admin:crush_lu_passkitdeviceregistration_changelist' %}" class="quick-action-btn" style="display: inline-block;">
-            View PassKit Devices
-        </a>
-    </p>
-    {% endif %}
-
-    <!-- Referral Program Section -->
-    {% if referral_metrics.total_codes > 0 or referral_metrics.total_attributions > 0 %}
-    <h2 class="section-header">🧲 Referral Program</h2>
-    <div class="dashboard-grid">
-        <div class="metric-card purple">
-            <div class="icon-large">🔗</div>
-            <div class="metric-label">Active Referral Codes</div>
-            <div class="metric-value">{{ referral_metrics.active_codes }}</div>
-            <div class="metric-subtitle">{{ referral_metrics.total_codes }} total codes</div>
-        </div>
-
-        <div class="metric-card green">
-            <div class="icon-large">✅</div>
-            <div class="metric-label">Conversions</div>
-            <div class="metric-value">{{ referral_metrics.converted_attributions }}</div>
-            <div class="metric-subtitle">{{ referral_metrics.conversion_rate }}% conversion rate</div>
-        </div>
-
-        <div class="metric-card orange">
-            <div class="icon-large">⏳</div>
-            <div class="metric-label">Pending</div>
-            <div class="metric-value">{{ referral_metrics.pending_attributions }}</div>
-            <div class="metric-subtitle">Awaiting signup</div>
-        </div>
-
-        <div class="metric-card blue">
-            <div class="icon-large">🏆</div>
-            <div class="metric-label">Reward Points Given</div>
-            <div class="metric-value">{{ referral_metrics.total_reward_points }}</div>
-            <div class="metric-subtitle">{{ referral_metrics.rewards_applied }} rewards applied</div>
-        </div>
-    </div>
-
-    {% if top_referrers %}
-    <div class="table-container">
-        <h3 style="margin-top: 0;">🌟 Top Referrers</h3>
-        <table class="stats-table">
-            <thead>
-                <tr>
-                    <th>User</th>
-                    <th>Referral Code</th>
-                    <th>Conversions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for code in top_referrers %}
-                <tr>
-                    <td>{{ code.referrer.user.get_full_name|default:code.referrer.user.email }}</td>
-                    <td><code>{{ code.code }}</code></td>
-                    <td><span class="badge badge-success">{{ code.conversion_count }}</span></td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% endif %}
-
-    <p style="margin-bottom: 30px;">
-        <a href="{% url 'crush_admin:crush_lu_referralcode_changelist' %}" class="quick-action-btn" style="display: inline-block;">
-            Manage Referral Codes
-        </a>
-        <a href="{% url 'crush_admin:crush_lu_referralattribution_changelist' %}" class="quick-action-btn" style="display: inline-block; margin-left: 10px;">
-            View Attributions
-        </a>
-    </p>
-    {% endif %}
-
-    <!-- Event Invitations Section -->
-    {% if invitation_metrics.total_invitations > 0 %}
-    <h2 class="section-header">💌 Event Invitations</h2>
-    <div class="dashboard-grid">
-        <div class="metric-card green">
-            <div class="icon-large">✅</div>
-            <div class="metric-label">Accepted</div>
-            <div class="metric-value">{{ invitation_metrics.accepted_invitations }}</div>
-            <div class="metric-subtitle">{{ invitation_metrics.acceptance_rate }}% acceptance rate</div>
-        </div>
-
-        <div class="metric-card orange">
-            <div class="icon-large">⏳</div>
-            <div class="metric-label">Pending</div>
-            <div class="metric-value">{{ invitation_metrics.pending_invitations }}</div>
-            <div class="metric-subtitle">Awaiting response</div>
-        </div>
-
-        <div class="metric-card pink">
-            <div class="icon-large">❌</div>
-            <div class="metric-label">Declined</div>
-            <div class="metric-value">{{ invitation_metrics.declined_invitations }}</div>
-            <div class="metric-subtitle">{{ invitation_metrics.expired_invitations }} expired</div>
-        </div>
-
-        <div class="metric-card blue">
-            <div class="icon-large">👤</div>
-            <div class="metric-label">External Guests</div>
-            <div class="metric-value">{{ invitation_metrics.external_guests }}</div>
-            <div class="metric-subtitle">Non-registered invitees</div>
-        </div>
-    </div>
-
-    <p style="margin-bottom: 30px;">
-        <a href="{% url 'crush_admin:crush_lu_eventinvitation_changelist' %}" class="quick-action-btn" style="display: inline-block;">
-            Manage Invitations
-        </a>
-    </p>
-    {% endif %}
-
-    <!-- Connection Messages Section -->
-    {% if message_metrics.total_messages > 0 %}
-    <h2 class="section-header">💬 Connection Messages</h2>
-    <div class="dashboard-grid">
-        <div class="metric-card purple">
-            <div class="icon-large">💬</div>
-            <div class="metric-label">Total Messages</div>
-            <div class="metric-value">{{ message_metrics.total_messages }}</div>
-            <div class="metric-subtitle">{{ message_metrics.avg_messages_per_connection }} avg per connection</div>
-        </div>
-
-        <div class="metric-card pink">
-            <div class="icon-large">👥</div>
-            <div class="metric-label">User Messages</div>
-            <div class="metric-value">{{ message_metrics.user_messages }}</div>
-            <div class="metric-subtitle">Between connections</div>
-        </div>
-
-        <div class="metric-card blue">
-            <div class="icon-large">🎯</div>
-            <div class="metric-label">Coach Messages</div>
-            <div class="metric-value">{{ message_metrics.coach_messages }}</div>
-            <div class="metric-subtitle">Facilitated introductions</div>
-        </div>
-
-        <div class="metric-card orange">
-            <div class="icon-large">📭</div>
-            <div class="metric-label">Unread</div>
-            <div class="metric-value">{{ message_metrics.unread_messages }}</div>
-            <div class="metric-subtitle">Awaiting response</div>
-        </div>
-    </div>
-
-    <p style="margin-bottom: 30px;">
-        <a href="{% url 'crush_admin:crush_lu_connectionmessage_changelist' %}" class="quick-action-btn" style="display: inline-block;">
-            View Messages
-        </a>
-    </p>
-    {% endif %}
-
-    <!-- Profile Reminders Section -->
-    {% if reminder_metrics.total_reminders > 0 %}
-    <h2 class="section-header">📬 Profile Reminders</h2>
-    <div class="dashboard-grid">
-        <div class="metric-card purple">
-            <div class="icon-large">📧</div>
-            <div class="metric-label">Total Reminders Sent</div>
-            <div class="metric-value">{{ reminder_metrics.total_reminders }}</div>
-            <div class="metric-subtitle">{{ reminder_metrics.recent_reminders }} this month</div>
-        </div>
-
-        <div class="metric-card orange">
-            <div class="icon-large">⏰</div>
-            <div class="metric-label">24h Reminders</div>
-            <div class="metric-value">{{ reminder_metrics.reminders_24h }}</div>
-            <div class="metric-subtitle">First reminder</div>
-        </div>
-
-        <div class="metric-card blue">
-            <div class="icon-large">📅</div>
-            <div class="metric-label">72h Reminders</div>
-            <div class="metric-value">{{ reminder_metrics.reminders_72h }}</div>
-            <div class="metric-subtitle">Second reminder</div>
-        </div>
-
-        <div class="metric-card pink">
-            <div class="icon-large">🔔</div>
-            <div class="metric-label">7d Final Reminders</div>
-            <div class="metric-value">{{ reminder_metrics.reminders_7d }}</div>
-            <div class="metric-subtitle">Final push</div>
-        </div>
-    </div>
-
-    <!-- Reminder Effectiveness -->
-    <div class="chart-container">
-        <h3 style="margin-top: 0;">📈 Reminder Effectiveness</h3>
-        <div class="progress-bar-container">
-            <div class="progress-bar" style="width: {{ reminder_metrics.effectiveness_rate }}%;">
-                {{ reminder_metrics.effectiveness_rate }}% Completed After Reminder
-            </div>
-        </div>
-        <p style="margin-top: 10px; color: var(--text-muted); font-size: 14px;">
-            Percentage of users who completed their profile after receiving a reminder
-        </p>
-    </div>
-
-    <p style="margin-bottom: 30px;">
-        <a href="{% url 'crush_admin:crush_lu_profilereminder_changelist' %}" class="quick-action-btn" style="display: inline-block;">
-            View All Reminders
-        </a>
-    </p>
-    {% endif %}
-
-    <!-- Recent Activity Section -->
-    <h2 class="section-header">📊 Recent Activity</h2>
-
-    <div class="dashboard-grid">
-        <!-- Recent Profile Submissions -->
-        <div class="table-container">
-            <h3 style="margin-top: 0; color: #333;">Recent Profile Submissions</h3>
-            <table class="stats-table">
-                <thead>
-                    <tr>
-                        <th>User</th>
-                        <th>Status</th>
-                        <th>Submitted</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for submission in recent_submissions %}
-                    <tr>
-                        <td><a href="{% url 'crush_admin:crush_lu_profilesubmission_change' submission.id %}">{{ submission.profile.user.get_full_name|default:submission.profile.user.username }}</a></td>
-                        <td><span class="badge badge-warning">{{ submission.get_status_display }}</span></td>
-                        <td>{{ submission.submitted_at|timesince }} ago</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="3">No recent submissions</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Recent Event Registrations -->
-        <div class="table-container">
-            <h3 style="margin-top: 0; color: #333;">Recent Event Registrations</h3>
-            <table class="stats-table">
-                <thead>
-                    <tr>
-                        <th>User</th>
-                        <th>Event</th>
-                        <th>Registered</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for registration in recent_event_registrations %}
-                    <tr>
-                        <td>{{ registration.user.get_full_name|default:registration.user.username }}</td>
-                        <td><a href="{% url 'crush_admin:crush_lu_meetupevent_change' registration.event.id %}">{{ registration.event.title }}</a></td>
-                        <td>{{ registration.registered_at|timesince }} ago</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="3">No recent registrations</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            {% if passkit_metrics.total_registrations > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_passkitdeviceregistration_changelist' %}" class="btn btn-secondary">View PassKit Devices</a>
+            {% endif %}
+            {% if reminder_metrics.total_reminders > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_profilereminder_changelist' %}" class="btn btn-secondary">View All Reminders</a>
+            {% endif %}
         </div>
     </div>
 </div>

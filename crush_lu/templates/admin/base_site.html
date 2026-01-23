@@ -1,10 +1,11 @@
 {% extends "admin/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Crush.lu Coach Panel') }}{% endblock %}
 
 {% block extrastyle %}
 {{ block.super }}
+<link rel="stylesheet" href="{% static 'crush_lu/css/admin-custom.css' %}">
 <style>
     /* Crush.lu Admin Branding */
     #header {
@@ -23,6 +24,12 @@
         color: white !important;
     }
 </style>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<script defer src="{% static 'crush_lu/js/alpine-components.js' %}"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/csp@3.14.9/dist/cdn.min.js"></script>
 {% endblock %}
 
 {% block branding %}

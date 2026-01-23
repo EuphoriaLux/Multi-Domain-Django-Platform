@@ -377,16 +377,17 @@ def challenge_view(request, chapter_number, challenge_id):
         lang_code = current_lang[:2] if '-' in current_lang else current_lang
 
         # For timeline_sort challenges, get language-specific events
+        # django-modeltranslation returns the correct language version via challenge.options
         if challenge.challenge_type == 'timeline_sort' and challenge.options:
-            # Try to get language-specific events, fallback to default
-            events_key = f'events_{lang_code}'
-            if events_key in challenge.options:
-                context['localized_events'] = challenge.options[events_key]
-            elif 'events' in challenge.options:
-                # Fallback to default events (backward compatibility)
-                context['localized_events'] = challenge.options['events']
+            options = challenge.options  # modeltranslation returns correct language version
+
+            # New structure: {'events': [...]}
+            if 'events' in options:
+                context['localized_events'] = options['events']
+            # Backward compat: old structure had events_{lang} inside single options field
             else:
-                context['localized_events'] = []
+                events_key = f'events_{lang_code}'
+                context['localized_events'] = options.get(events_key, [])
 
         # For multiple_choice challenges, use django-modeltranslation
         # challenge.options automatically returns the translated version (options_de, options_fr)
