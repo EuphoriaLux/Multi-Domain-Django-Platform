@@ -177,7 +177,7 @@ class Command(BaseCommand):
                     success_fr=content_fr.get('timeline_success', ''),
                     dry_run=dry_run
                 )
-                # Also update events in options JSONField
+                # Also update events in options JSONField (using django-modeltranslation fields)
                 if not dry_run:
                     events_en = content_en.get('timeline_events', [])
                     events_de = content_de.get('timeline_events', [])
@@ -186,14 +186,11 @@ class Command(BaseCommand):
                     formatted_events_en = [e.format(location_met=location_met) for e in events_en]
                     formatted_events_de = [e.format(location_met=location_met) for e in events_de]
                     formatted_events_fr = [e.format(location_met=location_met) for e in events_fr]
-                    # Update options to include all language versions
-                    options = timeline_challenge.options or {}
-                    options['events'] = formatted_events_en  # Default/fallback
-                    options['events_en'] = formatted_events_en
-                    options['events_de'] = formatted_events_de
-                    options['events_fr'] = formatted_events_fr
-                    timeline_challenge.options = options
-                    timeline_challenge.save()
+                    # Update options per language (django-modeltranslation)
+                    timeline_challenge.options_en = {'events': formatted_events_en}
+                    timeline_challenge.options_de = {'events': formatted_events_de}
+                    timeline_challenge.options_fr = {'events': formatted_events_fr}
+                    timeline_challenge.save(update_fields=['options_en', 'options_de', 'options_fr'])
             # Challenge 1: moment multiple_choice
             if len(challenges) > 1:
                 moment_challenge = challenges[1]

@@ -20,6 +20,28 @@ from .models import (
 )
 
 
+def _get_date_range(request):
+    """
+    Parse date range from request GET parameter.
+
+    Returns:
+        tuple: (start_date, range_label) where start_date is a datetime
+               and range_label is the string identifier.
+    """
+    range_param = request.GET.get('range', '30d')
+    now = timezone.now()
+
+    if range_param == '7d':
+        return now - timedelta(days=7), '7d'
+    elif range_param == '90d':
+        return now - timedelta(days=90), '90d'
+    elif range_param == 'all':
+        return None, 'all'
+    else:
+        # Default to 30 days
+        return now - timedelta(days=30), '30d'
+
+
 @login_required
 def crush_admin_dashboard(request):
     """
@@ -27,6 +49,9 @@ def crush_admin_dashboard(request):
     Provides key metrics and insights across all platform areas.
 
     Access: Only Crush coaches and superusers.
+
+    Query Parameters:
+        - range: Date range filter ('7d', '30d', '90d', 'all')
     """
     # Permission check: Only coaches and superusers can access
     if not request.user.is_authenticated:
@@ -45,6 +70,9 @@ def crush_admin_dashboard(request):
             from django.http import HttpResponseForbidden
             return HttpResponseForbidden("You must be a Crush coach to access this panel.")
 
+    # Parse date range filter
+    date_start, date_range = _get_date_range(request)
+
     # ============================================================================
     # USER METRICS
     # ============================================================================
@@ -61,10 +89,11 @@ def crush_admin_dashboard(request):
     # Profile approval rate
     approval_rate = (approved_profiles / total_profiles * 100) if total_profiles > 0 else 0
 
-    # Recent registrations (last 30 days)
+    # Recent registrations (based on date filter or default 30 days)
     thirty_days_ago = timezone.now() - timedelta(days=30)
+    recent_date = date_start if date_start else thirty_days_ago
     recent_signups = CrushProfile.objects.filter(
-        created_at__gte=thirty_days_ago
+        created_at__gte=recent_date
     ).count()
 
     # Gender distribution
@@ -167,7 +196,9 @@ def crush_admin_dashboard(request):
         ).aggregate(
             avg_seconds=Avg(Extract('review_duration', 'epoch'))
         )
-        avg_review_hours = (avg_review_result['avg_seconds'] or 0) / 3600
+        # Fix: Ensure non-negative value (handles edge cases with null or negative results)
+        avg_seconds = avg_review_result['avg_seconds'] or 0
+        avg_review_hours = max(0, avg_seconds / 3600)
     else:
         avg_review_hours = 0
 
@@ -536,6 +567,10 @@ def crush_admin_dashboard(request):
     # ============================================================================
 
     context = {
+        # Date filter info
+        'date_range': date_range,
+        'date_start': date_start,
+
         # User metrics
         'total_profiles': total_profiles,
         'active_profiles': active_profiles,

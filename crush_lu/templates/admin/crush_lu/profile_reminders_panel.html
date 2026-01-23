@@ -165,32 +165,46 @@
 
     /* Form Styles */
     .reminder-form {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        display: flex;
+        flex-wrap: wrap;
         gap: 20px;
-        align-items: end;
+        align-items: flex-end;
     }
 
     .form-group {
         display: flex;
         flex-direction: column;
         gap: 6px;
+        min-width: 200px;
+    }
+
+    .form-group.select-group {
+        min-width: 200px;
+        flex: 0 0 auto;
     }
 
     .form-group label {
         font-weight: 600;
         color: var(--text-secondary);
         font-size: 13px;
+        display: block;
     }
 
     .form-group select,
     .form-group input[type="number"] {
         padding: 10px 12px;
-        border: 1px solid var(--card-shadow);
+        border: 1px solid #ccc;
         border-radius: 6px;
         font-size: 14px;
-        background: var(--card-bg);
-        color: var(--text-primary);
+        background-color: #fff;
+        color: #333;
+        box-sizing: border-box;
+        height: 42px;
+    }
+
+    .form-group select {
+        min-width: 200px;
+        cursor: pointer;
     }
 
     .form-group select:focus,
@@ -571,13 +585,13 @@
         <form method="post" class="reminder-form">
             {% csrf_token %}
 
-            <div class="form-group">
+            <div class="form-group select-group">
                 <label for="reminder_type">Reminder Type</label>
                 <select name="reminder_type" id="reminder_type">
-                    <option value="all">All Types (24h, 72h, 7d)</option>
-                    <option value="24h">24 Hour Only ({{ preview.24h.count }} users)</option>
-                    <option value="72h">72 Hour Only ({{ preview.72h.count }} users)</option>
-                    <option value="7d">7 Day Final Only ({{ preview.7d.count }} users)</option>
+                    <option value="all">All Types</option>
+                    <option value="24h">24h Only ({{ preview.24h.count }})</option>
+                    <option value="72h">72h Only ({{ preview.72h.count }})</option>
+                    <option value="7d">7d Final ({{ preview.7d.count }})</option>
                 </select>
             </div>
 

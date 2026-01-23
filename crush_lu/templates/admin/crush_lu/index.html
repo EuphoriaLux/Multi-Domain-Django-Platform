@@ -6,225 +6,283 @@
     {% include "admin/nav_sidebar.html" %}
 {% endblock %}
 
-{% block extrahead %}
-{{ block.super }}
-<style>
-    /* Quick Links Panel */
-    .quick-links-panel {
-        background: #f8f9fa;
-        border: 1px solid #e9ecef;
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 25px;
-    }
-
-    .quick-links-panel h3 {
-        margin: 0 0 15px 0;
-        font-size: 16px;
-        font-weight: 600;
-        color: #333;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .quick-links-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 12px;
-    }
-
-    .quick-link {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 12px 16px;
-        background: white;
-        border: 1px solid #dee2e6;
-        border-radius: 6px;
-        text-decoration: none;
-        color: #495057;
-        font-weight: 500;
-        font-size: 14px;
-        transition: all 0.2s ease;
-    }
-
-    .quick-link:hover {
-        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
-        color: white;
-        border-color: transparent;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
-    }
-
-    .quick-link-icon {
-        font-size: 18px;
-        width: 24px;
-        text-align: center;
-    }
-
-    .quick-link-text {
-        flex: 1;
-    }
-
-    .quick-link-badge {
-        background: #9B59B6;
-        color: white;
-        font-size: 11px;
-        padding: 2px 8px;
-        border-radius: 10px;
-        font-weight: 600;
-    }
-
-    .quick-link:hover .quick-link-badge {
-        background: rgba(255, 255, 255, 0.3);
-    }
-
-    /* Dashboard Banner */
-    .dashboard-banner {
-        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
-        color: white;
-        padding: 30px;
-        border-radius: 8px;
-        margin-bottom: 25px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-    }
-
-    .dashboard-banner h2 {
-        margin: 0 0 10px 0;
-        font-size: 28px;
-        font-weight: 600;
-        color: white !important;
-    }
-
-    .dashboard-banner p {
-        margin: 0 0 20px 0;
-        opacity: 0.9;
-        color: white !important;
-    }
-
-    .dashboard-btn {
-        display: inline-block;
-        padding: 12px 30px;
-        background: rgba(255, 255, 255, 0.95);
-        color: #9B59B6 !important;
-        text-decoration: none;
-        border-radius: 6px;
-        font-weight: 600;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .dashboard-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-        color: #9B59B6 !important;
-        background: white;
-    }
-
-    /* Responsive adjustments */
-    @media (max-width: 768px) {
-        .quick-links-grid {
-            grid-template-columns: 1fr;
-        }
-    }
-</style>
-{% endblock %}
-
-{% block title %}{{ site_header }} | {% trans 'Site administration' %}{% endblock %}
+{% block title %}{{ site_header }} | {% trans 'Coach Panel' %}{% endblock %}
 
 {% block branding %}
 <h1 id="site-name"><a href="{% url 'crush_admin:index' %}">{{ site_header|default:_('Django administration') }}</a></h1>
 {% endblock %}
 
 {% block content %}
-{# Quick Links Panel - Always visible for fast navigation #}
-<div class="quick-links-panel">
-    <h3><span>🚀</span> Quick Links</h3>
-    <div class="quick-links-grid">
-        <a href="{% url 'crush_admin_dashboard' %}" class="quick-link">
-            <span class="quick-link-icon">📊</span>
-            <span class="quick-link-text">Analytics Dashboard</span>
+<div class="dashboard-container" x-data="actionCenter">
+        {% if pending_actions.total_pending > 0 %}
+    <div class="action-center">
+        <div class="action-center-header">
+            <h2 class="action-center-title">
+                <span>&#x26A1;</span> Action Center
+            </h2>
+            <button class="action-center-toggle" @click="toggle" x-text="toggleIcon"></button>
+        </div>
+
+        <div class="action-center-grid" x-show="isExpanded" x-transition>
+            {% if pending_actions.urgent_reviews > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?pending_time=24h" class="action-item urgent">
+                <span class="action-item-count">{{ pending_actions.urgent_reviews }}</span>
+                <span class="action-item-label">Urgent Reviews (&gt;24h)</span>
+            </a>
+            {% endif %}
+
+            {% if pending_actions.awaiting_call > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?workflow=awaiting_call" class="action-item warning">
+                <span class="action-item-count">{{ pending_actions.awaiting_call }}</span>
+                <span class="action-item-label">Awaiting Call</span>
+            </a>
+            {% endif %}
+
+            {% if pending_actions.ready_to_approve > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?workflow=ready_approve" class="action-item success">
+                <span class="action-item-count">{{ pending_actions.ready_to_approve }}</span>
+                <span class="action-item-label">Ready to Approve</span>
+            </a>
+            {% endif %}
+
+            {% if pending_actions.unassigned > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?coach__isnull=True&status__exact=pending" class="action-item">
+                <span class="action-item-count">{{ pending_actions.unassigned }}</span>
+                <span class="action-item-label">Unassigned</span>
+            </a>
+            {% endif %}
+
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?status__exact=pending" class="action-item">
+                <span class="action-item-count">{{ pending_actions.total_pending }}</span>
+                <span class="action-item-label">Total Pending</span>
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+        <div class="quick-stats">
+        <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}" class="quick-stat">
+            <div class="quick-stat-icon">&#x1F464;</div>
+            <div class="quick-stat-content">
+                <div class="quick-stat-value">{{ total_profiles|default:0 }}</div>
+                <div class="quick-stat-label">Total Profiles</div>
+            </div>
         </a>
-        <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?status__exact=pending" class="quick-link">
-            <span class="quick-link-icon">📝</span>
-            <span class="quick-link-text">Pending Reviews</span>
+
+        <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?is_approved__exact=1" class="quick-stat">
+            <div class="quick-stat-icon">&#x2705;</div>
+            <div class="quick-stat-content">
+                <div class="quick-stat-value">{{ approved_profiles|default:0 }}</div>
+                <div class="quick-stat-label">Approved</div>
+            </div>
         </a>
-        <a href="{% url 'user_segments_dashboard' %}" class="quick-link">
-            <span class="quick-link-icon">👥</span>
-            <span class="quick-link-text">User Segments</span>
+
+        <a href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}" class="quick-stat">
+            <div class="quick-stat-icon">&#x1F389;</div>
+            <div class="quick-stat-content">
+                <div class="quick-stat-value">{{ upcoming_events|default:0 }}</div>
+                <div class="quick-stat-label">Upcoming Events</div>
+            </div>
         </a>
-        <a href="{% url 'profile_reminders_panel' %}" class="quick-link">
-            <span class="quick-link-icon">📬</span>
-            <span class="quick-link-text">Profile Reminders</span>
-        </a>
-        <a href="{% url 'email_template_manager' %}" class="quick-link">
-            <span class="quick-link-icon">📧</span>
-            <span class="quick-link-text">Email Templates</span>
-        </a>
-        <a href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}" class="quick-link">
-            <span class="quick-link-icon">🎉</span>
-            <span class="quick-link-text">Manage Events</span>
-        </a>
-        <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?is_approved__exact=0" class="quick-link">
-            <span class="quick-link-icon">⏳</span>
-            <span class="quick-link-text">Unapproved Profiles</span>
-        </a>
-        <a href="{% url 'crush_admin:crush_lu_eventconnection_changelist' %}" class="quick-link">
-            <span class="quick-link-icon">💕</span>
-            <span class="quick-link-text">Connections</span>
+
+        <a href="{% url 'crush_admin:crush_lu_eventconnection_changelist' %}?status__exact=mutual" class="quick-stat">
+            <div class="quick-stat-icon">&#x1F495;</div>
+            <div class="quick-stat-content">
+                <div class="quick-stat-value">{{ mutual_connections|default:0 }}</div>
+                <div class="quick-stat-label">Connections</div>
+            </div>
         </a>
     </div>
-</div>
 
-{% if show_dashboard_link %}
-<div class="dashboard-banner">
-    <h2>{{ site_header }}</h2>
-    <p>View comprehensive analytics, metrics, and insights for the Crush.lu platform</p>
-    <a href="{{ dashboard_url }}" class="dashboard-btn">
-        Open Analytics Dashboard
-    </a>
-</div>
-{% endif %}
-
-<div id="content-main">
-{% if app_list %}
-    {% for app in app_list %}
-    <div class="app-{{ app.app_label }} module">
-    <table>
-    <caption>
-    <a href="{{ app.app_url }}" class="section" title="{% blocktrans with name=app.name %}Models in the {{ name }} application{% endblocktrans %}">{{ app.name }}</a>
-    </caption>
-    {% for model in app.models %}
-    <tr class="model-{{ model.object_name|lower }}">
-    {% if model.admin_url %}
-    <th scope="row"><a href="{{ model.admin_url }}">{{ model.name }}</a></th>
-    {% else %}
-    <th scope="row">{{ model.name }}</th>
-    {% endif %}
-
-    {% if model.add_url %}
-    <td><a href="{{ model.add_url }}" class="addlink">{% trans 'Add' %}</a></td>
-    {% else %}
-    <td>&nbsp;</td>
-    {% endif %}
-
-    {% if model.admin_url and show_changelinks %}
-    {% if model.view_only %}
-    <td><a href="{{ model.admin_url }}" class="viewlink">{% trans 'View' %}</a></td>
-    {% else %}
-    <td><a href="{{ model.admin_url }}" class="changelink">{% trans 'Change' %}</a></td>
-    {% endif %}
-    {% elif show_changelinks %}
-    <td>&nbsp;</td>
-    {% endif %}
-    </tr>
-    {% endfor %}
-    </table>
+        <div class="quick-links-panel">
+        <h3><span>&#x1F680;</span> Quick Links</h3>
+        <div class="quick-links-grid">
+            <a href="{% url 'crush_admin_dashboard' %}" class="quick-link">
+                <span class="quick-link-icon">&#x1F4CA;</span>
+                <span class="quick-link-text">Analytics Dashboard</span>
+            </a>
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?status__exact=pending" class="quick-link">
+                <span class="quick-link-icon">&#x1F4DD;</span>
+                <span class="quick-link-text">Pending Reviews</span>
+                {% if pending_actions.total_pending > 0 %}
+                <span class="quick-link-badge">{{ pending_actions.total_pending }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'user_segments_dashboard' %}" class="quick-link">
+                <span class="quick-link-icon">&#x1F465;</span>
+                <span class="quick-link-text">User Segments</span>
+            </a>
+            <a href="{% url 'profile_reminders_panel' %}" class="quick-link">
+                <span class="quick-link-icon">&#x1F4EC;</span>
+                <span class="quick-link-text">Profile Reminders</span>
+            </a>
+            <a href="{% url 'email_template_manager' %}" class="quick-link">
+                <span class="quick-link-icon">&#x1F4E7;</span>
+                <span class="quick-link-text">Email Templates</span>
+            </a>
+            <a href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}" class="quick-link">
+                <span class="quick-link-icon">&#x1F389;</span>
+                <span class="quick-link-text">Manage Events</span>
+            </a>
+            <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?is_approved__exact=0" class="quick-link">
+                <span class="quick-link-icon">&#x23F3;</span>
+                <span class="quick-link-text">Unapproved Profiles</span>
+            </a>
+            <a href="{% url 'crush_admin:crush_lu_eventconnection_changelist' %}" class="quick-link">
+                <span class="quick-link-icon">&#x1F495;</span>
+                <span class="quick-link-text">Connections</span>
+            </a>
+        </div>
     </div>
-    {% endfor %}
-{% else %}
-    <p>{% trans 'You don\'t have permission to view or edit anything.' %}</p>
-{% endif %}
+
+        <div class="todays-focus" x-data="todaysFocus">
+        <h3><span>&#x1F3AF;</span> Today's Focus</h3>
+
+        <div class="tab-nav">
+            <button class="tab-btn" :class="eventsTabClass" @click="setEvents">
+                &#x1F4C5; Upcoming Events
+            </button>
+            <button class="tab-btn" :class="submissionsTabClass" @click="setSubmissions">
+                &#x1F4DD; Recent Submissions
+            </button>
+            <button class="tab-btn" :class="alertsTabClass" @click="setAlerts">
+                &#x1F514; Alerts
+            </button>
+        </div>
+
+        {# Upcoming Events Tab #}
+        <div class="tab-panel" :class="eventsTabClass" x-show="isEventsTab">
+            {% if upcoming_events_list %}
+            <ul class="focus-list">
+                {% for event in upcoming_events_list %}
+                <li class="focus-item">
+                    <span class="focus-item-icon">&#x1F389;</span>
+                    <div class="focus-item-content">
+                        <div class="focus-item-title">{{ event.title }}</div>
+                        <div class="focus-item-subtitle">{{ event.date_time|date:"M d, Y" }} &bull; {{ event.registration_count }} registered</div>
+                    </div>
+                    <a href="{% url 'crush_admin:crush_lu_meetupevent_change' event.id %}" class="focus-item-action">View</a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">&#x1F4C5;</div>
+                <div class="empty-state-title">No upcoming events</div>
+                <div class="empty-state-text">
+                    <a href="{% url 'crush_admin:crush_lu_meetupevent_add' %}" class="btn btn-primary btn-sm">Create Event</a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        {# Recent Submissions Tab #}
+        <div class="tab-panel" :class="submissionsTabClass" x-show="isSubmissionsTab">
+            {% if recent_submissions %}
+            <ul class="focus-list">
+                {% for submission in recent_submissions %}
+                <li class="focus-item">
+                    <span class="focus-item-icon">&#x1F464;</span>
+                    <div class="focus-item-content">
+                        <div class="focus-item-title">{{ submission.profile.user.get_full_name|default:submission.profile.user.username }}</div>
+                        <div class="focus-item-subtitle">Submitted {{ submission.submitted_at|timesince }} ago</div>
+                    </div>
+                    <a href="{% url 'crush_admin:crush_lu_profilesubmission_change' submission.id %}" class="focus-item-action">Review</a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">&#x2705;</div>
+                <div class="empty-state-title">All caught up!</div>
+                <div class="empty-state-text">No pending submissions to review.</div>
+            </div>
+            {% endif %}
+        </div>
+
+        {# Alerts Tab #}
+        <div class="tab-panel" :class="alertsTabClass" x-show="isAlertsTab">
+            {% if pending_actions.urgent_reviews > 0 or pending_actions.unassigned > 0 %}
+            <ul class="focus-list">
+                {% if pending_actions.urgent_reviews > 0 %}
+                <li class="focus-item">
+                    <span class="focus-item-icon">&#x1F6A8;</span>
+                    <div class="focus-item-content">
+                        <div class="focus-item-title" style="color: var(--status-danger);">{{ pending_actions.urgent_reviews }} urgent reviews</div>
+                        <div class="focus-item-subtitle">Pending for more than 24 hours</div>
+                    </div>
+                    <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?pending_time=24h" class="focus-item-action">View</a>
+                </li>
+                {% endif %}
+                {% if pending_actions.unassigned > 0 %}
+                <li class="focus-item">
+                    <span class="focus-item-icon">&#x26A0;&#xFE0F;</span>
+                    <div class="focus-item-content">
+                        <div class="focus-item-title" style="color: var(--status-warning);">{{ pending_actions.unassigned }} unassigned submissions</div>
+                        <div class="focus-item-subtitle">Need coach assignment</div>
+                    </div>
+                    <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?coach__isnull=True" class="focus-item-action">View</a>
+                </li>
+                {% endif %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">&#x2705;</div>
+                <div class="empty-state-title">No alerts</div>
+                <div class="empty-state-text">Everything is running smoothly!</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+        <div id="content-main">
+        {% if app_list %}
+            {% for app in app_list %}
+            <div class="model-group" x-data="modelGroup" data-group-id="{{ app.app_label }}" data-default-open="true">
+                <div class="model-group-header" @click="toggle">
+                    <span class="model-group-title">
+                        {% if app.app_label == 'crush_lu' %}&#x1F495;{% elif app.app_label == 'auth' %}&#x1F512;{% else %}&#x1F4E6;{% endif %}
+                        {{ app.name }}
+                    </span>
+                    <button class="model-group-toggle" :class="toggleClass" :aria-expanded="ariaExpanded">
+                        &#x25BC;
+                    </button>
+                </div>
+                <div class="model-group-content" :class="contentClass">
+                    <table>
+                        {% for model in app.models %}
+                        <tr class="model-{{ model.object_name|lower }}">
+                            {% if model.admin_url %}
+                            <th scope="row"><a href="{{ model.admin_url }}">{{ model.name }}</a></th>
+                            {% else %}
+                            <th scope="row">{{ model.name }}</th>
+                            {% endif %}
+
+                            {% if model.add_url %}
+                            <td><a href="{{ model.add_url }}" class="addlink">{% trans 'Add' %}</a></td>
+                            {% else %}
+                            <td>&nbsp;</td>
+                            {% endif %}
+
+                            {% if model.admin_url and show_changelinks %}
+                            {% if model.view_only %}
+                            <td><a href="{{ model.admin_url }}" class="viewlink">{% trans 'View' %}</a></td>
+                            {% else %}
+                            <td><a href="{{ model.admin_url }}" class="changelink">{% trans 'Change' %}</a></td>
+                            {% endif %}
+                            {% elif show_changelinks %}
+                            <td>&nbsp;</td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p>{% trans 'You don\'t have permission to view or edit anything.' %}</p>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}
 

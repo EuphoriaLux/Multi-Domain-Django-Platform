@@ -94,7 +94,13 @@
 
     <!-- Chapter 6 Final Response (Special Handling) -->
     {% if chapter.chapter_number == 6 and not journey_progress.final_response %}
-    <div id="finalResponseSection" class="mt-10">
+    <div id="finalResponseSection" class="mt-10"
+         x-data="finalResponse"
+         data-submit-url="{% url 'crush_lu:api_record_final_response' %}"
+         data-i18n-submitting="{% trans 'Submitting your response...' %}"
+         data-i18n-success="{% trans 'Thank you for your response!' %}"
+         data-i18n-error="{% trans 'An error occurred. Please try again.' %}"
+         data-i18n-network-error="{% trans 'Network error. Please check your connection and try again.' %}">
         <div class="bg-crush-pink/10 border-2 border-crush-pink/30 rounded-2xl p-10 mt-8">
             <h3 class="text-2xl md:text-3xl mb-5 text-crush-purple">&#128171; {% trans "The Final Question" %} &#128171;</h3>
             <div class="text-xl leading-relaxed mb-8">
@@ -104,16 +110,16 @@
                 {% trans "Will you give this a chance?" %}
             </p>
             <div class="flex gap-5 justify-center flex-wrap">
-                <button onclick="submitFinalResponse('yes')" class="journey-final-response-btn journey-final-response-yes" id="btnYes">
+                <button @click="submitYes" x-bind:disabled="isSubmitting" class="journey-final-response-btn journey-final-response-yes" id="btnYes">
                     {% include "shared/icons/heart.html" with class="w-5 h-5" %}
                     {% trans "Yes, let's see where this goes" %} &#128171;
                 </button>
-                <button onclick="submitFinalResponse('thinking')" class="journey-final-response-btn journey-final-response-thinking" id="btnThinking">
+                <button @click="submitThinking" x-bind:disabled="isSubmitting" class="journey-final-response-btn journey-final-response-thinking" id="btnThinking">
                     {% include "shared/icons/hourglass.html" with class="w-5 h-5" %}
                     {% trans "I need to think about this" %} &#10024;
                 </button>
             </div>
-            <div id="responseStatus" class="mt-5 text-lg" role="status" aria-live="polite"></div>
+            <div x-show="showStatus" x-bind:class="statusClass" x-text="statusMessage" class="mt-5 text-lg" role="status" aria-live="polite"></div>
         </div>
     </div>
     {% elif chapter.chapter_number == 6 and journey_progress.final_response %}
@@ -188,67 +194,5 @@
 {% endblock %}
 
 {% block extra_journey_js %}
-<script nonce="{{ request.csp_nonce }}">
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Chapter {{ chapter.chapter_number }} loaded');
-});
-
-// Final Response Submission (Chapter 6)
-function submitFinalResponse(response) {
-    var btnYes = document.getElementById('btnYes');
-    var btnThinking = document.getElementById('btnThinking');
-    var statusDiv = document.getElementById('responseStatus');
-
-    // Disable both buttons
-    btnYes.disabled = true;
-    btnThinking.disabled = true;
-
-    // Show loading message (use emoji instead of SVG to avoid multi-line string issues)
-    statusDiv.innerHTML = '\u23F3 {% trans "Submitting your response..." %}';
-    statusDiv.classList.remove('journey-status-success', 'journey-status-error');
-    statusDiv.classList.add('journey-status-info');
-
-    fetch('{% url "crush_lu:api_record_final_response" %}', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': CrushUtils.getCsrfToken(),
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ response: response })
-    })
-    .then(function(apiResponse) { return apiResponse.json(); })
-    .then(function(data) {
-        if (data.success) {
-            // Show success message
-            statusDiv.innerHTML = '\u2705 {% trans "Thank you for your response!" %} \uD83D\uDC96';
-            statusDiv.classList.remove('journey-status-info', 'journey-status-error');
-            statusDiv.classList.add('journey-status-success');
-
-            // Reload page after 2 seconds to show the confirmed response
-            setTimeout(function() {
-                window.location.reload();
-            }, 2000);
-        } else {
-            // Show error
-            statusDiv.innerHTML = '\u26A0\uFE0F ' + (data.message || '{% trans "An error occurred. Please try again." %}');
-            statusDiv.classList.remove('journey-status-info', 'journey-status-success');
-            statusDiv.classList.add('journey-status-error');
-
-            // Re-enable buttons
-            btnYes.disabled = false;
-            btnThinking.disabled = false;
-        }
-    })
-    .catch(function(error) {
-        console.error('Error submitting final response:', error);
-        statusDiv.innerHTML = '\u26A0\uFE0F {% trans "Network error. Please check your connection and try again." %}';
-        statusDiv.classList.remove('journey-status-info', 'journey-status-success');
-        statusDiv.classList.add('journey-status-error');
-
-        // Re-enable buttons
-        btnYes.disabled = false;
-        btnThinking.disabled = false;
-    });
-}
-</script>
+{# Final response functionality moved to Alpine.js component 'finalResponse' in alpine-components.js #}
 {% endblock %}
