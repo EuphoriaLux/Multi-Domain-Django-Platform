@@ -31,8 +31,10 @@
 
             {% if slideshow_images %}
             {# Multi-image slideshow with Alpine.js component #}
+            {# JSON is passed via a hidden script tag to avoid escaping issues with HTML attributes #}
+            <script type="application/json" id="slideshow-data">{{ slideshow_images_json|safe }}</script>
             <div x-data="photoSlideshow"
-                 data-images='{{ slideshow_images_json|escapejs }}'
+                 data-images-from="slideshow-data"
                  class="slideshow-carousel"
                  @touchstart="handleTouchStart"
                  @touchmove="handleTouchMove"

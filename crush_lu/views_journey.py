@@ -337,8 +337,9 @@ def _get_timeline_events_with_fallback(challenge, requested_lang='en'):
     Returns:
         List of event dictionaries for timeline display
     """
-    SUPPORTED_LANGUAGES = ['en', 'de', 'fr']
-    fallback_order = [requested_lang] + [lang for lang in SUPPORTED_LANGUAGES if lang != requested_lang]
+    from .utils.i18n import get_supported_language_codes
+    supported_languages = get_supported_language_codes()
+    fallback_order = [requested_lang] + [lang for lang in supported_languages if lang != requested_lang]
 
     for lang in fallback_order:
         # Access language-specific field directly (bypass modeltranslation)
@@ -505,7 +506,11 @@ def reward_view(request, reward_id):
             slideshow_images = reward.all_slideshow_images
             if slideshow_images:
                 context['slideshow_images'] = slideshow_images
-                context['slideshow_images_json'] = json.dumps(slideshow_images)
+                # Escape for safe embedding in <script> tags (prevent XSS via </script>)
+                json_str = json.dumps(slideshow_images)
+                # Replace sequences that could break out of script tag
+                json_str = json_str.replace('</', '<\\/')
+                context['slideshow_images_json'] = json_str
 
         # Render reward template based on type
         template_name = f'crush_lu/journey/rewards/{reward.reward_type}.html'

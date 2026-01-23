@@ -136,7 +136,7 @@ def _create_chapter_1(journey, date_met):
     content_de = get_chapter_content('de', 1)
     content_fr = get_chapter_content('fr', 1)
 
-    chapter, _ = JourneyChapter.objects.get_or_create(
+    chapter, _ = JourneyChapter.objects.update_or_create(
         journey=journey,
         chapter_number=1,
         defaults={
@@ -183,7 +183,7 @@ def _create_chapter_1(journey, date_met):
         season_de = get_text('de', f'seasons.{get_season_key(date_met)}')
         season_fr = get_text('fr', f'seasons.{get_season_key(date_met)}')
 
-        JourneyChallenge.objects.get_or_create(
+        JourneyChallenge.objects.update_or_create(
             chapter=chapter,
             challenge_order=1,
             defaults={
@@ -232,7 +232,7 @@ def _create_chapter_1(journey, date_met):
         scramble_de = challenges_de[1] if len(challenges_de) > 1 else scramble_en
         scramble_fr = challenges_fr[1] if len(challenges_fr) > 1 else scramble_en
 
-        JourneyChallenge.objects.get_or_create(
+        JourneyChallenge.objects.update_or_create(
             chapter=chapter,
             challenge_order=2,
             defaults={
@@ -246,8 +246,10 @@ def _create_chapter_1(journey, date_met):
                 # French
                 'question_fr': scramble_fr.get('question', ''),
                 'success_message_fr': scramble_fr.get('success_message', ''),
-                # Other fields
-                'options': {'scrambled': scramble_en.get('scrambled', 'TFSIR PELIMS')},
+                # Other fields - use language-specific options
+                'options_en': {'scrambled': scramble_en.get('scrambled', 'TFSIR PELIMS')},
+                'options_de': {'scrambled': scramble_de.get('scrambled', 'SERETS LHCEÄNL')},
+                'options_fr': {'scrambled': scramble_fr.get('scrambled', 'RPMEERI SRIROUE')},
                 'correct_answer': scramble_en.get('answer', 'FIRST SMILE'),
                 'alternative_answers': ['first smile', 'FIRSTSMILE', 'firstsmile'],
                 'points_awarded': 50,
@@ -259,7 +261,7 @@ def _create_chapter_1(journey, date_met):
     reward_de = content_de.get('reward', {})
     reward_fr = content_fr.get('reward', {})
 
-    JourneyReward.objects.get_or_create(
+    JourneyReward.objects.update_or_create(
         chapter=chapter,
         defaults={
             'reward_type': reward_en.get('type', 'photo_reveal'),
@@ -282,7 +284,7 @@ def _create_chapter_2(journey, recipient_name):
     content_de = get_chapter_content('de', 2)
     content_fr = get_chapter_content('fr', 2)
 
-    chapter, _ = JourneyChapter.objects.get_or_create(
+    chapter, _ = JourneyChapter.objects.update_or_create(
         journey=journey,
         chapter_number=2,
         defaults={
@@ -314,7 +316,7 @@ def _create_chapter_2(journey, recipient_name):
         q_de = challenges_de[i - 1] if i <= len(challenges_de) else q_en
         q_fr = challenges_fr[i - 1] if i <= len(challenges_fr) else q_en
 
-        JourneyChallenge.objects.get_or_create(
+        JourneyChallenge.objects.update_or_create(
             chapter=chapter,
             challenge_order=i,
             defaults={
@@ -338,7 +340,7 @@ def _create_chapter_2(journey, recipient_name):
     reward_de = content_de.get('reward', {})
     reward_fr = content_fr.get('reward', {})
 
-    JourneyReward.objects.get_or_create(
+    JourneyReward.objects.update_or_create(
         chapter=chapter,
         defaults={
             'reward_type': reward_en.get('type', 'poem'),
@@ -360,7 +362,7 @@ def _create_chapter_3(journey, location_met):
     content_de = get_chapter_content('de', 3)
     content_fr = get_chapter_content('fr', 3)
 
-    chapter, _ = JourneyChapter.objects.get_or_create(
+    chapter, _ = JourneyChapter.objects.update_or_create(
         journey=journey,
         chapter_number=3,
         defaults={
@@ -392,7 +394,7 @@ def _create_chapter_3(journey, location_met):
     formatted_events_de = [e.format(location_met=location_met) for e in events_de]
     formatted_events_fr = [e.format(location_met=location_met) for e in events_fr]
 
-    JourneyChallenge.objects.get_or_create(
+    JourneyChallenge.objects.update_or_create(
         chapter=chapter,
         challenge_order=1,
         defaults={
@@ -403,20 +405,17 @@ def _create_chapter_3(journey, location_met):
             'success_message_de': content_de.get('timeline_success', ''),
             'question_fr': content_fr.get('timeline_question', ''),
             'success_message_fr': content_fr.get('timeline_success', ''),
-            # Store events in all languages (JSONField doesn't support django-modeltranslation)
-            'options': {
-                'events': formatted_events_en,  # Default/backward compatible
-                'events_en': formatted_events_en,
-                'events_de': formatted_events_de,
-                'events_fr': formatted_events_fr,
-            },
+            # Store events per language (django-modeltranslation creates options_en, options_de, options_fr)
+            'options_en': {'events': formatted_events_en},
+            'options_de': {'events': formatted_events_de},
+            'options_fr': {'events': formatted_events_fr},
             'correct_answer': '0,1,2,3,4',
             'points_awarded': 300,
         }
     )
 
     # Challenge 3B: The Moment That Changed Everything
-    JourneyChallenge.objects.get_or_create(
+    JourneyChallenge.objects.update_or_create(
         chapter=chapter,
         challenge_order=2,
         defaults={
@@ -440,7 +439,7 @@ def _create_chapter_3(journey, location_met):
     reward_de = content_de.get('reward', {})
     reward_fr = content_fr.get('reward', {})
 
-    JourneyReward.objects.get_or_create(
+    JourneyReward.objects.update_or_create(
         chapter=chapter,
         defaults={
             'reward_type': reward_en.get('type', 'photo_slideshow'),
@@ -462,7 +461,7 @@ def _create_chapter_4(journey):
     content_de = get_chapter_content('de', 4)
     content_fr = get_chapter_content('fr', 4)
 
-    chapter, _ = JourneyChapter.objects.get_or_create(
+    chapter, _ = JourneyChapter.objects.update_or_create(
         journey=journey,
         chapter_number=4,
         defaults={
@@ -497,7 +496,7 @@ def _create_chapter_4(journey):
         q_de = wyr_de[i - 1] if i <= len(wyr_de) else q_en
         q_fr = wyr_fr[i - 1] if i <= len(wyr_fr) else q_en
 
-        JourneyChallenge.objects.get_or_create(
+        JourneyChallenge.objects.update_or_create(
             chapter=chapter,
             challenge_order=i,
             defaults={
@@ -517,7 +516,7 @@ def _create_chapter_4(journey):
         )
 
     # Open text reflection
-    JourneyChallenge.objects.get_or_create(
+    JourneyChallenge.objects.update_or_create(
         chapter=chapter,
         challenge_order=len(wyr_en) + 1,
         defaults={
@@ -538,7 +537,7 @@ def _create_chapter_4(journey):
     reward_de = content_de.get('reward', {})
     reward_fr = content_fr.get('reward', {})
 
-    JourneyReward.objects.get_or_create(
+    JourneyReward.objects.update_or_create(
         chapter=chapter,
         defaults={
             'reward_type': reward_en.get('type', 'voice_message'),
@@ -560,7 +559,7 @@ def _create_chapter_5(journey, recipient_name):
     content_de = get_chapter_content('de', 5)
     content_fr = get_chapter_content('fr', 5)
 
-    chapter, _ = JourneyChapter.objects.get_or_create(
+    chapter, _ = JourneyChapter.objects.update_or_create(
         journey=journey,
         chapter_number=5,
         defaults={
@@ -584,7 +583,7 @@ def _create_chapter_5(journey, recipient_name):
     )
 
     # Challenge 5A: Build Your Dreams
-    JourneyChallenge.objects.get_or_create(
+    JourneyChallenge.objects.update_or_create(
         chapter=chapter,
         challenge_order=1,
         defaults={
@@ -604,7 +603,7 @@ def _create_chapter_5(journey, recipient_name):
     )
 
     # Challenge 5B: Future vision
-    JourneyChallenge.objects.get_or_create(
+    JourneyChallenge.objects.update_or_create(
         chapter=chapter,
         challenge_order=2,
         defaults={
@@ -625,7 +624,7 @@ def _create_chapter_5(journey, recipient_name):
     reward_de = content_de.get('reward', {})
     reward_fr = content_fr.get('reward', {})
 
-    JourneyReward.objects.get_or_create(
+    JourneyReward.objects.update_or_create(
         chapter=chapter,
         defaults={
             'reward_type': reward_en.get('type', 'future_letter'),
@@ -647,7 +646,7 @@ def _create_chapter_6(journey, recipient_name):
     content_de = get_chapter_content('de', 6)
     content_fr = get_chapter_content('fr', 6)
 
-    chapter, _ = JourneyChapter.objects.get_or_create(
+    chapter, _ = JourneyChapter.objects.update_or_create(
         journey=journey,
         chapter_number=6,
         defaults={
@@ -680,7 +679,7 @@ def _create_chapter_6(journey, recipient_name):
         riddle_fr = riddles_fr[i - 1] if i <= len(riddles_fr) else riddle_en
         points = 200 if i < 3 else 100
 
-        JourneyChallenge.objects.get_or_create(
+        JourneyChallenge.objects.update_or_create(
             chapter=chapter,
             challenge_order=i,
             defaults={

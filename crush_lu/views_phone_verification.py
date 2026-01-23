@@ -21,9 +21,11 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_protect
 from django.conf import settings
 
+from django.utils.translation import gettext as _
 from .google_idp_verify import verify_firebase_id_token, get_phone_from_token, get_firebase_uid_from_token
 from .models import CrushProfile
 from .decorators import ratelimit
+from .utils.i18n import validate_language
 
 logger = logging.getLogger(__name__)
 
@@ -89,9 +91,9 @@ def mark_phone_verified(request):
         except CrushProfile.DoesNotExist:
             # Create profile if it doesn't exist (shouldn't happen normally)
             # Set preferred language from current request
-            preferred_lang = getattr(request, 'LANGUAGE_CODE', 'en')
-            if preferred_lang not in ['en', 'de', 'fr']:
-                preferred_lang = 'en'
+            preferred_lang = validate_language(
+                getattr(request, 'LANGUAGE_CODE', 'en'), default='en'
+            )
             profile = CrushProfile.objects.create(
                 user=request.user,
                 preferred_language=preferred_lang,
@@ -179,9 +181,9 @@ def verify_phone_page(request):
         # Create profile if it doesn't exist (needed for new signups
         # who are redirected here before completing profile creation)
         # Set preferred language from current request
-        preferred_lang = getattr(request, 'LANGUAGE_CODE', 'en')
-        if preferred_lang not in ['en', 'de', 'fr']:
-            preferred_lang = 'en'
+        preferred_lang = validate_language(
+            getattr(request, 'LANGUAGE_CODE', 'en'), default='en'
+        )
         profile = CrushProfile.objects.create(
             user=request.user,
             completion_status='not_started',
@@ -199,7 +201,7 @@ def verify_phone_page(request):
 
     # If already verified, redirect to next or dashboard with message
     if profile.phone_verified:
-        messages.info(request, "Your phone number is already verified.")
+        messages.info(request, _("Your phone number is already verified."))
         if next_url:
             return redirect(next_url)
         return redirect('crush_lu:dashboard')

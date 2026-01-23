@@ -187,8 +187,10 @@ class Command(BaseCommand):
         ))
         self.stdout.write(f'Populating all languages: EN, DE, FR\n')
 
-        # 1. Get or create Special User Experience (with all language fields)
-        special_exp, created = SpecialUserExperience.objects.get_or_create(
+        # 1. Create or update Special User Experience (with all language fields)
+        # Using update_or_create ensures translated fields are properly populated
+        # even for existing records (get_or_create ignores defaults for existing records)
+        special_exp, created = SpecialUserExperience.objects.update_or_create(
             first_name=first_name,
             last_name=last_name,
             defaults={
@@ -214,18 +216,10 @@ class Command(BaseCommand):
         if created:
             self.stdout.write(f'[OK] Created Special User Experience for {first_name}')
         else:
-            self.stdout.write(f'[OK] Found existing Special User Experience for {first_name}')
-            # Update language fields
-            special_exp.custom_welcome_title_en = self.get_text('en', 'welcome_title', first_name=first_name)
-            special_exp.custom_welcome_message_en = self.get_text('en', 'welcome_message')
-            special_exp.custom_welcome_title_de = self.get_text('de', 'welcome_title', first_name=first_name)
-            special_exp.custom_welcome_message_de = self.get_text('de', 'welcome_message')
-            special_exp.custom_welcome_title_fr = self.get_text('fr', 'welcome_title', first_name=first_name)
-            special_exp.custom_welcome_message_fr = self.get_text('fr', 'welcome_message')
-            special_exp.save()
+            self.stdout.write(f'[OK] Updated existing Special User Experience for {first_name}')
 
-        # 2. Create Journey Configuration (all languages in one record)
-        journey, created = JourneyConfiguration.objects.get_or_create(
+        # 2. Create or update Journey Configuration (all languages in one record)
+        journey, created = JourneyConfiguration.objects.update_or_create(
             special_experience=special_exp,
             journey_type='wonderland',
             defaults={
@@ -251,16 +245,7 @@ class Command(BaseCommand):
         if created:
             self.stdout.write(f'[OK] Created Journey Configuration')
         else:
-            self.stdout.write(f'[WARN] Journey already exists - updating...')
-            journey.journey_name_en = self.get_text('en', 'journey_name')
-            journey.final_message_en = self.get_text('en', 'final_message')
-            journey.journey_name_de = self.get_text('de', 'journey_name')
-            journey.final_message_de = self.get_text('de', 'final_message')
-            journey.journey_name_fr = self.get_text('fr', 'journey_name')
-            journey.final_message_fr = self.get_text('fr', 'final_message')
-            journey.date_first_met = date_met
-            journey.location_first_met = location_met
-            journey.save()
+            self.stdout.write(f'[OK] Updated existing Journey Configuration')
 
         # 3. Create all 6 chapters with all language content
         self.create_all_chapters(journey, date_met, location_met, first_name, media_options)
@@ -309,7 +294,7 @@ class Command(BaseCommand):
         content_de = self.get_chapter_content('de', 1)
         content_fr = self.get_chapter_content('fr', 1)
 
-        chapter, _ = JourneyChapter.objects.get_or_create(
+        chapter, _ = JourneyChapter.objects.update_or_create(
             journey=journey,
             chapter_number=1,
             defaults={
@@ -356,7 +341,7 @@ class Command(BaseCommand):
             season_de = self.get_text('de', f'seasons.{self.get_season_key(date_met)}')
             season_fr = self.get_text('fr', f'seasons.{self.get_season_key(date_met)}')
 
-            JourneyChallenge.objects.get_or_create(
+            JourneyChallenge.objects.update_or_create(
                 chapter=chapter,
                 challenge_order=1,
                 defaults={
@@ -405,7 +390,7 @@ class Command(BaseCommand):
             scramble_de = challenges_de[1] if len(challenges_de) > 1 else scramble_en
             scramble_fr = challenges_fr[1] if len(challenges_fr) > 1 else scramble_en
 
-            JourneyChallenge.objects.get_or_create(
+            JourneyChallenge.objects.update_or_create(
                 chapter=chapter,
                 challenge_order=2,
                 defaults={
@@ -434,7 +419,7 @@ class Command(BaseCommand):
         reward_de = content_de.get('reward', {})
         reward_fr = content_fr.get('reward', {})
 
-        reward, reward_created = JourneyReward.objects.get_or_create(
+        reward, reward_created = JourneyReward.objects.update_or_create(
             chapter=chapter,
             defaults={
                 'reward_type': reward_en.get('type', 'photo_reveal'),
@@ -460,7 +445,7 @@ class Command(BaseCommand):
         content_de = self.get_chapter_content('de', 2)
         content_fr = self.get_chapter_content('fr', 2)
 
-        chapter, _ = JourneyChapter.objects.get_or_create(
+        chapter, _ = JourneyChapter.objects.update_or_create(
             journey=journey,
             chapter_number=2,
             defaults={
@@ -492,7 +477,7 @@ class Command(BaseCommand):
             q_de = challenges_de[i - 1] if i <= len(challenges_de) else q_en
             q_fr = challenges_fr[i - 1] if i <= len(challenges_fr) else q_en
 
-            JourneyChallenge.objects.get_or_create(
+            JourneyChallenge.objects.update_or_create(
                 chapter=chapter,
                 challenge_order=i,
                 defaults={
@@ -516,7 +501,7 @@ class Command(BaseCommand):
         reward_de = content_de.get('reward', {})
         reward_fr = content_fr.get('reward', {})
 
-        JourneyReward.objects.get_or_create(
+        JourneyReward.objects.update_or_create(
             chapter=chapter,
             defaults={
                 'reward_type': reward_en.get('type', 'poem'),
@@ -537,7 +522,7 @@ class Command(BaseCommand):
         content_de = self.get_chapter_content('de', 3)
         content_fr = self.get_chapter_content('fr', 3)
 
-        chapter, _ = JourneyChapter.objects.get_or_create(
+        chapter, _ = JourneyChapter.objects.update_or_create(
             journey=journey,
             chapter_number=3,
             defaults={
@@ -569,7 +554,7 @@ class Command(BaseCommand):
         formatted_events_de = [e.format(location_met=location_met) for e in events_de]
         formatted_events_fr = [e.format(location_met=location_met) for e in events_fr]
 
-        JourneyChallenge.objects.get_or_create(
+        JourneyChallenge.objects.update_or_create(
             chapter=chapter,
             challenge_order=1,
             defaults={
@@ -590,7 +575,7 @@ class Command(BaseCommand):
         )
 
         # Challenge 3B: The Moment That Changed Everything
-        JourneyChallenge.objects.get_or_create(
+        JourneyChallenge.objects.update_or_create(
             chapter=chapter,
             challenge_order=2,
             defaults={
@@ -614,7 +599,7 @@ class Command(BaseCommand):
         reward_de = content_de.get('reward', {})
         reward_fr = content_fr.get('reward', {})
 
-        reward, reward_created = JourneyReward.objects.get_or_create(
+        reward, reward_created = JourneyReward.objects.update_or_create(
             chapter=chapter,
             defaults={
                 'reward_type': reward_en.get('type', 'photo_slideshow'),
@@ -639,7 +624,7 @@ class Command(BaseCommand):
         content_de = self.get_chapter_content('de', 4)
         content_fr = self.get_chapter_content('fr', 4)
 
-        chapter, _ = JourneyChapter.objects.get_or_create(
+        chapter, _ = JourneyChapter.objects.update_or_create(
             journey=journey,
             chapter_number=4,
             defaults={
@@ -674,7 +659,7 @@ class Command(BaseCommand):
             q_de = wyr_de[i - 1] if i <= len(wyr_de) else q_en
             q_fr = wyr_fr[i - 1] if i <= len(wyr_fr) else q_en
 
-            JourneyChallenge.objects.get_or_create(
+            JourneyChallenge.objects.update_or_create(
                 chapter=chapter,
                 challenge_order=i,
                 defaults={
@@ -694,7 +679,7 @@ class Command(BaseCommand):
             )
 
         # Open text reflection
-        JourneyChallenge.objects.get_or_create(
+        JourneyChallenge.objects.update_or_create(
             chapter=chapter,
             challenge_order=len(wyr_en) + 1,
             defaults={
@@ -715,7 +700,7 @@ class Command(BaseCommand):
         reward_de = content_de.get('reward', {})
         reward_fr = content_fr.get('reward', {})
 
-        reward, reward_created = JourneyReward.objects.get_or_create(
+        reward, reward_created = JourneyReward.objects.update_or_create(
             chapter=chapter,
             defaults={
                 'reward_type': reward_en.get('type', 'voice_message'),
@@ -740,7 +725,7 @@ class Command(BaseCommand):
         content_de = self.get_chapter_content('de', 5)
         content_fr = self.get_chapter_content('fr', 5)
 
-        chapter, _ = JourneyChapter.objects.get_or_create(
+        chapter, _ = JourneyChapter.objects.update_or_create(
             journey=journey,
             chapter_number=5,
             defaults={
@@ -764,7 +749,7 @@ class Command(BaseCommand):
         )
 
         # Challenge 5A: Build Your Dreams
-        JourneyChallenge.objects.get_or_create(
+        JourneyChallenge.objects.update_or_create(
             chapter=chapter,
             challenge_order=1,
             defaults={
@@ -784,7 +769,7 @@ class Command(BaseCommand):
         )
 
         # Challenge 5B: Future vision
-        JourneyChallenge.objects.get_or_create(
+        JourneyChallenge.objects.update_or_create(
             chapter=chapter,
             challenge_order=2,
             defaults={
@@ -805,7 +790,7 @@ class Command(BaseCommand):
         reward_de = content_de.get('reward', {})
         reward_fr = content_fr.get('reward', {})
 
-        reward, reward_created = JourneyReward.objects.get_or_create(
+        reward, reward_created = JourneyReward.objects.update_or_create(
             chapter=chapter,
             defaults={
                 'reward_type': reward_en.get('type', 'future_letter'),
@@ -830,7 +815,7 @@ class Command(BaseCommand):
         content_de = self.get_chapter_content('de', 6)
         content_fr = self.get_chapter_content('fr', 6)
 
-        chapter, _ = JourneyChapter.objects.get_or_create(
+        chapter, _ = JourneyChapter.objects.update_or_create(
             journey=journey,
             chapter_number=6,
             defaults={
@@ -863,7 +848,7 @@ class Command(BaseCommand):
             riddle_fr = riddles_fr[i - 1] if i <= len(riddles_fr) else riddle_en
             points = 200 if i < 3 else 100
 
-            JourneyChallenge.objects.get_or_create(
+            JourneyChallenge.objects.update_or_create(
                 chapter=chapter,
                 challenge_order=i,
                 defaults={

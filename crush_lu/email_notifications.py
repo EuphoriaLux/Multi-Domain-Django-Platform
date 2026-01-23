@@ -13,6 +13,7 @@ from django.urls import reverse
 from django.utils.translation import override
 from azureproject.email_utils import send_domain_email
 from .email_helpers import get_user_language_url, get_email_base_urls
+from .utils.i18n import build_absolute_url, get_user_preferred_language
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +41,19 @@ def send_existing_user_invitation_email(event, user, request=None):
             base_urls = get_email_base_urls(user, request)
         else:
             # Fallback for when request is not available (e.g., management commands)
-            event_url = f'https://crush.lu/en/events/{event.id}/'
-            dashboard_url = 'https://crush.lu/en/dashboard/'
+            # Use user's preferred language for URLs
+            lang = get_user_preferred_language(user=user, default='en')
+            event_url = build_absolute_url(
+                'crush_lu:event_detail', lang=lang, kwargs={'event_id': event.id}
+            )
+            dashboard_url = build_absolute_url('crush_lu:dashboard', lang=lang)
             base_urls = {}
+
+        # Get user's preferred language
+        from django.utils import translation
+        from django.utils.translation import gettext as _
+
+        lang = get_user_preferred_language(user=user, default='en')
 
         # Prepare context for email template
         context = {
@@ -50,20 +61,18 @@ def send_existing_user_invitation_email(event, user, request=None):
             'event': event,
             'event_url': event_url,
             'dashboard_url': dashboard_url,
+            'LANGUAGE_CODE': lang,
             **base_urls,
         }
 
-        # Render HTML email from template
-        html_message = render_to_string(
-            'crush_lu/emails/existing_user_invitation.html',
-            context
-        )
-
-        # Create plain text version
-        plain_message = strip_tags(html_message)
-
-        # Send email
-        subject = f'🎉 You\'re Invited to {event.title}!'
+        # Render email in user's preferred language
+        with translation.override(lang):
+            subject = _("You're Invited to {title}!").format(title=event.title)
+            html_message = render_to_string(
+                'crush_lu/emails/existing_user_invitation.html',
+                context
+            )
+            plain_message = strip_tags(html_message)
 
         result = send_domain_email(
             subject=subject,
@@ -107,9 +116,18 @@ def send_external_guest_invitation_email(event_invitation, request=None):
             invitation_url = f"{protocol}://{domain}{url_path}"
         else:
             # Fallback when request is not available
-            with override('en'):
-                url_path = reverse('crush_lu:invitation_landing', kwargs={'code': event_invitation.invitation_code})
-            invitation_url = f"https://crush.lu{url_path}"
+            # Use English for external guests (they can change language on the page)
+            invitation_url = build_absolute_url(
+                'crush_lu:invitation_landing',
+                lang='en',
+                kwargs={'code': event_invitation.invitation_code}
+            )
+
+        # External guests use English by default (they can change language on the page)
+        from django.utils import translation
+        from django.utils.translation import gettext as _
+
+        lang = 'en'
 
         # Prepare context for email template
         context = {
@@ -118,19 +136,17 @@ def send_external_guest_invitation_email(event_invitation, request=None):
             'event': event_invitation.event,
             'invitation_url': invitation_url,
             'invited_by': event_invitation.invited_by,
+            'LANGUAGE_CODE': lang,
         }
 
-        # Render HTML email from template
-        html_message = render_to_string(
-            'crush_lu/emails/external_guest_invitation.html',
-            context
-        )
-
-        # Create plain text version
-        plain_message = strip_tags(html_message)
-
-        # Send email
-        subject = f'💌 You\'re Invited to {event_invitation.event.title} on Crush.lu'
+        # Render email in English for external guests
+        with translation.override(lang):
+            subject = _("You're Invited to {title} on Crush.lu").format(title=event_invitation.event.title)
+            html_message = render_to_string(
+                'crush_lu/emails/external_guest_invitation.html',
+                context
+            )
+            plain_message = strip_tags(html_message)
 
         result = send_domain_email(
             subject=subject,
@@ -179,9 +195,19 @@ def send_invitation_approval_email(event_invitation, request=None):
             base_urls = get_email_base_urls(user, request)
         else:
             # Fallback for when request is not available
-            event_url = f'https://crush.lu/en/events/{event.id}/'
-            dashboard_url = 'https://crush.lu/en/dashboard/'
+            # Use user's preferred language for URLs
+            lang = get_user_preferred_language(user=user, default='en')
+            event_url = build_absolute_url(
+                'crush_lu:event_detail', lang=lang, kwargs={'event_id': event.id}
+            )
+            dashboard_url = build_absolute_url('crush_lu:dashboard', lang=lang)
             base_urls = {}
+
+        # Get user's preferred language
+        from django.utils import translation
+        from django.utils.translation import gettext as _
+
+        lang = get_user_preferred_language(user=user, default='en')
 
         # Prepare context for email template
         context = {
@@ -190,20 +216,18 @@ def send_invitation_approval_email(event_invitation, request=None):
             'event': event,
             'event_url': event_url,
             'dashboard_url': dashboard_url,
+            'LANGUAGE_CODE': lang,
             **base_urls,
         }
 
-        # Render HTML email from template
-        html_message = render_to_string(
-            'crush_lu/emails/invitation_approved.html',
-            context
-        )
-
-        # Create plain text version
-        plain_message = strip_tags(html_message)
-
-        # Send email
-        subject = f'✅ Your Invitation to {event.title} Has Been Approved!'
+        # Render email in user's preferred language
+        with translation.override(lang):
+            subject = _("Your Invitation to {title} Has Been Approved!").format(title=event.title)
+            html_message = render_to_string(
+                'crush_lu/emails/invitation_approved.html',
+                context
+            )
+            plain_message = strip_tags(html_message)
 
         result = send_domain_email(
             subject=subject,
@@ -248,30 +272,36 @@ def send_invitation_rejection_email(event_invitation, request=None):
             base_urls = get_email_base_urls(user, request)
         else:
             # Fallback for when request is not available
-            events_url = 'https://crush.lu/en/events/'
+            # Use user's preferred language for URLs
+            lang = get_user_preferred_language(user=user, default='en')
+            events_url = build_absolute_url('crush_lu:event_list', lang=lang)
             base_urls = {}
+
+        # Get user's preferred language
+        from django.utils import translation
+        from django.utils.translation import gettext as _
+
+        lang = get_user_preferred_language(user=user, default='en')
 
         # Prepare context for email template
         context = {
             'invitation': event_invitation,
             'user': user,
             'event': event,
-            'feedback': event_invitation.approval_notes or "No specific feedback provided.",
+            'feedback': event_invitation.approval_notes or _("No specific feedback provided."),
             'events_url': events_url,  # Used by template for "Browse Other Events" button
+            'LANGUAGE_CODE': lang,
             **base_urls,
         }
 
-        # Render HTML email from template
-        html_message = render_to_string(
-            'crush_lu/emails/invitation_rejected.html',
-            context
-        )
-
-        # Create plain text version
-        plain_message = strip_tags(html_message)
-
-        # Send email
-        subject = f'Update on Your Invitation to {event.title}'
+        # Render email in user's preferred language
+        with translation.override(lang):
+            subject = _("Update on Your Invitation to {title}").format(title=event.title)
+            html_message = render_to_string(
+                'crush_lu/emails/invitation_rejected.html',
+                context
+            )
+            plain_message = strip_tags(html_message)
 
         result = send_domain_email(
             subject=subject,

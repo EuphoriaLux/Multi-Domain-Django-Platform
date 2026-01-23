@@ -9,6 +9,7 @@ from django.utils.html import strip_tags
 from django.urls import reverse
 from django.utils.translation import override
 from azureproject.email_utils import send_domain_email, get_domain_from_email
+from .utils.i18n import get_user_preferred_language, is_valid_language
 
 logger = logging.getLogger(__name__)
 
@@ -29,18 +30,8 @@ def get_user_language_url(user, url_name, request, **kwargs):
     Returns:
         str: Full URL with language prefix (e.g., 'https://crush.lu/de/events/')
     """
-    # Get user's preferred language
-    lang = 'en'  # Default
-    if user and hasattr(user, 'crushprofile') and user.crushprofile:
-        profile_lang = getattr(user.crushprofile, 'preferred_language', None)
-        if profile_lang and profile_lang in ['en', 'de', 'fr']:
-            lang = profile_lang
-        elif profile_lang:
-            logger.warning(f"User {user.id} has invalid language: {profile_lang}, using 'en'")
-    else:
-        request_language = getattr(request, 'LANGUAGE_CODE', None)
-        if request_language in ['en', 'de', 'fr']:
-            lang = request_language
+    # Get user's preferred language using centralized utility
+    lang = get_user_preferred_language(user=user, request=request, default='en')
 
     # Use override() context manager for thread-safety
     # This ensures language state is reset after the block
@@ -114,14 +105,18 @@ def get_email_context_with_unsubscribe(user, request, **extra_context):
         **extra_context: Additional context to include
 
     Returns:
-        dict: Context dictionary with unsubscribe_url, footer URLs, and all extra context
+        dict: Context dictionary with unsubscribe_url, footer URLs, LANGUAGE_CODE, and all extra context
     """
     # Get base footer URLs with proper language prefix
     base_urls = get_email_base_urls(user, request)
 
+    # Get user's preferred language for email templates
+    lang = get_user_preferred_language(user=user, request=request, default='en')
+
     context = {
         'user': user,  # Include user object for templates that need it
         'unsubscribe_url': get_unsubscribe_url(user, request),
+        'LANGUAGE_CODE': lang,  # For email templates that need language-aware rendering
         **base_urls,  # home_url, about_url, events_url, settings_url
         **extra_context
     }
@@ -161,7 +156,11 @@ def send_welcome_email(user, request):
     Returns:
         int: Number of emails sent (1 on success, 0 on failure)
     """
-    subject = "Welcome to Crush.lu! 🎉 Complete Your Profile"
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    # Get user's preferred language
+    lang = get_user_preferred_language(user=user, request=request, default='en')
 
     # Build profile URL with language prefix
     # Note: create_profile is inside i18n_patterns
@@ -176,8 +175,11 @@ def send_welcome_email(user, request):
         how_it_works_url=how_it_works_url,
     )
 
-    html_message = render_to_string('crush_lu/emails/welcome.html', context)
-    plain_message = strip_tags(html_message)
+    # Render email in user's preferred language
+    with translation.override(lang):
+        subject = _("Welcome to Crush.lu! Complete Your Profile")
+        html_message = render_to_string('crush_lu/emails/welcome.html', context)
+        plain_message = strip_tags(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -200,12 +202,16 @@ def send_profile_submission_confirmation(user, request):
     Returns:
         int: Number of emails sent (1 on success, 0 on failure)
     """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
     # Check email preferences
     if not can_send_email(user, 'profile_updates'):
         logger.info(f"Skipping profile submission email to {user.email} - user unsubscribed")
         return 0
 
-    subject = "Profile Submitted for Review - Crush.lu"
+    # Get user's preferred language
+    lang = get_user_preferred_language(user=user, request=request, default='en')
 
     # Build language-prefixed URLs
     events_url = get_user_language_url(user, 'crush_lu:event_list', request)
@@ -217,8 +223,11 @@ def send_profile_submission_confirmation(user, request):
         how_it_works_url=how_it_works_url,
     )
 
-    html_message = render_to_string('crush_lu/emails/profile_submission_confirmation.html', context)
-    plain_message = strip_tags(html_message)
+    # Render email in user's preferred language
+    with translation.override(lang):
+        subject = _("Profile Submitted for Review - Crush.lu")
+        html_message = render_to_string('crush_lu/emails/profile_submission_confirmation.html', context)
+        plain_message = strip_tags(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -242,7 +251,11 @@ def send_coach_assignment_notification(coach, profile_submission, request):
     Returns:
         int: Number of emails sent
     """
-    subject = f"New Profile Review Assignment - {profile_submission.profile.user.get_full_name()}"
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    # Get coach's preferred language
+    lang = get_user_preferred_language(user=coach.user, request=request, default='en')
 
     # Build language-prefixed URLs (coach's preferred language)
     review_url = get_user_language_url(
@@ -253,14 +266,21 @@ def send_coach_assignment_notification(coach, profile_submission, request):
     # Get base footer URLs for coach
     base_urls = get_email_base_urls(coach.user, request)
 
-    html_message = render_to_string('crush_lu/emails/coach_assignment.html', {
+    context = {
         'coach': coach,
         'submission': profile_submission,
         'profile': profile_submission.profile,
         'review_url': review_url,
+        'LANGUAGE_CODE': lang,
         **base_urls,
-    })
-    plain_message = strip_tags(html_message)
+    }
+
+    # Render email in coach's preferred language
+    with translation.override(lang):
+        user_name = profile_submission.profile.user.get_full_name()
+        subject = _("New Profile Review Assignment - {name}").format(name=user_name)
+        html_message = render_to_string('crush_lu/emails/coach_assignment.html', context)
+        plain_message = strip_tags(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -284,12 +304,16 @@ def send_profile_approved_notification(profile, request, coach_notes=None):
     Returns:
         int: Number of emails sent
     """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
     # Check email preferences
     if not can_send_email(profile.user, 'profile_updates'):
         logger.info(f"Skipping profile approved email to {profile.user.email} - user unsubscribed")
         return 0
 
-    subject = "Welcome to Crush.lu - Your Profile is Approved! 🎉"
+    # Get user's preferred language
+    lang = get_user_preferred_language(user=profile.user, request=request, default='en')
 
     # Build language-prefixed URLs
     events_url = get_user_language_url(profile.user, 'crush_lu:event_list', request)
@@ -300,8 +324,11 @@ def send_profile_approved_notification(profile, request, coach_notes=None):
         events_url=events_url,
     )
 
-    html_message = render_to_string('crush_lu/emails/profile_approved.html', context)
-    plain_message = strip_tags(html_message)
+    # Render email in user's preferred language
+    with translation.override(lang):
+        subject = _("Welcome to Crush.lu - Your Profile is Approved!")
+        html_message = render_to_string('crush_lu/emails/profile_approved.html', context)
+        plain_message = strip_tags(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -325,7 +352,11 @@ def send_profile_revision_request(profile, request, feedback):
     Returns:
         int: Number of emails sent
     """
-    subject = "Profile Review Feedback - Crush.lu"
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    # Get user's preferred language
+    lang = get_user_preferred_language(user=profile.user, request=request, default='en')
 
     # Build language-prefixed URLs
     edit_profile_url = get_user_language_url(profile.user, 'crush_lu:edit_profile', request)
@@ -333,14 +364,20 @@ def send_profile_revision_request(profile, request, feedback):
     # Get base footer URLs
     base_urls = get_email_base_urls(profile.user, request)
 
-    html_message = render_to_string('crush_lu/emails/profile_revision_request.html', {
+    context = {
         'user': profile.user,
         'first_name': profile.user.first_name,
         'feedback': feedback,
         'edit_profile_url': edit_profile_url,
+        'LANGUAGE_CODE': lang,
         **base_urls,
-    })
-    plain_message = strip_tags(html_message)
+    }
+
+    # Render email in user's preferred language
+    with translation.override(lang):
+        subject = _("Profile Review Feedback - Crush.lu")
+        html_message = render_to_string('crush_lu/emails/profile_revision_request.html', context)
+        plain_message = strip_tags(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -364,18 +401,28 @@ def send_profile_rejected_notification(profile, request, reason):
     Returns:
         int: Number of emails sent
     """
-    subject = "Profile Review Update - Crush.lu"
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    # Get user's preferred language
+    lang = get_user_preferred_language(user=profile.user, request=request, default='en')
 
     # Get base footer URLs
     base_urls = get_email_base_urls(profile.user, request)
 
-    html_message = render_to_string('crush_lu/emails/profile_rejected.html', {
+    context = {
         'user': profile.user,
         'first_name': profile.user.first_name,
         'reason': reason,
+        'LANGUAGE_CODE': lang,
         **base_urls,
-    })
-    plain_message = strip_tags(html_message)
+    }
+
+    # Render email in user's preferred language
+    with translation.override(lang):
+        subject = _("Profile Review Update - Crush.lu")
+        html_message = render_to_string('crush_lu/emails/profile_rejected.html', context)
+        plain_message = strip_tags(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -398,12 +445,16 @@ def send_event_registration_confirmation(registration, request):
     Returns:
         int: Number of emails sent
     """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
     # Check email preferences
     if not can_send_email(registration.user, 'event_reminders'):
         logger.info(f"Skipping event registration email to {registration.user.email} - user unsubscribed")
         return 0
 
-    subject = f"Event Registration Confirmed - {registration.event.title}"
+    # Get user's preferred language
+    lang = get_user_preferred_language(user=registration.user, request=request, default='en')
 
     # Build language-prefixed URLs
     event_url = get_user_language_url(
@@ -422,8 +473,11 @@ def send_event_registration_confirmation(registration, request):
         cancel_url=cancel_url,
     )
 
-    html_message = render_to_string('crush_lu/emails/event_registration_confirmation.html', context)
-    plain_message = strip_tags(html_message)
+    # Render email in user's preferred language
+    with translation.override(lang):
+        subject = _("Event Registration Confirmed - {title}").format(title=registration.event.title)
+        html_message = render_to_string('crush_lu/emails/event_registration_confirmation.html', context)
+        plain_message = strip_tags(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -446,7 +500,11 @@ def send_event_waitlist_notification(registration, request):
     Returns:
         int: Number of emails sent
     """
-    subject = f"Added to Waitlist - {registration.event.title}"
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    # Get user's preferred language
+    lang = get_user_preferred_language(user=registration.user, request=request, default='en')
 
     # Build language-prefixed URLs
     events_url = get_user_language_url(registration.user, 'crush_lu:event_list', request)
@@ -454,14 +512,20 @@ def send_event_waitlist_notification(registration, request):
     # Get base footer URLs
     base_urls = get_email_base_urls(registration.user, request)
 
-    html_message = render_to_string('crush_lu/emails/event_waitlist.html', {
+    context = {
         'user': registration.user,
         'registration': registration,
         'event': registration.event,
         'events_url': events_url,
+        'LANGUAGE_CODE': lang,
         **base_urls,
-    })
-    plain_message = strip_tags(html_message)
+    }
+
+    # Render email in user's preferred language
+    with translation.override(lang):
+        subject = _("Added to Waitlist - {title}").format(title=registration.event.title)
+        html_message = render_to_string('crush_lu/emails/event_waitlist.html', context)
+        plain_message = strip_tags(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -485,7 +549,11 @@ def send_event_cancellation_confirmation(user, event, request):
     Returns:
         int: Number of emails sent
     """
-    subject = f"Event Cancellation Confirmed - {event.title}"
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    # Get user's preferred language
+    lang = get_user_preferred_language(user=user, request=request, default='en')
 
     # Build language-prefixed URLs
     events_url = get_user_language_url(user, 'crush_lu:event_list', request)
@@ -493,13 +561,19 @@ def send_event_cancellation_confirmation(user, event, request):
     # Get base footer URLs
     base_urls = get_email_base_urls(user, request)
 
-    html_message = render_to_string('crush_lu/emails/event_cancellation.html', {
+    context = {
         'user': user,
         'event': event,
         'events_url': events_url,
+        'LANGUAGE_CODE': lang,
         **base_urls,
-    })
-    plain_message = strip_tags(html_message)
+    }
+
+    # Render email in user's preferred language
+    with translation.override(lang):
+        subject = _("Event Cancellation Confirmed - {title}").format(title=event.title)
+        html_message = render_to_string('crush_lu/emails/event_cancellation.html', context)
+        plain_message = strip_tags(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -523,12 +597,16 @@ def send_event_reminder(registration, request, days_until_event):
     Returns:
         int: Number of emails sent
     """
+    from django.utils import translation
+    from django.utils.translation import gettext as _, ngettext
+
     # Check email preferences
     if not can_send_email(registration.user, 'event_reminders'):
         logger.info(f"Skipping event reminder email to {registration.user.email} - user unsubscribed")
         return 0
 
-    subject = f"Event Reminder - {registration.event.title} in {days_until_event} days"
+    # Get user's preferred language
+    lang = get_user_preferred_language(user=registration.user, request=request, default='en')
 
     # Build language-prefixed URLs
     event_url = get_user_language_url(
@@ -548,8 +626,19 @@ def send_event_reminder(registration, request, days_until_event):
         cancel_url=cancel_url,
     )
 
-    html_message = render_to_string('crush_lu/emails/event_reminder.html', context)
-    plain_message = strip_tags(html_message)
+    # Render email in user's preferred language
+    with translation.override(lang):
+        days_text = ngettext(
+            "%(days)d day",
+            "%(days)d days",
+            days_until_event
+        ) % {'days': days_until_event}
+        subject = _("Event Reminder - {title} in {days}").format(
+            title=registration.event.title,
+            days=days_text
+        )
+        html_message = render_to_string('crush_lu/emails/event_reminder.html', context)
+        plain_message = strip_tags(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -618,12 +707,16 @@ def send_new_connection_request_notification(recipient, connection, requester, r
     Returns:
         int: Number of emails sent
     """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
     # Check email preferences
     if not can_send_email(recipient, 'new_connections'):
         logger.info(f"Skipping connection request email to {recipient.email} - user unsubscribed")
         return 0
 
-    subject = "Someone wants to connect with you! 💕"
+    # Get user's preferred language
+    lang = get_user_preferred_language(user=recipient, request=request, default='en')
 
     # Get requester display name
     if hasattr(requester, 'crushprofile'):
@@ -647,8 +740,11 @@ def send_new_connection_request_notification(recipient, connection, requester, r
         connections_url=connections_url,
     )
 
-    html_message = render_to_string('crush_lu/emails/new_connection_request.html', context)
-    plain_message = strip_tags(html_message)
+    # Render email in user's preferred language
+    with translation.override(lang):
+        subject = _("Someone wants to connect with you!")
+        html_message = render_to_string('crush_lu/emails/new_connection_request.html', context)
+        plain_message = strip_tags(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -673,12 +769,16 @@ def send_connection_accepted_notification(recipient, connection, accepter, reque
     Returns:
         int: Number of emails sent
     """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
     # Check email preferences
     if not can_send_email(recipient, 'new_connections'):
         logger.info(f"Skipping connection accepted email to {recipient.email} - user unsubscribed")
         return 0
 
-    subject = "Your connection request was accepted! 🎉"
+    # Get user's preferred language
+    lang = get_user_preferred_language(user=recipient, request=request, default='en')
 
     # Get accepter display name
     if hasattr(accepter, 'crushprofile'):
@@ -703,8 +803,11 @@ def send_connection_accepted_notification(recipient, connection, accepter, reque
         connection_url=connection_url,
     )
 
-    html_message = render_to_string('crush_lu/emails/connection_accepted.html', context)
-    plain_message = strip_tags(html_message)
+    # Render email in user's preferred language
+    with translation.override(lang):
+        subject = _("Your connection request was accepted!")
+        html_message = render_to_string('crush_lu/emails/connection_accepted.html', context)
+        plain_message = strip_tags(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -728,10 +831,16 @@ def send_new_message_notification(recipient, message, request):
     Returns:
         int: Number of emails sent
     """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
     # Check email preferences
     if not can_send_email(recipient, 'new_messages'):
         logger.info(f"Skipping new message email to {recipient.email} - user unsubscribed")
         return 0
+
+    # Get user's preferred language
+    lang = get_user_preferred_language(user=recipient, request=request, default='en')
 
     # Get sender display name
     sender = message.sender
@@ -739,8 +848,6 @@ def send_new_message_notification(recipient, message, request):
         sender_name = sender.crushprofile.display_name
     else:
         sender_name = sender.first_name
-
-    subject = f"New message from {sender_name} 💬"
 
     # Truncate message for preview
     message_preview = message.message[:100]
@@ -760,8 +867,11 @@ def send_new_message_notification(recipient, message, request):
         connection_url=connection_url,
     )
 
-    html_message = render_to_string('crush_lu/emails/new_message.html', context)
-    plain_message = strip_tags(html_message)
+    # Render email in user's preferred language
+    with translation.override(lang):
+        subject = _("New message from {name}").format(name=sender_name)
+        html_message = render_to_string('crush_lu/emails/new_message.html', context)
+        plain_message = strip_tags(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -875,7 +985,18 @@ def send_journey_gift_notification(gift, request):
     # Build claim URL - gift landing page with language prefix
     protocol = 'https' if request.is_secure() else 'http'
     domain = request.get_host()
-    claim_url = f"{protocol}://{domain}/{sender_lang}/journey/gift/{gift.gift_code}/"
+
+    # Use reverse() with override() for proper language-prefixed URLs
+    with translation.override(sender_lang):
+        claim_url_path = reverse('crush_lu:gift_landing', kwargs={'gift_code': gift.gift_code})
+        home_url_path = reverse('crush_lu:home')
+        about_url_path = reverse('crush_lu:about')
+        events_url_path = reverse('crush_lu:event_list')
+
+    claim_url = f"{protocol}://{domain}{claim_url_path}"
+    home_url = f"{protocol}://{domain}{home_url_path}"
+    about_url = f"{protocol}://{domain}{about_url_path}"
+    events_url = f"{protocol}://{domain}{events_url_path}"
 
     # Get QR code URL (may be None if not generated yet)
     qr_code_url = None
@@ -895,9 +1016,9 @@ def send_journey_gift_notification(gift, request):
         'claim_url': claim_url,
         'qr_code_url': qr_code_url,
         'gift_code': gift.gift_code,
-        'home_url': f'{protocol}://{domain}/{sender_lang}/',
-        'about_url': f'{protocol}://{domain}/{sender_lang}/about/',
-        'events_url': f'{protocol}://{domain}/{sender_lang}/events/',
+        'home_url': home_url,
+        'about_url': about_url,
+        'events_url': events_url,
     }
 
     # Render email template in sender's preferred language
@@ -980,21 +1101,28 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
         )
     else:
         # Create minimal context for batch sending without request
-        profile_url = f"https://crush.lu/{lang}/create-profile/"
+        # Use reverse() with override() for proper language-prefixed URLs
+        from .utils.i18n import build_absolute_url
+
+        profile_url = build_absolute_url('crush_lu:create_profile', lang=lang)
 
         # Get or create email preferences for unsubscribe URL
         email_prefs = EmailPreference.get_or_create_for_user(user)
-        unsubscribe_url = f"https://crush.lu/{lang}/email/unsubscribe/{email_prefs.unsubscribe_token}/"
+        unsubscribe_url = build_absolute_url(
+            'crush_lu:email_unsubscribe',
+            lang=lang,
+            kwargs={'token': email_prefs.unsubscribe_token}
+        )
 
         context = {
             'user': user,
             'completion_status': profile.completion_status,
             'profile_url': profile_url,
             'unsubscribe_url': unsubscribe_url,
-            'home_url': f'https://crush.lu/{lang}/',
-            'about_url': f'https://crush.lu/{lang}/about/',
-            'events_url': f'https://crush.lu/{lang}/events/',
-            'settings_url': f'https://crush.lu/{lang}/account/settings/',
+            'home_url': build_absolute_url('crush_lu:home', lang=lang),
+            'about_url': build_absolute_url('crush_lu:about', lang=lang),
+            'events_url': build_absolute_url('crush_lu:event_list', lang=lang),
+            'settings_url': build_absolute_url('crush_lu:account_settings', lang=lang),
         }
 
     # Render email and send in user's preferred language

@@ -5316,14 +5316,29 @@ document.addEventListener('alpine:init', function() {
             init: function() {
                 var self = this;
 
-                // Load images from data attribute
-                var imagesData = this.$el.getAttribute('data-images');
-                if (imagesData) {
-                    try {
-                        this.images = JSON.parse(imagesData);
-                    } catch (e) {
-                        console.error('[PhotoSlideshow] Failed to parse images:', e);
-                        this.images = [];
+                // Load images from script tag (preferred) or data attribute (fallback)
+                var scriptId = this.$el.getAttribute('data-images-from');
+                if (scriptId) {
+                    // Load from script tag containing JSON (avoids HTML attribute escaping issues)
+                    var scriptEl = document.getElementById(scriptId);
+                    if (scriptEl) {
+                        try {
+                            this.images = JSON.parse(scriptEl.textContent);
+                        } catch (e) {
+                            console.error('[PhotoSlideshow] Failed to parse images from script tag:', e);
+                            this.images = [];
+                        }
+                    }
+                } else {
+                    // Fallback: load from data-images attribute
+                    var imagesData = this.$el.getAttribute('data-images');
+                    if (imagesData) {
+                        try {
+                            this.images = JSON.parse(imagesData);
+                        } catch (e) {
+                            console.error('[PhotoSlideshow] Failed to parse images:', e);
+                            this.images = [];
+                        }
                     }
                 }
 

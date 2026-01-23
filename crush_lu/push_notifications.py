@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils.translation import override, gettext as _
 from pywebpush import webpush, WebPushException
 from .models import PushSubscription
+from .utils.i18n import get_user_preferred_language
 
 logger = logging.getLogger(__name__)
 
@@ -25,13 +26,7 @@ def get_user_language(user):
     Returns:
         Language code ('en', 'de', 'fr') - defaults to 'en'
     """
-    if hasattr(user, 'crushprofile') and user.crushprofile:
-        profile_lang = getattr(user.crushprofile, 'preferred_language', None)
-        if profile_lang and profile_lang in ['en', 'de', 'fr']:
-            return profile_lang
-        elif profile_lang:
-            logger.warning(f"User {user.id} has invalid language: {profile_lang}, using 'en'")
-    return 'en'
+    return get_user_preferred_language(user=user, default='en')
 
 
 @contextmanager

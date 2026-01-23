@@ -15,6 +15,7 @@ import re
 from django import template
 from django.conf import settings
 from django.utils.safestring import mark_safe
+from django.utils.translation import get_language
 
 register = template.Library()
 
@@ -131,7 +132,7 @@ def localized_url(context, lang_code):
     Usage:
         {% load seo_tags %}
         <a href="{% localized_url 'de' %}">Deutsch</a>
-        <a href="{% localized_url 'fr' %}">Fran??ais</a>
+        <a href="{% localized_url 'fr' %}">Francais</a>
     """
     request = context.get('request')
     if not request:
@@ -141,3 +142,27 @@ def localized_url(context, lang_code):
     base_path = get_path_without_language(request)
 
     return f"/{lang_code}{base_path}"
+
+
+@register.simple_tag
+def og_locale():
+    """
+    Return valid og:locale for the current language.
+
+    Maps language codes to proper Open Graph locale format (language_TERRITORY).
+
+    Usage:
+        {% load seo_tags %}
+        <meta property="og:locale" content="{% og_locale %}">
+
+    Output for English: en_US
+    Output for German: de_DE
+    Output for French: fr_FR
+    """
+    lang = get_language() or 'en'
+    locale_map = {
+        'en': 'en_US',
+        'de': 'de_DE',
+        'fr': 'fr_FR',
+    }
+    return locale_map.get(lang, 'en_US')

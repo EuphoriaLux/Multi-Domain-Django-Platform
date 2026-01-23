@@ -3,12 +3,13 @@ Allauth adapter for Crush.lu
 Customizes social authentication behavior for the Crush.lu domain
 """
 from django.urls import reverse
-from django.utils.translation import get_language, override
+from django.utils.translation import override
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.account.adapter import DefaultAccountAdapter
 
 from azureproject.domains import DOMAINS
 from .referrals import apply_referral_to_user
+from .utils.i18n import get_user_preferred_language
 
 
 # Build set of all Crush.lu domains (primary + aliases) for efficient lookup
@@ -30,20 +31,7 @@ def get_i18n_redirect_url(request, url_name, user=None):
         url_name: The URL name to reverse (e.g., 'crush_lu:dashboard')
         user: Optional user object to get preferred language from
     """
-    # Determine the language to use
-    lang = 'en'  # Default fallback
-
-    # Try to get user's preferred language from profile
-    if user and hasattr(user, 'crushprofile') and user.crushprofile:
-        profile_lang = getattr(user.crushprofile, 'preferred_language', None)
-        if profile_lang and profile_lang in ['en', 'de', 'fr']:
-            lang = profile_lang
-
-    # If no user preference, try session/request language
-    if lang == 'en':
-        request_lang = getattr(request, 'LANGUAGE_CODE', None) or get_language()
-        if request_lang and request_lang in ['en', 'de', 'fr']:
-            lang = request_lang
+    lang = get_user_preferred_language(user=user, request=request, default='en')
 
     # Use override() context manager for thread-safety
     with override(lang):

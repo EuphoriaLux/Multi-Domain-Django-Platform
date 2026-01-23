@@ -170,9 +170,16 @@ class GraphContactsService:
             gender_display = dict(profile.GENDER_CHOICES).get(profile.gender, profile.gender)
             notes_parts.append(f"Gender: {gender_display}")
 
-        # Age
-        if profile.age:
-            notes_parts.append(f"Age: {profile.age}")
+        # Age (with defensive check for corrupted date_of_birth data)
+        try:
+            if profile.age:
+                notes_parts.append(f"Age: {profile.age}")
+        except (AttributeError, TypeError):
+            # date_of_birth might be corrupted (stored as string instead of date)
+            logger.warning(
+                f"Profile {profile.pk} has invalid date_of_birth: "
+                f"{type(profile.date_of_birth).__name__}"
+            )
 
         # Location
         if profile.location:
@@ -211,9 +218,22 @@ class GraphContactsService:
                 }
             ]
 
-        # Birthday
+        # Birthday (with defensive check for corrupted data)
         if profile.date_of_birth:
-            payload["birthday"] = profile.date_of_birth.isoformat()
+            try:
+                # date_of_birth should be a date object, but may be corrupted as string
+                if hasattr(profile.date_of_birth, 'isoformat'):
+                    payload["birthday"] = profile.date_of_birth.isoformat()
+                else:
+                    # It's already a string - try to use it directly
+                    logger.warning(
+                        f"Profile {profile.pk} date_of_birth is a string, not a date object"
+                    )
+                    payload["birthday"] = str(profile.date_of_birth)
+            except (AttributeError, TypeError) as e:
+                logger.warning(
+                    f"Profile {profile.pk} has invalid date_of_birth: {e}"
+                )
 
         # Location as business address city
         if profile.location:

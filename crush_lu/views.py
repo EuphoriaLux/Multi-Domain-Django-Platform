@@ -65,6 +65,7 @@ from .coach_notifications import (
     notify_coach_user_revision,
 )
 from .referrals import capture_referral, capture_referral_from_request, apply_referral_to_user
+from .utils.i18n import is_valid_language
 
 
 # Authentication views - login/logout are now handled by AllAuth
@@ -837,7 +838,7 @@ def create_profile(request):
             if is_first_submission and hasattr(request, 'LANGUAGE_CODE'):
                 current_lang = request.LANGUAGE_CODE
                 # Only set if it's a supported language
-                if current_lang in ['en', 'de', 'fr']:
+                if is_valid_language(current_lang):
                     profile.preferred_language = current_lang
                     logger.debug(f"Set preferred_language to '{current_lang}' for {request.user.email}")
 
@@ -1483,9 +1484,10 @@ def event_register(request, event_id):
             except CrushProfile.DoesNotExist:
                 # Edge case: invited user doesn't have profile yet - create minimal one
                 # Get preferred language from current request
-                preferred_lang = getattr(request, 'LANGUAGE_CODE', 'en')
-                if preferred_lang not in ['en', 'de', 'fr']:
-                    preferred_lang = 'en'
+                from .utils.i18n import validate_language
+                preferred_lang = validate_language(
+                    getattr(request, 'LANGUAGE_CODE', 'en'), default='en'
+                )
                 profile = CrushProfile.objects.create(
                     user=request.user,
                     is_approved=True,
@@ -1499,9 +1501,10 @@ def event_register(request, event_id):
         # EXTERNAL GUESTS: Create minimal profile with auto-approval
         else:
             # Get preferred language from current request
-            preferred_lang = getattr(request, 'LANGUAGE_CODE', 'en')
-            if preferred_lang not in ['en', 'de', 'fr']:
-                preferred_lang = 'en'
+            from .utils.i18n import validate_language
+            preferred_lang = validate_language(
+                getattr(request, 'LANGUAGE_CODE', 'en'), default='en'
+            )
             profile, created = CrushProfile.objects.get_or_create(
                 user=request.user,
                 defaults={

@@ -469,6 +469,9 @@ class CrushProfile(models.Model):
     def age(self):
         if not self.date_of_birth:
             return None
+        # Defensive check: date_of_birth should be a date object but may be corrupted
+        if not hasattr(self.date_of_birth, 'year'):
+            return None
         today = timezone.now().date()
         return today.year - self.date_of_birth.year - (
             (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day)

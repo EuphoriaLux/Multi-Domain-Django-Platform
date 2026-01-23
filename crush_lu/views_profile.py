@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from django.db import transaction
 import json
 import logging
@@ -42,16 +43,17 @@ def save_profile_step1(request):
             except CrushCoach.DoesNotExist:
                 pass
 
-        # Validate date of birth
-        date_of_birth = data.get('date_of_birth')
-        if date_of_birth:
+        # Validate date of birth and parse to date object
+        date_of_birth_str = data.get('date_of_birth')
+        date_of_birth = None  # Will be set to a date object if valid
+        if date_of_birth_str:
             from datetime import datetime
             try:
-                dob = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
+                date_of_birth = datetime.strptime(date_of_birth_str, '%Y-%m-%d').date()
 
                 # Calculate age
                 today = timezone.now().date()
-                age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+                age = today.year - date_of_birth.year - ((today.month, today.day) < (date_of_birth.month, date_of_birth.day))
 
                 # Validate age range
                 if age < 18:
@@ -279,11 +281,11 @@ def complete_profile_submission(request):
                 add_message_func=lambda msg: messages.warning(request, msg)
             )
 
-        messages.success(request, 'Profile submitted for review! A coach will contact you soon.')
+        messages.success(request, _('Profile submitted for review! A coach will contact you soon.'))
         return redirect('crush_lu:profile_submitted')
 
     except CrushProfile.DoesNotExist:
-        messages.error(request, 'Please complete your profile first.')
+        messages.error(request, _('Please complete your profile first.'))
         return redirect('crush_lu:create_profile')
 
 

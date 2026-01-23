@@ -12,6 +12,7 @@ from django.conf import settings
 from django.utils import timezone
 from .models import MeetupEvent, EventActivityOption, CrushProfile, SpecialUserExperience, EmailPreference, EventRegistration, CrushCoach
 from .storage import initialize_user_storage
+from .utils.i18n import is_valid_language
 import logging
 from datetime import datetime
 import requests
@@ -221,11 +222,11 @@ def create_crush_profile_on_login(sender, request, user, **kwargs):
 
     preferred_language = 'en'
     request_language = getattr(request, 'LANGUAGE_CODE', None)
-    if request_language in ['en', 'de', 'fr']:
+    if is_valid_language(request_language):
         preferred_language = request_language
     else:
         session_language = request.session.get('django_language')
-        if session_language in ['en', 'de', 'fr']:
+        if is_valid_language(session_language):
             preferred_language = session_language
 
     try:
@@ -283,7 +284,7 @@ def sync_language_preference_on_login(sender, request, user, **kwargs):
             # If profile has default 'en' but session has different valid language,
             # update profile to match session (user's browsing language preference)
             if (profile.preferred_language == 'en' and
-                    session_lang and session_lang in ['de', 'fr']):
+                    session_lang and is_valid_language(session_lang) and session_lang != 'en'):
                 profile.preferred_language = session_lang
                 profile.save(update_fields=['preferred_language'])
                 logger.info(
