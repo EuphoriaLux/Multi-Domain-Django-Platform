@@ -219,81 +219,190 @@
                 <!-- reCAPTCHA container -->
                 <div id="recaptcha-container"></div>
 
-                <!-- Date of Birth -->
+                <!-- Date of Birth - Stepped Picker -->
                 <div class="mb-6">
-                    <label for="{{ form.date_of_birth.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
                         {% include "shared/icons/calendar.html" with class="w-5 h-5" %} {% trans "Date of Birth" %} *
                     </label>
-                    {{ form.date_of_birth }}
-                    <p class="text-sm text-gray-500 mt-1">{% trans "Must be 18+ to join" %}</p>
+                    <p class="text-sm text-gray-500 mb-3">{% trans "Must be 18+ to join" %}</p>
+
+                    <div x-data="dobPicker"
+                         data-months='[{"num":1,"name":"{% trans "January" %}"},{"num":2,"name":"{% trans "February" %}"},{"num":3,"name":"{% trans "March" %}"},{"num":4,"name":"{% trans "April" %}"},{"num":5,"name":"{% trans "May" %}"},{"num":6,"name":"{% trans "June" %}"},{"num":7,"name":"{% trans "July" %}"},{"num":8,"name":"{% trans "August" %}"},{"num":9,"name":"{% trans "September" %}"},{"num":10,"name":"{% trans "October" %}"},{"num":11,"name":"{% trans "November" %}"},{"num":12,"name":"{% trans "December" %}"}]'
+                         class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+
+                        <!-- Progress Breadcrumb -->
+                        <div class="flex flex-wrap items-center gap-2 mb-4 text-sm">
+                            <button type="button" @click="goToStep1"
+                                    class="inline-flex items-center gap-1 px-2 py-1 rounded-md transition-colors"
+                                    x-bind:class="isStep1 ? 'bg-purple-100 text-purple-700 font-medium' : 'text-gray-500 hover:text-purple-600 hover:bg-purple-50'">
+                                <span>{% trans "Age Range" %}</span>
+                            </button>
+
+                            <div x-show="showAgeRangeBreadcrumb" class="flex items-center gap-2">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                                <button type="button" @click="goToStep2"
+                                        class="inline-flex items-center gap-1 px-2 py-1 rounded-md transition-colors"
+                                        x-bind:class="isStep2 ? 'bg-purple-100 text-purple-700 font-medium' : 'text-gray-500 hover:text-purple-600 hover:bg-purple-50'">
+                                    <span x-text="yearBreadcrumbText"></span>
+                                </button>
+                            </div>
+
+                            <div x-show="showYearBreadcrumb" class="flex items-center gap-2">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                                <button type="button" @click="goToStep3"
+                                        class="inline-flex items-center gap-1 px-2 py-1 rounded-md transition-colors"
+                                        x-bind:class="isStep3 ? 'bg-purple-100 text-purple-700 font-medium' : 'text-gray-500 hover:text-purple-600 hover:bg-purple-50'">
+                                    <span x-text="monthBreadcrumbText"></span>
+                                </button>
+                            </div>
+
+                            <div x-show="showMonthBreadcrumb" class="flex items-center gap-2">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                                <button type="button" @click="goToStep4"
+                                        class="inline-flex items-center gap-1 px-2 py-1 rounded-md transition-colors"
+                                        x-bind:class="isStep4 ? 'bg-purple-100 text-purple-700 font-medium' : 'text-gray-500 hover:text-purple-600 hover:bg-purple-50'">
+                                    <span x-text="dayBreadcrumbText"></span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Step 1: Age Range Selection -->
+                        <div x-show="isStep1" x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+                            <p class="text-sm text-gray-600 mb-4">{% trans "What's your age range?" %}</p>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3" data-dob-age-ranges>
+                                <!-- Buttons rendered by JavaScript -->
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Year Selection -->
+                        <div x-show="isStep2" x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-cloak>
+                            <p class="text-sm text-gray-600 mb-3">{% trans "Select your birth year" %}</p>
+                            <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2 max-h-48 overflow-y-auto pr-1" data-dob-years>
+                                <!-- Buttons rendered by JavaScript -->
+                            </div>
+                        </div>
+
+                        <!-- Step 3: Month Selection -->
+                        <div x-show="isStep3" x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-cloak>
+                            <p class="text-sm text-gray-600 mb-3">{% trans "Select your birth month" %}</p>
+                            <div class="grid grid-cols-3 sm:grid-cols-4 gap-2" data-dob-months>
+                                <!-- Buttons rendered by JavaScript -->
+                            </div>
+                        </div>
+
+                        <!-- Step 4: Day Selection -->
+                        <div x-show="isStep4" x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-cloak>
+                            <p class="text-sm text-gray-600 mb-3">{% trans "Select your birth day" %}</p>
+                            <div class="grid grid-cols-7 gap-1.5" data-dob-days>
+                                <!-- Buttons rendered by JavaScript -->
+                            </div>
+
+                            <!-- Completion Summary -->
+                            <div data-dob-summary class="hidden mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
+                                <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-green-800" data-dob-formatted></p>
+                                    <p class="text-sm text-green-600">{% trans "Date of birth selected" %}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hidden input for form submission -->
+                        <input type="hidden" name="date_of_birth"
+                               {% if profile.date_of_birth %}value="{{ profile.date_of_birth|date:'Y-m-d' }}"{% endif %}>
+                    </div>
+
                     {% if form.date_of_birth.errors %}
-                        <p class="text-sm text-red-600 mt-1">{{ form.date_of_birth.errors.0 }}</p>
+                        <p class="text-sm text-red-600 mt-2 flex items-center gap-1">
+                            {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4" %}
+                            {{ form.date_of_birth.errors.0 }}
+                        </p>
                     {% endif %}
                 </div>
 
                 <!-- Gender Selection -->
                 <fieldset class="mb-6">
-                    <legend class="block text-sm font-medium text-gray-700 mb-3">
+                    <legend class="block text-sm font-medium text-gray-700 mb-2">
                         <span aria-hidden="true">{% include "shared/icons/user.html" with class="w-5 h-5" %}</span> {% trans "Gender" %} <span class="text-red-500" aria-label="required">*</span>
                     </legend>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3" role="radiogroup" aria-label="{% trans "Select your gender" %}">
-                        {% for value, label, icon in gender_choices %}
-                        <label class="cursor-pointer">
-                            <input type="radio" name="gender" value="{{ value }}" class="peer hidden"
-                                   {% if profile.gender == value %}checked{% endif %} required>
-                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
-                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
-                                        hover:border-purple-300">
-                                <div class="text-2xl mb-1">{{ icon }}</div>
-                                <div class="text-sm font-medium">{{ label }}</div>
-                            </div>
-                        </label>
-                        {% empty %}
-                        <!-- Fallback if gender_choices not provided -->
-                        <label class="cursor-pointer">
-                            <input type="radio" name="gender" value="M" class="peer hidden"
-                                   {% if profile.gender == 'M' %}checked{% endif %} required>
-                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
-                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
-                                        hover:border-purple-300">
-                                <div class="text-2xl mb-1">👨</div>
-                                <div class="text-sm font-medium">{% trans "Male" %}</div>
-                            </div>
-                        </label>
-                        <label class="cursor-pointer">
-                            <input type="radio" name="gender" value="F" class="peer hidden"
-                                   {% if profile.gender == 'F' %}checked{% endif %}>
-                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
-                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
-                                        hover:border-purple-300">
-                                <div class="text-2xl mb-1">👩</div>
-                                <div class="text-sm font-medium">{% trans "Female" %}</div>
-                            </div>
-                        </label>
-                        <label class="cursor-pointer">
-                            <input type="radio" name="gender" value="NB" class="peer hidden"
-                                   {% if profile.gender == 'NB' %}checked{% endif %}>
-                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
-                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
-                                        hover:border-purple-300">
-                                <div class="text-2xl mb-1">🧑</div>
-                                <div class="text-sm font-medium">{% trans "Non-binary" %}</div>
-                            </div>
-                        </label>
-                        <label class="cursor-pointer">
-                            <input type="radio" name="gender" value="O" class="peer hidden"
-                                   {% if profile.gender == 'O' %}checked{% endif %}>
-                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
-                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
-                                        hover:border-purple-300">
-                                <div class="text-2xl mb-1">✨</div>
-                                <div class="text-sm font-medium">{% trans "Other" %}</div>
-                            </div>
-                        </label>
-                        {% endfor %}
+                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                        <p class="text-sm text-gray-600 mb-4">{% trans "How do you identify?" %}</p>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3" role="radiogroup" aria-label="{% trans "Select your gender" %}">
+                            {% for value, label, icon in gender_choices %}
+                            <label class="cursor-pointer block">
+                                <input type="radio" name="gender" value="{{ value }}" class="peer hidden"
+                                       {% if profile.gender == value %}checked{% endif %} required>
+                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
+                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
+                                    <span class="text-xl flex-shrink-0">{{ icon }}</span>
+                                    <span class="gender-label whitespace-nowrap">{{ label }}</span>
+                                </div>
+                            </label>
+                            {% empty %}
+                            <!-- Fallback if gender_choices not provided -->
+                            <label class="cursor-pointer block">
+                                <input type="radio" name="gender" value="M" class="peer hidden"
+                                       {% if profile.gender == 'M' %}checked{% endif %} required>
+                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
+                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
+                                    <span class="text-xl flex-shrink-0">👨</span>
+                                    <span class="gender-label whitespace-nowrap">{% trans "Male" %}</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer block">
+                                <input type="radio" name="gender" value="F" class="peer hidden"
+                                       {% if profile.gender == 'F' %}checked{% endif %}>
+                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
+                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
+                                    <span class="text-xl flex-shrink-0">👩</span>
+                                    <span class="gender-label whitespace-nowrap">{% trans "Female" %}</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer block">
+                                <input type="radio" name="gender" value="NB" class="peer hidden"
+                                       {% if profile.gender == 'NB' %}checked{% endif %}>
+                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
+                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
+                                    <span class="text-xl flex-shrink-0">🧑</span>
+                                    <span class="gender-label whitespace-nowrap">{% trans "Non-binary" %}</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer block">
+                                <input type="radio" name="gender" value="O" class="peer hidden"
+                                       {% if profile.gender == 'O' %}checked{% endif %}>
+                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
+                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
+                                    <span class="text-xl flex-shrink-0">✨</span>
+                                    <span class="gender-label whitespace-nowrap">{% trans "Other" %}</span>
+                                </div>
+                            </label>
+                            {% endfor %}
+                        </div>
                     </div>
                     {% if form.gender.errors %}
-                        <p class="text-sm text-red-600 mt-1" role="alert">{{ form.gender.errors.0 }}</p>
+                        <p class="text-sm text-red-600 mt-2 flex items-center gap-1" role="alert">
+                            {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4" %}
+                            {{ form.gender.errors.0 }}
+                        </p>
                     {% endif %}
                 </fieldset>
 
@@ -454,58 +563,60 @@
 
                 <!-- Interest Categories -->
                 <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
                         {% include "shared/icons/star.html" with class="w-5 h-5" %} {% trans "Interest Categories" %}
                         <span class="text-xs text-gray-400 font-normal ml-1">{% trans "Optional" %}</span>
                     </label>
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        <label class="cursor-pointer">
-                            <input type="checkbox" name="interest_category" value="sports" class="peer hidden">
-                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center transition-all
-                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
-                                        hover:border-purple-300">
-                                <div class="text-xl mb-1">⚽</div>
-                                <div class="text-xs font-medium">{% trans "Sports & Fitness" %}</div>
-                            </div>
-                        </label>
-                        <label class="cursor-pointer">
-                            <input type="checkbox" name="interest_category" value="arts" class="peer hidden">
-                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center transition-all
-                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
-                                        hover:border-purple-300">
-                                <div class="text-xl mb-1">🎨</div>
-                                <div class="text-xs font-medium">{% trans "Arts & Culture" %}</div>
-                            </div>
-                        </label>
-                        <label class="cursor-pointer">
-                            <input type="checkbox" name="interest_category" value="food" class="peer hidden">
-                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center transition-all
-                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
-                                        hover:border-purple-300">
-                                <div class="text-xl mb-1">🍷</div>
-                                <div class="text-xs font-medium">{% trans "Food & Wine" %}</div>
-                            </div>
-                        </label>
-                        <label class="cursor-pointer">
-                            <input type="checkbox" name="interest_category" value="outdoors" class="peer hidden">
-                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center transition-all
-                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
-                                        hover:border-purple-300">
-                                <div class="text-xl mb-1">🏔️</div>
-                                <div class="text-xs font-medium">{% trans "Outdoors" %}</div>
-                            </div>
-                        </label>
-                        <label class="cursor-pointer">
-                            <input type="checkbox" name="interest_category" value="business" class="peer hidden">
-                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center transition-all
-                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
-                                        hover:border-purple-300">
-                                <div class="text-xl mb-1">💼</div>
-                                <div class="text-xs font-medium">{% trans "Business & Tech" %}</div>
-                            </div>
-                        </label>
+                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                        <p class="text-sm text-gray-600 mb-4">{% trans "Select all that apply" %}</p>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                            <label class="cursor-pointer block">
+                                <input type="checkbox" name="interest_category" value="sports" class="peer hidden">
+                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
+                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
+                                    <span class="text-xl flex-shrink-0">⚽</span>
+                                    <span class="whitespace-nowrap text-xs">{% trans "Sports" %}</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer block">
+                                <input type="checkbox" name="interest_category" value="arts" class="peer hidden">
+                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
+                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
+                                    <span class="text-xl flex-shrink-0">🎨</span>
+                                    <span class="whitespace-nowrap text-xs">{% trans "Arts" %}</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer block">
+                                <input type="checkbox" name="interest_category" value="food" class="peer hidden">
+                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
+                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
+                                    <span class="text-xl flex-shrink-0">🍷</span>
+                                    <span class="whitespace-nowrap text-xs">{% trans "Food" %}</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer block">
+                                <input type="checkbox" name="interest_category" value="outdoors" class="peer hidden">
+                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
+                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
+                                    <span class="text-xl flex-shrink-0">🏔️</span>
+                                    <span class="whitespace-nowrap text-xs">{% trans "Outdoors" %}</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer block">
+                                <input type="checkbox" name="interest_category" value="business" class="peer hidden">
+                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
+                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
+                                    <span class="text-xl flex-shrink-0">💼</span>
+                                    <span class="whitespace-nowrap text-xs">{% trans "Business" %}</span>
+                                </div>
+                            </label>
+                        </div>
                     </div>
-                    <p class="text-sm text-gray-500 mt-2">{% trans "Select all that apply, or skip to continue" %}</p>
                 </div>
 
                 <!-- Custom Interests -->
@@ -527,53 +638,59 @@
 
                 <!-- Looking For -->
                 <fieldset class="mb-6">
-                    <legend class="block text-sm font-medium text-gray-700 mb-3">
+                    <legend class="block text-sm font-medium text-gray-700 mb-2">
                         <span aria-hidden="true">{% include "shared/icons/heart.html" with class="w-5 h-5" %}</span> {% trans "What are you looking for?" %} <span class="text-red-500" aria-label="required">*</span>
                     </legend>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3" role="radiogroup" aria-label="{% trans "Select what you are looking for" %}">
-                        <label class="cursor-pointer">
-                            <input type="radio" name="looking_for" value="friends" class="peer hidden"
-                                   {% if profile.looking_for == 'friends' %}checked{% endif %} required>
-                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
-                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
-                                        hover:border-purple-300">
-                                <div class="text-2xl mb-1">👋</div>
-                                <div class="text-sm font-medium">{% trans "New Friends" %}</div>
-                            </div>
-                        </label>
-                        <label class="cursor-pointer">
-                            <input type="radio" name="looking_for" value="dating" class="peer hidden"
-                                   {% if profile.looking_for == 'dating' %}checked{% endif %}>
-                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
-                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
-                                        hover:border-purple-300">
-                                <div class="text-2xl mb-1">💕</div>
-                                <div class="text-sm font-medium">{% trans "Dating" %}</div>
-                            </div>
-                        </label>
-                        <label class="cursor-pointer">
-                            <input type="radio" name="looking_for" value="both" class="peer hidden"
-                                   {% if profile.looking_for == 'both' %}checked{% endif %}>
-                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
-                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
-                                        hover:border-purple-300">
-                                <div class="text-2xl mb-1">🌟</div>
-                                <div class="text-sm font-medium">{% trans "Both" %}</div>
-                            </div>
-                        </label>
-                        <label class="cursor-pointer">
-                            <input type="radio" name="looking_for" value="networking" class="peer hidden"
-                                   {% if profile.looking_for == 'networking' %}checked{% endif %}>
-                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all
-                                        peer-checked:border-purple-500 peer-checked:bg-purple-50
-                                        hover:border-purple-300">
-                                <div class="text-2xl mb-1">🤝</div>
-                                <div class="text-sm font-medium">{% trans "Networking" %}</div>
-                            </div>
-                        </label>
+                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                        <p class="text-sm text-gray-600 mb-4">{% trans "What brings you here?" %}</p>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3" role="radiogroup" aria-label="{% trans "Select what you are looking for" %}">
+                            <label class="cursor-pointer block">
+                                <input type="radio" name="looking_for" value="friends" class="peer hidden"
+                                       {% if profile.looking_for == 'friends' %}checked{% endif %} required>
+                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
+                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
+                                    <span class="text-xl flex-shrink-0">👋</span>
+                                    <span class="whitespace-nowrap">{% trans "Friends" %}</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer block">
+                                <input type="radio" name="looking_for" value="dating" class="peer hidden"
+                                       {% if profile.looking_for == 'dating' %}checked{% endif %}>
+                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
+                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
+                                    <span class="text-xl flex-shrink-0">💕</span>
+                                    <span class="whitespace-nowrap">{% trans "Dating" %}</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer block">
+                                <input type="radio" name="looking_for" value="both" class="peer hidden"
+                                       {% if profile.looking_for == 'both' %}checked{% endif %}>
+                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
+                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
+                                    <span class="text-xl flex-shrink-0">🌟</span>
+                                    <span class="whitespace-nowrap">{% trans "Both" %}</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer block">
+                                <input type="radio" name="looking_for" value="networking" class="peer hidden"
+                                       {% if profile.looking_for == 'networking' %}checked{% endif %}>
+                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
+                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
+                                    <span class="text-xl flex-shrink-0">🤝</span>
+                                    <span class="whitespace-nowrap">{% trans "Networking" %}</span>
+                                </div>
+                            </label>
+                        </div>
                     </div>
                     {% if form.looking_for.errors %}
-                        <p class="text-sm text-red-600 mt-1" role="alert">{{ form.looking_for.errors.0 }}</p>
+                        <p class="text-sm text-red-600 mt-2 flex items-center gap-1" role="alert">
+                            {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4" %}
+                            {{ form.looking_for.errors.0 }}
+                        </p>
                     {% endif %}
                 </fieldset>
 

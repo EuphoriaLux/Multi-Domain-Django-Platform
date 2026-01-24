@@ -362,7 +362,9 @@ def send_new_message_notification(user, message):
     with user_language_context(user):
         title = _("New message from %(name)s") % {'name': display_name}
         body = preview
-        url = reverse('crush_lu:connection_detail', kwargs={'connection_id': message.connection.id})
+
+    # Use helper for language-prefixed URL
+    url = get_user_language_url(user, 'crush_lu:connection_detail', kwargs={'connection_id': message.connection.id})
 
     return send_push_notification(
         user=user,
@@ -389,7 +391,9 @@ def send_profile_approved_notification(user):
     with user_language_context(user):
         title = _("Profile Approved!")
         body = _("Your Crush.lu profile has been approved! You can now register for events.")
-        url = reverse('crush_lu:dashboard')
+
+    # Use helper for language-prefixed URL
+    url = get_user_language_url(user, 'crush_lu:dashboard')
 
     return send_push_notification(
         user=user,
@@ -417,7 +421,9 @@ def send_profile_revision_notification(user, feedback):
     with user_language_context(user):
         title = _("Profile Update Needed")
         body = _("Your Crush Coach has some feedback: %(feedback)s...") % {'feedback': feedback[:80]}
-        url = reverse('crush_lu:edit_profile')
+
+    # Use helper for language-prefixed URL
+    url = get_user_language_url(user, 'crush_lu:edit_profile')
 
     return send_push_notification(
         user=user,
@@ -439,7 +445,9 @@ def send_test_notification(user):
     with user_language_context(user):
         title = _("Test Notification")
         body = _("Push notifications are working! You'll receive updates about events, messages, and connections.")
-        url = reverse('crush_lu:dashboard')
+
+    # Use helper for language-prefixed URL
+    url = get_user_language_url(user, 'crush_lu:dashboard')
 
     return send_push_notification(
         user=user,

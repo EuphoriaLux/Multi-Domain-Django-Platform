@@ -1254,9 +1254,13 @@ document.addEventListener('alpine:init', function() {
             // Step 1 required fields tracking
             gender: '',
             location: '',
+            locationName: '',
 
             // Step 2 required fields tracking
             lookingFor: '',
+
+            // Date of birth formatted display (from dobPicker)
+            dobFormatted: '',
 
             // Field-specific error messages
             fieldErrors: {},
@@ -1407,6 +1411,7 @@ document.addEventListener('alpine:init', function() {
                 window.addEventListener('location-selected', function(e) {
                     if (e.detail && e.detail.location) {
                         self.location = e.detail.location;
+                        self.locationName = e.detail.name || e.detail.location;
                         self.fieldErrors.location = undefined;
                     }
                 });
@@ -1424,6 +1429,13 @@ document.addEventListener('alpine:init', function() {
                         self.fieldErrors.looking_for = undefined;
                     }
                 });
+
+                // Listen for date of birth selection from dobPicker component
+                window.addEventListener('dob-selected', function(e) {
+                    if (e.detail && e.detail.formatted) {
+                        self.dobFormatted = e.detail.formatted;
+                    }
+                });
             },
 
             // Initialize field tracking from DOM values
@@ -1436,10 +1448,17 @@ document.addEventListener('alpine:init', function() {
                     self.gender = genderEl.value;
                 }
 
-                // Read initial location value
+                // Read initial location value and name
                 var locationEl = document.getElementById('id_location');
                 if (locationEl && locationEl.value) {
                     self.location = locationEl.value;
+                    // Try to get the display name from the canton map component's data attribute
+                    var cantonMapEl = document.querySelector('[x-data="cantonMap"]');
+                    if (cantonMapEl) {
+                        self.locationName = cantonMapEl.getAttribute('data-initial-name') || locationEl.value;
+                    } else {
+                        self.locationName = locationEl.value;
+                    }
                 }
 
                 // Read initial looking_for value
@@ -1530,7 +1549,6 @@ document.addEventListener('alpine:init', function() {
 
             updateReview: function() {
                 var phone = document.querySelector('[name=phone_number]');
-                var dob = document.querySelector('[name=date_of_birth]');
                 var genderEl = document.querySelector('[name=gender]:checked');
                 var location = document.querySelector('[name=location]');
 
@@ -1543,7 +1561,8 @@ document.addEventListener('alpine:init', function() {
                     reviewPhone.textContent = phone ? phone.value || 'Not provided' : 'Not provided';
                 }
                 if (reviewDob) {
-                    reviewDob.textContent = dob ? dob.value || 'Not provided' : 'Not provided';
+                    // Use formatted date from dobPicker if available
+                    reviewDob.textContent = this.dobFormatted || 'Not provided';
                 }
                 if (reviewGender && genderEl) {
                     var label = genderEl.nextElementSibling;
@@ -1555,7 +1574,7 @@ document.addEventListener('alpine:init', function() {
                     reviewGender.textContent = 'Not selected';
                 }
                 if (reviewLocation) {
-                    reviewLocation.textContent = location ? location.value || 'Not selected' : 'Not selected';
+                    reviewLocation.textContent = this.locationName || 'Not selected';
                 }
             },
 
@@ -2160,6 +2179,394 @@ document.addEventListener('alpine:init', function() {
                 if (path) {
                     path.classList.remove('region-selected');
                     path.setAttribute('aria-selected', 'false');
+                }
+            }
+        };
+    });
+
+    // Date of Birth Picker component - stepped selection for better UX
+    // 4 steps: 1) Age range chips, 2) Year selection, 3) Month selection, 4) Day selection
+    // CSP-compatible: Uses DOM manipulation for dynamic content (x-for not CSP-safe)
+    // Reads initial value from hidden input with name="date_of_birth"
+    Alpine.data('dobPicker', function() {
+        return {
+            // State
+            step: 1,  // 1=age range, 2=year, 3=month, 4=day
+            selectedAgeRange: '',
+            selectedYear: null,
+            selectedMonth: null,
+            selectedDay: null,
+            _translatedMonths: null,
+
+            // Age range definitions (for year 2026)
+            ageRanges: [
+                { label: '18-25', emoji: '🌱', minYear: 2001, maxYear: 2008 },
+                { label: '26-35', emoji: '🌿', minYear: 1991, maxYear: 2000 },
+                { label: '36-45', emoji: '🌳', minYear: 1981, maxYear: 1990 },
+                { label: '46-55', emoji: '🍂', minYear: 1971, maxYear: 1980 },
+                { label: '56-65', emoji: '🍁', minYear: 1961, maxYear: 1970 },
+                { label: '66+', emoji: '🌟', minYear: 1926, maxYear: 1960 }
+            ],
+
+            // CSP-safe computed getters
+            get isStep1() { return this.step === 1; },
+            get isStep2() { return this.step === 2; },
+            get isStep3() { return this.step === 3; },
+            get isStep4() { return this.step === 4; },
+            get hasAgeRange() { return this.selectedAgeRange !== ''; },
+            get hasYear() { return this.selectedYear !== null; },
+            get hasMonth() { return this.selectedMonth !== null; },
+            get hasDay() { return this.selectedDay !== null; },
+            get isComplete() { return this.hasYear && this.hasMonth && this.hasDay; },
+            get notComplete() { return !this.isComplete; },
+
+            // Breadcrumb display text getters
+            get yearBreadcrumbText() {
+                return this.selectedYear ? String(this.selectedYear) : '';
+            },
+            get monthBreadcrumbText() {
+                return this.selectedMonthName || '';
+            },
+            get dayBreadcrumbText() {
+                return this.selectedDay ? String(this.selectedDay) : '';
+            },
+
+            get months() {
+                if (this._translatedMonths) return this._translatedMonths;
+                // Default English month names (will be overridden by data-months attribute)
+                return [
+                    { num: 1, name: 'January' },
+                    { num: 2, name: 'February' },
+                    { num: 3, name: 'March' },
+                    { num: 4, name: 'April' },
+                    { num: 5, name: 'May' },
+                    { num: 6, name: 'June' },
+                    { num: 7, name: 'July' },
+                    { num: 8, name: 'August' },
+                    { num: 9, name: 'September' },
+                    { num: 10, name: 'October' },
+                    { num: 11, name: 'November' },
+                    { num: 12, name: 'December' }
+                ];
+            },
+
+            get isoDate() {
+                if (!this.isComplete) return '';
+                var m = this.selectedMonth < 10 ? '0' + this.selectedMonth : this.selectedMonth;
+                var d = this.selectedDay < 10 ? '0' + this.selectedDay : this.selectedDay;
+                return this.selectedYear + '-' + m + '-' + d;
+            },
+
+            get formattedDate() {
+                if (!this.isComplete) return '';
+                var monthObj = this._findMonth(this.selectedMonth);
+                var monthName = monthObj ? monthObj.name : this.selectedMonth;
+                return this.selectedDay + ' ' + monthName + ' ' + this.selectedYear;
+            },
+
+            get selectedMonthName() {
+                if (!this.selectedMonth) return '';
+                var monthObj = this._findMonth(this.selectedMonth);
+                return monthObj ? monthObj.name : '';
+            },
+
+            // Breadcrumb visibility getters
+            get showAgeRangeBreadcrumb() { return this.step > 1; },
+            get showYearBreadcrumb() { return this.step > 2; },
+            get showMonthBreadcrumb() { return this.step > 3; },
+
+            init: function() {
+                var self = this;
+
+                // Load translated month names from data attribute
+                var monthsData = this.$el.getAttribute('data-months');
+                if (monthsData) {
+                    try {
+                        this._translatedMonths = JSON.parse(monthsData);
+                    } catch (e) {
+                        console.warn('dobPicker: Could not parse months data', e);
+                    }
+                }
+
+                // Render initial age range buttons
+                this.$nextTick(function() {
+                    self._renderAgeRanges();
+                    self._parseInitialDate();
+                });
+
+                // Listen for external resets if needed
+                this.$el.addEventListener('dob-reset', function() {
+                    self.step = 1;
+                    self.selectedAgeRange = '';
+                    self.selectedYear = null;
+                    self.selectedMonth = null;
+                    self.selectedDay = null;
+                    self._updateHiddenInput();
+                    self._renderAgeRanges();
+                });
+            },
+
+            _findMonth: function(num) {
+                var months = this.months;
+                for (var i = 0; i < months.length; i++) {
+                    if (months[i].num === num) return months[i];
+                }
+                return null;
+            },
+
+            _getDaysInMonth: function(year, month) {
+                // Month is 1-based, Date uses 0-based months
+                // Using day 0 of next month gives last day of current month
+                return new Date(year, month, 0).getDate();
+            },
+
+            _parseInitialDate: function() {
+                var hiddenInput = this.$el.querySelector('input[name="date_of_birth"]');
+                if (!hiddenInput || !hiddenInput.value) return;
+
+                var parts = hiddenInput.value.split('-');
+                if (parts.length !== 3) return;
+
+                var year = parseInt(parts[0], 10);
+                var month = parseInt(parts[1], 10);
+                var day = parseInt(parts[2], 10);
+
+                if (isNaN(year) || isNaN(month) || isNaN(day)) return;
+
+                // Find matching age range
+                var self = this;
+                var matchingRange = null;
+                for (var i = 0; i < this.ageRanges.length; i++) {
+                    var r = this.ageRanges[i];
+                    if (year >= r.minYear && year <= r.maxYear) {
+                        matchingRange = r;
+                        break;
+                    }
+                }
+
+                if (matchingRange) {
+                    this.selectedAgeRange = matchingRange.label;
+                    this.selectedYear = year;
+                    this.selectedMonth = month;
+                    this.selectedDay = day;
+                    this.step = 4;  // Show completion state
+                    // Re-render with initial values
+                    this._renderAgeRanges();
+                    this._renderYears();
+                    this._renderMonths();
+                    this._renderDays();
+                    this._updateCompletionSummary();
+                }
+            },
+
+            _updateHiddenInput: function() {
+                var hiddenInput = this.$el.querySelector('input[name="date_of_birth"]');
+                if (hiddenInput) {
+                    hiddenInput.value = this.isoDate;
+                    hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            },
+
+            _dispatchDateSelected: function() {
+                window.dispatchEvent(new CustomEvent('dob-selected', {
+                    detail: {
+                        iso: this.isoDate,
+                        formatted: this.formattedDate,
+                        year: this.selectedYear,
+                        month: this.selectedMonth,
+                        day: this.selectedDay
+                    }
+                }));
+            },
+
+            // DOM rendering methods (CSP-safe alternative to x-for)
+            _renderAgeRanges: function() {
+                var container = this.$el.querySelector('[data-dob-age-ranges]');
+                if (!container) return;
+
+                var self = this;
+                container.innerHTML = '';
+
+                this.ageRanges.forEach(function(range) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105';
+                    btn.className += self.selectedAgeRange === range.label
+                        ? ' border-purple-500 bg-purple-100 text-purple-700'
+                        : ' border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50';
+                    btn.innerHTML = '<span class="text-xl flex-shrink-0">' + range.emoji + '</span><span class="whitespace-nowrap">' + range.label + '</span>';
+                    btn.addEventListener('click', function() {
+                        self.selectAgeRange(range.label);
+                    });
+                    container.appendChild(btn);
+                });
+            },
+
+            _renderYears: function() {
+                var container = this.$el.querySelector('[data-dob-years]');
+                if (!container) return;
+
+                var self = this;
+                container.innerHTML = '';
+
+                if (!this.selectedAgeRange) return;
+
+                // Find the selected age range
+                var range = null;
+                for (var i = 0; i < this.ageRanges.length; i++) {
+                    if (this.ageRanges[i].label === this.selectedAgeRange) {
+                        range = this.ageRanges[i];
+                        break;
+                    }
+                }
+                if (!range) return;
+
+                for (var y = range.maxYear; y >= range.minYear; y--) {
+                    (function(year) {
+                        var btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'px-3 py-2 rounded-lg text-sm font-medium border-2 transition-all duration-150 hover:scale-105';
+                        btn.className += self.selectedYear === year
+                            ? ' border-purple-500 bg-purple-100 text-purple-700'
+                            : ' border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50';
+                        btn.textContent = year;
+                        btn.addEventListener('click', function() {
+                            self.selectYear(year);
+                        });
+                        container.appendChild(btn);
+                    })(y);
+                }
+            },
+
+            _renderMonths: function() {
+                var container = this.$el.querySelector('[data-dob-months]');
+                if (!container) return;
+
+                var self = this;
+                container.innerHTML = '';
+
+                this.months.forEach(function(month) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'px-3 py-2.5 rounded-lg text-sm font-medium border-2 transition-all duration-150 hover:scale-105';
+                    btn.className += self.selectedMonth === month.num
+                        ? ' border-purple-500 bg-purple-100 text-purple-700'
+                        : ' border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50';
+                    btn.textContent = month.name;
+                    btn.addEventListener('click', function() {
+                        self.selectMonth(month.num);
+                    });
+                    container.appendChild(btn);
+                });
+            },
+
+            _renderDays: function() {
+                var container = this.$el.querySelector('[data-dob-days]');
+                if (!container) return;
+
+                var self = this;
+                container.innerHTML = '';
+
+                if (!this.selectedMonth || !this.selectedYear) return;
+
+                var daysInMonth = this._getDaysInMonth(this.selectedYear, this.selectedMonth);
+
+                for (var d = 1; d <= daysInMonth; d++) {
+                    (function(day) {
+                        var btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'w-full aspect-square flex items-center justify-center rounded-lg text-sm font-medium border-2 transition-all duration-150 hover:scale-105';
+                        btn.className += self.selectedDay === day
+                            ? ' border-purple-500 bg-purple-100 text-purple-700'
+                            : ' border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50';
+                        btn.textContent = day;
+                        btn.addEventListener('click', function() {
+                            self.selectDay(day);
+                        });
+                        container.appendChild(btn);
+                    })(d);
+                }
+            },
+
+            _updateCompletionSummary: function() {
+                var summary = this.$el.querySelector('[data-dob-summary]');
+                if (summary) {
+                    if (this.isComplete) {
+                        summary.classList.remove('hidden');
+                        var dateDisplay = summary.querySelector('[data-dob-formatted]');
+                        if (dateDisplay) {
+                            dateDisplay.textContent = this.formattedDate;
+                        }
+                    } else {
+                        summary.classList.add('hidden');
+                    }
+                }
+            },
+
+            // Selection methods
+            selectAgeRange: function(label) {
+                this.selectedAgeRange = label;
+                this.selectedYear = null;
+                this.selectedMonth = null;
+                this.selectedDay = null;
+                this.step = 2;
+                this._updateHiddenInput();
+                this._renderAgeRanges();
+                this._renderYears();
+            },
+
+            selectYear: function(year) {
+                this.selectedYear = year;
+                this.selectedMonth = null;
+                this.selectedDay = null;
+                this.step = 3;
+                this._updateHiddenInput();
+                this._renderYears();
+                this._renderMonths();
+            },
+
+            selectMonth: function(month) {
+                this.selectedMonth = month;
+                this.selectedDay = null;
+                this.step = 4;
+                this._updateHiddenInput();
+                this._renderMonths();
+                this._renderDays();
+            },
+
+            selectDay: function(day) {
+                this.selectedDay = day;
+                this._updateHiddenInput();
+                this._renderDays();
+                this._updateCompletionSummary();
+                this._dispatchDateSelected();
+            },
+
+            // Navigation methods for breadcrumb
+            goToStep1: function() {
+                this.step = 1;
+                this._renderAgeRanges();
+            },
+
+            goToStep2: function() {
+                if (this.hasAgeRange) {
+                    this.step = 2;
+                    this._renderYears();
+                }
+            },
+
+            goToStep3: function() {
+                if (this.hasYear) {
+                    this.step = 3;
+                    this._renderMonths();
+                }
+            },
+
+            goToStep4: function() {
+                if (this.hasMonth) {
+                    this.step = 4;
+                    this._renderDays();
+                    this._updateCompletionSummary();
                 }
             }
         };

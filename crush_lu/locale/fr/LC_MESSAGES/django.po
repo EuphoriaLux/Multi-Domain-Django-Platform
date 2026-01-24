@@ -263,26 +263,19 @@ msgid "✅ Approve selected guests"
 msgstr "✅ Approuver les invités sélectionnés"
 
 #: .\admin\events.py:554
-#, fuzzy, python-brace-format
-#| msgid ""
-#| "Approved {updated} guest(s) to attend the event. Sent {emails_sent}email "
-#| "notification(s)."
+#, python-brace-format
 msgid ""
 "Approved {updated} guest(s) to attend the event. Sent {emails_sent} email "
 "notification(s)."
 msgstr ""
-"{updated} invité(s) approuvé(s) pour participer à l'événement.{emails_sent} "
+"{updated} invité(s) approuvé(s) pour participer à l'événement. {emails_sent} "
 "notification(s) e-mail envoyée(s)."
 
 #: .\admin\events.py:560
-#, fuzzy
-#| msgid ""
-#| "No pending invitations to approve. Only accepted invitations can "
-#| "beapproved."
 msgid ""
 "No pending invitations to approve. Only accepted invitations can be approved."
 msgstr ""
-"Aucune invitation en attente à approuver. Seules les invitationsacceptées "
+"Aucune invitation en attente à approuver. Seules les invitations acceptées "
 "peuvent être approuvées."
 
 #: .\admin\events.py:563
@@ -295,14 +288,10 @@ msgid "Rejected {count} guest(s). They will be notified."
 msgstr "{count} invité(s) rejeté(s). Ils seront notifiés."
 
 #: .\admin\events.py:586
-#, fuzzy
-#| msgid ""
-#| "No pending invitations to reject. Only accepted invitations can "
-#| "berejected."
 msgid ""
 "No pending invitations to reject. Only accepted invitations can be rejected."
 msgstr ""
-"Aucune invitation en attente à rejeter. Seules les invitationsacceptées "
+"Aucune invitation en attente à rejeter. Seules les invitations acceptées "
 "peuvent être rejetées."
 
 #: .\admin\events.py:589
@@ -317,14 +306,10 @@ msgstr ""
 "encoreimplémenté."
 
 #: .\admin\events.py:603
-#, fuzzy
-#| msgid ""
-#| "No pending invitations to resend. Only unaccepted invitations can "
-#| "beresent."
 msgid ""
 "No pending invitations to resend. Only unaccepted invitations can be resent."
 msgstr ""
-"Aucune invitation en attente à renvoyer. Seules les invitations nonacceptées "
+"Aucune invitation en attente à renvoyer. Seules les invitations non acceptées "
 "peuvent être renvoyées."
 
 #: .\admin\journey.py:122
@@ -454,10 +439,8 @@ msgid "Claimed By"
 msgstr "Réclamé par"
 
 #: .\admin\journey.py:667
-#, fuzzy
-#| msgid "Status"
 msgid "Media Status"
-msgstr "Statut"
+msgstr "Statut des médias"
 
 #: .\admin\journey.py:669
 msgid "⏰ Mark selected gifts as expired"
@@ -579,7 +562,7 @@ msgstr ""
 
 #: .\admin\profiles.py:295 .\models\profiles.py:825
 msgid "Phone"
-msgstr ""
+msgstr "Téléphone"
 
 #: .\admin\profiles.py:304
 msgid "Lang"
@@ -646,10 +629,8 @@ msgstr ""
 "Réinitialiser la vérification téléphonique (permet une nouvellevérification)"
 
 #: .\admin\profiles.py:701
-#, fuzzy
-#| msgid "Promote selected profiles to Crush Coach role"
 msgid "Sync selected profiles to Outlook contacts"
-msgstr "Promouvoir les profils sélectionnés au rôle de Crush Coach"
+msgstr "Synchroniser les profils sélectionnés avec les contacts Outlook"
 
 #: .\admin\profiles.py:745
 msgid "Export selected profiles to CSV"
@@ -932,89 +913,69 @@ msgid "Under review"
 msgstr "En cours de révision"
 
 #: .\email_helpers.py:180
-#, fuzzy
-#| msgid "Last Chance to Complete Your Profile"
 msgid "Welcome to Crush.lu! Complete Your Profile"
-msgstr "Dernière chance de compléter votre profil"
+msgstr "Bienvenue sur Crush.lu ! Complétez votre profil"
 
 #: .\email_helpers.py:228
-#, fuzzy
-#| msgid "Profile Submitted - Crush.lu"
 msgid "Profile Submitted for Review - Crush.lu"
-msgstr "Profil soumis"
+msgstr "Profil soumis pour examen - Crush.lu"
 
 #: .\email_helpers.py:281
-#, fuzzy, python-brace-format
-#| msgid "New Profile Review Assignment"
+#, python-brace-format
 msgid "New Profile Review Assignment - {name}"
-msgstr "Nouvelle affectation de profil à examiner"
+msgstr "Nouvelle affectation de profil à examiner - {name}"
 
 #: .\email_helpers.py:329
-#, fuzzy
-#| msgid "e.g., Welcome to Crush.lu! Your profile looks great..."
 msgid "Welcome to Crush.lu - Your Profile is Approved!"
-msgstr "Ex : Bienvenue sur Crush.lu ! Ton profil est super..."
+msgstr "Bienvenue sur Crush.lu - Votre profil est approuvé !"
 
 #: .\email_helpers.py:378
-#, fuzzy
-#| msgid "Profile Review Feedback"
 msgid "Profile Review Feedback - Crush.lu"
-msgstr "Révision du profil"
+msgstr "Commentaires sur votre profil - Crush.lu"
 
 #: .\email_helpers.py:423
-#, fuzzy
-#| msgid "Profile Review Update"
 msgid "Profile Review Update - Crush.lu"
-msgstr "Révision du profil"
+msgstr "Mise à jour de l'examen de profil - Crush.lu"
 
 #: .\email_helpers.py:478
-#, fuzzy, python-brace-format
-#| msgid "Event Registration Confirmed"
+#, python-brace-format
 msgid "Event Registration Confirmed - {title}"
-msgstr "Inscription à l'événement confirmée"
+msgstr "Inscription à l'événement confirmée - {title}"
 
 #: .\email_helpers.py:526
-#, fuzzy, python-brace-format
-#| msgid "Added to Waitlist"
+#, python-brace-format
 msgid "Added to Waitlist - {title}"
-msgstr "Ajouter à la liste de souhaits"
+msgstr "Ajouté à la liste d'attente - {title}"
 
 #: .\email_helpers.py:574
-#, fuzzy, python-brace-format
-#| msgid "Event Registration Confirmed"
+#, python-brace-format
 msgid "Event Cancellation Confirmed - {title}"
-msgstr "Inscription à l'événement confirmée"
+msgstr "Annulation d'événement confirmée - {title}"
 
 #: .\email_helpers.py:632
 #, python-format
 msgid "%(days)d day"
 msgid_plural "%(days)d days"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%(days)d jour"
+msgstr[1] "%(days)d jours"
 
 #: .\email_helpers.py:636
-#, fuzzy, python-brace-format
-#| msgid "Event Reminders"
+#, python-brace-format
 msgid "Event Reminder - {title} in {days}"
-msgstr "Rappels d'événements"
+msgstr "Rappel d'événement - {title} dans {days}"
 
 #: .\email_helpers.py:745
-#, fuzzy
-#| msgid "Someone wants to connect!"
 msgid "Someone wants to connect with you!"
-msgstr "%(name)s veut se connecter avec vous !"
+msgstr "Quelqu'un veut se connecter avec vous !"
 
 #: .\email_helpers.py:808
-#, fuzzy
-#| msgid "Connection request sent!"
 msgid "Your connection request was accepted!"
-msgstr "Demande de connexion envoyée !"
+msgstr "Votre demande de connexion a été acceptée !"
 
 #: .\email_helpers.py:872
-#, fuzzy, python-brace-format
-#| msgid "New message from %(name)s"
+#, python-brace-format
 msgid "New message from {name}"
-msgstr "Nouveau message de %(name)s"
+msgstr "Nouveau message de {name}"
 
 #: .\email_helpers.py:1026
 #, python-brace-format
@@ -1022,48 +983,40 @@ msgid "{sender_name} has created a magical journey for you!"
 msgstr "{sender_name} a créé un parcours magique pour toi !"
 
 #: .\email_helpers.py:1133
-#, fuzzy
-#| msgid "Create Your Profile - Crush.lu"
 msgid "Complete Your Profile - Crush.lu"
-msgstr "Créer votre profil - Crush.lu"
+msgstr "Complétez votre profil - Crush.lu"
 
 #: .\email_helpers.py:1134
 msgid "Don't Miss Out - Your Profile is Waiting"
 msgstr "Ne manquez pas cette occasion - Votre profil vous attend"
 
 #: .\email_helpers.py:1135
-#, fuzzy
-#| msgid "Last Chance to Complete Your Profile"
 msgid "Last Chance to Complete Your Profile - Crush.lu"
-msgstr "Dernière chance de compléter votre profil"
+msgstr "Dernière chance de compléter votre profil - Crush.lu"
 
 #: .\email_notifications.py:70
-#, fuzzy, python-brace-format
-#| msgid "You're Invited!"
+#, python-brace-format
 msgid "You're Invited to {title}!"
-msgstr "Tu es invité(e) !"
+msgstr "Vous êtes invité(e) à {title} !"
 
 #: .\email_notifications.py:144
-#, fuzzy, python-brace-format
-#| msgid "You're Invited to Crush.lu"
+#, python-brace-format
 msgid "You're Invited to {title} on Crush.lu"
-msgstr "Modifier votre profil - Crush.lu"
+msgstr "Vous êtes invité(e) à {title} sur Crush.lu"
 
 #: .\email_notifications.py:225
-#, fuzzy, python-brace-format
-#| msgid "Your profile has been approved!"
+#, python-brace-format
 msgid "Your Invitation to {title} Has Been Approved!"
-msgstr "Ton profil a été approuvé !"
+msgstr "Votre invitation à {title} a été approuvée !"
 
 #: .\email_notifications.py:291
 msgid "No specific feedback provided."
-msgstr ""
+msgstr "Aucun commentaire spécifique fourni."
 
 #: .\email_notifications.py:299
-#, fuzzy, python-brace-format
-#| msgid "Update on Your Invitation"
+#, python-brace-format
 msgid "Update on Your Invitation to {title}"
-msgstr "Mettez à jour vos informations de profil"
+msgstr "Mise à jour concernant votre invitation à {title}"
 
 #: .\forms.py:42 .\templates\crush_lu\signup.html:79
 msgid "First Name"
@@ -1074,15 +1027,11 @@ msgid "Last Name"
 msgstr "Nom"
 
 #: .\forms.py:69
-#, fuzzy
-#| msgid ""
-#| "An account with this email already exists. Please login or use adifferent "
-#| "email address."
 msgid ""
 "An account with this email already exists. Please login or use a different "
 "email address."
 msgstr ""
-"Un compte avec cette adresse e-mail existe déjà. Connecte-toi ouutilise une "
+"Un compte avec cette adresse e-mail existe déjà. Connecte-toi ou utilise une "
 "adresse e-mail différente."
 
 #: .\forms.py:108
@@ -1094,14 +1043,10 @@ msgid "Must be 18+ to join"
 msgstr "Vous devez avoir 18 ans ou plus pour vous inscrire"
 
 #: .\forms.py:131
-#, fuzzy
-#| msgid ""
-#| "Tell us about yourself... What do you love? What makes you smile?"
-#| "(Optional)"
 msgid ""
 "Tell us about yourself... What do you love? What makes you smile? (Optional)"
 msgstr ""
-"Parle-nous de toi... Qu'est-ce que tu aimes ? Qu'est-ce qui te faitsourire ? "
+"Parle-nous de toi... Qu'est-ce que tu aimes ? Qu'est-ce qui te fait sourire ? "
 "(Optionnel)"
 
 #: .\forms.py:134
@@ -1153,10 +1098,8 @@ msgid "Grevenmacher"
 msgstr "Grevenmacher"
 
 #: .\forms.py:167 .\templates\crush_lu\create_profile.html:346
-#, fuzzy
-#| msgid "Why Luxembourg?"
 msgid "Luxembourg"
-msgstr "Pourquoi le Luxembourg ?"
+msgstr "Luxembourg"
 
 #: .\forms.py:168 .\templates\crush_lu\create_profile.html:347
 msgid "Mersch"
@@ -1222,26 +1165,18 @@ msgid "Please enter a valid date of birth"
 msgstr "Veuillez entrer une date de naissance valide"
 
 #: .\forms.py:275
-#, fuzzy
-#| msgid ""
-#| "Please enter your phone number in international format (e.g., +352 XXXX "
-#| "XX XX)"
 msgid ""
 "Please enter your phone number in international format (e.g., +352 XX XX XX "
 "XX)"
 msgstr ""
-"Entre ton numéro de téléphone au format international (p.ex. +352 XXXX XX XX)"
+"Entre ton numéro de téléphone au format international (p.ex. +352 XX XX XX XX)"
 
 #: .\forms.py:285
-#, fuzzy
-#| msgid ""
-#| "Please enter a phone number from Luxembourg (+352), France (+33),Belgium "
-#| "(+32), or Germany (+49)"
 msgid ""
 "Please enter a phone number from Luxembourg (+352), France (+33), Belgium "
 "(+32), or Germany (+49)"
 msgstr ""
-"Entre un numéro de téléphone du Luxembourg (+352), France (+33),Belgique "
+"Entre un numéro de téléphone du Luxembourg (+352), France (+33), Belgique "
 "(+32) ou Allemagne (+49)"
 
 #: .\forms.py:294
@@ -1255,20 +1190,16 @@ msgstr "Le numéro de téléphone est trop long. Veuillez vérifier le format."
 #: .\forms.py:304
 msgid "Phone number can only contain digits after the country code."
 msgstr ""
-"Le numéro de téléphone ne peut contenir que des chiffres aprèsl'indicatif du "
+"Le numéro de téléphone ne peut contenir que des chiffres après l'indicatif du "
 "pays."
 
 #: .\forms.py:342
-#, fuzzy
-#| msgid ""
-#| "You must verify your phone number before submitting your profile.Click "
-#| "the 'Verify' button next to your phone number."
 msgid ""
 "You must verify your phone number before submitting your profile. Click the "
 "'Verify' button next to your phone number."
 msgstr ""
-"Tu dois vérifier ton numéro de téléphone avant de soumettre tonprofil. "
-"Clique sur le bouton 'Vérifier' à côté de ton numéro detéléphone."
+"Tu dois vérifier ton numéro de téléphone avant de soumettre ton profil. "
+"Clique sur le bouton 'Vérifier' à côté de ton numéro de téléphone."
 
 #: .\forms.py:475
 msgid ""
@@ -1300,13 +1231,10 @@ msgid "Share your coaching philosophy and approach..."
 msgstr "Partagez votre philosophie et approche de coaching..."
 
 #: .\forms.py:525
-#, fuzzy
-#| msgid ""
-#| "Tell users about your coaching style and experience (max 500characters)"
 msgid ""
 "Tell users about your coaching style and experience (max 500 characters)"
 msgstr ""
-"Parle aux utilisateurs de ton style de coaching et de ton expérience(max 500 "
+"Parle aux utilisateurs de ton style de coaching et de ton expérience (max 500 "
 "caractères)"
 
 #: .\forms.py:532
@@ -1354,15 +1282,11 @@ msgid "Name/Nickname for the Journey"
 msgstr "Nom/Surnom pour le parcours"
 
 #: .\forms.py:623
-#, fuzzy
-#| msgid ""
-#| "This name will be used throughout the journey story. Use any name "
-#| "ornickname you like."
 msgid ""
 "This name will be used throughout the journey story. Use any name or "
 "nickname you like."
 msgstr ""
-"Ce nom sera utilise tout au long de l'histoire du parcours. Utilisen'importe "
+"Ce nom sera utilisé tout au long de l'histoire du parcours. Utilise n'importe "
 "quel nom ou surnom que tu aimes."
 
 #: .\forms.py:636
@@ -1418,10 +1342,6 @@ msgid "Photo Puzzle Image"
 msgstr "Image du puzzle photo"
 
 #: .\forms.py:681
-#, fuzzy
-#| msgid ""
-#| "This image will be revealed as a puzzle in Chapter 1. "
-#| "Recommended:800x800px square image."
 msgid ""
 "This image will be revealed as a puzzle in Chapter 1. Recommended: 800x800px "
 "square image."
@@ -1458,29 +1378,21 @@ msgid "Video Message"
 msgstr "Message vidéo"
 
 #: .\forms.py:737
-#, fuzzy
-#| msgid ""
-#| "Record a personal voice message for Chapter 4. Formats: MP3, WAV, M4A(max "
-#| "10MB)."
 msgid "Record a video message for Chapter 4. Formats: MP4, MOV (max 50MB)."
 msgstr ""
-"Enregistre un message vocal personnel pour le Chapitre 4. Formats : MP3, "
-"WAV, M4A (max 10MB)."
+"Enregistre un message vidéo personnel pour le Chapitre 4. Formats : MP4, "
+"MOV (max 50MB)."
 
 #: .\forms.py:746
 msgid "Letter Music"
-msgstr ""
+msgstr "Musique de la lettre"
 
 #: .\forms.py:747
-#, fuzzy
-#| msgid ""
-#| "Record a personal voice message for Chapter 4. Formats: MP3, WAV, M4A(max "
-#| "10MB)."
 msgid ""
 "Add background music for the Future Letter (Chapter 5). Formats: MP3, WAV, "
 "M4A (max 10MB)."
 msgstr ""
-"Enregistre un message vocal personnel pour le Chapitre 4. Formats : MP3, "
+"Ajoute une musique de fond pour la Lettre du futur (Chapitre 5). Formats : MP3, "
 "WAV, M4A (max 10MB)."
 
 #: .\forms.py:769
@@ -1602,24 +1514,17 @@ msgid "The question/prompt/instructions for the challenge"
 msgstr "La question/consigne/instructions pour le défi"
 
 #: .\models\advent.py:293
-#, fuzzy
-#| msgid ""
-#| "JSON data for options/choices: {\"A\": \"option1\", \"B\":\"option2\"}"
 msgid "JSON data for options/choices: {\"A\": \"option1\", \"B\": \"option2\"}"
 msgstr ""
-"Données JSON pour les options/choix : {\"A\": \"option1\", \"B\":\"option2\"}"
+"Données JSON pour les options/choix : {\"A\": \"option1\", \"B\": \"option2\"}"
 
 #: .\models\advent.py:297
-#, fuzzy
-#| msgid ""
-#| "The correct answer. Leave blank for questionnaire mode (all "
-#| "answersaccepted)."
 msgid ""
 "The correct answer. Leave blank for questionnaire mode (all answers "
 "accepted)."
 msgstr ""
 "La bonne réponse. Laisser vide pour le mode questionnaire (toutes "
-"lesréponses acceptées)."
+"les réponses acceptées)."
 
 #: .\models\advent.py:302
 msgid "Alternative acceptable answers: [\"answer1\", \"answer2\"]"
@@ -1767,14 +1672,10 @@ msgid "Maximum invited guests for private event"
 msgstr "Nombre maximum d'invités pour l'événement privé"
 
 #: .\models\events.py:74
-#, fuzzy
-#| msgid ""
-#| "Existing users invited to this private event (no external "
-#| "invitationneeded)"
 msgid ""
 "Existing users invited to this private event (no external invitation needed)"
 msgstr ""
-"Utilisateurs existants invités à cet événement privé (pasd'invitation "
+"Utilisateurs existants invités à cet événement privé (pas d'invitation "
 "externe nécessaire)"
 
 #: .\models\events.py:185
@@ -1790,16 +1691,12 @@ msgid "Guest's last name"
 msgstr "Nom de l'invité"
 
 #: .\models\events.py:196
-#, fuzzy
-#| msgid ""
-#| "Link this invitation to a Special User for VIP treatment (auto-fillsfrom "
-#| "name/email match)"
 msgid ""
 "Link this invitation to a Special User for VIP treatment (auto-fills from "
 "name/email match)"
 msgstr ""
 "Lier cette invitation à un utilisateur spécial pour traitement "
-"VIP(remplissage auto basé sur nom/e-mail)"
+"VIP (remplissage auto basé sur nom/e-mail)"
 
 #: .\models\events.py:204
 msgid "Unique invitation code (UUID)"
@@ -2072,15 +1969,11 @@ msgid "The question/prompt/instructions"
 msgstr "La question/consigne/instructions"
 
 #: .\models\journey.py:257
-#, fuzzy
-#| msgid ""
-#| "JSON data for options, choices, etc. ({\"A\": \"option1\", \"B\":"
-#| "\"option2\"})"
 msgid ""
 "JSON data for options, choices, etc. ({\"A\": \"option1\", \"B\": "
 "\"option2\"})"
 msgstr ""
-"Données JSON pour options, choix, etc. ({\"A\": \"option1\", \"B\":"
+"Données JSON pour options, choix, etc. ({\"A\": \"option1\", \"B\": "
 "\"option2\"})"
 
 #: .\models\journey.py:263
@@ -2152,7 +2045,7 @@ msgstr "Nombre de pièces de puzzle (4x4=16, 5x4=20, 6x5=30)"
 
 #: .\models\journey.py:368
 msgid "Additional photos for slideshow rewards (up to 5 images)"
-msgstr ""
+msgstr "Photos additionnelles pour les récompenses diaporama (jusqu'à 5 images)"
 
 #: .\models\journey.py:372
 msgid "Journey Reward"
@@ -2310,20 +2203,13 @@ msgid "Fifth slideshow photo"
 msgstr "Cinquième photo du diaporama"
 
 #: .\models\journey_gift.py:262
-#, fuzzy
-#| msgid "Video message file (MP4, MOV - max 50MB)"
 msgid "Video message file for Chapter 4 (MP4, MOV - max 50MB)"
-msgstr "Fichier vidéo du message (MP4, MOV - max 50MB)"
+msgstr "Fichier vidéo du message pour le Chapitre 4 (MP4, MOV - max 50MB)"
 
 #: .\models\journey_gift.py:272
-#, fuzzy
-#| msgid ""
-#| "Record a personal voice message for Chapter 4. Formats: MP3, WAV, M4A(max "
-#| "10MB)."
 msgid "Background music for Chapter 5 Future Letter (MP3, WAV, M4A - max 10MB)"
 msgstr ""
-"Enregistre un message vocal personnel pour le Chapitre 4. Formats : MP3, "
-"WAV, M4A (max 10MB)."
+"Musique de fond pour la Lettre du futur au Chapitre 5 (MP3, WAV, M4A - max 10MB)."
 
 #: .\models\journey_gift.py:283
 msgid "DEPRECATED: Use chapter5_letter_music instead"
@@ -2431,9 +2317,6 @@ msgid "Last name to match (case-insensitive)"
 msgstr "Nom de famille à rechercher (insensible à la casse)"
 
 #: .\models\profiles.py:110
-#, fuzzy
-#| msgid ""
-#| "Direct link to user (bypasses name matching). Used for giftedjourneys."
 msgid "Direct link to user (bypasses name matching). Used for gifted journeys."
 msgstr ""
 "Lien direct vers l'utilisateur (contourne la correspondance des noms). "
@@ -2942,13 +2825,10 @@ msgid "Friendly device name (e.g., 'Android Chrome', 'iPhone Safari')"
 msgstr "Nom convivial de l'appareil (p.ex. 'Android Chrome', 'iPhone Safari')"
 
 #: .\models\profiles.py:944 .\models\profiles.py:1164
-#, fuzzy
-#| msgid ""
-#| "Browser fingerprint hash for stable device identification acrosssessions"
 msgid ""
 "Browser fingerprint hash for stable device identification across sessions"
 msgstr ""
-"Empreinte de navigateur pour l'identification stable de l'appareilentre les "
+"Empreinte de navigateur pour l'identification stable de l'appareil entre les "
 "sessions"
 
 #: .\models\profiles.py:950
@@ -3166,16 +3046,12 @@ msgstr "Votre Crush Coach a des commentaires : %(feedback)s..."
 #: .\templates\account\logout_crush.html:4
 #: .\templates\account\logout_crush.html:12
 #: .\templates\account\logout_crush.html:22
-#, fuzzy
-#| msgid "Sign in"
 msgid "Sign Out"
-msgstr "Se connecter"
+msgstr "Se déconnecter"
 
 #: .\templates\account\logout_crush.html:13
-#, fuzzy
-#| msgid "Are you sure you want to decline this connection?"
 msgid "Are you sure you want to sign out?"
-msgstr "Es-tu sûr de vouloir refuser cette connexion ?"
+msgstr "Êtes-vous sûr de vouloir vous déconnecter ?"
 
 #: .\templates\account\logout_crush.html:23
 #: .\templates\crush_lu\_event_registration_form.html:55
@@ -3192,16 +3068,12 @@ msgid "Crush.lu Coach Panel"
 msgstr "Panel Coach Crush.lu"
 
 #: .\templates\admin\crush_lu\index.html:9
-#, fuzzy
-#| msgid "Coach Control Panel"
 msgid "Coach Panel"
-msgstr "Panneau de contrôle coach"
+msgstr "Panneau Coach"
 
 #: .\templates\admin\crush_lu\index.html:12
-#, fuzzy
-#| msgid "Site administration"
 msgid "Django administration"
-msgstr "Administration du site"
+msgstr "Administration Django"
 
 #: .\templates\admin\crush_lu\index.html:262
 msgid "Add"
@@ -3440,7 +3312,7 @@ msgstr ""
 #: .\templates\crush_lu\event_list.html:28
 #: .\templates\crush_lu\how_it_works.html:24
 msgid "Home"
-msgstr ""
+msgstr "Accueil"
 
 #: .\templates\crush_lu\about.html:30 .\templates\crush_lu\base.html:539
 #: .\templates\crush_lu\base.html:766
@@ -3454,16 +3326,12 @@ msgid "About Crush.lu"
 msgstr "À propos de Crush.lu"
 
 #: .\templates\crush_lu\about.html:43
-#, fuzzy
-#| msgid ""
-#| "Learn about Crush.lu, Luxembourg's privacy-first dating platformbringing "
-#| "authentic connections through coach-curated profiles andreal-world events."
 msgid ""
 "Learn about Crush.lu, Luxembourg's privacy-first dating platform bringing "
 "authentic connections through coach-curated profiles and real-world events."
 msgstr ""
-"Découvre Crush.lu, la plateforme de rencontres luxembourgeoise axéesur la "
-"confidentialité qui crée des connexions authentiques grâce àdes profils "
+"Découvre Crush.lu, la plateforme de rencontres luxembourgeoise axée sur la "
+"confidentialité qui crée des connexions authentiques grâce à des profils "
 "sélectionnés par des coachs et des événements réels."
 
 #: .\templates\crush_lu\about.html:47
@@ -3486,33 +3354,20 @@ msgstr ""
 "Luxembourg."
 
 #: .\templates\crush_lu\about.html:66
-#, fuzzy
-#| msgid ""
-#| "In a world of endless swiping and superficial matches, Crush.lu takesa "
-#| "different approach. We believe that real relationships start withreal "
-#| "conversations, face-to-face."
 msgid ""
 "In a world of endless swiping and superficial matches, Crush.lu takes a "
 "different approach. We believe that real relationships start with real "
 "conversations, face-to-face."
 msgstr ""
-"Dans un monde de swipe infini et de matchs superficiels, Crush.luadopte une "
-"approche différente. On croit que les vraies relationscommencent par de "
-"vraies conversations, face à face.Dans un monde deswipe infini et de matchs "
-"superficiels, Crush.lu adopte une approchedifférente. On croit que les "
-"vraies relations commencent par devraies conversations, face à face."
+"Dans un monde de swipe infini et de matchs superficiels, Crush.lu adopte une "
+"approche différente. On croit que les vraies relations commencent par de "
+"vraies conversations, face à face."
 
 #: .\templates\crush_lu\about.html:73
 msgid "Why Luxembourg?"
 msgstr "Pourquoi le Luxembourg ?"
 
 #: .\templates\crush_lu\about.html:75
-#, fuzzy
-#| msgid ""
-#| "Luxembourg is a small, tight-knit community where privacy anddiscretion "
-#| "matter. Our platform is designed with this in mind,offering a curated "
-#| "experience that respects your privacy whilehelping you meet compatible "
-#| "people."
 msgid ""
 "Luxembourg is a small, tight-knit community where privacy and discretion "
 "matter. Our platform is designed with this in mind, offering a curated "
@@ -3520,29 +3375,21 @@ msgid ""
 "people."
 msgstr ""
 "Le Luxembourg est une petite communauté soudée où la vie privée et "
-"ladiscrétion comptent. Notre plateforme est conçue avec cela àl'esprit, "
-"offrant une expérience soignée qui respecte ta vie privéetout en t'aidant à "
-"rencontrer des personnes compatibles.Le Luxembourgest une petite communauté "
-"soudée où la vie privée et la discrétioncomptent. Notre plateforme est "
-"conçue avec cela à l'esprit, offrantune expérience soignée qui respecte ta "
-"vie privée tout en t'aidant àrencontrer des personnes compatibles."
+"la discrétion comptent. Notre plateforme est conçue avec cela à l'esprit, "
+"offrant une expérience soignée qui respecte ta vie privée tout en t'aidant à "
+"rencontrer des personnes compatibles."
 
 #: .\templates\crush_lu\about.html:82
 msgid "The Crush Coach Difference"
 msgstr "La différence Crush Coach"
 
 #: .\templates\crush_lu\about.html:84
-#, fuzzy
-#| msgid ""
-#| "Every profile on Crush.lu is reviewed by a dedicated Crush Coach.This "
-#| "ensures:"
 msgid ""
 "Every profile on Crush.lu is reviewed by a dedicated Crush Coach. This "
 "ensures:"
 msgstr ""
 "Chaque profil sur Crush.lu est examiné par un Crush Coach dédié. "
-"Celagarantit :Chaque profil sur Crush.lu est examiné par un Crush "
-"Coachdédié. Cela garantit :"
+"Cela garantit :"
 
 #: .\templates\crush_lu\about.html:87
 msgid "Authentic profiles only - no bots, no catfishing"
@@ -3593,10 +3440,8 @@ msgid "Account Information"
 msgstr "Informations du compte"
 
 #: .\templates\crush_lu\account_settings.html:25
-#, fuzzy
-#| msgid "Name:"
 msgid "Name"
-msgstr "Nom :"
+msgstr "Nom"
 
 #: .\templates\crush_lu\account_settings.html:29
 #: .\templates\crush_lu\membership.html:143
@@ -3612,16 +3457,12 @@ msgid "Linked Accounts"
 msgstr "Comptes liés"
 
 #: .\templates\crush_lu\account_settings.html:63
-#, fuzzy
-#| msgid ""
-#| "Connect additional social accounts for easier login. You can use "
-#| "anyconnected account to log in."
 msgid ""
 "Connect additional social accounts for easier login. You can use any "
 "connected account to log in."
 msgstr ""
-"Connecte des comptes sociaux supplémentaires pour une connexion plusfacile. "
-"Tu peux utiliser n'importe quel compte connecté pour teconnecter."
+"Connectez des comptes sociaux supplémentaires pour une connexion plus facile. "
+"Vous pouvez utiliser n'importe quel compte connecté pour vous connecter."
 
 #: .\templates\crush_lu\account_settings.html:70
 msgid "Connected"
@@ -3674,15 +3515,11 @@ msgid "Social Account Photos"
 msgstr "Photos des comptes sociaux"
 
 #: .\templates\crush_lu\account_settings.html:171
-#, fuzzy
-#| msgid ""
-#| "Photos from your connected social accounts. To use these photos onyour "
-#| "dating profile,"
 msgid ""
 "Photos from your connected social accounts. To use these photos on your "
 "dating profile,"
 msgstr ""
-"Photos de tes comptes sociaux connectés. Pour utiliser ces photos surton "
+"Photos de tes comptes sociaux connectés. Pour utiliser ces photos sur ton "
 "profil de rencontre,"
 
 #: .\templates\crush_lu\account_settings.html:173
@@ -3694,10 +3531,8 @@ msgid "complete your profile setup"
 msgstr "compléter la configuration de ton profil"
 
 #: .\templates\crush_lu\account_settings.html:198
-#, fuzzy
-#| msgid "Spots Available"
 msgid "Available"
-msgstr "Places disponibles"
+msgstr "Disponible"
 
 #: .\templates\crush_lu\account_settings.html:213
 msgid "Import Photos to Profile"
@@ -3712,19 +3547,13 @@ msgid "Password Login"
 msgstr "Connexion par mot de passe"
 
 #: .\templates\crush_lu\account_settings.html:238
-#, fuzzy, python-format
-#| msgid ""
-#| "You can set a password to enable login with your email (%(email)s) "
-#| "inaddition to your social accounts."
+#, python-format
 msgid ""
 "You can set a password to enable login with your email (%(email)s) in "
 "addition to your social accounts."
 msgstr ""
-"Tu peux définir un mot de passe pour permettre la connexion avec tonemail "
-"(%(email)s) en plus de tes comptes sociaux.Tu peux définir unmot de passe "
-"pour permettre la connexion avec ton e-mail (%(email)s)en plus de tes "
-"comptes sociaux.Tu peux définir un mot de passe pourpermettre la connexion "
-"avec ton email (%(email)s) en plus de tescomptes sociaux."
+"Vous pouvez définir un mot de passe pour permettre la connexion avec votre "
+"e-mail (%(email)s) en plus de vos comptes sociaux."
 
 #: .\templates\crush_lu\account_settings.html:241
 msgid "Set Password"
@@ -3788,17 +3617,12 @@ msgid "Email Notifications"
 msgstr "Notifications par email"
 
 #: .\templates\crush_lu\account_settings.html:315
-#, fuzzy
-#| msgid ""
-#| "You have unsubscribed from all emails. Toggle the switch below tore-"
-#| "enable notifications."
 msgid ""
 "You have unsubscribed from all emails. Toggle the switch below to re-enable "
 "notifications."
 msgstr ""
-"Tu t'es désabonné de tous les emails. Active l'interrupteurci-dessous pour "
-"réactiver les notifications.Tu t'es désabonné de tousles emails. Active "
-"l'interrupteur ci-dessous pour réactiver lesnotifications."
+"Vous vous êtes désabonné de tous les e-mails. Activez l'interrupteur "
+"ci-dessous pour réactiver les notifications."
 
 #: .\templates\crush_lu\account_settings.html:325
 msgid "Unsubscribe from ALL emails"
@@ -3842,10 +3666,8 @@ msgid "Newsletters, special offers, and promotions"
 msgstr "Newsletters, offres spéciales et promotions"
 
 #: .\templates\crush_lu\account_settings.html:401
-#, fuzzy
-#| msgid "Email Preferences"
 msgid "Save Preferences"
-msgstr "Préférences email"
+msgstr "Enregistrer les préférences"
 
 #: .\templates\crush_lu\account_settings.html:412
 #: .\templates\crush_lu\account_settings.html:606
@@ -3899,16 +3721,12 @@ msgid "Push notifications not available"
 msgstr "Notifications push non disponibles"
 
 #: .\templates\crush_lu\account_settings.html:442
-#, fuzzy
-#| msgid ""
-#| "Your browser doesn't support push notifications. Try opening Crush.luin "
-#| "Chrome, Firefox, Edge, or Safari on iOS 16.4+."
 msgid ""
 "Your browser doesn't support push notifications. Try opening Crush.lu in "
 "Chrome, Firefox, Edge, or Safari on iOS 16.4+."
 msgstr ""
-"Ton navigateur ne supporte pas les notifications push. Essaied'ouvrir Crush."
-"lu dans Chrome, Firefox, Edge ou Safari sur iOS 16.4+."
+"Votre navigateur ne supporte pas les notifications push. Essayez d'ouvrir "
+"Crush.lu dans Chrome, Firefox, Edge ou Safari sur iOS 16.4+."
 
 #: .\templates\crush_lu\account_settings.html:455
 #: .\templates\crush_lu\account_settings.html:652
@@ -3916,41 +3734,29 @@ msgid "Notifications blocked"
 msgstr "Paramètres de notification"
 
 #: .\templates\crush_lu\account_settings.html:457
-#, fuzzy
-#| msgid ""
-#| "You've blocked notifications for this site. To enable them, click thelock "
-#| "icon in your browser's address bar and allow notifications."
 msgid ""
 "You've blocked notifications for this site. To enable them, click the lock "
 "icon in your browser's address bar and allow notifications."
 msgstr ""
-"Tu as bloqué les notifications pour ce site. Pour les activer, cliquesur "
-"l'icône de cadenas dans la barre d'adresse de ton navigateur etautorise les "
-"notifications."
+"Vous avez bloqué les notifications pour ce site. Pour les activer, cliquez "
+"sur l'icône de cadenas dans la barre d'adresse de votre navigateur et "
+"autorisez les notifications."
 
 #: .\templates\crush_lu\account_settings.html:468
-#, fuzzy
-#| msgid ""
-#| "Get instant notifications about new messages, event reminders, "
-#| "andconnections on this device."
 msgid ""
 "Get instant notifications about new messages, event reminders, and "
 "connections on this device."
-msgstr "Soyez notifié des événements, messages et connexions"
+msgstr ""
+"Recevez des notifications instantanées concernant les nouveaux messages, "
+"rappels d'événements et connexions sur cet appareil."
 
 #: .\templates\crush_lu\account_settings.html:489
-#, fuzzy
-#| msgid ""
-#| "Configure which notifications you receive on your devices. Changesare "
-#| "saved automatically."
 msgid ""
 "Configure which notifications you receive on your devices. Changes are saved "
 "automatically."
 msgstr ""
-"Configure les notifications que tu reçois sur tes appareils. "
-"Lesmodifications sont enregistrées automatiquement.Configure "
-"lesnotifications que tu reçois sur tes appareils. Les modifications "
-"sontenregistrées automatiquement."
+"Configurez les notifications que vous recevez sur vos appareils. Les "
+"modifications sont enregistrées automatiquement."
 
 #: .\templates\crush_lu\account_settings.html:513
 #: .\templates\crush_lu\account_settings.html:710
@@ -4001,30 +3807,20 @@ msgstr ""
 "pour recevoir lesalertes de coach."
 
 #: .\templates\crush_lu\account_settings.html:665
-#, fuzzy
-#| msgid ""
-#| "Get instant notifications about new profile submissions, "
-#| "screeningreminders, and user responses."
 msgid ""
 "Get instant notifications about new profile submissions, screening "
 "reminders, and user responses."
 msgstr ""
-"Gérez vos préférences de notifications push pour les nouvellessoumissions de "
-"profil, les rappels de vérification et les réponsesdes utilisateurs."
+"Recevez des notifications instantanées pour les nouvelles soumissions de "
+"profil, les rappels de vérification et les réponses des utilisateurs."
 
 #: .\templates\crush_lu\account_settings.html:686
-#, fuzzy
-#| msgid ""
-#| "Configure which coach notifications you receive on your devices.Changes "
-#| "are saved automatically."
 msgid ""
 "Configure which coach notifications you receive on your devices. Changes are "
 "saved automatically."
 msgstr ""
-"Configure les notifications de coach que tu reçois sur tes appareils.Les "
-"modifications sont enregistrées automatiquement.Configure lesnotifications "
-"de coach que tu reçois sur tes appareils. Lesmodifications sont enregistrées "
-"automatiquement."
+"Configurez les notifications de coach que vous recevez sur vos appareils. "
+"Les modifications sont enregistrées automatiquement."
 
 #: .\templates\crush_lu\account_settings.html:734
 msgid "New Profile Submissions"
@@ -4085,19 +3881,15 @@ msgid "Delete Account"
 msgstr "Supprimer le compte"
 
 #: .\templates\crush_lu\account_settings.html:828
-#, fuzzy
-#| msgid ""
-#| "Once you delete your account, there is no going back. All your "
-#| "dataincluding your profile, photos, event registrations, connections, "
-#| "andmessages will be permanently deleted."
 msgid ""
 "Once you delete your account, there is no going back. All your data "
 "including your profile, photos, event registrations, connections, and "
 "messages will be permanently deleted."
 msgstr ""
-"Une fois que tu as supprimé ton compte, il n'y a pas de retour enarrière "
-"possible. Toutes tes données, y compris ton profil, photos,inscriptions aux "
-"événements, connexions et messages seront suppriméesdéfinitivement."
+"Une fois que vous avez supprimé votre compte, il n'y a pas de retour en "
+"arrière possible. Toutes vos données, y compris votre profil, photos, "
+"inscriptions aux événements, connexions et messages seront supprimées "
+"définitivement."
 
 #: .\templates\crush_lu\account_settings.html:831
 msgid "Delete My Account"
@@ -4365,16 +4157,12 @@ msgid "Edit"
 msgstr "Modifier"
 
 #: .\templates\crush_lu\coach_dashboard.html:62
-#, fuzzy
-#| msgid ""
-#| "Manage your push notification preferences for new profilesubmissions, "
-#| "screening reminders, and user responses."
 msgid ""
 "Manage your push notification preferences for new profile submissions, "
 "screening reminders, and user responses."
 msgstr ""
-"Gérez vos préférences de notifications push pour les nouvellessoumissions de "
-"profil, les rappels de vérification et les réponsesdes utilisateurs."
+"Gérez vos préférences de notifications push pour les nouvelles soumissions "
+"de profil, les rappels de vérification et les réponses des utilisateurs."
 
 #: .\templates\crush_lu\coach_dashboard.html:69
 msgid "Open Account Settings"
@@ -4464,13 +4252,10 @@ msgid "Questionnaire Mode"
 msgstr "Mode questionnaire"
 
 #: .\templates\crush_lu\coach_edit_challenge.html:76
-#, fuzzy
-#| msgid ""
-#| "This challenge accepts <strong>all answers</strong>. Users cannot getit \\"
 msgid ""
 "This challenge accepts <strong>all answers</strong>. Users cannot get it \\"
 msgstr ""
-"Ce défi accepte <strong>toutes les réponses</strong>. Lesutilisateurs ne "
+"Ce défi accepte <strong>toutes les réponses</strong>. Les utilisateurs ne "
 "peuvent pas avoir faux."
 
 #: .\templates\crush_lu\coach_edit_challenge.html:81
@@ -4479,16 +4264,12 @@ msgid "Quiz Mode"
 msgstr "Mode quiz"
 
 #: .\templates\crush_lu\coach_edit_challenge.html:83
-#, fuzzy
-#| msgid ""
-#| "This challenge validates answers against the correct answer below.Users "
-#| "can get hints and earn points based on correctness."
 msgid ""
 "This challenge validates answers against the correct answer below. Users can "
 "get hints and earn points based on correctness."
 msgstr ""
-"Ce défi valide les réponses par rapport à la bonne réponseci-dessous. Les "
-"utilisateurs peuvent obtenir des indices et gagnerdes points selon "
+"Ce défi valide les réponses par rapport à la bonne réponse ci-dessous. Les "
+"utilisateurs peuvent obtenir des indices et gagner des points selon "
 "l'exactitude."
 
 #: .\templates\crush_lu\coach_edit_challenge.html:93
@@ -4513,31 +4294,23 @@ msgid "Correct Answer"
 msgstr "Réponse correcte"
 
 #: .\templates\crush_lu\coach_edit_challenge.html:123
-#, fuzzy
-#| msgid ""
-#| "Leave blank for questionnaire-style challenges (all answers are savedfor "
-#| "review). For riddles/quizzes, enter the correct answer here."
 msgid ""
 "Leave blank for questionnaire-style challenges (all answers are saved for "
 "review). For riddles/quizzes, enter the correct answer here."
 msgstr ""
-"Laisser vide pour les défis de type questionnaire (toutes lesréponses sont "
-"sauvegardées pour examen). Pour les énigmes/quiz, entrela bonne réponse ici."
+"Laisser vide pour les défis de type questionnaire (toutes les réponses sont "
+"sauvegardées pour examen). Pour les énigmes/quiz, entre la bonne réponse ici."
 
 #: .\templates\crush_lu\coach_edit_challenge.html:130
 msgid "Hints System"
 msgstr "Système d'indices"
 
 #: .\templates\crush_lu\coach_edit_challenge.html:131
-#, fuzzy
-#| msgid ""
-#| "Users can unlock hints in exchange for points. Leave blank if nohints "
-#| "available."
 msgid ""
 "Users can unlock hints in exchange for points. Leave blank if no hints "
 "available."
 msgstr ""
-"Les utilisateurs peuvent débloquer des indices en échange de points.Laisse "
+"Les utilisateurs peuvent débloquer des indices en échange de points. Laisse "
 "vide si aucun indice disponible."
 
 #: .\templates\crush_lu\coach_edit_challenge.html:136
@@ -4577,15 +4350,11 @@ msgid "Success Message *"
 msgstr "Message de succès *"
 
 #: .\templates\crush_lu\coach_edit_challenge.html:195
-#, fuzzy
-#| msgid ""
-#| "Personal message shown when user answers correctly or completes "
-#| "thechallenge."
 msgid ""
 "Personal message shown when user answers correctly or completes the "
 "challenge."
 msgstr ""
-"Message personnel affiché quand l'utilisateur répond correctement outermine "
+"Message personnel affiché quand l'utilisateur répond correctement ou termine "
 "le défi."
 
 #: .\templates\crush_lu\coach_edit_challenge.html:202
@@ -4631,10 +4400,7 @@ msgid "Edit Journey"
 msgstr "Modifier le voyage"
 
 #: .\templates\crush_lu\coach_edit_journey.html:15
-#, fuzzy, python-format
-#| msgid ""
-#| "For: <strong>%(first_name)s %(last_name)s</strong> | %(chapters)sChapters "
-#| "| ~%(minutes)s minutes"
+#, python-format
 msgid ""
 "For: <strong>%(first_name)s %(last_name)s</strong> | %(chapters)s Chapters | "
 "~%(minutes)s minutes"
@@ -4703,19 +4469,12 @@ msgid "Edit Coach Profile"
 msgstr "Modifier votre profil"
 
 #: .\templates\crush_lu\coach_edit_profile.html:18
-#, fuzzy
-#| msgid ""
-#| "Update your coaching bio and specializations that users see whenassigned "
-#| "to you."
 msgid ""
 "Update your coaching bio and specializations that users see when assigned to "
 "you."
 msgstr ""
-"Mets à jour ta bio de coaching et tes spécialisations que lesutilisateurs "
-"voient quand ils te sont assignés.Mets à jour ta bio decoach et tes "
-"spécialisations que les utilisateurs voient lorsqu'ilste sont assignés.Mets "
-"à jour ta bio de coaching et tesspécialisations que les utilisateurs voient "
-"quand ils te sontassignés."
+"Mets à jour ta bio de coaching et tes spécialisations que les utilisateurs "
+"voient quand ils te sont assignés."
 
 # Coach Dashboard translations
 #: .\templates\crush_lu\coach_edit_profile.html:33
@@ -4723,15 +4482,11 @@ msgid "Coach Photo"
 msgstr "Tableau de bord Coach"
 
 #: .\templates\crush_lu\coach_edit_profile.html:36
-#, fuzzy
-#| msgid ""
-#| "This photo is shown to users when they're assigned to you as theircoach."
 msgid ""
 "This photo is shown to users when they're assigned to you as their coach."
 msgstr ""
-"Cette photo est affichée aux utilisateurs quand ils te sont assignéscomme "
-"coach.Cette photo est affichée aux utilisateurs quand ils tesont assignés "
-"comme coach."
+"Cette photo est affichée aux utilisateurs quand ils te sont assignés comme "
+"coach."
 
 #: .\templates\crush_lu\coach_edit_profile.html:42
 msgid "Current photo"
@@ -4763,16 +4518,12 @@ msgid "Max Active Reviews"
 msgstr "Max. examens"
 
 #: .\templates\crush_lu\coach_edit_profile.html:104
-#, fuzzy
-#| msgid "Actions"
 msgid "Active"
-msgstr "Actions"
+msgstr "Actif"
 
 #: .\templates\crush_lu\coach_edit_profile.html:104
-#, fuzzy
-#| msgid "Last active:"
 msgid "Inactive"
-msgstr "Dernière activité :"
+msgstr "Inactif"
 
 #: .\templates\crush_lu\coach_edit_profile.html:105
 msgid "Status"
@@ -4950,13 +4701,10 @@ msgid "Journey Management Dashboard"
 msgstr "Gestion des parcours"
 
 #: .\templates\crush_lu\coach_journey_dashboard.html:14
-#, fuzzy
-#| msgid ""
-#| "Manage all active Wonderland Journey experiences and monitor userprogress."
 msgid ""
 "Manage all active Wonderland Journey experiences and monitor user progress."
 msgstr ""
-"Gérez les expériences Wonderland Journey actives et consultez laprogression "
+"Gérez les expériences Wonderland Journey actives et consultez la progression "
 "des utilisateurs."
 
 #: .\templates\crush_lu\coach_journey_dashboard.html:25
@@ -5627,17 +5375,13 @@ msgid "Privacy First:"
 msgstr "Confidentialité d'abord :"
 
 #: .\templates\crush_lu\create_profile.html:972
-#, fuzzy
-#| msgid ""
-#| "Your phone number will only be used by your coach for screening. Itwon't "
-#| "be shared with other members without your consent."
 msgid ""
 "Your phone number will only be used by your coach for screening. It won't be "
 "shared with other members without your consent."
 msgstr ""
-"Ton numéro de téléphone sera uniquement utilisé par ton coach pour "
-"lescreening. Il ne sera pas partagé avec d'autres membres sans "
-"tonconsentement."
+"Votre numéro de téléphone sera uniquement utilisé par votre coach pour le "
+"screening. Il ne sera pas partagé avec d'autres membres sans votre "
+"consentement."
 
 #: .\templates\crush_lu\create_profile.html:996
 msgid "Submit Profile"
@@ -5766,15 +5510,11 @@ msgid "📲 Install Crush.lu App"
 msgstr "📲 Installer l'application Crush.lu"
 
 #: .\templates\crush_lu\dashboard.html:100
-#, fuzzy
-#| msgid ""
-#| "Install our app to get push notifications about events, messages, "
-#| "andconnections!"
 msgid ""
 "Install our app to get push notifications about events, messages, and "
 "connections!"
 msgstr ""
-"Installez notre application pour recevoir des notifications push surles "
+"Installez notre application pour recevoir des notifications push sur les "
 "événements, les messages et les connexions !"
 
 #: .\templates\crush_lu\dashboard.html:104
@@ -5794,16 +5534,12 @@ msgid "Membership Card"
 msgstr "Carte de membre de la cave"
 
 #: .\templates\crush_lu\dashboard.html:139
-#, fuzzy
-#| msgid ""
-#| "Save your Crush.lu membership card to your mobile wallet and shareyour "
-#| "referral link."
 msgid ""
 "Save your Crush.lu membership card to your mobile wallet and share your "
 "referral link."
 msgstr ""
-"Enregistre ta carte de membre Crush.lu dans ton portefeuille mobileet "
-"partage ton lien de parrainage."
+"Enregistrez votre carte de membre Crush.lu dans votre portefeuille mobile "
+"et partagez votre lien de parrainage."
 
 #: .\templates\crush_lu\dashboard.html:142
 #: .\templates\crush_lu\membership.html:105
@@ -5861,7 +5597,7 @@ msgstr "Obtiens ta carte de membre et des fonctionnalités exclusives"
 
 #: .\templates\crush_lu\dashboard.html:195
 msgid "Learn More"
-msgstr ""
+msgstr "En savoir plus"
 
 #: .\templates\crush_lu\dashboard.html:209
 msgid "Your Activity"
@@ -5964,7 +5700,7 @@ msgstr "Merci de remplir les champs obligatoires suivants :"
 
 #: .\templates\crush_lu\edit_profile.html:37
 msgid "Step"
-msgstr ""
+msgstr "Étape"
 
 #: .\templates\crush_lu\edit_profile.html:51
 msgid "Update your information below"
@@ -6030,10 +5766,9 @@ msgid "to manage all your notification settings."
 msgstr "pour gérer tous tes paramètres de notification."
 
 #: .\templates\crush_lu\email_unsubscribe.html:78
-#, fuzzy, python-format
-#| msgid "Hi %(first_name)s!"
+#, python-format
 msgid "Hi %(name)s!"
-msgstr "Salut %(first_name)s !"
+msgstr "Bonjour %(name)s !"
 
 #: .\templates\crush_lu\email_unsubscribe.html:78
 msgid "Hi!"
@@ -6077,10 +5812,8 @@ msgid "For more detailed control,"
 msgstr "Pour un contrôle plus détaillé,"
 
 #: .\templates\crush_lu\email_unsubscribe.html:181
-#, fuzzy
-#| msgid "Log in"
 msgid "log in"
-msgstr "Se connecter"
+msgstr "connectez-vous"
 
 #: .\templates\crush_lu\email_unsubscribe.html:182
 msgid "and visit your"
@@ -6183,15 +5916,11 @@ msgid "✓ Completed all required fields"
 msgstr "✓ Tous les champs obligatoires sont remplis"
 
 #: .\templates\crush_lu\emails\coach_assignment.html:34
-#, fuzzy
-#| msgid ""
-#| "Please review within 24-48 hours to ensure a great experience for "
-#| "newmembers."
 msgid ""
 "Please review within 24-48 hours to ensure a great experience for new "
 "members."
 msgstr ""
-"Merci d'examiner sous 24-48 heures pour assurer une super expérienceaux "
+"Merci d'examiner sous 24-48 heures pour assurer une super expérience aux "
 "nouveaux membres."
 
 #: .\templates\crush_lu\emails\coach_assignment.html:37
@@ -6321,15 +6050,11 @@ msgid "Time:"
 msgstr "Heure :"
 
 #: .\templates\crush_lu\emails\event_cancellation.html:22
-#, fuzzy
-#| msgid ""
-#| "If you paid a registration fee, it will be refunded within 5-7business "
-#| "days."
 msgid ""
 "If you paid a registration fee, it will be refunded within 5-7 business days."
 msgstr ""
-"Si tu as payé des frais d'inscription, ils te seront remboursés sous5-7 "
-"jours ouvrables."
+"Si vous avez payé des frais d'inscription, ils vous seront remboursés sous "
+"5-7 jours ouvrables."
 
 #: .\templates\crush_lu\emails\event_cancellation.html:24
 msgid "We hope to see you at a future event!"
@@ -6442,20 +6167,15 @@ msgid "Reminder:"
 msgstr "Rappels d'événements"
 
 #: .\templates\crush_lu\emails\event_reminder.html:11
-#, fuzzy, python-format
-#| msgid ""
-#| "You're registered for <strong>%(title)s</strong> happening in%(days)s day!"
-#| msgid_plural ""
-#| "You're registered for <strong>%(title)s</strong> happening in%(days)s "
-#| "days!"
+#, python-format
 msgid ""
 "You're registered for <strong>%(title)s</strong> happening in %(days)s day!"
 msgid_plural ""
 "You're registered for <strong>%(title)s</strong> happening in %(days)s days!"
 msgstr[0] ""
-"Tu es inscrit(e) pour <strong>%(title)s</strong> dans %(days)s jour !"
+"Vous êtes inscrit(e) pour <strong>%(title)s</strong> dans %(days)s jour !"
 msgstr[1] ""
-"Tu es inscrit(e) pour <strong>%(title)s</strong> dans %(days)s jours !"
+"Vous êtes inscrit(e) pour <strong>%(title)s</strong> dans %(days)s jours !"
 
 #: .\templates\crush_lu\emails\event_reminder.html:24
 msgid "Remember to bring:"
@@ -6511,16 +6231,13 @@ msgid "Thanks for your interest in <strong>%(title)s</strong>!"
 msgstr "Merci pour ton intérêt dans <strong>%(title)s</strong> !"
 
 #: .\templates\crush_lu\emails\event_waitlist.html:13
-#, fuzzy
-#| msgid ""
-#| "The event is currently full, but we've added you to the waitlist. Ifa "
-#| "spot opens up, you'll be notified immediately."
 msgid ""
 "The event is currently full, but we've added you to the waitlist. If a spot "
 "opens up, you'll be notified immediately."
 msgstr ""
-"L'événement est actuellement complet, mais nous t'avons ajouté(e) àla liste "
-"d'attente. Si une place se libère, tu seras immédiatementnotifié(e)."
+"L'événement est actuellement complet, mais nous vous avons ajouté(e) à la "
+"liste d'attente. Si une place se libère, vous serez immédiatement "
+"notifié(e)."
 
 #: .\templates\crush_lu\emails\event_waitlist.html:22
 msgid "Your Waitlist Position:"
@@ -6612,16 +6329,12 @@ msgid "About:"
 msgstr "À propos"
 
 #: .\templates\crush_lu\emails\existing_user_invitation.html:152
-#, fuzzy
-#| msgid ""
-#| "This is an exclusive, invitation-only event. You're one of the selectfew "
-#| "invited!"
 msgid ""
 "This is an exclusive, invitation-only event. You're one of the select few "
 "invited!"
 msgstr ""
-"C'est un événement exclusif, sur invitation uniquement. Tu faispartie des "
-"rares personnes invitées !"
+"C'est un événement exclusif, sur invitation uniquement. Vous faites partie "
+"des rares personnes invitées !"
 
 #: .\templates\crush_lu\emails\existing_user_invitation.html:155
 msgid "View Event Details & Register"
@@ -6649,16 +6362,12 @@ msgid "Someone special wants you to join them on Crush.lu"
 msgstr "Quelqu'un de spécial veut que tu le rejoignes sur Crush.lu"
 
 #: .\templates\crush_lu\emails\external_guest_invitation.html:113
-#, fuzzy
-#| msgid ""
-#| "You've received a special invitation to join an exclusive event onCrush."
-#| "lu, Luxembourg's privacy-first dating platform:"
 msgid ""
 "You've received a special invitation to join an exclusive event on Crush.lu, "
 "Luxembourg's privacy-first dating platform:"
 msgstr ""
-"Tu as reçu une invitation spéciale pour rejoindre un événement exclusif sur "
-"Crush.lu, la plateforme de rencontres du Luxembourg axée sur la "
+"Vous avez reçu une invitation spéciale pour rejoindre un événement exclusif "
+"sur Crush.lu, la plateforme de rencontres du Luxembourg axée sur la "
 "confidentialité :"
 
 #: .\templates\crush_lu\emails\external_guest_invitation.html:116
@@ -6700,25 +6409,15 @@ msgid "Your unique invitation link:"
 msgstr "Ton lien d'invitation unique :"
 
 #: .\templates\crush_lu\emails\external_guest_invitation.html:174
-#, fuzzy
-#| msgid ""
-#| "Crush.lu is Luxembourg's privacy-first dating platform focused onreal "
-#| "connections through in-person events. We prioritize quality overquantity, "
-#| "with human-reviewed profiles and exclusive events."
 msgid ""
 "Crush.lu is Luxembourg's privacy-first dating platform focused on real "
 "connections through in-person events. We prioritize quality over quantity, "
 "with human-reviewed profiles and exclusive events."
 msgstr ""
-"Crush.lu est la plateforme de rencontres du Luxembourg axée sur "
-"laconfidentialité, centrée sur les connexions réelles à travers "
-"desévénements en personne. Nous privilégions la qualité plutôt que "
-"laquantité, avec des profils examinés par des humains et des "
-"événementsexclusifs.Crush.lu est la plateforme de rencontres axée sur "
-"laconfidentialité du Luxembourg. Rencontrez des célibataires "
-"lorsd'événements de speed dating sélectionnés, de mixers sociaux et "
-"demeetups à thème. Les profils vérifiés par des coachs garantissent "
-"desconnexions authentiques."
+"Crush.lu est la plateforme de rencontres du Luxembourg axée sur la "
+"confidentialité, centrée sur les connexions réelles à travers des événements "
+"en personne. Nous privilégions la qualité plutôt que la quantité, avec des "
+"profils examinés par des humains et des événements exclusifs."
 
 #: .\templates\crush_lu\emails\external_guest_invitation.html:177
 msgid "Questions? Just reply to this email!"
@@ -6734,16 +6433,12 @@ msgid "You're all set to attend the event"
 msgstr "Tu es prêt(e) à participer à l'événement"
 
 #: .\templates\crush_lu\emails\invitation_approved.html:112
-#, fuzzy
-#| msgid ""
-#| "Great news! Your invitation to our exclusive event has been approvedby "
-#| "our team. You can now register to attend:"
 msgid ""
 "Great news! Your invitation to our exclusive event has been approved by our "
 "team. You can now register to attend:"
 msgstr ""
-"Bonne nouvelle ! Ton invitation à notre événement exclusif a étéapprouvée "
-"par notre équipe. Tu peux maintenant t'inscrire pourparticiper :"
+"Bonne nouvelle ! Votre invitation à notre événement exclusif a été approuvée "
+"par notre équipe. Vous pouvez maintenant vous inscrire pour participer :"
 
 #: .\templates\crush_lu\emails\invitation_approved.html:115
 msgid "APPROVED"
@@ -6754,16 +6449,12 @@ msgid "Next Step:"
 msgstr "Étape suivante"
 
 #: .\templates\crush_lu\emails\invitation_approved.html:154
-#, fuzzy
-#| msgid ""
-#| "Click the button below to complete your event registration. Spots "
-#| "arelimited!"
 msgid ""
 "Click the button below to complete your event registration. Spots are "
 "limited!"
 msgstr ""
-"Clique sur le bouton ci-dessous pour finaliser ton inscription àl'événement. "
-"Les places sont limitées !"
+"Cliquez sur le bouton ci-dessous pour finaliser votre inscription à "
+"l'événement. Les places sont limitées !"
 
 #: .\templates\crush_lu\emails\invitation_approved.html:157
 msgid "Register for Event Now"
@@ -6796,15 +6487,11 @@ msgid "Thank you for your interest in attending <strong>%(title)s</strong>."
 msgstr "Merci pour ton intérêt à participer à <strong>%(title)s</strong>."
 
 #: .\templates\crush_lu\emails\invitation_rejected.html:82
-#, fuzzy
-#| msgid ""
-#| "After careful review, we're unable to approve your invitation to "
-#| "thisparticular event at this time."
 msgid ""
 "After careful review, we're unable to approve your invitation to this "
 "particular event at this time."
 msgstr ""
-"Après examen attentif, nous ne pouvons pas approuver ton invitation àcet "
+"Après examen attentif, nous ne pouvons pas approuver votre invitation à cet "
 "événement particulier pour le moment."
 
 #: .\templates\crush_lu\emails\invitation_rejected.html:86
@@ -6812,18 +6499,13 @@ msgid "Feedback from our team:"
 msgstr "Commentaires pour l'utilisateur..."
 
 #: .\templates\crush_lu\emails\invitation_rejected.html:91
-#, fuzzy
-#| msgid ""
-#| "We appreciate your understanding. Crush.lu hosts many eventsthroughout "
-#| "the year, and we'd love to see you at future events thatmight be a better "
-#| "fit."
 msgid ""
 "We appreciate your understanding. Crush.lu hosts many events throughout the "
 "year, and we'd love to see you at future events that might be a better fit."
 msgstr ""
-"Nous apprécions ta compréhension. Crush.lu organise de nombreuxévénements "
-"tout au long de l'année, et nous aimerions te voir à defuturs événements qui "
-"pourraient mieux te correspondre."
+"Nous apprécions votre compréhension. Crush.lu organise de nombreux "
+"événements tout au long de l'année, et nous aimerions vous voir à de futurs "
+"événements qui pourraient mieux vous correspondre."
 
 #: .\templates\crush_lu\emails\invitation_rejected.html:98
 msgid "Questions or concerns? We're here to help!"
@@ -6877,19 +6559,14 @@ msgid "What is the Wonderland of You?"
 msgstr "Qu'est-ce que le Wonderland of You ?"
 
 #: .\templates\crush_lu\emails\journey_gift_notification.html:56
-#, fuzzy
-#| msgid ""
-#| "It's a magical journey through 6 enchanting chapters filled withpuzzles, "
-#| "riddles, and heartfelt surprises. Each chapter unlockssecrets and reveals "
-#| "messages from someone who cares about you deeply."
 msgid ""
 "It's a magical journey through 6 enchanting chapters filled with puzzles, "
 "riddles, and heartfelt surprises. Each chapter unlocks secrets and reveals "
 "messages from someone who cares about you deeply."
 msgstr ""
-"C'est un parcours magique à travers 6 chapitres enchanteurs remplisde "
-"puzzles, d'énigmes et de surprises sincères. Chaque chapitredévoile des "
-"secrets et des messages de quelqu'un qui tient à toi."
+"C'est un parcours magique à travers 6 chapitres enchanteurs remplis de "
+"puzzles, d'énigmes et de surprises sincères. Chaque chapitre dévoile des "
+"secrets et des messages de quelqu'un qui tient à vous."
 
 #: .\templates\crush_lu\emails\journey_gift_notification.html:61
 msgid "Puzzles"
@@ -6908,15 +6585,11 @@ msgid "Gift Code:"
 msgstr "Code du cadeau :"
 
 #: .\templates\crush_lu\emails\journey_gift_notification.html:82
-#, fuzzy
-#| msgid ""
-#| "You're receiving this because someone special created a journey foryou on "
-#| "Crush.lu."
 msgid ""
 "You're receiving this because someone special created a journey for you on "
 "Crush.lu."
 msgstr ""
-"Tu reçois cet email parce que quelqu'un de spécial a créé un parcourspour "
+"Tu reçois cet email parce que quelqu'un de spécial a créé un parcours pour "
 "toi sur Crush.lu."
 
 #: .\templates\crush_lu\emails\new_connection_request.html:4
@@ -6945,14 +6618,12 @@ msgid "About %(name)s:"
 msgstr "À propos de %(name)s :"
 
 #: .\templates\crush_lu\emails\new_connection_request.html:15
-#, fuzzy, python-format
-#| msgid ""
-#| "You met at %(event)s on %(date)s. They'd like to continue theconversation!"
+#, python-format
 msgid ""
 "You met at %(event)s on %(date)s. They'd like to continue the conversation!"
 msgstr ""
-"Vous vous êtes rencontrés à %(event)s le %(date)s. Il/Elle aimeraitcontinuer "
-"la conversation !"
+"Vous vous êtes rencontrés à %(event)s le %(date)s. Il/Elle aimerait "
+"continuer la conversation !"
 
 #: .\templates\crush_lu\emails\new_connection_request.html:20
 msgid "View their profile on your connections page"
@@ -6975,28 +6646,21 @@ msgid "Privacy Note:"
 msgstr "Confidentialité d'abord :"
 
 #: .\templates\crush_lu\emails\new_connection_request.html:31
-#, fuzzy
-#| msgid ""
-#| "Your contact details remain private until you both agree to connect.Only "
-#| "mutual connections can message each other."
 msgid ""
 "Your contact details remain private until you both agree to connect. Only "
 "mutual connections can message each other."
 msgstr ""
-"Tes coordonnées restent privées jusqu'à ce que vous acceptiez tousles deux "
-"de vous connecter. Seules les connexions mutuelles peuvents'envoyer des "
+"Vos coordonnées restent privées jusqu'à ce que vous acceptiez tous les deux "
+"de vous connecter. Seules les connexions mutuelles peuvent s'envoyer des "
 "messages."
 
 #: .\templates\crush_lu\emails\new_connection_request.html:41
-#, fuzzy
-#| msgid ""
-#| "You're receiving this because someone from an event wants to connectwith "
-#| "you."
 msgid ""
 "You're receiving this because someone from an event wants to connect with "
 "you."
 msgstr ""
-"Tu reçois ceci parce que quelqu'un d'un événement veut se connecteravec toi."
+"Vous recevez ceci parce que quelqu'un d'un événement veut se connecter avec "
+"vous."
 
 #: .\templates\crush_lu\emails\new_message.html:4
 msgid "New Message"
@@ -7015,14 +6679,11 @@ msgid "Reply to Message"
 msgstr "Répondre au message"
 
 #: .\templates\crush_lu\emails\new_message.html:22
-#, fuzzy
-#| msgid ""
-#| "Don't keep them waiting - head over to Crush.lu to continue "
-#| "theconversation!"
 msgid ""
 "Don't keep them waiting - head over to Crush.lu to continue the conversation!"
 msgstr ""
-"Ne les fais pas attendre - va sur Crush.lu pour continuer laconversation !"
+"Ne les faites pas attendre - rendez-vous sur Crush.lu pour continuer la "
+"conversation !"
 
 #: .\templates\crush_lu\emails\new_message.html:26
 #: .\templates\crush_lu\emails\profile_approved.html:41
@@ -7030,11 +6691,8 @@ msgid "Cheers,"
 msgstr "Santé,"
 
 #: .\templates\crush_lu\emails\new_message.html:32
-#, fuzzy
-#| msgid ""
-#| "You're receiving this because you have a new message from aconnection."
 msgid "You're receiving this because you have a new message from a connection."
-msgstr "Tu reçois ceci car tu as un nouveau message d'une connexion."
+msgstr "Vous recevez ceci car vous avez un nouveau message d'une connexion."
 
 #: .\templates\crush_lu\emails\profile_approved.html:6
 #: .\templates\crush_lu\emails\welcome.html:75
@@ -7109,28 +6767,21 @@ msgid "Your profile is waiting for you"
 msgstr "Ton profil t'attend"
 
 #: .\templates\crush_lu\emails\profile_incomplete_24h.html:11
-#, fuzzy
-#| msgid ""
-#| "You started creating your Crush.lu profile yesterday, and we noticedyou "
-#| "haven't finished yet."
 msgid ""
 "You started creating your Crush.lu profile yesterday, and we noticed you "
 "haven't finished yet."
 msgstr ""
-"Tu as commencé à créer ton profil Crush.lu hier, et nous avonsremarqué que "
-"tu ne l'as pas encore terminé."
+"Vous avez commencé à créer votre profil Crush.lu hier, et nous avons "
+"remarqué que vous ne l'avez pas encore terminé."
 
 #: .\templates\crush_lu\emails\profile_incomplete_24h.html:14
-#, fuzzy
-#| msgid ""
-#| "You're just a few steps away from meeting amazing people inLuxembourg! It "
-#| "only takes about 5 minutes to complete your profile."
 msgid ""
 "You're just a few steps away from meeting amazing people in Luxembourg! It "
 "only takes about 5 minutes to complete your profile."
 msgstr ""
-"Tu n'es plus qu'à quelques étapes de rencontrer des personnes incroyables au "
-"Luxembourg ! Il ne faut qu'environ 5 minutes pour compléter ton profil."
+"Vous n'êtes plus qu'à quelques étapes de rencontrer des personnes "
+"incroyables au Luxembourg ! Il ne faut qu'environ 5 minutes pour compléter "
+"votre profil."
 
 #: .\templates\crush_lu\emails\profile_incomplete_24h.html:17
 msgid "What you'll add:"
@@ -7155,16 +6806,12 @@ msgid "A few photos"
 msgstr "Quelques photos"
 
 #: .\templates\crush_lu\emails\profile_incomplete_24h.html:27
-#, fuzzy
-#| msgid ""
-#| "Great start! You've completed the basics. Now let's add a bio andyour "
-#| "interests so people can get to know you better."
 msgid ""
 "Great start! You've completed the basics. Now let's add a bio and your "
 "interests so people can get to know you better."
 msgstr ""
-"Excellent début ! Tu as complété les bases. Maintenant ajoutons unebio et "
-"tes centres d'intérêt pour que les gens puissent mieux teconnaître."
+"Excellent début ! Vous avez complété les bases. Maintenant ajoutons une bio "
+"et vos centres d'intérêt pour que les gens puissent mieux vous connaître."
 
 #: .\templates\crush_lu\emails\profile_incomplete_24h.html:30
 msgid "Next up:"
@@ -7179,16 +6826,12 @@ msgid "Share your hobbies and interests"
 msgstr "Partage tes hobbies et centres d'intérêt"
 
 #: .\templates\crush_lu\emails\profile_incomplete_24h.html:39
-#, fuzzy
-#| msgid ""
-#| "You're almost there! Just add some photos and your profile will beready "
-#| "for review."
 msgid ""
 "You're almost there! Just add some photos and your profile will be ready for "
 "review."
 msgstr ""
-"Tu y es presque ! Ajoute quelques photos et ton profil sera prêt "
-"pourl'examen."
+"Vous y êtes presque ! Ajoutez quelques photos et votre profil sera prêt pour "
+"l'examen."
 
 #: .\templates\crush_lu\emails\profile_incomplete_24h.html:42
 msgid "Did you know?"
@@ -7207,26 +6850,19 @@ msgid "Complete My Profile"
 msgstr "Compléter mon profil"
 
 #: .\templates\crush_lu\emails\profile_incomplete_24h.html:53
-#, fuzzy
-#| msgid ""
-#| "Once your profile is complete, our team will review it and you'll beready "
-#| "to join events and meet new people!"
 msgid ""
 "Once your profile is complete, our team will review it and you'll be ready "
 "to join events and meet new people!"
 msgstr ""
-"Une fois ton profil complété, notre équipe l'examinera et tu serasprêt(e) à "
-"rejoindre des événements et rencontrer de nouvellespersonnes !"
+"Une fois votre profil complété, notre équipe l'examinera et vous serez "
+"prêt(e) à rejoindre des événements et rencontrer de nouvelles personnes !"
 
 #: .\templates\crush_lu\emails\profile_incomplete_24h.html:58
-#, fuzzy
-#| msgid ""
-#| "You're receiving this reminder because you started creating a profileon "
-#| "Crush.lu."
 msgid ""
 "You're receiving this reminder because you started creating a profile on "
 "Crush.lu."
-msgstr "Tu reçois ce rappel car tu as commencé à créer un profil sur Crush.lu."
+msgstr ""
+"Vous recevez ce rappel car vous avez commencé à créer un profil sur Crush.lu."
 
 #: .\templates\crush_lu\emails\profile_incomplete_72h.html:4
 msgid "Don't Miss Out"
@@ -7249,17 +6885,13 @@ msgid "almost ready"
 msgstr "presque prêt"
 
 #: .\templates\crush_lu\emails\profile_incomplete_72h.html:13
-#, fuzzy
-#| msgid ""
-#| "We noticed you started signing up a few days ago but haven't finishedyour "
-#| "profile yet. We get it - life gets busy!"
 msgid ""
 "We noticed you started signing up a few days ago but haven't finished your "
 "profile yet. We get it - life gets busy!"
 msgstr ""
-"Nous avons remarqué que tu as commencé à t'inscrire il y a quelquesjours "
-"mais que tu n'as pas encore terminé ton profil. On comprend -la vie est bien "
-"remplie !"
+"Nous avons remarqué que vous avez commencé à vous inscrire il y a quelques "
+"jours mais que vous n'avez pas encore terminé votre profil. On comprend - la "
+"vie est bien remplie !"
 
 #: .\templates\crush_lu\emails\profile_incomplete_72h.html:17
 msgid "Why complete your profile now?"
@@ -7278,59 +6910,43 @@ msgid "Connect with the Luxembourg dating community"
 msgstr "Connecte-toi avec la communauté des rencontres au Luxembourg"
 
 #: .\templates\crush_lu\emails\profile_incomplete_72h.html:25
-#, fuzzy
-#| msgid ""
-#| "It only takes 5 minutes to create your profile. Our friendly coacheswill "
-#| "review it personally to ensure everyone has a great experience."
 msgid ""
 "It only takes 5 minutes to create your profile. Our friendly coaches will "
 "review it personally to ensure everyone has a great experience."
 msgstr ""
-"Il ne faut que 5 minutes pour créer ton profil. Nos coachssympathiques "
-"l'examineront personnellement pour garantir uneexcellente expérience à tous."
+"Il ne faut que 5 minutes pour créer votre profil. Nos coachs sympathiques "
+"l'examineront personnellement pour garantir une excellente expérience à tous."
 
 #: .\templates\crush_lu\emails\profile_incomplete_72h.html:28
-#, fuzzy
-#| msgid ""
-#| "You've already done the hard part - now just add a short bio and "
-#| "yourinterests. This helps us match you with events and people "
-#| "you'llactually enjoy meeting."
 msgid ""
 "You've already done the hard part - now just add a short bio and your "
 "interests. This helps us match you with events and people you'll actually "
 "enjoy meeting."
 msgstr ""
-"Tu as déjà fait le plus dur - ajoute maintenant une courte bio et tescentres "
-"d'intérêt. Cela nous aide à te mettre en relation avec desévénements et des "
-"personnes que tu apprécieras vraiment."
+"Vous avez déjà fait le plus dur - ajoutez maintenant une courte bio et vos "
+"centres d'intérêt. Cela nous aide à vous mettre en relation avec des "
+"événements et des personnes que vous apprécierez vraiment."
 
 #: .\templates\crush_lu\emails\profile_incomplete_72h.html:31
 msgid "Pro tip:"
 msgstr "Conseil :"
 
 #: .\templates\crush_lu\emails\profile_incomplete_72h.html:32
-#, fuzzy
-#| msgid ""
-#| "Be authentic! Mention your hobbies, what makes you laugh, or whatyou're "
-#| "passionate about."
 msgid ""
 "Be authentic! Mention your hobbies, what makes you laugh, or what you're "
 "passionate about."
 msgstr ""
-"Sois authentique ! Mentionne tes hobbies, ce qui te fait rire, ou cequi te "
-"passionne."
+"Soyez authentique ! Mentionnez vos hobbies, ce qui vous fait rire, ou ce qui "
+"vous passionne."
 
 #: .\templates\crush_lu\emails\profile_incomplete_72h.html:36
-#, fuzzy
-#| msgid ""
-#| "You're SO close! Just add 1-3 photos and you're done. Your privacy "
-#| "isprotected - you can blur photos or show only your first name."
 msgid ""
 "You're SO close! Just add 1-3 photos and you're done. Your privacy is "
 "protected - you can blur photos or show only your first name."
 msgstr ""
-"Tu es SI proche ! Ajoute juste 1-3 photos et c'est fait. Ta vieprivée est "
-"protégée - tu peux flouter les photos ou montrer seulementton prénom."
+"Vous êtes SI proche ! Ajoutez juste 1-3 photos et c'est fait. Votre vie "
+"privée est protégée - vous pouvez flouter les photos ou montrer seulement "
+"votre prénom."
 
 #: .\templates\crush_lu\emails\profile_incomplete_72h.html:39
 msgid "Photo tips:"
@@ -7357,16 +6973,12 @@ msgid "Questions? Reply to this email and we'll help you out!"
 msgstr "Des questions ? Réponds à cet e-mail et nous t'aiderons !"
 
 #: .\templates\crush_lu\emails\profile_incomplete_72h.html:59
-#, fuzzy
-#| msgid ""
-#| "You're receiving this because you signed up for Crush.lu but "
-#| "haven'tcompleted your profile."
 msgid ""
 "You're receiving this because you signed up for Crush.lu but haven't "
 "completed your profile."
 msgstr ""
-"Tu reçois ceci car tu t'es inscrit(e) sur Crush.lu mais tu n'as pascomplété "
-"ton profil."
+"Vous recevez ceci car vous vous êtes inscrit(e) sur Crush.lu mais vous "
+"n'avez pas complété votre profil."
 
 #: .\templates\crush_lu\emails\profile_incomplete_final.html:4
 msgid "Last Chance to Complete Your Profile"
@@ -7381,51 +6993,35 @@ msgid "One week later - your profile is still incomplete"
 msgstr "Une semaine plus tard - ton profil est toujours incomplet"
 
 #: .\templates\crush_lu\emails\profile_incomplete_final.html:13
-#, fuzzy
-#| msgid ""
-#| "This is our final reminder - your Crush.lu profile is still waitingfor "
-#| "you!"
 msgid ""
 "This is our final reminder - your Crush.lu profile is still waiting for you!"
-msgstr "C'est notre dernier rappel - ton profil Crush.lu t'attend toujours !"
+msgstr ""
+"C'est notre dernier rappel - votre profil Crush.lu vous attend toujours !"
 
 #: .\templates\crush_lu\emails\profile_incomplete_final.html:16
-#, fuzzy
-#| msgid ""
-#| "We know starting something new can feel like a big step. But here'sthe "
-#| "thing: you already took the first step by signing up. Now let'sfinish "
-#| "what you started!"
 msgid ""
 "We know starting something new can feel like a big step. But here's the "
 "thing: you already took the first step by signing up. Now let's finish what "
 "you started!"
 msgstr ""
-"On sait que commencer quelque chose de nouveau peut sembler être ungrand "
-"pas. Mais voilà : tu as déjà fait le premier pas ent'inscrivant. Maintenant "
+"On sait que commencer quelque chose de nouveau peut sembler être un grand "
+"pas. Mais voilà : tu as déjà fait le premier pas en t'inscrivant. Maintenant "
 "finissons ce que tu as commencé !"
 
 #: .\templates\crush_lu\emails\profile_incomplete_final.html:19
-#, fuzzy
-#| msgid ""
-#| "You've already started your profile - you're more than halfway there!Just "
-#| "a few more details and you'll be ready to meet amazing people."
 msgid ""
 "You've already started your profile - you're more than halfway there! Just a "
 "few more details and you'll be ready to meet amazing people."
 msgstr ""
-"Tu as déjà commencé ton profil - tu es à plus de la moitié ! Justequelques "
-"détails de plus et tu seras prêt(e) à rencontrer despersonnes incroyables."
+"Tu as déjà commencé ton profil - tu es à plus de la moitié ! Juste quelques "
+"détails de plus et tu seras prêt(e) à rencontrer des personnes incroyables."
 
 #: .\templates\crush_lu\emails\profile_incomplete_final.html:22
-#, fuzzy
-#| msgid ""
-#| "You're literally one step away! Just add a photo or two and yourprofile "
-#| "goes to our review team."
 msgid ""
 "You're literally one step away! Just add a photo or two and your profile "
 "goes to our review team."
 msgstr ""
-"Tu es littéralement à une étape ! Ajoute juste une ou deux photos etton "
+"Tu es littéralement à une étape ! Ajoute juste une ou deux photos et ton "
 "profil ira à notre équipe d'examen."
 
 #: .\templates\crush_lu\emails\profile_incomplete_final.html:27
@@ -7433,30 +7029,21 @@ msgid "What's happening on Crush.lu?"
 msgstr "Quoi de neuf sur Crush.lu ?"
 
 #: .\templates\crush_lu\emails\profile_incomplete_final.html:28
-#, fuzzy
-#| msgid ""
-#| "People are signing up, profiles are being approved, and events arebeing "
-#| "organized. Don't miss out on the fun!"
 msgid ""
 "People are signing up, profiles are being approved, and events are being "
 "organized. Don't miss out on the fun!"
 msgstr ""
-"Les gens s'inscrivent, les profils sont approuvés, et les événementssont "
+"Les gens s'inscrivent, les profils sont approuvés, et les événements sont "
 "organisés. Ne rate pas le plaisir !"
 
 #: .\templates\crush_lu\emails\profile_incomplete_final.html:36
-#, fuzzy
-#| msgid ""
-#| "If dating isn't on your mind right now, no worries - we won't sendany "
-#| "more reminders about your profile. But your account will be herewhenever "
-#| "you're ready!"
 msgid ""
 "If dating isn't on your mind right now, no worries - we won't send any more "
 "reminders about your profile. But your account will be here whenever you're "
 "ready!"
 msgstr ""
-"Si les rencontres ne sont pas dans tes pensées en ce moment, pas desouci - "
-"nous n'enverrons plus de rappels concernant ton profil. Maiston compte sera "
+"Si les rencontres ne sont pas dans tes pensées en ce moment, pas de souci - "
+"nous n'enverrons plus de rappels concernant ton profil. Mais ton compte sera "
 "là quand tu seras prêt(e) !"
 
 #: .\templates\crush_lu\emails\profile_incomplete_final.html:40
@@ -7476,15 +7063,11 @@ msgid "Profile Review Update"
 msgstr "Révision du profil"
 
 #: .\templates\crush_lu\emails\profile_rejected.html:11
-#, fuzzy
-#| msgid ""
-#| "Thank you for your interest in Crush.lu. After careful review, "
-#| "we'reunable to approve your profile at this time."
 msgid ""
 "Thank you for your interest in Crush.lu. After careful review, we're unable "
 "to approve your profile at this time."
 msgstr ""
-"Merci pour ton intérêt pour Crush.lu. Après un examen attentif, nousne "
+"Merci pour ton intérêt pour Crush.lu. Après un examen attentif, nous ne "
 "pouvons pas approuver ton profil pour le moment."
 
 #: .\templates\crush_lu\emails\profile_rejected.html:14
@@ -7492,16 +7075,12 @@ msgid "Reason:"
 msgstr "Raison :"
 
 #: .\templates\crush_lu\emails\profile_rejected.html:18
-#, fuzzy
-#| msgid ""
-#| "We take profile quality and community safety seriously to ensure thebest "
-#| "experience for all members. We appreciate your understanding."
 msgid ""
 "We take profile quality and community safety seriously to ensure the best "
 "experience for all members. We appreciate your understanding."
 msgstr ""
-"On prend la qualité des profils et la sécurité de la communauté ausérieux "
-"pour garantir la meilleure expérience à tous les membres. Onapprécie ta "
+"On prend la qualité des profils et la sécurité de la communauté au sérieux "
+"pour garantir la meilleure expérience à tous les membres. On apprécie ta "
 "compréhension."
 
 #: .\templates\crush_lu\emails\profile_rejected.html:20
@@ -7540,15 +7119,11 @@ msgid "Profile Review Feedback"
 msgstr "Révision du profil"
 
 #: .\templates\crush_lu\emails\profile_revision_request.html:11
-#, fuzzy
-#| msgid ""
-#| "Thanks for your interest in Crush.lu! Our team has reviewed yourprofile "
-#| "and we'd love to see a few updates before approval."
 msgid ""
 "Thanks for your interest in Crush.lu! Our team has reviewed your profile and "
 "we'd love to see a few updates before approval."
 msgstr ""
-"Merci de ton intérêt pour Crush.lu ! Notre équipe a examiné tonprofil et on "
+"Merci de ton intérêt pour Crush.lu ! Notre équipe a examiné ton profil et on "
 "aimerait voir quelques mises à jour avant l'approbation."
 
 #: .\templates\crush_lu\emails\profile_revision_request.html:18
@@ -7572,19 +7147,14 @@ msgid "Update Profile"
 msgstr "Mettre à jour le profil"
 
 #: .\templates\crush_lu\emails\profile_revision_request.html:27
-#, fuzzy
-#| msgid ""
-#| "Don't worry - most profiles need small tweaks to ensure the "
-#| "bestexperience for everyone. We're here to help create a community "
-#| "whereeveryone feels comfortable and respected."
 msgid ""
 "Don't worry - most profiles need small tweaks to ensure the best experience "
 "for everyone. We're here to help create a community where everyone feels "
 "comfortable and respected."
 msgstr ""
-"Ne t'inquiète pas - la plupart des profils nécessitent de petitsajustements "
-"pour garantir la meilleure expérience à tout le monde. Onest là pour créer "
-"une communauté où chacun se sent à l'aise etrespecté."
+"Ne t'inquiète pas - la plupart des profils nécessitent de petits ajustements "
+"pour garantir la meilleure expérience à tout le monde. On est là pour créer "
+"une communauté où chacun se sent à l'aise et respecté."
 
 #: .\templates\crush_lu\emails\profile_revision_request.html:29
 msgid "If you have any questions about the feedback, feel free to reach out!"
@@ -7665,25 +7235,18 @@ msgid "Welcome to Crush.lu"
 msgstr "Bienvenue sur Crush !"
 
 #: .\templates\crush_lu\emails\welcome.html:81
-#, fuzzy
-#| msgid ""
-#| "Congratulations on taking the first step toward meaningfulconnections!"
 msgid "Congratulations on taking the first step toward meaningful connections!"
 msgstr ""
 "Félicitations pour avoir fait le premier pas vers des "
-"connexionsauthentiques !"
+"connexions authentiques !"
 
 #: .\templates\crush_lu\emails\welcome.html:83
-#, fuzzy
-#| msgid ""
-#| "Your Crush.lu account has been successfully created. Now let's buildyour "
-#| "profile so you can start meeting amazing people at our events."
 msgid ""
 "Your Crush.lu account has been successfully created. Now let's build your "
 "profile so you can start meeting amazing people at our events."
 msgstr ""
-"Ton compte Crush.lu a été créé avec succès. Maintenant construisonston "
-"profil pour que tu puisses commencer à rencontrer des personnesincroyables "
+"Ton compte Crush.lu a été créé avec succès. Maintenant construisons ton "
+"profil pour que tu puisses commencer à rencontrer des personnes incroyables "
 "lors de nos événements."
 
 #: .\templates\crush_lu\emails\welcome.html:86
@@ -7842,15 +7405,11 @@ msgid "🎤 Presentation Style (Phase 2 - Mandatory)"
 msgstr "🎤 Style de présentation (Phase 2 - Obligatoire)"
 
 #: .\templates\crush_lu\event_activity_vote.html:142
-#, fuzzy
-#| msgid ""
-#| "Everyone will present for 90 seconds. Choose how YOU want tointroduce "
-#| "yourself!"
 msgid ""
 "Everyone will present for 90 seconds. Choose how YOU want to introduce "
 "yourself!"
 msgstr ""
-"Tout le monde présentera pendant 90 secondes. Choisis comment TU veuxte "
+"Tout le monde présentera pendant 90 secondes. Choisis comment TU veux te "
 "présenter !"
 
 #: .\templates\crush_lu\event_activity_vote.html:165
@@ -7862,15 +7421,11 @@ msgid "💕 Speed Dating Twist (Phase 3)"
 msgstr "💕 Variante Speed Dating (Phase 3)"
 
 #: .\templates\crush_lu\event_activity_vote.html:167
-#, fuzzy
-#| msgid ""
-#| "After presentations, you'll do speed dating with matched pairs.Choose a "
-#| "fun twist!"
 msgid ""
 "After presentations, you'll do speed dating with matched pairs. Choose a fun "
 "twist!"
 msgstr ""
-"Après les présentations, tu feras du speed dating avec des pairesassorties. "
+"Après les présentations, tu feras du speed dating avec des paires assorties. "
 "Choisis une variante amusante !"
 
 #: .\templates\crush_lu\event_activity_vote.html:191
@@ -7905,31 +7460,23 @@ msgid "%(date)s at %(time)s"
 msgstr "%(date)s à %(time)s"
 
 #: .\templates\crush_lu\event_attendees.html:26
-#, fuzzy
-#| msgid ""
-#| "Select people you'd like to stay in touch with. If they also selectyou "
-#| "(mutual interest!), a Crush Coach will help facilitate yourintroduction "
-#| "and guide you through sharing contact information."
 msgid ""
 "Select people you'd like to stay in touch with. If they also select you "
 "(mutual interest!), a Crush Coach will help facilitate your introduction and "
 "guide you through sharing contact information."
 msgstr ""
-"Sélectionne les personnes avec qui tu aimerais rester en contact. Sielles te "
-"sélectionnent aussi (intérêt mutuel !), un Crush Coachaidera à faciliter "
-"votre introduction et te guidera pour partager voscoordonnées."
+"Sélectionne les personnes avec qui tu aimerais rester en contact. Si elles te "
+"sélectionnent aussi (intérêt mutuel !), un Crush Coach aidera à faciliter "
+"votre introduction et te guidera pour partager vos coordonnées."
 
 #: .\templates\crush_lu\event_attendees.html:89
 msgid "No other attendees yet"
 msgstr "Pas encore d'autres participants"
 
 #: .\templates\crush_lu\event_attendees.html:90
-#, fuzzy
-#| msgid ""
-#| "Check back after the event when other attendees are marked asattended."
 msgid "Check back after the event when other attendees are marked as attended."
 msgstr ""
-"Reviens après l'événement quand d'autres participants seront marquéscomme "
+"Reviens après l'événement quand d'autres participants seront marqués comme "
 "présents."
 
 #: .\templates\crush_lu\event_cancel.html:10
@@ -8007,15 +7554,11 @@ msgid "Interactive Activity Voting:"
 msgstr "Sélection interactive de parcelle"
 
 #: .\templates\crush_lu\event_detail.html:157
-#, fuzzy
-#| msgid ""
-#| "15 minutes after the event starts, you'll vote on which activityformat to "
-#| "do"
 msgid ""
 "15 minutes after the event starts, you'll vote on which activity format to do"
 msgstr ""
 "15 minutes après le début de l'événement, tu voteras pour le "
-"formatd'activité à faire"
+"format d'activité à faire"
 
 #: .\templates\crush_lu\event_detail.html:158
 msgid "Choose from Speed Dating, 90-Second Presentations, or Mystery Event"
@@ -8073,14 +7616,12 @@ msgstr "Vous êtes déjà inscrit à cet événement."
 
 #: .\templates\crush_lu\event_list.html:5
 msgid "Dating Events Luxembourg - Speed Dating & Singles Meetups | Crush.lu"
-msgstr ""
+msgstr "Événements de rencontres Luxembourg - Speed Dating et rencontres célibataires | Crush.lu"
 
 #: .\templates\crush_lu\event_list.html:7
 #: .\templates\crush_lu\event_list.html:10
-#, fuzzy
-#| msgid "How Event Voting Works - Crush.lu"
 msgid "Dating Events in Luxembourg | Crush.lu"
-msgstr "Comment fonctionne le vote - Crush.lu"
+msgstr "Événements de rencontres au Luxembourg | Crush.lu"
 
 #: .\templates\crush_lu\event_list.html:8
 msgid ""
@@ -8088,12 +7629,18 @@ msgid ""
 "Luxembourg. Join Crush.lu events to meet real people and make authentic "
 "connections."
 msgstr ""
+"Découvrez les prochains événements de speed dating, soirées sociales et "
+"rencontres célibataires au Luxembourg. Rejoignez les événements Crush.lu "
+"pour rencontrer de vraies personnes et créer des connexions authentiques."
 
 #: .\templates\crush_lu\event_list.html:11
 msgid ""
 "Browse upcoming speed dating events, social mixers, and singles meetups in "
 "Luxembourg. Join Crush.lu events to meet real people."
 msgstr ""
+"Découvrez les prochains événements de speed dating, soirées sociales et "
+"rencontres célibataires au Luxembourg. Rejoignez les événements Crush.lu "
+"pour rencontrer de vraies personnes."
 
 #: .\templates\crush_lu\event_list.html:13
 msgid ""
@@ -8101,36 +7648,28 @@ msgid ""
 "nights, social mixers, activity meetups, and themed events for singles "
 "looking for authentic connections."
 msgstr ""
+"Trouvez les prochains événements de rencontres au Luxembourg. Crush.lu "
+"organise des soirées de speed dating, des soirées sociales, des rencontres "
+"d'activités et des événements thématiques pour les célibataires à la "
+"recherche de connexions authentiques."
 
 #: .\templates\crush_lu\event_list.html:14
-#, fuzzy
-#| msgid ""
-#| "crush.lu, dating luxembourg, speed dating luxembourg, singles "
-#| "eventsluxembourg, meetup luxembourg, dating events, luxembourg singles,"
-#| "coach dating, privacy dating"
 msgid ""
 "dating events luxembourg, speed dating luxembourg, singles meetups, social "
 "mixer luxembourg, crush.lu events, luxembourg dating events"
 msgstr ""
-"crush.lu, rencontres luxembourg, speed dating luxembourg, "
-"événementscélibataires luxembourg, meetup luxembourg, événements de "
-"rencontres,célibataires luxembourg, coach dating, rencontres confidentialité"
+"événements rencontres luxembourg, speed dating luxembourg, rencontres "
+"célibataires, mixer social luxembourg, événements crush.lu, événements "
+"rencontres luxembourg"
 
 #: .\templates\crush_lu\event_list.html:46
-#, fuzzy
-#| msgid "Privacy-First Dating in Luxembourg"
 msgid "Upcoming Dating Events in Luxembourg"
-msgstr "Rencontres confidentielles au Luxembourg"
+msgstr "Prochains événements de rencontres au Luxembourg"
 
 #: .\templates\crush_lu\event_list.html:47
-#, fuzzy
-#| msgid ""
-#| "Speed dating nights, social mixers, and themed meetups. Meet peoplein "
-#| "person, the way it should be."
 msgid "Speed dating, social mixers, and singles meetups organized by Crush.lu"
 msgstr ""
-"Soirées speed dating, mixers sociaux et meetups à thème. Rencontrezdes gens "
-"en personne, comme il se doit."
+"Speed dating, mixers sociaux et rencontres célibataires organisés par Crush.lu"
 
 #: .\templates\crush_lu\event_list.html:85
 #, python-format
@@ -8484,9 +8023,6 @@ msgid "View Event Attendees"
 msgstr "Voir les participants"
 
 #: .\templates\crush_lu\home.html:5
-#, fuzzy
-#| msgid ""
-#| "Crush.lu - Meet New People in Luxembourg | Dating Events & SinglesMeetups"
 msgid ""
 "Crush.lu - Meet New People in Luxembourg | Dating Events & Singles Meetups"
 msgstr ""
@@ -8498,11 +8034,6 @@ msgid "Crush.lu - Meet New People in Luxembourg"
 msgstr "Crush.lu - Rencontrez de nouvelles personnes au Luxembourg"
 
 #: .\templates\crush_lu\home.html:8
-#, fuzzy
-#| msgid ""
-#| "Privacy-first dating platform for Luxembourg. Join coach-curatedevents, "
-#| "meet real singles, and build authentic connections. Noendless swiping - "
-#| "just meaningful meetups."
 msgid ""
 "Privacy-first dating platform for Luxembourg. Join coach-curated events, "
 "meet real singles, and build authentic connections. No endless swiping - "
@@ -8527,11 +8058,6 @@ msgstr ""
 "célibataires et créez des connexions authentiques."
 
 #: .\templates\crush_lu\home.html:13
-#, fuzzy
-#| msgid ""
-#| "Crush.lu is Luxembourg's privacy-first dating platform. Meet singlesat "
-#| "curated speed dating events, social mixers, and themed meetups.Coach-"
-#| "reviewed profiles ensure authentic connections."
 msgid ""
 "Crush.lu is Luxembourg's privacy-first dating platform. Meet singles at "
 "curated speed dating events, social mixers, and themed meetups. Coach-"
@@ -8543,60 +8069,51 @@ msgstr ""
 "par des coachs garantissent des connexions authentiques."
 
 #: .\templates\crush_lu\home.html:14
-#, fuzzy
-#| msgid ""
-#| "crush.lu, dating luxembourg, speed dating luxembourg, singles "
-#| "eventsluxembourg, meetup luxembourg, dating events, luxembourg singles,"
-#| "coach dating, privacy dating"
 msgid ""
 "crush.lu, dating luxembourg, speed dating luxembourg, singles events "
 "luxembourg, meetup luxembourg, dating events, luxembourg singles, coach "
 "dating, privacy dating"
 msgstr ""
 "crush.lu, rencontres luxembourg, speed dating luxembourg, "
-"événementscélibataires luxembourg, meetup luxembourg, événements de "
-"rencontres,célibataires luxembourg, coach dating, rencontres confidentialité"
+"événements célibataires luxembourg, meetup luxembourg, événements de "
+"rencontres, célibataires luxembourg, coach dating, rencontres confidentialité"
 
 #: .\templates\crush_lu\home.html:26
-#, fuzzy
-#| msgid ""
-#| "Privacy-first dating platform for Luxembourg. Join coach-curatedevents, "
-#| "meet real singles, and build authentic connections."
 msgid ""
 "Privacy-first dating platform for Luxembourg with coach-curated events and "
 "meaningful connections."
 msgstr ""
-"Plateforme de rencontres axée sur la confidentialité pour le Luxembourg. "
-"Rejoignez des événements sélectionnés par des coachs, rencontrez de vrais "
-"célibataires et créez des connexions authentiques."
+"Plateforme de rencontres axée sur la confidentialité pour le Luxembourg avec "
+"des événements sélectionnés par des coachs et des connexions significatives."
 
 #: .\templates\crush_lu\home.html:43
-#, fuzzy
-#| msgid "How Crush.lu Works"
 msgid "How does Crush.lu work?"
-msgstr "Comment fonctionne Crush.lu"
+msgstr "Comment fonctionne Crush.lu ?"
 
 #: .\templates\crush_lu\home.html:46
 msgid ""
 "Create your profile, get coach approval within 24-48 hours, then join speed "
 "dating nights and social meetups to meet real people in person."
 msgstr ""
+"Créez votre profil, obtenez l'approbation d'un coach sous 24-48 heures, puis "
+"rejoignez des soirées de speed dating et des rencontres sociales pour "
+"rencontrer de vraies personnes en personne."
 
 #: .\templates\crush_lu\home.html:51
 msgid "Is Crush.lu free to join?"
-msgstr ""
+msgstr "L'inscription sur Crush.lu est-elle gratuite ?"
 
 #: .\templates\crush_lu\home.html:54
 msgid ""
 "Yes! Creating a profile is free. Some events may have a small registration "
 "fee to cover venue costs."
 msgstr ""
+"Oui ! La création d'un profil est gratuite. Certains événements peuvent avoir "
+"des frais d'inscription modiques pour couvrir les coûts du lieu."
 
 #: .\templates\crush_lu\home.html:59
-#, fuzzy
-#| msgid "Want to use Crush.lu for dating too?"
 msgid "What makes Crush.lu different from other dating apps?"
-msgstr "Tu veux aussi utiliser Crush.lu pour les rencontres ?"
+msgstr "Qu'est-ce qui différencie Crush.lu des autres applications de rencontre ?"
 
 #: .\templates\crush_lu\home.html:62
 msgid ""
@@ -8604,6 +8121,10 @@ msgid ""
 "reviewed by Crush Coaches, and you meet people at organized events instead "
 "of endless swiping."
 msgstr ""
+"Crush.lu se concentre sur les rencontres basées sur des événements avec la "
+"confidentialité en priorité. Tous les profils sont examinés par des Crush "
+"Coaches, et vous rencontrez des personnes lors d'événements organisés plutôt "
+"que de swiper sans fin."
 
 #: .\templates\crush_lu\home.html:82
 msgid "Meet New People."
@@ -8614,17 +8135,13 @@ msgid "Make Real Connections."
 msgstr "Créez de vraies connexions."
 
 #: .\templates\crush_lu\home.html:86
-#, fuzzy
-#| msgid ""
-#| "Crush.lu brings Luxembourg's singles together through real events "
-#| "andmeaningful connections. No endless swiping. Just authentic meetups."
 msgid ""
 "Crush.lu brings Luxembourg's singles together through real events and "
 "meaningful connections. No endless swiping. Just authentic meetups."
 msgstr ""
-"Crush.lu rassemble les célibataires du Luxembourg à travers de "
-"vraisévénements et des connexions significatives. Pas de swipe sans fin."
-"Juste des meetups authentiques."
+"Crush.lu rassemble les célibataires du Luxembourg à travers de vrais "
+"événements et des connexions significatives. Pas de swipe sans fin. "
+"Juste des rencontres authentiques."
 
 #: .\templates\crush_lu\home.html:90
 msgid "Get Started Free"
@@ -8635,15 +8152,11 @@ msgid "Why Choose Crush.lu"
 msgstr "Pourquoi choisir Crush.lu"
 
 #: .\templates\crush_lu\home.html:112
-#, fuzzy
-#| msgid ""
-#| "Your profile is reviewed by our Crush Coaches before going live.Small "
-#| "community, big respect for privacy."
 msgid ""
 "Your profile is reviewed by our Crush Coaches before going live. Small "
 "community, big respect for privacy."
 msgstr ""
-"Votre profil est vérifié par nos Crush Coaches avant d'être mis enligne. "
+"Votre profil est vérifié par nos Crush Coaches avant d'être mis en ligne. "
 "Petite communauté, grand respect pour la vie privée."
 
 #: .\templates\crush_lu\home.html:117
@@ -8667,27 +8180,19 @@ msgid "Guided Support"
 msgstr "Accompagnement guidé"
 
 #: .\templates\crush_lu\home.html:126
-#, fuzzy
-#| msgid ""
-#| "Work with your personal Crush Coach to build confidence and makegenuine "
-#| "connections."
 msgid ""
 "Work with your personal Crush Coach to build confidence and make genuine "
 "connections."
 msgstr ""
-"Travaillez avec votre Crush Coach personnel pour développer votreconfiance "
+"Travaillez avec votre Crush Coach personnel pour développer votre confiance "
 "et créer des connexions authentiques."
 
 #: .\templates\crush_lu\home.html:143
-#, fuzzy
-#| msgid ""
-#| "Sign up and tell us about yourself. Share your interests and whatyou're "
-#| "looking for."
 msgid ""
 "Sign up and tell us about yourself. Share your interests and what you're "
 "looking for."
 msgstr ""
-"Inscrivez-vous et parlez-nous de vous. Partagez vos intérêts et ceque vous "
+"Inscrivez-vous et parlez-nous de vous. Partagez vos intérêts et ce que vous "
 "recherchez."
 
 #: .\templates\crush_lu\home.html:149
@@ -8696,14 +8201,10 @@ msgid "Get Coach Approval"
 msgstr "Obtenir l'approbation du coach"
 
 #: .\templates\crush_lu\home.html:150
-#, fuzzy
-#| msgid ""
-#| "A Crush Coach reviews your profile and provides feedback within "
-#| "24-48hours."
 msgid ""
 "A Crush Coach reviews your profile and provides feedback within 24-48 hours."
 msgstr ""
-"Un Crush Coach vérifie votre profil et vous donne son avis dans les24 à 48 "
+"Un Crush Coach vérifie votre profil et vous donne son avis dans les 24 à 48 "
 "heures."
 
 #: .\templates\crush_lu\home.html:156
@@ -8711,14 +8212,11 @@ msgid "Join Events"
 msgstr "Rejoindre les événements"
 
 #: .\templates\crush_lu\home.html:157
-#, fuzzy
-#| msgid ""
-#| "Browse and register for upcoming speed dating nights and socialmeetups."
 msgid ""
 "Browse and register for upcoming speed dating nights and social meetups."
 msgstr ""
-"Parcourez et inscrivez-vous aux prochaines soirées speed dating etmeetups "
-"sociaux."
+"Parcourez et inscrivez-vous aux prochaines soirées speed dating et rencontres "
+"sociales."
 
 #: .\templates\crush_lu\home.html:164
 msgid "Meet people in real life and build authentic relationships."
@@ -8746,15 +8244,11 @@ msgid "Ready to Meet Your Crush?"
 msgstr "Prêt à rencontrer votre crush ?"
 
 #: .\templates\crush_lu\home.html:223
-#, fuzzy
-#| msgid ""
-#| "Join Luxembourg's most authentic way to meet new people and buildreal "
-#| "relationships."
 msgid ""
 "Join Luxembourg's most authentic way to meet new people and build real "
 "relationships."
 msgstr ""
-"Rejoignez la façon la plus authentique de rencontrer de nouvellespersonnes "
+"Rejoignez la façon la plus authentique de rencontrer de nouvelles personnes "
 "et de construire de vraies relations au Luxembourg."
 
 #: .\templates\crush_lu\home.html:226
@@ -8788,11 +8282,6 @@ msgstr ""
 "Comment fonctionne Crush.lu - Rencontrer des célibataires au Luxembourg"
 
 #: .\templates\crush_lu\how_it_works.html:7
-#, fuzzy
-#| msgid ""
-#| "Discover how Crush.lu helps you meet singles in Luxembourg. Createyour "
-#| "profile, get coach approval, join events, and make authenticconnections. "
-#| "No endless swiping!"
 msgid ""
 "Discover how Crush.lu helps you meet singles in Luxembourg. Create your "
 "profile, get coach approval, join events, and make authentic connections. No "
@@ -8803,19 +8292,14 @@ msgstr ""
 "événements et fais des connexions authentiques. Fini le swipe sans fin !"
 
 #: .\templates\crush_lu\how_it_works.html:9
-#, fuzzy
-#| msgid ""
-#| "Learn how Crush.lu works in 4 simple steps: Create your profile, getcoach "
-#| "approval, browse events, and meet real people. Luxembourg'sprivacy-first "
-#| "dating platform."
 msgid ""
 "Learn how Crush.lu works in 4 simple steps: Create your profile, get coach "
 "approval, browse events, and meet real people. Luxembourg's privacy-first "
 "dating platform."
 msgstr ""
-"Apprends comment Crush.lu fonctionne en 4 étapes simples : Crée tonprofil, "
-"obtiens l'approbation du coach, parcours les événements etrencontre de "
-"vraies personnes. La plateforme de rencontre duLuxembourg axée sur la "
+"Apprends comment Crush.lu fonctionne en 4 étapes simples : Crée ton profil, "
+"obtiens l'approbation du coach, parcours les événements et rencontre de "
+"vraies personnes. La plateforme de rencontre du Luxembourg axée sur la "
 "confidentialité."
 
 #: .\templates\crush_lu\how_it_works.html:10
@@ -8832,10 +8316,6 @@ msgid "How to Start Dating with Crush.lu"
 msgstr "Comment commencer les rencontres avec Crush.lu"
 
 #: .\templates\crush_lu\how_it_works.html:43
-#, fuzzy
-#| msgid ""
-#| "A step-by-step guide to meeting singles in Luxembourg throughCrush.lu's "
-#| "coach-curated dating events."
 msgid ""
 "A step-by-step guide to meeting singles in Luxembourg through Crush.lu's "
 "coach-curated dating events."
@@ -8844,15 +8324,11 @@ msgstr ""
 "les événements de rencontre organisés par les coachs de Crush.lu."
 
 #: .\templates\crush_lu\how_it_works.html:55
-#, fuzzy
-#| msgid ""
-#| "Share who you are, what you love, and what you're looking for. Addphotos "
-#| "and let your personality shine through."
 msgid ""
 "Share who you are, what you love, and what you're looking for. Add photos "
 "and let your personality shine through."
 msgstr ""
-"Partage qui tu es, ce que tu aimes et ce que tu recherches. Ajoutedes photos "
+"Partage qui tu es, ce que tu aimes et ce que tu recherches. Ajoute des photos "
 "et laisse ta personnalité briller."
 
 #: .\templates\crush_lu\how_it_works.html:62
@@ -9681,6 +9157,8 @@ msgid ""
 "Add background music that plays while reading your Future Letter in Chapter "
 "5!"
 msgstr ""
+"Ajoutez une musique de fond qui jouera pendant la lecture de votre Lettre "
+"du futur au Chapitre 5 !"
 
 #: .\templates\crush_lu\journey\gift_create.html:219
 msgid "MP3, WAV, M4A (max 10MB)"
@@ -9941,7 +9419,7 @@ msgstr "Télécharger le QR"
 
 #: .\templates\crush_lu\journey\gift_success.html:51
 msgid "WhatsApp"
-msgstr ""
+msgstr "WhatsApp"
 
 #: .\templates\crush_lu\journey\gift_success.html:65
 msgid "More Options..."
@@ -10149,11 +9627,11 @@ msgstr "Caractéristiques spéciales"
 
 #: .\templates\crush_lu\journey\rewards\future_letter.html:60
 msgid "Music for this letter..."
-msgstr ""
+msgstr "Musique pour cette lettre..."
 
 #: .\templates\crush_lu\journey\rewards\future_letter.html:67
 msgid "Click to play music"
-msgstr ""
+msgstr "Cliquez pour écouter la musique"
 
 #: .\templates\crush_lu\journey\rewards\future_letter.html:74
 #: .\templates\crush_lu\journey\rewards\poem.html:43
@@ -10252,26 +9730,20 @@ msgid "points."
 msgstr "points."
 
 #: .\templates\crush_lu\journey\rewards\photo_slideshow.html:58
-#, fuzzy
-#| msgid "Previous Chapter"
 msgid "Previous photo"
-msgstr "Étape précédente"
+msgstr "Photo précédente"
 
 #: .\templates\crush_lu\journey\rewards\photo_slideshow.html:63
-#, fuzzy
-#| msgid "No photo"
 msgid "Next photo"
-msgstr "Pas de photo"
+msgstr "Photo suivante"
 
 #: .\templates\crush_lu\journey\rewards\photo_slideshow.html:72
-#, fuzzy
-#| msgid "Chapter navigation"
 msgid "Photo navigation"
-msgstr "Navigation des chapitres"
+msgstr "Navigation des photos"
 
 #: .\templates\crush_lu\journey\rewards\photo_slideshow.html:139
 msgid "Use arrow keys or swipe to navigate"
-msgstr ""
+msgstr "Utilisez les flèches du clavier ou glissez pour naviguer"
 
 #: .\templates\crush_lu\journey\rewards\photo_slideshow.html:162
 msgid "A special memory awaits..."
@@ -10307,30 +9779,21 @@ msgid "Crush.lu Membership Program"
 msgstr "Adhésion au club"
 
 #: .\templates\crush_lu\membership.html:7
-#, fuzzy
-#| msgid ""
-#| "Join the Crush.lu membership program. Earn points, unlock rewards,and get "
-#| "your digital membership card in your wallet."
 msgid ""
 "Join the Crush.lu membership program. Earn points, unlock rewards, and get "
 "your digital membership card in your wallet."
 msgstr ""
-"Rejoins le programme de membres Crush.lu. Gagne des points, débloquedes "
-"récompenses et obtiens ta carte de membre numérique dans tonportefeuille."
+"Rejoignez le programme de membres Crush.lu. Gagnez des points, débloquez des "
+"récompenses et obtenez votre carte de membre numérique dans votre portefeuille."
 
 #: .\templates\crush_lu\membership.html:9
-#, fuzzy
-#| msgid ""
-#| "Crush.lu Membership: Install our app to unlock your digitalmembership "
-#| "card. Earn points by inviting friends and climb the tiersfrom Basic to "
-#| "Gold."
 msgid ""
 "Crush.lu Membership: Install our app to unlock your digital membership card. "
 "Earn points by inviting friends and climb the tiers from Basic to Gold."
 msgstr ""
-"Membership Crush.lu : Installe notre app pour débloquer ta carte demembre "
-"numérique. Gagne des points en invitant des amis et monte lesniveaux de "
-"Basic à Gold."
+"Adhésion Crush.lu : Installez notre application pour débloquer votre carte de "
+"membre numérique. Gagnez des points en invitant des amis et montez les "
+"niveaux de Basic à Gold."
 
 #: .\templates\crush_lu\membership.html:10
 msgid ""
@@ -10357,16 +9820,12 @@ msgid "Install the App to Unlock"
 msgstr "Installer l'application"
 
 #: .\templates\crush_lu\membership.html:42
-#, fuzzy
-#| msgid ""
-#| "Get your membership card in Apple Wallet or Google Wallet, plus "
-#| "pushnotifications for events and connections."
 msgid ""
 "Get your membership card in Apple Wallet or Google Wallet, plus push "
 "notifications for events and connections."
 msgstr ""
-"Installez notre application pour recevoir des notifications push surles "
-"événements, les messages et les connexions !"
+"Obtenez votre carte de membre dans Apple Wallet ou Google Wallet, ainsi que "
+"des notifications push pour les événements et les connexions."
 
 #: .\templates\crush_lu\membership.html:50
 #: .\templates\crush_lu\partials\pwa_install_banner.html:24
@@ -10516,17 +9975,13 @@ msgid "Luxembourg Canton Selection Map"
 msgstr "Carte de sélection des cantons du Luxembourg"
 
 #: .\templates\crush_lu\partials\canton_map_svg.html:11
-#, fuzzy
-#| msgid ""
-#| "Interactive map showing Luxembourg cantons and border regions. Clickor "
-#| "use arrow keys to select your location."
 msgid ""
 "Interactive map showing Luxembourg cantons and border regions. Click or use "
 "arrow keys to select your location."
 msgstr ""
-"Carte interactive montrant les cantons du Luxembourg et les "
-"régionsfrontalières. Cliquez ou utilisez les touches fléchées "
-"poursélectionner votre emplacement."
+"Carte interactive montrant les cantons du Luxembourg et les régions "
+"frontalières. Cliquez ou utilisez les touches fléchées pour sélectionner "
+"votre emplacement."
 
 #: .\templates\crush_lu\partials\canton_map_svg.html:53
 msgid "Border regions"
@@ -10541,10 +9996,8 @@ msgid "Language"
 msgstr "Langue"
 
 #: .\templates\crush_lu\partials\language_switcher.html:40
-#, fuzzy
-#| msgid "Gold"
 msgid "Go"
-msgstr "Or"
+msgstr "OK"
 
 #: .\templates\crush_lu\partials\nav_progress_dropdown.html:25
 msgid "steps"
@@ -12038,21 +11491,15 @@ msgid "Please fill in all required fields"
 msgstr "Merci de remplir tous les champs obligatoires"
 
 #: .\views_profile.py:283
-#, fuzzy
-#| msgid "Profile submitted for review!"
 msgid "Profile submitted for review! A coach will contact you soon."
-msgstr "Profil soumis pour examen !"
+msgstr "Profil soumis pour examen ! Un coach vous contactera bientôt."
 
 #: .\views_wallet.py:62
-#, fuzzy
-#| msgid ""
-#| "Apple Wallet support is coming soon! Please use Google Wallet in "
-#| "themeantime."
 msgid ""
 "Apple Wallet support is coming soon! Please use Google Wallet in the "
 "meantime."
 msgstr ""
-"Le support Apple Wallet arrive bientôt ! Utilise Google Wallet enattendant."
+"Le support Apple Wallet arrive bientôt ! Utilisez Google Wallet en attendant."
 
 #~ msgid "Voice Message"
 #~ msgstr "Message vocal"
