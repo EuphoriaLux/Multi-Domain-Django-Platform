@@ -203,9 +203,9 @@ document.addEventListener('alpine:init', function() {
             endpointDetected: false,  // Flag to trigger re-render when endpoint is detected
             // i18n strings for time formatting (loaded from data attributes)
             i18n: {
-                neverUsed: 'Never used',
-                justNow: 'Just now',
-                lastActive: 'Last active:',
+                neverUsed: gettext('Never used'),
+                justNow: gettext('Just now'),
+                lastActive: gettext('Last active:'),
                 minutesAgo: 'm ago',
                 hoursAgo: 'h ago',
                 daysAgo: 'd ago',
@@ -518,7 +518,7 @@ document.addEventListener('alpine:init', function() {
                         if (result.error === 'Permission denied') {
                             self.permissionDenied = true;
                         } else {
-                            self.errorMessage = result.error || 'Failed to enable notifications';
+                            self.errorMessage = result.error || gettext('Failed to enable notifications');
                         }
                     }
                 }).catch(function(err) {
@@ -543,7 +543,7 @@ document.addEventListener('alpine:init', function() {
                         // Reload to update UI
                         window.location.reload();
                     } else {
-                        self.errorMessage = result.error || 'Failed to disable notifications';
+                        self.errorMessage = result.error || gettext('Failed to disable notifications');
                     }
                 }).catch(function(err) {
                     self.isDisabling = false;
@@ -574,7 +574,7 @@ document.addEventListener('alpine:init', function() {
                         // Reload to update UI
                         window.location.reload();
                     } else {
-                        self.errorMessage = data.error || 'Failed to disable notifications';
+                        self.errorMessage = data.error || gettext('Failed to disable notifications');
                     }
                 })
                 .catch(function(err) {
@@ -666,9 +666,9 @@ document.addEventListener('alpine:init', function() {
             endpointDetected: false,  // Flag to trigger re-render when endpoint is detected
             // i18n strings for time formatting (loaded from data attributes)
             i18n: {
-                neverUsed: 'Never used',
-                justNow: 'Just now',
-                lastActive: 'Last active:',
+                neverUsed: gettext('Never used'),
+                justNow: gettext('Just now'),
+                lastActive: gettext('Last active:'),
                 minutesAgo: 'm ago',
                 hoursAgo: 'h ago',
                 daysAgo: 'd ago',
@@ -938,11 +938,11 @@ document.addEventListener('alpine:init', function() {
                             .then(function(data) {
                                 self.isEnabling = false;
                                 if (data.success) { self.isSubscribed = true; window.location.reload(); }
-                                else { self.errorMessage = data.error || 'Failed to enable'; }
+                                else { self.errorMessage = data.error || gettext('Failed to enable'); }
                             })
                             .catch(function(err) { self.isEnabling = false; self.errorMessage = 'Error occurred'; console.error('[CoachPush]', err); });
                     });
-                }).catch(function() { self.isEnabling = false; self.errorMessage = 'Permission denied'; });
+                }).catch(function() { self.isEnabling = false; self.errorMessage = gettext('Permission denied'); });
             },
 
             disablePush: function() {
@@ -1002,7 +1002,7 @@ document.addEventListener('alpine:init', function() {
                         // Reload to update UI
                         window.location.reload();
                     } else {
-                        self.errorMessage = data.error || 'Failed to disable notifications';
+                        self.errorMessage = data.error || gettext('Failed to disable notifications');
                     }
                 })
                 .catch(function(err) {
@@ -1595,6 +1595,23 @@ document.addEventListener('alpine:init', function() {
                 }
             },
 
+            // Handle form submission - only allow on final step (Step 4: Review)
+            // This prevents Enter key in text inputs from submitting the form prematurely
+            handleFormSubmit: function(e) {
+                // Only allow submission when on the final step
+                if (this.currentStep !== 4) {
+                    // Prevent form submission on non-final steps
+                    return;
+                }
+                // Prepare form data (phone number formatting)
+                this.setSubmitting();
+                // Now manually submit the form
+                var form = document.getElementById('profileForm');
+                if (form) {
+                    form.submit();
+                }
+            },
+
             nextStepAndReview: function() {
                 this.nextStep();
                 this.updateReview();
@@ -1692,7 +1709,7 @@ document.addEventListener('alpine:init', function() {
                         self.fieldErrors = {};
                         return { success: true };
                     } else {
-                        self.saveError = result.data.error || 'Failed to save. Please try again.';
+                        self.saveError = result.data.error || gettext('Failed to save. Please try again.');
                         // Handle field-specific errors from backend
                         if (result.data.errors) {
                             self.fieldErrors = result.data.errors;
@@ -1702,7 +1719,7 @@ document.addEventListener('alpine:init', function() {
                 })
                 .catch(function(err) {
                     self.isSaving = false;
-                    self.saveError = 'Network error. Please check your connection.';
+                    self.saveError = gettext('Network error. Please check your connection.');
                     return { success: false, error: self.saveError };
                 });
             },
@@ -1735,7 +1752,7 @@ document.addEventListener('alpine:init', function() {
                         self.fieldErrors = {};
                         return { success: true };
                     } else {
-                        self.saveError = result.data.error || 'Failed to save. Please try again.';
+                        self.saveError = result.data.error || gettext('Failed to save. Please try again.');
                         // Handle field-specific errors from backend
                         if (result.data.errors) {
                             self.fieldErrors = result.data.errors;
@@ -1745,7 +1762,7 @@ document.addEventListener('alpine:init', function() {
                 })
                 .catch(function(err) {
                     self.isSaving = false;
-                    self.saveError = 'Network error. Please check your connection.';
+                    self.saveError = gettext('Network error. Please check your connection.');
                     return { success: false, error: self.saveError };
                 });
             },
@@ -1781,13 +1798,13 @@ document.addEventListener('alpine:init', function() {
                     if (result.ok && result.data.success) {
                         return { success: true };
                     } else {
-                        self.saveError = result.data.error || 'Failed to save. Please try again.';
+                        self.saveError = result.data.error || gettext('Failed to save. Please try again.');
                         return { success: false, error: self.saveError };
                     }
                 })
                 .catch(function(err) {
                     self.isSaving = false;
-                    self.saveError = 'Network error. Please check your connection.';
+                    self.saveError = gettext('Network error. Please check your connection.');
                     return { success: false, error: self.saveError };
                 });
             },

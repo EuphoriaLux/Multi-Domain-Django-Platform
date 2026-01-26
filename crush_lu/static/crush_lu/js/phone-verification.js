@@ -52,7 +52,7 @@ class PhoneVerification {
 
         // Validate config is present
         if (!this.firebaseConfig.apiKey || !this.firebaseConfig.projectId) {
-            const errorMsg = 'Firebase configuration missing. Phone verification is temporarily unavailable.';
+            const errorMsg = gettext('Firebase configuration missing. Phone verification is temporarily unavailable.');
             console.error('Firebase configuration missing. Set FIREBASE_API_KEY and FIREBASE_PROJECT_ID environment variables.');
             this.initializationError = errorMsg;
             this.setState('error');
@@ -129,7 +129,7 @@ class PhoneVerification {
      */
     initFirebase() {
         if (typeof firebase === 'undefined') {
-            const errorMsg = 'Phone verification is temporarily unavailable. Please try again later or contact support.';
+            const errorMsg = gettext('Phone verification is temporarily unavailable. Please try again later or contact support.');
             console.error('Firebase SDK not loaded. Include firebase-app-compat.js and firebase-auth-compat.js');
             this.initializationError = errorMsg;
             this.setState('error');
@@ -155,7 +155,7 @@ class PhoneVerification {
             this.isInitialized = true;
             this.initializationError = null;
         } catch (error) {
-            const errorMsg = 'Phone verification service failed to initialize. Please refresh the page or try again later.';
+            const errorMsg = gettext('Phone verification service failed to initialize. Please refresh the page or try again later.');
             console.error('Failed to initialize Firebase:', error);
             this.initializationError = errorMsg;
             this.setState('error');
@@ -256,7 +256,7 @@ class PhoneVerification {
             const phone = phoneNumber || this.getPhoneNumber();
 
             if (!phone || phone.length < 8) {
-                throw new Error('Please enter a valid phone number');
+                throw new Error(gettext('Please enter a valid phone number'));
             }
 
             if (!this.recaptchaVerifier) {
@@ -307,13 +307,13 @@ class PhoneVerification {
      */
     async verifyCode(code) {
         if (!this.confirmationResult) {
-            const error = 'No verification in progress. Please request a new code.';
+            const error = gettext('No verification in progress. Please request a new code.');
             this.onError(error);
             return { success: false, error };
         }
 
         if (!code || code.length !== 6) {
-            const error = 'Please enter the 6-digit code';
+            const error = gettext('Please enter the 6-digit code');
             this.onError(error);
             return { success: false, error };
         }
@@ -435,15 +435,15 @@ class PhoneVerification {
      */
     formatFirebaseError(error) {
         const errorMap = {
-            'auth/invalid-phone-number': 'Invalid phone number format. Please use international format (e.g., +352 XXX XXX)',
-            'auth/too-many-requests': 'Too many attempts. Please wait a few minutes and try again.',
-            'auth/captcha-check-failed': 'Security verification failed. Please refresh the page and try again.',
-            'auth/invalid-verification-code': 'Invalid code. Please check the code and try again.',
-            'auth/code-expired': 'Code expired. Please request a new code.',
-            'auth/quota-exceeded': 'SMS quota exceeded. Please try again later.',
-            'auth/user-disabled': 'This phone number has been disabled. Please contact support.',
-            'auth/operation-not-allowed': 'Phone authentication is not enabled. Please contact support.',
-            'auth/error-code:-39': 'SMS service temporarily unavailable. Please wait a few minutes and try again.',
+            'auth/invalid-phone-number': gettext('Invalid phone number format. Please use international format (e.g., +352 XXX XXX)'),
+            'auth/too-many-requests': gettext('Too many attempts. Please wait a few minutes and try again.'),
+            'auth/captcha-check-failed': gettext('Security verification failed. Please refresh the page and try again.'),
+            'auth/invalid-verification-code': gettext('Invalid code. Please check the code and try again.'),
+            'auth/code-expired': gettext('Code expired. Please request a new code.'),
+            'auth/quota-exceeded': gettext('SMS quota exceeded. Please try again later.'),
+            'auth/user-disabled': gettext('This phone number has been disabled. Please contact support.'),
+            'auth/operation-not-allowed': gettext('Phone authentication is not enabled. Please contact support.'),
+            'auth/error-code:-39': gettext('SMS service temporarily unavailable. Please wait a few minutes and try again.'),
         };
 
         if (error.code && errorMap[error.code]) {
@@ -452,10 +452,10 @@ class PhoneVerification {
 
         // Check for error code -39 in the message (sometimes formatted differently)
         if (error.message && error.message.includes('error-code:-39')) {
-            return 'SMS service temporarily unavailable. Please wait a few minutes and try again.';
+            return gettext('SMS service temporarily unavailable. Please wait a few minutes and try again.');
         }
 
-        return error.message || 'An error occurred. Please try again.';
+        return error.message || gettext('An error occurred. Please try again.');
     }
 }
 

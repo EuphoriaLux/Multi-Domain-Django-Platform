@@ -140,7 +140,7 @@
                 console.log('[Push] Notification permission denied');
                 return {
                     success: false,
-                    error: 'Permission denied'
+                    error: gettext('Permission denied')
                 };
             }
 
@@ -214,12 +214,12 @@
             var errorMessage = error.message;
             if (error.name === 'AbortError') {
                 // This typically means the VAPID key is invalid or push service is unavailable
-                errorMessage = 'Push service error. This may be due to server misconfiguration or network issues. Please try again later.';
+                errorMessage = gettext('Push service error. This may be due to server misconfiguration or network issues. Please try again later.');
                 console.error('[Push] AbortError details: VAPID key may be invalid or push service unavailable');
             } else if (error.name === 'NotAllowedError') {
-                errorMessage = 'Push notifications are blocked. Please enable them in your browser settings.';
+                errorMessage = gettext('Push notifications are blocked. Please enable them in your browser settings.');
             } else if (error.name === 'InvalidStateError') {
-                errorMessage = 'Push subscription already exists or is in an invalid state.';
+                errorMessage = gettext('Push subscription already exists or is in an invalid state.');
             }
 
             return {
@@ -273,7 +273,7 @@
 
             return {
                 success: false,
-                error: data.error || 'Failed to unsubscribe'
+                error: data.error || gettext('Failed to unsubscribe')
             };
 
         } catch (error) {

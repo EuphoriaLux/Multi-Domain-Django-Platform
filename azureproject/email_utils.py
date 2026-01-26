@@ -92,10 +92,34 @@ def get_domain_email_config(request=None, domain=None):
     return configs.get(host, configs['powerup.lu'])
 
 
+def _is_test_environment():
+    """
+    Detect if running in a test environment.
+
+    Checks:
+    1. Django's EMAIL_BACKEND is set to locmem (in-memory) backend
+    2. 'pytest' or 'test' in sys.argv (running via test runner)
+    """
+    import sys
+    from django.conf import settings
+
+    # Check if email backend is the in-memory test backend
+    if settings.EMAIL_BACKEND == 'django.core.mail.backends.locmem.EmailBackend':
+        return True
+
+    # Check if running via pytest or Django's test command
+    if any('pytest' in arg or 'test' in arg for arg in sys.argv):
+        return True
+
+    return False
+
+
 def send_domain_email(subject, message, recipient_list, request=None, domain=None,
                      html_message=None, from_email=None, cc=None, fail_silently=False):
     """
     Send email using domain-specific configuration (Graph API, SMTP, or Console in DEBUG).
+
+    In test environments, uses Django's in-memory backend to avoid sending real emails.
 
     Args:
         subject: Email subject
@@ -122,8 +146,15 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
     # Use configured from_email or domain default
     email_from = from_email or config['DEFAULT_FROM_EMAIL']
 
+    # In TEST mode, use in-memory backend (no real emails sent)
+    if _is_test_environment():
+        logger.info(f"📧 [TEST] Using in-memory email backend (from {email_from})")
+        connection = get_connection(
+            backend='django.core.mail.backends.locmem.EmailBackend',
+            fail_silently=fail_silently,
+        )
     # In DEBUG mode, use file backend to save emails (avoids Windows console encoding issues)
-    if settings.DEBUG:
+    elif settings.DEBUG:
         import os
         email_folder = os.path.join(settings.BASE_DIR, 'sent_emails')
         os.makedirs(email_folder, exist_ok=True)

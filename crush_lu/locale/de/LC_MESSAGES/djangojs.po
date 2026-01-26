@@ -1,0 +1,156 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-26 00:35+0100\n"
+"PO-Revision-Date: 2026-01-26 12:00+0100\n"
+"Last-Translator: Claude Code\n"
+"Language-Team: German\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+#: .\crush_lu\static\crush_lu\js\alpine-components.js:206
+#: .\crush_lu\static\crush_lu\js\alpine-components.js:669
+msgid "Never used"
+msgstr "Nie verwendet"
+
+#: .\crush_lu\static\crush_lu\js\alpine-components.js:207
+#: .\crush_lu\static\crush_lu\js\alpine-components.js:670
+msgid "Just now"
+msgstr "Gerade eben"
+
+#: .\crush_lu\static\crush_lu\js\alpine-components.js:208
+#: .\crush_lu\static\crush_lu\js\alpine-components.js:671
+msgid "Last active:"
+msgstr "Zuletzt aktiv:"
+
+#: .\crush_lu\static\crush_lu\js\alpine-components.js:521
+msgid "Failed to enable notifications"
+msgstr "Benachrichtigungen konnten nicht aktiviert werden"
+
+#: .\crush_lu\static\crush_lu\js\alpine-components.js:546
+#: .\crush_lu\static\crush_lu\js\alpine-components.js:577
+#: .\crush_lu\static\crush_lu\js\alpine-components.js:1005
+msgid "Failed to disable notifications"
+msgstr "Benachrichtigungen konnten nicht deaktiviert werden"
+
+#: .\crush_lu\static\crush_lu\js\alpine-components.js:941
+msgid "Failed to enable"
+msgstr "Aktivierung fehlgeschlagen"
+
+#: .\crush_lu\static\crush_lu\js\alpine-components.js:945
+#: .\crush_lu\static\crush_lu\js\push-notifications.js:143
+msgid "Permission denied"
+msgstr "Berechtigung verweigert"
+
+#: .\crush_lu\static\crush_lu\js\alpine-components.js:1712
+#: .\crush_lu\static\crush_lu\js\alpine-components.js:1755
+#: .\crush_lu\static\crush_lu\js\alpine-components.js:1801
+msgid "Failed to save. Please try again."
+msgstr "Speichern fehlgeschlagen. Bitte versuchen Sie es erneut."
+
+#: .\crush_lu\static\crush_lu\js\alpine-components.js:1722
+#: .\crush_lu\static\crush_lu\js\alpine-components.js:1765
+#: .\crush_lu\static\crush_lu\js\alpine-components.js:1807
+msgid "Network error. Please check your connection."
+msgstr "Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung."
+
+#: .\crush_lu\static\crush_lu\js\phone-verification.js:55
+msgid ""
+"Firebase configuration missing. Phone verification is temporarily "
+"unavailable."
+msgstr "Firebase-Konfiguration fehlt. Telefonverifizierung ist vorübergehend nicht verfügbar."
+
+#: .\crush_lu\static\crush_lu\js\phone-verification.js:132
+msgid ""
+"Phone verification is temporarily unavailable. Please try again later or "
+"contact support."
+msgstr "Telefonverifizierung ist vorübergehend nicht verfügbar. Bitte versuchen Sie es später erneut oder kontaktieren Sie den Support."
+
+#: .\crush_lu\static\crush_lu\js\phone-verification.js:158
+msgid ""
+"Phone verification service failed to initialize. Please refresh the page or "
+"try again later."
+msgstr "Telefonverifizierungsdienst konnte nicht initialisiert werden. Bitte aktualisieren Sie die Seite oder versuchen Sie es später erneut."
+
+#: .\crush_lu\static\crush_lu\js\phone-verification.js:259
+msgid "Please enter a valid phone number"
+msgstr "Bitte geben Sie eine gültige Telefonnummer ein"
+
+#: .\crush_lu\static\crush_lu\js\phone-verification.js:310
+msgid "No verification in progress. Please request a new code."
+msgstr "Keine Verifizierung läuft. Bitte fordern Sie einen neuen Code an."
+
+#: .\crush_lu\static\crush_lu\js\phone-verification.js:316
+msgid "Please enter the 6-digit code"
+msgstr "Bitte geben Sie den 6-stelligen Code ein"
+
+#: .\crush_lu\static\crush_lu\js\phone-verification.js:438
+msgid ""
+"Invalid phone number format. Please use international format (e.g., +352 XXX "
+"XXX)"
+msgstr "Ungültiges Telefonnummernformat. Bitte verwenden Sie das internationale Format (z.B. +352 XXX XXX)"
+
+#: .\crush_lu\static\crush_lu\js\phone-verification.js:439
+msgid "Too many attempts. Please wait a few minutes and try again."
+msgstr "Zu viele Versuche. Bitte warten Sie einige Minuten und versuchen Sie es erneut."
+
+#: .\crush_lu\static\crush_lu\js\phone-verification.js:440
+msgid "Security verification failed. Please refresh the page and try again."
+msgstr "Sicherheitsüberprüfung fehlgeschlagen. Bitte aktualisieren Sie die Seite und versuchen Sie es erneut."
+
+#: .\crush_lu\static\crush_lu\js\phone-verification.js:441
+msgid "Invalid code. Please check the code and try again."
+msgstr "Ungültiger Code. Bitte überprüfen Sie den Code und versuchen Sie es erneut."
+
+#: .\crush_lu\static\crush_lu\js\phone-verification.js:442
+msgid "Code expired. Please request a new code."
+msgstr "Code abgelaufen. Bitte fordern Sie einen neuen Code an."
+
+#: .\crush_lu\static\crush_lu\js\phone-verification.js:443
+msgid "SMS quota exceeded. Please try again later."
+msgstr "SMS-Kontingent überschritten. Bitte versuchen Sie es später erneut."
+
+#: .\crush_lu\static\crush_lu\js\phone-verification.js:444
+msgid "This phone number has been disabled. Please contact support."
+msgstr "Diese Telefonnummer wurde deaktiviert. Bitte kontaktieren Sie den Support."
+
+#: .\crush_lu\static\crush_lu\js\phone-verification.js:445
+msgid "Phone authentication is not enabled. Please contact support."
+msgstr "Telefonauthentifizierung ist nicht aktiviert. Bitte kontaktieren Sie den Support."
+
+#: .\crush_lu\static\crush_lu\js\phone-verification.js:446
+#: .\crush_lu\static\crush_lu\js\phone-verification.js:455
+msgid ""
+"SMS service temporarily unavailable. Please wait a few minutes and try again."
+msgstr "SMS-Dienst vorübergehend nicht verfügbar. Bitte warten Sie einige Minuten und versuchen Sie es erneut."
+
+#: .\crush_lu\static\crush_lu\js\phone-verification.js:458
+msgid "An error occurred. Please try again."
+msgstr "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut."
+
+#: .\crush_lu\static\crush_lu\js\push-notifications.js:217
+msgid ""
+"Push service error. This may be due to server misconfiguration or network "
+"issues. Please try again later."
+msgstr "Push-Dienst-Fehler. Dies kann auf eine Serverkonfigurationsfehler oder Netzwerkprobleme zurückzuführen sein. Bitte versuchen Sie es später erneut."
+
+#: .\crush_lu\static\crush_lu\js\push-notifications.js:220
+msgid ""
+"Push notifications are blocked. Please enable them in your browser settings."
+msgstr "Push-Benachrichtigungen sind blockiert. Bitte aktivieren Sie diese in Ihren Browsereinstellungen."
+
+#: .\crush_lu\static\crush_lu\js\push-notifications.js:222
+msgid "Push subscription already exists or is in an invalid state."
+msgstr "Push-Abonnement existiert bereits oder befindet sich in einem ungültigen Zustand."
+
+#: .\crush_lu\static\crush_lu\js\push-notifications.js:276
+msgid "Failed to unsubscribe"
+msgstr "Abmeldung fehlgeschlagen"

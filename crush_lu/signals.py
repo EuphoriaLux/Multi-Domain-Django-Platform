@@ -10,6 +10,7 @@ from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth.models import User
 from django.conf import settings
 from django.utils import timezone
+from django.db.models import Q
 from .models import MeetupEvent, EventActivityOption, CrushProfile, SpecialUserExperience, EmailPreference, EventRegistration, CrushCoach
 from .storage import initialize_user_storage
 from .utils.i18n import is_valid_language
@@ -686,10 +687,17 @@ def check_special_user_experience(sender, request, user, **kwargs):
 
     try:
         # Check if there's a matching special experience
+        # Prioritize linked_user (gifts), then fall back to name match (legacy)
         special_experience = SpecialUserExperience.objects.filter(
-            first_name__iexact=user.first_name,
-            last_name__iexact=user.last_name,
-            is_active=True
+            Q(is_active=True) &
+            (
+                Q(linked_user=user) |  # Direct link (gifts)
+                Q(
+                    first_name__iexact=user.first_name,
+                    last_name__iexact=user.last_name,
+                    linked_user__isnull=True  # Only name-match if no linked_user
+                )
+            )
         ).first()
 
         if special_experience:

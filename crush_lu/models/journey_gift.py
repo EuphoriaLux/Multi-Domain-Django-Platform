@@ -386,13 +386,15 @@ class JourneyGift(models.Model):
             # User already has a SpecialUserExperience - update it with new gift info
             special_exp.is_active = True
             special_exp.vip_badge = True
-            special_exp.save(update_fields=['is_active', 'vip_badge'])
+            special_exp.first_name = user.first_name  # Sync name for consistent matching
+            special_exp.last_name = user.last_name    # Sync name for consistent matching
+            special_exp.save(update_fields=['is_active', 'vip_badge', 'first_name', 'last_name'])
         else:
             # Create new SpecialUserExperience for first-time gift recipient
             special_exp = SpecialUserExperience.objects.create(
                 linked_user=user,
-                first_name=self.recipient_name,  # For display/personalization only
-                last_name="",  # Not needed when using direct link
+                first_name=user.first_name,  # Use actual user name for consistent matching
+                last_name=user.last_name,    # Use actual user name for consistent matching
                 is_active=True,
                 auto_approve_profile=True,
                 vip_badge=True,

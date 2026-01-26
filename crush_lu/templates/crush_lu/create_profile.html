@@ -93,7 +93,7 @@
         </div>
 
         <form method="post" enctype="multipart/form-data" id="profileForm" novalidate
-              @submit="setSubmitting">
+              @submit.prevent="handleFormSubmit">
             {% csrf_token %}
 
             <!-- Global Form Errors (Alpine.js dismissible) -->

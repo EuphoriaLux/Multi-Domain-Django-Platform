@@ -1,7 +1,8 @@
 {% extends 'crush_lu/base.html' %}
 {% load static %}
+{% load i18n %}
 
-{% block title %}PWA Debug - Crush.lu{% endblock %}
+{% block title %}{% trans "PWA Debug" %} - Crush.lu{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -195,115 +196,115 @@
 {% block content %}
 <div class="debug-container">
     <div class="debug-header">
-        <h1>PWA Debug Panel</h1>
-        <p>Staff-only diagnostics for Crush.lu Progressive Web App</p>
+        <h1>{% trans "PWA Debug Panel" %}</h1>
+        <p>{% trans "Staff-only diagnostics for Crush.lu Progressive Web App" %}</p>
     </div>
 
     <!-- Service Worker Status -->
     <div class="debug-section">
-        <h2>Service Worker</h2>
+        <h2>{% trans "Service Worker" %}</h2>
         <div class="debug-row">
-            <span class="debug-label">Status</span>
-            <span id="sw-status" class="status-badge status-none">Checking...</span>
+            <span class="debug-label">{% trans "Status" %}</span>
+            <span id="sw-status" class="status-badge status-none">{% trans "Checking..." %}</span>
         </div>
         <div class="debug-row">
-            <span class="debug-label">Expected Version</span>
+            <span class="debug-label">{% trans "Expected Version" %}</span>
             <span class="debug-value">{{ sw_version }}</span>
         </div>
         <div class="debug-row">
-            <span class="debug-label">Scope</span>
+            <span class="debug-label">{% trans "Scope" %}</span>
             <span id="sw-scope" class="debug-value">-</span>
         </div>
         <div class="debug-row">
-            <span class="debug-label">Script URL</span>
+            <span class="debug-label">{% trans "Script URL" %}</span>
             <span id="sw-script" class="debug-value">-</span>
         </div>
         <div class="debug-row">
-            <span class="debug-label">Actions</span>
+            <span class="debug-label">{% trans "Actions" %}</span>
             <div class="action-buttons">
-                <button class="btn-action" onclick="checkForUpdate()">Check for Update</button>
-                <button class="btn-action" onclick="forceSkipWaiting()">Force Activate Waiting</button>
-                <button class="btn-action btn-danger" onclick="unregisterSW()">Unregister SW</button>
+                <button class="btn-action" onclick="checkForUpdate()">{% trans "Check for Update" %}</button>
+                <button class="btn-action" onclick="forceSkipWaiting()">{% trans "Force Activate Waiting" %}</button>
+                <button class="btn-action btn-danger" onclick="unregisterSW()">{% trans "Unregister SW" %}</button>
             </div>
         </div>
     </div>
 
     <!-- Network Status -->
     <div class="debug-section">
-        <h2>Network Status</h2>
+        <h2>{% trans "Network Status" %}</h2>
         <div class="debug-row">
-            <span class="debug-label">Online</span>
-            <span id="network-status" class="status-badge status-none">Checking...</span>
+            <span class="debug-label">{% trans "Online" %}</span>
+            <span id="network-status" class="status-badge status-none">{% trans "Checking..." %}</span>
         </div>
         <div class="debug-row">
-            <span class="debug-label">Connection Type</span>
+            <span class="debug-label">{% trans "Connection Type" %}</span>
             <span id="connection-type" class="debug-value">-</span>
         </div>
         <div class="debug-row">
-            <span class="debug-label">Effective Type</span>
+            <span class="debug-label">{% trans "Effective Type" %}</span>
             <span id="effective-type" class="debug-value">-</span>
         </div>
     </div>
 
     <!-- Display Mode -->
     <div class="debug-section">
-        <h2>Display Mode</h2>
+        <h2>{% trans "Display Mode" %}</h2>
         <div class="debug-row">
-            <span class="debug-label">Current Mode</span>
+            <span class="debug-label">{% trans "Current Mode" %}</span>
             <span id="display-mode" class="debug-value">-</span>
         </div>
         <div class="debug-row">
-            <span class="debug-label">Standalone</span>
+            <span class="debug-label">{% trans "Standalone" %}</span>
             <span id="is-standalone" class="status-badge status-none">-</span>
         </div>
         <div class="debug-row">
-            <span class="debug-label">PWA Installed</span>
+            <span class="debug-label">{% trans "PWA Installed" %}</span>
             <span id="pwa-installed" class="status-badge status-none">-</span>
         </div>
     </div>
 
     <!-- Cache Storage -->
     <div class="debug-section">
-        <h2>Cache Storage</h2>
+        <h2>{% trans "Cache Storage" %}</h2>
         <div class="debug-row">
-            <span class="debug-label">Cache Count</span>
+            <span class="debug-label">{% trans "Cache Count" %}</span>
             <span id="cache-count" class="debug-value">0</span>
         </div>
         <ul id="cache-list" class="cache-list">
-            <li class="cache-item">Loading...</li>
+            <li class="cache-item">{% trans "Loading..." %}</li>
         </ul>
         <div class="debug-row" style="margin-top: 1rem;">
-            <span class="debug-label">Actions</span>
+            <span class="debug-label">{% trans "Actions" %}</span>
             <div class="action-buttons">
-                <button class="btn-action" onclick="refreshCacheList()">Refresh List</button>
-                <button class="btn-action btn-danger" onclick="clearAllCaches()">Clear All Caches</button>
+                <button class="btn-action" onclick="refreshCacheList()">{% trans "Refresh List" %}</button>
+                <button class="btn-action btn-danger" onclick="clearAllCaches()">{% trans "Clear All Caches" %}</button>
             </div>
         </div>
     </div>
 
     <!-- Console Log -->
     <div class="debug-section">
-        <h2>Service Worker Log</h2>
-        <div id="sw-log">Waiting for service worker messages...</div>
+        <h2>{% trans "Service Worker Log" %}</h2>
+        <div id="sw-log">{% trans "Waiting for service worker messages..." %}</div>
         <div class="debug-row" style="margin-top: 1rem;">
-            <span class="debug-label">Actions</span>
-            <button class="btn-action" onclick="clearLog()">Clear Log</button>
+            <span class="debug-label">{% trans "Actions" %}</span>
+            <button class="btn-action" onclick="clearLog()">{% trans "Clear Log" %}</button>
         </div>
     </div>
 
     <!-- System Info -->
     <div class="debug-section">
-        <h2>System Info</h2>
+        <h2>{% trans "System Info" %}</h2>
         <div class="debug-row">
-            <span class="debug-label">User Agent</span>
+            <span class="debug-label">{% trans "User Agent" %}</span>
             <span id="user-agent" class="debug-value" style="font-size: 0.75rem; word-break: break-all;">-</span>
         </div>
         <div class="debug-row">
-            <span class="debug-label">Platform</span>
+            <span class="debug-label">{% trans "Platform" %}</span>
             <span id="platform" class="debug-value">-</span>
         </div>
         <div class="debug-row">
-            <span class="debug-label">Page Load Time</span>
+            <span class="debug-label">{% trans "Page Load Time" %}</span>
             <span id="load-time" class="debug-value">-</span>
         </div>
     </div>

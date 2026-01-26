@@ -95,10 +95,17 @@ def crush_user_context(request):
             context['pending_invitations_count'] = 0
 
         # Check for special journey experience
+        # Prioritize linked_user (gifts), then fall back to name match (legacy)
         special_experience = SpecialUserExperience.objects.filter(
-            first_name__iexact=request.user.first_name,
-            last_name__iexact=request.user.last_name,
-            is_active=True
+            Q(is_active=True) &
+            (
+                Q(linked_user=request.user) |  # Direct link (gifts)
+                Q(
+                    first_name__iexact=request.user.first_name,
+                    last_name__iexact=request.user.last_name,
+                    linked_user__isnull=True  # Only name-match if no linked_user
+                )
+            )
         ).first()
 
         if special_experience:
