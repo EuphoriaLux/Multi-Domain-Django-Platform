@@ -1631,11 +1631,23 @@ def coach_dashboard(request):
         messages.error(request, _('You do not have coach access.'))
         return redirect('crush_lu:dashboard')
 
-    # Get pending submissions assigned to this coach
+    # Get pending submissions assigned to this coach, ordered by oldest first
     pending_submissions = ProfileSubmission.objects.filter(
         coach=coach,
         status='pending'
-    ).select_related('profile__user')
+    ).select_related('profile__user').order_by('submitted_at')
+
+    # Calculate wait time and urgency for each submission
+    now = timezone.now()
+    for submission in pending_submissions:
+        hours_waiting = (now - submission.submitted_at).total_seconds() / 3600
+        submission.is_urgent = hours_waiting > 48  # Red: > 48 hours
+        submission.is_warning = 24 < hours_waiting <= 48  # Yellow: 24-48 hours
+
+    # Split by gender: Women (F), Men (M), Other (NB, O, P)
+    pending_women = [s for s in pending_submissions if s.profile.gender == 'F']
+    pending_men = [s for s in pending_submissions if s.profile.gender == 'M']
+    pending_other = [s for s in pending_submissions if s.profile.gender in ['NB', 'O', 'P', '']]
 
     # Get recently reviewed
     recent_reviews = ProfileSubmission.objects.filter(
@@ -1649,6 +1661,9 @@ def coach_dashboard(request):
     context = {
         'coach': coach,
         'pending_submissions': pending_submissions,
+        'pending_women': pending_women,
+        'pending_men': pending_men,
+        'pending_other': pending_other,
         'recent_reviews': recent_reviews,
     }
     return render(request, 'crush_lu/coach_dashboard.html', context)
@@ -1689,8 +1704,22 @@ def coach_mark_review_call_complete(request, submission_id):
     submission.review_call_completed = True
     submission.review_call_date = timezone.now()
     submission.review_call_notes = request.POST.get('call_notes', '')
+
+    # Parse and save checklist data
+    checklist_data_str = request.POST.get('checklist_data', '{}')
+    try:
+        checklist_data = json.loads(checklist_data_str) if checklist_data_str else {}
+    except json.JSONDecodeError:
+        checklist_data = {}
+    submission.review_call_checklist = checklist_data
+
     # Only update specific fields (faster than full model save)
-    submission.save(update_fields=['review_call_completed', 'review_call_date', 'review_call_notes'])
+    submission.save(update_fields=[
+        'review_call_completed',
+        'review_call_date',
+        'review_call_notes',
+        'review_call_checklist'
+    ])
 
     # Return HTMX partial or redirect
     if is_htmx:

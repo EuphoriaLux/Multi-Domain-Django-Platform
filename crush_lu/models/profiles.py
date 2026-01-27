@@ -647,6 +647,11 @@ class ProfileSubmission(models.Model):
         blank=True,
         help_text=_("Notes from coach's screening call during review")
     )
+    review_call_checklist = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=_("Structured checklist data from screening call")
+    )
 
     # Timestamps
     submitted_at = models.DateTimeField(auto_now_add=True)

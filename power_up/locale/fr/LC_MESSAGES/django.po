@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: power_up 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-22 02:09+0100\n"
+"POT-Creation-Date: 2026-01-27 00:00+0100\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: FR\n"
@@ -16,39 +16,30 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: .\power_up\finops\views.py:104
 msgid "FinOps Hub - Cost Dashboard"
 msgstr ""
 
-#: .\power_up\finops\views.py:159
 msgid "FinOps Hub - Subscriptions"
 msgstr ""
 
-#: .\power_up\finops\views.py:218
 msgid "FinOps Hub - Services"
 msgstr ""
 
-#: .\power_up\finops\views.py:289
 msgid "FinOps Hub - Resources"
 msgstr ""
 
-#: .\power_up\finops\views.py:315
 msgid "FinOps Hub - Import Data"
 msgstr ""
 
-#: .\power_up\finops\views.py:340
 msgid "Update Subscription ID"
 msgstr ""
 
-#: .\power_up\finops\views.py:359
 msgid "FinOps Hub - FAQ & Data Flow"
 msgstr ""
 
-#: .\power_up\platforms.py:14
 msgid "Privacy-first dating for Luxembourg"
 msgstr "Rencontres axees sur la vie privee pour le Luxembourg"
 
-#: .\power_up\platforms.py:16
 #, fuzzy
 #| msgid ""
 #| "A coach-curated dating platform focused on real connections "
@@ -63,27 +54,21 @@ msgstr ""
 "connexions a travers des evenements organises. Pas de swipesans fin - juste "
 "des rencontres authentiques avec des personnes quipartagent tes valeurs."
 
-#: .\power_up\platforms.py:25
 msgid "Event-based matchmaking"
 msgstr "Matchmaking base sur des evenements"
 
-#: .\power_up\platforms.py:26
 msgid "Coach-reviewed profiles"
 msgstr "Profils examinés par des coaches"
 
-#: .\power_up\platforms.py:27
 msgid "Privacy controls"
 msgstr "Contrôles de confidentialité"
 
-#: .\power_up\platforms.py:28
 msgid "Luxembourg community focus"
 msgstr "Accent sur la communauté luxembourgeoise"
 
-#: .\power_up\platforms.py:34
 msgid "Adopt a vineyard plot in Luxembourg"
 msgstr "Adopte une parcelle de vignoble au Luxembourg"
 
-#: .\power_up\platforms.py:36
 #, fuzzy
 #| msgid ""
 #| "Premium wine e-commerce with a unique twist - adopt your own vineyardplot "
@@ -98,27 +83,21 @@ msgstr ""
 "de vignoble et recois des vins de tes propres vignes.Decouvre la culture "
 "viticole de la Moselle luxembourgeoise depremiere main."
 
-#: .\power_up\platforms.py:45
 msgid "Plot adoption program"
 msgstr "Prix d'adoption de la parcelle"
 
-#: .\power_up\platforms.py:46
 msgid "Luxembourg Moselle wines"
 msgstr "Cantons du Luxembourg"
 
-#: .\power_up\platforms.py:47
 msgid "Vineyard visit experiences"
 msgstr "Visite du vignoble incluse"
 
-#: .\power_up\platforms.py:48
 msgid "Direct from producers"
 msgstr "Rencontrez nos producteurs"
 
-#: .\power_up\platforms.py:54
 msgid "Entrepreneur networking for Luxembourg"
 msgstr "Entreprinder - Connecter les entrepreneurs au Luxembourg"
 
-#: .\power_up\platforms.py:56
 #, fuzzy
 #| msgid ""
 #| "Connect with fellow entrepreneurs using smart matching. Findco-founders, "
@@ -131,27 +110,21 @@ msgstr ""
 "Trouve des cofondateurs, mentors et partenairescommerciaux dans l'ecosysteme "
 "startup en croissance du Luxembourg."
 
-#: .\power_up\platforms.py:65
 msgid "Smart matching algorithm"
 msgstr "Algorithme de matching intelligent"
 
-#: .\power_up\platforms.py:66
 msgid "LinkedIn integration"
 msgstr "Administration du site"
 
-#: .\power_up\platforms.py:67
 msgid "Local business focus"
 msgstr "Focus sur les entreprises locales"
 
-#: .\power_up\platforms.py:68
 msgid "Startup ecosystem"
 msgstr "Ecosysteme startup"
 
-#: .\power_up\platforms.py:74
 msgid "Azure cost management & analytics"
 msgstr "Gestion des couts Azure et analytiques"
 
-#: .\power_up\platforms.py:76
 #, fuzzy
 #| msgid ""
 #| "Comprehensive Azure cost management dashboard for enterprises. Trackcloud "
@@ -166,86 +139,66 @@ msgstr ""
 "les depenses cloud, analyse les tendances etoptimise les couts sur tous tes "
 "abonnements Azure en temps reel."
 
-#: .\power_up\platforms.py:85
 msgid "Multi-subscription tracking"
 msgstr "Suivi de la valorisation du marché"
 
-#: .\power_up\platforms.py:86
 msgid "Cost trend analysis"
 msgstr "Analyse des tendances de couts"
 
-#: .\power_up\platforms.py:87
 msgid "Service-level breakdown"
 msgstr "Repartition par service"
 
-#: .\power_up\platforms.py:88
 msgid "Automated daily sync"
 msgstr "Synchronisation quotidienne automatique"
 
-#: .\power_up\platforms.py:94
 msgid "AI-generated art e-commerce"
 msgstr ""
 
-#: .\power_up\platforms.py:96
 msgid ""
 "Discover unique artwork created by artificial intelligence. Each piece is "
 "one of a kind, designed to evoke emotion and transform your space with "
 "museum-quality prints."
 msgstr ""
 
-#: .\power_up\platforms.py:105
 msgid "Unique AI-generated artwork"
 msgstr ""
 
-#: .\power_up\platforms.py:106
 msgid "Museum-quality prints"
 msgstr ""
 
-#: .\power_up\platforms.py:107
 msgid "One-of-a-kind pieces"
 msgstr ""
 
-#: .\power_up\platforms.py:108
 msgid "Accessible art pricing"
 msgstr ""
 
-#: .\power_up\platforms.py:114
 msgid "Delegating people made simple"
 msgstr ""
 
-#: .\power_up\platforms.py:116
 msgid ""
 "A national platform supporting companies and workers in managing delegation "
 "assignments. Get guidance, coordination, and administrative clarity for "
 "cross-border and national delegation processes."
 msgstr ""
 
-#: .\power_up\platforms.py:125
 msgid "Delegation coordination"
 msgstr "Coordination des délégations"
 
-#: .\power_up\platforms.py:126
 msgid "Compliance guidance"
 msgstr "Accompagnement conformité"
 
-#: .\power_up\platforms.py:127
 msgid "Employee helppoint"
 msgstr "Point d'aide employés"
 
-#: .\power_up\platforms.py:128
 msgid "Cross-border support"
 msgstr "Support transfrontalier"
 
-#: .\power_up\templates\admin\base_site.html:4
-#: .\power_up\templates\admin\base_site.html:29
 msgid "Power-Up Administration"
 msgstr "Administration PowerUP"
 
-#: .\power_up\templates\power_up\about.html:10 .\power_up\views.py:33
 msgid "About Power-Up"
 msgstr "À propos de nous"
 
-#: .\power_up\templates\power_up\about.html:13
 #, fuzzy
 #| msgid ""
 #| "We're a Luxembourg-based company building digital platforms thatmatter."
@@ -255,13 +208,11 @@ msgstr ""
 "Nous sommes une entreprise basee au Luxembourg qui cree desplateformes "
 "numeriques qui comptent."
 
-#: .\power_up\templates\power_up\about.html:25
 #, fuzzy
 #| msgid "Our Platforms"
 msgid "Our Story"
 msgstr "Nos plateformes"
 
-#: .\power_up\templates\power_up\about.html:29
 #, fuzzy
 #| msgid ""
 #| "Power-Up was founded with a simple belief: Luxembourg deservesworld-class "
@@ -273,7 +224,6 @@ msgstr ""
 "Power-Up a ete fondee avec une croyance simple : le Luxembourg meritedes "
 "plateformes numeriques de classe mondiale concues pour sacommunaute unique."
 
-#: .\power_up\templates\power_up\about.html:32
 #, fuzzy
 #| msgid ""
 #| "In a country where everyone seems to know everyone, we recognized theneed "
@@ -292,7 +242,6 @@ msgstr ""
 "l'appreciation du vin ou le networking professionnel,nous construisons avec "
 "les valeurs luxembourgeoises au coeur."
 
-#: .\power_up\templates\power_up\about.html:35
 #, fuzzy
 #| msgid ""
 #| "Today, our platforms serve thousands of users across Luxembourg andthe "
@@ -304,31 +253,24 @@ msgstr ""
 "Aujourd'hui, nos plateformes servent des milliers d'utilisateurs atravers le "
 "Luxembourg et la Grande Region, et nous ne faisons quecommencer."
 
-#: .\power_up\templates\power_up\about.html:43
 msgid "Live Platforms"
 msgstr "Plateformes en ligne"
 
-#: .\power_up\templates\power_up\about.html:47
 msgid "Founded"
 msgstr "Fondee"
 
-#: .\power_up\templates\power_up\about.html:51
 msgid "Based in Luxembourg"
 msgstr "Luxembourg"
 
-#: .\power_up\templates\power_up\about.html:64
 msgid "Our Values"
 msgstr "Nos valeurs"
 
-#: .\power_up\templates\power_up\about.html:67
 msgid "The principles that guide everything we build."
 msgstr "Les principes qui guident tout ce que nous construisons."
 
-#: .\power_up\templates\power_up\about.html:79
 msgid "Privacy by Design"
 msgstr "Confidentialité d'abord"
 
-#: .\power_up\templates\power_up\about.html:81
 #, fuzzy
 #| msgid ""
 #| "In Luxembourg's close-knit community, privacy isn't optional. Webuild "
@@ -343,11 +285,9 @@ msgstr ""
 "Nous integrons la protection des donnees dans lesfondations de chaque "
 "plateforme, donnant aux utilisateurs le controlesur leurs informations."
 
-#: .\power_up\templates\power_up\about.html:92
 msgid "Human Connection"
 msgstr "Créer des connexions"
 
-#: .\power_up\templates\power_up\about.html:94
 #, fuzzy
 #| msgid ""
 #| "Technology should bring people together, not replace humaninteraction. "
@@ -362,11 +302,9 @@ msgstr ""
 "humaine. Nos plateformes facilitent les vraiesconnexions - qu'elles soient "
 "romantiques, professionnelles ouexperientielles."
 
-#: .\power_up\templates\power_up\about.html:105
 msgid "Local Focus"
 msgstr "Focus local"
 
-#: .\power_up\templates\power_up\about.html:107
 #, fuzzy
 #| msgid ""
 #| "We understand Luxembourg's unique multilingual, multiculturalcontext. Our "
@@ -381,11 +319,9 @@ msgstr ""
 "duLuxembourg. Nos plateformes sont concues specifiquement pour "
 "cettecommunaute, pas adaptees de solutions construites ailleurs."
 
-#: .\power_up\templates\power_up\about.html:118
 msgid "Quality First"
 msgstr "Note de qualité"
 
-#: .\power_up\templates\power_up\about.html:120
 #, fuzzy
 #| msgid ""
 #| "We'd rather have fewer platforms that work exceptionally well thanmany "
@@ -398,11 +334,9 @@ msgstr ""
 "bien plutot que plusieurs mediocres. Chaquefonctionnalite est soigneusement "
 "consideree et testee en profondeur."
 
-#: .\power_up\templates\power_up\about.html:131
 msgid "Want to Know More?"
 msgstr "Tu veux en savoir plus ?"
 
-#: .\power_up\templates\power_up\about.html:134
 #, fuzzy
 #| msgid ""
 #| "Explore our platforms or get in touch to discuss partnershipopportunities."
@@ -412,26 +346,18 @@ msgstr ""
 "Explore nos plateformes ou contacte-nous pour discuter d'opportunitesde "
 "partenariat."
 
-#: .\power_up\templates\power_up\about.html:138
 msgid "View Our Platforms"
 msgstr "Voir vos correspondances"
 
-#: .\power_up\templates\power_up\about.html:141
-#: .\power_up\templates\power_up\contact.html:10
 msgid "Contact Us"
 msgstr "Contact"
 
-#: .\power_up\templates\power_up\contact.html:13
 msgid "We'd love to hear from you. Get in touch with our team."
 msgstr "Nous serions ravis de t'entendre. Contacte notre equipe."
 
-#: .\power_up\templates\power_up\contact.html:26
-#: .\power_up\templates\power_up\home.html:120
-#: .\power_up\templates\power_up\investors.html:184
 msgid "Get in Touch"
 msgstr ""
 
-#: .\power_up\templates\power_up\contact.html:29
 #, fuzzy
 #| msgid ""
 #| "Whether you're interested in partnership opportunities, havequestions "
@@ -444,77 +370,59 @@ msgstr ""
 "questions sur nos plateformes, ou que tu veuilles simplementdire bonjour - "
 "nous sommes la pour t'aider."
 
-#: .\power_up\templates\power_up\contact.html:41
 msgid "Email"
 msgstr ""
 
-#: .\power_up\templates\power_up\contact.html:48
 msgid "We typically respond within 24 hours."
 msgstr "Nous repondons generalement dans les 24 heures."
 
-#: .\power_up\templates\power_up\contact.html:62
 #, fuzzy
 #| msgid "Population"
 msgid "Location"
 msgstr "Production"
 
-#: .\power_up\templates\power_up\contact.html:64
 msgid "Luxembourg City, Luxembourg"
 msgstr "Luxembourg-Ville, Luxembourg"
 
-#: .\power_up\templates\power_up\contact.html:67
 msgid "Heart of Europe"
 msgstr "Coeur de l'Europe"
 
-#: .\power_up\templates\power_up\contact.html:80
 msgid "Business Hours"
 msgstr "Heures d'ouverture"
 
-#: .\power_up\templates\power_up\contact.html:82
 msgid "Monday - Friday: 9:00 - 18:00 CET"
 msgstr "Lundi - Vendredi : 9h00 - 18h00 CET"
 
-#: .\power_up\templates\power_up\contact.html:85
 msgid "Closed on Luxembourg public holidays."
 msgstr "Ferme les jours feries luxembourgeois."
 
-#: .\power_up\templates\power_up\contact.html:95
 msgid "How Can We Help?"
 msgstr "Comment pouvons-nous t'aider ?"
 
-#: .\power_up\templates\power_up\contact.html:102
-#: .\power_up\templates\power_up\investors.html:10
 msgid "Investors & Partners"
 msgstr "Investisseurs et Partenaires"
 
-#: .\power_up\templates\power_up\contact.html:105
 msgid "Interested in investment or partnership opportunities?"
 msgstr "Interesse par des opportunites d'investissement ou de partenariat ?"
 
-#: .\power_up\templates\power_up\contact.html:115
 msgid "Press & Media"
 msgstr "Presse et Medias"
 
-#: .\power_up\templates\power_up\contact.html:118
 msgid "Working on a story about Luxembourg's tech scene?"
 msgstr "Tu travailles sur un article sur la scene tech luxembourgeoise ?"
 
-#: .\power_up\templates\power_up\contact.html:128
 msgid "Platform Support"
 msgstr "h Support"
 
-#: .\power_up\templates\power_up\contact.html:131
 msgid "Need help with one of our platforms? Visit the platform directly:"
 msgstr ""
 "Besoin d'aide avec l'une de nos plateformes ? Visitez directement "
 "laplateforme :Besoin d'aide avec une de nos plateformes ? Visitedirectement "
 "la plateforme :"
 
-#: .\power_up\templates\power_up\contact.html:176
 msgid "Part of Luxembourg's Tech Ecosystem"
 msgstr "Partie de l'ecosysteme tech du Luxembourg"
 
-#: .\power_up\templates\power_up\contact.html:179
 #, fuzzy
 #| msgid ""
 #| "We're proud to be building in Luxembourg alongside a vibrantcommunity of "
@@ -526,15 +434,12 @@ msgstr ""
 "Nous sommes fiers de construire au Luxembourg aux cotes d'unecommunaute "
 "dynamique d'innovateurs, de startups et de passionnes detech."
 
-#: .\power_up\templates\power_up\home.html:11
 msgid "Building Luxembourg's"
 msgstr "Luxembourg"
 
-#: .\power_up\templates\power_up\home.html:12
 msgid "Digital Future"
 msgstr "Caractéristiques spéciales"
 
-#: .\power_up\templates\power_up\home.html:15
 #, fuzzy
 #| msgid ""
 #| "We create innovative digital platforms that connect people, "
@@ -547,19 +452,15 @@ msgstr ""
 "favorisent les communautes et stimulent la croissance auLuxembourg et au-"
 "dela."
 
-#: .\power_up\templates\power_up\home.html:19
 msgid "Explore Platforms"
 msgstr "Explorer les vignobles"
 
-#: .\power_up\templates\power_up\home.html:22
 msgid "Partner With Us"
 msgstr "Deviens partenaire"
 
-#: .\power_up\templates\power_up\home.html:34
 msgid "Our Mission"
 msgstr ""
 
-#: .\power_up\templates\power_up\home.html:37
 #, fuzzy
 #| msgid ""
 #| "We believe technology should bring people together, not drive themapart. "
@@ -574,11 +475,9 @@ msgstr ""
 "Nos plateformes sont concues pour creer des connexionssignificatives et une "
 "valeur durable pour les communautesluxembourgeoises."
 
-#: .\power_up\templates\power_up\home.html:49
 msgid "Community First"
 msgstr "Communaute d'abord"
 
-#: .\power_up\templates\power_up\home.html:51
 #, fuzzy
 #| msgid ""
 #| "Every platform we build serves Luxembourg's unique communities withcare "
@@ -590,11 +489,9 @@ msgstr ""
 "Chaque plateforme que nous construisons sert les communautes uniquesdu "
 "Luxembourg avec soin et comprehension."
 
-#: .\power_up\templates\power_up\home.html:62
 msgid "Privacy Focused"
 msgstr "Confidentialité d'abord"
 
-#: .\power_up\templates\power_up\home.html:64
 #, fuzzy
 #| msgid ""
 #| "In a small country, privacy matters. We build with data protectionand "
@@ -606,11 +503,9 @@ msgstr ""
 "Dans un petit pays, la vie privee compte. Nous construisons avec "
 "laprotection des donnees et la confiance des utilisateurs au coeur."
 
-#: .\power_up\templates\power_up\home.html:75
 msgid "Innovation Driven"
 msgstr "Motive par l'innovation"
 
-#: .\power_up\templates\power_up\home.html:77
 #, fuzzy
 #| msgid ""
 #| "We combine proven technology with creative solutions tailored tolocal "
@@ -621,13 +516,9 @@ msgstr ""
 "Nous combinons une technologie eprouvee avec des solutions creativesadaptees "
 "aux besoins locaux."
 
-#: .\power_up\templates\power_up\home.html:89
-#: .\power_up\templates\power_up\partials\footer.html:50
-#: .\power_up\templates\power_up\platforms.html:10
 msgid "Our Platforms"
 msgstr "Nos plateformes"
 
-#: .\power_up\templates\power_up\home.html:92
 #, fuzzy
 #| msgid ""
 #| "Discover the digital experiences we've built for Luxembourg'scommunities."
@@ -637,15 +528,12 @@ msgstr ""
 "Decouvre les experiences numeriques que nous avons construites pourles "
 "communautes luxembourgeoises."
 
-#: .\power_up\templates\power_up\home.html:104
 msgid "Learn More About Our Platforms"
 msgstr "En savoir plus sur notre processus"
 
-#: .\power_up\templates\power_up\home.html:114
 msgid "Ready to Partner?"
 msgstr "Pret a devenir partenaire ?"
 
-#: .\power_up\templates\power_up\home.html:117
 #, fuzzy
 #| msgid ""
 #| "We're always looking for partners who share our vision forLuxembourg's "
@@ -657,15 +545,12 @@ msgstr ""
 "Nous recherchons toujours des partenaires qui partagent notre visionpour "
 "l'avenir numerique du Luxembourg."
 
-#: .\power_up\templates\power_up\investors.html:13
 msgid "Join us in building Luxembourg's digital future."
 msgstr "Rejoins-nous pour construire l'avenir numerique du Luxembourg."
 
-#: .\power_up\templates\power_up\investors.html:25
 msgid "Why Power-Up?"
 msgstr "Pourquoi Power-Up ?"
 
-#: .\power_up\templates\power_up\investors.html:29
 #, fuzzy
 #| msgid ""
 #| "Luxembourg represents a unique market opportunity. With one ofEurope's "
@@ -681,7 +566,6 @@ msgstr ""
 "internationale et une solide infrastructure numerique,c'est un terrain "
 "d'essai ideal pour les plateformes innovantes."
 
-#: .\power_up\templates\power_up\investors.html:32
 #, fuzzy
 #| msgid ""
 #| "Yet despite its wealth, Luxembourg has been underserved by "
@@ -697,7 +581,6 @@ msgstr ""
 "plateformes concues pour des marches plus grandsqui ne comprennent pas les "
 "nuances locales."
 
-#: .\power_up\templates\power_up\investors.html:35
 #, fuzzy
 #| msgid ""
 #| "Power-Up is changing that. We build platforms specifically forLuxembourg "
@@ -712,31 +595,24 @@ msgstr ""
 "le Luxembourg - avec les bonnes langues, lesbonnes fonctionnalites et la "
 "bonne approche de la vie privee pour unepetite communaute interconnectee."
 
-#: .\power_up\templates\power_up\investors.html:40
 msgid "Market Highlights"
 msgstr "Points forts du marche"
 
-#: .\power_up\templates\power_up\investors.html:48
 msgid "GDP per capita"
 msgstr "PIB par habitant"
 
-#: .\power_up\templates\power_up\investors.html:59
 msgid "Population"
 msgstr "Production"
 
-#: .\power_up\templates\power_up\investors.html:70
 msgid "Nationalities represented"
 msgstr "Nationalites representees"
 
-#: .\power_up\templates\power_up\investors.html:81
 msgid "Internet penetration"
 msgstr "Connexion Internet rétablie"
 
-#: .\power_up\templates\power_up\investors.html:95
 msgid "Partnership Opportunities"
 msgstr "Opportunites de partenariat"
 
-#: .\power_up\templates\power_up\investors.html:98
 #, fuzzy
 #| msgid ""
 #| "We're looking for partners who share our vision for Luxembourg'sdigital "
@@ -748,11 +624,9 @@ msgstr ""
 "Nous recherchons des partenaires qui partagent notre vision pourl'avenir "
 "numerique du Luxembourg."
 
-#: .\power_up\templates\power_up\investors.html:110
 msgid "Investment"
 msgstr "Choisir investissement"
 
-#: .\power_up\templates\power_up\investors.html:112
 #, fuzzy
 #| msgid ""
 #| "We welcome discussions with investors interested in Luxembourg'sgrowing "
@@ -765,11 +639,9 @@ msgstr ""
 "l'ecosysteme tech en croissance du Luxembourg. Opportunites deSeed et Serie "
 "A disponibles."
 
-#: .\power_up\templates\power_up\investors.html:123
 msgid "Strategic Partners"
 msgstr "Partenaires strategiques"
 
-#: .\power_up\templates\power_up\investors.html:125
 #, fuzzy
 #| msgid ""
 #| "Looking for organizations that can help us scale our platforms orbring "
@@ -781,11 +653,9 @@ msgstr ""
 "Nous recherchons des organisations qui peuvent nous aider a faireevoluer nos "
 "plateformes ou a apporter des services complementaires anos utilisateurs."
 
-#: .\power_up\templates\power_up\investors.html:136
 msgid "Local Businesses"
 msgstr "Entreprises locales"
 
-#: .\power_up\templates\power_up\investors.html:138
 #, fuzzy
 #| msgid ""
 #| "Luxembourg businesses looking to reach our engaged user base "
@@ -797,35 +667,27 @@ msgstr ""
 "Entreprises luxembourgeoises cherchant a atteindre notre based'utilisateurs "
 "engages a travers des partenariats de bon gout etpertinents."
 
-#: .\power_up\templates\power_up\investors.html:150
 msgid "Track Record"
 msgstr "Bilan"
 
-#: .\power_up\templates\power_up\investors.html:153
 msgid "What we've built so far."
 msgstr "Ce que nous avons construit jusqu'a present."
 
-#: .\power_up\templates\power_up\investors.html:160
 msgid "Platforms Launched"
 msgstr "Plateformes lancees"
 
-#: .\power_up\templates\power_up\investors.html:164
 msgid "Company Founded"
 msgstr "Entreprise"
 
-#: .\power_up\templates\power_up\investors.html:168
 msgid "Focused on Luxembourg"
 msgstr "Luxembourg"
 
-#: .\power_up\templates\power_up\investors.html:178
 msgid "Let's Talk"
 msgstr "Parlons-en"
 
-#: .\power_up\templates\power_up\investors.html:181
 msgid "Interested in learning more? We'd love to hear from you."
 msgstr "Interesse d'en savoir plus ? Nous serions ravis de t'entendre."
 
-#: .\power_up\templates\power_up\partials\footer.html:14
 #, fuzzy
 #| msgid ""
 #| "Building Luxembourg's digital future through innovative platformsthat "
@@ -837,81 +699,57 @@ msgstr ""
 "Construire l'avenir numerique du Luxembourg a travers des "
 "plateformesinnovantes qui connectent les gens et creent de la valeur."
 
-#: .\power_up\templates\power_up\partials\footer.html:21
 #, fuzzy
 #| msgid "Company Founded"
 msgid "Company"
 msgstr "Entreprise"
 
-#: .\power_up\templates\power_up\partials\footer.html:26
-#: .\power_up\templates\power_up\partials\navigation.html:22
-#: .\power_up\templates\power_up\partials\navigation.html:56
 msgid "About"
 msgstr ""
 
-#: .\power_up\templates\power_up\partials\footer.html:31
-#: .\power_up\templates\power_up\partials\navigation.html:26
-#: .\power_up\templates\power_up\partials\navigation.html:60
 msgid "Platforms"
 msgstr "Plateformes"
 
-#: .\power_up\templates\power_up\partials\footer.html:36
-#: .\power_up\templates\power_up\partials\navigation.html:30
-#: .\power_up\templates\power_up\partials\navigation.html:64
 msgid "Investors"
 msgstr "Investisseurs"
 
-#: .\power_up\templates\power_up\partials\footer.html:41
-#: .\power_up\templates\power_up\partials\navigation.html:34
-#: .\power_up\templates\power_up\partials\navigation.html:68
 #, fuzzy
 #| msgid "Contact Us"
 msgid "Contact"
 msgstr "Contact"
 
-#: .\power_up\templates\power_up\partials\footer.html:97
 msgid "All rights reserved."
 msgstr ""
 
-#: .\power_up\templates\power_up\partials\footer.html:100
 msgid "Made in Luxembourg"
 msgstr "Luxembourg"
 
-#: .\power_up\templates\power_up\partials\language_switcher.html:30
 msgid "Go"
 msgstr ""
 
-#: .\power_up\templates\power_up\partials\platform_card.html:46
 msgid "Live"
 msgstr "En ligne"
 
-#: .\power_up\templates\power_up\partials\platform_card.html:48
 #, fuzzy
 #| msgid "More Coming Soon"
 msgid "Coming Soon"
 msgstr "Carte interactive bientôt disponible"
 
-#: .\power_up\templates\power_up\partials\platform_card.html:76
 msgid "Visit Platform"
 msgstr "Visiter la plateforme"
 
-#: .\power_up\templates\power_up\platforms.html:13
 msgid "Digital experiences designed for Luxembourg's communities."
 msgstr "Experiences numeriques concues pour les communautes luxembourgeoises."
 
-#: .\power_up\templates\power_up\platforms.html:59
 msgid "Visit"
 msgstr "Visiter"
 
-#: .\power_up\templates\power_up\platforms.html:86
 msgid "Launched"
 msgstr "Lance"
 
-#: .\power_up\templates\power_up\platforms.html:99
 msgid "More Coming Soon"
 msgstr "Carte interactive bientôt disponible"
 
-#: .\power_up\templates\power_up\platforms.html:102
 #, fuzzy
 #| msgid ""
 #| "We're constantly working on new ideas to serve Luxembourg'scommunities. "
@@ -923,15 +761,12 @@ msgstr ""
 "Nous travaillons constamment sur de nouvelles idees pour servir "
 "lescommunautes luxembourgeoises. Restez a l'ecoute pour plus deplateformes."
 
-#: .\power_up\templates\power_up\platforms.html:105
 msgid "Get Updates"
 msgstr "Commencer"
 
-#: .\power_up\views.py:20
 msgid "Power-Up - Building Luxembourg's Digital Future"
 msgstr "Power-Up - Construire l'avenir numerique du Luxembourg"
 
-#: .\power_up\views.py:22
 #, fuzzy
 #| msgid ""
 #| "Power-Up builds digital platforms for Luxembourg. Discover ourportfolio: "
@@ -943,7 +778,6 @@ msgstr ""
 "Power-Up cree des plateformes numeriques pour le Luxembourg. Decouvrenotre "
 "portfolio : Crush.lu, VinsDelux et Entreprinder."
 
-#: .\power_up\views.py:35
 #, fuzzy
 #| msgid ""
 #| "Learn about Power-Up, the company building Luxembourg's digitalfuture "
@@ -955,11 +789,9 @@ msgstr ""
 "Decouvre Power-Up, l'entreprise qui construit l'avenir numerique "
 "duLuxembourg a travers des plateformes innovantes."
 
-#: .\power_up\views.py:47
 msgid "Our Platforms - Power-Up"
 msgstr "Nos plateformes - Power-Up"
 
-#: .\power_up\views.py:49
 #, fuzzy
 #| msgid ""
 #| "Explore Power-Up's portfolio of digital platforms: Crush.lu dating,"
@@ -971,11 +803,9 @@ msgstr ""
 "Explore le portfolio de plateformes numeriques de Power-Up : Crush."
 "lurencontres, VinsDelux adoption de vin et Entreprinder networking."
 
-#: .\power_up\views.py:60
 msgid "Investors & Partners - Power-Up"
 msgstr "Investisseurs et Partenaires - Power-Up"
 
-#: .\power_up\views.py:62
 #, fuzzy
 #| msgid ""
 #| "Partner with Power-Up to build Luxembourg's digital future.Investment and "
@@ -987,11 +817,9 @@ msgstr ""
 "Associe-toi a Power-Up pour construire l'avenir numerique duLuxembourg. "
 "Opportunites d'investissement et de partenariat."
 
-#: .\power_up\views.py:73
 msgid "Contact Us - Power-Up"
 msgstr "Contactez-nous - Power-Up"
 
-#: .\power_up\views.py:75
 #, fuzzy
 #| msgid ""
 #| "Get in touch with Power-Up. Contact information for investors,partners, "

@@ -2,24 +2,30 @@
 Signal handlers for Crush.lu app
 """
 
+import logging
+import threading
+from datetime import datetime
+
+import requests
+from django.conf import settings
+from django.contrib.auth.models import User
+from django.contrib.auth.signals import user_logged_in
+from django.core.files.base import ContentFile
+from django.db.models import Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.contrib.auth.signals import user_logged_in
-from allauth.socialaccount.signals import pre_social_login, social_account_updated
-from allauth.socialaccount.models import SocialAccount
-from django.contrib.auth.models import User
-from django.conf import settings
 from django.utils import timezone
-from django.db.models import Q
+from allauth.socialaccount.models import SocialAccount
+from allauth.socialaccount.signals import pre_social_login, social_account_updated
+
 from .models import MeetupEvent, EventActivityOption, CrushProfile, SpecialUserExperience, EmailPreference, EventRegistration, CrushCoach
 from .storage import initialize_user_storage
 from .utils.i18n import is_valid_language
-import logging
-from datetime import datetime
-import requests
-from django.core.files.base import ContentFile
 
 logger = logging.getLogger(__name__)
+
+# Thread-local storage to pass domain context between signals
+_thread_local = threading.local()
 
 
 # =============================================================================
@@ -186,6 +192,17 @@ def create_email_preference_for_user(sender, instance, created, **kwargs):
 
 # List of Crush.lu domains - profile should be created for logins on these domains
 CRUSH_LU_DOMAINS = ['crush.lu', 'www.crush.lu', 'localhost', '127.0.0.1']
+
+
+def _is_crush_domain(request):
+    """Check if current request is from crush.lu domain"""
+    if not request:
+        return False
+    try:
+        host = request.get_host().split(':')[0].lower()
+    except (KeyError, AttributeError):
+        return False
+    return host in CRUSH_LU_DOMAINS
 
 
 @receiver(user_logged_in)
@@ -530,18 +547,25 @@ def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
     Only processes Facebook logins for Crush.lu domain.
 
     This handles EXISTING users logging in again - updates profile if photo missing.
+    Also sets a thread-local flag for the post_save handler.
     """
+    # Reset the flag at the start (only for Facebook provider)
+    if sociallogin.account.provider == 'facebook':
+        _thread_local.is_crush_facebook_login = False
+
     # Only process Facebook logins
     if sociallogin.account.provider != 'facebook':
         return
 
     # Only process for crush.lu domain
-    host = request.get_host().split(':')[0].lower()
-    if host not in ['crush.lu', 'www.crush.lu', 'localhost', '127.0.0.1']:
-        logger.info(f"Skipping Facebook login processing for non-Crush domain: {host}")
+    if not _is_crush_domain(request):
+        logger.info(f"Skipping Facebook login processing for non-Crush domain")
         return
 
-    logger.info(f"pre_social_login signal received for Facebook provider")
+    # Set flag to indicate this is a crush.lu Facebook login
+    _thread_local.is_crush_facebook_login = True
+
+    logger.info(f"pre_social_login signal received for Facebook provider on crush.lu")
 
     try:
         extra_data = sociallogin.account.extra_data
@@ -582,6 +606,7 @@ def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
     Pre-fill profile data from Facebook information.
 
     This handles NEW users signing up via Facebook - creates profile with Facebook data.
+    Only creates profile if the login originated from crush.lu domain.
     """
     if instance.provider != 'facebook':
         return
@@ -589,7 +614,13 @@ def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
     if not created:
         return
 
-    logger.info(f"SocialAccount post_save signal for Facebook (user: {instance.user.email})")
+    # Only create CrushProfile if login was from crush.lu
+    # This flag is set by update_facebook_profile_on_login in pre_social_login
+    if not getattr(_thread_local, 'is_crush_facebook_login', False):
+        logger.info(f"Skipping CrushProfile creation for Facebook user {instance.user.email} - not a crush.lu login")
+        return
+
+    logger.info(f"SocialAccount post_save signal for Facebook on crush.lu (user: {instance.user.email})")
 
     try:
         # Get or create CrushProfile
@@ -834,18 +865,25 @@ def update_google_profile_on_login(sender, request, sociallogin, **kwargs):
     Only processes Google logins for Crush.lu domain.
 
     This handles EXISTING users logging in again - updates profile if photo missing.
+    Also sets a thread-local flag for the post_save handler.
     """
+    # Reset the flag at the start (only for Google provider)
+    if sociallogin.account.provider == 'google':
+        _thread_local.is_crush_google_login = False
+
     # Only process Google logins
     if sociallogin.account.provider != 'google':
         return
 
     # Only process for crush.lu domain
-    host = request.get_host().split(':')[0].lower()
-    if host not in ['crush.lu', 'www.crush.lu', 'localhost', '127.0.0.1']:
-        logger.info(f"Skipping Google login processing for non-Crush domain: {host}")
+    if not _is_crush_domain(request):
+        logger.info(f"Skipping Google login processing for non-Crush domain")
         return
 
-    logger.info(f"pre_social_login signal received for Google provider")
+    # Set flag to indicate this is a crush.lu Google login
+    _thread_local.is_crush_google_login = True
+
+    logger.info(f"pre_social_login signal received for Google provider on crush.lu")
 
     try:
         extra_data = sociallogin.account.extra_data
@@ -880,6 +918,7 @@ def create_crush_profile_from_google(sender, instance, created, **kwargs):
     Pre-fill profile data from Google information including profile photo.
 
     This handles NEW users signing up via Google - creates profile with Google photo.
+    Only creates profile if the login originated from crush.lu domain.
     """
     if instance.provider != 'google':
         return
@@ -887,7 +926,13 @@ def create_crush_profile_from_google(sender, instance, created, **kwargs):
     if not created:
         return
 
-    logger.info(f"SocialAccount post_save signal for Google (user: {instance.user.email})")
+    # Only create CrushProfile if login was from crush.lu
+    # This flag is set by update_google_profile_on_login in pre_social_login
+    if not getattr(_thread_local, 'is_crush_google_login', False):
+        logger.info(f"Skipping CrushProfile creation for Google user {instance.user.email} - not a crush.lu login")
+        return
+
+    logger.info(f"SocialAccount post_save signal for Google on crush.lu (user: {instance.user.email})")
 
     try:
         # Get or create CrushProfile
@@ -943,18 +988,25 @@ def update_microsoft_profile_on_login(sender, request, sociallogin, **kwargs):
     Only processes Microsoft logins for Crush.lu domain.
 
     This handles EXISTING users logging in again.
+    Also sets a thread-local flag for the post_save handler.
     """
+    # Reset the flag at the start (only for Microsoft provider)
+    if sociallogin.account.provider == 'microsoft':
+        _thread_local.is_crush_microsoft_login = False
+
     # Only process Microsoft logins
     if sociallogin.account.provider != 'microsoft':
         return
 
     # Only process for crush.lu domain
-    host = request.get_host().split(':')[0].lower()
-    if host not in ['crush.lu', 'www.crush.lu', 'localhost', '127.0.0.1']:
-        logger.info(f"Skipping Microsoft login processing for non-Crush domain: {host}")
+    if not _is_crush_domain(request):
+        logger.info(f"Skipping Microsoft login processing for non-Crush domain")
         return
 
-    logger.info(f"pre_social_login signal received for Microsoft provider")
+    # Set flag to indicate this is a crush.lu Microsoft login
+    _thread_local.is_crush_microsoft_login = True
+
+    logger.info(f"pre_social_login signal received for Microsoft provider on crush.lu")
 
     try:
         extra_data = sociallogin.account.extra_data
@@ -984,6 +1036,7 @@ def create_crush_profile_from_microsoft(sender, instance, created, **kwargs):
 
     This handles NEW users signing up via Microsoft - creates basic profile.
     Note: Microsoft doesn't provide profile photo in OAuth extra_data like Google/Facebook.
+    Only creates profile if the login originated from crush.lu domain.
     """
     if instance.provider != 'microsoft':
         return
@@ -991,7 +1044,13 @@ def create_crush_profile_from_microsoft(sender, instance, created, **kwargs):
     if not created:
         return
 
-    logger.info(f"SocialAccount post_save signal for Microsoft (user: {instance.user.email})")
+    # Only create CrushProfile if login was from crush.lu
+    # This flag is set by update_microsoft_profile_on_login in pre_social_login
+    if not getattr(_thread_local, 'is_crush_microsoft_login', False):
+        logger.info(f"Skipping CrushProfile creation for Microsoft user {instance.user.email} - not a crush.lu login")
+        return
+
+    logger.info(f"SocialAccount post_save signal for Microsoft on crush.lu (user: {instance.user.email})")
 
     try:
         # Get or create CrushProfile

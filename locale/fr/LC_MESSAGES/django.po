@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: azureproject 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-26 00:35+0100\n"
+"POT-Creation-Date: 2026-01-27 00:00+0100\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: FR\n"
@@ -16,57 +16,44 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: .\azureproject\settings.py:525
 msgid "English"
 msgstr ""
 
-#: .\azureproject\settings.py:526
 msgid "German"
 msgstr ""
 
-#: .\azureproject\settings.py:527
 msgid "French"
 msgstr ""
 
-#: .\core\templates\admin\base_site.html:4
 msgid "Django site admin"
 msgstr "Administration du site Django"
 
-#: .\core\templates\admin\base_site.html:37
 msgid "Django administration"
 msgstr "Administration Django"
 
-#: .\core\templates\admin\login.html:103
 msgid "Coach & Staff Access"
 msgstr ""
 
-#: .\core\templates\admin\login.html:104
 msgid ""
 "Microsoft login is restricted to organization employees. Google login is "
 "available for authorized coaches."
 msgstr ""
 
-#: .\core\templates\admin\login.html:107
 msgid "Sign in with your account"
 msgstr "Se connecter avec votre compte"
 
-#: .\core\templates\admin\login.html:119
 msgid "Sign in with Google"
 msgstr "Se connecter avec Google"
 
-#: .\core\templates\admin\login.html:131
 msgid "Sign in with Microsoft"
 msgstr "Se connecter avec Microsoft"
 
-#: .\core\templates\admin\login.html:137
 msgid "or use username"
 msgstr "ou utiliser un nom d'utilisateur"
 
-#: .\core\templates\includes\cookie_banner.html:9
 msgid "Cookie Settings"
 msgstr "Paramètres des cookies"
 
-#: .\core\templates\includes\cookie_banner.html:11
 #, fuzzy
 #| msgid ""
 #| "We use cookies to enhance your experience. Analytics cookies help "
@@ -81,35 +68,27 @@ msgstr ""
 "cookiesd'analyse nous aident à comprendre comment tu utilises notre site. "
 "Tupeux accepter tous les cookies ou personnaliser tes préférences."
 
-#: .\core\templates\includes\cookie_banner.html:16
 msgid "Customize"
 msgstr "Personnaliser"
 
-#: .\core\templates\includes\cookie_banner.html:19
 msgid "Decline All"
 msgstr "Tout refuser"
 
-#: .\core\templates\includes\cookie_banner.html:22
 msgid "Accept All"
 msgstr "Tout accepter"
 
-#: .\core\templates\includes\cookie_banner.html:32
 msgid "Cookie Preferences"
 msgstr "Préférences de cookies"
 
-#: .\core\templates\includes\cookie_banner.html:33
 msgid "Close"
 msgstr "Fermer"
 
-#: .\core\templates\includes\cookie_banner.html:43
 msgid "Essential Cookies"
 msgstr "Cookies essentiels"
 
-#: .\core\templates\includes\cookie_banner.html:44
 msgid "Always Active"
 msgstr "Toujours actif"
 
-#: .\core\templates\includes\cookie_banner.html:48
 #, fuzzy
 #| msgid ""
 #| "These cookies are necessary for the website to function and cannot "
@@ -124,11 +103,9 @@ msgstr ""
 "être désactivés. Ils sont généralement définis uniquementen réponse à tes "
 "actions, comme la connexion ou le remplissage deformulaires."
 
-#: .\core\templates\includes\cookie_banner.html:59
 msgid "Analytics Cookies"
 msgstr "Cookies analytiques"
 
-#: .\core\templates\includes\cookie_banner.html:63
 #, fuzzy
 #| msgid ""
 #| "These cookies allow us to count visits and traffic sources so we "
@@ -143,11 +120,9 @@ msgstr ""
 "afin de mesurer et d'améliorer les performances de notre site.Ils nous "
 "aident à savoir quelles pages sont les plus et les moinspopulaires."
 
-#: .\core\templates\includes\cookie_banner.html:74
 msgid "Marketing Cookies"
 msgstr "Cookies marketing"
 
-#: .\core\templates\includes\cookie_banner.html:78
 #, fuzzy
 #| msgid ""
 #| "These cookies may be set through our site by our advertisingpartners. "
@@ -162,10 +137,8 @@ msgstr ""
 "partenairespublicitaires. Ils peuvent être utilisés pour créer un profil de "
 "tesintérêts et te montrer des publicités pertinentes sur d'autres sites."
 
-#: .\core\templates\includes\cookie_banner.html:83
 msgid "Cancel"
 msgstr ""
 
-#: .\core\templates\includes\cookie_banner.html:84
 msgid "Save Preferences"
 msgstr "Enregistrer les préférences"

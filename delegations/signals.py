@@ -5,6 +5,7 @@ Handles Microsoft OAuth profile creation, company matching, and photo download.
 """
 import logging
 import requests
+import threading
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.contrib.auth.signals import user_logged_in
@@ -16,6 +17,9 @@ from allauth.socialaccount.models import SocialAccount, SocialToken
 from .models import Company, DelegationProfile, AccessLog
 
 logger = logging.getLogger(__name__)
+
+# Thread-local storage to pass domain context between signals
+_thread_local = threading.local()
 
 # Management keywords that trigger auto-rejection
 MANAGEMENT_KEYWORDS = [
@@ -159,18 +163,27 @@ def check_microsoft_access_on_login(sender, request, sociallogin, **kwargs):
     """
     Check access before allowing Microsoft login on delegation domain.
     This runs BEFORE the user is logged in.
+
+    Sets a thread-local flag to indicate this is a delegations.lu login,
+    which is used by create_delegation_profile_from_microsoft to decide
+    whether to create a DelegationProfile.
     """
-    if not _is_delegation_domain(request):
-        return
+    # Reset the flag at the start of each login attempt
+    _thread_local.is_delegation_login = False
 
     if sociallogin.account.provider != 'microsoft':
         return
 
+    if not _is_delegation_domain(request):
+        return
+
+    # Set flag to indicate this is a delegations.lu login
+    _thread_local.is_delegation_login = True
+
     extra_data = sociallogin.account.extra_data
     email = extra_data.get('mail') or extra_data.get('userPrincipalName', '')
-    job_title = extra_data.get('jobTitle', '')
 
-    logger.info(f"Microsoft pre_social_login for: {email}")
+    logger.info(f"Microsoft pre_social_login for delegations.lu: {email}")
 
     # Check if existing user is blocked
     if sociallogin.is_existing:
@@ -188,11 +201,20 @@ def check_microsoft_access_on_login(sender, request, sociallogin, **kwargs):
 def create_delegation_profile_from_microsoft(sender, instance, created, **kwargs):
     """
     Create DelegationProfile when a new Microsoft SocialAccount is created.
+
+    Only creates profile if the login originated from delegations.lu domain.
+    We check for a thread-local flag set by the pre_social_login signal.
     """
     if instance.provider != 'microsoft':
         return
 
     if not created:
+        return
+
+    # Only create DelegationProfile if login was from delegations.lu
+    # This flag is set by check_microsoft_access_on_login in pre_social_login
+    if not getattr(_thread_local, 'is_delegation_login', False):
+        logger.info(f"Skipping DelegationProfile creation for {instance.user.email} - not a delegations.lu login")
         return
 
     logger.info(f"Creating DelegationProfile for Microsoft user: {instance.user.email}")
@@ -201,12 +223,13 @@ def create_delegation_profile_from_microsoft(sender, instance, created, **kwargs
         extra_data = instance.extra_data
 
         # Extract user data from Microsoft
-        email = instance.user.email or extra_data.get('mail') or extra_data.get('userPrincipalName', '')
-        microsoft_id = extra_data.get('id', '')
-        microsoft_tenant_id = extra_data.get('tid', '')  # Tenant ID from token claims
-        job_title = extra_data.get('jobTitle', '')
-        department = extra_data.get('department', '')
-        office_location = extra_data.get('officeLocation', '')
+        # Use 'or' to convert None values to empty strings (Microsoft may return null for optional fields)
+        email = instance.user.email or extra_data.get('mail') or extra_data.get('userPrincipalName') or ''
+        microsoft_id = extra_data.get('id') or ''
+        microsoft_tenant_id = extra_data.get('tid') or ''  # Tenant ID from token claims
+        job_title = extra_data.get('jobTitle') or ''
+        department = extra_data.get('department') or ''
+        office_location = extra_data.get('officeLocation') or ''
 
         # Match user to company
         company = _match_user_to_company(email, microsoft_tenant_id)

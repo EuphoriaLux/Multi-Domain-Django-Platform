@@ -1,0 +1,68 @@
+{% load i18n crush_media %}
+{# Reusable card for pending profile submissions on coach dashboard #}
+{# Expected context: submission (ProfileSubmission object with is_urgent, is_warning attributes) #}
+
+<div class="py-4 first:pt-0 last:pb-0 pl-3 {% if submission.is_urgent %}border-l-4 border-red-500{% elif submission.is_warning %}border-l-4 border-yellow-500{% else %}border-l-4 border-gray-200{% endif %}">
+    <div class="flex gap-4">
+        {# Profile Photo Thumbnail #}
+        <div class="flex-shrink-0">
+            {% profile_photo_url submission.profile 'photo_1' as photo_url %}
+            {% if photo_url %}
+                <img src="{{ photo_url }}" alt="" class="w-16 h-16 rounded-lg object-cover">
+            {% else %}
+                <div class="w-16 h-16 rounded-lg bg-gray-200 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                </div>
+            {% endif %}
+        </div>
+
+        {# Profile Info #}
+        <div class="flex-grow min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+                <h6 class="font-semibold text-gray-900 truncate">{{ submission.profile.user.get_full_name }}</h6>
+                {% if submission.is_urgent %}
+                    <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-800 rounded-full">
+                        {% trans "Urgent" %}
+                    </span>
+                {% elif submission.is_warning %}
+                    <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full">
+                        {% trans "Waiting" %}
+                    </span>
+                {% endif %}
+            </div>
+
+            <p class="text-gray-500 text-sm mb-1">
+                {% if submission.profile.age %}{{ submission.profile.age }}{% else %}?{% endif %} &bull;
+                {{ submission.profile.location|default:_("No location") }}
+            </p>
+
+            {# Preferred Language #}
+            <p class="text-sm text-gray-600 mb-1 flex items-center gap-1">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"></path>
+                </svg>
+                {% if submission.profile.preferred_language == 'de' %}
+                    Deutsch
+                {% elif submission.profile.preferred_language == 'fr' %}
+                    Français
+                {% else %}
+                    English
+                {% endif %}
+            </p>
+
+            {# Wait Time #}
+            <p class="text-xs text-gray-400">
+                {% trans "Submitted" %} {{ submission.submitted_at|timesince }} {% trans "ago" %}
+            </p>
+        </div>
+
+        {# Review Button #}
+        <div class="flex-shrink-0 self-center">
+            <a href="{% url 'crush_lu:coach_review_profile' submission.id %}" class="btn-crush-primary text-sm px-3 py-1.5 whitespace-nowrap">
+                {% trans "Review" %}
+            </a>
+        </div>
+    </div>
+</div>

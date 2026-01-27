@@ -72,11 +72,31 @@
         }
     }, true);
 
-    // Intercept form submissions (GET forms that navigate)
+    /**
+     * Check if a form is an HTMX form (handled via XHR, not navigation)
+     */
+    function isHtmxForm(form) {
+        return form && (
+            form.hasAttribute('hx-post') ||
+            form.hasAttribute('hx-get') ||
+            form.hasAttribute('hx-put') ||
+            form.hasAttribute('hx-patch') ||
+            form.hasAttribute('hx-delete') ||
+            form.hasAttribute('data-hx-post') ||
+            form.hasAttribute('data-hx-get')
+        );
+    }
+
+    // Intercept form submissions (GET forms that navigate, NOT HTMX forms)
     document.addEventListener('submit', function(e) {
         const form = e.target;
 
-        // Only show for navigation (GET forms or POST that navigates)
+        // Skip HTMX forms - they use XHR and don't navigate
+        if (isHtmxForm(form)) {
+            return;
+        }
+
+        // Only show for navigation (GET forms that navigate)
         if (form && form.method.toLowerCase() === 'get') {
             showLoadingOverlay();
         }
@@ -113,6 +133,10 @@
     window.addEventListener('load', function() {
         setTimeout(hideLoadingOverlay, 10000);
     });
+
+    // Hide loading overlay after HTMX completes swapping content
+    document.body.addEventListener('htmx:afterSwap', hideLoadingOverlay);
+    document.body.addEventListener('htmx:afterSettle', hideLoadingOverlay);
 
     // Initial check: hide overlay on script load (in case of page refresh)
     hideLoadingOverlay();
