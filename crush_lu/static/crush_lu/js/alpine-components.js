@@ -5980,4 +5980,259 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // Screening Call Guideline Component for Coach Review
+    // 7-step accordion with checklist items and notes
+    Alpine.data('screeningCallGuideline', function() {
+        return {
+            // Active accordion section (1-7, 0 = none)
+            activeSection: 1,
+
+            // Checklist completion flags
+            introductionComplete: false,
+            languageConfirmed: false,
+            residenceConfirmed: false,
+            expectationsDiscussed: false,
+            datingPreferenceAsked: false,
+            crushMeaningAsked: false,
+            questionsAnswered: false,
+
+            // Notes for each section
+            residenceNotes: '',
+            expectationsNotes: '',
+            datingPreferenceValue: '',
+            crushMeaningNotes: '',
+            questionsNotes: '',
+            finalNotes: '',
+
+            // Required steps for validation
+            requiredSteps: ['introductionComplete', 'residenceConfirmed', 'datingPreferenceAsked'],
+
+            // CSP-safe computed getters
+            get completedCount() {
+                var count = 0;
+                if (this.introductionComplete) count++;
+                if (this.languageConfirmed) count++;
+                if (this.residenceConfirmed) count++;
+                if (this.expectationsDiscussed) count++;
+                if (this.datingPreferenceAsked) count++;
+                if (this.crushMeaningAsked) count++;
+                if (this.questionsAnswered) count++;
+                return count;
+            },
+
+            get progressPercent() {
+                return Math.round((this.completedCount / 7) * 100);
+            },
+
+            get progressWidth() {
+                return 'width: ' + this.progressPercent + '%';
+            },
+
+            get isValid() {
+                return this.introductionComplete && this.residenceConfirmed && this.datingPreferenceAsked;
+            },
+
+            get isInvalid() {
+                return !this.isValid;
+            },
+
+            get submitDisabled() {
+                return !this.isValid;
+            },
+
+            get submitButtonClass() {
+                return this.isValid
+                    ? 'bg-green-500 hover:bg-green-600 cursor-pointer'
+                    : 'bg-gray-300 cursor-not-allowed';
+            },
+
+            // Section visibility getters
+            get section1Open() { return this.activeSection === 1; },
+            get section2Open() { return this.activeSection === 2; },
+            get section3Open() { return this.activeSection === 3; },
+            get section4Open() { return this.activeSection === 4; },
+            get section5Open() { return this.activeSection === 5; },
+            get section6Open() { return this.activeSection === 6; },
+            get section7Open() { return this.activeSection === 7; },
+
+            // Section header classes (CSP-safe)
+            get section1HeaderClass() {
+                return this.activeSection === 1
+                    ? 'bg-purple-100 border-purple-300'
+                    : (this.introductionComplete ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200');
+            },
+            get section2HeaderClass() {
+                return this.activeSection === 2
+                    ? 'bg-purple-100 border-purple-300'
+                    : (this.languageConfirmed ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200');
+            },
+            get section3HeaderClass() {
+                return this.activeSection === 3
+                    ? 'bg-purple-100 border-purple-300'
+                    : (this.residenceConfirmed ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200');
+            },
+            get section4HeaderClass() {
+                return this.activeSection === 4
+                    ? 'bg-purple-100 border-purple-300'
+                    : (this.expectationsDiscussed ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200');
+            },
+            get section5HeaderClass() {
+                return this.activeSection === 5
+                    ? 'bg-purple-100 border-purple-300'
+                    : (this.datingPreferenceAsked ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200');
+            },
+            get section6HeaderClass() {
+                return this.activeSection === 6
+                    ? 'bg-purple-100 border-purple-300'
+                    : (this.crushMeaningAsked ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200');
+            },
+            get section7HeaderClass() {
+                return this.activeSection === 7
+                    ? 'bg-purple-100 border-purple-300'
+                    : (this.questionsAnswered ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200');
+            },
+
+            // Status icon visibility getters
+            get section1Complete() { return this.introductionComplete; },
+            get section2Complete() { return this.languageConfirmed; },
+            get section3Complete() { return this.residenceConfirmed; },
+            get section4Complete() { return this.expectationsDiscussed; },
+            get section5Complete() { return this.datingPreferenceAsked; },
+            get section6Complete() { return this.crushMeaningAsked; },
+            get section7Complete() { return this.questionsAnswered; },
+
+            // Required badge visibility
+            get section1Required() { return true; },
+            get section3Required() { return true; },
+            get section5Required() { return true; },
+
+            // Methods
+            init: function() {
+                // Load existing checklist data if present
+                var dataEl = this.$el.querySelector('[data-checklist-initial]');
+                if (dataEl) {
+                    try {
+                        var initial = JSON.parse(dataEl.getAttribute('data-checklist-initial') || '{}');
+                        if (initial.introduction_complete) this.introductionComplete = true;
+                        if (initial.language_confirmed) this.languageConfirmed = true;
+                        if (initial.residence_confirmed) this.residenceConfirmed = true;
+                        if (initial.expectations_discussed) this.expectationsDiscussed = true;
+                        if (initial.dating_preference_asked) this.datingPreferenceAsked = true;
+                        if (initial.crush_meaning_asked) this.crushMeaningAsked = true;
+                        if (initial.questions_answered) this.questionsAnswered = true;
+                        if (initial.residence_notes) this.residenceNotes = initial.residence_notes;
+                        if (initial.expectations_notes) this.expectationsNotes = initial.expectations_notes;
+                        if (initial.dating_preference_value) this.datingPreferenceValue = initial.dating_preference_value;
+                        if (initial.crush_meaning_notes) this.crushMeaningNotes = initial.crush_meaning_notes;
+                        if (initial.questions_notes) this.questionsNotes = initial.questions_notes;
+                    } catch (e) {
+                        console.warn('Failed to parse initial checklist data', e);
+                    }
+                }
+            },
+
+            toggleSection: function(num) {
+                this.activeSection = this.activeSection === num ? 0 : num;
+            },
+
+            openSection1: function() { this.toggleSection(1); },
+            openSection2: function() { this.toggleSection(2); },
+            openSection3: function() { this.toggleSection(3); },
+            openSection4: function() { this.toggleSection(4); },
+            openSection5: function() { this.toggleSection(5); },
+            openSection6: function() { this.toggleSection(6); },
+            openSection7: function() { this.toggleSection(7); },
+
+            goToNextSection: function() {
+                if (this.activeSection < 7) {
+                    this.activeSection = this.activeSection + 1;
+                }
+            },
+
+            toggleIntroduction: function() {
+                this.introductionComplete = !this.introductionComplete;
+            },
+            toggleLanguage: function() {
+                this.languageConfirmed = !this.languageConfirmed;
+            },
+            toggleResidence: function() {
+                this.residenceConfirmed = !this.residenceConfirmed;
+            },
+            toggleExpectations: function() {
+                this.expectationsDiscussed = !this.expectationsDiscussed;
+            },
+            toggleDatingPreference: function() {
+                this.datingPreferenceAsked = !this.datingPreferenceAsked;
+            },
+            toggleCrushMeaning: function() {
+                this.crushMeaningAsked = !this.crushMeaningAsked;
+            },
+            toggleQuestions: function() {
+                this.questionsAnswered = !this.questionsAnswered;
+            },
+
+            // Input handlers for CSP compliance (x-model not supported)
+            updateResidenceNotes: function(event) {
+                this.residenceNotes = event.target.value;
+            },
+            updateExpectationsNotes: function(event) {
+                this.expectationsNotes = event.target.value;
+            },
+            updateCrushMeaningNotes: function(event) {
+                this.crushMeaningNotes = event.target.value;
+            },
+            updateQuestionsNotes: function(event) {
+                this.questionsNotes = event.target.value;
+            },
+            updateFinalNotes: function(event) {
+                this.finalNotes = event.target.value;
+            },
+
+            setDatingPreferenceOpposite: function() {
+                this.datingPreferenceValue = 'opposite_gender';
+            },
+            setDatingPreferenceSame: function() {
+                this.datingPreferenceValue = 'same_gender';
+            },
+            setDatingPreferenceBoth: function() {
+                this.datingPreferenceValue = 'both';
+            },
+
+            // Dating preference button classes (CSP-safe)
+            get oppositeGenderButtonClass() {
+                return this.datingPreferenceValue === 'opposite_gender'
+                    ? 'bg-purple-500 text-white border-purple-500'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50';
+            },
+            get sameGenderButtonClass() {
+                return this.datingPreferenceValue === 'same_gender'
+                    ? 'bg-purple-500 text-white border-purple-500'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50';
+            },
+            get bothGenderButtonClass() {
+                return this.datingPreferenceValue === 'both'
+                    ? 'bg-purple-500 text-white border-purple-500'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50';
+            },
+
+            // Serialize checklist data to JSON for form submission (getter for CSP compliance)
+            get checklistDataJson() {
+                return JSON.stringify({
+                    introduction_complete: this.introductionComplete,
+                    language_confirmed: this.languageConfirmed,
+                    residence_confirmed: this.residenceConfirmed,
+                    residence_notes: this.residenceNotes,
+                    expectations_discussed: this.expectationsDiscussed,
+                    expectations_notes: this.expectationsNotes,
+                    dating_preference_asked: this.datingPreferenceAsked,
+                    dating_preference_value: this.datingPreferenceValue,
+                    crush_meaning_asked: this.crushMeaningAsked,
+                    crush_meaning_notes: this.crushMeaningNotes,
+                    questions_answered: this.questionsAnswered,
+                    questions_notes: this.questionsNotes
+                });
+            }
+        };
+    });
+
 });

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: delegations 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-22 02:09+0100\n"
+"POT-Creation-Date: 2026-01-27 00:00+0100\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: FR\n"
@@ -16,22 +16,15 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: .\delegations\templates\account\logout_delegation.html:4
-#: .\delegations\templates\account\logout_delegation.html:13
-#: .\delegations\templates\account\logout_delegation.html:23
 msgid "Sign Out"
 msgstr ""
 
-#: .\delegations\templates\account\logout_delegation.html:14
 msgid "Are you sure you want to sign out?"
 msgstr ""
 
-#: .\delegations\templates\account\logout_delegation.html:24
 msgid "Cancel"
 msgstr ""
 
-#: .\delegations\templates\admin\base_site.html:4
-#: .\delegations\templates\admin\base_site.html:29
 #, fuzzy
 #| msgid "Crush Delegation Management"
 msgid "Delegations.lu Management"
