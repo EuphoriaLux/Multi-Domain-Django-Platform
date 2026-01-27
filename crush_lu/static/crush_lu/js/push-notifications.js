@@ -267,6 +267,70 @@
     }
 
     /**
+     * Check if current subscription is still valid
+     * Returns true if subscription exists and is active, false otherwise
+     */
+    async function checkSubscriptionHealth() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            return false;
+        }
+
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.getSubscription();
+
+            if (!subscription) {
+                return false;
+            }
+
+            // Test if endpoint is still valid by comparing with server
+            const response = await fetch('/api/push/validate-subscription/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    endpoint: subscription.endpoint
+                })
+            });
+
+            if (!response.ok) {
+                return false;
+            }
+
+            const data = await response.json();
+            return data.valid === true;
+
+        } catch (error) {
+            console.error('Error checking subscription health:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Refresh push subscription (call manually or when health check fails)
+     */
+    async function refreshPushSubscription() {
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const oldSubscription = await registration.pushManager.getSubscription();
+
+            if (oldSubscription) {
+                await oldSubscription.unsubscribe();
+            }
+
+            // Re-subscribe using normal flow
+            await subscribeUserToPush();
+
+            return true;
+        } catch (error) {
+            console.error('Error refreshing subscription:', error);
+            return false;
+        }
+    }
+
+    /**
      * Check if user is currently subscribed
      */
     async function isSubscribed() {
@@ -278,6 +342,29 @@
             return false;
         }
     }
+
+    // Listen for service worker messages about subscription refresh
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'PUSH_SUBSCRIPTION_REFRESHED') {
+                // Subscription was automatically refreshed by service worker
+                console.log('Push subscription automatically refreshed');
+
+                // Reload subscription list if on settings page
+                if (window.location.pathname.includes('/account/settings')) {
+                    window.location.reload();
+                }
+            }
+        });
+    }
+
+    // Export functions for use in Alpine components
+    window.CrushPushNotifications = {
+        subscribe: subscribeUserToPush,
+        unsubscribe: unsubscribeFromPushNotifications,
+        checkHealth: checkSubscriptionHealth,
+        refresh: refreshPushSubscription
+    };
 
     /**
      * Send test notification

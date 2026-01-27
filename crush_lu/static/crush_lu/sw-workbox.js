@@ -1,6 +1,6 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v28 - Remove obsolete crush-modular.css from precache (merged into tailwind.css)
+// Version: v29 - Add pushsubscriptionchange handler for automatic subscription refresh
 
 // ============================================================================
 // CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
@@ -70,7 +70,7 @@ if (workbox) {
     modulePathPrefix: '/static/crush_lu/workbox/'
   });
 
-  const CACHE_VERSION = 'crush-v28-remove-modular-css';
+  const CACHE_VERSION = 'crush-v29-push-subscription-refresh';
 
   // Set cache name prefix - AFTER setConfig()
   workbox.core.setCacheNameDetails({
@@ -532,6 +532,89 @@ if (workbox) {
         })
     );
   });
+
+  // ============================================================================
+  // Push Subscription Change Handler
+  // ============================================================================
+  // Fired when browser refreshes/expires the push subscription
+  // This is the standard way to handle subscription expiration in 2026
+
+  self.addEventListener('pushsubscriptionchange', (event) => {
+    event.waitUntil(
+      (async () => {
+        try {
+          // Get VAPID public key from server
+          const vapidResponse = await fetch('/api/push/vapid-public-key/');
+          if (!vapidResponse.ok) throw new Error('Failed to get VAPID key');
+
+          const { publicKey } = await vapidResponse.json();
+
+          // Re-subscribe with same options
+          const newSubscription = await self.registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey)
+          });
+
+          // Send new subscription to server (will match by device fingerprint)
+          const updateResponse = await fetch('/api/push/refresh-subscription/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              oldEndpoint: event.oldSubscription?.endpoint,
+              subscription: {
+                endpoint: newSubscription.endpoint,
+                keys: {
+                  p256dh: arrayBufferToBase64(newSubscription.getKey('p256dh')),
+                  auth: arrayBufferToBase64(newSubscription.getKey('auth'))
+                }
+              }
+            })
+          });
+
+          if (!updateResponse.ok) {
+            throw new Error('Failed to update subscription on server');
+          }
+
+          // Notify all clients that subscription was refreshed
+          const clients = await self.clients.matchAll({ type: 'window' });
+          clients.forEach(client => {
+            client.postMessage({
+              type: 'PUSH_SUBSCRIPTION_REFRESHED',
+              timestamp: Date.now()
+            });
+          });
+
+        } catch (error) {
+          // Log error but don't crash service worker
+          console.error('Failed to handle pushsubscriptionchange:', error);
+        }
+      })()
+    );
+  });
+
+  // Helper function to convert VAPID key
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
+
+  // Helper to convert ArrayBuffer to Base64
+  function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
 
   // ============================================================================
   // Update Handling

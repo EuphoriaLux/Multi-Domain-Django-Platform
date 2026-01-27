@@ -80,6 +80,8 @@ urlpatterns = base_patterns + api_patterns + [
     # Push Notifications API (called from push-notifications.js, pwa-detector.js)
     path('api/push/vapid-public-key/', api_push.get_vapid_public_key, name='api_vapid_public_key'),
     path('api/push/subscribe/', api_push.subscribe_push, name='api_subscribe_push'),
+    path('api/push/refresh-subscription/', api_push.refresh_subscription, name='api_refresh_push_subscription'),
+    path('api/push/validate-subscription/', api_push.validate_subscription, name='api_validate_push_subscription'),
     path('api/push/unsubscribe/', api_push.unsubscribe_push, name='api_unsubscribe_push'),
     path('api/push/delete-subscription/', api_push.delete_push_subscription, name='api_delete_push_subscription'),
     path('api/push/subscriptions/', api_push.list_subscriptions, name='api_list_subscriptions'),
@@ -87,6 +89,7 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/push/test/', api_push.send_test_push, name='api_send_test_push'),
     path('api/push/mark-pwa-user/', api_push.mark_pwa_user, name='api_mark_pwa_user'),
     path('api/push/pwa-status/', api_push.get_pwa_status, name='api_pwa_status'),
+    path('api/push/health-check/', api_push.run_subscription_health_check, name='api_push_health_check'),
 
     # PWA Device Registration API (called from pwa-detector.js)
     path('api/pwa/register-installation/', api_pwa.register_pwa_installation, name='api_pwa_register_installation'),

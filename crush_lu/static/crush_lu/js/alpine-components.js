@@ -201,6 +201,8 @@ document.addEventListener('alpine:init', function() {
             currentEndpoint: null,  // For identifying "This device" by endpoint
             currentFingerprint: null,  // Stable device fingerprint (fallback for endpoint)
             endpointDetected: false,  // Flag to trigger re-render when endpoint is detected
+            subscriptionHealth: {},  // Map of subscription ID -> health status
+            checkingHealth: false,  // True while checking health
             // i18n strings for time formatting (loaded from data attributes in init)
             i18n: {
                 neverUsed: 'Never used',
@@ -644,6 +646,93 @@ document.addEventListener('alpine:init', function() {
                 }
 
                 check();
+            },
+
+            // Check health of all subscriptions
+            checkAllSubscriptionsHealth: function() {
+                var self = this;
+                self.checkingHealth = true;
+
+                // Initialize subscriptionHealth if not exists
+                if (!self.subscriptionHealth) {
+                    self.subscriptionHealth = {};
+                }
+
+                var promises = self.subscriptions.map(function(sub) {
+                    return fetch('/api/push/validate-subscription/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': self.getCsrfToken()
+                        },
+                        body: JSON.stringify({ endpoint: sub.endpoint })
+                    })
+                    .then(function(response) {
+                        if (response.ok) {
+                            return response.json();
+                        }
+                        throw new Error('Health check failed');
+                    })
+                    .then(function(data) {
+                        self.subscriptionHealth[sub.id] = {
+                            valid: data.valid,
+                            warning: data.warning,
+                            reason: data.reason,
+                            age_days: data.age_days
+                        };
+                    })
+                    .catch(function(error) {
+                        console.error('Health check failed for subscription', sub.id, error);
+                        self.subscriptionHealth[sub.id] = {
+                            valid: false,
+                            reason: 'check_failed'
+                        };
+                    });
+                });
+
+                Promise.all(promises).then(function() {
+                    self.checkingHealth = false;
+                    // Force Alpine to update
+                    self.$nextTick(function() {
+                        // Trigger reactivity
+                    });
+                });
+            },
+
+            // Refresh a specific subscription
+            refreshSubscription: function(subscriptionId) {
+                var self = this;
+                var confirmed = confirm('Refresh this push notification subscription? You may need to grant permission again.');
+                if (!confirmed) return;
+
+                // Use window.CrushPushNotifications.refresh from push-notifications.js
+                if (window.CrushPushNotifications && window.CrushPushNotifications.refresh) {
+                    window.CrushPushNotifications.refresh()
+                        .then(function(success) {
+                            if (success) {
+                                // Show success and reload
+                                alert('Subscription refreshed successfully');
+                                window.location.reload();
+                            } else {
+                                alert('Failed to refresh subscription');
+                            }
+                        })
+                        .catch(function(error) {
+                            console.error('Error refreshing:', error);
+                            alert('Error refreshing subscription');
+                        });
+                } else {
+                    alert('Push notification system not loaded. Please refresh the page and try again.');
+                }
+            },
+
+            // Delete a subscription by ID
+            deleteSubscription: function(subscriptionId) {
+                var self = this;
+                var confirmed = confirm('Remove this subscription? You will stop receiving notifications on this device.');
+                if (!confirmed) return;
+
+                self.disableRemoteSubscription(subscriptionId);
             }
         };
     });

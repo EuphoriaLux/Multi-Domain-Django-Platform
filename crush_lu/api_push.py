@@ -6,12 +6,15 @@ Handles subscription management and notification delivery
 import json
 import logging
 import re
+import os
 from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
+from django.core.management import call_command
+from django.utils import timezone
 from .models import PushSubscription, CoachPushSubscription, CrushCoach
 from .push_notifications import send_test_notification
 
@@ -161,6 +164,201 @@ def subscribe_push(request):
         'subscriptionId': subscription.id,
         'fingerprint': fingerprint
     })
+
+
+@login_required
+@csrf_exempt
+@require_http_methods(["POST"])
+def refresh_subscription(request):
+    """
+    Refresh a push subscription when browser changes endpoint.
+    Called by service worker pushsubscriptionchange event.
+
+    Matches old subscription by endpoint or device fingerprint,
+    updates with new endpoint/keys.
+
+    Supports both PushSubscription (users) and CoachPushSubscription (coaches).
+    """
+    try:
+        data = json.loads(request.body)
+        old_endpoint = data.get('oldEndpoint')
+        new_subscription_data = data.get('subscription', {})
+
+        if not new_subscription_data.get('endpoint'):
+            return JsonResponse({
+                'success': False,
+                'message': 'New subscription endpoint required'
+            }, status=400)
+
+        new_endpoint = new_subscription_data['endpoint']
+        new_keys = new_subscription_data.get('keys', {})
+        p256dh = new_keys.get('p256dh')
+        auth = new_keys.get('auth')
+
+        if not p256dh or not auth:
+            return JsonResponse({
+                'success': False,
+                'message': 'Subscription keys (p256dh, auth) required'
+            }, status=400)
+
+        # Strategy 1: Find by old endpoint (most reliable)
+        subscription = None
+        if old_endpoint:
+            # Try user subscriptions first
+            subscription = PushSubscription.objects.filter(
+                user=request.user,
+                endpoint=old_endpoint
+            ).first()
+
+            # Try coach subscriptions if user is a coach
+            if not subscription and hasattr(request.user, 'crush_coach'):
+                subscription = CoachPushSubscription.objects.filter(
+                    coach=request.user.crush_coach,
+                    endpoint=old_endpoint
+                ).first()
+
+        # Strategy 2: If old endpoint not found, this is likely a fresh re-subscribe
+        # Don't create duplicate - just update the subscribe endpoint to handle it
+        if not subscription:
+            # Check if new endpoint already exists (browser re-subscribed without our knowledge)
+            subscription = PushSubscription.objects.filter(
+                user=request.user,
+                endpoint=new_endpoint
+            ).first()
+
+            if not subscription and hasattr(request.user, 'crush_coach'):
+                subscription = CoachPushSubscription.objects.filter(
+                    coach=request.user.crush_coach,
+                    endpoint=new_endpoint
+                ).first()
+
+            if subscription:
+                # Update keys and reset failure count
+                subscription.p256dh_key = p256dh
+                subscription.auth_key = auth
+                subscription.failure_count = 0
+                subscription.updated_at = timezone.now()
+                subscription.save()
+
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Subscription already exists, keys updated'
+                })
+
+        if subscription:
+            # Update endpoint and keys
+            subscription.endpoint = new_endpoint
+            subscription.p256dh_key = p256dh
+            subscription.auth_key = auth
+            subscription.failure_count = 0  # Reset failures
+            subscription.updated_at = timezone.now()
+            subscription.save()
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Subscription refreshed successfully'
+            })
+        else:
+            # No existing subscription found - shouldn't happen in normal flow
+            # but handle gracefully by creating new subscription
+            return JsonResponse({
+                'success': False,
+                'message': 'Original subscription not found. Please re-subscribe manually.',
+                'action': 'resubscribe'
+            }, status=404)
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Invalid JSON'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"Error refreshing push subscription: {e}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'message': 'Server error refreshing subscription'
+        }, status=500)
+
+
+@login_required
+@csrf_exempt
+@require_http_methods(["POST"])
+def validate_subscription(request):
+    """
+    Check if a push subscription endpoint is still valid in our database.
+    Used by frontend health checks.
+
+    Supports both PushSubscription (users) and CoachPushSubscription (coaches).
+    """
+    try:
+        data = json.loads(request.body)
+        endpoint = data.get('endpoint')
+
+        if not endpoint:
+            return JsonResponse({
+                'success': False,
+                'message': 'Endpoint required'
+            }, status=400)
+
+        # Check if subscription exists and is enabled (try user first, then coach)
+        subscription = PushSubscription.objects.filter(
+            user=request.user,
+            endpoint=endpoint,
+            enabled=True
+        ).first()
+
+        if not subscription and hasattr(request.user, 'crush_coach'):
+            subscription = CoachPushSubscription.objects.filter(
+                coach=request.user.crush_coach,
+                endpoint=endpoint,
+                enabled=True
+            ).first()
+
+        if subscription:
+            # Check if subscription has high failure count (may be dead)
+            if subscription.failure_count >= 3:
+                return JsonResponse({
+                    'success': True,
+                    'valid': False,
+                    'reason': 'high_failure_count',
+                    'message': 'Subscription may be expired (multiple send failures)'
+                })
+
+            # Check if subscription is very old (>90 days) - may be stale
+            age_days = (timezone.now() - subscription.created_at).days
+            if age_days > 90:
+                return JsonResponse({
+                    'success': True,
+                    'valid': True,
+                    'warning': 'old_subscription',
+                    'age_days': age_days,
+                    'message': f'Subscription is {age_days} days old, consider refreshing'
+                })
+
+            return JsonResponse({
+                'success': True,
+                'valid': True,
+                'message': 'Subscription is healthy'
+            })
+        else:
+            return JsonResponse({
+                'success': True,
+                'valid': False,
+                'reason': 'not_found',
+                'message': 'Subscription not found or disabled'
+            })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Invalid JSON'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"Error validating push subscription: {e}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'message': 'Server error'
+        }, status=500)
 
 
 @login_required
@@ -469,3 +667,40 @@ def get_pwa_status(request):
             'isPwaUser': False,
             'lastPwaVisit': None
         })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def run_subscription_health_check(request):
+    """
+    Endpoint for Azure Logic App or external scheduler.
+    Protected by Azure App Service authentication or secret token.
+
+    This endpoint runs the push subscription health check management command
+    to identify and clean up stale/failing subscriptions.
+    """
+    # Verify request comes from trusted source
+    auth_header = request.headers.get('Authorization')
+    expected_token = os.getenv('HEALTH_CHECK_SECRET_TOKEN')
+
+    if not expected_token or auth_header != f'Bearer {expected_token}':
+        return JsonResponse({'error': 'Unauthorized'}, status=401)
+
+    try:
+        # Call management command with cleanup and 90-day threshold
+        call_command(
+            'check_push_subscription_health',
+            '--cleanup',
+            '--age-threshold', '90',
+            '--include-coaches'
+        )
+        return JsonResponse({
+            'success': True,
+            'message': 'Health check completed successfully'
+        })
+    except Exception as e:
+        logger.error(f"Error running health check: {e}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
