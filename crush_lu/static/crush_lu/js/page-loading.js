@@ -24,7 +24,6 @@
         loadingTimeout = setTimeout(() => {
             if (loadingOverlay) {
                 loadingOverlay.classList.add('show');
-                console.log('[PWA] Loading overlay shown (slow network detected)');
             }
         }, LOADING_DELAY);
     }
@@ -42,7 +41,6 @@
         // Hide overlay
         if (loadingOverlay) {
             loadingOverlay.classList.remove('show');
-            console.log('[PWA] Loading overlay hidden');
         }
     }
 
@@ -111,11 +109,6 @@
     // Hide on page show (back/forward navigation from bfcache)
     window.addEventListener('pageshow', function(event) {
         hideLoadingOverlay();
-
-        // If restored from bfcache, ensure service worker is active
-        if (event.persisted && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
-            console.log('[PWA] Page restored from bfcache');
-        }
     });
 
     // Listen for service worker messages about navigation

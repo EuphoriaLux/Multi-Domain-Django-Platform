@@ -33,7 +33,6 @@
     const isRunningAsPWA = isPWAMode();
 
     if (isRunningAsPWA) {
-        console.log('[PWA] Running in standalone mode (installed PWA)');
 
         // Store PWA status in sessionStorage
         sessionStorage.setItem('isPWA', 'true');
@@ -72,7 +71,6 @@
         markPWAUser();
 
     } else {
-        console.log('[PWA] Running in browser mode');
         sessionStorage.setItem('isPWA', 'false');
     }
 
@@ -83,7 +81,6 @@
     async function markPWAUser() {
         // Only mark if not already marked in this session
         if (sessionStorage.getItem('pwaUserMarked') === 'true') {
-            console.log('[PWA] User already marked as PWA user this session');
             return;
         }
 
@@ -91,7 +88,6 @@
             // Get CSRF token from cookie
             const csrfToken = getCookie('csrftoken');
             if (!csrfToken) {
-                console.warn('[PWA] No CSRF token available, skipping PWA user marking');
                 return;
             }
 
@@ -108,17 +104,11 @@
             if (response.ok) {
                 const data = await response.json();
                 if (data.success) {
-                    console.log('[PWA] User marked as PWA user successfully');
                     sessionStorage.setItem('pwaUserMarked', 'true');
                 }
-            } else if (response.status === 404) {
-                // User doesn't have a profile yet, that's OK
-                console.log('[PWA] User has no profile, cannot mark as PWA user');
-            } else {
-                console.warn('[PWA] Failed to mark PWA user:', response.status);
             }
         } catch (error) {
-            console.error('[PWA] Error marking PWA user:', error);
+            // Silently fail
         }
     }
 
@@ -296,14 +286,12 @@
 
         // Only register once per session
         if (sessionStorage.getItem('pwaInstallationRegistered') === 'true') {
-            console.log('[PWA] Installation already registered this session');
             return;
         }
 
         // Get CSRF token
         var csrfToken = getCookie('csrftoken');
         if (!csrfToken) {
-            console.warn('[PWA] No CSRF token available, skipping installation registration');
             return;
         }
 
@@ -333,17 +321,11 @@
             if (response.ok) {
                 var data = await response.json();
                 if (data.success) {
-                    console.log('[PWA] Installation registered:', data.deviceCategory, '(' + data.message + ')');
                     sessionStorage.setItem('pwaInstallationRegistered', 'true');
                 }
-            } else if (response.status === 403) {
-                // User not logged in, that's OK
-                console.log('[PWA] User not logged in, cannot register installation');
-            } else {
-                console.warn('[PWA] Failed to register installation:', response.status);
             }
         } catch (error) {
-            console.error('[PWA] Error registering installation:', error);
+            // Silently fail
         }
     }
 
@@ -378,10 +360,5 @@
         },
         getDeviceFingerprint: generateDeviceFingerprint
     };
-
-    console.log('[PWA] Display mode:', window.CrushPWA.getDisplayMode());
-    if (isRunningAsPWA) {
-        console.log('[PWA] Device:', getDeviceCategory(detectOS(), detectFormFactor()));
-    }
 
 })();

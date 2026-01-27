@@ -59,7 +59,6 @@ importScripts('/static/crush_lu/workbox/workbox-sw.js');
 
 // Check if Workbox loaded successfully
 if (workbox) {
-  console.log('[Workbox] Successfully loaded from local bundle!');
 
   // ============================================================================
   // Configuration - MUST BE SET FIRST
@@ -152,10 +151,7 @@ if (workbox) {
         await Promise.all(
           cacheNames
             .filter(name => name.startsWith('crush-lu-') && !name.includes(CACHE_VERSION))
-            .map(name => {
-              console.log('[Workbox] Deleting old cache:', name);
-              return caches.delete(name);
-            })
+            .map(name => caches.delete(name))
         );
 
         // Cache the offline page
@@ -164,12 +160,10 @@ if (workbox) {
           const response = await fetch(OFFLINE_PAGE);
           if (response.ok) {
             await cache.put(OFFLINE_PAGE, response);
-            console.log('[Workbox] Cached Django offline page');
           } else {
             throw new Error('Offline page not available');
           }
         } catch (error) {
-          console.log('[Workbox] Using embedded offline HTML');
           await cache.put(
             OFFLINE_PAGE,
             new Response(OFFLINE_FALLBACK_HTML, {
@@ -177,12 +171,6 @@ if (workbox) {
             })
           );
         }
-
-        // NOTE: We intentionally do NOT call clients.claim() here
-        // Calling clients.claim() during OAuth can cause race conditions
-        // where the SW takes control mid-navigation and breaks cookie commits.
-        // The SW will naturally take control on the next navigation.
-        console.log('[Workbox] Service worker activated (no immediate claim to avoid OAuth race)');
       })()
     );
   });
@@ -215,8 +203,6 @@ if (workbox) {
     { url: '/static/crush_lu/crush_favicon.ico', revision: CACHE_VERSION },
   ]);
 
-  console.log('[Workbox] Precaching configured');
-
   // ============================================================================
   // Offline Fallback
   // ============================================================================
@@ -241,8 +227,6 @@ if (workbox) {
       ),
     new workbox.strategies.NetworkOnly()
   );
-
-  console.log('[Workbox] Offline fallback configured (auth excluded)');
 
   // ============================================================================
   // Caching Strategies
@@ -273,8 +257,6 @@ if (workbox) {
     new workbox.strategies.NetworkOnly()
   );
 
-  console.log('[Workbox] Auth routes registered (NetworkOnly backup)');
-
   // Wallet routes - NetworkOnly to prevent pass caching
   workbox.routing.registerRoute(
     ({ url, request }) =>
@@ -284,8 +266,6 @@ if (workbox) {
       (url.hostname === 'wallet.google.com' && url.pathname.startsWith('/save')),
     new workbox.strategies.NetworkOnly()
   );
-
-  console.log('[Workbox] Wallet routes registered (NetworkOnly)');
 
   // Helper function to check if path matches authenticated routes (with i18n support)
   function isAuthenticatedRoute(pathname) {
@@ -319,8 +299,6 @@ if (workbox) {
     ({ url }) => isAuthenticatedRoute(url.pathname),
     new workbox.strategies.NetworkOnly()
   );
-
-  console.log('[Workbox] Authenticated routes registered (NetworkOnly)');
 
   // Strategy 2: Network Only for health checks (never cache - used for reconnection detection)
   workbox.routing.registerRoute(
@@ -358,8 +336,6 @@ if (workbox) {
     })
   );
 
-  console.log('[Workbox] Page caching strategy registered (auth excluded)');
-
   // Strategy 5: StaleWhileRevalidate for static assets (CSS, JS)
   // Changed from CacheFirst to allow CSS/JS updates to propagate quickly
   workbox.routing.registerRoute(
@@ -376,8 +352,6 @@ if (workbox) {
       ],
     })
   );
-
-  console.log('[Workbox] Static assets caching registered (StaleWhileRevalidate)');
 
   // Strategy 6a: Icons - StaleWhileRevalidate (update quickly, don't pin for 30 days)
   // MUST be registered BEFORE the general image CacheFirst route
@@ -396,8 +370,6 @@ if (workbox) {
       ],
     })
   );
-
-  console.log('[Workbox] Icon caching strategy registered (StaleWhileRevalidate)');
 
   // Strategy 6b: Cache First for same-origin images only (long cache)
   // External images (Facebook profile pics, etc.) are not cached to avoid CSP connect-src issues
@@ -418,8 +390,6 @@ if (workbox) {
       ],
     })
   );
-
-  console.log('[Workbox] Image caching strategy registered');
 
   // Strategy 7: Stale While Revalidate for fonts
   workbox.routing.registerRoute(
@@ -470,8 +440,6 @@ if (workbox) {
     return Response.error();
   });
 
-  console.log('[Workbox] Offline fallback handler registered');
-
   // ============================================================================
   // Background Sync (for future offline form submissions)
   // ============================================================================
@@ -483,9 +451,7 @@ if (workbox) {
       while ((entry = await queue.shiftRequest())) {
         try {
           await fetch(entry.request);
-          console.log('[Workbox] Background sync successful:', entry.request.url);
         } catch (error) {
-          console.error('[Workbox] Background sync failed:', error);
           await queue.unshiftRequest(entry);
           throw error;
         }
@@ -510,17 +476,12 @@ if (workbox) {
     'POST'
   );
 
-  console.log('[Workbox] Background sync configured');
-
   // ============================================================================
   // Push Notifications
   // ============================================================================
 
   self.addEventListener('push', (event) => {
-    console.log('[Workbox] Push notification received');
-
     if (Notification.permission !== 'granted') {
-      console.log('[Workbox] Notification permission not granted, skipping');
       return;
     }
 
@@ -582,10 +543,7 @@ if (workbox) {
     }
   });
 
-  console.log('[Workbox] Service worker v20 (Tailwind migration) configured successfully!');
-
 } else {
-  console.error('[Workbox] Failed to load Workbox from local bundle!');
 
   // Fallback: Basic service worker without Workbox
   self.addEventListener('fetch', (event) => {

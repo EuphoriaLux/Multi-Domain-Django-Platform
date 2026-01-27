@@ -13,7 +13,6 @@ class PWAInstaller {
     init() {
         // Listen for the beforeinstallprompt event
         window.addEventListener('beforeinstallprompt', (e) => {
-            console.log('[PWA Installer] Install prompt available');
             // Prevent the mini-infobar from appearing on mobile
             e.preventDefault();
             // Stash the event so it can be triggered later
@@ -24,7 +23,6 @@ class PWAInstaller {
 
         // Listen for successful installation
         window.addEventListener('appinstalled', () => {
-            console.log('[PWA Installer] Crush.lu installed successfully');
             this.hideInstallButton();
             this.deferredPrompt = null;
             this.showInstallSuccess();
@@ -32,7 +30,6 @@ class PWAInstaller {
 
         // Check if already installed
         if (window.matchMedia('(display-mode: standalone)').matches) {
-            console.log('[PWA Installer] Running as PWA');
             this.hideInstallButton();
         }
     }
@@ -59,24 +56,14 @@ class PWAInstaller {
 
     async handleInstall() {
         if (!this.deferredPrompt) {
-            console.log('[PWA Installer] No deferred prompt available');
             return;
         }
-
-        console.log('[PWA Installer] Showing install prompt');
 
         // Show the install prompt
         this.deferredPrompt.prompt();
 
         // Wait for the user to respond to the prompt
         const { outcome } = await this.deferredPrompt.userChoice;
-        console.log(`[PWA Installer] User choice: ${outcome}`);
-
-        if (outcome === 'accepted') {
-            console.log('[PWA Installer] User accepted the install prompt');
-        } else {
-            console.log('[PWA Installer] User dismissed the install prompt');
-        }
 
         // Clear the deferred prompt
         this.deferredPrompt = null;

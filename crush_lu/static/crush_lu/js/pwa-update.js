@@ -12,27 +12,21 @@ class PWAUpdater {
 
     async init() {
         if (!('serviceWorker' in navigator)) {
-            console.log('[PWAUpdater] Service workers not supported');
             return;
         }
 
         try {
             // Wait for service worker to be ready
             this.registration = await navigator.serviceWorker.ready;
-            console.log('[PWAUpdater] Service worker ready');
 
             // Listen for new service worker installations
             this.registration.addEventListener('updatefound', () => {
-                console.log('[PWAUpdater] New service worker found');
                 const newWorker = this.registration.installing;
 
                 newWorker.addEventListener('statechange', () => {
-                    console.log('[PWAUpdater] New worker state:', newWorker.state);
-
                     // Only show update banner if there's a controller (existing SW)
                     // and the new worker is installed (waiting to activate)
                     if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        console.log('[PWAUpdater] Update available, showing banner');
                         this.showUpdateBanner();
                     }
                 });
@@ -40,18 +34,16 @@ class PWAUpdater {
 
             // Listen for controller change (new SW activated)
             navigator.serviceWorker.addEventListener('controllerchange', () => {
-                console.log('[PWAUpdater] Controller changed, reloading page');
                 window.location.reload();
             });
 
             // Check if there's already a waiting worker (e.g., from a previous visit)
             if (this.registration.waiting) {
-                console.log('[PWAUpdater] Found waiting worker on init');
                 this.showUpdateBanner();
             }
 
         } catch (error) {
-            console.error('[PWAUpdater] Initialization error:', error);
+            // Silently fail
         }
     }
 
@@ -194,8 +186,6 @@ class PWAUpdater {
     }
 
     update() {
-        console.log('[PWAUpdater] User requested update');
-
         if (this.registration && this.registration.waiting) {
             // Tell the waiting service worker to activate
             this.registration.waiting.postMessage({ type: 'SKIP_WAITING' });

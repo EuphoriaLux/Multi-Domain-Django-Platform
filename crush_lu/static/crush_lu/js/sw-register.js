@@ -21,15 +21,13 @@
             // Register from root path to control entire site
             navigator.serviceWorker.register('/sw-workbox.js', { scope: '/' })
                 .then(function(registration) {
-                    console.log('[PWA] Workbox Service Worker registered successfully:', registration.scope);
-
                     // Check for updates (handled by pwa-update.js which shows banner)
                     registration.addEventListener('updatefound', function() {
-                        console.log('[PWA] New service worker version found - update banner will show');
+                        // Update will be handled by pwa-update.js
                     });
                 })
                 .catch(function(error) {
-                    console.log('[PWA] Service Worker registration failed:', error);
+                    // Silently fail
                 });
 
             // Handle service worker updates - reload when new SW takes control
@@ -37,7 +35,6 @@
             navigator.serviceWorker.addEventListener('controllerchange', function() {
                 if (!refreshing) {
                     refreshing = true;
-                    console.log('[PWA] New service worker activated - reloading page');
                     window.location.reload();
                 }
             });
@@ -54,11 +51,9 @@
         e.preventDefault();
         // Stash the event so it can be triggered later
         deferredPrompt = e;
-        console.log('[PWA] Install prompt available');
     });
 
     window.addEventListener('appinstalled', function() {
-        console.log('[PWA] Crush.lu installed as PWA');
         deferredPrompt = null;
     });
 
@@ -83,11 +78,9 @@
                 }
             })
             .then(function(response) {
-                console.log('[PWA] Health check response:', response.status);
                 resolve(response.ok);
             })
             .catch(function(e) {
-                console.log('[PWA] Health check failed:', e.message);
                 resolve(false);
             });
         });
@@ -96,16 +89,12 @@
     // Detect when going offline (network interface down)
     window.addEventListener('offline', function() {
         wasOffline = true;
-        console.log('[PWA] Network connection lost - you are now offline');
     });
 
     // Detect when coming back online (network interface up)
     window.addEventListener('online', function() {
-        console.log('[PWA] Network connection restored - you are back online');
-
         if (wasOffline) {
             // Only reload if we were previously offline
-            console.log('[PWA] Auto-reloading page with fresh content...');
             setTimeout(function() {
                 window.location.reload();
             }, 500); // Small delay to ensure connection is stable
@@ -185,18 +174,13 @@
             if (event.data && event.data.type === 'SERVER_UNREACHABLE') {
                 if (!wasOffline) {
                     wasOffline = true;
-                    console.log('[PWA] Server unreachable - working in offline mode');
                     showServerUnreachableBanner();
 
                     // Start polling to detect when server comes back
                     if (serverCheckInterval) clearInterval(serverCheckInterval);
-                    console.log('[PWA] Starting server reconnection polling (every 5 seconds)...');
                     serverCheckInterval = setInterval(function() {
-                        console.log('[PWA] Checking if server is back online...');
                         checkServerConnection().then(function(isOnline) {
-                            console.log('[PWA] Server online status:', isOnline);
                             if (isOnline) {
-                                console.log('[PWA] Server is back online - reloading...');
                                 clearInterval(serverCheckInterval);
                                 hideServerUnreachableBanner();
                                 wasOffline = false;
@@ -215,7 +199,6 @@
 
     if (!navigator.onLine) {
         wasOffline = true;
-        console.log('[PWA] Starting in offline mode');
     }
 
 })();

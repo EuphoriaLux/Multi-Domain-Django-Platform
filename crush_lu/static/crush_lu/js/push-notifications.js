@@ -10,7 +10,6 @@
     const isPushSupported = 'serviceWorker' in navigator && 'PushManager' in window;
 
     if (!isPushSupported) {
-        console.log('[Push] Push notifications not supported in this browser');
         return;
     }
 
@@ -137,14 +136,11 @@
             const permission = await Notification.requestPermission();
 
             if (permission !== 'granted') {
-                console.log('[Push] Notification permission denied');
                 return {
                     success: false,
                     error: gettext('Permission denied')
                 };
             }
-
-            console.log('[Push] Notification permission granted');
 
             // Step 2: Get service worker registration
             const registration = await navigator.serviceWorker.ready;
@@ -154,7 +150,6 @@
             const vapidData = await vapidResponse.json();
 
             if (!vapidData.success) {
-                console.error('[Push] Failed to get VAPID key:', vapidData.error);
                 return {
                     success: false,
                     error: vapidData.error
@@ -169,8 +164,6 @@
                 userVisibleOnly: true,
                 applicationServerKey: convertedKey
             });
-
-            console.log('[Push] Push subscription created:', subscription);
 
             // Step 5: Send subscription to server
             const response = await fetch('/api/push/subscribe/', {
@@ -194,13 +187,11 @@
             const data = await response.json();
 
             if (data.success) {
-                console.log('[Push] Subscription saved to server');
                 return {
                     success: true,
                     subscription: subscription
                 };
             } else {
-                console.error('[Push] Failed to save subscription:', data.error);
                 return {
                     success: false,
                     error: data.error
@@ -208,14 +199,10 @@
             }
 
         } catch (error) {
-            console.error('[Push] Error subscribing to push:', error);
-
             // Provide more helpful error messages for common issues
             var errorMessage = error.message;
             if (error.name === 'AbortError') {
-                // This typically means the VAPID key is invalid or push service is unavailable
                 errorMessage = gettext('Push service error. This may be due to server misconfiguration or network issues. Please try again later.');
-                console.error('[Push] AbortError details: VAPID key may be invalid or push service unavailable');
             } else if (error.name === 'NotAllowedError') {
                 errorMessage = gettext('Push notifications are blocked. Please enable them in your browser settings.');
             } else if (error.name === 'InvalidStateError') {
@@ -239,7 +226,6 @@
             const subscription = await registration.pushManager.getSubscription();
 
             if (!subscription) {
-                console.log('[Push] No subscription found');
                 return { success: true };
             }
 
@@ -263,11 +249,7 @@
                 // Only unsubscribe browser if no other system needs it
                 if (!data.keep_browser_subscription) {
                     await subscription.unsubscribe();
-                    console.log('[Push] Unsubscribed from browser');
-                } else {
-                    console.log('[Push] Keeping browser subscription for coach push');
                 }
-                console.log('[Push] Unsubscribed:', data);
                 return { success: true };
             }
 
@@ -277,7 +259,6 @@
             };
 
         } catch (error) {
-            console.error('[Push] Error unsubscribing:', error);
             return {
                 success: false,
                 error: error.message
@@ -294,7 +275,6 @@
             const subscription = await registration.pushManager.getSubscription();
             return subscription !== null;
         } catch (error) {
-            console.error('[Push] Error checking subscription:', error);
             return false;
         }
     }
@@ -315,7 +295,6 @@
             return data;
 
         } catch (error) {
-            console.error('[Push] Error sending test notification:', error);
             return {
                 success: false,
                 error: error.message
@@ -332,7 +311,5 @@
         isSupported: isPushSupported,
         getFingerprint: generateDeviceFingerprint
     };
-
-    console.log('[Push] Push notification manager initialized');
 
 })();
