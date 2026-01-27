@@ -1,168 +1,162 @@
 {% extends 'crush_lu/base.html' %}
+{% load i18n %}
 
-{% block title %}Privacy Policy - Crush.lu{% endblock %}
-{% block meta_description %}Crush.lu Privacy Policy - Learn how we protect your personal data and privacy in Luxembourg's dating platform. GDPR compliant with transparent data practices.{% endblock %}
+{% block title %}{% trans "Privacy Policy - Crush.lu" %}{% endblock %}
+{% block meta_description %}{% trans "Crush.lu Privacy Policy - Learn how we protect your personal data and privacy in Luxembourg's dating platform. GDPR compliant with transparent data practices." %}{% endblock %}
 
 {% block content %}
 <div class="flex justify-center">
     <div class="w-full max-w-4xl">
         <div class="bg-white rounded-xl shadow-sm">
             <div class="p-8">
-                <h1 class="text-3xl font-bold mb-4">Privacy Policy</h1>
-                <p class="text-muted mb-4"><small>Last Updated: January 14, 2025</small></p>
+                <h1 class="text-3xl font-bold mb-4">{% trans "Privacy Policy" %}</h1>
+                <p class="text-muted mb-4"><small>{% trans "Last Updated: January 14, 2025" %}</small></p>
 
-                <h3>1. Introduction</h3>
+                <h3>{% trans "1. Introduction" %}</h3>
                 <p>
-                    Welcome to Crush.lu ("we," "our," or "us"). We are committed to protecting your personal information and your right to privacy.
-                    This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our dating platform.
+                    {% trans "Welcome to Crush.lu (\"we,\" \"our,\" or \"us\"). We are committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our dating platform." %}
                 </p>
 
-                <h3>2. Information We Collect</h3>
+                <h3>{% trans "2. Information We Collect" %}</h3>
 
-                <h5>2.1 Information You Provide</h5>
+                <h5>{% trans "2.1 Information You Provide" %}</h5>
                 <ul>
-                    <li><strong>Account Information:</strong> Name, email address, date of birth, phone number</li>
-                    <li><strong>Profile Information:</strong> Bio, interests, location, gender, photos (up to 3)</li>
-                    <li><strong>Event Registration:</strong> Dietary restrictions, special requests, attendance status</li>
-                    <li><strong>Communication:</strong> Messages exchanged through our coach-facilitated connection system</li>
+                    <li><strong>{% trans "Account Information:" %}</strong> {% trans "Name, email address, date of birth, phone number" %}</li>
+                    <li><strong>{% trans "Profile Information:" %}</strong> {% trans "Bio, interests, location, gender, photos (up to 3)" %}</li>
+                    <li><strong>{% trans "Event Registration:" %}</strong> {% trans "Dietary restrictions, special requests, attendance status" %}</li>
+                    <li><strong>{% trans "Communication:" %}</strong> {% trans "Messages exchanged through our coach-facilitated connection system" %}</li>
                 </ul>
 
-                <h5>2.2 Information from Social Login</h5>
+                <h5>{% trans "2.2 Information from Social Login" %}</h5>
                 <p>
-                    If you choose to sign up using Facebook or other social providers, we collect:
+                    {% trans "If you choose to sign up using Facebook or other social providers, we collect:" %}
                 </p>
                 <ul>
-                    <li>Your public profile information (name, email, profile picture)</li>
-                    <li>Information you grant us permission to access</li>
+                    <li>{% trans "Your public profile information (name, email, profile picture)" %}</li>
+                    <li>{% trans "Information you grant us permission to access" %}</li>
                 </ul>
 
-                <h5>2.3 Automatically Collected Information</h5>
+                <h5>{% trans "2.3 Automatically Collected Information" %}</h5>
                 <ul>
-                    <li><strong>Usage Data:</strong> Pages visited, time spent, interactions with features</li>
-                    <li><strong>Device Information:</strong> Browser type, IP address, device identifiers</li>
-                    <li><strong>Cookies:</strong> Session cookies for authentication and preferences</li>
+                    <li><strong>{% trans "Usage Data:" %}</strong> {% trans "Pages visited, time spent, interactions with features" %}</li>
+                    <li><strong>{% trans "Device Information:" %}</strong> {% trans "Browser type, IP address, device identifiers" %}</li>
+                    <li><strong>{% trans "Cookies:" %}</strong> {% trans "Session cookies for authentication and preferences" %}</li>
                 </ul>
 
-                <h3>3. How We Use Your Information</h3>
-                <p>We use your information to:</p>
+                <h3>{% trans "3. How We Use Your Information" %}</h3>
+                <p>{% trans "We use your information to:" %}</p>
                 <ul>
-                    <li>Create and manage your Crush.lu account</li>
-                    <li>Facilitate profile review by our Crush Coaches</li>
-                    <li>Organize and manage speed dating events and meetups</li>
-                    <li>Enable coach-facilitated connections between users</li>
-                    <li>Send important notifications about events, profile status, and connections</li>
-                    <li>Improve our platform and develop new features</li>
-                    <li>Ensure safety and prevent fraud or abuse</li>
+                    <li>{% trans "Create and manage your Crush.lu account" %}</li>
+                    <li>{% trans "Facilitate profile review by our Crush Coaches" %}</li>
+                    <li>{% trans "Organize and manage speed dating events and meetups" %}</li>
+                    <li>{% trans "Enable coach-facilitated connections between users" %}</li>
+                    <li>{% trans "Send important notifications about events, profile status, and connections" %}</li>
+                    <li>{% trans "Improve our platform and develop new features" %}</li>
+                    <li>{% trans "Ensure safety and prevent fraud or abuse" %}</li>
                 </ul>
 
-                <h3>4. Information Sharing and Disclosure</h3>
+                <h3>{% trans "4. Information Sharing and Disclosure" %}</h3>
 
-                <h5>4.1 With Crush Coaches</h5>
+                <h5>{% trans "4.1 With Crush Coaches" %}</h5>
                 <p>
-                    Our verified Crush Coaches review all profiles to ensure authenticity and safety.
-                    They have access to your profile information during the review process.
+                    {% trans "Our verified Crush Coaches review all profiles to ensure authenticity and safety. They have access to your profile information during the review process." %}
                 </p>
 
-                <h5>4.2 With Other Users</h5>
+                <h5>{% trans "4.2 With Other Users" %}</h5>
                 <p>
-                    Your profile information is visible to other approved users according to your privacy settings:
+                    {% trans "Your profile information is visible to other approved users according to your privacy settings:" %}
                 </p>
                 <ul>
-                    <li>You can choose to display your full name or first name only</li>
-                    <li>You can choose to display your exact age or age range</li>
-                    <li>You can choose to blur your photos until mutual interest</li>
+                    <li>{% trans "You can choose to display your full name or first name only" %}</li>
+                    <li>{% trans "You can choose to display your exact age or age range" %}</li>
+                    <li>{% trans "You can choose to blur your photos until mutual interest" %}</li>
                 </ul>
 
-                <h5>4.3 Service Providers</h5>
-                <p>We share information with trusted third-party service providers who assist us in:</p>
+                <h5>{% trans "4.3 Service Providers" %}</h5>
+                <p>{% trans "We share information with trusted third-party service providers who assist us in:" %}</p>
                 <ul>
-                    <li>Hosting and storage (Microsoft Azure)</li>
-                    <li>Email delivery (Microsoft Graph API)</li>
-                    <li>Payment processing (if applicable)</li>
+                    <li>{% trans "Hosting and storage (Microsoft Azure)" %}</li>
+                    <li>{% trans "Email delivery (Microsoft Graph API)" %}</li>
+                    <li>{% trans "Payment processing (if applicable)" %}</li>
                 </ul>
 
-                <h5>4.4 Legal Requirements</h5>
+                <h5>{% trans "4.4 Legal Requirements" %}</h5>
                 <p>
-                    We may disclose your information if required by law, court order, or to protect the rights,
-                    property, or safety of Crush.lu, our users, or others.
+                    {% trans "We may disclose your information if required by law, court order, or to protect the rights, property, or safety of Crush.lu, our users, or others." %}
                 </p>
 
-                <h3>5. Data Storage and Security</h3>
+                <h3>{% trans "5. Data Storage and Security" %}</h3>
                 <p>
-                    Your data is stored securely using industry-standard practices:
+                    {% trans "Your data is stored securely using industry-standard practices:" %}
                 </p>
                 <ul>
-                    <li><strong>Profile Photos:</strong> Stored in private Azure Blob Storage with time-limited access tokens</li>
-                    <li><strong>Database:</strong> Encrypted PostgreSQL database hosted on Azure</li>
-                    <li><strong>Transmission:</strong> All data transmitted over HTTPS with SSL/TLS encryption</li>
-                    <li><strong>Access Control:</strong> Strict access controls limit who can view your information</li>
+                    <li><strong>{% trans "Profile Photos:" %}</strong> {% trans "Stored in private Azure Blob Storage with time-limited access tokens" %}</li>
+                    <li><strong>{% trans "Database:" %}</strong> {% trans "Encrypted PostgreSQL database hosted on Azure" %}</li>
+                    <li><strong>{% trans "Transmission:" %}</strong> {% trans "All data transmitted over HTTPS with SSL/TLS encryption" %}</li>
+                    <li><strong>{% trans "Access Control:" %}</strong> {% trans "Strict access controls limit who can view your information" %}</li>
                 </ul>
 
-                <h3>6. Your Privacy Rights</h3>
-                <p>Under GDPR and Luxembourg data protection laws, you have the right to:</p>
+                <h3>{% trans "6. Your Privacy Rights" %}</h3>
+                <p>{% trans "Under GDPR and Luxembourg data protection laws, you have the right to:" %}</p>
                 <ul>
-                    <li><strong>Access:</strong> Request a copy of your personal data</li>
-                    <li><strong>Rectification:</strong> Correct inaccurate or incomplete information</li>
-                    <li><strong>Erasure:</strong> Request deletion of your personal data (see Data Deletion page)</li>
-                    <li><strong>Restriction:</strong> Limit how we use your data</li>
-                    <li><strong>Portability:</strong> Receive your data in a machine-readable format</li>
-                    <li><strong>Objection:</strong> Object to certain processing of your data</li>
-                    <li><strong>Withdraw Consent:</strong> Withdraw consent for data processing at any time</li>
+                    <li><strong>{% trans "Access:" %}</strong> {% trans "Request a copy of your personal data" %}</li>
+                    <li><strong>{% trans "Rectification:" %}</strong> {% trans "Correct inaccurate or incomplete information" %}</li>
+                    <li><strong>{% trans "Erasure:" %}</strong> {% trans "Request deletion of your personal data (see Data Deletion page)" %}</li>
+                    <li><strong>{% trans "Restriction:" %}</strong> {% trans "Limit how we use your data" %}</li>
+                    <li><strong>{% trans "Portability:" %}</strong> {% trans "Receive your data in a machine-readable format" %}</li>
+                    <li><strong>{% trans "Objection:" %}</strong> {% trans "Object to certain processing of your data" %}</li>
+                    <li><strong>{% trans "Withdraw Consent:" %}</strong> {% trans "Withdraw consent for data processing at any time" %}</li>
                 </ul>
 
-                <h3>7. Data Retention</h3>
+                <h3>{% trans "7. Data Retention" %}</h3>
                 <ul>
-                    <li><strong>Active Accounts:</strong> We retain your information while your account is active</li>
-                    <li><strong>Deleted Accounts:</strong> Most data is deleted within 30 days of account deletion</li>
-                    <li><strong>Legal Obligations:</strong> Some data may be retained longer for legal compliance</li>
-                    <li><strong>Event Records:</strong> Event attendance records may be retained for safety and operational purposes</li>
+                    <li><strong>{% trans "Active Accounts:" %}</strong> {% trans "We retain your information while your account is active" %}</li>
+                    <li><strong>{% trans "Deleted Accounts:" %}</strong> {% trans "Most data is deleted within 30 days of account deletion" %}</li>
+                    <li><strong>{% trans "Legal Obligations:" %}</strong> {% trans "Some data may be retained longer for legal compliance" %}</li>
+                    <li><strong>{% trans "Event Records:" %}</strong> {% trans "Event attendance records may be retained for safety and operational purposes" %}</li>
                 </ul>
 
-                <h3>8. Cookies and Tracking</h3>
-                <p>We use cookies for:</p>
+                <h3>{% trans "8. Cookies and Tracking" %}</h3>
+                <p>{% trans "We use cookies for:" %}</p>
                 <ul>
-                    <li><strong>Essential Cookies:</strong> Required for authentication and core functionality</li>
-                    <li><strong>Preference Cookies:</strong> Remember your settings and choices</li>
-                    <li><strong>Analytics:</strong> Understand how users interact with our platform (anonymized)</li>
+                    <li><strong>{% trans "Essential Cookies:" %}</strong> {% trans "Required for authentication and core functionality" %}</li>
+                    <li><strong>{% trans "Preference Cookies:" %}</strong> {% trans "Remember your settings and choices" %}</li>
+                    <li><strong>{% trans "Analytics:" %}</strong> {% trans "Understand how users interact with our platform (anonymized)" %}</li>
                 </ul>
-                <p>You can control cookies through your browser settings.</p>
+                <p>{% trans "You can control cookies through your browser settings." %}</p>
 
-                <h3>9. Children's Privacy</h3>
+                <h3>{% trans "9. Children's Privacy" %}</h3>
                 <p>
-                    Crush.lu is intended for users 18 years and older. We do not knowingly collect information
-                    from anyone under 18. If you become aware that a child has provided us with personal information,
-                    please contact us immediately.
+                    {% trans "Crush.lu is intended for users 18 years and older. We do not knowingly collect information from anyone under 18. If you become aware that a child has provided us with personal information, please contact us immediately." %}
                 </p>
 
-                <h3>10. Changes to This Privacy Policy</h3>
+                <h3>{% trans "10. Changes to This Privacy Policy" %}</h3>
                 <p>
-                    We may update this Privacy Policy from time to time. We will notify you of any significant changes
-                    by posting the new Privacy Policy on this page and updating the "Last Updated" date.
+                    {% trans "We may update this Privacy Policy from time to time. We will notify you of any significant changes by posting the new Privacy Policy on this page and updating the \"Last Updated\" date." %}
                 </p>
 
-                <h3>11. International Data Transfers</h3>
+                <h3>{% trans "11. International Data Transfers" %}</h3>
                 <p>
-                    Your data is processed and stored in the European Economic Area (EEA) on Microsoft Azure servers.
-                    If data is transferred outside the EEA, we ensure appropriate safeguards are in place.
+                    {% trans "Your data is processed and stored in the European Economic Area (EEA) on Microsoft Azure servers. If data is transferred outside the EEA, we ensure appropriate safeguards are in place." %}
                 </p>
 
-                <h3>12. Contact Us</h3>
+                <h3>{% trans "12. Contact Us" %}</h3>
                 <p>
-                    If you have questions about this Privacy Policy or wish to exercise your rights, please contact us at:
+                    {% trans "If you have questions about this Privacy Policy or wish to exercise your rights, please contact us at:" %}
                 </p>
                 <ul class="list-unstyled">
-                    <li><strong>Email:</strong> privacy@crush.lu</li>
-                    <li><strong>Address:</strong> Crush.lu, Luxembourg</li>
+                    <li><strong>{% trans "Email:" %}</strong> privacy@crush.lu</li>
+                    <li><strong>{% trans "Address:" %}</strong> {% trans "Crush.lu, Luxembourg" %}</li>
                 </ul>
 
                 <hr class="my-4">
 
                 <div class="text-center">
                     <p class="text-gray-500 mb-4 text-sm">
-                        By using Crush.lu, you agree to this Privacy Policy and our
-                        <a href="{% url 'crush_lu:terms_of_service' %}" class="text-purple-600 hover:underline">Terms of Service</a>.
+                        {% trans "By using Crush.lu, you agree to this Privacy Policy and our" %}
+                        <a href="{% url 'crush_lu:terms_of_service' %}" class="text-purple-600 hover:underline">{% trans "Terms of Service" %}</a>.
                     </p>
-                    <a href="{% url 'crush_lu:home' %}" class="btn-crush-primary inline-flex items-center justify-center px-6 py-3">Back to Home</a>
+                    <a href="{% url 'crush_lu:home' %}" class="btn-crush-primary inline-flex items-center justify-center px-6 py-3">{% trans "Back to Home" %}</a>
                 </div>
             </div>
         </div>

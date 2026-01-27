@@ -1,4 +1,5 @@
 {% extends "crush_lu/base.html" %}
+{% load i18n %}
 {% load static %}
 
 {% block title %}{{ special_experience.welcome_title }} - Crush.lu{% endblock %}
@@ -341,7 +342,7 @@
     <div class="welcome-card text-center">
         {% if special_experience.vip_badge %}
         <div class="vip-badge">
-            {% include "shared/icons/star.html" with class="w-5 h-5" %} VIP EXPERIENCE {% include "shared/icons/star.html" with class="w-5 h-5" %}
+            {% include "shared/icons/star.html" with class="w-5 h-5" %} {% trans "VIP EXPERIENCE" %} {% include "shared/icons/star.html" with class="w-5 h-5" %}
         </div>
         {% endif %}
 
@@ -350,7 +351,7 @@
         <p class="welcome-message">{{ special_experience.welcome_message }}</p>
 
         <a href="{% url 'crush_lu:journey_map' %}" class="btn-special inline-block">
-            Begin Your Journey {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+            {% trans "Begin Your Journey" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
         </a>
     </div>
 </div>

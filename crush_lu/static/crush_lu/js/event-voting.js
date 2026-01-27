@@ -78,13 +78,13 @@ class EventVotingManager {
 
         if (phase === 'waiting') {
             badge.className += ' bg-warning';
-            badge.textContent = 'Voting Starts Soon';
+            badge.textContent = gettext('Voting Starts Soon');
         } else if (phase === 'active' && isOpen) {
             badge.className += ' bg-success';
-            badge.textContent = 'Voting Open';
+            badge.textContent = gettext('Voting Open');
         } else if (phase === 'ended') {
             badge.className += ' bg-secondary';
-            badge.textContent = 'Voting Closed';
+            badge.textContent = gettext('Voting Closed');
         }
     }
 
@@ -154,14 +154,14 @@ class EventVotingManager {
         const optionId = document.getElementById('selected-option-id').value;
 
         if (!optionId) {
-            this.showMessage('Please select an activity option', 'error');
+            this.showMessage(gettext('Please select an activity option'), 'error');
             return;
         }
 
         const submitBtn = document.getElementById('submit-vote-btn');
         const originalText = submitBtn.textContent;
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Submitting...';
+        submitBtn.textContent = gettext('Submitting...');
 
         try {
             const response = await fetch(`/api/events/${this.eventId}/voting/submit/`, {
@@ -188,7 +188,7 @@ class EventVotingManager {
             }
         } catch (error) {
             console.error('Error submitting vote:', error);
-            this.showMessage('An error occurred. Please try again.', 'error');
+            this.showMessage(gettext('An error occurred. Please try again.'), 'error');
             submitBtn.disabled = false;
             submitBtn.textContent = originalText;
         }

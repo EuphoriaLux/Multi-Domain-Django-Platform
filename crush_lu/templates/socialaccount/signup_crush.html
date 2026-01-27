@@ -2,17 +2,16 @@
 {% load i18n %}
 {% load crispy_forms_tags %}
 
-{% block title %}Complete Your Crush.lu Signup{% endblock %}
+{% block title %}{% trans "Complete Your Crush.lu Signup" %}{% endblock %}
 
 {% block content %}
 <div class="flex justify-center">
     <div class="w-full max-w-md">
         <div class="bg-white rounded-xl shadow-sm">
             <div class="p-8">
-                <h2 class="text-center text-2xl font-bold mb-4">Complete Your Signup 💕</h2>
+                <h2 class="text-center text-2xl font-bold mb-4">{% trans "Complete Your Signup" %} 💕</h2>
                 <p class="text-center text-gray-500 mb-4">
-                    You're signing up for Crush.lu using your {{ account.provider|title }} account.
-                    Please confirm your information below.
+                    {% blocktrans with provider=account.provider|title %}You're signing up for Crush.lu using your {{ provider }} account. Please confirm your information below.{% endblocktrans %}
                 </p>
 
                 {% if form.errors %}
@@ -40,7 +39,7 @@
                                value="{{ form.email.value|default:'' }}"
                                readonly>
                         <p class="mt-1 text-sm text-gray-500">
-                            This email is from your {{ account.provider|title }} account and cannot be changed.
+                            {% blocktrans with provider=account.provider|title %}This email is from your {{ provider }} account and cannot be changed.{% endblocktrans %}
                         </p>
                         {% if form.email.errors %}
                             <p class="mt-1 text-sm text-red-600">{{ form.email.errors.0 }}</p>
@@ -54,15 +53,15 @@
                     <div class="flex items-start gap-2 mb-4">
                         <input class="mt-1 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" type="checkbox" id="terms" required>
                         <label class="text-sm text-gray-600" for="terms">
-                            I agree to Crush.lu's
-                            <a href="{% url 'crush_lu:terms_of_service' %}" target="_blank" rel="noopener" class="text-purple-600 hover:underline">Terms of Service</a>
-                            and
-                            <a href="{% url 'crush_lu:privacy_policy' %}" target="_blank" rel="noopener" class="text-purple-600 hover:underline">Privacy Policy</a>
+                            {% trans "I agree to Crush.lu's" %}
+                            <a href="{% url 'crush_lu:terms_of_service' %}" target="_blank" rel="noopener" class="text-purple-600 hover:underline">{% trans "Terms of Service" %}</a>
+                            {% trans "and" %}
+                            <a href="{% url 'crush_lu:privacy_policy' %}" target="_blank" rel="noopener" class="text-purple-600 hover:underline">{% trans "Privacy Policy" %}</a>
                         </label>
                     </div>
 
                     <button class="btn-crush-primary w-full flex items-center justify-center gap-2 py-3" type="submit">
-                        {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}Complete Signup
+                        {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}{% trans "Complete Signup" %}
                     </button>
                 </form>
 
@@ -70,17 +69,17 @@
 
                 <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-4">
                     {% include "shared/icons/information-circle.html" with class="w-5 h-5 inline mr-2" %}
-                    <strong>Next Steps:</strong>
+                    <strong>{% trans "Next Steps:" %}</strong>
                     <ol class="mb-0 mt-2 list-decimal list-inside space-y-1">
-                        <li>Complete your profile with photos and bio</li>
-                        <li>Profile review by a Crush Coach</li>
-                        <li>Start attending events and meeting people!</li>
+                        <li>{% trans "Complete your profile with photos and bio" %}</li>
+                        <li>{% trans "Profile review by a Crush Coach" %}</li>
+                        <li>{% trans "Start attending events and meeting people!" %}</li>
                     </ol>
                 </div>
 
                 <p class="text-center text-gray-500 text-sm mb-0">
-                    Already have an account?
-                    <a href="{% url 'crush_lu:login' %}" class="text-purple-600 hover:underline">Login here</a>
+                    {% trans "Already have an account?" %}
+                    <a href="{% url 'crush_lu:login' %}" class="text-purple-600 hover:underline">{% trans "Login here" %}</a>
                 </p>
             </div>
         </div>

@@ -13,6 +13,7 @@ from django.conf.urls.i18n import i18n_patterns
 from django.contrib.sitemaps.views import sitemap
 from django.shortcuts import redirect
 from django.utils.translation import get_language
+from django.views.i18n import JavaScriptCatalog
 
 from .urls_shared import base_patterns, api_patterns
 from crush_lu.admin import crush_admin_site
@@ -53,6 +54,9 @@ urlpatterns = base_patterns + api_patterns + [
     # SEO: robots.txt and sitemap.xml (must be at root, no language prefix)
     path('robots.txt', robots_txt, name='robots_txt'),
     path('sitemap.xml', sitemap, {'sitemaps': crush_sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
+
+    # JavaScript i18n catalog (must be language-neutral for JavaScript to access)
+    path('jsi18n/', JavaScriptCatalog.as_view(packages=['crush_lu']), name='javascript-catalog'),
 
     # PWA: Service Worker, Manifest, and Offline page (must be at root for scope)
     # These CANNOT be inside i18n_patterns because browsers block redirected scripts

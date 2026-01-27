@@ -23,49 +23,49 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
-                        <p><strong>Age:</strong> {% if profile.age %}{{ profile.age }}{% else %}Not set{% endif %} {% if profile.date_of_birth %}({{ profile.date_of_birth }}){% endif %}</p>
-                        <p><strong>Gender:</strong> {{ profile.get_gender_display|default:"Not set" }}</p>
-                        <p><strong>Location:</strong> {{ profile.location|default:"Not set" }}</p>
+                        <p><strong>{% trans "Age:" %}</strong> {% if profile.age %}{{ profile.age }}{% else %}{% trans "Not set" %}{% endif %} {% if profile.date_of_birth %}({{ profile.date_of_birth }}){% endif %}</p>
+                        <p><strong>{% trans "Gender:" %}</strong> {{ profile.get_gender_display|default:"Not set" }}</p>
+                        <p><strong>{% trans "Location:" %}</strong> {{ profile.location|default:"Not set" }}</p>
                     </div>
                     <div>
-                        <p><strong>Phone:</strong> {{ profile.phone_number|default:"Not provided" }}</p>
-                        <p><strong>Looking for:</strong> {{ profile.get_looking_for_display }}</p>
+                        <p><strong>{% trans "Phone:" %}</strong> {{ profile.phone_number|default:"Not provided" }}</p>
+                        <p><strong>{% trans "Looking for:" %}</strong> {{ profile.get_looking_for_display }}</p>
                     </div>
                 </div>
 
                 <div class="mb-4">
                     <p class="flex items-center gap-2 flex-wrap">
-                        <strong>Event Languages:</strong>
+                        <strong>{% trans "Event Languages:" %}</strong>
                         {% for lang in profile.event_languages %}
                             <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
                                 {% if lang == 'en' %}🇬🇧 English{% elif lang == 'de' %}🇩🇪 Deutsch{% elif lang == 'fr' %}🇫🇷 Français{% elif lang == 'lu' %}🇱🇺 Lëtzebuergesch{% endif %}
                             </span>
                         {% empty %}
-                            <span class="text-gray-400 text-sm italic">Not set</span>
+                            <span class="text-gray-400 text-sm italic">{% trans "Not set" %}</span>
                         {% endfor %}
                     </p>
                 </div>
 
                 <hr class="my-4 border-gray-200">
 
-                <h6 class="font-semibold mb-2">Bio</h6>
+                <h6 class="font-semibold mb-2">{% trans "Bio" %}</h6>
                 <p class="text-gray-600 mb-4">{{ profile.bio }}</p>
 
-                <h6 class="font-semibold mb-2">Interests</h6>
+                <h6 class="font-semibold mb-2">{% trans "Interests" %}</h6>
                 <p class="text-gray-600 mb-4">{{ profile.interests }}</p>
 
                 <hr class="my-4 border-gray-200">
 
-                <h6 class="font-semibold mb-2">Privacy Settings</h6>
+                <h6 class="font-semibold mb-2">{% trans "Privacy Settings" %}</h6>
                 <ul class="list-disc list-inside text-gray-600 mb-4">
-                    <li>Show full name: {% if profile.show_full_name %}Yes{% else %}No{% endif %}</li>
-                    <li>Show exact age: {% if profile.show_exact_age %}Yes{% else %}No{% endif %}</li>
-                    <li>Blur photos: {% if profile.blur_photos %}Yes{% else %}No{% endif %}</li>
+                    <li>{% trans "Show full name:" %} {% if profile.show_full_name %}{% trans "Yes" %}{% else %}{% trans "No" %}{% endif %}</li>
+                    <li>{% trans "Show exact age:" %} {% if profile.show_exact_age %}{% trans "Yes" %}{% else %}{% trans "No" %}{% endif %}</li>
+                    <li>{% trans "Blur photos:" %} {% if profile.blur_photos %}{% trans "Yes" %}{% else %}{% trans "No" %}{% endif %}</li>
                 </ul>
 
                 <hr class="my-4 border-gray-200">
 
-                <h6 class="font-semibold mb-3">Photos</h6>
+                <h6 class="font-semibold mb-3">{% trans "Photos" %}</h6>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {% if profile.photo_1 %}
                         <div>

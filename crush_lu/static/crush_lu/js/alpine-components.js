@@ -3359,7 +3359,7 @@ document.addEventListener('alpine:init', function() {
 
             // Computed getters for CSP compatibility
             get copyButtonText() {
-                return this.copied ? 'Copied!' : 'Copy Link';
+                return this.copied ? gettext('Copied!') : gettext('Copy Link');
             },
             get copyButtonClass() {
                 return this.copied ? 'share-btn share-btn-copy copied' : 'share-btn share-btn-copy';
@@ -3427,9 +3427,9 @@ document.addEventListener('alpine:init', function() {
             },
 
             shareEmail: function() {
-                var subject = 'A Magical Journey Awaits You!';
+                var subject = gettext('A Magical Journey Awaits You!');
                 var body = 'Hi ' + this.recipientName + ',\n\n' +
-                          'I created a special "Wonderland of You" journey just for you!\n\n' +
+                          gettext('I created a special "Wonderland of You" journey just for you!') + '\n\n' +
                           'Click here to begin your adventure:\n' + this.giftUrl + '\n\n' +
                           'Or use gift code: ' + this.giftCode;
                 var mailto = 'mailto:?subject=' + encodeURIComponent(subject) +
@@ -3441,8 +3441,8 @@ document.addEventListener('alpine:init', function() {
                 var self = this;
                 if (navigator.share) {
                     navigator.share({
-                        title: 'A Magical Journey Awaits!',
-                        text: 'I created a special Wonderland journey for ' + self.recipientName + '!',
+                        title: gettext('A Magical Journey Awaits!'),
+                        text: gettext('I created a special Wonderland journey for') + ' ' + self.recipientName + '!',
                         url: self.giftUrl
                     }).catch(function(err) {
                         console.log('Share cancelled or failed:', err);
@@ -3916,13 +3916,13 @@ document.addEventListener('alpine:init', function() {
             hint1BtnClass: '',
             hint2BtnClass: '',
             hint3BtnClass: '',
-            // i18n translations (loaded from data attributes)
+            // i18n translations (loaded from data attributes or gettext)
             i18n: {
-                correct: 'Correct!',
-                pointsEarned: 'Points Earned:',
-                continue: 'Continue',
-                errorDefault: 'Not quite right. Try again!',
-                errorGeneric: 'An error occurred. Please try again.'
+                correct: gettext('Correct!'),
+                pointsEarned: gettext('Points Earned:'),
+                continue: gettext('Continue'),
+                errorDefault: gettext('Not quite right. Try again!'),
+                errorGeneric: gettext('An error occurred. Please try again.')
             },
 
             init: function() {
@@ -4205,13 +4205,13 @@ document.addEventListener('alpine:init', function() {
             hint1BtnClass: '',
             hint2BtnClass: '',
             hint3BtnClass: '',
-            // i18n translations (loaded from data attributes)
+            // i18n translations (loaded from data attributes or gettext)
             i18n: {
-                correct: 'Correct!',
-                pointsEarned: 'Points Earned:',
-                continue: 'Continue',
-                errorDefault: 'Not quite right. Try again!',
-                errorGeneric: 'An error occurred. Please try again.'
+                correct: gettext('Correct!'),
+                pointsEarned: gettext('Points Earned:'),
+                continue: gettext('Continue'),
+                errorDefault: gettext('Not quite right. Try again!'),
+                errorGeneric: gettext('An error occurred. Please try again.')
             },
 
             init: function() {
@@ -4472,14 +4472,14 @@ document.addEventListener('alpine:init', function() {
             isNotSubmitting: true,
             showSubmitLabel: false,
             feedbackClass: 'hidden mt-6',
-            // i18n translations (loaded from data attributes)
+            // i18n translations (loaded from data attributes or gettext)
             i18n: {
-                correct: 'Correct!',
-                thankYou: 'Thank you for sharing!',
-                pointsEarned: 'Points Earned:',
-                continue: 'Continue',
-                errorDefault: 'Not quite right! Try a different answer.',
-                errorGeneric: 'An error occurred. Please try again.'
+                correct: gettext('Correct!'),
+                thankYou: gettext('Thank you for sharing!'),
+                pointsEarned: gettext('Points Earned:'),
+                continue: gettext('Continue'),
+                errorDefault: gettext('Not quite right! Try a different answer.'),
+                errorGeneric: gettext('An error occurred. Please try again.')
             },
 
             init: function() {
@@ -4713,12 +4713,12 @@ document.addEventListener('alpine:init', function() {
             instructionText: 'Drag and drop the events to arrange them in chronological order',
             // i18n translations (loaded from data attributes)
             i18n: {
-                perfect: 'Perfect!',
-                pointsEarned: 'Points Earned:',
-                continue: 'Continue',
-                errorDefault: 'Not quite right. Try rearranging the events!',
-                errorGeneric: 'An error occurred. Please try again.',
-                instructionDesktop: 'Drag and drop the events to arrange them in chronological order',
+                perfect: gettext('Perfect!'),
+                pointsEarned: gettext('Points Earned:'),
+                continue: gettext('Continue'),
+                errorDefault: gettext('Not quite right. Try rearranging the events!'),
+                errorGeneric: gettext('An error occurred. Please try again.'),
+                instructionDesktop: gettext('Drag and drop the events to arrange them in chronological order'),
                 instructionTouch: 'Touch and drag the events to arrange them in chronological order'
             },
 
@@ -4959,11 +4959,11 @@ document.addEventListener('alpine:init', function() {
             feedbackClass: 'hidden mt-6',
             // i18n translations (loaded from data attributes)
             i18n: {
-                greatChoice: 'Great choice!',
-                thankYou: 'Thank you for sharing!',
-                pointsEarned: 'Points Earned:',
-                continue: 'Continue',
-                errorGeneric: 'An error occurred. Please try again.'
+                greatChoice: gettext('Great choice!'),
+                thankYou: gettext('Thank you for sharing!'),
+                pointsEarned: gettext('Points Earned:'),
+                continue: gettext('Continue'),
+                errorGeneric: gettext('An error occurred. Please try again.')
             },
 
             init: function() {
@@ -5187,10 +5187,10 @@ document.addEventListener('alpine:init', function() {
             charCounterClass: 'char-counter',
             // i18n translations (loaded from data attributes)
             i18n: {
-                thankYou: 'Thank you for sharing!',
-                pointsEarned: 'Points Earned:',
-                continue: 'Continue',
-                errorGeneric: 'An error occurred. Please try again.'
+                thankYou: gettext('Thank you for sharing!'),
+                pointsEarned: gettext('Points Earned:'),
+                continue: gettext('Continue'),
+                errorGeneric: gettext('An error occurred. Please try again.')
             },
 
             init: function() {
