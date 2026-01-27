@@ -71,19 +71,19 @@
                                     <div class="mr-4">
                                         {% if connection.recipient.crushprofile.photo_1 %}
                                             <img src="{{ connection.recipient.crushprofile.photo_1.url }}"
-                                                 alt="{{ connection.recipient.first_name }}"
-                                                 class="w-14 h-14 rounded-full object-cover"
+                                                 alt="{{ connection.recipient.crushprofile.display_name }}"
+                                                 class="w-14 h-14 rounded-full object-cover {% if connection.recipient.crushprofile.blur_photos %}blur-lg{% endif %}"
                                                  loading="lazy">
                                         {% else %}
                                             <div class="w-14 h-14 rounded-full bg-gray-400 flex items-center justify-center">
-                                                <span class="text-white text-lg font-semibold">{{ connection.recipient.first_name|first }}</span>
+                                                <span class="text-white text-lg font-semibold">{{ connection.recipient.crushprofile.display_name|first }}</span>
                                             </div>
                                         {% endif %}
                                     </div>
 
                                     <!-- Info -->
                                     <div class="flex-grow">
-                                        <h5 class="font-semibold mb-1">{{ connection.recipient.first_name }}</h5>
+                                        <h5 class="font-semibold mb-1">{{ connection.recipient.crushprofile.display_name }}</h5>
                                         <p class="text-gray-500 text-sm mb-0 flex items-center gap-1">
                                             {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
                                             {{ connection.event.title }}

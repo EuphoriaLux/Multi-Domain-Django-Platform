@@ -8,7 +8,7 @@
         <div class="flex-grow">
             <h5 class="font-semibold text-green-800 mb-1">{% trans "Connection Accepted!" %}</h5>
             <p class="text-green-700 text-sm">
-                {% blocktrans with name=connection.requester.first_name %}A coach will help facilitate your introduction with {{ name }}.{% endblocktrans %}
+                {% blocktrans with name=connection.requester.crushprofile.display_name %}A coach will help facilitate your introduction with {{ name }}.{% endblocktrans %}
             </p>
         </div>
         <div class="ml-4">

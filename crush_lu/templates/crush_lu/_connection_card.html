@@ -5,19 +5,19 @@
         <div class="shrink-0">
             {% if other_user.crushprofile.photo_1 %}
                 <img src="{{ other_user.crushprofile.photo_1.url }}"
-                     alt="{{ other_user.first_name }}"
-                     class="w-14 h-14 rounded-full object-cover"
+                     alt="{{ other_user.crushprofile.display_name }}"
+                     class="w-14 h-14 rounded-full object-cover {% if other_user.crushprofile.blur_photos %}blur-lg{% endif %}"
                      loading="lazy">
             {% else %}
                 <div class="w-14 h-14 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center">
-                    <span class="text-white text-lg font-semibold">{{ other_user.first_name|first }}</span>
+                    <span class="text-white text-lg font-semibold">{{ other_user.crushprofile.display_name|first }}</span>
                 </div>
             {% endif %}
         </div>
 
         <!-- Info -->
         <div class="flex-1 min-w-0">
-            <h5 class="font-semibold mb-1">{{ other_user.first_name }}</h5>
+            <h5 class="font-semibold mb-1">{{ other_user.crushprofile.display_name }}</h5>
             <p class="text-gray-500 text-sm mb-2 flex items-center gap-1">
                 {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
                 {{ connection.event.title }}

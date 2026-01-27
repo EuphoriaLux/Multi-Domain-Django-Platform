@@ -5,19 +5,19 @@
         <div class="mr-4">
             {% if connection.requester.crushprofile.photo_1 %}
                 <img src="{{ connection.requester.crushprofile.photo_1.url }}"
-                     alt="{{ connection.requester.first_name }}"
-                     class="w-14 h-14 rounded-full object-cover"
+                     alt="{{ connection.requester.crushprofile.display_name }}"
+                     class="w-14 h-14 rounded-full object-cover {% if connection.requester.crushprofile.blur_photos %}blur-lg{% endif %}"
                      loading="lazy">
             {% else %}
                 <div class="w-14 h-14 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center">
-                    <span class="text-white text-lg font-semibold">{{ connection.requester.first_name|first }}</span>
+                    <span class="text-white text-lg font-semibold">{{ connection.requester.crushprofile.display_name|first }}</span>
                 </div>
             {% endif %}
         </div>
 
         <!-- Info -->
         <div class="flex-grow">
-            <h5 class="font-semibold mb-1">{% blocktrans with name=connection.requester.first_name %}{{ name }} wants to connect{% endblocktrans %}</h5>
+            <h5 class="font-semibold mb-1">{% blocktrans with name=connection.requester.crushprofile.display_name %}{{ name }} wants to connect{% endblocktrans %}</h5>
             <p class="text-gray-500 text-sm mb-1 flex items-center gap-1">
                 {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
                 {% blocktrans with event_title=connection.event.title %}From {{ event_title }}{% endblocktrans %}

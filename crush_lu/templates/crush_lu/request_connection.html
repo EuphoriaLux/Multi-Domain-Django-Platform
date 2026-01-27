@@ -17,17 +17,17 @@
             <div class="text-center py-8 px-6">
                 {% if recipient.crushprofile.photo_1 %}
                     <img src="{{ recipient.crushprofile.photo_1.url }}"
-                         alt="{{ recipient.first_name }}"
-                         class="w-28 h-28 rounded-full object-cover mx-auto mb-4"
+                         alt="{{ recipient.crushprofile.display_name }}"
+                         class="w-28 h-28 rounded-full object-cover mx-auto mb-4 {% if recipient.crushprofile.blur_photos %}blur-lg{% endif %}"
                          loading="lazy">
                 {% else %}
                     <div class="w-28 h-28 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 inline-flex items-center justify-center mx-auto mb-4">
-                        <span class="text-white text-4xl font-semibold">{{ recipient.first_name|first }}</span>
+                        <span class="text-white text-4xl font-semibold">{{ recipient.crushprofile.display_name|first }}</span>
                     </div>
                 {% endif %}
 
-                <h3 class="text-xl font-semibold text-gray-900 mb-1">{{ recipient.first_name }}</h3>
-                <p class="text-gray-500 mb-4">{{ recipient.crushprofile.get_age_range }}</p>
+                <h3 class="text-xl font-semibold text-gray-900 mb-1">{{ recipient.crushprofile.display_name }}</h3>
+                <p class="text-gray-500 mb-4">{{ recipient.crushprofile.age_display }}</p>
 
                 {% if recipient.crushprofile.interests %}
                     <div class="mb-2">
@@ -44,7 +44,7 @@
             <div class="p-6">
                 <h5 class="text-lg font-semibold text-gray-900 mb-3">Add a note (optional)</h5>
                 <p class="text-sm text-gray-500 mb-6">
-                    Help {{ recipient.first_name }} remember your conversation!
+                    Help {{ recipient.crushprofile.display_name }} remember your conversation!
                     This will be visible to your Crush Coach.
                 </p>
 
@@ -65,7 +65,7 @@
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                         <h6 class="font-medium text-blue-800 mb-2">{% include "shared/icons/information-circle.html" with class="w-5 h-5" %} What happens next?</h6>
                         <ul class="text-sm text-blue-700 space-y-1 list-disc list-inside">
-                            <li>{{ recipient.first_name }} will be notified of your request</li>
+                            <li>{{ recipient.crushprofile.display_name }} will be notified of your request</li>
                             <li>If they accept (or already requested you!), a Crush Coach will facilitate</li>
                             <li>You'll both need to consent before contact info is shared</li>
                         </ul>
