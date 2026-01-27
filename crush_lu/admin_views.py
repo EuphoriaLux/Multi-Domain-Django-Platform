@@ -128,12 +128,22 @@ def crush_admin_dashboard(request):
 
     # Profile completion funnel - users CURRENTLY at each step (not cumulative)
     # This shows where users are stuck in the funnel
-    funnel_not_started = CrushProfile.objects.filter(completion_status='not_started').count()
-    funnel_step1 = CrushProfile.objects.filter(completion_status='step1').count()
-    funnel_step2 = CrushProfile.objects.filter(completion_status='step2').count()
-    funnel_step3 = CrushProfile.objects.filter(completion_status='step3').count()
-    funnel_completed = CrushProfile.objects.filter(completion_status='completed').count()
-    funnel_submitted = CrushProfile.objects.filter(completion_status='submitted').count()
+    # OPTIMIZATION: Use single aggregate query instead of 6 separate COUNT queries
+    from django.db.models import Case, When, IntegerField
+    funnel_stats = CrushProfile.objects.aggregate(
+        funnel_not_started=Count('id', filter=Q(completion_status='not_started')),
+        funnel_step1=Count('id', filter=Q(completion_status='step1')),
+        funnel_step2=Count('id', filter=Q(completion_status='step2')),
+        funnel_step3=Count('id', filter=Q(completion_status='step3')),
+        funnel_completed=Count('id', filter=Q(completion_status='completed')),
+        funnel_submitted=Count('id', filter=Q(completion_status='submitted')),
+    )
+    funnel_not_started = funnel_stats['funnel_not_started']
+    funnel_step1 = funnel_stats['funnel_step1']
+    funnel_step2 = funnel_stats['funnel_step2']
+    funnel_step3 = funnel_stats['funnel_step3']
+    funnel_completed = funnel_stats['funnel_completed']
+    funnel_submitted = funnel_stats['funnel_submitted']
 
     # Calculate percentages for each step (of total profiles)
     if total_profiles > 0:
@@ -148,13 +158,15 @@ def crush_admin_dashboard(request):
         funnel_step3_pct = funnel_completed_pct = funnel_submitted_pct = 0
 
     # Legacy cumulative counts (for backward compatibility)
-    step1_completed = CrushProfile.objects.exclude(completion_status='not_started').count()
-    step2_completed = CrushProfile.objects.filter(
-        completion_status__in=['step2', 'step3', 'completed', 'submitted']
-    ).count()
-    step3_completed = CrushProfile.objects.filter(
-        completion_status__in=['step3', 'completed', 'submitted']
-    ).count()
+    # OPTIMIZATION: Use single aggregate query instead of 3 separate COUNT queries
+    legacy_stats = CrushProfile.objects.aggregate(
+        step1_completed=Count('id', filter=~Q(completion_status='not_started')),
+        step2_completed=Count('id', filter=Q(completion_status__in=['step2', 'step3', 'completed', 'submitted'])),
+        step3_completed=Count('id', filter=Q(completion_status__in=['step3', 'completed', 'submitted'])),
+    )
+    step1_completed = legacy_stats['step1_completed']
+    step2_completed = legacy_stats['step2_completed']
+    step3_completed = legacy_stats['step3_completed']
     submitted = funnel_submitted
 
     # ============================================================================
@@ -304,11 +316,18 @@ def crush_admin_dashboard(request):
     marketing_opt_in_rate = (marketing_opted_in / email_active_users * 100) if email_active_users > 0 else 0
 
     # Email category opt-in counts (excluding unsubscribed users)
+    # OPTIMIZATION: Use single aggregate query instead of 4 separate COUNT queries
+    email_category_raw = EmailPreference.objects.aggregate(
+        profile_updates=Count('id', filter=Q(email_profile_updates=True, unsubscribed_all=False)),
+        event_reminders=Count('id', filter=Q(email_event_reminders=True, unsubscribed_all=False)),
+        new_connections=Count('id', filter=Q(email_new_connections=True, unsubscribed_all=False)),
+        new_messages=Count('id', filter=Q(email_new_messages=True, unsubscribed_all=False)),
+    )
     email_category_stats = {
-        'profile_updates': EmailPreference.objects.filter(email_profile_updates=True, unsubscribed_all=False).count(),
-        'event_reminders': EmailPreference.objects.filter(email_event_reminders=True, unsubscribed_all=False).count(),
-        'new_connections': EmailPreference.objects.filter(email_new_connections=True, unsubscribed_all=False).count(),
-        'new_messages': EmailPreference.objects.filter(email_new_messages=True, unsubscribed_all=False).count(),
+        'profile_updates': email_category_raw['profile_updates'],
+        'event_reminders': email_category_raw['event_reminders'],
+        'new_connections': email_category_raw['new_connections'],
+        'new_messages': email_category_raw['new_messages'],
         'marketing': marketing_opted_in,
     }
 

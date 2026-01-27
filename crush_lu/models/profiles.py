@@ -659,6 +659,12 @@ class ProfileSubmission(models.Model):
 
     class Meta:
         ordering = ['-submitted_at']
+        indexes = [
+            # Composite index for coach workload queries
+            # Used by: assign_coach() and coach performance queries
+            models.Index(fields=['coach', 'status'], name='crush_lu_prof_coach_status_idx'),
+            # Individual status index (already exists via db_index=True on field)
+        ]
 
     def __str__(self):
         return f"{self.profile.user.username} - {self.get_status_display()}"

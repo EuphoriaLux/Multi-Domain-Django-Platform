@@ -21,6 +21,7 @@ from django.views.decorators.cache import never_cache
 from django.http import JsonResponse
 
 from .adapter import get_i18n_redirect_url
+from .models import CrushProfile
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,11 @@ def oauth_popup_callback(request):
     user_name = None
 
     if is_authenticated:
-        has_profile = hasattr(request.user, 'crushprofile')
+        try:
+            profile = request.user.crushprofile
+            has_profile = True
+        except CrushProfile.DoesNotExist:
+            has_profile = False
         user_name = request.user.first_name or request.user.username
 
     oauth_result = {
@@ -122,7 +127,11 @@ def check_auth_status(request):
     - redirect_url: string - where to redirect the user
     """
     if request.user.is_authenticated:
-        has_profile = hasattr(request.user, 'crushprofile')
+        try:
+            profile = request.user.crushprofile
+            has_profile = True
+        except CrushProfile.DoesNotExist:
+            has_profile = False
         if has_profile:
             redirect_url = get_i18n_redirect_url(request, 'crush_lu:dashboard', request.user)
         else:
@@ -246,7 +255,11 @@ def oauth_landing(request):
     redirect_url = get_i18n_redirect_url(request, 'crush_lu:login')
 
     if is_authenticated:
-        has_profile = hasattr(request.user, 'crushprofile')
+        try:
+            profile = request.user.crushprofile
+            has_profile = True
+        except CrushProfile.DoesNotExist:
+            has_profile = False
         user_name = request.user.first_name or request.user.username
         if has_profile:
             redirect_url = get_i18n_redirect_url(request, 'crush_lu:dashboard', request.user)

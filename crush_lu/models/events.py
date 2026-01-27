@@ -2,9 +2,54 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from django.utils.functional import cached_property
 from datetime import timedelta
 import uuid
 from .profiles import SpecialUserExperience
+
+
+class MeetupEventQuerySet(models.QuerySet):
+    """Custom QuerySet for MeetupEvent with performance optimizations."""
+
+    def with_registration_counts(self):
+        """
+        Annotate queryset with confirmed_count and waitlist_count.
+
+        Use this instead of calling get_confirmed_count() in a loop to avoid N+1 queries:
+
+        # BAD: N+1 queries
+        events = MeetupEvent.objects.all()
+        for event in events:
+            print(event.get_confirmed_count())  # Query per event!
+
+        # GOOD: Single query with annotation
+        events = MeetupEvent.objects.with_registration_counts()
+        for event in events:
+            print(event.confirmed_count_annotated)  # No query!
+        """
+        from django.db.models import Count, Q
+
+        return self.annotate(
+            confirmed_count_annotated=Count(
+                'eventregistration',
+                filter=Q(eventregistration__status__in=['confirmed', 'attended'])
+            ),
+            waitlist_count_annotated=Count(
+                'eventregistration',
+                filter=Q(eventregistration__status='waitlist')
+            )
+        )
+
+
+class MeetupEventManager(models.Manager):
+    """Custom manager for MeetupEvent."""
+
+    def get_queryset(self):
+        return MeetupEventQuerySet(self.model, using=self._db)
+
+    def with_registration_counts(self):
+        return self.get_queryset().with_registration_counts()
+
 
 class MeetupEvent(models.Model):
     """Speed dating and social meetup events"""
@@ -78,6 +123,8 @@ class MeetupEvent(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    objects = MeetupEventManager()
+
     class Meta:
         ordering = ['date_time']
 
@@ -108,11 +155,42 @@ class MeetupEvent(models.Model):
         return self.date_time + timedelta(minutes=self.duration_minutes)
 
     def get_confirmed_count(self):
+        """
+        Get count of confirmed/attended registrations.
+
+        OPTIMIZATION: To avoid N+1 queries when displaying lists of events,
+        use MeetupEvent.objects.with_registration_counts() which annotates
+        the queryset with confirmed_count_annotated.
+
+        Example:
+            # BAD: N+1 queries
+            events = MeetupEvent.objects.all()
+            for event in events:
+                print(event.get_confirmed_count())  # Query per event!
+
+            # GOOD: Single query
+            events = MeetupEvent.objects.with_registration_counts()
+            for event in events:
+                print(event.confirmed_count_annotated)  # No query!
+
+        For single events, this method is efficient enough.
+        """
+        # Try to use annotated value if available (from with_registration_counts())
+        if hasattr(self, 'confirmed_count_annotated'):
+            return self.confirmed_count_annotated
         return self.eventregistration_set.filter(
             status__in=['confirmed', 'attended']
         ).count()
 
     def get_waitlist_count(self):
+        """
+        Get count of waitlisted registrations.
+
+        OPTIMIZATION: Use MeetupEvent.objects.with_registration_counts() to avoid N+1 queries.
+        """
+        # Try to use annotated value if available
+        if hasattr(self, 'waitlist_count_annotated'):
+            return self.waitlist_count_annotated
         return self.eventregistration_set.filter(status='waitlist').count()
 
 

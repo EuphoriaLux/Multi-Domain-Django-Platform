@@ -3,6 +3,51 @@ from django.contrib.auth.models import User
 from .events import MeetupEvent
 from .profiles import CrushCoach, CrushProfile, ProfileSubmission
 
+
+class EventConnectionQuerySet(models.QuerySet):
+    """Custom QuerySet for EventConnection with performance optimizations."""
+
+    def annotate_is_mutual(self):
+        """
+        Annotate queryset with is_mutual_annotated field.
+
+        Use this instead of the is_mutual property to avoid N+1 queries:
+
+        # BAD: N+1 queries
+        connections = EventConnection.objects.all()
+        for conn in connections:
+            if conn.is_mutual:  # Triggers query per connection!
+                print("Mutual!")
+
+        # GOOD: Single query with annotation
+        connections = EventConnection.objects.annotate_is_mutual()
+        for conn in connections:
+            if conn.is_mutual_annotated:  # No query!
+                print("Mutual!")
+        """
+        from django.db.models import Exists, OuterRef
+
+        mutual_subquery = EventConnection.objects.filter(
+            requester=OuterRef('recipient'),
+            recipient=OuterRef('requester'),
+            event=OuterRef('event')
+        )
+
+        return self.annotate(
+            is_mutual_annotated=Exists(mutual_subquery)
+        )
+
+
+class EventConnectionManager(models.Manager):
+    """Custom manager for EventConnection."""
+
+    def get_queryset(self):
+        return EventConnectionQuerySet(self.model, using=self._db)
+
+    def annotate_is_mutual(self):
+        return self.get_queryset().annotate_is_mutual()
+
+
 class EventConnection(models.Model):
     """Post-event connection requests between attendees"""
 
@@ -60,6 +105,8 @@ class EventConnection(models.Model):
     coach_approved_at = models.DateTimeField(null=True, blank=True)
     shared_at = models.DateTimeField(null=True, blank=True)
 
+    objects = EventConnectionManager()
+
     class Meta:
         unique_together = ('requester', 'recipient', 'event')
         ordering = ['-requested_at']
@@ -69,7 +116,25 @@ class EventConnection(models.Model):
 
     @property
     def is_mutual(self):
-        """Check if there's a mutual connection request"""
+        """
+        Check if there's a mutual connection request.
+
+        WARNING: This property causes an N+1 query problem when accessed in a loop.
+        Use EventConnection.objects.annotate_is_mutual() instead for better performance.
+
+        Example:
+            # BAD: N+1 queries
+            connections = EventConnection.objects.all()
+            for conn in connections:
+                if conn.is_mutual:  # Database query per connection!
+                    print("Mutual")
+
+            # GOOD: Single query
+            connections = EventConnection.objects.annotate_is_mutual()
+            for conn in connections:
+                if conn.is_mutual_annotated:  # No query!
+                    print("Mutual")
+        """
         return EventConnection.objects.filter(
             requester=self.recipient,
             recipient=self.requester,
@@ -86,13 +151,18 @@ class EventConnection(models.Model):
         )
 
     def assign_coach(self):
-        """Assign a coach to facilitate this connection"""
-        # Try to get the coach who approved either profile
-        requester_profile = CrushProfile.objects.get(user=self.requester)
-        recipient_profile = CrushProfile.objects.get(user=self.recipient)
+        """
+        Assign a coach to facilitate this connection.
 
-        # Prefer the coach who approved the requester
-        requester_submission = ProfileSubmission.objects.filter(
+        Optimized to fetch all related data in a single query using select_related.
+        """
+        # Fetch both profiles with their submissions in a single query
+        requester_profile = CrushProfile.objects.select_related('user').prefetch_related(
+            'submissions'
+        ).get(user=self.requester)
+
+        # Get the approved submission for the requester with coach pre-fetched
+        requester_submission = ProfileSubmission.objects.select_related('coach').filter(
             profile=requester_profile,
             status='approved'
         ).first()

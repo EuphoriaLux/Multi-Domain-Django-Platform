@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
 from django.utils.translation import gettext_lazy as _
 from allauth.account.forms import SignupForm
-from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, EventRegistration, JourneyGift
+from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, EventRegistration, JourneyGift, EventInvitation
 from PIL import Image
 import os
 
@@ -838,3 +838,91 @@ class JourneyGiftForm(forms.ModelForm):
                     _("Invalid video format. Please use MP4 or MOV files.")
                 )
         return video
+
+
+class InvitationAcceptanceForm(forms.Form):
+    """
+    Form for accepting event invitations with age verification.
+
+    Security Requirements:
+    - Captures actual date of birth (no hardcoded ages)
+    - Validates 18+ age requirement
+    - Used for external guest invitation acceptance
+    """
+    date_of_birth = forms.DateField(
+        required=True,
+        widget=forms.DateInput(
+            attrs={
+                'type': 'date',
+                'class': TAILWIND_INPUT,
+                'placeholder': 'YYYY-MM-DD',
+            },
+            format='%Y-%m-%d'
+        ),
+        input_formats=['%Y-%m-%d'],
+        label=_('Date of Birth'),
+        help_text=_('You must be 18+ to join Crush.lu')
+    )
+
+    agree_to_terms = forms.BooleanField(
+        required=True,
+        label=_('I agree to the Terms of Service and Privacy Policy'),
+        widget=forms.CheckboxInput(attrs={
+            'class': 'w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500'
+        })
+    )
+
+    def __init__(self, *args, invitation=None, **kwargs):
+        """
+        Initialize form with invitation context.
+
+        Args:
+            invitation: EventInvitation instance for validation
+        """
+        super().__init__(*args, **kwargs)
+        self.invitation = invitation
+
+    def clean_date_of_birth(self):
+        """
+        Validate date of birth with 18+ age requirement.
+
+        This validation ensures:
+        - No future dates
+        - User is at least 18 years old
+        - Valid date range (not more than 120 years old)
+
+        Raises:
+            ValidationError: If age requirements are not met
+        """
+        from django.utils import timezone
+
+        dob = self.cleaned_data.get('date_of_birth')
+        if not dob:
+            raise ValidationError(_("Date of birth is required"))
+
+        today = timezone.now().date()
+
+        # Prevent future dates
+        if dob > today:
+            raise ValidationError(_("Date of birth cannot be in the future"))
+
+        # Calculate age correctly by checking if birthday has occurred this year
+        # Use <= for proper boundary checking (birthday this year counts as full age)
+        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+        # Sanity check: maximum age 120 (check first to give better error message)
+        if age > 120:
+            raise ValidationError(_("Please enter a valid date of birth"))
+
+        # Enforce 18+ requirement
+        if age < 18:
+            raise ValidationError(_("You must be at least 18 years old to join Crush.lu"))
+
+        return dob
+
+    def clean_agree_to_terms(self):
+        """Validate that user agreed to terms."""
+        agreed = self.cleaned_data.get('agree_to_terms')
+        if not agreed:
+            raise ValidationError(_("You must agree to the Terms of Service and Privacy Policy"))
+        return agreed

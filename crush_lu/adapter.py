@@ -105,9 +105,11 @@ class CrushAccountAdapter(DefaultAccountAdapter):
         """
         if self._is_crush_domain(request):
             # Crush.lu: Check if user has a profile
-            if hasattr(request.user, 'crushprofile'):
+            from .models import CrushProfile
+            try:
+                profile = request.user.crushprofile
                 return get_i18n_redirect_url(request, 'crush_lu:dashboard', request.user)
-            else:
+            except CrushProfile.DoesNotExist:
                 # No profile yet - redirect to profile creation
                 return get_i18n_redirect_url(request, 'crush_lu:create_profile')
         else:

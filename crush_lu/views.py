@@ -96,7 +96,9 @@ def oauth_complete(request):
     final_destination = request.session.pop('oauth_final_destination', '/dashboard/')
 
     # Check if user has a profile
-    if not hasattr(request.user, 'crushprofile'):
+    try:
+        profile = request.user.crushprofile
+    except CrushProfile.DoesNotExist:
         final_destination = '/create-profile/'
 
     context = {
@@ -311,7 +313,7 @@ def delete_user_data(user, confirmation_code):
 
     try:
         # Delete CrushProfile if exists
-        if hasattr(user, 'crushprofile'):
+        try:
             profile = user.crushprofile
 
             # Delete profile photos from storage
@@ -326,6 +328,9 @@ def delete_user_data(user, confirmation_code):
             # Delete the profile
             profile.delete()
             logger.info(f"Deleted CrushProfile for user {user.id}")
+        except CrushProfile.DoesNotExist:
+            # No profile to delete
+            pass
 
         # Delete ProfileSubmissions
         ProfileSubmission.objects.filter(profile__user=user).delete()
@@ -1482,41 +1487,31 @@ def event_register(request, event_id):
                 profile = CrushProfile.objects.get(user=request.user)
                 # Existing users keep their own profile approval status
             except CrushProfile.DoesNotExist:
-                # Edge case: invited user doesn't have profile yet - create minimal one
-                # Get preferred language from current request
-                from .utils.i18n import validate_language
-                preferred_lang = validate_language(
-                    getattr(request, 'LANGUAGE_CODE', 'en'), default='en'
-                )
-                profile = CrushProfile.objects.create(
-                    user=request.user,
-                    is_approved=True,
-                    approved_at=timezone.now(),
-                    completion_status='completed',
-                    date_of_birth=timezone.now().date() - timedelta(days=365*25),
-                    preferred_language=preferred_lang,
-                )
-                logger.info(f"Auto-created profile for invited existing user: {request.user.email}")
+                # SECURITY FIX: Redirect to profile creation instead of auto-creating
+                # This ensures proper age verification and data collection
+                messages.warning(request, _(
+                    'Please complete your profile before registering for events. '
+                    'This is required for all users, even with invitations.'
+                ))
+                return redirect('crush_lu:create_profile')
 
-        # EXTERNAL GUESTS: Create minimal profile with auto-approval
+        # EXTERNAL GUESTS: Must have profile from invitation acceptance
         else:
-            # Get preferred language from current request
-            from .utils.i18n import validate_language
-            preferred_lang = validate_language(
-                getattr(request, 'LANGUAGE_CODE', 'en'), default='en'
-            )
-            profile, created = CrushProfile.objects.get_or_create(
-                user=request.user,
-                defaults={
-                    'is_approved': True,  # Auto-approve VIP guests
-                    'approved_at': timezone.now(),
-                    'completion_status': 'completed',
-                    'date_of_birth': timezone.now().date() - timedelta(days=365*25),  # Default age 25
-                    'preferred_language': preferred_lang,
-                }
-            )
-            if created:
-                logger.info(f"Auto-created approved profile for external VIP guest: {request.user.email}")
+            try:
+                profile = CrushProfile.objects.get(user=request.user)
+                # External guests already have profile created during invitation acceptance
+                # with proper age verification and date of birth
+            except CrushProfile.DoesNotExist:
+                # SECURITY: This should never happen - external guests must accept invitation first
+                # which creates their profile with age verification
+                logger.error(
+                    f"Security issue: External guest {request.user.email} trying to register "
+                    f"without profile. Invitation ID: {external_invitation.id if external_invitation else 'None'}"
+                )
+                messages.error(request, _(
+                    'Your profile is missing. Please contact support for assistance.'
+                ))
+                return redirect('crush_lu:event_detail', event_id=event_id)
     else:
         # NORMAL EVENT: Require approved profile
         try:
@@ -1880,7 +1875,11 @@ def coach_edit_profile(request):
         form = CrushCoachForm(instance=coach)
 
     # Check if coach also has a dating profile
-    has_dating_profile = hasattr(request.user, 'crushprofile')
+    try:
+        profile = request.user.crushprofile
+        has_dating_profile = True
+    except CrushProfile.DoesNotExist:
+        has_dating_profile = False
 
     context = {
         'coach': coach,
@@ -3388,8 +3387,15 @@ def invitation_landing(request, code):
 @ratelimit(key='ip', rate='10/h', method='POST')
 def invitation_accept(request, code):
     """
-    PUBLIC ACCESS: Accept invitation and create guest account.
+    PUBLIC ACCESS: Accept invitation and create guest account with age verification.
+
+    Security Requirements:
+    - Validates 18+ age requirement
+    - Captures actual date of birth (no hardcoded ages)
+    - Creates profile pending coach approval (no auto-approval)
     """
+    from .forms import InvitationAcceptanceForm
+
     invitation = get_object_or_404(EventInvitation, invitation_code=code)
 
     # Check if already accepted
@@ -3403,48 +3409,80 @@ def invitation_accept(request, code):
         return redirect('crush_lu:invitation_landing', code=code)
 
     if request.method == 'POST':
-        try:
-            # Create user account with random password
-            username = f"guest_{invitation.guest_email.split('@')[0]}_{uuid.uuid4().hex[:6]}"
-            random_password = User.objects.make_random_password(length=16)
+        form = InvitationAcceptanceForm(request.POST, invitation=invitation)
 
-            user = User.objects.create_user(
-                username=username,
-                email=invitation.guest_email,
-                first_name=invitation.guest_first_name,
-                last_name=invitation.guest_last_name,
-                password=random_password
-            )
+        if form.is_valid():
+            try:
+                date_of_birth = form.cleaned_data['date_of_birth']
 
-            # Update invitation
-            invitation.created_user = user
-            invitation.status = 'accepted'
-            invitation.accepted_at = timezone.now()
-            invitation.save()
+                # Create user account with random password
+                username = f"guest_{invitation.guest_email.split('@')[0]}_{uuid.uuid4().hex[:6]}"
+                from django.contrib.auth.hashers import make_password
+                import secrets
+                import string
+                # Generate secure random password
+                alphabet = string.ascii_letters + string.digits + string.punctuation
+                random_password = ''.join(secrets.choice(alphabet) for _ in range(16))
 
-            # Log the user in
-            user.backend = 'django.contrib.auth.backends.ModelBackend'
-            login(request, user)
+                user = User.objects.create_user(
+                    username=username,
+                    email=invitation.guest_email,
+                    first_name=invitation.guest_first_name,
+                    last_name=invitation.guest_last_name,
+                    password=random_password
+                )
 
-            logger.info(f"Guest account created and logged in: {user.email} for event {invitation.event.title}")
+                # Create minimal profile with actual date of birth
+                # NOTE: Profile requires coach approval - no auto-approval for security
+                from .utils.i18n import validate_language
+                preferred_lang = validate_language(
+                    getattr(request, 'LANGUAGE_CODE', 'en'), default='en'
+                )
 
-            messages.success(request,
-                f'Welcome! Your invitation has been accepted. '
-                f'You will receive an email once your attendance is approved by our team.')
+                profile = CrushProfile.objects.create(
+                    user=user,
+                    date_of_birth=date_of_birth,  # SECURITY: Use actual DOB from form
+                    is_approved=False,  # SECURITY: Requires coach approval
+                    completion_status='completed',
+                    preferred_language=preferred_lang,
+                )
 
-            return render(request, 'crush_lu/invitation_pending_approval.html', {
-                'invitation': invitation,
-                'event': invitation.event,
-            })
+                # Update invitation
+                invitation.created_user = user
+                invitation.status = 'accepted'
+                invitation.accepted_at = timezone.now()
+                invitation.save()
 
-        except Exception as e:
-            logger.error(f"Error creating guest account: {e}")
-            messages.error(request, _('An error occurred while accepting your invitation. Please try again.'))
-            return redirect('crush_lu:invitation_landing', code=code)
+                # Log the user in
+                user.backend = 'django.contrib.auth.backends.ModelBackend'
+                login(request, user)
+
+                logger.info(
+                    f"Guest account created with age verification: {user.email} "
+                    f"(age: {profile.age}) for event {invitation.event.title}"
+                )
+
+                messages.success(request,
+                    _('Welcome! Your invitation has been accepted. '
+                      'You will receive an email once your attendance is approved by our team.'))
+
+                return render(request, 'crush_lu/invitation_pending_approval.html', {
+                    'invitation': invitation,
+                    'event': invitation.event,
+                })
+
+            except Exception as e:
+                logger.error(f"Error creating guest account: {e}")
+                messages.error(request, _('An error occurred while accepting your invitation. Please try again.'))
+                return redirect('crush_lu:invitation_landing', code=code)
+        # If form is invalid, fall through to re-render with errors
+    else:
+        form = InvitationAcceptanceForm(invitation=invitation)
 
     context = {
         'invitation': invitation,
         'event': invitation.event,
+        'form': form,
     }
     return render(request, 'crush_lu/invitation_accept_form.html', context)
 

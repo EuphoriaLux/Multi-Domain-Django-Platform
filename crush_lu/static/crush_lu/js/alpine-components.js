@@ -4279,7 +4279,7 @@ document.addEventListener('alpine:init', function() {
             },
 
             shuffleWords: function() {
-                var currentOrder = this.scrambledWords.join(' ');
+                var previousOrder = this.scrambledWords.join(' ');
                 var newOrder;
                 var attempts = 0;
 
@@ -4296,8 +4296,12 @@ document.addEventListener('alpine:init', function() {
                         }
                         return letters.join('');
                     });
+                    // Track previous iteration to avoid duplicate shuffles
+                    if (newOrder.join(' ') !== previousOrder) {
+                        previousOrder = newOrder.join(' ');
+                    }
                     attempts++;
-                } while (newOrder.join(' ') === currentOrder && attempts < 50);
+                } while (newOrder.join(' ') === this.scrambledWords.join(' ') && attempts < 50);
 
                 this.scrambledWords = newOrder;
                 this.displayText = this.scrambledWords.join('  •  ');
@@ -4607,6 +4611,8 @@ document.addEventListener('alpine:init', function() {
                             if (self.feedbackType === 'error') {
                                 self.feedback = '';
                                 self.feedbackType = '';
+                                // Explicitly update feedback state to trigger visual updates
+                                self._updateFeedbackState();
                             }
                         }, 3000);
                     }
@@ -4880,6 +4886,8 @@ document.addEventListener('alpine:init', function() {
                             if (self.feedbackType === 'error') {
                                 self.feedback = '';
                                 self.feedbackType = '';
+                                // Explicitly update feedback state to trigger visual updates
+                                self._updateFeedbackState();
                             }
                         }, 3000);
                     }
