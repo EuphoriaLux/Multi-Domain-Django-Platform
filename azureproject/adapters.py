@@ -236,6 +236,43 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
     Routes to appropriate pages based on domain.
     """
 
+    def send_mail(self, template_prefix, email, context):
+        """
+        Override email sending to use domain-specific configuration.
+
+        Django Allauth calls this method to send verification emails, password resets, etc.
+        We intercept it to use our domain-specific email utilities (Graph API for Crush.lu).
+        """
+        from azureproject.email_utils import send_domain_email
+        from django.template.loader import render_to_string
+
+        # Get the request from context (Allauth provides it)
+        request = context.get('request')
+
+        # Render email subject and body from Allauth templates
+        subject = render_to_string(f'{template_prefix}_subject.txt', context)
+        subject = ' '.join(subject.splitlines()).strip()  # Remove newlines
+
+        # Try HTML first, fallback to plain text
+        try:
+            html_message = render_to_string(f'{template_prefix}_message.html', context)
+        except:
+            html_message = None
+
+        message = render_to_string(f'{template_prefix}_message.txt', context)
+
+        # Use domain-specific email sending (handles Graph API for Crush.lu)
+        send_domain_email(
+            subject=subject,
+            message=message,
+            recipient_list=[email],
+            request=request,
+            html_message=html_message,
+            fail_silently=False
+        )
+
+        logger.info(f"Sent Allauth email via domain-specific backend: {template_prefix} to {email}")
+
     def login(self, request, user):
         """
         Override login to add session fixation protection.

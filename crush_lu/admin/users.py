@@ -41,6 +41,39 @@ class CrushCoachUserInline(admin.StackedInline):
         return False
 
 
+class HasCrushProfileFilter(admin.SimpleListFilter):
+    """Filter users by whether they have a CrushProfile"""
+    title = 'Crush Profile Status'
+    parameter_name = 'has_profile'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('yes', '✅ Has Profile'),
+            ('no', '❌ No Profile (Never Started)'),
+        )
+
+    def queryset(self, request, queryset):
+        from django.db.models import Exists, OuterRef
+
+        if self.value() == 'yes':
+            return queryset.filter(
+                Exists(
+                    CrushProfile.objects.filter(
+                        user_id=OuterRef('id')
+                    )
+                )
+            )
+        elif self.value() == 'no':
+            return queryset.filter(
+                ~Exists(
+                    CrushProfile.objects.filter(
+                        user_id=OuterRef('id')
+                    )
+                )
+            )
+        return queryset
+
+
 class CrushUserAdmin(BaseUserAdmin):
     """
     User admin for Crush.lu coach panel.
@@ -51,7 +84,7 @@ class CrushUserAdmin(BaseUserAdmin):
         'username', 'email', 'first_name', 'last_name',
         'get_crush_profile_link', 'is_coach_status', 'is_active', 'date_joined'
     )
-    list_filter = ('is_active', 'date_joined')
+    list_filter = (HasCrushProfileFilter, 'is_active', 'date_joined')
     search_fields = ('username', 'email', 'first_name', 'last_name')
     ordering = ('-date_joined',)
 

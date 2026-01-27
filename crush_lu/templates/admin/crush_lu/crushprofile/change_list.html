@@ -83,6 +83,34 @@
         background: #dc354533;
     }
 
+    /* New production-informed filter styles */
+    .crush-quick-filters a.unverified-email {
+        background: #dc354522;
+        color: #dc3545;
+        border: 1px solid #dc3545;
+    }
+    .crush-quick-filters a.unverified-email .count {
+        background: #dc354533;
+    }
+
+    .crush-quick-filters a.high-privacy {
+        background: #6c757d22;
+        color: #495057;
+        border: 1px solid #6c757d;
+    }
+    .crush-quick-filters a.high-privacy .count {
+        background: #6c757d33;
+    }
+
+    .crush-quick-filters a.never-submitted {
+        background: #fd7e1422;
+        color: #fd7e14;
+        border: 1px solid #fd7e14;
+    }
+    .crush-quick-filters a.never-submitted .count {
+        background: #fd7e1433;
+    }
+
     .crush-quick-filters a:hover {
         transform: translateY(-2px);
         box-shadow: 0 2px 5px rgba(0,0,0,0.1);
@@ -92,13 +120,26 @@
         font-weight: bold;
         box-shadow: 0 0 0 2px rgba(155, 89, 182, 0.3);
     }
+
+    /* Section headers */
+    .crush-filter-section {
+        width: 100%;
+        font-size: 11px;
+        font-weight: bold;
+        text-transform: uppercase;
+        color: #999;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #e0e0e0;
+    }
 </style>
 {% endblock %}
 
 {% block search %}
-<!-- Quick Filter Tabs with counts - Mutually Exclusive Categories -->
+<!-- Quick Filter Tabs with counts - Production-Informed Priorities -->
 <div class="crush-quick-filters">
-    <a href="?" class="all {% if not request.GET.is_approved__exact and not request.GET.completion_status__in %}active{% endif %}">
+    <!-- Core Status Filters -->
+    <a href="?" class="all {% if not request.GET.is_approved__exact and not request.GET.completion_status__in and not request.GET.email_verification %}active{% endif %}">
         📊 All Profiles
         <span class="count">{{ filter_counts.total }}</span>
     </a>
@@ -110,17 +151,47 @@
         📝 Awaiting Review
         <span class="count">{{ filter_counts.awaiting_review }}</span>
     </a>
+
+    <!-- Section Header: Critical Bottlenecks -->
+    <span class="crush-filter-section">⚠️ Critical Bottlenecks</span>
+
+    <!-- PRIORITY 0: Users without profiles (signed in but never started) -->
+    <a href="{% url 'crush_admin:auth_user_changelist' %}?has_profile=no" class="unverified-email" target="_blank">
+        🚫 Never Started Profile
+        <span class="count">{{ filter_counts.users_without_profile }}</span>
+    </a>
+
+    <!-- PRIORITY 1: Email Verification (58% unverified in production) -->
+    <a href="?email_verification=unverified" class="unverified-email {% if request.GET.email_verification == 'unverified' %}active{% endif %}">
+        ❌ Email Not Verified
+        <span class="count">{{ filter_counts.unverified_email }}</span>
+    </a>
+
+    <!-- PRIORITY 3: Never Submitted (57% in production) -->
+    <a href="?submission_history=never_submitted" class="never-submitted {% if request.GET.submission_history == 'never_submitted' %}active{% endif %}">
+        📝 Never Submitted for Review
+        <span class="count">{{ filter_counts.never_submitted }}</span>
+    </a>
+
+    <!-- Section Header: User Segmentation -->
+    <span class="crush-filter-section">👥 User Segments</span>
+
+    <!-- PRIORITY 2: Privacy-Conscious Users (95% in production) -->
+    <a href="?privacy_settings=name_hidden" class="high-privacy {% if request.GET.privacy_settings == 'name_hidden' %}active{% endif %}">
+        👤 Name Privacy
+        <span class="count">{{ filter_counts.name_privacy }}</span>
+    </a>
+
+    <!-- Completion Workflow -->
     <a href="?completion_status__in=not_started,step1,step2,step3" class="incomplete {% if request.GET.completion_status__in == 'not_started,step1,step2,step3' and not request.GET.phone_verified__exact %}active{% endif %}">
-        ⏳ Incomplete
+        ⏳ Incomplete Profile
         <span class="count">{{ filter_counts.incomplete }}</span>
     </a>
-    <a href="?completion_status__in=not_started,step1,step2,step3&phone_verified__exact=1" class="incomplete-verified {% if request.GET.completion_status__in == 'not_started,step1,step2,step3' and request.GET.phone_verified__exact == '1' %}active{% endif %}">
-        📱✅ Incomplete + Phone Verified
-        <span class="count">{{ filter_counts.incomplete_verified }}</span>
-    </a>
-    <a href="?completion_status__in=not_started,step1,step2,step3&phone_verified__exact=0" class="incomplete-unverified {% if request.GET.completion_status__in == 'not_started,step1,step2,step3' and request.GET.phone_verified__exact == '0' %}active{% endif %}">
-        📱❌ Incomplete + No Phone
-        <span class="count">{{ filter_counts.incomplete_unverified }}</span>
+
+    <!-- Engagement (for approved users) -->
+    <a href="?connection_activity=no_connections&is_approved__exact=1" class="incomplete-unverified {% if request.GET.connection_activity == 'no_connections' and request.GET.is_approved__exact == '1' %}active{% endif %}">
+        🚫 No Connections (Approved)
+        <span class="count">{{ filter_counts.no_connections }}</span>
     </a>
 </div>
 {{ block.super }}

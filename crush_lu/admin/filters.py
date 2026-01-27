@@ -8,6 +8,7 @@ from django.contrib import admin
 from django.db import models
 from django.utils import timezone
 from datetime import timedelta, date
+from django.db.models import Exists, OuterRef, Q, Count
 
 
 class ReviewTimeFilter(admin.SimpleListFilter):
@@ -468,4 +469,241 @@ class EventParticipationFilter(admin.SimpleListFilter):
             return annotated.filter(event_count__gte=2)
         elif self.value() == 'active':
             return annotated.filter(event_count__gte=5)
+        return queryset
+
+
+# ============================================================================
+# PRODUCTION-INFORMED FILTERS (Based on 2026-01-27 Database Analysis)
+# ============================================================================
+
+
+class EmailVerificationStatusFilter(admin.SimpleListFilter):
+    """
+    Filter profiles by email verification status.
+
+    PRIORITY 1: Production analysis shows 58% unverified emails (92/160 users).
+    Critical bottleneck in registration funnel.
+    """
+    title = 'Email Verification'
+    parameter_name = 'email_verification'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('verified', '✅ Email Verified'),
+            ('unverified', '❌ Email Not Verified'),
+            ('no_primary', '📧 No Primary Email'),
+        )
+
+    def queryset(self, request, queryset):
+        # Import here to avoid circular import
+        from allauth.account.models import EmailAddress
+
+        if self.value() == 'verified':
+            # Users with at least one verified email
+            return queryset.filter(
+                Exists(
+                    EmailAddress.objects.filter(
+                        user_id=OuterRef('user_id'),
+                        verified=True
+                    )
+                )
+            )
+        elif self.value() == 'unverified':
+            # Users without any verified email
+            return queryset.filter(
+                ~Exists(
+                    EmailAddress.objects.filter(
+                        user_id=OuterRef('user_id'),
+                        verified=True
+                    )
+                )
+            )
+        elif self.value() == 'no_primary':
+            # Users with no email records at all
+            return queryset.filter(
+                ~Exists(
+                    EmailAddress.objects.filter(
+                        user_id=OuterRef('user_id')
+                    )
+                )
+            )
+        return queryset
+
+
+class PrivacySettingsFilter(admin.SimpleListFilter):
+    """
+    Filter profiles by privacy setting combinations.
+
+    PRIORITY 2: Production shows 95.4% hide full names (145/152 profiles).
+    Luxembourg market is extremely privacy-conscious - critical for messaging.
+    """
+    title = 'Privacy Settings'
+    parameter_name = 'privacy_settings'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('high_privacy', '🔒 High Privacy (all flags)'),
+            ('name_hidden', '👤 Name Hidden'),
+            ('age_hidden', '🎂 Age Hidden'),
+            ('photos_blurred', '📸 Photos Blurred'),
+            ('default', '🌐 Default (all public)'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'high_privacy':
+            # All privacy flags enabled
+            return queryset.filter(
+                show_full_name=False,
+                show_exact_age=False,
+                blur_photos=True
+            )
+        elif self.value() == 'name_hidden':
+            return queryset.filter(show_full_name=False)
+        elif self.value() == 'age_hidden':
+            return queryset.filter(show_exact_age=False)
+        elif self.value() == 'photos_blurred':
+            return queryset.filter(blur_photos=True)
+        elif self.value() == 'default':
+            # All public (no privacy flags)
+            return queryset.filter(
+                show_full_name=True,
+                show_exact_age=True,
+                blur_photos=False
+            )
+        return queryset
+
+
+class ProfileSubmissionDetailFilter(admin.SimpleListFilter):
+    """
+    Filter profiles by submission workflow status (more granular than existing).
+
+    PRIORITY 3: Production shows 57.2% never submitted (87/152 profiles).
+    Identifies users stuck before submission or in revision loops.
+    """
+    title = 'Submission History'
+    parameter_name = 'submission_history'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('never_submitted', '📝 Never Submitted'),
+            ('rejected', '❌ Previously Rejected'),
+            ('revision_pending', '🔄 Revision Requested'),
+            ('resubmitted', '✅ Resubmitted After Revision'),
+        )
+
+    def queryset(self, request, queryset):
+        # Import here to avoid circular import
+        from crush_lu.models import ProfileSubmission
+
+        if self.value() == 'never_submitted':
+            # Profiles with no submission records
+            return queryset.filter(
+                ~Exists(
+                    ProfileSubmission.objects.filter(
+                        profile_id=OuterRef('id')
+                    )
+                )
+            )
+        elif self.value() == 'rejected':
+            # Profiles with most recent submission rejected
+            return queryset.filter(
+                Exists(
+                    ProfileSubmission.objects.filter(
+                        profile_id=OuterRef('id'),
+                        status='rejected'
+                    )
+                )
+            )
+        elif self.value() == 'revision_pending':
+            # Profiles with revision_requested status
+            return queryset.filter(
+                Exists(
+                    ProfileSubmission.objects.filter(
+                        profile_id=OuterRef('id'),
+                        status='revision_requested'
+                    )
+                )
+            )
+        elif self.value() == 'resubmitted':
+            # Profiles with multiple submissions (revision workflow)
+            return queryset.annotate(
+                submission_count=Count('profilesubmission')
+            ).filter(submission_count__gte=2)
+        return queryset
+
+
+class ConnectionActivityFilter(admin.SimpleListFilter):
+    """
+    Filter profiles by connection/messaging activity.
+
+    PRIORITY 4: Engagement tracking for approved users.
+    Identifies users needing connection encouragement.
+    """
+    title = 'Connection Activity'
+    parameter_name = 'connection_activity'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('no_connections', '🚫 No Connections'),
+            ('pending_sent', '➡️ Pending Sent'),
+            ('pending_received', '⬅️ Pending Received'),
+            ('coach_approved', '✅ Coach Approved'),
+            ('active', '🔥 Active Messaging'),
+        )
+
+    def queryset(self, request, queryset):
+        # Import here to avoid circular import
+        from crush_lu.models import EventConnection, ConnectionMessage
+
+        if self.value() == 'no_connections':
+            # No connections at all (sent or received)
+            return queryset.filter(
+                ~Exists(
+                    EventConnection.objects.filter(
+                        Q(requester__crushprofile__id=OuterRef('id')) |
+                        Q(recipient__crushprofile__id=OuterRef('id'))
+                    )
+                )
+            )
+        elif self.value() == 'pending_sent':
+            # Has pending connections they initiated
+            return queryset.filter(
+                Exists(
+                    EventConnection.objects.filter(
+                        requester__crushprofile__id=OuterRef('id'),
+                        status='pending'
+                    )
+                )
+            )
+        elif self.value() == 'pending_received':
+            # Has pending connections they received
+            return queryset.filter(
+                Exists(
+                    EventConnection.objects.filter(
+                        recipient__crushprofile__id=OuterRef('id'),
+                        status='pending'
+                    )
+                )
+            )
+        elif self.value() == 'coach_approved':
+            # Has coach-approved connections ready to share
+            return queryset.filter(
+                Exists(
+                    EventConnection.objects.filter(
+                        Q(requester__crushprofile__id=OuterRef('id')) |
+                        Q(recipient__crushprofile__id=OuterRef('id')),
+                        status='coach_approved'
+                    )
+                )
+            )
+        elif self.value() == 'active':
+            # Has sent or received messages
+            return queryset.filter(
+                Exists(
+                    ConnectionMessage.objects.filter(
+                        Q(connection__requester__crushprofile__id=OuterRef('id')) |
+                        Q(connection__recipient__crushprofile__id=OuterRef('id'))
+                    )
+                )
+            )
         return queryset

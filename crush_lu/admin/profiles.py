@@ -29,6 +29,9 @@ from .filters import (
     PhoneVerificationFilter, AgeRangeFilter, LastLoginFilter,
     DaysSinceSignupFilter, DaysPendingApprovalFilter,
     ProfileCompletenessFilter, EventParticipationFilter,
+    # New production-informed filters
+    EmailVerificationStatusFilter, PrivacySettingsFilter,
+    ProfileSubmissionDetailFilter, ConnectionActivityFilter,
 )
 
 
@@ -136,9 +139,35 @@ class ProfileSubmissionProfileInline(admin.TabularInline):
 class CrushProfileAdmin(admin.ModelAdmin):
     list_display = ('get_user_link', 'get_email', 'age', 'gender', 'location', 'get_language_display', 'phone_verified_icon', 'completion_status', 'get_assigned_coach', 'get_referral_code', 'get_referral_count', 'is_approved', 'is_active', 'outlook_synced', 'created_at', 'is_coach')
     list_filter = (
-        'is_approved', 'is_active', PhoneVerificationFilter, AgeRangeFilter, LastLoginFilter,
-        DaysSinceSignupFilter, ProfileCompletenessFilter, EventParticipationFilter,
-        'gender', 'completion_status', CoachAssignmentFilter, 'preferred_language', 'looking_for', 'created_at'
+        # Approval & Status
+        'is_approved',
+        'is_active',
+
+        # NEW: Email & Privacy Filters (Production-Informed Priorities)
+        EmailVerificationStatusFilter,  # Priority 1: 58% unverified
+        PrivacySettingsFilter,           # Priority 2: 95% name privacy
+
+        # User Verification
+        PhoneVerificationFilter,
+
+        # User Segmentation
+        AgeRangeFilter,
+        LastLoginFilter,
+        DaysSinceSignupFilter,
+        ProfileCompletenessFilter,
+        EventParticipationFilter,
+
+        # NEW: Engagement Filters
+        ConnectionActivityFilter,        # Priority 4: Engagement tracking
+        ProfileSubmissionDetailFilter,   # Priority 3: 57% never submitted
+
+        # Direct Fields
+        'gender',
+        'completion_status',
+        CoachAssignmentFilter,
+        'preferred_language',
+        'looking_for',
+        'created_at'
     )
     search_fields = ('user__username', 'user__email', 'location', 'bio', 'phone_number')
     ordering = ['-created_at']  # Most recent profiles first
@@ -225,6 +254,9 @@ class CrushProfileAdmin(admin.ModelAdmin):
 
     def changelist_view(self, request, extra_context=None):
         """Add filter counts for quick filter tabs with mutually exclusive categories"""
+        from allauth.account.models import EmailAddress
+        from django.db.models import Exists, OuterRef
+
         extra_context = extra_context or {}
 
         # Mutually exclusive categories for clearer understanding
@@ -250,6 +282,57 @@ class CrushProfileAdmin(admin.ModelAdmin):
             completion_status__in=['completed', 'submitted']
         ).count()
 
+        # NEW: Email verification count (Priority 1)
+        unverified_email = CrushProfile.objects.filter(
+            ~Exists(
+                EmailAddress.objects.filter(
+                    user_id=OuterRef('user_id'),
+                    verified=True
+                )
+            )
+        ).count()
+
+        # NEW: Privacy-conscious users (Priority 2)
+        high_privacy = CrushProfile.objects.filter(
+            show_full_name=False,
+            show_exact_age=False,
+            blur_photos=True
+        ).count()
+
+        name_privacy = CrushProfile.objects.filter(
+            show_full_name=False
+        ).count()
+
+        # NEW: Never submitted profiles (Priority 3)
+        never_submitted = CrushProfile.objects.filter(
+            ~Exists(
+                ProfileSubmission.objects.filter(
+                    profile_id=OuterRef('id')
+                )
+            )
+        ).count()
+
+        # NEW: No connections (Priority 4)
+        from crush_lu.models import EventConnection
+        no_connections = CrushProfile.objects.filter(
+            ~Exists(
+                EventConnection.objects.filter(
+                    Q(requester__crushprofile__id=OuterRef('id')) |
+                    Q(recipient__crushprofile__id=OuterRef('id'))
+                )
+            )
+        ).count()
+
+        # NEW: Users without profiles (signed in but never started profile creation)
+        from django.contrib.auth.models import User
+        users_without_profile = User.objects.filter(
+            ~Exists(
+                CrushProfile.objects.filter(
+                    user_id=OuterRef('id')
+                )
+            )
+        ).count()
+
         extra_context['filter_counts'] = {
             'total': total,
             'approved': approved,
@@ -257,6 +340,13 @@ class CrushProfileAdmin(admin.ModelAdmin):
             'incomplete': incomplete,
             'incomplete_verified': incomplete_verified,
             'incomplete_unverified': incomplete_unverified,
+            # New production-informed counts
+            'unverified_email': unverified_email,
+            'high_privacy': high_privacy,
+            'name_privacy': name_privacy,
+            'never_submitted': never_submitted,
+            'no_connections': no_connections,
+            'users_without_profile': users_without_profile,
         }
 
         return super().changelist_view(request, extra_context=extra_context)
