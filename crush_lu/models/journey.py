@@ -415,6 +415,78 @@ class JourneyReward(models.Model):
         count += len(self.slideshow_photos) if self.slideshow_photos else 0
         return count
 
+    def get_slideshow_urls(self):
+        """
+        Get slideshow photo URLs using storage backend.
+
+        This method ensures URLs are always generated dynamically using the
+        storage backend's url() method, preventing issues with hardcoded paths.
+
+        Returns:
+            List of dicts with 'url' and 'order' keys
+        """
+        return self.all_slideshow_images
+
+    def validate_slideshow_paths(self):
+        """
+        Validate slideshow_photos JSON structure and path format.
+
+        Returns:
+            Tuple of (is_valid, error_messages)
+        """
+        errors = []
+
+        if not self.slideshow_photos:
+            return True, []
+
+        if not isinstance(self.slideshow_photos, list):
+            errors.append(f"slideshow_photos must be a list, got {type(self.slideshow_photos)}")
+            return False, errors
+
+        for idx, item in enumerate(self.slideshow_photos):
+            if not isinstance(item, dict):
+                errors.append(f"Item {idx} must be a dict, got {type(item)}")
+                continue
+
+            # Check required 'path' key
+            if 'path' not in item:
+                errors.append(f"Item {idx} missing required 'path' key")
+                continue
+
+            path = item['path']
+            if not isinstance(path, str):
+                errors.append(f"Item {idx} path must be string, got {type(path)}")
+                continue
+
+            # Validate path format - should be relative, not absolute
+            if path.startswith('/') or ':' in path:
+                errors.append(
+                    f"Item {idx} path appears to be absolute: {path}. "
+                    "Use relative paths compatible with storage backend."
+                )
+
+            # Check order if present
+            if 'order' in item and not isinstance(item['order'], int):
+                errors.append(f"Item {idx} order must be int, got {type(item['order'])}")
+
+        return len(errors) == 0, errors
+
+    def save(self, *args, **kwargs):
+        """Override save to validate slideshow_photos structure."""
+        # Validate slideshow paths before saving
+        is_valid, errors = self.validate_slideshow_paths()
+        if not is_valid:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"JourneyReward {self.id or 'new'}: Invalid slideshow_photos structure. "
+                f"Errors: {errors}"
+            )
+            # Don't raise exception, just log warning to allow saving
+            # This prevents breaking existing data
+
+        super().save(*args, **kwargs)
+
 
 class JourneyProgress(models.Model):
     """

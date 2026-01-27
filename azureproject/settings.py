@@ -114,6 +114,7 @@ INSTALLED_APPS = [
     "vinsdelux",
     "entreprinder",  # Includes merged: matching, finops, vibe_coding
     "power_up",  # Corporate/investor site for power-up.lu
+    "power_up.finops",  # FinOps Hub - Azure cost analytics (submodule)
     "tableau",  # AI Art e-commerce site for tableau.lu
     "arborist",  # Tree care informational site for arborist.lu
     # Allauth apps

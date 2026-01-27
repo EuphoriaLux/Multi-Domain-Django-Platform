@@ -13,6 +13,12 @@ from .models import (
     JourneyChallenge, JourneyProgress, ChapterProgress, ChallengeAttempt,
     JourneyReward, RewardProgress
 )
+from .utils.journey_validation import (
+    normalize_answer,
+    validate_answer_format,
+    sanitize_answer_for_storage,
+    compare_answers
+)
 import json
 import logging
 
@@ -29,12 +35,12 @@ def submit_challenge(request):
     try:
         data = json.loads(request.body)
         challenge_id = data.get('challenge_id')
-        user_answer = data.get('answer', '').strip()
+        user_answer = data.get('answer', '')
 
-        if not challenge_id or not user_answer:
+        if not challenge_id:
             return JsonResponse({
                 'success': False,
-                'message': _('Missing challenge ID or answer')
+                'message': _('Missing challenge ID')
             }, status=400)
 
         # Get the challenge
@@ -45,6 +51,20 @@ def submit_challenge(request):
                 'success': False,
                 'message': _('Challenge not found')
             }, status=404)
+
+        # Validate answer format
+        is_valid, error_message = validate_answer_format(user_answer, challenge.challenge_type)
+        if not is_valid:
+            return JsonResponse({
+                'success': False,
+                'message': error_message
+            }, status=400)
+
+        # Normalize answer for comparison
+        normalized_answer = normalize_answer(user_answer, challenge.challenge_type)
+
+        # Sanitize answer for storage
+        sanitized_answer = sanitize_answer_for_storage(user_answer, challenge.challenge_type)
 
         # Get user's chapter progress
         journey_progress = JourneyProgress.objects.filter(
@@ -88,15 +108,26 @@ def submit_challenge(request):
             points_earned = challenge.points_awarded  # Full points awarded
             hints_used = []  # No hints in questionnaire mode
         else:
-            # Regular validation for other chapters
-            correct_answer = challenge.correct_answer.strip().lower()
-            alternative_answers = [ans.strip().lower() for ans in challenge.alternative_answers]
-            all_valid_answers = [correct_answer] + alternative_answers
+            # Regular validation using utility functions
+            is_correct = compare_answers(
+                user_answer,
+                challenge.correct_answer,
+                challenge.challenge_type
+            )
 
-            is_correct = user_answer.lower() in all_valid_answers
+            # Also check alternative answers if provided
+            if not is_correct and challenge.alternative_answers:
+                for alt_answer in challenge.alternative_answers:
+                    if compare_answers(user_answer, alt_answer, challenge.challenge_type):
+                        is_correct = True
+                        break
 
-            # Get hints used from session
-            hints_used = request.session.get(f'hints_used_{challenge_id}', [])
+            # Get hints used from database (tamper-proof)
+            existing_attempt = ChallengeAttempt.objects.filter(
+                chapter_progress=chapter_progress,
+                challenge=challenge
+            ).first()
+            hints_used = existing_attempt.hints_used if existing_attempt else []
 
             # Calculate points (base points minus hint deductions)
             points_earned = 0
@@ -111,11 +142,11 @@ def submit_challenge(request):
                         points_earned -= challenge.hint_3_cost
                 points_earned = max(0, points_earned)  # Don't go negative
 
-        # Save attempt
+        # Save attempt (use sanitized answer)
         attempt = ChallengeAttempt.objects.create(
             chapter_progress=chapter_progress,
             challenge=challenge,
-            user_answer=user_answer,
+            user_answer=sanitized_answer,
             is_correct=is_correct,
             hints_used=hints_used,
             points_earned=points_earned

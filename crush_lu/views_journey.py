@@ -321,6 +321,78 @@ def chapter_view(request, chapter_number):
         return redirect('crush_lu:journey_map')
 
 
+def _validate_timeline_structure(challenge, options, lang):
+    """
+    Validate timeline event structure and detect issues.
+
+    Args:
+        challenge: JourneyChallenge instance
+        options: options dictionary to validate
+        lang: Language code being checked
+
+    Returns:
+        dict with keys: is_valid, structure_type, warnings
+    """
+    result = {
+        'is_valid': False,
+        'structure_type': None,
+        'warnings': []
+    }
+
+    if not options or not isinstance(options, dict):
+        result['warnings'].append(f"No valid options dict for {lang}")
+        return result
+
+    # Check for clean structure
+    if 'events' in options:
+        if isinstance(options['events'], list):
+            result['is_valid'] = True
+            result['structure_type'] = 'clean'
+
+            # Validate event objects
+            for idx, event in enumerate(options['events']):
+                if not isinstance(event, dict):
+                    result['warnings'].append(
+                        f"Event {idx} in {lang} is not a dict: {type(event)}"
+                    )
+                elif not all(k.startswith('title_') or k.startswith('description_') for k in event.keys()):
+                    # Check for missing required fields
+                    has_title = any(k.startswith('title_') for k in event.keys())
+                    if not has_title:
+                        result['warnings'].append(
+                            f"Event {idx} in {lang} missing title fields"
+                        )
+        else:
+            result['warnings'].append(
+                f"'events' key in {lang} is not a list: {type(options['events'])}"
+            )
+
+    # Check for legacy nested structure
+    nested_keys = [k for k in options.keys() if k.startswith('events_')]
+    if nested_keys:
+        result['structure_type'] = 'legacy_nested'
+        result['warnings'].append(
+            f"LEGACY FORMAT DETECTED in {lang}: Found nested keys {nested_keys}. "
+            "Consider migrating to clean structure with {'events': [...]}"
+        )
+
+        # Validate nested events
+        for key in nested_keys:
+            if not isinstance(options[key], list):
+                result['warnings'].append(
+                    f"Nested key '{key}' in {lang} is not a list: {type(options[key])}"
+                )
+
+    # Mixed structure warning
+    if 'events' in options and nested_keys:
+        result['warnings'].append(
+            f"MIXED STRUCTURE in {lang}: Both 'events' and nested 'events_*' keys found. "
+            "This may cause unpredictable fallback behavior."
+        )
+
+    return result
+
+
 def _get_timeline_events_with_fallback(challenge, requested_lang='en'):
     """
     Extract timeline events with multi-language fallback.
@@ -341,6 +413,9 @@ def _get_timeline_events_with_fallback(challenge, requested_lang='en'):
     supported_languages = get_supported_language_codes()
     fallback_order = [requested_lang] + [lang for lang in supported_languages if lang != requested_lang]
 
+    # Track validation warnings
+    all_warnings = []
+
     for lang in fallback_order:
         # Access language-specific field directly (bypass modeltranslation)
         options = getattr(challenge, f'options_{lang}', None)
@@ -348,8 +423,17 @@ def _get_timeline_events_with_fallback(challenge, requested_lang='en'):
         if not options or not isinstance(options, dict):
             continue
 
+        # Validate structure
+        validation = _validate_timeline_structure(challenge, options, lang)
+        all_warnings.extend(validation['warnings'])
+
         # Clean structure: {'events': [...]}
         if 'events' in options and options['events']:
+            if validation['structure_type'] == 'legacy_nested':
+                logger.warning(
+                    f"Timeline challenge {challenge.id}: Using 'events' from legacy structure in {lang}. "
+                    f"Warnings: {validation['warnings']}"
+                )
             if lang != requested_lang:
                 logger.debug(
                     f"Timeline challenge {challenge.id}: using {lang} fallback "
@@ -360,18 +444,33 @@ def _get_timeline_events_with_fallback(challenge, requested_lang='en'):
         # Legacy nested structure: try requested lang key first
         events_key = f'events_{requested_lang}'
         if events_key in options and options[events_key]:
+            logger.warning(
+                f"Timeline challenge {challenge.id}: Using LEGACY nested structure '{events_key}'. "
+                "Consider migrating to clean {'events': [...]} format."
+            )
             return options[events_key]
 
         # Try any available nested key
         for fb_lang in fallback_order:
             nested_key = f'events_{fb_lang}'
             if nested_key in options and options[nested_key]:
-                logger.debug(
-                    f"Timeline challenge {challenge.id}: using nested {fb_lang} events"
+                logger.warning(
+                    f"Timeline challenge {challenge.id}: Using LEGACY nested structure '{nested_key}' as fallback. "
+                    "Consider migrating to clean {'events': [...]} format."
                 )
                 return options[nested_key]
 
-    logger.warning(f"Timeline challenge {challenge.id}: no events found in any language")
+    # Log all accumulated warnings
+    if all_warnings:
+        logger.error(
+            f"Timeline challenge {challenge.id}: Structure validation warnings:\n" +
+            "\n".join(f"  - {w}" for w in all_warnings)
+        )
+
+    logger.error(
+        f"Timeline challenge {challenge.id}: No valid events found in any language. "
+        f"Checked languages: {fallback_order}"
+    )
     return []
 
 

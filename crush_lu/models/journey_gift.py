@@ -8,7 +8,10 @@ import logging
 import os
 import secrets
 import string
+import time
 import uuid
+from dataclasses import dataclass, field
+from typing import List, Optional
 
 from django.conf import settings
 from django.db import models, transaction
@@ -18,6 +21,17 @@ from django.utils.translation import gettext_lazy as _
 from .profiles import get_crush_photo_storage
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class MediaAttachmentResult:
+    """Result of attaching media files to journey rewards."""
+    chapter: str
+    success: bool
+    error_message: Optional[str] = None
+    files_attached: int = 0
+    files_total: int = 0
+    is_critical: bool = False  # Critical failures should rollback entire claim
 
 # Callable for storage - prevents migration drift
 crush_photo_storage = get_crush_photo_storage
@@ -100,6 +114,7 @@ class JourneyGift(models.Model):
         CLAIMED = 'claimed', _('Claimed')  # Recipient signed up and claimed
         COMPLETED = 'completed', _('Completed')  # Journey finished
         EXPIRED = 'expired', _('Expired')  # Gift expired before being claimed
+        CLAIM_FAILED = 'claim_failed', _('Claim Failed')  # Gift claim failed (retryable)
 
     # Gift identification
     gift_code = models.CharField(
@@ -283,6 +298,19 @@ class JourneyGift(models.Model):
         help_text=_("DEPRECATED: Use chapter5_letter_music instead")
     )
 
+    # Error tracking for failed claims
+    claim_error_message = models.TextField(
+        blank=True,
+        help_text=_("Error message if claim failed")
+    )
+    claim_attempts = models.IntegerField(
+        default=0,
+        help_text=_("Number of claim attempts made")
+    )
+
+    # Class constant for maximum claim attempts
+    MAX_CLAIM_ATTEMPTS = 3
+
     class Meta:
         verbose_name = _("Journey Gift")
         verbose_name_plural = _("Journey Gifts")
@@ -300,10 +328,18 @@ class JourneyGift(models.Model):
 
     @property
     def is_claimable(self):
-        """Check if the gift can still be claimed"""
+        """
+        Check if the gift can still be claimed.
+
+        A gift is claimable if:
+        - Status is PENDING or CLAIM_FAILED (allows retries)
+        - Not expired
+        - Claim attempts haven't exceeded the maximum
+        """
         return (
-            self.status == self.Status.PENDING and
-            not self.is_expired
+            self.status in [self.Status.PENDING, self.Status.CLAIM_FAILED] and
+            not self.is_expired and
+            self.claim_attempts < self.MAX_CLAIM_ATTEMPTS
         )
 
     def get_absolute_url(self):
@@ -369,67 +405,152 @@ class JourneyGift(models.Model):
             JourneyConfiguration: The created journey
 
         Raises:
-            ValueError: If gift is not claimable
+            ValueError: If gift is not claimable or claim fails
         """
         if not self.is_claimable:
+            if self.claim_attempts >= self.MAX_CLAIM_ATTEMPTS:
+                raise ValueError(
+                    f"Maximum claim attempts ({self.MAX_CLAIM_ATTEMPTS}) exceeded. "
+                    "Please contact support for assistance."
+                )
             raise ValueError("This gift cannot be claimed")
 
         from .profiles import SpecialUserExperience
         from .journey import JourneyConfiguration
         from crush_lu.utils.journey_creator import create_wonderland_chapters
 
-        # 1. Get or create SpecialUserExperience (directly linked to user)
-        # A user can only have ONE SpecialUserExperience, but can have multiple journeys
-        special_exp = SpecialUserExperience.objects.filter(linked_user=user).first()
+        # Increment claim attempts at the start
+        self.claim_attempts += 1
+        self.save(update_fields=['claim_attempts'])
 
-        if special_exp:
-            # User already has a SpecialUserExperience - update it with new gift info
-            special_exp.is_active = True
-            special_exp.vip_badge = True
-            special_exp.first_name = user.first_name  # Sync name for consistent matching
-            special_exp.last_name = user.last_name    # Sync name for consistent matching
-            special_exp.save(update_fields=['is_active', 'vip_badge', 'first_name', 'last_name'])
-        else:
-            # Create new SpecialUserExperience for first-time gift recipient
-            special_exp = SpecialUserExperience.objects.create(
-                linked_user=user,
-                first_name=user.first_name,  # Use actual user name for consistent matching
-                last_name=user.last_name,    # Use actual user name for consistent matching
-                is_active=True,
-                auto_approve_profile=True,
-                vip_badge=True,
-                custom_welcome_title=f"Welcome to Your Wonderland, {self.recipient_name}!",
-                custom_welcome_message=f"A journey created just for you by {self.sender.first_name}",
-            )
+        # Use atomic transaction with savepoints for rollback control
+        try:
+            with transaction.atomic():
+                # SAVEPOINT 1: User link
+                sid_user = transaction.savepoint()
 
-        # 2. Create JourneyConfiguration
-        journey = JourneyConfiguration.objects.create(
-            special_experience=special_exp,
-            journey_type='wonderland',
-            journey_name="The Wonderland of You",
-            total_chapters=6,
-            date_first_met=self.date_first_met,
-            location_first_met=self.location_first_met,
-            is_active=True,
-        )
+                # 1. Get or create SpecialUserExperience (directly linked to user)
+                # A user can only have ONE SpecialUserExperience, but can have multiple journeys
+                try:
+                    special_exp = SpecialUserExperience.objects.filter(linked_user=user).first()
 
-        # 3. Create all 6 chapters with challenges
-        create_wonderland_chapters(journey, self.recipient_name, self.date_first_met, self.location_first_met)
+                    if special_exp:
+                        # User already has a SpecialUserExperience - update it with new gift info
+                        special_exp.is_active = True
+                        special_exp.vip_badge = True
+                        special_exp.first_name = user.first_name  # Sync name for consistent matching
+                        special_exp.last_name = user.last_name    # Sync name for consistent matching
+                        special_exp.save(update_fields=['is_active', 'vip_badge', 'first_name', 'last_name'])
+                    else:
+                        # Create new SpecialUserExperience for first-time gift recipient
+                        special_exp = SpecialUserExperience.objects.create(
+                            linked_user=user,
+                            first_name=user.first_name,  # Use actual user name for consistent matching
+                            last_name=user.last_name,    # Use actual user name for consistent matching
+                            is_active=True,
+                            auto_approve_profile=True,
+                            vip_badge=True,
+                            custom_welcome_title=f"Welcome to Your Wonderland, {self.recipient_name}!",
+                            custom_welcome_message=f"A journey created just for you by {self.sender.first_name}",
+                        )
+                except Exception as e:
+                    transaction.savepoint_rollback(sid_user)
+                    error_msg = f"Failed to create/update SpecialUserExperience: {str(e)}"
+                    logger.error(f"Gift {self.gift_code}: {error_msg}", exc_info=True)
+                    self._mark_claim_failed(error_msg)
+                    raise ValueError(error_msg)
 
-        # 4. Attach media to rewards if provided
-        self._attach_media_to_rewards(journey)
+                # SAVEPOINT 2: Journey creation
+                sid_journey = transaction.savepoint()
 
-        # 5. Update gift record
-        self.journey = journey
-        self.special_experience = special_exp
-        self.status = self.Status.CLAIMED
-        self.claimed_by = user
-        self.claimed_at = timezone.now()
-        self.save()
+                # 2. Create JourneyConfiguration
+                try:
+                    journey = JourneyConfiguration.objects.create(
+                        special_experience=special_exp,
+                        journey_type='wonderland',
+                        journey_name="The Wonderland of You",
+                        total_chapters=6,
+                        date_first_met=self.date_first_met,
+                        location_first_met=self.location_first_met,
+                        is_active=True,
+                    )
 
-        return journey
+                    # 3. Create all 6 chapters with challenges
+                    create_wonderland_chapters(
+                        journey,
+                        self.recipient_name,
+                        self.date_first_met,
+                        self.location_first_met
+                    )
+                except Exception as e:
+                    transaction.savepoint_rollback(sid_journey)
+                    error_msg = f"Failed to create journey: {str(e)}"
+                    logger.error(f"Gift {self.gift_code}: {error_msg}", exc_info=True)
+                    self._mark_claim_failed(error_msg)
+                    raise ValueError(error_msg)
 
-    def _attach_media_to_rewards(self, journey):
+                # SAVEPOINT 3: Media attachment
+                sid_media = transaction.savepoint()
+
+                # 4. Attach media to rewards if provided
+                try:
+                    media_results = self._attach_media_to_rewards(journey)
+
+                    # Check for critical failures
+                    critical_failures = [r for r in media_results if not r.success and r.is_critical]
+                    if critical_failures:
+                        # Rollback journey creation if critical media fails
+                        transaction.savepoint_rollback(sid_media)
+                        error_details = [f"{r.chapter}: {r.error_message}" for r in critical_failures]
+                        error_msg = f"Critical media attachment failed: {'; '.join(error_details)}"
+                        logger.error(f"Gift {self.gift_code}: {error_msg}")
+                        self._mark_claim_failed(error_msg)
+                        raise ValueError(error_msg)
+
+                    # Log non-critical failures but continue
+                    non_critical_failures = [r for r in media_results if not r.success and not r.is_critical]
+                    if non_critical_failures:
+                        error_details = [f"{r.chapter}: {r.error_message}" for r in non_critical_failures]
+                        logger.warning(
+                            f"Gift {self.gift_code}: Non-critical media attachment failures: {error_details}"
+                        )
+
+                except Exception as e:
+                    transaction.savepoint_rollback(sid_media)
+                    error_msg = f"Media attachment failed unexpectedly: {str(e)}"
+                    logger.error(f"Gift {self.gift_code}: {error_msg}", exc_info=True)
+                    self._mark_claim_failed(error_msg)
+                    raise ValueError(error_msg)
+
+                # 5. Update gift record - SUCCESS!
+                self.journey = journey
+                self.special_experience = special_exp
+                self.status = self.Status.CLAIMED
+                self.claimed_by = user
+                self.claimed_at = timezone.now()
+                self.claim_error_message = ""  # Clear any previous errors
+                self.save()
+
+                logger.info(f"Gift {self.gift_code}: Successfully claimed by user {user.id}")
+                return journey
+
+        except ValueError:
+            # Re-raise ValueError (already handled and logged)
+            raise
+        except Exception as e:
+            # Catch-all for unexpected errors
+            error_msg = f"Unexpected error during claim: {str(e)}"
+            logger.error(f"Gift {self.gift_code}: {error_msg}", exc_info=True)
+            self._mark_claim_failed(error_msg)
+            raise ValueError(error_msg)
+
+    def _mark_claim_failed(self, error_message):
+        """Mark the gift claim as failed with error details."""
+        self.status = self.Status.CLAIM_FAILED
+        self.claim_error_message = error_message[:1000]  # Limit length
+        self.save(update_fields=['status', 'claim_error_message'])
+
+    def _attach_media_to_rewards(self, journey, max_retries=3):
         """
         Attach uploaded media files to the corresponding JourneyReward objects.
 
@@ -439,19 +560,47 @@ class JourneyGift(models.Model):
         - Chapter 4: Video Message (voice_message)
         - Chapter 5: Future Letter Music (future_letter)
 
-        Uses atomic transaction to ensure all-or-nothing attachment.
-        Logs warnings when expected rewards are not found.
+        Args:
+            journey: JourneyConfiguration to attach media to
+            max_retries: Maximum retry attempts for transient storage failures
+
+        Returns:
+            List[MediaAttachmentResult]: Results for each chapter media attachment
+
+        Note: Uses atomic transaction to ensure consistency. Critical failures
+        will raise exceptions to trigger rollback of entire claim process.
         """
         from .journey import JourneyReward
         from django.core.files.base import ContentFile
+        from django.core.files.storage import default_storage
 
-        attached = {'chapter1': False, 'chapter3': False, 'chapter4': False, 'chapter5': False}
-        errors = []
+        results: List[MediaAttachmentResult] = []
+
+        # Helper function for retrying storage operations
+        def save_with_retry(file_field, filename, file_obj, max_attempts=max_retries):
+            """Save file with exponential backoff retry for transient failures."""
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    file_obj.seek(0)
+                    file_field.save(filename, file_obj, save=True)
+                    return True
+                except Exception as e:
+                    if attempt < max_attempts:
+                        wait_time = 2 ** attempt  # Exponential backoff: 2, 4, 8 seconds
+                        logger.warning(
+                            f"Gift {self.gift_code}: Storage save failed (attempt {attempt}/{max_attempts}). "
+                            f"Retrying in {wait_time}s. Error: {e}"
+                        )
+                        time.sleep(wait_time)
+                    else:
+                        raise
+            return False
 
         # Use atomic transaction to ensure consistency
         with transaction.atomic():
             # Chapter 1: Photo Puzzle
             if self.chapter1_image:
+                chapter = "chapter1"
                 try:
                     reward = JourneyReward.objects.filter(
                         chapter__journey=journey,
@@ -460,26 +609,46 @@ class JourneyGift(models.Model):
                     ).first()
 
                     if not reward:
-                        logger.warning(
-                            f"Gift {self.gift_code}: Chapter 1 photo_reveal reward not found. "
-                            f"Image will not be attached."
-                        )
+                        error_msg = "Chapter 1 photo_reveal reward not found"
+                        logger.warning(f"Gift {self.gift_code}: {error_msg}")
+                        results.append(MediaAttachmentResult(
+                            chapter=chapter,
+                            success=False,
+                            error_message=error_msg,
+                            is_critical=False
+                        ))
                     else:
-                        # Seek to start before passing file object (avoids memory spike)
-                        self.chapter1_image.seek(0)
-                        reward.photo.save(
+                        # Use retry logic for storage operations
+                        save_with_retry(
+                            reward.photo,
                             f"puzzle_{self.gift_code}.jpg",
-                            self.chapter1_image,  # Pass file object directly
-                            save=True
+                            self.chapter1_image
                         )
-                        attached['chapter1'] = True
+                        results.append(MediaAttachmentResult(
+                            chapter=chapter,
+                            success=True,
+                            files_attached=1,
+                            files_total=1
+                        ))
                         logger.info(f"Attached Chapter 1 image to reward {reward.id}")
                 except Exception as e:
-                    errors.append(f"Chapter 1 image: {e}")
-                    logger.error(f"Failed to attach Chapter 1 image: {e}", exc_info=True)
+                    error_msg = f"Failed to attach Chapter 1 image: {str(e)}"
+                    logger.error(f"Gift {self.gift_code}: {error_msg}", exc_info=True)
+                    results.append(MediaAttachmentResult(
+                        chapter=chapter,
+                        success=False,
+                        error_message=error_msg,
+                        is_critical=True  # Core puzzle image is critical
+                    ))
+                    raise  # Re-raise to trigger rollback
 
             # Chapter 3: Photo Slideshow
             if self.chapter3_images:
+                chapter = "chapter3"
+                images = self.chapter3_images
+                total_images = len(images)
+                images_attached = 0
+
                 try:
                     reward = JourneyReward.objects.filter(
                         chapter__journey=journey,
@@ -488,14 +657,18 @@ class JourneyGift(models.Model):
                     ).first()
 
                     if not reward:
-                        logger.warning(
-                            f"Gift {self.gift_code}: Chapter 3 photo_slideshow reward not found. "
-                            f"Slideshow images will not be attached."
-                        )
+                        error_msg = "Chapter 3 photo_slideshow reward not found"
+                        logger.warning(f"Gift {self.gift_code}: {error_msg}")
+                        results.append(MediaAttachmentResult(
+                            chapter=chapter,
+                            success=False,
+                            error_message=error_msg,
+                            files_total=total_images,
+                            is_critical=False
+                        ))
                     else:
                         slideshow_photos = []
-                        images = self.chapter3_images
-                        images_attached = 0
+                        image_errors = []
 
                         for idx, image in enumerate(images):
                             try:
@@ -505,22 +678,40 @@ class JourneyGift(models.Model):
                                 image.seek(0)  # Reset for potential re-read
 
                                 if idx == 0:
-                                    # First image: save to legacy photo field
-                                    reward.photo.save(
+                                    # First image: save to legacy photo field with retry
+                                    content_file = ContentFile(image_content)
+                                    save_with_retry(
+                                        reward.photo,
                                         f"slideshow_{self.gift_code}_1.jpg",
-                                        ContentFile(image_content),
-                                        save=False
+                                        content_file
                                     )
                                     images_attached += 1
                                     logger.info(f"Attached slideshow image 1 to reward {reward.id}")
                                 else:
-                                    # Additional images: save to storage
+                                    # Additional images: save to storage with retry
                                     from .journey import journey_reward_photo_path
 
                                     storage = get_crush_photo_storage()
                                     filename = f"slideshow_{self.gift_code}_{idx + 1}.jpg"
                                     file_path = journey_reward_photo_path(reward, filename)
-                                    saved_path = storage.save(file_path, ContentFile(image_content))
+
+                                    # Retry logic for storage.save
+                                    saved_path = None
+                                    for attempt in range(1, max_retries + 1):
+                                        try:
+                                            saved_path = storage.save(file_path, ContentFile(image_content))
+                                            break
+                                        except Exception as storage_err:
+                                            if attempt < max_retries:
+                                                wait_time = 2 ** attempt
+                                                logger.warning(
+                                                    f"Gift {self.gift_code}: Storage save failed for image {idx + 1} "
+                                                    f"(attempt {attempt}/{max_retries}). Retrying in {wait_time}s."
+                                                )
+                                                time.sleep(wait_time)
+                                            else:
+                                                raise storage_err
+
                                     slideshow_photos.append({
                                         'path': saved_path,
                                         'order': idx
@@ -529,20 +720,58 @@ class JourneyGift(models.Model):
                                     logger.info(f"Attached slideshow image {idx + 1} to storage")
 
                             except Exception as img_err:
-                                logger.error(f"Failed to attach slideshow image {idx + 1}: {img_err}")
-                                continue
+                                error_msg = f"Image {idx + 1}: {str(img_err)}"
+                                image_errors.append(error_msg)
+                                logger.error(f"Gift {self.gift_code}: Failed to attach slideshow image {idx + 1}: {img_err}")
+                                # Continue processing other images (non-critical failures)
 
                         reward.slideshow_photos = slideshow_photos
                         reward.save()
-                        attached['chapter3'] = images_attached > 0
-                        logger.info(f"Attached {images_attached} slideshow images to reward {reward.id}")
+
+                        # Report results
+                        if images_attached == total_images:
+                            results.append(MediaAttachmentResult(
+                                chapter=chapter,
+                                success=True,
+                                files_attached=images_attached,
+                                files_total=total_images
+                            ))
+                        elif images_attached > 0:
+                            # Partial success
+                            results.append(MediaAttachmentResult(
+                                chapter=chapter,
+                                success=True,  # At least some images attached
+                                files_attached=images_attached,
+                                files_total=total_images,
+                                error_message=f"Partial success: {'; '.join(image_errors)}"
+                            ))
+                        else:
+                            # Total failure
+                            results.append(MediaAttachmentResult(
+                                chapter=chapter,
+                                success=False,
+                                error_message=f"All images failed: {'; '.join(image_errors)}",
+                                files_total=total_images,
+                                is_critical=False  # Slideshow not critical to journey
+                            ))
+
+                        logger.info(f"Gift {self.gift_code}: Attached {images_attached}/{total_images} slideshow images")
 
                 except Exception as e:
-                    errors.append(f"Chapter 3 slideshow: {e}")
-                    logger.error(f"Failed to attach Chapter 3 images: {e}", exc_info=True)
+                    error_msg = f"Failed to attach Chapter 3 images: {str(e)}"
+                    logger.error(f"Gift {self.gift_code}: {error_msg}", exc_info=True)
+                    results.append(MediaAttachmentResult(
+                        chapter=chapter,
+                        success=False,
+                        error_message=error_msg,
+                        files_attached=images_attached,
+                        files_total=total_images,
+                        is_critical=False
+                    ))
 
             # Chapter 4: Video Message
             if self.chapter4_video:
+                chapter = "chapter4"
                 try:
                     reward = JourneyReward.objects.filter(
                         chapter__journey=journey,
@@ -551,28 +780,43 @@ class JourneyGift(models.Model):
                     ).first()
 
                     if not reward:
-                        logger.warning(
-                            f"Gift {self.gift_code}: Chapter 4 voice_message reward not found. "
-                            f"Video will not be attached."
-                        )
+                        error_msg = "Chapter 4 voice_message reward not found"
+                        logger.warning(f"Gift {self.gift_code}: {error_msg}")
+                        results.append(MediaAttachmentResult(
+                            chapter=chapter,
+                            success=False,
+                            error_message=error_msg,
+                            is_critical=False
+                        ))
                     else:
-                        # Seek to start before passing file object
-                        self.chapter4_video.seek(0)
-                        reward.video_file.save(
+                        # Use retry logic for storage operations
+                        save_with_retry(
+                            reward.video_file,
                             f"message_{self.gift_code}.mp4",
-                            self.chapter4_video,  # Pass file object directly (no memory spike)
-                            save=True
+                            self.chapter4_video
                         )
-                        attached['chapter4'] = True
+                        results.append(MediaAttachmentResult(
+                            chapter=chapter,
+                            success=True,
+                            files_attached=1,
+                            files_total=1
+                        ))
                         logger.info(f"Attached Chapter 4 video to reward {reward.id}")
                 except Exception as e:
-                    errors.append(f"Chapter 4 video: {e}")
-                    logger.error(f"Failed to attach Chapter 4 video: {e}", exc_info=True)
+                    error_msg = f"Failed to attach Chapter 4 video: {str(e)}"
+                    logger.error(f"Gift {self.gift_code}: {error_msg}", exc_info=True)
+                    results.append(MediaAttachmentResult(
+                        chapter=chapter,
+                        success=False,
+                        error_message=error_msg,
+                        is_critical=False  # Video message is nice-to-have
+                    ))
 
             # Chapter 5: Future Letter Music
             # Check both new field (chapter5_letter_music) and legacy field (chapter4_audio)
             letter_music = self.chapter5_letter_music or self.chapter4_audio
             if letter_music:
+                chapter = "chapter5"
                 try:
                     reward = JourneyReward.objects.filter(
                         chapter__journey=journey,
@@ -581,37 +825,58 @@ class JourneyGift(models.Model):
                     ).first()
 
                     if not reward:
-                        logger.warning(
-                            f"Gift {self.gift_code}: Chapter 5 future_letter reward not found. "
-                            f"Letter music will not be attached."
-                        )
+                        error_msg = "Chapter 5 future_letter reward not found"
+                        logger.warning(f"Gift {self.gift_code}: {error_msg}")
+                        results.append(MediaAttachmentResult(
+                            chapter=chapter,
+                            success=False,
+                            error_message=error_msg,
+                            is_critical=False
+                        ))
                     else:
-                        # Seek to start before passing file object
-                        letter_music.seek(0)
-                        reward.audio_file.save(
+                        # Use retry logic for storage operations
+                        save_with_retry(
+                            reward.audio_file,
                             f"letter_music_{self.gift_code}.mp3",
-                            letter_music,  # Pass file object directly
-                            save=True
+                            letter_music
                         )
-                        attached['chapter5'] = True
+                        results.append(MediaAttachmentResult(
+                            chapter=chapter,
+                            success=True,
+                            files_attached=1,
+                            files_total=1
+                        ))
                         logger.info(f"Attached Chapter 5 letter music to reward {reward.id}")
                 except Exception as e:
-                    errors.append(f"Chapter 5 letter music: {e}")
-                    logger.error(f"Failed to attach Chapter 5 letter music: {e}", exc_info=True)
+                    error_msg = f"Failed to attach Chapter 5 letter music: {str(e)}"
+                    logger.error(f"Gift {self.gift_code}: {error_msg}", exc_info=True)
+                    results.append(MediaAttachmentResult(
+                        chapter=chapter,
+                        success=False,
+                        error_message=error_msg,
+                        is_critical=False  # Letter music is nice-to-have
+                    ))
 
         # Log summary
-        attached_count = sum(1 for v in attached.values() if v)
-        total_media = sum(1 for v in [
-            self.chapter1_image, self.chapter3_images, self.chapter4_video,
-            self.chapter5_letter_music or self.chapter4_audio
-        ] if v)
+        successful = [r for r in results if r.success]
+        failed = [r for r in results if not r.success]
+        critical_failures = [r for r in failed if r.is_critical]
 
-        if errors:
+        if critical_failures:
+            error_details = [f"{r.chapter}: {r.error_message}" for r in critical_failures]
+            logger.error(
+                f"Gift {self.gift_code}: Critical media attachment failures. "
+                f"Errors: {error_details}"
+            )
+        elif failed:
+            error_details = [f"{r.chapter}: {r.error_message}" for r in failed]
             logger.warning(
-                f"Gift {self.gift_code}: Media attachment completed with errors. "
-                f"Attached {attached_count}/{total_media} media items. Errors: {errors}"
+                f"Gift {self.gift_code}: Media attachment completed with non-critical errors. "
+                f"Successful: {len(successful)}, Failed: {len(failed)}. Errors: {error_details}"
             )
         else:
             logger.info(
-                f"Gift {self.gift_code}: Successfully attached {attached_count} media items to rewards."
+                f"Gift {self.gift_code}: Successfully attached all {len(successful)} media items to rewards."
             )
+
+        return results
