@@ -211,7 +211,9 @@ document.addEventListener('alpine:init', function() {
                 minutesAgo: 'm ago',
                 hoursAgo: 'h ago',
                 daysAgo: 'd ago',
-                monthsAgo: 'mo ago'
+                monthsAgo: 'mo ago',
+                checking: 'Checking...',
+                checkSubscriptionHealth: 'Check Subscription Health'
             },
 
             // Computed getters for CSP compatibility
@@ -229,6 +231,9 @@ document.addEventListener('alpine:init', function() {
             get disableButtonText() { return this.isDisabling ? 'Disabling...' : 'Disable'; },
             get showEnablingIcon() { return this.isEnabling; },
             get showNotEnablingIcon() { return !this.isEnabling; },
+            // Health check state getters (CSP-safe)
+            get notCheckingHealth() { return !this.checkingHealth; },
+            get checkHealthButtonText() { return this.checkingHealth ? this.i18n.checking || 'Checking...' : this.i18n.checkSubscriptionHealth || 'Check Subscription Health'; },
 
             init: function() {
                 var self = this;
@@ -327,6 +332,8 @@ document.addEventListener('alpine:init', function() {
                 this.i18n.hoursAgo = el.getAttribute('data-i18n-hours-ago') || this.i18n.hoursAgo;
                 this.i18n.daysAgo = el.getAttribute('data-i18n-days-ago') || this.i18n.daysAgo;
                 this.i18n.monthsAgo = el.getAttribute('data-i18n-months-ago') || this.i18n.monthsAgo;
+                this.i18n.checking = el.getAttribute('data-i18n-checking') || this.i18n.checking;
+                this.i18n.checkSubscriptionHealth = el.getAttribute('data-i18n-check-subscription-health') || this.i18n.checkSubscriptionHealth;
             },
 
             // Detect current device's push endpoint and fingerprint for "This device" identification
@@ -733,6 +740,42 @@ document.addEventListener('alpine:init', function() {
                 if (!confirmed) return;
 
                 self.disableRemoteSubscription(subscriptionId);
+            },
+
+            // CSP-safe helper: Check if health status exists for subscription
+            hasHealthStatus: function(subscriptionId) {
+                return !!this.subscriptionHealth[subscriptionId];
+            },
+
+            // CSP-safe helper: Check if subscription is healthy
+            isHealthy: function(subscriptionId) {
+                var health = this.subscriptionHealth[subscriptionId];
+                return health && health.valid && !health.warning;
+            },
+
+            // CSP-safe helper: Check if subscription has old_subscription warning
+            isOldSubscription: function(subscriptionId) {
+                var health = this.subscriptionHealth[subscriptionId];
+                return health && health.warning === 'old_subscription';
+            },
+
+            // CSP-safe helper: Get age text for old subscription
+            getAgeText: function(subscriptionId) {
+                var health = this.subscriptionHealth[subscriptionId];
+                var ageDays = health && health.age_days ? health.age_days : 0;
+                return 'Subscription is ' + ageDays + ' days old';
+            },
+
+            // CSP-safe helper: Check if subscription has high failure count
+            hasHighFailureCount: function(subscriptionId) {
+                var health = this.subscriptionHealth[subscriptionId];
+                return health && health.valid === false && health.reason === 'high_failure_count';
+            },
+
+            // CSP-safe helper: Check if subscription is not found
+            isNotFound: function(subscriptionId) {
+                var health = this.subscriptionHealth[subscriptionId];
+                return health && health.valid === false && health.reason === 'not_found';
             }
         };
     });
@@ -761,7 +804,9 @@ document.addEventListener('alpine:init', function() {
                 minutesAgo: 'm ago',
                 hoursAgo: 'h ago',
                 daysAgo: 'd ago',
-                monthsAgo: 'mo ago'
+                monthsAgo: 'mo ago',
+                checking: 'Checking...',
+                checkSubscriptionHealth: 'Check Subscription Health'
             },
 
             get hasSubscriptions() { return this.subscriptions.length > 0; },
@@ -856,6 +901,8 @@ document.addEventListener('alpine:init', function() {
                 this.i18n.hoursAgo = el.getAttribute('data-i18n-hours-ago') || this.i18n.hoursAgo;
                 this.i18n.daysAgo = el.getAttribute('data-i18n-days-ago') || this.i18n.daysAgo;
                 this.i18n.monthsAgo = el.getAttribute('data-i18n-months-ago') || this.i18n.monthsAgo;
+                this.i18n.checking = el.getAttribute('data-i18n-checking') || this.i18n.checking;
+                this.i18n.checkSubscriptionHealth = el.getAttribute('data-i18n-check-subscription-health') || this.i18n.checkSubscriptionHealth;
             },
 
             // Detect current device's push endpoint and fingerprint for "This device" identification
@@ -1444,6 +1491,28 @@ document.addEventListener('alpine:init', function() {
                 return this.step3Completed
                     ? 'bg-gradient-to-r from-purple-500 to-pink-500'
                     : 'bg-gray-200';
+            },
+
+            // Step navigation button classes (for breadcrumb quick navigation)
+            get step1ButtonClass() {
+                return this.isStep1
+                    ? 'bg-purple-100 text-purple-700 font-medium'
+                    : 'text-gray-500 hover:text-purple-600 hover:bg-purple-50';
+            },
+            get step2ButtonClass() {
+                return this.isStep2
+                    ? 'bg-purple-100 text-purple-700 font-medium'
+                    : 'text-gray-500 hover:text-purple-600 hover:bg-purple-50';
+            },
+            get step3ButtonClass() {
+                return this.isStep3
+                    ? 'bg-purple-100 text-purple-700 font-medium'
+                    : 'text-gray-500 hover:text-purple-600 hover:bg-purple-50';
+            },
+            get step4ButtonClass() {
+                return this.isStep4
+                    ? 'bg-purple-100 text-purple-700 font-medium'
+                    : 'text-gray-500 hover:text-purple-600 hover:bg-purple-50';
             },
 
             init: function() {

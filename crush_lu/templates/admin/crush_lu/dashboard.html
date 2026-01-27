@@ -66,7 +66,7 @@
 
         <div class="date-filter-bar" x-data="dateFilter" data-default-range="{{ date_range|default:'30d' }}">
         <span class="date-filter-label">Date Range:</span>
-        <select class="date-filter-select" x-model="selectedRange">
+        <select class="date-filter-select" :value="selectedRange" @change="setRange($event.target.value)">
             <option value="7d">Last 7 Days</option>
             <option value="30d">Last 30 Days</option>
             <option value="90d">Last 90 Days</option>

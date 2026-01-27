@@ -1,0 +1,13 @@
+.venv/
+node_modules/
+staticfiles/
+locale/
+*.pyc
+*.min.js
+*.min.css
+migrations/
+*.po
+*.mo
+dist/
+build/
+*.egg-info/

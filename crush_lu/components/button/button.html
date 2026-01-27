@@ -1,0 +1,6 @@
+<button
+    type="{{ type }}"
+    class="btn {{ variant_class }} {{ size_class }}"
+    {% if disabled %}disabled{% endif %}>
+    {% slot "default" %}Button{% endslot %}
+</button>

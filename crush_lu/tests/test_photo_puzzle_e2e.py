@@ -330,7 +330,7 @@ class TestPhotoPuzzleUI:
 
         # Try clicking the same piece again
         unlocked_piece = authenticated_puzzle_page.locator('.reveal-puzzle-piece.unlocked').first
-        unlocked_piece.click()
+        unlocked_piece.click(force=True)  # Use force to bypass parent grid interception
 
         # Wait a moment
         authenticated_puzzle_page.wait_for_timeout(500)

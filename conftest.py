@@ -74,6 +74,10 @@ def pytest_configure(config):
     # Force console email backend for tests (no real emails sent)
     settings.EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
 
+    # Set SITE_ID for tests to avoid dynamic site lookup issues with live_server
+    # live_server uses ports like localhost:12345, which don't match Site domains
+    settings.SITE_ID = 1
+
 
 @pytest.fixture(scope='session', autouse=True)
 def _patch_static_storage():

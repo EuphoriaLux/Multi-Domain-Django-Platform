@@ -469,8 +469,7 @@
             {% for cat_key, cat_info in categories.items %}
             <div class="category-section">
                 <div class="category-header {{ cat_info.color }}"
-                     @click="toggleCategory('{{ cat_key }}')"
-                     :class="{ 'expanded': expandedCategories.includes('{{ cat_key }}') }">
+                     @click="toggleCategory('{{ cat_key }}')">
                     <span class="category-icon">
                         {% if cat_info.icon == 'user-circle' %}
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
@@ -490,10 +489,10 @@
                     </span>
                 </div>
 
-                <div class="template-list" x-show="expandedCategories.includes('{{ cat_key }}')" x-transition>
+                <div class="template-list" x-show="isCategoryExpanded('{{ cat_key }}')" x-transition>
                     {% for template in templates_by_category|get_item:cat_key %}
                     <div class="template-item"
-                         :class="{ 'selected': selectedTemplate === '{{ template.key }}' }"
+                         :class="isTemplateSelected('{{ template.key }}') ? 'selected' : ''"
                          @click="selectTemplate('{{ template.key }}', '{{ template.name|escapejs }}')">
                         {{ template.name }}
                         <div class="template-description">{{ template.description|truncatewords:10 }}</div>
@@ -518,10 +517,10 @@
                     <input type="text"
                            class="search-input"
                            placeholder="Search by name or email..."
-                           x-model="userSearchQuery"
-                           @input.debounce.300ms="searchUsers()"
-                           @focus="showSearchResults = true"
-                           @blur.debounce.200ms="showSearchResults = false">
+                           :value="userSearchQuery"
+                           @input="handleSearchInput"
+                           @focus="openSearchResults"
+                           @blur.debounce.200ms="closeSearchResults">
                     <div class="search-results"
                          x-show="showSearchDropdown"
                          x-transition
@@ -553,8 +552,8 @@
             <div class="context-section" x-show="templateRequiresEvent" x-transition>
                 <label>Select Event</label>
                 <select class="context-select"
-                        x-model="selectedEventId"
-                        @change="loadPreview()"
+                        :value="selectedEventId"
+                        @change="handleEventChange"
                         hx-get="{% url 'email_template_load_events' %}"
                         hx-trigger="load"
                         hx-target="this"
@@ -567,9 +566,9 @@
             <div class="context-section" x-show="showConnectionSelector" x-transition>
                 <label>Select Connection</label>
                 <select class="context-select"
-                        x-model="selectedConnectionId"
-                        @change="loadPreview()"
-                        :hx-get="'{% url 'email_template_load_connections' %}?user_id=' + (selectedUser?.id || '')"
+                        :value="selectedConnectionId"
+                        @change="handleConnectionChange"
+                        :hx-get="connectionsUrl"
                         hx-trigger="load"
                         hx-target="this"
                         hx-swap="innerHTML">
@@ -581,8 +580,8 @@
             <div class="context-section" x-show="templateRequiresInvitation" x-transition>
                 <label>Select Invitation</label>
                 <select class="context-select"
-                        x-model="selectedInvitationId"
-                        @change="loadPreview()"
+                        :value="selectedInvitationId"
+                        @change="handleInvitationChange"
                         hx-get="{% url 'email_template_load_invitations' %}"
                         hx-trigger="load"
                         hx-target="this"
@@ -595,8 +594,8 @@
             <div class="context-section" x-show="templateRequiresGift" x-transition>
                 <label>Select Journey Gift</label>
                 <select class="context-select"
-                        x-model="selectedGiftId"
-                        @change="loadPreview()"
+                        :value="selectedGiftId"
+                        @change="handleGiftChange"
                         hx-get="{% url 'email_template_load_gifts' %}"
                         hx-trigger="load"
                         hx-target="this"
@@ -635,10 +634,10 @@
 
         <!-- Preview Tabs -->
         <div class="preview-tabs" x-show="hasPreview">
-            <button class="preview-tab" :class="{ 'active': isHtmlTabActive }" @click="setHtmlMode()">
+            <button class="preview-tab" :class="isHtmlTabActive ? 'active' : ''" @click="setHtmlMode()">
                 HTML Preview
             </button>
-            <button class="preview-tab" :class="{ 'active': isPlainTabActive }" @click="setPlainMode()">
+            <button class="preview-tab" :class="isPlainTabActive ? 'active' : ''" @click="setPlainMode()">
                 Plain Text
             </button>
         </div>
@@ -810,6 +809,10 @@ function emailTemplateManager() {
         },
         get selectedUserId() {
             return this.selectedUser ? this.selectedUser.id : '';
+        },
+        get connectionsUrl() {
+            const userId = this.selectedUser ? this.selectedUser.id : '';
+            return '{% url "email_template_load_connections" %}?user_id=' + userId;
         },
 
         // Methods
@@ -1071,6 +1074,48 @@ function emailTemplateManager() {
         clearMessages() {
             this.successMessage = '';
             this.errorMessage = '';
+        },
+
+        // CSP-safe helper methods
+        isCategoryExpanded(category) {
+            return this.expandedCategories.includes(category);
+        },
+
+        isTemplateSelected(templateKey) {
+            return this.selectedTemplate === templateKey;
+        },
+
+        handleSearchInput(event) {
+            this.userSearchQuery = event.target.value;
+            this.searchUsers();
+        },
+
+        openSearchResults() {
+            this.showSearchResults = true;
+        },
+
+        closeSearchResults() {
+            this.showSearchResults = false;
+        },
+
+        handleEventChange(event) {
+            this.selectedEventId = event.target.value;
+            this.loadPreview();
+        },
+
+        handleConnectionChange(event) {
+            this.selectedConnectionId = event.target.value;
+            this.loadPreview();
+        },
+
+        handleInvitationChange(event) {
+            this.selectedInvitationId = event.target.value;
+            this.loadPreview();
+        },
+
+        handleGiftChange(event) {
+            this.selectedGiftId = event.target.value;
+            this.loadPreview();
         },
 
         // Decode base64 with proper UTF-8 handling

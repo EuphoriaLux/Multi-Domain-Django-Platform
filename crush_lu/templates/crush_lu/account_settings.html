@@ -319,7 +319,8 @@
                     <div class="mb-6">
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" class="sr-only peer" name="unsubscribed_all"
-                                   x-model="unsubscribeAll"
+                                   :checked="unsubscribeAll"
+                                   @change="toggleUnsubscribe"
                                    {% if email_prefs.unsubscribed_all %}checked{% endif %}>
                             <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
                             <span class="ml-3 text-sm font-bold text-red-600">{% trans "Unsubscribe from ALL emails" %}</span>
@@ -415,7 +416,9 @@
              data-i18n-minutes-ago="{% trans "m ago" %}"
              data-i18n-hours-ago="{% trans "h ago" %}"
              data-i18n-days-ago="{% trans "d ago" %}"
-             data-i18n-months-ago="{% trans "mo ago" %}">
+             data-i18n-months-ago="{% trans "mo ago" %}"
+             data-i18n-checking="{% trans "Checking..." %}"
+             data-i18n-check-subscription-health="{% trans "Check Subscription Health" %}">
             <div class="px-6 py-4 border-b border-gray-100">
                 <h5 class="text-lg font-semibold text-gray-900 flex items-center">
                     {% include "shared/icons/bell.html" with class="w-5 h-5 text-purple-600 mr-2" %}
@@ -494,9 +497,9 @@
                                 @click="checkAllSubscriptionsHealth()"
                                 :disabled="checkingHealth"
                                 class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm mb-4 inline-flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                            <span x-show="!checkingHealth">🔍</span>
+                            <span x-show="notCheckingHealth">🔍</span>
                             <span x-show="checkingHealth" class="animate-spin inline-block w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full"></span>
-                            <span x-text="checkingHealth ? '{% trans "Checking..." %}' : '{% trans "Check Subscription Health" %}'"></span>
+                            <span x-text="checkHealthButtonText"></span>
                         </button>
 
                         {% for subscription in push_subscriptions %}
@@ -533,19 +536,19 @@
                             <p class="text-xs text-gray-400 mb-2 pl-7">{% trans "Last active:" %} {{ subscription.last_used_at|timesince }}</p>
 
                             <!-- Health Status Indicators -->
-                            <div x-show="subscriptionHealth[{{ subscription.id }}]" class="mb-4 pl-7">
+                            <div x-show="hasHealthStatus({{ subscription.id }})" class="mb-4 pl-7">
                                 <!-- Healthy -->
-                                <div x-show="subscriptionHealth[{{ subscription.id }}]?.valid && !subscriptionHealth[{{ subscription.id }}]?.warning"
+                                <div x-show="isHealthy({{ subscription.id }})"
                                      class="text-green-600 flex items-center gap-1 text-sm">
                                     <span>✓</span>
                                     <span>{% trans "Healthy" %}</span>
                                 </div>
 
                                 <!-- Warning: old subscription -->
-                                <div x-show="subscriptionHealth[{{ subscription.id }}]?.warning === 'old_subscription'"
+                                <div x-show="isOldSubscription({{ subscription.id }})"
                                      class="text-yellow-600 flex items-center gap-2 text-sm">
                                     <span>⚠</span>
-                                    <span x-text="'{% trans "Subscription is" %} ' + (subscriptionHealth[{{ subscription.id }}]?.age_days || 0) + ' {% trans "days old" %}'"></span>
+                                    <span x-text="getAgeText({{ subscription.id }})"></span>
                                     <button @click="refreshSubscription({{ subscription.id }})"
                                             class="text-purple-600 hover:underline text-xs font-medium">
                                         {% trans "Refresh" %}
@@ -553,7 +556,7 @@
                                 </div>
 
                                 <!-- Invalid: high failure count -->
-                                <div x-show="subscriptionHealth[{{ subscription.id }}]?.valid === false && subscriptionHealth[{{ subscription.id }}]?.reason === 'high_failure_count'"
+                                <div x-show="hasHighFailureCount({{ subscription.id }})"
                                      class="text-red-600 flex items-center gap-2 text-sm">
                                     <span>✗</span>
                                     <span>{% trans "May be expired (send failures detected)" %}</span>
@@ -564,7 +567,7 @@
                                 </div>
 
                                 <!-- Invalid: not found -->
-                                <div x-show="subscriptionHealth[{{ subscription.id }}]?.valid === false && subscriptionHealth[{{ subscription.id }}]?.reason === 'not_found'"
+                                <div x-show="isNotFound({{ subscription.id }})"
                                      class="text-red-600 flex items-center gap-2 text-sm">
                                     <span>✗</span>
                                     <span>{% trans "Subscription not active" %}</span>

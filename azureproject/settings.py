@@ -127,6 +127,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.google",
     "allauth.socialaccount.providers.microsoft",
     # Third-party apps
+    "django_components",  # React-like component system for Django templates
     "crispy_forms",
     "crispy_tailwind",
     "rest_framework",
@@ -784,3 +785,14 @@ PASSKIT_APNS_USE_SANDBOX = os.getenv("PASSKIT_APNS_USE_SANDBOX", "").lower() in 
     "true",
     "yes",
 )
+
+# =============================================================================
+# DJANGO-COMPONENTS SETTINGS
+# =============================================================================
+COMPONENTS = {
+    "dirs": [
+        BASE_DIR / "crush_lu" / "components",
+        BASE_DIR / "shared" / "components",
+    ],
+    "app_dirs": ["components"],
+}

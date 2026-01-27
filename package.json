@@ -11,7 +11,9 @@
     "watch:css:tableau": "tailwindcss -i ./tailwind-src/tableau/tailwind-input.css -o ./tableau/static/tableau/css/tailwind.css --watch",
     "build:css:arborist": "tailwindcss -i ./tailwind-src/arborist/tailwind-input.css -o ./arborist/static/arborist/css/tailwind.css --minify",
     "watch:css:arborist": "tailwindcss -i ./tailwind-src/arborist/tailwind-input.css -o ./arborist/static/arborist/css/tailwind.css --watch",
-    "build:css:all": "npm run build:css && npm run build:css:power-up && npm run build:css:tableau && npm run build:css:arborist"
+    "build:css:all": "npm run build:css && npm run build:css:power-up && npm run build:css:tableau && npm run build:css:arborist",
+    "format": "prettier --write \"**/*.{html,js,css}\"",
+    "format:check": "prettier --check \"**/*.{html,js,css}\""
   },
   "dependencies": {
     "alpinejs": "^3.15.4",
@@ -21,6 +23,8 @@
     "@tailwindcss/cli": "^4.1.18",
     "@tailwindcss/forms": "^0.5.7",
     "@tailwindcss/typography": "^0.5.19",
+    "prettier": "^3.8.1",
+    "prettier-plugin-tailwindcss": "^0.7.2",
     "tailwindcss": "^4.1.18"
   }
 }
