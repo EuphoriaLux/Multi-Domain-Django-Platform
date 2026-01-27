@@ -494,8 +494,8 @@
 
                         <!-- Health Check Button -->
                         <button type="button"
-                                @click="checkAllSubscriptionsHealth()"
-                                :disabled="checkingHealth"
+                                @click="checkAllSubscriptionsHealth"
+                                x-bind:disabled="checkingHealth"
                                 class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm mb-4 inline-flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             <span x-show="notCheckingHealth">🔍</span>
                             <span x-show="checkingHealth" class="animate-spin inline-block w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full"></span>
@@ -504,6 +504,7 @@
 
                         {% for subscription in push_subscriptions %}
                         <div class="{% if not forloop.first %}mt-6 pt-6 border-t border-gray-200{% endif %}"
+                             x-data="subscriptionHealthStatus({{ subscription.id }})"
                              data-subscription-id="{{ subscription.id }}"
                              data-endpoint="{{ subscription.endpoint }}"
                              data-fingerprint="{{ subscription.device_fingerprint }}">
@@ -536,42 +537,42 @@
                             <p class="text-xs text-gray-400 mb-2 pl-7">{% trans "Last active:" %} {{ subscription.last_used_at|timesince }}</p>
 
                             <!-- Health Status Indicators -->
-                            <div x-show="hasHealthStatus({{ subscription.id }})" class="mb-4 pl-7">
+                            <div x-show="hasStatus" class="mb-4 pl-7">
                                 <!-- Healthy -->
-                                <div x-show="isHealthy({{ subscription.id }})"
+                                <div x-show="healthyStatus"
                                      class="text-green-600 flex items-center gap-1 text-sm">
                                     <span>✓</span>
                                     <span>{% trans "Healthy" %}</span>
                                 </div>
 
                                 <!-- Warning: old subscription -->
-                                <div x-show="isOldSubscription({{ subscription.id }})"
+                                <div x-show="oldStatus"
                                      class="text-yellow-600 flex items-center gap-2 text-sm">
                                     <span>⚠</span>
-                                    <span x-text="getAgeText({{ subscription.id }})"></span>
-                                    <button @click="refreshSubscription({{ subscription.id }})"
+                                    <span x-text="ageText"></span>
+                                    <button @click="refreshSubscriptionById"
                                             class="text-purple-600 hover:underline text-xs font-medium">
                                         {% trans "Refresh" %}
                                     </button>
                                 </div>
 
                                 <!-- Invalid: high failure count -->
-                                <div x-show="hasHighFailureCount({{ subscription.id }})"
+                                <div x-show="failureStatus"
                                      class="text-red-600 flex items-center gap-2 text-sm">
                                     <span>✗</span>
                                     <span>{% trans "May be expired (send failures detected)" %}</span>
-                                    <button @click="refreshSubscription({{ subscription.id }})"
+                                    <button @click="refreshSubscriptionById"
                                             class="text-purple-600 hover:underline text-xs font-medium">
                                         {% trans "Fix Now" %}
                                     </button>
                                 </div>
 
                                 <!-- Invalid: not found -->
-                                <div x-show="isNotFound({{ subscription.id }})"
+                                <div x-show="notFoundStatus"
                                      class="text-red-600 flex items-center gap-2 text-sm">
                                     <span>✗</span>
                                     <span>{% trans "Subscription not active" %}</span>
-                                    <button @click="deleteSubscription({{ subscription.id }})"
+                                    <button @click="deleteSubscriptionById"
                                             class="text-purple-600 hover:underline text-xs font-medium">
                                         {% trans "Remove" %}
                                     </button>

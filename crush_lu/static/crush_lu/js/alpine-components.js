@@ -780,6 +780,82 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // CSP-safe wrapper component for individual subscription health status
+    // Creates computed properties for a specific subscription ID
+    Alpine.data('subscriptionHealthStatus', function(subscriptionId) {
+        return {
+            subscriptionId: subscriptionId,
+
+            // Get the parent pushPreferences component
+            get parentComponent() {
+                return this.$root;
+            },
+
+            // CSP-safe computed properties
+            get hasStatus() {
+                var parent = this.parentComponent;
+                return parent.subscriptionHealth && !!parent.subscriptionHealth[this.subscriptionId];
+            },
+
+            get healthyStatus() {
+                var parent = this.parentComponent;
+                var health = parent.subscriptionHealth ? parent.subscriptionHealth[this.subscriptionId] : null;
+                return health && health.valid && !health.warning;
+            },
+
+            get oldStatus() {
+                var parent = this.parentComponent;
+                var health = parent.subscriptionHealth ? parent.subscriptionHealth[this.subscriptionId] : null;
+                return health && health.warning === 'old_subscription';
+            },
+
+            get ageText() {
+                var parent = this.parentComponent;
+                var health = parent.subscriptionHealth ? parent.subscriptionHealth[this.subscriptionId] : null;
+                var ageDays = health && health.age_days ? health.age_days : 0;
+                return 'Subscription is ' + ageDays + ' days old';
+            },
+
+            get failureStatus() {
+                var parent = this.parentComponent;
+                var health = parent.subscriptionHealth ? parent.subscriptionHealth[this.subscriptionId] : null;
+                return health && health.valid === false && health.reason === 'high_failure_count';
+            },
+
+            get notFoundStatus() {
+                var parent = this.parentComponent;
+                var health = parent.subscriptionHealth ? parent.subscriptionHealth[this.subscriptionId] : null;
+                return health && health.valid === false && health.reason === 'not_found';
+            },
+
+            // Pass-through getters for parent properties (for disable button)
+            get isDisabling() {
+                var parent = this.parentComponent;
+                return parent.isDisabling || false;
+            },
+
+            get disableButtonText() {
+                var parent = this.parentComponent;
+                return parent.disableButtonText || 'Disable Notifications';
+            },
+
+            // CSP-safe methods
+            refreshSubscriptionById: function() {
+                var parent = this.parentComponent;
+                if (parent.refreshSubscription) {
+                    parent.refreshSubscription(this.subscriptionId);
+                }
+            },
+
+            deleteSubscriptionById: function() {
+                var parent = this.parentComponent;
+                if (parent.deleteSubscription) {
+                    parent.deleteSubscription(this.subscriptionId);
+                }
+            }
+        };
+    });
+
     // Coach push notification preferences component (account settings and coach dashboard)
     // Separate from user push preferences - completely independent system
     Alpine.data('coachPushPreferences', function() {
