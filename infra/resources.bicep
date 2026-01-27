@@ -355,8 +355,8 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       'GA4_CRUSH_LU'
       'GA4_POWERUP'
       'GA4_ARBORIST'
-      // Application Insights settings
-      'APPINSIGHTS_INSTRUMENTATIONKEY'
+      // Application Insights settings - production only, never swap to staging
+      'APPLICATIONINSIGHTS_CONNECTION_STRING'
       'APPINSIGHTS_PROFILERFEATURE_VERSION'
       'APPINSIGHTS_SNAPSHOTFEATURE_VERSION'
       'ApplicationInsightsAgent_EXTENSION_VERSION'

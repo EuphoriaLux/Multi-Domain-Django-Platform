@@ -156,12 +156,15 @@ def configure_azure_monitor_telemetry():
 
         # Configure Azure Monitor with our custom processor
         # The SDK automatically instruments Django, requests, urllib, psycopg2
+        # Live Metrics enabled for real-time monitoring with 1-second latency
         configure_azure_monitor(
             connection_string=connection_string,
             # Add our custom span processor for exception filtering
             span_processors=[exception_filter],
             # Configure logging integration - use root logger namespace
             logger_name="",  # Empty string = root logger
+            # Enable Live Metrics for real-time dashboard monitoring (1-second latency)
+            enable_live_metrics=True,
         )
 
         logger.info(
