@@ -457,7 +457,7 @@ class JourneyGift(models.Model):
                     transaction.savepoint_rollback(sid_user)
                     error_msg = f"Failed to create/update SpecialUserExperience: {str(e)}"
                     logger.error(f"Gift {self.gift_code}: {error_msg}", exc_info=True)
-                    self._mark_claim_failed(error_msg)
+                    # Don't call _mark_claim_failed here - it will be called in outer except
                     raise ValueError(error_msg)
 
                 # SAVEPOINT 2: Journey creation
@@ -486,7 +486,7 @@ class JourneyGift(models.Model):
                     transaction.savepoint_rollback(sid_journey)
                     error_msg = f"Failed to create journey: {str(e)}"
                     logger.error(f"Gift {self.gift_code}: {error_msg}", exc_info=True)
-                    self._mark_claim_failed(error_msg)
+                    # Don't call _mark_claim_failed here - it will be called in outer except
                     raise ValueError(error_msg)
 
                 # SAVEPOINT 3: Media attachment
@@ -504,7 +504,7 @@ class JourneyGift(models.Model):
                         error_details = [f"{r.chapter}: {r.error_message}" for r in critical_failures]
                         error_msg = f"Critical media attachment failed: {'; '.join(error_details)}"
                         logger.error(f"Gift {self.gift_code}: {error_msg}")
-                        self._mark_claim_failed(error_msg)
+                        # Don't call _mark_claim_failed here - it will be called in outer except
                         raise ValueError(error_msg)
 
                     # Log non-critical failures but continue
@@ -519,7 +519,7 @@ class JourneyGift(models.Model):
                     transaction.savepoint_rollback(sid_media)
                     error_msg = f"Media attachment failed unexpectedly: {str(e)}"
                     logger.error(f"Gift {self.gift_code}: {error_msg}", exc_info=True)
-                    self._mark_claim_failed(error_msg)
+                    # Don't call _mark_claim_failed here - it will be called in outer except
                     raise ValueError(error_msg)
 
                 # 5. Update gift record - SUCCESS!
@@ -534,8 +534,10 @@ class JourneyGift(models.Model):
                 logger.info(f"Gift {self.gift_code}: Successfully claimed by user {user.id}")
                 return journey
 
-        except ValueError:
-            # Re-raise ValueError (already handled and logged)
+        except ValueError as e:
+            # ValueError was raised from inner exception handlers
+            # Mark as failed now that we're outside the atomic block
+            self._mark_claim_failed(str(e))
             raise
         except Exception as e:
             # Catch-all for unexpected errors
@@ -545,7 +547,12 @@ class JourneyGift(models.Model):
             raise ValueError(error_msg)
 
     def _mark_claim_failed(self, error_message):
-        """Mark the gift claim as failed with error details."""
+        """
+        Mark the gift claim as failed with error details.
+
+        Should only be called outside of atomic blocks to ensure the status
+        update is not rolled back.
+        """
         self.status = self.Status.CLAIM_FAILED
         self.claim_error_message = error_message[:1000]  # Limit length
         self.save(update_fields=['status', 'claim_error_message'])
