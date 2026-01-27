@@ -321,7 +321,7 @@
             }
 
             // Re-subscribe using normal flow
-            await subscribeUserToPush();
+            await subscribeToPush();
 
             return true;
         } catch (error) {
@@ -360,8 +360,8 @@
 
     // Export functions for use in Alpine components
     window.CrushPushNotifications = {
-        subscribe: subscribeUserToPush,
-        unsubscribe: unsubscribeFromPushNotifications,
+        subscribe: subscribeToPush,
+        unsubscribe: unsubscribeFromPush,
         checkHealth: checkSubscriptionHealth,
         refresh: refreshPushSubscription
     };
