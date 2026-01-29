@@ -49,6 +49,9 @@ def _env_bool(name, default=False):
 # only when debug is enabled to avoid accidental leakage in production.
 SECRET_KEY = os.getenv("SECRET_KEY")
 
+# Admin API Key for Azure Function App to trigger management commands
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
+
 # Use DJANGO_DEBUG env var to control debug mode (default False)
 DEBUG = _env_bool("DJANGO_DEBUG", False)
 
