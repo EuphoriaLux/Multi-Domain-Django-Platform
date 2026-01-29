@@ -1,0 +1,371 @@
+{% extends 'crush_lu/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Profile Submitted - LuxID Fast Track - Crush.lu" %}{% endblock %}
+
+{% block content %}
+{# LuxID Integration Mockup - For Demonstration Purposes Only #}
+
+{# Hero Banner - LuxID Fast Track #}
+<div class="bg-gradient-to-r from-purple-600 via-blue-500 to-green-400 text-white py-6 shadow-lg mb-6">
+    <div class="max-w-5xl mx-auto px-4">
+        <div class="flex items-center justify-between flex-wrap gap-4">
+            <div class="flex items-center gap-4">
+                <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}"
+                     alt="LuxID"
+                     class="w-16 h-16 md:w-20 md:h-20 bg-white rounded-lg p-2 shadow-xl">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold mb-1">
+                        {% trans "Fast Track Verification" %}
+                    </h1>
+                    <p class="text-white/90 text-sm md:text-base">
+                        {% trans "LuxID Verified Account - Expedited Approval Process" %}
+                    </p>
+                </div>
+            </div>
+            <div class="bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 border-2 border-white/30">
+                <span class="font-bold text-sm">✨ {% trans "Screening Call Waived" %}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="flex justify-center py-8">
+    <div class="w-full max-w-3xl px-4">
+        <div class="card">
+            <div class="card-body text-center p-8">
+                {% if submission.status == 'pending' or submission.status == 'under_review' %}
+                    {# Status Icon with LuxID Badge Overlay #}
+                    <div class="flex justify-center mb-6 relative">
+                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center text-4xl shadow-lg">
+                            ⏳
+                        </div>
+                        {# LuxID Badge Overlay #}
+                        <div class="absolute -bottom-2 -right-2 bg-gradient-to-r from-purple-600 to-blue-500 text-white rounded-full p-2 shadow-lg border-2 border-white">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900">
+                        <span>{% trans "Profile Under Review" %}</span>
+                        <span class="inline-flex items-center ml-2 px-3 py-1 rounded-full text-sm font-semibold bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 border border-purple-300">
+                            ⚡ {% trans "Fast Track" %}
+                        </span>
+                    </h2>
+                    <p class="text-base text-gray-600 mb-6">
+                        {% trans "Your profile is currently being reviewed by our Crush Coaches." %}
+                    </p>
+
+                    {# LuxID Benefit Callout Box #}
+                    <div class="bg-gradient-to-r from-purple-50 via-blue-50 to-green-50 border-2 border-purple-300 rounded-lg p-6 mb-6 text-left shadow-md">
+                        <div class="flex items-start gap-4">
+                            <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}"
+                                 alt="LuxID"
+                                 class="w-16 h-16 flex-shrink-0 bg-white rounded-lg p-2 shadow-sm">
+                            <div class="flex-1">
+                                <h5 class="font-bold text-purple-900 mb-2 text-lg">
+                                    🎉 {% trans "Fast Track Approval with LuxID" %}
+                                </h5>
+                                <p class="text-sm text-gray-700 mb-4">
+                                    {% trans "Because you verified your identity through LuxID, we can skip the screening call and expedite your approval process." %}
+                                </p>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div class="bg-white rounded-lg p-3 text-center border border-green-200">
+                                        <div class="font-bold text-green-600 mb-1">✓ {% trans "No Call Needed" %}</div>
+                                        <div class="text-xs text-gray-600">{% trans "Skip 10-20 min interview" %}</div>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-3 text-center border border-blue-200">
+                                        <div class="font-bold text-blue-600 mb-1">📱 {% trans "No Phone Required" %}</div>
+                                        <div class="text-xs text-gray-600">{% trans "No SMS verification" %}</div>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-3 text-center border border-purple-200">
+                                        <div class="font-bold text-purple-600 mb-1">⚡ {% trans "50% Faster" %}</div>
+                                        <div class="text-xs text-gray-600">{% trans "12-24h vs 24-48h" %}</div>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-3 text-center border border-indigo-200">
+                                        <div class="font-bold text-indigo-600 mb-1">🇱🇺 {% trans "Verified" %}</div>
+                                        <div class="text-xs text-gray-600">{% trans "Luxembourg identity" %}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Current Status Alert #}
+                    <div class="alert alert-warning text-left">
+                        <div class="flex-shrink-0">
+                            {% include "shared/icons/clock.html" with class="w-5 h-5" %}
+                        </div>
+                        <div class="flex-1">
+                            <h5 class="font-semibold mb-2">{% trans "Current Status:" %} {{ submission.get_status_display }}</h5>
+                            <p class="mb-2 text-sm"><strong>{% trans "Submitted:" %}</strong> {% blocktrans with time=submission.submitted_at|timesince %}{{ time }} ago{% endblocktrans %}</p>
+                            {% if submission.coach %}
+                                <p class="mb-0 text-sm"><strong>{% trans "Assigned Coach:" %}</strong> {{ submission.coach.user.get_full_name }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {# Enhanced "What happens next?" with Fast Track Timeline #}
+                    <div class="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-300 rounded-lg p-5 text-left mb-4">
+                        <div class="flex items-start gap-3">
+                            <div class="flex-shrink-0 mt-1">
+                                <div class="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold">
+                                    🚀
+                                </div>
+                            </div>
+                            <div class="flex-1">
+                                <h5 class="font-bold text-blue-900 mb-3 text-lg">{% trans "What happens next?" %}</h5>
+                                <ol class="space-y-3 text-sm">
+                                    <li class="flex items-start gap-3">
+                                        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">1</span>
+                                        <span class="flex-1 pt-0.5">{% trans "Your assigned Crush Coach will review your profile" %}</span>
+                                    </li>
+                                    <li class="flex items-start gap-3">
+                                        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold">✓</span>
+                                        <div class="flex-1">
+                                            <div class="font-semibold text-green-700">
+                                                {% trans "Screening call WAIVED" %} ⚡
+                                            </div>
+                                            <div class="text-xs text-gray-600 mt-1">
+                                                {% trans "LuxID verification allows us to skip the 10-20 minute screening interview and phone verification" %}
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="flex items-start gap-3">
+                                        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">2</span>
+                                        <div class="flex-1 pt-0.5">
+                                            <strong>{% trans "You'll receive feedback within 12-24 hours" %}</strong>
+                                            <span class="inline-flex items-center ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                                {% trans "50% faster" %}
+                                            </span>
+                                        </div>
+                                    </li>
+                                    <li class="flex items-start gap-3">
+                                        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">3</span>
+                                        <span class="flex-1 pt-0.5">{% trans "Once approved, you can register for events!" %}</span>
+                                    </li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Time Savings Comparison #}
+                    <div class="bg-white border-2 border-gray-200 rounded-lg p-5 mb-4">
+                        <h6 class="font-bold text-gray-900 mb-4 text-center">⏱️ {% trans "Time Savings with LuxID" %}</h6>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {# Standard Process #}
+                            <div class="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                                <div class="text-center mb-3">
+                                    <div class="text-xs uppercase tracking-wide text-gray-600 font-semibold mb-1">
+                                        {% trans "Standard Process" %}
+                                    </div>
+                                    <div class="text-2xl font-bold text-gray-700">24-48h</div>
+                                </div>
+                                <ul class="space-y-2 text-xs text-gray-700">
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-gray-400">•</span>
+                                        <span>{% trans "Profile review" %}</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-orange-500">⏳</span>
+                                        <span><strong>{% trans "10-20 min screening call" %}</strong></span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-orange-500">📱</span>
+                                        <span><strong>{% trans "Phone verification (SMS)" %}</strong></span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-gray-400">•</span>
+                                        <span>{% trans "Final approval" %}</span>
+                                    </li>
+                                </ul>
+                            </div>
+                            {# LuxID Fast Track #}
+                            <div class="border-2 border-purple-400 rounded-lg p-4 bg-gradient-to-br from-purple-50 to-blue-50 shadow-md">
+                                <div class="text-center mb-3">
+                                    <div class="text-xs uppercase tracking-wide text-purple-700 font-bold mb-1">
+                                        ⚡ {% trans "LuxID Fast Track" %}
+                                    </div>
+                                    <div class="text-2xl font-bold text-purple-700">12-24h</div>
+                                </div>
+                                <ul class="space-y-2 text-xs text-gray-700">
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-gray-400">•</span>
+                                        <span>{% trans "Profile review" %}</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-green-500">✓</span>
+                                        <span><strong class="text-green-700">{% trans "Screening call skipped" %}</strong></span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-green-500">✓</span>
+                                        <span><strong class="text-green-700">{% trans "Phone verification skipped" %}</strong></span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-gray-400">•</span>
+                                        <span>{% trans "Final approval" %}</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="text-center mt-4 pt-4 border-t border-gray-200">
+                            <div class="text-sm font-semibold text-green-700">
+                                💚 {% trans "Save 10-20 minutes + No phone verification + 50% faster approval" %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Note about editing #}
+                    <div class="bg-gray-50 border border-gray-200 text-gray-700 rounded-lg p-4 text-left mb-4">
+                        <p class="mb-0 text-sm flex items-start gap-2">
+                            <span class="flex-shrink-0 mt-0.5">{% include "shared/icons/information-circle.html" with class="w-5 h-5" %}</span>
+                            <span><strong>{% trans "Note:" %}</strong> {% trans "You cannot edit your profile while it's under review. If you need to make changes, please wait for the review to complete." %}</span>
+                        </p>
+                    </div>
+
+                {% elif submission.status == 'approved' %}
+                    <div class="flex justify-center mb-6">
+                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-4xl shadow-lg">
+                            ✅
+                        </div>
+                    </div>
+                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900">{% trans "Profile Approved!" %}</h2>
+                    <p class="text-base text-green-600 mb-6 font-medium">
+                        {% trans "Congratulations! Your profile has been approved by our coaches." %}
+                    </p>
+
+                    <div class="alert alert-success text-left">
+                        <div class="flex-shrink-0">
+                            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                        </div>
+                        <div class="flex-1">
+                            <p class="mb-0">{% trans "You can now register for events and start making connections!" %}</p>
+                        </div>
+                    </div>
+
+                {% elif submission.status == 'rejected' %}
+                    <div class="flex justify-center mb-6">
+                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-4xl shadow-lg">
+                            ❌
+                        </div>
+                    </div>
+                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900">{% trans "Profile Needs Updates" %}</h2>
+                    <p class="text-base text-red-600 mb-6 font-medium">
+                        {% trans "Your profile needs some updates before it can be approved." %}
+                    </p>
+
+                    {% if submission.feedback_to_user %}
+                    <div class="alert alert-warning text-left border-l-4 border-amber-500">
+                        <div class="flex-shrink-0">
+                            {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5" %}
+                        </div>
+                        <div class="flex-1">
+                            <h5 class="font-semibold mb-2">{% trans "Coach Feedback:" %}</h5>
+                            <div class="text-sm">{{ submission.feedback_to_user|linebreaks }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-4">
+                        <a href="{% url 'crush_lu:edit_profile' %}" class="btn-crush-primary gap-2">
+                            {% include "shared/icons/pencil.html" with class="w-5 h-5" %}
+                            <span>{% trans "Update Your Profile" %}</span>
+                        </a>
+                    </div>
+
+                {% else %}
+                    <div class="flex justify-center mb-6">
+                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-4xl shadow-lg">
+                            ✅
+                        </div>
+                    </div>
+                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900">{% trans "Profile Submitted Successfully!" %}</h2>
+                    <p class="text-base text-gray-600 mb-6">
+                        {% trans "Your profile has been submitted for review by our Crush Coaches." %}
+                    </p>
+                {% endif %}
+
+                {# Coach Information Section #}
+                {% if submission.coach and submission.status != 'rejected' %}
+                <div class="card mb-6 overflow-hidden border-2 border-crush-purple/20">
+                    <div class="bg-gradient-to-r from-crush-purple/10 to-crush-pink/10 px-6 py-3 border-b border-crush-purple/20">
+                        <h6 class="text-sm font-bold text-crush-purple uppercase tracking-wide flex items-center gap-2">
+                            {% include "shared/icons/user.html" with class="w-5 h-5" %}
+                            {% trans "Your Crush Coach" %}
+                        </h6>
+                    </div>
+                    <div class="card-body p-6">
+                        <div class="flex items-start gap-4">
+                            {% if submission.coach.photo %}
+                            <div class="flex-shrink-0">
+                                <img src="{{ submission.coach.photo.url }}"
+                                     alt="{{ submission.coach.user.get_full_name }}"
+                                     class="w-16 h-16 rounded-full object-cover border-2 border-crush-purple/30 shadow-md">
+                            </div>
+                            {% else %}
+                            <div class="flex-shrink-0">
+                                <div class="w-16 h-16 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center text-white text-2xl font-bold shadow-md">
+                                    {{ submission.coach.user.get_full_name|slice:":1"|upper }}
+                                </div>
+                            </div>
+                            {% endif %}
+                            <div class="flex-1">
+                                <h5 class="text-lg font-bold text-gray-900 mb-1">{{ submission.coach.user.get_full_name }}</h5>
+                                {% if submission.coach.specializations %}
+                                <p class="text-sm text-crush-purple font-medium mb-2">{{ submission.coach.specializations }}</p>
+                                {% endif %}
+                                {% if submission.coach.bio %}
+                                <p class="text-sm text-gray-600 mb-3">{{ submission.coach.bio }}</p>
+                                {% endif %}
+                                <div class="flex items-center gap-2 text-sm">
+                                    <a href="mailto:{{ submission.coach.user.email }}"
+                                       class="inline-flex items-center gap-1.5 text-crush-purple hover:text-crush-pink transition-colors font-medium">
+                                        {% include "shared/icons/envelope.html" with class="w-4 h-4" %}
+                                        <span>{% trans "Contact Coach" %}</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {# Action Buttons #}
+                <div class="flex flex-col gap-3">
+                    <a href="{% url 'crush_lu:dashboard' %}" class="btn-crush-primary">
+                        {% trans "Go to Dashboard" %}
+                    </a>
+                    {% if submission.status == 'approved' %}
+                        <a href="{% url 'crush_lu:event_list' %}" class="btn-outline-secondary">
+                            {% trans "Browse Events" %}
+                        </a>
+                    {% else %}
+                        <a href="{% url 'crush_lu:event_list' %}" class="btn-outline-secondary">
+                            {% trans "Browse Events (while you wait)" %}
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {# Mockup Disclaimer #}
+        <div class="mt-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-yellow-700">
+                        <strong>{% trans "Mockup Notice:" %}</strong>
+                        {% trans "This is a demonstration template showing potential LuxID integration benefits. LuxID integration is not yet implemented in production." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

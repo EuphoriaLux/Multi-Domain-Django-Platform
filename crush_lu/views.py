@@ -1196,6 +1196,85 @@ def profile_submitted(request):
     return render(request, 'crush_lu/profile_submitted.html', context)
 
 
+def luxid_mockup_view(request):
+    """Mockup view for LuxID integration demonstration (NOT PRODUCTION)
+
+    This view displays a visual mockup of how the profile submission page would
+    look for users who authenticate via LuxID. It demonstrates the value proposition
+    of LuxID integration: skipping the screening call and faster approval times.
+
+    This is for stakeholder presentations and negotiations only.
+
+    Access restrictions:
+    - Available on: localhost, test.crush.lu (staging)
+    - Blocked on: crush.lu (production)
+    """
+    from django.http import Http404
+    from django.conf import settings
+
+    # Check if we're on production (not DEBUG, not test.* subdomain)
+    host = request.META.get('HTTP_HOST', '').split(':')[0].lower()
+    is_staging = host.startswith('test.')
+    is_development = settings.DEBUG or host in ['localhost', '127.0.0.1']
+
+    # Block access on production
+    if not is_development and not is_staging:
+        raise Http404("This mockup is only available on staging and development environments")
+
+    # Create sample context data for the mockup
+    context = {
+        'submission': {
+            'status': 'pending',
+            'submitted_at': timezone.now() - timedelta(hours=2),
+            'coach': None,
+            'get_status_display': lambda: _('Pending Review'),
+        }
+    }
+    return render(request, 'crush_lu/profile_submitted_luxid_mockup.html', context)
+
+
+def luxid_auth_mockup_view(request):
+    """Mockup view for LuxID login/signup integration (NOT PRODUCTION)
+
+    This view displays a visual mockup of the login/signup page with LuxID
+    as an authentication provider. It demonstrates how LuxID would appear
+    alongside existing social login options (Google, Facebook, Microsoft).
+
+    Key features shown:
+    - LuxID button with Fast Track badge
+    - Benefits callout (government-verified, skip screening, faster approval)
+    - LuxID branding (rainbow gradient)
+    - Hero banner highlighting LuxID integration
+
+    This is for stakeholder presentations and negotiations only.
+
+    Access restrictions:
+    - Available on: localhost, test.crush.lu (staging)
+    - Blocked on: crush.lu (production)
+    """
+    from django.http import Http404
+    from django.conf import settings
+    from .forms import CrushSignupForm
+    from allauth.account.forms import LoginForm
+
+    # Check if we're on production (not DEBUG, not test.* subdomain)
+    host = request.META.get('HTTP_HOST', '').split(':')[0].lower()
+    is_staging = host.startswith('test.')
+    is_development = settings.DEBUG or host in ['localhost', '127.0.0.1']
+
+    # Block access on production
+    if not is_development and not is_staging:
+        raise Http404("This mockup is only available on staging and development environments")
+
+    # Create context data for the mockup (similar to UnifiedAuthView)
+    context = {
+        'signup_form': CrushSignupForm(),
+        'login_form': LoginForm(),
+        'mode': request.GET.get('mode', 'login'),  # Allow switching via ?mode=signup
+    }
+    return render(request, 'crush_lu/auth_luxid_mockup.html', context)
+
+
 # User dashboard
 @crush_login_required
 def dashboard(request):

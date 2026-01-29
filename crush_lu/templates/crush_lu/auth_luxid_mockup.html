@@ -1,0 +1,437 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+{% load socialaccount %}
+{% load static %}
+
+{% block title %}{% if mode == 'signup' %}{% trans "Join" %}{% else %}{% trans "Login" %}{% endif %} - LuxID Integration - Crush.lu{% endblock %}
+
+{% block content %}
+{# LuxID Integration Mockup - Login/Signup Screen #}
+
+{# LuxID Hero Banner #}
+<div class="bg-gradient-to-r from-purple-600 via-blue-500 to-green-400 text-white py-4 shadow-lg mb-6">
+    <div class="max-w-5xl mx-auto px-4">
+        <div class="flex items-center justify-center gap-3">
+            <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}"
+                 alt="LuxID"
+                 class="w-12 h-12 bg-white rounded-lg p-1.5 shadow-xl">
+            <div class="text-center">
+                <div class="text-lg font-bold">
+                    {% trans "Now with LuxID Fast Track" %}
+                </div>
+                <div class="text-sm text-white/90">
+                    {% trans "Skip the screening call • Faster approval" %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="flex justify-center">
+    <div class="w-full max-w-md">
+        <div class="auth-card bg-white rounded-2xl shadow-lg">
+            <div class="p-6 md:p-10">
+                <!-- Tab Navigation - Alpine.js Tabs -->
+                <div x-data="tabNav" data-initial-tab="{% if mode == 'signup' %}signup{% else %}login{% endif %}" class="auth-tabs-container mb-6">
+                    <div class="auth-tabs flex bg-purple-100 rounded-full p-1 border border-purple-200">
+                        <button type="button"
+                                @click="setLogin"
+                                x-bind:class="loginTabClass"
+                                class="flex-1 py-3 px-6 rounded-full font-bold text-lg transition-all duration-300">
+                            {% trans "Login" %}
+                        </button>
+                        <button type="button"
+                                @click="setSignup"
+                                x-bind:class="signupTabClass"
+                                class="flex-1 py-3 px-6 rounded-full font-bold text-lg transition-all duration-300">
+                            {% trans "Join Now" %}
+                        </button>
+                    </div>
+
+                <!-- Social Login Buttons (with LuxID) -->
+                <div class="flex flex-col gap-3 mb-6">
+                    {# LuxID Button - FEATURED (NEW) #}
+                    <a href="#luxid-login" class="social-login-btn luxid-btn"
+                       data-oauth-url="#luxid-login" data-provider="LuxID">
+                        <span class="social-icon">
+                            <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}"
+                                 alt="LuxID"
+                                 class="w-6 h-6">
+                        </span>
+                        <span class="flex-1 text-center font-bold text-white luxid-text">
+                            {% trans "Continue with LuxID" %}
+                        </span>
+                        <span class="text-xs bg-white/20 backdrop-blur-sm text-white px-3 py-1.5 rounded-full font-bold border border-white/30">
+                            {% trans "Fast Track" %}
+                        </span>
+                    </a>
+
+                    {# Existing Social Providers #}
+                    {% get_providers as socialaccount_providers %}
+                    {% if socialaccount_providers %}
+                        {% for provider in socialaccount_providers %}
+                            {% if provider.id == "google" %}
+                    <a href="{% provider_login_url 'google' %}" class="social-login-btn google-btn"
+                       data-oauth-url="{% provider_login_url 'google' %}" data-provider="Google">
+                        <span class="social-icon">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                            </svg>
+                        </span>
+                        {% trans "Continue with Google" %}
+                    </a>
+                            {% endif %}
+                            {% if provider.id == "facebook" %}
+                    <a href="{% provider_login_url 'facebook' %}" class="social-login-btn facebook-btn"
+                       data-oauth-url="{% provider_login_url 'facebook' %}" data-provider="Facebook">
+                        <span class="social-icon">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" fill="#ffffff"/>
+                            </svg>
+                        </span>
+                        {% trans "Continue with Facebook" %}
+                    </a>
+                            {% endif %}
+                            {% if provider.id == "microsoft" %}
+                    <a href="{% provider_login_url 'microsoft' %}" class="social-login-btn microsoft-btn"
+                       data-oauth-url="{% provider_login_url 'microsoft' %}" data-provider="Microsoft">
+                        <span class="social-icon">
+                            <svg viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                                <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                                <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                                <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                            </svg>
+                        </span>
+                        {% trans "Continue with Microsoft" %}
+                    </a>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                {# LuxID Benefits Callout #}
+                <div class="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-300 rounded-lg p-4 mb-6">
+                    <div class="flex items-start gap-3">
+                        <div class="flex-shrink-0 mt-0.5">
+                            <svg class="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <h5 class="font-bold text-purple-900 mb-1 text-sm">
+                                ⚡ {% trans "Why choose LuxID?" %}
+                            </h5>
+                            <ul class="text-xs text-gray-700 space-y-1">
+                                <li class="flex items-start gap-2">
+                                    <span class="text-green-600 font-bold">✓</span>
+                                    <span>{% trans "Government-verified Luxembourg identity" %}</span>
+                                </li>
+                                <li class="flex items-start gap-2">
+                                    <span class="text-green-600 font-bold">✓</span>
+                                    <span>{% trans "Skip 10-20 minute screening call" %}</span>
+                                </li>
+                                <li class="flex items-start gap-2">
+                                    <span class="text-green-600 font-bold">✓</span>
+                                    <span>{% trans "No SMS verification or phone number required" %}</span>
+                                </li>
+                                <li class="flex items-start gap-2">
+                                    <span class="text-green-600 font-bold">✓</span>
+                                    <span>{% trans "50% faster profile approval (12-24h)" %}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="social-login-divider">{% trans "Or use email" %}</div>
+
+                <!-- Tab Content - Alpine.js controlled -->
+                <div>
+                    <!-- Login Panel -->
+                    <div x-show="isLoginTab" x-transition:enter="transition ease-out duration-300"
+                         x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+                        <form method="post" action="{% url 'crush_lu:login' %}" novalidate id="login-form">
+                            {% csrf_token %}
+
+                            {% if login_form.non_field_errors %}
+                                <div class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 mb-4">
+                                    {{ login_form.non_field_errors }}
+                                </div>
+                            {% endif %}
+
+                            <div class="mb-4">
+                                <label for="id_login" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Email" %}</label>
+                                <input type="email" class="w-full px-4 py-3 border {% if login_form.login.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                       id="id_login" name="login"
+                                       value="{{ login_form.login.value|default:'' }}" required autofocus
+                                       placeholder="your@email.com">
+                                {% if login_form.login.errors %}
+                                    <p class="mt-1 text-sm text-red-600">{{ login_form.login.errors.0 }}</p>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-6">
+                                <label for="id_password" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Password" %}</label>
+                                <input type="password" class="w-full px-4 py-3 border {% if login_form.password.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                       id="id_password" name="password" required>
+                                {% if login_form.password.errors %}
+                                    <p class="mt-1 text-sm text-red-600">{{ login_form.password.errors.0 }}</p>
+                                {% endif %}
+                            </div>
+
+                            {% if redirect_field_value %}
+                            <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+                            {% endif %}
+
+                            <button type="submit" class="btn-crush-primary w-full py-3 text-lg font-semibold" id="login-submit-btn">{% trans "Login" %}</button>
+                        </form>
+                    </div>
+
+                    <!-- Signup Panel -->
+                    <div x-show="isSignupTab" x-transition:enter="transition ease-out duration-300"
+                         x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+                        <form method="post" action="{% url 'crush_lu:signup' %}" novalidate id="signup-form">
+                            {% csrf_token %}
+
+                            {% if signup_form.non_field_errors %}
+                                <div class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 mb-4">
+                                    {{ signup_form.non_field_errors }}
+                                </div>
+                            {% endif %}
+
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label for="id_first_name" class="block text-sm font-medium text-gray-700 mb-1">{% trans "First Name" %}</label>
+                                    <input type="text" class="w-full px-4 py-3 border {% if signup_form.first_name.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                           id="id_first_name" name="first_name"
+                                           value="{{ signup_form.first_name.value|default:'' }}" required>
+                                    {% if signup_form.first_name.errors %}
+                                        <p class="mt-1 text-sm text-red-600">{{ signup_form.first_name.errors.0 }}</p>
+                                    {% endif %}
+                                </div>
+
+                                <div>
+                                    <label for="id_last_name" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Last Name" %}</label>
+                                    <input type="text" class="w-full px-4 py-3 border {% if signup_form.last_name.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                           id="id_last_name" name="last_name"
+                                           value="{{ signup_form.last_name.value|default:'' }}" required>
+                                    {% if signup_form.last_name.errors %}
+                                        <p class="mt-1 text-sm text-red-600">{{ signup_form.last_name.errors.0 }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="id_email" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Email" %}</label>
+                                <input type="email" class="w-full px-4 py-3 border {% if signup_form.email.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                       id="id_email" name="email"
+                                       value="{{ signup_form.email.value|default:'' }}" required>
+                                {% if signup_form.email.errors %}
+                                    <p class="mt-1 text-sm text-red-600">{{ signup_form.email.errors.0 }}</p>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="id_password1" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Password" %}</label>
+                                <input type="password" class="w-full px-4 py-3 border {% if signup_form.password1.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                       id="id_password1" name="password1" required>
+                                {% if signup_form.password1.errors %}
+                                    <p class="mt-1 text-sm text-red-600">{{ signup_form.password1.errors.0 }}</p>
+                                {% endif %}
+                                <p class="mt-1 text-sm text-gray-500">{% trans "At least 8 characters" %}</p>
+                            </div>
+
+                            <div class="mb-6">
+                                <label for="id_password2" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Confirm Password" %}</label>
+                                <input type="password" class="w-full px-4 py-3 border {% if signup_form.password2.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                       id="id_password2" name="password2" required>
+                                {% if signup_form.password2.errors %}
+                                    <p class="mt-1 text-sm text-red-600">{{ signup_form.password2.errors.0 }}</p>
+                                {% endif %}
+                            </div>
+
+                            <button type="submit" class="btn-crush-primary w-full py-3 text-lg font-semibold" id="signup-submit-btn">{% trans "Create Account" %}</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Privacy Notice -->
+                <div class="text-center mt-6">
+                    <p class="text-sm text-gray-500">
+                        {% trans "Your privacy is our priority. Crush.lu accounts are separate from other platforms." %}
+                    </p>
+                </div>
+                </div><!-- Close Alpine x-data container -->
+            </div>
+        </div>
+
+        {# Mockup Disclaimer #}
+        <div class="mt-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-yellow-700">
+                        <strong>{% trans "Mockup Notice:" %}</strong>
+                        {% trans "This is a demonstration of LuxID integration. LuxID authentication is not yet implemented in production." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Social login divider */
+.social-login-divider {
+    @apply text-center text-gray-500 text-sm my-6 relative;
+}
+.social-login-divider::before,
+.social-login-divider::after {
+    content: '';
+    @apply absolute top-1/2 w-[calc(50%-3rem)] h-px bg-gray-300;
+}
+.social-login-divider::before { @apply left-0; }
+.social-login-divider::after { @apply right-0; }
+
+/* LuxID Button Styling */
+.luxid-btn {
+    background: linear-gradient(135deg, #7C3AED 0%, #3B82F6 50%, #10B981 100%);
+    @apply text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300;
+    position: relative;
+    overflow: hidden;
+}
+
+.luxid-btn::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        45deg,
+        transparent,
+        rgba(255, 255, 255, 0.1),
+        transparent
+    );
+    transform: rotate(45deg);
+    animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+    100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+.luxid-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(124, 58, 237, 0.5);
+}
+
+.luxid-btn .social-icon {
+    @apply bg-white rounded-md p-1;
+}
+
+/* Improve text readability on gradient */
+.luxid-text {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    position: relative;
+    z-index: 10;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'crush_lu/js/oauth-popup.js' %}"></script>
+<script nonce="{{ request.csp_nonce }}">
+/**
+ * Unified Auth Page Handler - LuxID Mockup Version
+ */
+(function() {
+    'use strict';
+
+    // Check if user is already authenticated
+    (function checkExistingSession() {
+        fetch('/api/auth/status/', {
+            method: 'GET',
+            credentials: 'include',
+            cache: 'no-store',
+            headers: { 'Accept': 'application/json' }
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.authenticated) {
+                console.log('[Crush.lu Auth] Already authenticated, redirecting...');
+                window.location.replace(data.redirect_url || '/dashboard/');
+            }
+        })
+        .catch(function() { /* ignore errors */ });
+    })();
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // LuxID Button Handler (Mockup)
+        var luxidBtn = document.querySelector('.luxid-btn');
+        if (luxidBtn) {
+            luxidBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                alert('LuxID integration is not yet implemented. This is a mockup for demonstration purposes.');
+            });
+        }
+
+        // Form submission handling
+        var loginForm = document.getElementById('login-form');
+        var signupForm = document.getElementById('signup-form');
+        var loginBtn = document.getElementById('login-submit-btn');
+        var signupBtn = document.getElementById('signup-submit-btn');
+
+        // Double-submit prevention for login
+        if (loginForm && loginBtn) {
+            var isLoginSubmitting = false;
+            loginForm.addEventListener('submit', function(e) {
+                if (isLoginSubmitting) {
+                    e.preventDefault();
+                    return false;
+                }
+                isLoginSubmitting = true;
+                loginBtn.disabled = true;
+                loginBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Logging in...';
+            });
+        }
+
+        // Double-submit prevention for signup
+        if (signupForm && signupBtn) {
+            var isSignupSubmitting = false;
+            signupForm.addEventListener('submit', function(e) {
+                if (isSignupSubmitting) {
+                    e.preventDefault();
+                    return false;
+                }
+                isSignupSubmitting = true;
+                signupBtn.disabled = true;
+                signupBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Creating Account...';
+            });
+        }
+
+        // Social login button handling (standard providers only)
+        var socialButtons = document.querySelectorAll('.social-login-btn:not(.luxid-btn)');
+        socialButtons.forEach(function(button) {
+            button.addEventListener('click', function(e) {
+                var providerName = button.getAttribute('data-provider') || 'OAuth';
+                button.classList.add('disabled');
+                button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Redirecting to ' + providerName + '...';
+            });
+        });
+    });
+})();
+</script>
+{% endblock %}

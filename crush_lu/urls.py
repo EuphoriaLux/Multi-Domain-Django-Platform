@@ -138,6 +138,10 @@ urlpatterns = [
     path('create-profile/', views.create_profile, name='create_profile'),
     path('profile-submitted/', views.profile_submitted, name='profile_submitted'),
 
+    # LuxID Integration Mockups (for demonstration/negotiation purposes only)
+    path('mockup/auth-luxid/', views.luxid_auth_mockup_view, name='luxid_auth_mockup'),
+    path('mockup/profile-luxid/', views.luxid_mockup_view, name='luxid_profile_mockup'),
+
     # Profile step-by-step saving (AJAX endpoints)
     path('api/profile/save-step1/', views_profile.save_profile_step1, name='save_profile_step1'),
     path('api/profile/save-step2/', views_profile.save_profile_step2, name='save_profile_step2'),
