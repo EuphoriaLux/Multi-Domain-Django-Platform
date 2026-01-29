@@ -156,6 +156,7 @@ urlpatterns = base_patterns + api_patterns + [
 
     # Admin Sync API (called by Azure Functions for scheduled tasks)
     path('api/admin/sync-contacts/', api_admin_sync.sync_contacts_endpoint, name='api_admin_sync_contacts'),
+    path('api/admin/sync-contacts/delete-all/', api_admin_sync.delete_all_contacts_endpoint, name='api_admin_delete_all_contacts'),
     path('api/admin/sync-contacts/health/', api_admin_sync.sync_contacts_health, name='api_admin_sync_contacts_health'),
 
     # Referral redirect (language-neutral for wallet passes and sharing)

@@ -117,6 +117,73 @@ def sync_contacts_endpoint(request):
 
 
 @csrf_exempt
+@require_http_methods(["POST"])
+def delete_all_contacts_endpoint(request):
+    """
+    Delete all synced Outlook contacts.
+
+    Use with caution - this removes all contacts that have outlook_contact_id.
+
+    Authentication: Bearer token via Authorization header
+
+    Response:
+    {
+        "success": true,
+        "stats": {
+            "total": 161,
+            "deleted": 161,
+            "errors": 0
+        },
+        "timestamp": "2026-01-29T17:00:00Z"
+    }
+    """
+    from django.utils import timezone
+
+    # Authenticate request
+    if not _authenticate_admin_request(request):
+        logger.warning(f"Unauthorized delete attempt from {request.META.get('REMOTE_ADDR')}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Unauthorized'
+        }, status=401)
+
+    # Check if sync is enabled
+    if not is_sync_enabled():
+        logger.warning("Delete endpoint called but OUTLOOK_CONTACT_SYNC_ENABLED is not true")
+        return JsonResponse({
+            'success': False,
+            'error': 'Outlook contact sync is not enabled for this environment'
+        }, status=503)
+
+    try:
+        # Initialize service
+        service = GraphContactsService()
+
+        # Delete all contacts
+        logger.warning("Deleting ALL Outlook contacts via admin API")
+        stats = service.delete_all_contacts()
+
+        logger.info(
+            f"Contact deletion completed: "
+            f"total={stats['total']}, deleted={stats['deleted']}, "
+            f"errors={stats['errors']}"
+        )
+
+        return JsonResponse({
+            'success': True,
+            'stats': stats,
+            'timestamp': timezone.now().isoformat()
+        })
+
+    except Exception as e:
+        logger.error(f"Error during contact deletion: {e}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@csrf_exempt
 @require_http_methods(["GET"])
 def sync_contacts_health(request):
     """
