@@ -615,6 +615,7 @@ class ProfileSubmission(models.Model):
         ('approved', _('Approved')),
         ('rejected', _('Rejected')),
         ('revision', _('Needs Revision')),
+        ('recontact_coach', _('Recontact Coach Required')),
     ]
 
     profile = models.ForeignKey(CrushProfile, on_delete=models.CASCADE)
@@ -684,6 +685,72 @@ class ProfileSubmission(models.Model):
             self.save()
             return True
         return False
+
+
+class CallAttempt(models.Model):
+    """Track all call attempts (both successful and failed) for audit trail"""
+
+    RESULT_CHOICES = [
+        ('success', _('Call Completed')),
+        ('failed', _('Call Failed')),
+    ]
+
+    FAILURE_REASON_CHOICES = [
+        ('no_answer', _('No answer')),
+        ('voicemail', _('Voicemail left')),
+        ('wrong_number', _('Wrong number')),
+        ('user_busy', _('User busy')),
+        ('scheduled_callback', _('Scheduled callback')),
+    ]
+
+    submission = models.ForeignKey(
+        'ProfileSubmission',
+        on_delete=models.CASCADE,
+        related_name='call_attempts',
+        help_text=_("The profile submission this call attempt is for")
+    )
+    attempt_date = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+        help_text=_("When the call attempt was made")
+    )
+    result = models.CharField(
+        max_length=20,
+        choices=RESULT_CHOICES,
+        help_text=_("Whether the call succeeded or failed")
+    )
+    failure_reason = models.CharField(
+        max_length=50,
+        choices=FAILURE_REASON_CHOICES,
+        null=True,
+        blank=True,
+        help_text=_("Reason why call failed (if applicable)")
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text=_("Additional notes about the call attempt")
+    )
+    coach = models.ForeignKey(
+        'CrushCoach',
+        on_delete=models.SET_NULL,
+        null=True,
+        help_text=_("Coach who made the call attempt")
+    )
+
+    class Meta:
+        ordering = ['-attempt_date']
+        verbose_name = _('Call Attempt')
+        verbose_name_plural = _('Call Attempts')
+        indexes = [
+            models.Index(fields=['submission', '-attempt_date']),
+        ]
+
+    def __str__(self):
+        return f"Call attempt for {self.submission.profile.user.get_full_name()} - {self.result} - {self.attempt_date.strftime('%Y-%m-%d %H:%M')}"
+
+    @property
+    def is_failed(self):
+        return self.result == 'failed'
 
 
 class CoachSession(models.Model):

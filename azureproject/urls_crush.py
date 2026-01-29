@@ -31,7 +31,7 @@ from crush_lu.admin_views import (
     email_template_load_invitations,
     email_template_load_gifts,
 )
-from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral
+from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt
@@ -153,6 +153,10 @@ urlpatterns = base_patterns + api_patterns + [
     # Referral API (called from dashboard with hardcoded paths)
     path('api/referral/me/', api_referral.referral_me, name='api_referral_me'),
     path('api/referral/redeem/', api_referral.redeem_points, name='api_referral_redeem'),
+
+    # Admin Sync API (called by Azure Functions for scheduled tasks)
+    path('api/admin/sync-contacts/', api_admin_sync.sync_contacts_endpoint, name='api_admin_sync_contacts'),
+    path('api/admin/sync-contacts/health/', api_admin_sync.sync_contacts_health, name='api_admin_sync_contacts_health'),
 
     # Referral redirect (language-neutral for wallet passes and sharing)
     # This allows https://crush.lu/r/CODE/ to work without language prefix

@@ -1807,6 +1807,63 @@ def coach_mark_review_call_complete(request, submission_id):
 
 
 @crush_login_required
+def coach_log_failed_call(request, submission_id):
+    """Log a failed call attempt - HTMX endpoint"""
+    from .models import CallAttempt
+    from .forms import CallAttemptForm
+
+    # Verify coach access
+    try:
+        coach = CrushCoach.objects.get(user=request.user)
+        if not coach.is_active:
+            messages.error(request, _('Your coach account has been deactivated.'))
+            return redirect('crush_lu:dashboard')
+    except CrushCoach.DoesNotExist:
+        messages.error(request, _('You do not have coach access.'))
+        return redirect('crush_lu:dashboard')
+
+    submission = get_object_or_404(
+        ProfileSubmission.objects.select_related('profile__user'),
+        id=submission_id,
+        coach=coach
+    )
+
+    if request.method == 'POST':
+        form = CallAttemptForm(request.POST)
+        if form.is_valid():
+            # Create failed call attempt
+            attempt = form.save(commit=False)
+            attempt.submission = submission
+            attempt.result = 'failed'
+            attempt.coach = coach
+            attempt.save()
+
+            messages.success(request, _('Failed call attempt logged.'))
+
+            # Return updated screening section via HTMX
+            if request.headers.get('HX-Request'):
+                context = {
+                    'submission': submission,
+                    'profile': submission.profile,
+                }
+                return render(request, 'crush_lu/_screening_call_section.html', context)
+
+            return redirect('crush_lu:coach_review_profile', submission_id=submission.id)
+
+    # For GET or invalid POST, return form
+    context = {
+        'submission': submission,
+        'profile': submission.profile,
+        'form': CallAttemptForm(),
+    }
+
+    if request.headers.get('HX-Request'):
+        return render(request, 'crush_lu/_call_attempt_form.html', context)
+
+    return redirect('crush_lu:coach_review_profile', submission_id=submission.id)
+
+
+@crush_login_required
 def coach_review_profile(request, submission_id):
     """Review a profile submission"""
     try:
@@ -1893,6 +1950,23 @@ def coach_review_profile(request, submission_id):
                         logger.info(f"Profile revision notification sent: push={result.push_success}, email={result.email_sent}")
                 except Exception as e:
                     logger.error(f"Failed to send profile revision request: {e}")
+
+            elif submission.status == 'recontact_coach':
+                messages.info(request, _('User asked to recontact coach.'))
+
+                # Send notification to user
+                try:
+                    from .notification_service import notify_profile_recontact
+                    result = notify_profile_recontact(
+                        user=submission.profile.user,
+                        profile=submission.profile,
+                        coach=coach,
+                        request=request
+                    )
+                    if result.any_delivered:
+                        logger.info(f"Recontact notification sent: push={result.push_success}, email={result.email_sent}")
+                except Exception as e:
+                    logger.error(f"Failed to send recontact notification: {e}")
 
             submission.save()
             return redirect('crush_lu:coach_dashboard')

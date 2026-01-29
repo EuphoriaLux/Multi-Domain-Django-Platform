@@ -32,6 +32,7 @@ class NotificationType(Enum):
     PROFILE_APPROVED = 'profile_approved'
     PROFILE_REVISION = 'profile_revision'
     PROFILE_REJECTED = 'profile_rejected'
+    PROFILE_RECONTACT = 'profile_recontact'
     NEW_MESSAGE = 'new_message'
     NEW_CONNECTION = 'new_connection'
     CONNECTION_ACCEPTED = 'connection_accepted'
@@ -49,6 +50,7 @@ class NotificationType(Enum):
             'profile_approved': 'profile_updates',
             'profile_revision': 'profile_updates',
             'profile_rejected': 'profile_updates',
+            'profile_recontact': 'profile_updates',
             'new_message': 'new_messages',
             'new_connection': 'new_connections',
             'connection_accepted': 'new_connections',
@@ -203,6 +205,9 @@ class NotificationService:
                 feedback = context.get('feedback', context.get('coach_notes', ''))
                 return push_notifications.send_profile_revision_notification(user, feedback) or {}
 
+            elif notification_type == NotificationType.PROFILE_RECONTACT:
+                return push_notifications.send_profile_recontact_notification(user) or {}
+
             elif notification_type == NotificationType.NEW_MESSAGE:
                 message = context.get('message')
                 if message:
@@ -265,6 +270,15 @@ class NotificationService:
                 if profile and request:
                     result = email_helpers.send_profile_rejected_notification(
                         profile, request, reason=feedback
+                    )
+                    return result == 1
+
+            elif notification_type == NotificationType.PROFILE_RECONTACT:
+                profile = context.get('profile')
+                coach = context.get('coach')
+                if profile and coach and request:
+                    result = email_helpers.send_profile_recontact_notification(
+                        profile, coach, request
                     )
                     return result == 1
 
@@ -406,5 +420,15 @@ def notify_event_reminder(user, registration, event, days_until: int = 1, reques
             'event': event,
             'days_until': days_until
         },
+        request=request
+    )
+
+
+def notify_profile_recontact(user, profile, coach, request=None) -> NotificationResult:
+    """Send notification when coach needs user to recontact them."""
+    return NotificationService.notify(
+        user=user,
+        notification_type=NotificationType.PROFILE_RECONTACT,
+        context={'profile': profile, 'coach': coach},
         request=request
     )

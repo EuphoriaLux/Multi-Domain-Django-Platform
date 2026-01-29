@@ -915,6 +915,19 @@ class CrushProfileAdmin(admin.ModelAdmin):
         )
 
 
+class CallAttemptInline(admin.TabularInline):
+    """Inline for viewing call attempts in profile submission"""
+    from crush_lu.models import CallAttempt
+    model = CallAttempt
+    extra = 0
+    readonly_fields = ['attempt_date', 'coach']
+    fields = ['attempt_date', 'result', 'failure_reason', 'notes', 'coach']
+    can_delete = False  # Preserve audit trail
+
+    def has_add_permission(self, request, obj=None):
+        return False  # Only created through coach interface
+
+
 class ProfileSubmissionAdmin(admin.ModelAdmin):
     list_display = (
         'get_profile_link', 'get_user_email', 'get_workflow_status',
@@ -925,6 +938,7 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
     readonly_fields = ('submitted_at', 'get_profile_details')
     # Quick inline editing for common workflow actions
     list_editable = ('review_call_completed', 'status')
+    inlines = [CallAttemptInline]  # Show call attempts in submission detail
     actions = [
         'bulk_approve_profiles',
         'bulk_reject_profiles',

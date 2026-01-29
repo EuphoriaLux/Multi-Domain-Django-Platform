@@ -1,0 +1,51 @@
+{% load i18n %}
+<div class="border border-amber-200 bg-amber-50 rounded-lg p-4">
+    <h6 class="font-semibold text-amber-900 mb-3 flex items-center gap-2">
+        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+        {% trans "Log Failed Call Attempt" %}
+    </h6>
+
+    <form hx-post="{% url 'crush_lu:coach_log_failed_call' submission.id %}"
+          hx-target="#screening-call-section"
+          hx-swap="outerHTML"
+          class="space-y-3">
+        {% csrf_token %}
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+                {% trans "Reason" %} <span class="text-red-500">*</span>
+            </label>
+            <select name="failure_reason" required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+                <option value="">{% trans "Select reason..." %}</option>
+                <option value="no_answer">{% trans "No answer" %}</option>
+                <option value="voicemail">{% trans "Voicemail left" %}</option>
+                <option value="wrong_number">{% trans "Wrong number" %}</option>
+                <option value="user_busy">{% trans "User busy" %}</option>
+                <option value="scheduled_callback">{% trans "Scheduled callback" %}</option>
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+                {% trans "Notes (optional)" %}
+            </label>
+            <textarea name="notes"
+                      rows="2"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                      placeholder="{% trans 'e.g., Left voicemail asking to call back...' %}"></textarea>
+        </div>
+
+        <div class="flex gap-2">
+            <button type="submit"
+                    class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                {% trans "Log Failed Attempt" %}
+            </button>
+            <button type="button"
+                    @click="showFailedCallForm = false"
+                    class="px-4 py-2 border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors">
+                {% trans "Cancel" %}
+            </button>
+        </div>
+    </form>
+</div>

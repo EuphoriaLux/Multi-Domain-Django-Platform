@@ -434,6 +434,35 @@ def send_profile_revision_notification(user, feedback):
     )
 
 
+def send_profile_recontact_notification(user):
+    """
+    Send notification when coach needs user to recontact them.
+
+    Args:
+        user: Django User object
+    """
+    # Check if user wants profile update notifications
+    subscriptions = user.push_subscriptions.filter(enabled=True, notify_profile_updates=True)
+    if not subscriptions.exists():
+        return
+
+    # Use context manager for thread-safe language activation
+    with user_language_context(user):
+        title = _("Coach Needs to Speak With You")
+        body = _("Your coach tried to reach you. Please contact them to complete your screening call.")
+
+    # Use helper for language-prefixed URL
+    url = get_user_language_url(user, 'crush_lu:profile_submitted')
+
+    return send_push_notification(
+        user=user,
+        title=title,
+        body=body,
+        url=url,
+        tag='profile-recontact'
+    )
+
+
 def send_test_notification(user):
     """
     Send a test notification to verify push is working.

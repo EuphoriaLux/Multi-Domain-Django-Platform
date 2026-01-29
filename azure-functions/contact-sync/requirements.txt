@@ -1,0 +1,5 @@
+# Azure Functions runtime
+azure-functions>=1.18.0
+
+# HTTP requests for calling Django API
+requests>=2.31.0

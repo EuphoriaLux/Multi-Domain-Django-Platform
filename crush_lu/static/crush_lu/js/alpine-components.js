@@ -6246,6 +6246,9 @@ document.addEventListener('alpine:init', function() {
             questionsNotes: '',
             finalNotes: '',
 
+            // Failed call form visibility
+            showFailedCallForm: false,
+
             // Required steps for validation
             requiredSteps: ['introductionComplete', 'residenceConfirmed', 'datingPreferenceAsked'],
 

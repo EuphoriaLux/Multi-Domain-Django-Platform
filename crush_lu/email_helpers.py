@@ -434,6 +434,51 @@ def send_profile_rejected_notification(profile, request, reason):
     )
 
 
+def send_profile_recontact_notification(profile, coach, request):
+    """
+    Notify user that their coach needs them to recontact for screening call.
+
+    Args:
+        profile: CrushProfile object
+        coach: CrushCoach object
+        request: Django request object for domain detection
+
+    Returns:
+        int: Number of emails sent
+    """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    # Get user's preferred language
+    lang = get_user_preferred_language(user=profile.user, request=request, default='en')
+
+    # Get base footer URLs
+    base_urls = get_email_base_urls(profile.user, request)
+
+    context = {
+        'user': profile.user,
+        'first_name': profile.user.first_name,
+        'coach': coach,
+        'LANGUAGE_CODE': lang,
+        **base_urls,
+    }
+
+    # Render email in user's preferred language
+    with translation.override(lang):
+        subject = _("Your Crush Coach Needs to Speak With You")
+        html_message = render_to_string('crush_lu/emails/profile_recontact.html', context)
+        plain_message = strip_tags(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[profile.user.email],
+        request=request,
+        fail_silently=False,
+    )
+
+
 def send_event_registration_confirmation(registration, request):
     """
     Send confirmation email for event registration.

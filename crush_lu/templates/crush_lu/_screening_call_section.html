@@ -109,6 +109,34 @@
                     <strong>{% trans "Final Notes:" %}</strong> {{ submission.review_call_notes }}
                 </p>
             {% endif %}
+
+            {% if submission.call_attempts.exists %}
+                <div class="mt-4 border-t border-gray-200 pt-4">
+                    <p class="text-sm font-medium text-gray-700 mb-2">{% trans "Call Attempt History:" %}</p>
+                    <div class="space-y-2">
+                        {% for attempt in submission.call_attempts.all|slice:":5" %}
+                            <div class="flex items-start gap-2 text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                                {% if attempt.result == 'failed' %}
+                                    <span class="text-red-500">{% include "shared/icons/x-circle.html" with class="w-4 h-4 flex-shrink-0" %}</span>
+                                {% else %}
+                                    <span class="text-green-500">{% include "shared/icons/check-circle.html" with class="w-4 h-4 flex-shrink-0" %}</span>
+                                {% endif %}
+                                <div class="flex-1">
+                                    <p class="font-medium">{{ attempt.attempt_date|date:"M d, Y g:i A" }}</p>
+                                    {% if attempt.result == 'failed' %}
+                                        <p>{% trans "Failed:" %} {{ attempt.get_failure_reason_display }}</p>
+                                    {% else %}
+                                        <p>{% trans "Call completed successfully" %}</p>
+                                    {% endif %}
+                                    {% if attempt.notes %}
+                                        <p class="text-gray-500 italic">{{ attempt.notes|truncatewords:15 }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
         </div>
     {% else %}
         {# Not completed - show guideline accordion #}
@@ -555,6 +583,22 @@
                     {% include "shared/icons/exclamation-triangle.html" with class="w-4 h-4" %}
                     {% trans "Please complete all required steps (Introduction, Residence Check, Dating Preference) before submitting." %}
                 </p>
+            </div>
+
+            {# Log Failed Call Attempt #}
+            <div class="mt-4 mb-4">
+                <button type="button"
+                        @click="showFailedCallForm = !showFailedCallForm"
+                        class="w-full border-2 border-dashed border-amber-300 hover:border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-800 font-medium py-2 px-4 rounded-lg transition-colors inline-flex items-center justify-center gap-2">
+                    {% include "shared/icons/phone-x-mark.html" with class="w-5 h-5" %}
+                    <span x-show="showFailedCallForm">{% trans "Cancel" %}</span>
+                    <span x-show="!showFailedCallForm">{% trans "Unable to Reach User? Log Failed Call" %}</span>
+                </button>
+
+                {# Failed call form (shown on button click) #}
+                <div x-show="showFailedCallForm" class="mt-3">
+                    {% include 'crush_lu/_call_attempt_form.html' %}
+                </div>
             </div>
 
             {# Form submission #}

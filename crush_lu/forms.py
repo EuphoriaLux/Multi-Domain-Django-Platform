@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
 from django.utils.translation import gettext_lazy as _
 from allauth.account.forms import SignupForm
-from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, EventRegistration, JourneyGift, EventInvitation
+from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, EventRegistration, JourneyGift, EventInvitation, CallAttempt
 from PIL import Image
 import os
 
@@ -483,6 +483,25 @@ class ProfileReviewForm(forms.ModelForm):
                 'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 '
                          'focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors '
                          'placeholder:text-gray-400'
+            }),
+        }
+
+
+class CallAttemptForm(forms.ModelForm):
+    """Form for logging failed call attempts"""
+
+    class Meta:
+        model = CallAttempt
+        fields = ['failure_reason', 'notes']
+        widgets = {
+            'failure_reason': forms.Select(attrs={
+                'class': TAILWIND_SELECT,
+                'required': True,
+            }),
+            'notes': forms.Textarea(attrs={
+                'rows': 3,
+                'placeholder': _('e.g., Left voicemail asking to call back...'),
+                'class': TAILWIND_TEXTAREA
             }),
         }
 

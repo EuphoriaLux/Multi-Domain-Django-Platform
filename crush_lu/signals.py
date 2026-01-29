@@ -12,7 +12,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.signals import user_logged_in
 from django.core.files.base import ContentFile
 from django.db.models import Q
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from django.utils import timezone
 from allauth.socialaccount.models import SocialAccount
@@ -1320,3 +1320,52 @@ def sync_user_to_outlook_on_name_change(sender, instance, created, update_fields
         service.sync_profile(profile)
     except Exception as e:
         logger.warning(f"Failed to sync user {instance.pk} to Outlook: {e}")
+
+
+@receiver(pre_delete, sender=CrushProfile)
+def delete_outlook_contact_on_profile_delete(sender, instance, **kwargs):
+    """
+    Delete Outlook contact when CrushProfile is deleted (production only).
+
+    This handler fires when:
+    1. A CrushProfile is deleted directly via admin
+    2. A User is deleted (cascades to CrushProfile due to OneToOneField)
+
+    The contact is removed from the shared mailbox to prevent orphaned entries.
+    Only runs in production when OUTLOOK_CONTACT_SYNC_ENABLED=true.
+
+    Args:
+        sender: The model class (CrushProfile)
+        instance: The CrushProfile instance being deleted
+        **kwargs: Additional signal arguments
+    """
+    from crush_lu.services.graph_contacts import GraphContactsService, is_sync_enabled
+
+    # Skip deletion if not in production environment
+    if not is_sync_enabled():
+        return
+
+    # Only delete if profile has an Outlook contact
+    if not instance.outlook_contact_id:
+        logger.debug(f"Profile {instance.pk} has no Outlook contact ID - skipping deletion")
+        return
+
+    try:
+        service = GraphContactsService()
+        success = service.delete_contact(instance.outlook_contact_id)
+
+        if success:
+            logger.info(
+                f"Deleted Outlook contact {instance.outlook_contact_id} for profile {instance.pk} "
+                f"(user: {instance.user.email})"
+            )
+        else:
+            logger.warning(
+                f"Failed to delete Outlook contact {instance.outlook_contact_id} for profile {instance.pk}"
+            )
+    except Exception as e:
+        # Don't fail the deletion if Outlook sync fails
+        # The profile will be deleted regardless, just log the error
+        logger.error(
+            f"Error deleting Outlook contact {instance.outlook_contact_id} for profile {instance.pk}: {e}"
+        )

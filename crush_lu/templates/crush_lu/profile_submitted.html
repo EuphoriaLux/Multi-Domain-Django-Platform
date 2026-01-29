@@ -105,6 +105,31 @@
                         </a>
                     </div>
 
+                {% elif submission.status == 'recontact_coach' %}
+                    <div class="flex justify-center mb-6">
+                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-4xl shadow-lg">
+                            📞
+                        </div>
+                    </div>
+                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900">{% trans "Coach Needs to Speak With You" %}</h2>
+                    <p class="text-base text-purple-600 mb-6 font-medium">
+                        {% trans "Your coach tried to reach you but couldn't connect. Please contact them to complete your screening call." %}
+                    </p>
+
+                    <div class="alert alert-info text-left">
+                        <div class="flex-shrink-0">
+                            {% include "shared/icons/phone.html" with class="w-5 h-5" %}
+                        </div>
+                        <div class="flex-1">
+                            <h5 class="font-semibold mb-2">{% trans "Next Steps:" %}</h5>
+                            <ol class="mb-0 list-decimal ml-5 space-y-1 text-sm">
+                                <li>{% trans "Contact your coach using the information below" %}</li>
+                                <li>{% trans "Schedule a time for your screening call" %}</li>
+                                <li>{% trans "Complete the call to get your profile approved" %}</li>
+                            </ol>
+                        </div>
+                    </div>
+
                 {% else %}
                     <div class="flex justify-center mb-6">
                         <div class="w-20 h-20 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-4xl shadow-lg">
@@ -117,7 +142,7 @@
                     </p>
                 {% endif %}
 
-                {% if submission.coach and submission.status != 'rejected' %}
+                {% if submission.coach and submission.status not in ['rejected', 'approved'] %}
                 <div class="card mb-6 overflow-hidden border-2 border-crush-purple/20">
                     <div class="bg-gradient-to-r from-crush-purple/10 to-crush-pink/10 px-6 py-3 border-b border-crush-purple/20">
                         <h6 class="text-sm font-bold text-crush-purple uppercase tracking-wide flex items-center gap-2">
