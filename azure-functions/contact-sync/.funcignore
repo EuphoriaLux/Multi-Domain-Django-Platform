@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Local development
+local.settings.json
+.env
+.env.*
+
+# Testing
+.pytest_cache/
+tests/
+test_*.py
+*_test.py
+
+# Documentation
+README.md
+*.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Azure Functions
+.azurefunctions/
+.python_packages/
+
+# Logs
+*.log

@@ -6291,6 +6291,10 @@ document.addEventListener('alpine:init', function() {
                     : 'bg-gray-300 cursor-not-allowed';
             },
 
+            get hideFailedCallForm() {
+                return !this.showFailedCallForm;
+            },
+
             // Section visibility getters
             get section1Open() { return this.activeSection === 1; },
             get section2Open() { return this.activeSection === 2; },
@@ -6414,6 +6418,9 @@ document.addEventListener('alpine:init', function() {
             },
             toggleQuestions: function() {
                 this.questionsAnswered = !this.questionsAnswered;
+            },
+            toggleFailedCallForm: function() {
+                this.showFailedCallForm = !this.showFailedCallForm;
             },
 
             // Input handlers for CSP compliance (x-model not supported)

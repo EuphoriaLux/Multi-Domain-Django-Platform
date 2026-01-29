@@ -13,6 +13,10 @@ Environment Variables Required:
 Schedule:
     - Runs daily at 3:00 AM UTC (4:00 AM CET in summer, 3:00 AM CET in winter)
     - NCRONTAB: "0 0 3 * * *" (sec min hour day month weekday)
+
+Deployment:
+    - Automated via GitHub Actions on push to main branch
+    - See .github/workflows/deploy-contact-sync-function.yml
 """
 
 import logging

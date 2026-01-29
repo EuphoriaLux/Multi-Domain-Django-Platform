@@ -1,0 +1,12 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "FUNCTIONS_EXTENSION_VERSION": "~4",
+    "DJANGO_MANAGEMENT_COMMAND_URL": "http://localhost:8000/api/admin/sync-contacts/",
+    "ADMIN_API_KEY": "your-admin-api-key-here",
+    "OUTLOOK_CONTACT_SYNC_ENABLED": "true",
+    "APPLICATIONINSIGHTS_CONNECTION_STRING": ""
+  }
+}

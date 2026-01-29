@@ -1,0 +1,65 @@
+name: Deploy Contact Sync Function
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'azure-functions/contact-sync/**'
+      - '.github/workflows/deploy-contact-sync-function.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://crush-contact-sync.azurewebsites.net
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd azure-functions/contact-sync
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify function app structure
+        run: |
+          cd azure-functions/contact-sync
+          echo "Checking function app files..."
+          ls -la
+          echo "Verifying function_app.py exists..."
+          test -f function_app.py && echo "✓ function_app.py found" || exit 1
+          echo "Verifying host.json exists..."
+          test -f host.json && echo "✓ host.json found" || exit 1
+          echo "Verifying requirements.txt exists..."
+          test -f requirements.txt && echo "✓ requirements.txt found" || exit 1
+
+      - name: Deploy to Azure Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: 'crush-contact-sync'
+          package: 'azure-functions/contact-sync'
+          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE_CONTACT_SYNC }}
+          respect-funcignore: true
+
+      - name: Deployment summary
+        run: |
+          echo "### Deployment Complete 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Function App**: crush-contact-sync" >> $GITHUB_STEP_SUMMARY
+          echo "**Resource Group**: django-app-rg" >> $GITHUB_STEP_SUMMARY
+          echo "**Region**: West Europe" >> $GITHUB_STEP_SUMMARY
+          echo "**Schedule**: Daily at 3:00 AM UTC" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Monitor logs with:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "az webapp log tail --name crush-contact-sync --resource-group django-app-rg" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
