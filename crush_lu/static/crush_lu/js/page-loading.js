@@ -11,10 +11,35 @@
     let loadingTimeout = null;
     const LOADING_DELAY = 500; // Show loader after 500ms if page hasn't loaded
 
+    // State tracking to prevent double-shows and debounce rapid show/hide calls
+    let isShowing = false;
+    let lastHideTime = 0;
+    const DEBOUNCE_TIME = 100; // ms to ignore rapid show calls after hide
+
     /**
      * Show loading overlay with delay to avoid flashing on fast loads
      */
     function showLoadingOverlay() {
+        const now = Date.now();
+
+        // Debounce: ignore if we just hid the overlay (prevents double-shows after redirects)
+        if (now - lastHideTime < DEBOUNCE_TIME) {
+            return;
+        }
+
+        // Already showing, don't show again (prevents multiple overlapping timeouts)
+        if (isShowing) {
+            return;
+        }
+
+        // Check if we should skip this show (set by other scripts like OAuth landing)
+        if (window.__skipNextLoadingOverlay) {
+            window.__skipNextLoadingOverlay = false;
+            return;
+        }
+
+        isShowing = true;
+
         // Clear any existing timeout
         if (loadingTimeout) {
             clearTimeout(loadingTimeout);
@@ -32,6 +57,9 @@
      * Hide loading overlay immediately
      */
     function hideLoadingOverlay() {
+        lastHideTime = Date.now();
+        isShowing = false;
+
         // Clear timeout if load completes quickly
         if (loadingTimeout) {
             clearTimeout(loadingTimeout);

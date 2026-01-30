@@ -2,55 +2,68 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}{% trans "Vinsdelux - Wine Experience E-commerce" %}{% endblock %}
+{% block title %}{% trans "VinsDelux - Wine Adoption Portfolio" %}{% endblock %}
 
 {% block content %}
-<style>
-.image-container {
-    position: relative;
-    overflow: hidden;
-}
-
-.producer-logo {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    opacity: 0;
-    transition: opacity 0.3s ease-in-out;
-    z-index: 1; /* Ensure it's above the region label */
-}
-
-.image-container:hover .producer-logo {
-    opacity: 1;
-}
-</style>
-
-    {# --- HERO SECTION (Unchanged) --- #}
-    {% if homepage_content %}
-    <section class="hero-section bg-light text-center py-5" style="background: url('{{ homepage_content.hero_background_image.url }}') no-repeat center center; background-size: cover;">
-        <div class="hero-content">
-            <h1 class="display-3 fw-bold mb-3">{{ homepage_content.hero_title }}</h1>
-            <p class="lead mb-4">{{ homepage_content.hero_subtitle }}</p>
-            <a href="{% url 'vinsdelux:coffret_list' %}" class="btn btn-primary btn-lg me-2">{% trans "Browse Wine Coffrets" %}</a>
-            <a href="{% url 'vinsdelux:producer_list' %}" class="btn btn-secondary btn-lg">{% trans "Meet Our Producers" %}</a>
-        </div>
-    </section>
-    {% else %}
-    <section class="hero-section bg-light text-center py-5">
-        <div class="hero-content">
-            <h1 class="display-3 fw-bold mb-3">{% trans "Discover Vinsdelux" %}</h1>
-            <p class="lead mb-4">{% trans "Explore our exquisite selection of wines and unique adoption opportunities." %}</p>
-        </div>
-    </section>
-    {% endif %}
-
-    <!-- Wine plot section with wine-plot class for testing -->
-    <div class="wine-plot-container">
-        {% include 'vinsdelux/sections/wine_plots.html' with featured_coffrets=featured_coffrets %}
+<!-- Hero Section -->
+<section class="hero-section bg-light text-center py-5" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+    <div class="container py-5">
+        <h1 class="display-3 fw-bold mb-3">{% trans "VinsDelux Wine Adoption" %}</h1>
+        <p class="lead mb-4">{% trans "Portfolio demonstration of a wine vineyard adoption platform concept" %}</p>
+        <div class="badge bg-white text-dark px-4 py-2 fs-6">{% trans "Portfolio Project" %}</div>
     </div>
+</section>
 
-    {% include 'vinsdelux/sections/client_journey_futuristic.html' with id='client-journey-section' client_journey_steps=client_journey_steps %}
+<!-- Journey Section - Simple Cards -->
+<section id="journey-section" class="journey-section py-5">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="display-5 fw-bold">{% trans "The Adoption Journey" %}</h2>
+            <p class="lead text-muted">{% trans "Five steps from vineyard plot selection to creating your wine legacy" %}</p>
+        </div>
+
+        <div class="row g-4">
+            {% for step in client_journey_steps %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card journey-card h-100 border-0 shadow-sm">
+                    <div class="card-img-wrapper" style="height: 250px; overflow: hidden;">
+                        <picture>
+                            <source srcset="{% static 'vinsdelux/images/journey/step_'|add:step.step|add:'.webp' %}" type="image/webp">
+                            <img src="{% static 'vinsdelux/images/journey/step_'|add:step.step|add:'.png' %}"
+                                 alt="{{ step.title }}"
+                                 class="card-img-top w-100 h-100"
+                                 style="object-fit: cover;"
+                                 loading="lazy">
+                        </picture>
+                    </div>
+                    <div class="card-body">
+                        <div class="badge bg-primary mb-2">{% trans "Step" %} {{ step.step }}</div>
+                        <h5 class="card-title fw-bold">{{ step.title }}</h5>
+                        <p class="card-text text-muted">{{ step.description }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Call to Action -->
+<section class="cta-section bg-light text-center py-5">
+    <div class="container">
+        <h2 class="display-6 fw-bold mb-3">{% trans "Concept Demonstration" %}</h2>
+        <p class="lead mb-4">
+            {% trans "This is a portfolio project showcasing a wine vineyard adoption platform." %}<br>
+            {% trans "Original functionality included interactive plot selection, adoption plans, and producer catalogs." %}
+        </p>
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    {% trans "This simplified version demonstrates the concept without the full e-commerce implementation." %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
 {% endblock %}

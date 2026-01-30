@@ -110,14 +110,29 @@ def django_db_modify_db_settings():
 
 
 @pytest.fixture(scope='session', autouse=True)
-def setup_site_for_live_server(django_db_setup, django_db_blocker):
+def django_db_setup_once(django_db_setup, django_db_blocker):
+    """
+    Ensure migrations run once before parallel test execution.
+    This prevents race conditions when pytest-xdist workers try to
+    apply migrations simultaneously.
+
+    Must run after django_db_setup to ensure database is ready.
+    """
+    with django_db_blocker.unblock():
+        # Force migrations to complete before parallel execution starts
+        from django.core.management import call_command
+        call_command('migrate', '--run-syncdb', verbosity=0, interactive=False)
+
+
+@pytest.fixture(scope='session', autouse=True)
+def setup_site_for_live_server(django_db_setup_once, django_db_blocker):
     """
     Create Site objects at session start for live_server tests.
 
     This must run before any live_server tests start to ensure the
     Site exists in the database when Django's allauth tries to look it up.
 
-    Note: django_db_setup is required to ensure migrations run before
+    Note: django_db_setup_once ensures migrations are fully applied before
     we try to access the Site model.
     """
     with django_db_blocker.unblock():

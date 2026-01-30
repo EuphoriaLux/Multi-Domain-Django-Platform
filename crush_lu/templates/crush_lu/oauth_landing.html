@@ -239,6 +239,8 @@
                 // Timeout - use initial redirect URL (likely /login/)
                 updateStatus('Timeout - redirecting...');
                 console.log('[OAuth Landing] Timeout after', elapsed, 'ms, redirecting to:', INITIAL_REDIRECT_URL);
+                // Signal to page-loading.js to NOT show overlay (prevents double loading indicator)
+                window.__skipNextLoadingOverlay = true;
                 window.location.replace(INITIAL_REDIRECT_URL);
                 return;
             }
@@ -261,6 +263,8 @@
 
                         // Non-popup: redirect to destination
                         updateStatus('Login successful! Redirecting...');
+                        // Signal to page-loading.js to NOT show overlay (prevents double loading indicator)
+                        window.__skipNextLoadingOverlay = true;
                         window.location.replace(redirectUrl);
                     } else {
                         // Not yet authenticated - cookie may still be pending
@@ -299,6 +303,8 @@
                 // Non-popup: short delay then redirect
                 updateStatus('Login successful! Redirecting...');
                 setTimeout(function() {
+                    // Signal to page-loading.js to NOT show overlay (prevents double loading indicator)
+                    window.__skipNextLoadingOverlay = true;
                     window.location.replace(INITIAL_REDIRECT_URL);
                 }, INITIAL_DELAY_MS);
                 return;

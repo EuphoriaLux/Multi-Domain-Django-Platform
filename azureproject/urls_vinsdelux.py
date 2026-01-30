@@ -1,8 +1,9 @@
 # azureproject/urls_vinsdelux.py
 """
-URL configuration for VinsDelux wine e-commerce platform.
+URL configuration for VinsDelux wine adoption portfolio showcase.
 
 This is the URL config used when requests come from vinsdelux.com domain.
+Simplified to portfolio-only (no e-commerce functionality).
 """
 from django.contrib import admin
 from django.urls import path, include

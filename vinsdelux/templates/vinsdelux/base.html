@@ -64,49 +64,14 @@
                                 <i class="fas fa-home me-1"></i>{% trans "Home" %}
                             </a>
                         </li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="fas fa-wine-bottle me-1"></i>{% trans "Products" %}
-                            </a>
-                            <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                                <li><a class="dropdown-item" href="{% url 'vinsdelux:coffret_list' %}">
-                                    <i class="fas fa-box me-2"></i>{% trans "Wine Coffrets" %}
-                                </a></li>
-                                <li><a class="dropdown-item" href="{% url 'vinsdelux:producer_list' %}">
-                                    <i class="fas fa-wine-glass-alt me-2"></i>{% trans "Producers" %}
-                                </a></li>
-                            </ul>
-                        </li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="journeyDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="fas fa-route me-1"></i>{% trans "Your Journey" %}
-                            </a>
-                            <ul class="dropdown-menu" aria-labelledby="journeyDropdown">
-                                <li><a class="dropdown-item" href="{% url 'vinsdelux:plot_selector' %}">
-                                    <i class="fas fa-map me-2"></i>{% trans "Plot Selection" %}
-                                </a></li>
-                                <li><a class="dropdown-item" href="{% url 'vinsdelux:journey_personalize_wine' %}">
-                                    <i class="fas fa-palette me-2"></i>{% trans "Personalize Your Wine" %}
-                                </a></li>
-                                <li><a class="dropdown-item" href="{% url 'vinsdelux:journey_follow_production' %}">
-                                    <i class="fas fa-chart-line me-2"></i>{% trans "Follow Production" %}
-                                </a></li>
-                                <li><a class="dropdown-item" href="{% url 'vinsdelux:journey_receive_taste' %}">
-                                    <i class="fas fa-gift me-2"></i>{% trans "Receive & Taste" %}
-                                </a></li>
-                                <li><a class="dropdown-item" href="{% url 'vinsdelux:journey_create_legacy' %}">
-                                    <i class="fas fa-crown me-2"></i>{% trans "Create Legacy" %}
-                                </a></li>
-                            </ul>
-                        </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="fas fa-shopping-cart me-1"></i>{% trans "Cart" %}
+                            <a class="nav-link" href="#journey-section">
+                                <i class="fas fa-route me-1"></i>{% trans "The Journey" %}
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="fas fa-user me-1"></i>{% trans "Account" %}
+                            <a class="nav-link" href="#about">
+                                <i class="fas fa-info-circle me-1"></i>{% trans "About" %}
                             </a>
                         </li>
                     </ul>
@@ -120,106 +85,50 @@
         {% endblock %}
     </main>
 
-    <footer class="bg-light text-center text-lg-start mt-4">
+    <footer class="bg-light text-center mt-5" id="about">
         <div class="container p-4">
-            <div class="row">
-                <div class="col-lg-6 col-md-12 mb-4 mb-md-0">
-                    <h5 class="text-uppercase">Vinsdelux</h5>
-                    <p class="text-dark">
-                        Explore our exquisite selection of wines and unique adoption opportunities.
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <h5 class="text-uppercase fw-bold mb-3">VinsDelux</h5>
+                    <p class="text-muted">
+                        {% trans "A portfolio demonstration of a wine vineyard adoption platform." %}<br>
+                        {% trans "This project showcases the concept of connecting wine enthusiasts with vineyard plots." %}
                     </p>
-                </div>
-
-                <div class="col-lg-3 col-md-6 mb-4 mb-md-0">
-                    <h5 class="text-uppercase">Links</h5>
-
-                    <ul class="list-unstyled mb-0">
-                        <li>
-                            <a href="#!" class="nav-link">About Us</a>
-                        </li>
-                        <li>
-                            <a href="#!" class="nav-link">Contact Us</a>
-                        </li>
-                        <li>
-                            <a href="#!" class="nav-link">Privacy Policy</a>
-                        </li>
-                        <li>
-                            <a href="#!" class="nav-link">Terms of Service</a>
-                        </li>
-                    </ul>
-                </div>
-
-                <div class="col-lg-3 col-md-6 mb-4 mb-md-0">
-                    <h5 class="text-uppercase mb-0">Connect</h5>
-
-                    <ul class="list-unstyled">
-                        <li>
-                            <a href="#!" class="nav-link">Facebook</a>
-                        </li>
-                        <li>
-                            <a href="#!" class="nav-link">Twitter</a>
-                        </li>
-                        <li>
-                            <a href="#!" class="nav-link">Instagram</a>
-                        </li>
-                    </ul>
+                    <div class="mt-4">
+                        <span class="badge bg-secondary me-2">Django</span>
+                        <span class="badge bg-secondary me-2">Bootstrap 5</span>
+                        <span class="badge bg-secondary me-2">PostgreSQL</span>
+                        <span class="badge bg-secondary">Azure</span>
+                    </div>
                 </div>
             </div>
         </div>
-
-        <div class="text-center p-3" style="background-color: rgba(0, 0, 0, 0.2);">
-            © 2025 Vinsdelux. All rights reserved.
+        <div class="text-center p-3" style="background-color: rgba(0, 0, 0, 0.05);">
+            © 2025 VinsDelux Portfolio Project
         </div>
     </footer>
 
+    <!-- Bootstrap JS (required for responsive navigation) -->
     <script src="{% static 'core/vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
-    
-    <!-- External Libraries -->
-    <!-- Leaflet.js for interactive maps -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <!-- Leaflet Marker Clustering -->
-    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-    
-    <!-- GSAP for smooth animations -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollToPlugin.min.js"></script>
-    
-    <!-- VinsDelux Interactive Features -->
-    <!-- Enhanced map with premium visuals and interactions -->
-    <script src="{% static 'vinsdelux/js/enhanced-map.js' %}"></script>
-    <!-- Simple map functions for adoption plans -->
-    <script src="{% static 'vinsdelux/js/map-init-simple.js' %}"></script>
-    
-    <!-- Module-based features (commented out until properly configured) -->
-    <!-- <script type="module" src="{% static 'vinsdelux/js/animations.js' %}"></script>
-    <script type="module" src="{% static 'vinsdelux/js/plot-selection.js' %}"></script>
-    <script type="module" src="{% static 'vinsdelux/js/vineyard-map.js' %}"></script>
-    <script type="module" src="{% static 'vinsdelux/js/immersive-features.js' %}"></script>
-    <script type="module" src="{% static 'vinsdelux/js/app.js' %}"></script> -->
-    
-    <!-- Futuristic Journey JavaScript -->
-    <script src="{% static 'vinsdelux/js/vdl-journey-futuristic.js' %}"></script>
-    
-    <!-- Journey Step Animations -->
-    <script src="{% static 'vinsdelux/js/vdl-journey-animations.js' %}"></script>
-    
-    <!-- Debug Console (only load in development) -->
-    {% if debug %}
-    <script src="{% static 'vinsdelux/js/vdl-debug-console.js' %}"></script>
-    {% endif %}
-    
-    <!-- Global Configuration -->
+
+    <!-- Simple smooth scroll behavior -->
     <script>
-        // Pass Django configuration to JavaScript
-        window.DEBUG_MODE = {% if debug %}true{% else %}false{% endif %};
-        window.LANGUAGE_CODE = "{{ LANGUAGE_CODE }}";
-        window.API_BASE_URL = "/api";
-        window.ENABLE_ANALYTICS = true;
-        window.MAX_PLOT_SELECTIONS = 5;
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                const href = this.getAttribute('href');
+                if (href !== '#' && href !== '') {
+                    e.preventDefault();
+                    const target = document.querySelector(href);
+                    if (target) {
+                        target.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
+                }
+            });
+        });
     </script>
     
     {% block extra_js %}{% endblock %}

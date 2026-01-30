@@ -1,91 +1,98 @@
 /* ===========================================
-   VINSDELUX CSS ENTRY POINT
-   Premium Wine Adoption Platform
+   VINSDELUX CSS - SIMPLIFIED PORTFOLIO VERSION
+   Wine Adoption Platform Showcase
 
-   This is the main entry point for VinsDelux styles.
-   Import this single file in templates to get all styles.
+   Lightweight CSS for portfolio demonstration.
+   Heavy animations and complex styles removed.
    =========================================== */
 
 /**
- * VinsDelux Design System
+ * VinsDelux Design System (Simplified)
  *
  * Color Palette:
- * - Burgundy (#722F37) - Primary brand color, tradition & wine
- * - Gold (#D4AF37) - Accent, luxury & exclusivity
- * - Cream (#FAF7F2) - Background, elegance
- * - Pearl (#F5F1E8) - Secondary background
- *
- * Typography:
- * - Playfair Display - Headings, luxury feel
- * - Source Serif Pro - Body text, readability
- * - Inter - UI elements, modern clarity
- *
- * Spacing: Golden Ratio based (1.618)
+ * - Burgundy (#722F37) - Primary brand color
+ * - Gold (#D4AF37) - Accent color
+ * - Cream (#FAF7F2) - Background
  */
 
 /* ==========================================
-   CORE - Design Tokens & Variables
+   CORE IMPORTS (Keep minimal essentials)
    ========================================== */
 @import url('core/variables.css');
-
-/* ==========================================
-   LAYOUT - Base styles & structure
-   ========================================== */
 @import url('layout/base.css');
-
-/* ==========================================
-   COMPONENTS - Reusable UI elements
-   ========================================== */
 @import url('components/buttons.css');
-@import url('components/cards.css');
-@import url('components/forms.css');
-@import url('components/map.css');
 
 /* ==========================================
-   PAGES - Page-specific styles
+   SIMPLE JOURNEY CARDS
+   Lightweight cards with no 3D or animations
    ========================================== */
-@import url('pages/plot-selection.css');
-@import url('pages/journey.css');
-@import url('pages/adoption-plans.css');
+.journey-card {
+    transition: box-shadow 0.3s ease, transform 0.2s ease;
+}
 
-/* ==========================================
-   LEGACY SUPPORT
+.journey-card:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+    transform: translateY(-4px);
+}
 
-   These styles provide backward compatibility
-   with older class names during migration.
-   Can be removed after full migration.
-   ========================================== */
+.journey-card .card-img-wrapper {
+    position: relative;
+    overflow: hidden;
+}
 
-/* Map legacy class aliases */
-.wine-card { /* alias for .vdl-card */ }
-.plot-selector { /* alias for plot-selection-container */ }
+.journey-card img {
+    transition: transform 0.3s ease;
+}
 
-/* Ensure smooth transition for existing pages */
-body {
-    /* Override any conflicting base styles */
+.journey-card:hover img {
+    transform: scale(1.05);
+}
+
+/* Journey Section Spacing */
+.journey-section {
+    background: #f8f9fa;
+}
+
+/* Hero Section */
+.hero-section {
+    min-height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* CTA Section */
+.cta-section {
+    border-top: 1px solid #dee2e6;
 }
 
 /* ==========================================
-   PRINT STYLES
+   RESPONSIVE DESIGN
    ========================================== */
-@media print {
-    .vdl-map-section,
-    .game-header,
-    .user-menu,
-    .plot-card-footer {
-        display: none;
+@media (max-width: 768px) {
+    .hero-section h1 {
+        font-size: 2rem !important;
     }
 
-    .vdl-card,
-    .adoption-plan-card {
-        box-shadow: none;
-        border: 1px solid #ccc;
-        break-inside: avoid;
+    .hero-section .lead {
+        font-size: 1rem;
     }
 
-    body {
-        font-size: 12pt;
-        color: black;
-        background: white;
+    .journey-card {
+        margin-bottom: 1.5rem;
     }
 }
+
+/* ==========================================
+   ARCHIVED STYLES
+   Complex page styles removed for simplicity.
+   Original CSS preserved in git history.
+
+   Removed imports:
+   - components/cards.css (using inline styles)
+   - components/forms.css (no forms)
+   - components/map.css (no maps)
+   - pages/plot-selection.css (no plot selector)
+   - pages/journey.css (simplified inline)
+   - pages/adoption-plans.css (no adoption plans)
+   ========================================== */

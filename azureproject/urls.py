@@ -17,8 +17,6 @@ from entreprinder import views as entreprinder_views
 def health_check_view(request):
     return HttpResponse("OK", status=200)
 
-from vinsdelux import views as vinsdelux_views
-
 from entreprinder.vibe import views as vibe_views
 
 urlpatterns = [
@@ -26,10 +24,7 @@ urlpatterns = [
     path('i18n/', include('django.conf.urls.i18n')),
     path('accounts/', include('allauth.urls')),  # Ensure this is outside i18n_patterns
     path('login_complete/', entreprinder_views.login_complete, name='login_complete'),  # Add this line
-    # Add journey URLs and API outside i18n_patterns for direct access
-    path('journey/plot-selection/', vinsdelux_views.plot_selector, name='plot_selector_direct'),
-    path('journey/enhanced-plot-selection/', vinsdelux_views.enhanced_plot_selector, name='enhanced_plot_selector_direct'),
-    path('vinsdelux/api/adoption-plans/', vinsdelux_views.api_adoption_plans, name='api_adoption_plans_direct'),
+    # VinsDelux direct URLs removed - simplified to portfolio-only version
     # Add vibe API URLs outside i18n_patterns (merged into entreprinder)
     path('vibe-coding/api/canvas-state/', vibe_views.get_canvas_state, name='canvas_state_api'),
     path('vibe-coding/api/canvas-state/<int:canvas_id>/', vibe_views.get_canvas_state, name='canvas_state_by_id_api'),
