@@ -29,7 +29,14 @@ def is_admin(user):
 
 def dashboard(request):
     """Main FinOps dashboard with cost overview and filtering"""
-    days = int(request.GET.get('days', 30))
+    # Validate days parameter
+    try:
+        days = int(request.GET.get('days', 30))
+        # Clamp to reasonable range (1 day to 10 years)
+        days = max(1, min(3650, days))
+    except (ValueError, TypeError):
+        days = 30
+
     subscription_filter = request.GET.get('subscription')
     service_filter = request.GET.get('service')
     charge_type_filter = request.GET.get('charge_type', 'usage')  # Default to 'usage' only
