@@ -171,9 +171,30 @@ STORAGES = {
             # "token_credential": DefaultAzureCredential(), # For Managed Identity
         },
     },
-    # Private storage for Crush.lu profile photos (SAS token access)
+    # Platform-specific storage backends (production)
+    "crush_media": {
+        "BACKEND": "crush_lu.storage.CrushMediaStorage",
+    },
     "crush_private": {
         "BACKEND": "crush_lu.storage.CrushProfilePhotoStorage",
+    },
+    "vinsdelux_media": {
+        "BACKEND": "vinsdelux.storage.VdlMediaStorage",
+    },
+    "vinsdelux_private": {
+        "BACKEND": "vinsdelux.storage.VdlPrivateStorage",
+    },
+    "entreprinder_media": {
+        "BACKEND": "entreprinder.storage.EntreprinderMediaStorage",
+    },
+    "powerup_media": {
+        "BACKEND": "power_up.storage.PowerUpMediaStorage",
+    },
+    "powerup_finops": {
+        "BACKEND": "power_up.storage.FinOpsStorage",
+    },
+    "shared_media": {
+        "BACKEND": "azureproject.storage_shared.SharedMediaStorage",
     },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",

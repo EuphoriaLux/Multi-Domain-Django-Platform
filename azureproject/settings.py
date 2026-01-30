@@ -649,10 +649,30 @@ if AZURITE_MODE:
                 "overwrite_files": True,
             },
         },
-        # Private storage for Crush.lu profile photos (matches production)
-        # Uses separate 'crush-profiles-private' container with SAS token access
+        # Platform-specific storage backends
+        "crush_media": {
+            "BACKEND": "crush_lu.storage.CrushMediaStorage",
+        },
         "crush_private": {
             "BACKEND": "crush_lu.storage.CrushProfilePhotoStorage",
+        },
+        "vinsdelux_media": {
+            "BACKEND": "vinsdelux.storage.VdlMediaStorage",
+        },
+        "vinsdelux_private": {
+            "BACKEND": "vinsdelux.storage.VdlPrivateStorage",
+        },
+        "entreprinder_media": {
+            "BACKEND": "entreprinder.storage.EntreprinderMediaStorage",
+        },
+        "powerup_media": {
+            "BACKEND": "power_up.storage.PowerUpMediaStorage",
+        },
+        "powerup_finops": {
+            "BACKEND": "power_up.storage.FinOpsStorage",
+        },
+        "shared_media": {
+            "BACKEND": "azureproject.storage_shared.SharedMediaStorage",
         },
         # Use simple StaticFilesStorage in development for instant refresh
         "staticfiles": {
@@ -720,9 +740,30 @@ else:
         "default": {
             "BACKEND": "django.core.files.storage.FileSystemStorage",
         },
-        # Private storage for Crush.lu profile photos (local development)
+        # Platform-specific storage backends (local filesystem)
+        "crush_media": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
         "crush_private": {
             "BACKEND": "crush_lu.storage.CrushProfilePhotoStorage",
+        },
+        "vinsdelux_media": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "vinsdelux_private": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "entreprinder_media": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "powerup_media": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "powerup_finops": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "shared_media": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
         },
         # Use simple StaticFilesStorage in development for instant refresh
         "staticfiles": {

@@ -57,12 +57,22 @@ class PrivateAzureStorage(AzureStorage):
 
     Supports both production Azure Blob Storage and local Azurite emulator.
 
-    Container name can be configured via AZURE_PRIVATE_CONTAINER_NAME env var.
-    Default: 'crush-profiles-private'
+    Container name can be configured via AZURE_CRUSH_PRIVATE_CONTAINER env var.
+    Default: 'crush-profiles-private' (legacy, for backward compatibility)
+    New default: 'crush-lu-private' (aligned with new naming convention)
     Staging example: 'crush-profiles-private-staging'
+
+    Migration path:
+    1. Code uses AZURE_CRUSH_PRIVATE_CONTAINER (defaults to old name)
+    2. Create new container 'crush-lu-private'
+    3. Copy blobs from old to new
+    4. Set env var: AZURE_CRUSH_PRIVATE_CONTAINER=crush-lu-private
+    5. Delete old container after verification
     """
     # Container name configurable via environment variable
-    azure_container = os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-profiles-private')
+    # Check new env var first, fall back to legacy name for backward compatibility
+    azure_container = os.getenv('AZURE_CRUSH_PRIVATE_CONTAINER',
+                                 os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-profiles-private'))
     expiration_secs = 3600  # SAS token valid for 1 hour
 
     def __init__(self, *args, **kwargs):
@@ -71,9 +81,11 @@ class PrivateAzureStorage(AzureStorage):
         self.account_key = getattr(settings, 'AZURE_ACCOUNT_KEY', None)
 
         # Allow container name override from settings or environment
+        # Priority: 1) New env var, 2) Legacy env var, 3) Default
         container_name = getattr(
-            settings, 'AZURE_PRIVATE_CONTAINER_NAME',
-            os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-profiles-private')
+            settings, 'AZURE_CRUSH_PRIVATE_CONTAINER',
+            os.getenv('AZURE_CRUSH_PRIVATE_CONTAINER',
+                     os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-profiles-private'))
         )
         self.azure_container = container_name
 
@@ -129,10 +141,53 @@ class PrivateAzureStorage(AzureStorage):
             )
 
 
+class CrushMediaStorage(AzureStorage):
+    """
+    Storage backend for Crush.lu public media files
+
+    Container: crush-lu-media (public, anonymous read)
+
+    Used for:
+    - Branding assets (social preview images, OG tags)
+    - Event photos
+    - Advent calendar backgrounds
+    - Journey default images
+    - Static assets (icons, illustrations)
+    """
+
+    def __init__(self, *args, **kwargs):
+        # Get credentials from settings
+        self.account_name = getattr(settings, 'AZURE_ACCOUNT_NAME', None)
+        self.account_key = getattr(settings, 'AZURE_ACCOUNT_KEY', None)
+
+        # Container name (configurable via environment)
+        container_name = os.getenv(
+            'AZURE_CRUSH_MEDIA_CONTAINER',
+            'crush-lu-media'
+        )
+        self.azure_container = container_name
+
+        # Azurite-specific configuration
+        self._is_azurite = is_azurite_mode()
+        if self._is_azurite:
+            self.connection_string = getattr(settings, 'AZURE_CONNECTION_STRING', None)
+            self.azure_ssl = False  # Azurite uses HTTP
+            self._azurite_host = getattr(settings, 'AZURITE_BLOB_HOST', '127.0.0.1:10000')
+        else:
+            self.azure_ssl = True  # Production uses HTTPS
+
+        super().__init__(*args, **kwargs)
+        self.overwrite_files = False
+
+
 class CrushProfilePhotoStorage(PrivateAzureStorage):
     """
     Specialized storage for Crush.lu profile photos
     Includes additional security checks and naming conventions
+
+    Container: Configured via AZURE_CRUSH_PRIVATE_CONTAINER env var
+    Default: 'crush-profiles-private' (legacy)
+    New: 'crush-lu-private' (recommended)
     """
     # Inherits container name from PrivateAzureStorage (configurable via env var)
     expiration_secs = 1800  # 30 minutes for profile photos
@@ -290,7 +345,9 @@ def delete_user_storage(user_id):
                 )
 
             # Containers to clean up
-            private_container = os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-profiles-private')
+            # Use new env var first, fall back to legacy for backward compatibility
+            private_container = os.getenv('AZURE_CRUSH_PRIVATE_CONTAINER',
+                                         os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-profiles-private'))
             containers = [
                 getattr(settings, 'AZURE_CONTAINER_NAME', 'media'),  # Public media
                 private_container,  # Private profile data
@@ -389,7 +446,9 @@ def list_user_storage_folders():
                 )
 
             # Scan both containers
-            private_container = os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-profiles-private')
+            # Use new env var first, fall back to legacy for backward compatibility
+            private_container = os.getenv('AZURE_CRUSH_PRIVATE_CONTAINER',
+                                         os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-profiles-private'))
             containers = [
                 getattr(settings, 'AZURE_CONTAINER_NAME', 'media'),
                 private_container,
@@ -559,3 +618,17 @@ def shared_upload_path(subfolder: str = ''):
         -> shared/homepage/{uuid}.{ext}
     """
     return _make_upload_path('shared', subfolder)
+
+
+# =============================================================================
+# Convenience Instances (for model field declarations)
+# =============================================================================
+# Note: This is a callable factory, not an instance, to avoid Django settings
+# issues during module import. It will be instantiated when first accessed.
+
+def get_crush_media_storage():
+    """Get Crush.lu media storage instance (lazy initialization)."""
+    return CrushMediaStorage()
+
+# Alias for backward compatibility and convenience
+crush_media_storage = get_crush_media_storage
