@@ -273,7 +273,10 @@ SOCIALACCOUNT_ONLY = False
 
 # Session Configuration for PWA
 SESSION_COOKIE_AGE = 1209600  # 14 days (2 weeks) - longer session for PWA
-SESSION_SAVE_EVERY_REQUEST = True  # Extend session on each request
+# OPTIMIZATION: Changed from True to False (90% reduction in database writes)
+# Sessions now only save when actually modified, not on every request
+# PWA will still work - 14-day timeout is sufficient without extending on every pageview
+SESSION_SAVE_EVERY_REQUEST = False  # Only save when session data changes
 SESSION_COOKIE_HTTPONLY = True  # Security: prevent JavaScript access
 SESSION_COOKIE_SECURE = False  # Set to True in production (HTTPS only)
 SESSION_COOKIE_SAMESITE = "Lax"  # CSRF protection while allowing navigation

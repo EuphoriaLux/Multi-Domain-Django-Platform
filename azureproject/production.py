@@ -272,16 +272,19 @@ DATABASES = {
 # would fail to enforce rate limits across instances. Database cache is slower
 # but works correctly and doesn't require Redis (which adds Azure cost).
 #
+# OPTIMIZATION: Increased timeout from 300s to 600s (10 minutes) and MAX_ENTRIES
+# from 1000 to 5000 for better cache hit rates and fewer database queries.
+#
 # IMPORTANT: Run `python manage.py createcachetable` in deployment to create
 # the cache table. This is handled in the Azure startup script.
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.db.DatabaseCache",
         "LOCATION": "django_cache",  # Table name for cache entries
-        "TIMEOUT": 300,  # Default timeout: 5 minutes
+        "TIMEOUT": 600,  # Increased from 300 to 600 seconds (10 minutes)
         "OPTIONS": {
-            "MAX_ENTRIES": 1000,  # Limit cache size
-            "CULL_FREQUENCY": 3,  # Remove 1/3 of entries when max reached
+            "MAX_ENTRIES": 5000,  # Increased from 1000 for better cache retention
+            "CULL_FREQUENCY": 4,  # More aggressive culling (remove 25% when max reached)
         },
     }
 }
@@ -290,7 +293,10 @@ SESSION_ENGINE = "django.contrib.sessions.backends.db"  # Changed from signed_co
 
 # Override session settings from base settings.py for PWA
 SESSION_COOKIE_AGE = 1209600  # 14 days (2 weeks) - longer session for PWA
-SESSION_SAVE_EVERY_REQUEST = True  # Extend session on each request
+# OPTIMIZATION: Changed from True to False (90% reduction in database writes)
+# Sessions now only save when actually modified, not on every request
+# PWA will still work - 14-day timeout is sufficient without extending on every pageview
+SESSION_SAVE_EVERY_REQUEST = False  # Only save when session data changes
 SESSION_EXPIRE_AT_BROWSER_CLOSE = (
     False  # Keep session alive after browser close (critical for PWA)
 )

@@ -41,8 +41,11 @@ fi
 echo "✅ Migrations complete. Starting Gunicorn..."
 
 # Gunicorn settings
+# OPTIMIZATION: Increased workers from 2 to 4 for P0v3 plan (2 vCPU, 8GB RAM)
+# Formula: (2 * CPU_CORES) + 1 = (2 * 2) + 1 = 5 workers (using 4 for safety)
+# Throughput increase: 8 → 16 concurrent requests (2x capacity)
 # Access logs disabled - Application Insights captures HTTP requests via OpenTelemetry
 # Error logs still go to stdout for Log Stream visibility
-gunicorn --workers 2 --threads 4 --timeout 120 \
+gunicorn --workers 4 --threads 4 --timeout 120 \
     --access-logfile /dev/null --error-logfile '-' --bind=0.0.0.0:8000 \
     azureproject.wsgi
