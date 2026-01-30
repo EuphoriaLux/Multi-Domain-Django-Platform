@@ -36,11 +36,19 @@ class Command(BaseCommand):
             # Continue to anomaly detection even if aggregation fails
 
         # Step 3: Detect cost anomalies
-        self.stdout.write('\n[3/3] Detecting cost anomalies...')
+        self.stdout.write('\n[3/4] Detecting cost anomalies...')
         try:
             call_command('detect_cost_anomalies', '--days-back=7', stdout=self.stdout, stderr=self.stderr)
         except Exception as e:
             self.stdout.write(self.style.WARNING(f'Anomaly detection failed: {str(e)}'))
+            # Non-fatal - continue
+
+        # Step 4: Generate cost forecasts
+        self.stdout.write('\n[4/4] Generating cost forecasts...')
+        try:
+            call_command('generate_cost_forecasts', '--forecast-days=30', '--refresh', stdout=self.stdout, stderr=self.stderr)
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f'Forecast generation failed: {str(e)}'))
             # Non-fatal - continue
 
         # Summary

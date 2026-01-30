@@ -25,6 +25,7 @@ urlpatterns = [
     path('services/', views.service_breakdown, name='services'),
     path('resources/', views.resource_explorer, name='resources'),
     path('anomalies/', views.anomalies_view, name='anomalies'),
+    path('forecast/', views.forecast_view, name='forecast'),
     path('import/', views.trigger_import, name='import'),
     path('import/<int:export_id>/update-subscription/', views.update_subscription_id, name='update_subscription_id'),
     path('faq/', views.faq, name='faq'),

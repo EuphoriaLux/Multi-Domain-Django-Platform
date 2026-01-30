@@ -335,3 +335,50 @@ class CostAnomaly(models.Model):
 
     def __str__(self):
         return f"{self.get_severity_display()}: {self.dimension_value} on {self.detected_date}"
+
+
+class CostForecast(models.Model):
+    """
+    Cost forecasts for budget planning and prediction.
+
+    Uses linear regression with weekly seasonality adjustment to predict
+    future costs based on historical data patterns.
+    """
+
+    # When this forecast is for
+    forecast_date = models.DateField(db_index=True)
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    # What dimension (overall, subscription, service)
+    dimension_type = models.CharField(max_length=50)
+    dimension_value = models.CharField(max_length=300)
+
+    # Forecast values
+    forecast_cost = models.DecimalField(max_digits=12, decimal_places=2)
+    lower_bound = models.DecimalField(max_digits=12, decimal_places=2)  # 95% CI
+    upper_bound = models.DecimalField(max_digits=12, decimal_places=2)  # 95% CI
+    confidence = models.DecimalField(max_digits=5, decimal_places=2)  # 0-100%
+    currency = models.CharField(max_length=10, default='EUR')
+
+    # Model metadata
+    model_type = models.CharField(max_length=50, default='linear_regression')
+    training_period_start = models.DateField()
+    training_period_end = models.DateField()
+    training_days = models.IntegerField()
+
+    # Model accuracy metrics
+    metadata = models.JSONField(default=dict, blank=True)  # R², RMSE, slope, intercept
+
+    class Meta:
+        db_table = 'finops_hub_costforecast'
+        ordering = ['forecast_date']
+        unique_together = [
+            ['forecast_date', 'dimension_type', 'dimension_value']
+        ]
+        indexes = [
+            models.Index(fields=['forecast_date', 'dimension_type']),
+            models.Index(fields=['generated_at', 'dimension_type']),
+        ]
+
+    def __str__(self):
+        return f"Forecast for {self.dimension_value} on {self.forecast_date}: {self.forecast_cost} {self.currency}"

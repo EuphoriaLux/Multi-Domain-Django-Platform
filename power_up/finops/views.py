@@ -28,8 +28,10 @@ def is_admin(user):
 
 
 def dashboard(request):
-    """Main FinOps dashboard with cost overview"""
+    """Main FinOps dashboard with cost overview and filtering"""
     days = int(request.GET.get('days', 30))
+    subscription_filter = request.GET.get('subscription')
+    service_filter = request.GET.get('service')
 
     # Smart date range: check actual usage dates in the database
     date_range = CostRecord.objects.aggregate(
@@ -53,6 +55,12 @@ def dashboard(request):
         usage_date__gte=start_date,
         usage_date__lte=end_date
     )
+
+    # Apply filters
+    if subscription_filter:
+        base_queryset = base_queryset.filter(subscription_id__icontains=subscription_filter)
+    if service_filter:
+        base_queryset = base_queryset.filter(service_name__icontains=service_filter)
 
     total_cost = base_queryset.aggregate(total=Sum('billed_cost'))['total'] or 0
 
@@ -101,12 +109,22 @@ def dashboard(request):
     top_subscriptions_list = list(top_subscriptions)
     top_services_list = list(top_services)
 
+    # Get all subscriptions and services for filter dropdowns
+    all_subscriptions = CostRecord.objects.values_list('sub_account_name', flat=True).distinct().order_by('sub_account_name')
+    all_services = CostRecord.objects.values_list('service_name', flat=True).distinct().order_by('service_name')
+
     context = {
         'page_title': _('FinOps Hub - Cost Dashboard'),
         'period': {
             'start': start_date,
             'end': end_date,
             'days': days,
+        },
+        'filters': {
+            'subscription': subscription_filter,
+            'service': service_filter,
+            'all_subscriptions': all_subscriptions,
+            'all_services': all_services,
         },
         'summary': {
             'total_cost': total_cost,
@@ -404,3 +422,56 @@ def anomalies_view(request):
     }
 
     return render(request, 'finops/anomalies.html', context)
+
+
+def forecast_view(request):
+    """Cost forecast dashboard"""
+    from power_up.finops.models import CostForecast
+
+    forecast_days = int(request.GET.get('days', 30))
+
+    # Fetch forecasts
+    forecasts = CostForecast.objects.filter(
+        dimension_type='overall',
+        dimension_value='all'
+    ).order_by('forecast_date')[:forecast_days]
+
+    # Fetch last 30 days historical for comparison
+    end_date = timezone.now().date()
+    start_date = end_date - timedelta(days=30)
+
+    historical = CostAggregation.objects.filter(
+        aggregation_type='daily',
+        dimension_type='overall',
+        period_start__gte=start_date,
+        period_start__lte=end_date
+    ).order_by('period_start')
+
+    # Calculate summary stats
+    if forecasts:
+        avg_forecast = sum(f.forecast_cost for f in forecasts) / len(forecasts)
+        total_forecast = sum(f.forecast_cost for f in forecasts)
+        model_accuracy = forecasts[0].metadata.get('r_squared', 0) if forecasts else 0
+    else:
+        avg_forecast = 0
+        total_forecast = 0
+        model_accuracy = 0
+
+    if historical:
+        avg_historical = sum(h.total_cost for h in historical) / len(historical)
+    else:
+        avg_historical = 0
+
+    context = {
+        'page_title': _('FinOps Hub - Cost Forecast'),
+        'forecasts': forecasts,
+        'historical': historical,
+        'forecast_days': forecast_days,
+        'avg_forecast': avg_forecast,
+        'total_forecast': total_forecast,
+        'avg_historical': avg_historical,
+        'model_accuracy': model_accuracy,
+        'has_data': forecasts.count() > 0,
+    }
+
+    return render(request, 'finops/forecast.html', context)
