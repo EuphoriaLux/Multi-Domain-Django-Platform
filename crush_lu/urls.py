@@ -222,6 +222,7 @@ urlpatterns = [
     path('coach/dashboard/', views.coach_dashboard, name='coach_dashboard'),
     path('coach/profile/edit/', views.coach_edit_profile, name='coach_edit_profile'),
     path('coach/review/<int:submission_id>/', views.coach_review_profile, name='coach_review_profile'),
+    path('coach/review/<int:submission_id>/preview/', views.coach_preview_email, name='coach_preview_email'),
     path('coach/review/<int:submission_id>/call-complete/', views.coach_mark_review_call_complete, name='coach_mark_review_call_complete'),
     path('coach/review/<int:submission_id>/call-attempt/', views.coach_log_failed_call, name='coach_log_failed_call'),
     path('coach/sessions/', views.coach_sessions, name='coach_sessions'),

@@ -159,9 +159,9 @@ def delete_all_contacts_endpoint(request):
         # Initialize service
         service = GraphContactsService()
 
-        # Delete all contacts
-        logger.warning("Deleting ALL Outlook contacts via admin API")
-        stats = service.delete_all_contacts()
+        # Delete all contacts directly from Outlook (not just database-tracked ones)
+        logger.warning("Deleting ALL Outlook contacts via admin API (including orphaned)")
+        stats = service.delete_all_contacts_from_outlook()
 
         logger.info(
             f"Contact deletion completed: "

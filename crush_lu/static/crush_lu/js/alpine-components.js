@@ -6273,6 +6273,10 @@ document.addEventListener('alpine:init', function() {
                 return 'width: ' + this.progressPercent + '%';
             },
 
+            get progressText() {
+                return this.progressPercent + '% complete';
+            },
+
             get isValid() {
                 return this.introductionComplete && this.residenceConfirmed && this.datingPreferenceAsked;
             },
@@ -6483,6 +6487,187 @@ document.addEventListener('alpine:init', function() {
                     questions_answered: this.questionsAnswered,
                     questions_notes: this.questionsNotes
                 });
+            }
+        };
+    });
+
+    // Email Preview Modal (for coach review page)
+    Alpine.data('emailPreviewModal', function() {
+        return {
+            isOpen: false,
+            isLoading: false,
+
+            get modalClasses() {
+                return this.isOpen ? 'fixed inset-0 z-50 flex items-center justify-center' : 'hidden';
+            },
+
+            get showLoading() {
+                return this.isLoading;
+            },
+
+            open: function() {
+                this.isOpen = true;
+                this.isLoading = true;
+            },
+
+            close: function() {
+                this.isOpen = false;
+                this.isLoading = false;
+            },
+
+            // CSP-compliant event handlers
+            handleCloseClick: function() {
+                this.close();
+            },
+
+            handleBackdropClick: function() {
+                this.close();
+            },
+
+            handleEscape: function() {
+                if (this.isOpen) {
+                    this.close();
+                }
+            },
+
+            handlePreviewLoaded: function() {
+                this.isLoading = false;
+            },
+
+            handleSubmitClick: function() {
+                this.close();
+                this.submitForm();
+            },
+
+            submitForm: function() {
+                // Find and submit the review form
+                var form = document.querySelector('form[method="post"]');
+                if (form) {
+                    form.submit();
+                }
+            }
+        };
+    });
+
+    // Review Tabs Component (for redesigned coach review page)
+    Alpine.data('reviewTabs', function() {
+        return {
+            activeTab: 1, // Default to profile tab
+            callCompleted: false,
+
+            // Initialize from data attribute
+            init: function() {
+                // Check if call is completed (from data attribute)
+                var callCompletedAttr = this.$el.getAttribute('data-call-completed');
+                if (callCompletedAttr === 'true') {
+                    this.callCompleted = true;
+                }
+            },
+
+            // CSP-compatible computed getters
+            get isProfileTab() { return this.activeTab === 1; },
+            get isScreeningTab() { return this.activeTab === 2; },
+            get isDecisionTab() { return this.activeTab === 3; },
+
+            // For showing profile summary on non-profile tabs
+            get showProfileSummary() { return this.activeTab !== 1; },
+
+            get profileTabClass() {
+                return this.getTabClasses(1);
+            },
+            get screeningTabClass() {
+                return this.getTabClasses(2);
+            },
+            get decisionTabClass() {
+                return this.getTabClasses(3);
+            },
+
+            get showCallWarning() {
+                return !this.callCompleted;
+            },
+
+            // Methods
+            showProfile: function() {
+                this.activeTab = 1;
+            },
+            showScreening: function() {
+                this.activeTab = 2;
+            },
+            showDecision: function() {
+                this.activeTab = 3;
+            },
+
+            // Tab styling helper
+            getTabClasses: function(tabNum) {
+                var base = 'px-6 py-3 font-semibold rounded-t-lg transition-all cursor-pointer';
+                var active = 'bg-white text-purple-600 border-b-2 border-purple-600';
+                var inactive = 'bg-gray-100 text-gray-600 hover:bg-gray-200';
+                return this.activeTab === tabNum ? base + ' ' + active : base + ' ' + inactive;
+            },
+
+            // Auto-advance workflow when screening call is completed
+            completeScreening: function() {
+                this.callCompleted = true;
+                this.activeTab = 3; // Move to decision tab
+            }
+        };
+    });
+
+    // Guidelines Panel Component (sticky bottom-right panel)
+    Alpine.data('guidelinesPanel', function() {
+        return {
+            isOpen: true,
+
+            get isClosed() {
+                return !this.isOpen;
+            },
+
+            toggle: function() {
+                this.isOpen = !this.isOpen;
+            },
+            close: function() {
+                this.isOpen = false;
+            },
+            open: function() {
+                this.isOpen = true;
+            }
+        };
+    });
+
+    // Profile Accordion Component (for profile tab in coach review)
+    Alpine.data('profileAccordion', function() {
+        return {
+            photoOpen: true,
+            basicOpen: false,
+            bioOpen: false,
+            privacyOpen: false,
+
+            // CSP-safe rotation classes
+            get photoOpenRotateClass() {
+                return this.photoOpen ? 'rotate-180' : '';
+            },
+            get basicOpenRotateClass() {
+                return this.basicOpen ? 'rotate-180' : '';
+            },
+            get bioOpenRotateClass() {
+                return this.bioOpen ? 'rotate-180' : '';
+            },
+            get privacyOpenRotateClass() {
+                return this.privacyOpen ? 'rotate-180' : '';
+            },
+
+            // Toggle methods
+            togglePhoto: function() {
+                this.photoOpen = !this.photoOpen;
+            },
+            toggleBasic: function() {
+                this.basicOpen = !this.basicOpen;
+            },
+            toggleBio: function() {
+                this.bioOpen = !this.bioOpen;
+            },
+            togglePrivacy: function() {
+                this.privacyOpen = !this.privacyOpen;
             }
         };
     });

@@ -38,17 +38,14 @@
                 {{ submission.profile.location|default:_("No location") }}
             </p>
 
-            {# Preferred Language #}
-            <p class="text-sm text-gray-600 mb-1 flex items-center gap-1">
-                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"></path>
-                </svg>
+            {# Preferred Language Flag #}
+            <p class="text-sm mb-1">
                 {% if submission.profile.preferred_language == 'de' %}
-                    Deutsch
+                    🇩🇪
                 {% elif submission.profile.preferred_language == 'fr' %}
-                    Français
+                    🇫🇷
                 {% else %}
-                    English
+                    🇬🇧
                 {% endif %}
             </p>
 

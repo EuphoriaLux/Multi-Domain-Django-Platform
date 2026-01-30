@@ -188,7 +188,7 @@ class GraphContactsService:
         notes_parts.append("━" * 20)
 
         # Admin URL
-        admin_url = f"https://crush.lu/admin/crush_lu/crushprofile/{profile.pk}/"
+        admin_url = f"https://crush.lu/crush-admin/crush_lu/crushprofile/{profile.pk}/change/"
         notes_parts.append(f"Admin: {admin_url}")
 
         # Build the contact payload
@@ -575,6 +575,106 @@ class GraphContactsService:
                 except Exception as e:
                     logger.error(f"Error syncing profile {profile.pk}: {e}")
                     stats['errors'] += 1
+
+        return stats
+
+    def list_all_contacts_from_outlook(self) -> list:
+        """
+        List all contacts from Outlook mailbox via Graph API.
+
+        Returns:
+            list: List of contact objects with id and displayName
+        """
+        import requests
+
+        if not is_sync_enabled():
+            logger.warning("Outlook contact sync disabled for this environment")
+            return []
+
+        try:
+            token = self.get_access_token()
+            endpoint = f"{GRAPH_API_BASE}/users/{self.mailbox}/contacts"
+            headers = {
+                "Authorization": f"Bearer {token}",
+            }
+
+            contacts = []
+            next_link = endpoint
+
+            # Handle pagination
+            while next_link:
+                response = requests.get(next_link, headers=headers, timeout=30)
+
+                if response.status_code != 200:
+                    logger.error(
+                        f"Failed to list Outlook contacts: "
+                        f"HTTP {response.status_code} - {response.text}"
+                    )
+                    break
+
+                data = response.json()
+                contacts.extend(data.get('value', []))
+                next_link = data.get('@odata.nextLink')
+
+            logger.info(f"Found {len(contacts)} contacts in Outlook mailbox")
+            return contacts
+
+        except Exception as e:
+            logger.error(f"Error listing Outlook contacts: {e}")
+            return []
+
+    def delete_all_contacts_from_outlook(self) -> dict:
+        """
+        Delete ALL contacts from Outlook mailbox via Graph API.
+
+        This deletes contacts directly from Outlook, regardless of database state.
+        Use with extreme caution - this is a destructive operation!
+
+        Returns:
+            dict: Statistics about the deletion
+                {
+                    'total': int,      # Total contacts found in Outlook
+                    'deleted': int,    # Successfully deleted
+                    'errors': int,     # Failed deletions
+                }
+        """
+        stats = {
+            'total': 0,
+            'deleted': 0,
+            'errors': 0
+        }
+
+        if not is_sync_enabled():
+            logger.warning("Outlook contact sync disabled for this environment")
+            return stats
+
+        # Get all contacts from Outlook
+        contacts = self.list_all_contacts_from_outlook()
+        stats['total'] = len(contacts)
+
+        logger.warning(f"Deleting {stats['total']} contacts from Outlook mailbox...")
+
+        # Delete each contact
+        for contact in contacts:
+            contact_id = contact.get('id')
+            display_name = contact.get('displayName', 'Unknown')
+
+            try:
+                success = self.delete_contact(contact_id)
+                if success:
+                    stats['deleted'] += 1
+                    logger.info(f"Deleted: {display_name} ({contact_id})")
+                else:
+                    stats['errors'] += 1
+                    logger.error(f"Failed to delete: {display_name} ({contact_id})")
+            except Exception as e:
+                logger.error(f"Error deleting contact {display_name}: {e}")
+                stats['errors'] += 1
+
+        logger.info(
+            f"Deletion complete: {stats['deleted']} deleted, "
+            f"{stats['errors']} errors out of {stats['total']} total"
+        )
 
         return stats
 

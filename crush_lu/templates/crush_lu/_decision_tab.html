@@ -1,0 +1,179 @@
+{% load i18n %}
+
+{# Prerequisite warning #}
+{% if not submission.review_call_completed %}
+    <div class="bg-amber-50 border-2 border-amber-400 rounded-xl p-6 mb-6">
+        <div class="flex items-center gap-3">
+            {% include "shared/icons/exclamation-triangle.html" with class="w-8 h-8 text-amber-600" %}
+            <div>
+                <h3 class="text-lg font-bold text-amber-900">{% trans "Screening Call Required" %}</h3>
+                <p class="text-sm text-amber-800 mt-1">{% trans "You must complete the screening call in Tab 2 before submitting a review decision" %}</p>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+{# Review Decision Form #}
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="bg-gradient-to-r from-purple-600 to-pink-500 px-6 py-4">
+        <h3 class="font-semibold text-white flex items-center gap-2 text-lg">
+            {% include "shared/icons/clipboard-document-check.html" with class="w-6 h-6" %}
+            {% trans "Review Decision" %}
+        </h3>
+    </div>
+
+    <div class="p-6">
+        <form method="post" id="review-decision-form">
+            {% csrf_token %}
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {# LEFT COLUMN: Internal/Coach-Only Content #}
+                <div class="space-y-5">
+                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <h4 class="text-sm font-bold text-gray-900 uppercase tracking-wide mb-4 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                            {% trans "Coach-Only Section" %}
+                        </h4>
+
+                        {# Decision Status #}
+                        <div class="mb-5">
+                            <label for="{{ form.status.id_for_label }}" class="block text-sm font-semibold text-gray-800 mb-2">
+                                {% trans "Decision" %} <span class="text-red-500">*</span>
+                            </label>
+                            {{ form.status }}
+                            <p class="mt-1.5 text-xs text-gray-500">
+                                {% trans "Select the appropriate review outcome" %}
+                            </p>
+                        </div>
+
+                        {# Internal Notes #}
+                        <div>
+                            <label for="{{ form.coach_notes.id_for_label }}" class="block text-sm font-semibold text-gray-800 mb-2">
+                                {% trans "Internal Notes" %}
+                                <span class="ml-1 text-xs font-normal text-gray-500">({% trans "not visible to user" %})</span>
+                            </label>
+                            {{ form.coach_notes }}
+
+                            {# Quick note chips #}
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                <span class="text-xs text-gray-500 mr-1">{% trans "Quick notes:" %}</span>
+                                <button type="button" class="coach-note-chip px-2.5 py-1 text-xs bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-full transition-colors font-medium" data-note="✓ Identity verified via call">
+                                    ✓ {% trans "ID verified" %}
+                                </button>
+                                <button type="button" class="coach-note-chip px-2.5 py-1 text-xs bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-full transition-colors font-medium" data-note="✓ Photos match person on call">
+                                    ✓ {% trans "Photos match" %}
+                                </button>
+                                <button type="button" class="coach-note-chip px-2.5 py-1 text-xs bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-full transition-colors font-medium" data-note="✓ Genuine dating interest">
+                                    ✓ {% trans "Genuine" %}
+                                </button>
+                                <button type="button" class="coach-note-chip px-2.5 py-1 text-xs bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-full transition-colors font-medium" data-note="⚠ Suspicious behavior">
+                                    ⚠ {% trans "Suspicious" %}
+                                </button>
+                                <button type="button" class="coach-note-chip px-2.5 py-1 text-xs bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-full transition-colors font-medium" data-note="⚠ Photos unclear/edited">
+                                    ⚠ {% trans "Photo issues" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {# RIGHT COLUMN: User-Facing Content #}
+                <div class="space-y-5">
+                    <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                        <h4 class="text-sm font-bold text-purple-900 uppercase tracking-wide mb-4 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                            {% trans "User-Visible Section" %}
+                        </h4>
+
+                        {# Reminder about language #}
+                        <div class="mb-4 bg-white rounded-lg p-3 border border-purple-300">
+                            <div class="flex items-center gap-2 text-sm">
+                                <span class="text-2xl">
+                                    {% if profile.preferred_language == 'en' %}
+                                        🇬🇧
+                                    {% elif profile.preferred_language == 'de' %}
+                                        🇩🇪
+                                    {% elif profile.preferred_language == 'fr' %}
+                                        🇫🇷
+                                    {% endif %}
+                                </span>
+                                <span class="font-semibold text-gray-700">{% trans "Write feedback in:" %}</span>
+                                <span class="font-bold text-purple-700">
+                                    {% if profile.preferred_language == 'en' %}
+                                        English
+                                    {% elif profile.preferred_language == 'de' %}
+                                        Deutsch
+                                    {% elif profile.preferred_language == 'fr' %}
+                                        Français
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+
+                        {# Feedback to User #}
+                        <div>
+                            <label for="{{ form.feedback_to_user.id_for_label }}" class="block text-sm font-semibold text-gray-800 mb-2">
+                                {% trans "Feedback to User" %}
+                                <span class="ml-1 text-xs font-normal text-gray-500">({% trans "visible if rejected/revision" %})</span>
+                            </label>
+                            {{ form.feedback_to_user }}
+
+                            {# Template chips #}
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                <span class="text-xs text-gray-600 mr-1">
+                                    {% trans "Templates" %}
+                                    {% if profile.preferred_language == 'de' %}
+                                        (🇩🇪 Deutsch):
+                                    {% elif profile.preferred_language == 'fr' %}
+                                        (🇫🇷 Français):
+                                    {% else %}
+                                        (🇬🇧 English):
+                                    {% endif %}
+                                </span>
+                                <button type="button" class="feedback-chip px-2.5 py-1 text-xs bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-full transition-colors font-medium" data-template-key="welcome">
+                                    ✓ {% trans "Welcome" %}
+                                </button>
+                                <button type="button" class="feedback-chip px-2.5 py-1 text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-full transition-colors font-medium" data-template-key="better_photo">
+                                    📷 {% trans "Better photo" %}
+                                </button>
+                                <button type="button" class="feedback-chip px-2.5 py-1 text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-full transition-colors font-medium" data-template-key="more_bio">
+                                    ✏️ {% trans "More bio" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# Action Buttons #}
+            <div class="mt-8 flex flex-col sm:flex-row gap-3">
+                {# Preview Button #}
+                <button
+                    type="button"
+                    id="preview-email-btn"
+                    hx-get="{% url 'crush_lu:coach_preview_email' submission.id %}"
+                    hx-include="[name='status'], [name='feedback_to_user'], [name='coach_notes']"
+                    hx-target="#preview-content"
+                    hx-swap="innerHTML"
+                    class="flex-1 bg-white border-2 border-purple-600 text-purple-600 hover:bg-purple-50 font-semibold py-3 px-6 rounded-lg transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                >
+                    {% include "shared/icons/eye.html" with class="w-5 h-5" %}
+                    {% trans "Preview Email" %}
+                </button>
+
+                {# Submit Button #}
+                <button
+                    type="submit"
+                    class="flex-1 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white font-semibold py-3 px-6 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                >
+                    {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                    {% trans "Submit Review" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

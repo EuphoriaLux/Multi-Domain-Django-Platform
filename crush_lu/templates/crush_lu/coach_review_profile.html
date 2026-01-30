@@ -4,206 +4,344 @@
 {% block title %}{% trans "Review Profile" %} - Crush.lu{% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <div class="lg:col-span-2">
-        <a href="{% url 'crush_lu:coach_dashboard' %}" class="inline-flex items-center gap-2 px-4 py-2 mb-4 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6"
+     x-data="reviewTabs"
+     data-call-completed="{% if submission.review_call_completed %}true{% else %}false{% endif %}">
+
+    {# Header with back button and user info #}
+    <div class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <a href="{% url 'crush_lu:coach_dashboard' %}"
+           class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
             {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
             {% trans "Back to Dashboard" %}
         </a>
 
-        <div class="bg-white rounded-xl shadow-sm mb-6">
-            <div class="px-6 py-4 border-b border-gray-100">
-                <h4 class="font-semibold mb-0">{% trans "Profile Review" %}</h4>
-            </div>
-            <div class="p-6">
-                <h5 class="text-xl font-semibold">{{ profile.user.get_full_name }}</h5>
-                <p class="text-gray-500">{{ profile.user.email }}</p>
+        <div class="flex items-center gap-3">
+            <h1 class="text-2xl font-bold text-gray-900">{{ profile.user.get_full_name }}</h1>
+            <span class="text-3xl">
+                {% if profile.preferred_language == 'en' %}
+                    🇬🇧
+                {% elif profile.preferred_language == 'de' %}
+                    🇩🇪
+                {% elif profile.preferred_language == 'fr' %}
+                    🇫🇷
+                {% endif %}
+            </span>
+        </div>
+    </div>
 
-                <hr class="my-4 border-gray-200">
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <p><strong>{% trans "Age:" %}</strong> {% if profile.age %}{{ profile.age }}{% else %}{% trans "Not set" %}{% endif %} {% if profile.date_of_birth %}({{ profile.date_of_birth }}){% endif %}</p>
-                        <p><strong>{% trans "Gender:" %}</strong> {{ profile.get_gender_display|default:"Not set" }}</p>
-                        <p><strong>{% trans "Location:" %}</strong> {{ profile.location|default:"Not set" }}</p>
-                    </div>
-                    <div>
-                        <p><strong>{% trans "Phone:" %}</strong> {{ profile.phone_number|default:"Not provided" }}</p>
-                        <p><strong>{% trans "Looking for:" %}</strong> {{ profile.get_looking_for_display }}</p>
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <p class="flex items-center gap-2 flex-wrap">
-                        <strong>{% trans "Event Languages:" %}</strong>
-                        {% for lang in profile.event_languages %}
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                                {% if lang == 'en' %}🇬🇧 English{% elif lang == 'de' %}🇩🇪 Deutsch{% elif lang == 'fr' %}🇫🇷 Français{% elif lang == 'lu' %}🇱🇺 Lëtzebuergesch{% endif %}
-                            </span>
-                        {% empty %}
-                            <span class="text-gray-400 text-sm italic">{% trans "Not set" %}</span>
-                        {% endfor %}
-                    </p>
-                </div>
-
-                <hr class="my-4 border-gray-200">
-
-                <h6 class="font-semibold mb-2">{% trans "Bio" %}</h6>
-                <p class="text-gray-600 mb-4">{{ profile.bio }}</p>
-
-                <h6 class="font-semibold mb-2">{% trans "Interests" %}</h6>
-                <p class="text-gray-600 mb-4">{{ profile.interests }}</p>
-
-                <hr class="my-4 border-gray-200">
-
-                <h6 class="font-semibold mb-2">{% trans "Privacy Settings" %}</h6>
-                <ul class="list-disc list-inside text-gray-600 mb-4">
-                    <li>{% trans "Show full name:" %} {% if profile.show_full_name %}{% trans "Yes" %}{% else %}{% trans "No" %}{% endif %}</li>
-                    <li>{% trans "Show exact age:" %} {% if profile.show_exact_age %}{% trans "Yes" %}{% else %}{% trans "No" %}{% endif %}</li>
-                    <li>{% trans "Blur photos:" %} {% if profile.blur_photos %}{% trans "Yes" %}{% else %}{% trans "No" %}{% endif %}</li>
-                </ul>
-
-                <hr class="my-4 border-gray-200">
-
-                <h6 class="font-semibold mb-3">{% trans "Photos" %}</h6>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    {# Compact Profile Summary - Always Visible on Screening & Decision Tabs #}
+    <div x-show="showProfileSummary" x-cloak class="mb-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border-2 border-purple-200 overflow-hidden">
+        <div class="p-4">
+            <div class="flex flex-wrap items-start gap-4">
+                {# Photos - Compact View #}
+                <div class="flex gap-2">
                     {% if profile.photo_1 %}
-                        <div>
-                            <img src="{{ profile.photo_1.url }}" class="w-full rounded-lg" alt="Photo 1" loading="lazy">
-                        </div>
+                        <img src="{{ profile.photo_1.url }}" class="w-20 h-20 rounded-lg object-cover border-2 border-white shadow-md" alt="Photo 1">
                     {% endif %}
                     {% if profile.photo_2 %}
-                        <div>
-                            <img src="{{ profile.photo_2.url }}" class="w-full rounded-lg" alt="Photo 2" loading="lazy">
-                        </div>
+                        <img src="{{ profile.photo_2.url }}" class="w-20 h-20 rounded-lg object-cover border-2 border-white shadow-md" alt="Photo 2">
                     {% endif %}
                     {% if profile.photo_3 %}
-                        <div>
-                            <img src="{{ profile.photo_3.url }}" class="w-full rounded-lg" alt="Photo 3" loading="lazy">
-                        </div>
+                        <img src="{{ profile.photo_3.url }}" class="w-20 h-20 rounded-lg object-cover border-2 border-white shadow-md" alt="Photo 3">
                     {% endif %}
+                </div>
+
+                {# Key Info - 3 Columns #}
+                <div class="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    {# Column 1: Basic Info #}
+                    <div class="space-y-1">
+                        <p class="font-semibold text-gray-900">{% trans "Basic Info" %}</p>
+                        <p class="text-gray-700">{{ profile.age }} {% trans "years old" %} • {{ profile.get_gender_display }}</p>
+                        <p class="text-gray-700">📍 {{ profile.location|default:"Not set" }}</p>
+                        <p class="text-gray-700">📞 {{ profile.phone_number }}</p>
+
+                        {# Divider before account metadata #}
+                        <hr class="my-2 border-gray-300">
+
+                        {# Account creation date #}
+                        <p class="text-xs text-gray-600">
+                            🗓️ {% trans "Joined" %} {{ profile.created_at|timesince }} {% trans "ago" %}
+                        </p>
+
+                        {# Social login provider #}
+                        {% if social_account %}
+                            <p class="text-xs text-gray-600">
+                                {% if social_account.provider == 'linkedin_oauth2' %}
+                                    🔗 {% trans "LinkedIn signup" %}
+                                {% elif social_account.provider == 'facebook' %}
+                                    📘 {% trans "Facebook signup" %}
+                                {% elif social_account.provider == 'google' %}
+                                    🔴 {% trans "Google signup" %}
+                                {% elif social_account.provider == 'microsoft' %}
+                                    🪟 {% trans "Microsoft signup" %}
+                                {% else %}
+                                    🔗 {% trans "Social signup" %}
+                                {% endif %}
+                            </p>
+                        {% else %}
+                            <p class="text-xs text-gray-600">📧 {% trans "Email signup" %}</p>
+                        {% endif %}
+
+                        {# Phone verification (only show if verified) #}
+                        {% if profile.phone_verified %}
+                            <p class="text-xs text-green-600">✓ {% trans "Phone verified" %}</p>
+                        {% endif %}
+
+                        {# Last activity #}
+                        {% if profile.user.last_login %}
+                            <p class="text-xs text-gray-600">
+                                👁️ {% trans "Active" %} {{ profile.user.last_login|timesince }} {% trans "ago" %}
+                            </p>
+                        {% endif %}
+                    </div>
+
+                    {# Column 2: Languages & Preferences #}
+                    <div class="space-y-1">
+                        <p class="font-semibold text-gray-900">{% trans "Languages" %}</p>
+                        <p class="text-gray-700">
+                            <span class="font-medium">{% trans "Email:" %}</span>
+                            {% if profile.preferred_language == 'en' %}🇬🇧 EN
+                            {% elif profile.preferred_language == 'de' %}🇩🇪 DE
+                            {% elif profile.preferred_language == 'fr' %}🇫🇷 FR
+                            {% endif %}
+                        </p>
+                        <p class="text-gray-700">
+                            <span class="font-medium">{% trans "Events:" %}</span>
+                            {% for lang in profile.event_languages %}
+                                {% if lang == 'en' %}🇬🇧{% elif lang == 'de' %}🇩🇪{% elif lang == 'fr' %}🇫🇷{% elif lang == 'lu' %}🇱🇺{% endif %}
+                            {% endfor %}
+                        </p>
+                        <p class="text-gray-700">💕 {{ profile.get_looking_for_display }}</p>
+                    </div>
+
+                    {# Column 3: Privacy & Quick Access #}
+                    <div class="space-y-1">
+                        <p class="font-semibold text-gray-900">{% trans "Privacy" %}</p>
+                        <p class="text-gray-700">
+                            {% if profile.show_full_name %}✅{% else %}❌{% endif %} {% trans "Full name" %}
+                        </p>
+                        <p class="text-gray-700">
+                            {% if profile.show_exact_age %}✅{% else %}❌{% endif %} {% trans "Exact age" %}
+                        </p>
+                        <p class="text-gray-700">
+                            {% if profile.blur_photos %}🔒{% else %}👁️{% endif %} {% trans "Photos" %}
+                        </p>
+                        <button @click="showProfile" class="mt-2 text-xs text-purple-600 hover:text-purple-800 font-medium underline">
+                            {% trans "View Full Profile →" %}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="lg:col-span-1">
-        <!-- Screening Call Status (HTMX-powered) -->
-        {% include 'crush_lu/_screening_call_section.html' %}
+    {# Tab Navigation #}
+    <div class="mb-6 bg-gray-50 rounded-lg p-2 border border-gray-200">
+        <div class="flex flex-col sm:flex-row gap-2">
+            <button
+                @click="showProfile"
+                :class="profileTabClass"
+                type="button"
+                class="flex-1"
+            >
+                <span class="hidden sm:inline">1. </span>{% trans "Profile Overview" %}
+            </button>
 
-        <!-- Review Decision -->
-        <div class="bg-white rounded-xl shadow-lg mb-4 overflow-hidden">
-            <div class="bg-gradient-to-r from-purple-600 to-pink-500 px-6 py-4">
-                <h5 class="font-semibold text-white flex items-center gap-2">
-                    {% include "shared/icons/clipboard-document-check.html" with class="w-5 h-5" %}
-                    {% trans "Review Decision" %}
-                </h5>
+            <button
+                @click="showScreening"
+                :class="screeningTabClass"
+                type="button"
+                class="flex-1 relative"
+            >
+                <span class="hidden sm:inline">2. </span>{% trans "Screening Call" %}
+                <span x-show="showCallWarning" x-cloak class="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
+                    !
+                </span>
+            </button>
+
+            <button
+                @click="showDecision"
+                :class="decisionTabClass"
+                type="button"
+                class="flex-1"
+            >
+                <span class="hidden sm:inline">3. </span>{% trans "Review Decision" %}
+            </button>
+        </div>
+    </div>
+
+    {# Tab Content Area #}
+    <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 min-h-[500px]">
+        {# Tab 1: Profile Overview (Full Detail) #}
+        <div x-show="isProfileTab" x-cloak>
+            <div class="mb-4">
+                <h2 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    {% include "shared/icons/user.html" with class="w-6 h-6 text-purple-600" %}
+                    {% trans "Profile Overview" %}
+                </h2>
+                <p class="text-sm text-gray-500 mt-1">{% trans "Quick reference for user information" %}</p>
             </div>
-            <div class="p-6">
-                <form method="post">
-                    {% csrf_token %}
-
-                    <!-- Decision Status -->
-                    <div class="mb-5">
-                        <label for="{{ form.status.id_for_label }}" class="block text-sm font-semibold text-gray-800 mb-2">
-                            {% trans "Decision" %} <span class="text-red-500">*</span>
-                        </label>
-                        {{ form.status }}
-                        <p class="mt-1.5 text-xs text-gray-500">
-                            {% trans "Select the appropriate review outcome" %}
-                        </p>
-                    </div>
-
-                    <!-- Internal Notes -->
-                    <div class="mb-5">
-                        <label for="{{ form.coach_notes.id_for_label }}" class="block text-sm font-semibold text-gray-800 mb-2">
-                            {% trans "Internal Notes" %}
-                            <span class="ml-1 text-xs font-normal text-gray-500">({% trans "not visible to user" %})</span>
-                        </label>
-                        {{ form.coach_notes }}
-                        <!-- Suggestion chips for internal notes -->
-                        <div class="mt-2 flex flex-wrap gap-1.5">
-                            <span class="text-xs text-gray-500 mr-1">{% trans "Quick notes:" %}</span>
-                            <button type="button" class="coach-note-chip px-2 py-0.5 text-xs bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-700 rounded-full transition-colors" data-note="✓ Identity verified via call">
-                                ✓ {% trans "ID verified" %}
-                            </button>
-                            <button type="button" class="coach-note-chip px-2 py-0.5 text-xs bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-700 rounded-full transition-colors" data-note="✓ Photos match person on call">
-                                ✓ {% trans "Photos match" %}
-                            </button>
-                            <button type="button" class="coach-note-chip px-2 py-0.5 text-xs bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-700 rounded-full transition-colors" data-note="✓ Genuine dating interest">
-                                ✓ {% trans "Genuine" %}
-                            </button>
-                            <button type="button" class="coach-note-chip px-2 py-0.5 text-xs bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-700 rounded-full transition-colors" data-note="⚠ Suspicious behavior">
-                                ⚠ {% trans "Suspicious" %}
-                            </button>
-                            <button type="button" class="coach-note-chip px-2 py-0.5 text-xs bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-700 rounded-full transition-colors" data-note="⚠ Photos unclear/edited">
-                                ⚠ {% trans "Photo issues" %}
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Feedback to User -->
-                    <div class="mb-6">
-                        <label for="{{ form.feedback_to_user.id_for_label }}" class="block text-sm font-semibold text-gray-800 mb-2">
-                            {% trans "Feedback to User" %}
-                            <span class="ml-1 text-xs font-normal text-gray-500">({% trans "visible if rejected/revision" %})</span>
-                        </label>
-                        {{ form.feedback_to_user }}
-                        <!-- Suggestion chips for user feedback -->
-                        <div class="mt-2 flex flex-wrap gap-1.5">
-                            <span class="text-xs text-gray-500 mr-1">{% trans "Templates:" %}</span>
-                            <button type="button" class="feedback-chip px-2 py-0.5 text-xs bg-green-50 hover:bg-green-100 text-green-700 rounded-full transition-colors" data-feedback="Welcome to Crush.lu! Your profile looks great and we're excited to have you join our community. See you at an upcoming event! 💜">
-                                ✓ {% trans "Welcome" %}
-                            </button>
-                            <button type="button" class="feedback-chip px-2 py-0.5 text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-full transition-colors" data-feedback="Please upload a clearer profile photo where your face is clearly visible. This helps other members recognize you at events.">
-                                📷 {% trans "Better photo" %}
-                            </button>
-                            <button type="button" class="feedback-chip px-2 py-0.5 text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-full transition-colors" data-feedback="Please add more details to your bio - tell us about your interests, hobbies, or what you're looking for.">
-                                ✏️ {% trans "More bio" %}
-                            </button>
-                        </div>
-                    </div>
-
-                    <button type="submit" class="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white font-semibold py-3 px-6 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
-                        {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
-                        {% trans "Submit Review" %}
-                    </button>
-                </form>
-            </div>
+            {% include 'crush_lu/_profile_tab.html' %}
         </div>
 
-        <!-- Review Guidelines -->
-        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div class="bg-blue-50 px-6 py-3 border-b border-blue-100">
-                <h6 class="font-semibold text-blue-800 flex items-center gap-2">
-                    {% include "shared/icons/information-circle.html" with class="w-4 h-4" %}
-                    {% trans "Review Guidelines" %}
-                </h6>
+        {# Tab 2: Screening Call #}
+        <div x-show="isScreeningTab" x-cloak>
+            <div class="mb-4">
+                <h2 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    {% include "shared/icons/phone.html" with class="w-6 h-6 text-purple-600" %}
+                    {% trans "Screening Call" %}
+                </h2>
+                <p class="text-sm text-gray-500 mt-1">{% trans "Complete the screening call checklist before approval" %}</p>
             </div>
-            <div class="p-5">
-                <ul class="text-sm text-gray-600 space-y-2">
-                    <li class="flex items-start gap-2">
-                        <span class="text-yellow-500 mt-0.5">{% include "shared/icons/exclamation-triangle.html" with class="w-4 h-4" %}</span>
-                        <span><strong>{% trans "Complete screening call first!" %}</strong></span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <span class="text-green-500 mt-0.5">{% include "shared/icons/check.html" with class="w-4 h-4" %}</span>
-                        <span>{% trans "Verify photos are clear and appropriate" %}</span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <span class="text-green-500 mt-0.5">{% include "shared/icons/check.html" with class="w-4 h-4" %}</span>
-                        <span>{% trans "Ensure bio is genuine and respectful" %}</span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <span class="text-green-500 mt-0.5">{% include "shared/icons/check.html" with class="w-4 h-4" %}</span>
-                        <span>{% trans "Confirm age verification (18+)" %}</span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <span class="text-red-500 mt-0.5">{% include "shared/icons/x-mark.html" with class="w-4 h-4" %}</span>
-                        <span>{% trans "Look for red flags or suspicious content" %}</span>
-                    </li>
-                </ul>
+            {% include 'crush_lu/_screening_tab.html' %}
+        </div>
+
+        {# Tab 3: Review Decision #}
+        <div x-show="isDecisionTab" x-cloak>
+            <div class="mb-6">
+                <h2 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    {% include "shared/icons/clipboard-document-check.html" with class="w-6 h-6 text-purple-600" %}
+                    {% trans "Review Decision" %}
+                </h2>
+                <p class="text-sm text-gray-500 mt-1">{% trans "Submit your final decision after completing the screening call" %}</p>
             </div>
+            {% include 'crush_lu/_decision_tab.html' %}
+        </div>
+    </div>
+
+    {# Sticky Guidelines Panel (bottom-right corner) #}
+    <div
+        x-data="guidelinesPanel"
+        x-show="isOpen"
+        x-cloak
+        class="fixed bottom-6 right-6 w-80 bg-white rounded-xl shadow-2xl border-2 border-purple-200 z-40"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0 translate-y-4"
+        x-transition:enter-end="opacity-100 translate-y-0"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100 translate-y-0"
+        x-transition:leave-end="opacity-0 translate-y-4"
+    >
+        <div class="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-t-xl">
+            <h3 class="font-semibold text-white flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                </svg>
+                {% trans "Review Guidelines" %}
+            </h3>
+            <button @click="close" class="text-white hover:text-gray-200 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="p-4 max-h-96 overflow-y-auto">
+            <ul class="space-y-3 text-sm">
+                <li class="flex items-start gap-2">
+                    <span class="text-yellow-500 mt-0.5 flex-shrink-0">
+                        {% include "shared/icons/exclamation-triangle.html" with class="w-4 h-4" %}
+                    </span>
+                    <span class="text-gray-700"><strong class="text-gray-900">{% trans "Complete screening call first!" %}</strong></span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-500 mt-0.5 flex-shrink-0">
+                        {% include "shared/icons/check.html" with class="w-4 h-4" %}
+                    </span>
+                    <span class="text-gray-700">{% trans "Verify photos are clear and appropriate" %}</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-500 mt-0.5 flex-shrink-0">
+                        {% include "shared/icons/check.html" with class="w-4 h-4" %}
+                    </span>
+                    <span class="text-gray-700">{% trans "Ensure bio is genuine and respectful" %}</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-500 mt-0.5 flex-shrink-0">
+                        {% include "shared/icons/check.html" with class="w-4 h-4" %}
+                    </span>
+                    <span class="text-gray-700">{% trans "Confirm age verification (18+)" %}</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-red-500 mt-0.5 flex-shrink-0">
+                        {% include "shared/icons/x-mark.html" with class="w-4 h-4" %}
+                    </span>
+                    <span class="text-gray-700">{% trans "Look for red flags or suspicious content" %}</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-purple-500 mt-0.5 flex-shrink-0">
+                        {% include "shared/icons/language.html" with class="w-4 h-4" %}
+                    </span>
+                    <span class="text-gray-700">{% trans "Write feedback in user's preferred language" %}</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-blue-500 mt-0.5 flex-shrink-0">
+                        {% include "shared/icons/eye.html" with class="w-4 h-4" %}
+                    </span>
+                    <span class="text-gray-700">{% trans "Use preview button to verify email before sending" %}</span>
+                </li>
+            </ul>
+        </div>
+
+        {# Toggle button to reopen when closed #}
+        <button
+            @click="open"
+            x-show="isClosed"
+            x-cloak
+            class="fixed bottom-6 right-6 bg-gradient-to-r from-purple-600 to-pink-500 text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-shadow"
+            title="{% trans 'Show Review Guidelines' %}"
+        >
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+            </svg>
+        </button>
+    </div>
+</div>
+
+{# Email Preview Modal #}
+<div
+    x-data="emailPreviewModal"
+    x-ref="previewModal"
+    :class="modalClasses"
+    x-show="isOpen"
+    x-cloak
+    @keydown.escape.window="handleEscape"
+    @open-modal.window="open"
+>
+    {# Backdrop #}
+    <div class="fixed inset-0 bg-black bg-opacity-50" @click="handleBackdropClick"></div>
+
+    {# Modal #}
+    <div class="relative bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+        {# Header #}
+        <div class="flex items-center justify-between px-6 py-4 border-b">
+            <h3 class="text-xl font-semibold">{% trans "Email Preview" %}</h3>
+            <button @click="handleCloseClick" type="button" class="text-gray-400 hover:text-gray-600">
+                {% include "shared/icons/x-mark.html" with class="w-6 h-6" %}
+            </button>
+        </div>
+
+        {# Content #}
+        <div class="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+            <div x-show="showLoading" class="flex items-center justify-center py-12">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+            </div>
+            <div
+                id="preview-content"
+                @htmx:afterSwap="handlePreviewLoaded"
+                class="prose max-w-none"
+            ></div>
+        </div>
+
+        {# Footer #}
+        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t bg-gray-50">
+            <button @click="handleCloseClick" type="button" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                {% trans "Close" %}
+            </button>
+            <button @click="handleSubmitClick" type="button" class="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-lg hover:from-purple-700 hover:to-pink-600 transition-all">
+                {% trans "Looks good, Submit Review" %}
+            </button>
         </div>
     </div>
 </div>
@@ -211,7 +349,28 @@
 
 {% block extra_js %}
 <script nonce="{{ request.csp_nonce }}">
-// Quick note chips - append to internal notes textarea
+// Multilingual feedback templates
+const userLanguage = '{{ profile.preferred_language }}';
+
+const feedbackTemplates = {
+    en: {
+        welcome: "Welcome to Crush.lu! Your profile looks great and we're excited to have you join our community. See you at an upcoming event! 💜",
+        better_photo: "Please upload a clearer profile photo where your face is clearly visible. This helps other members recognize you at events.",
+        more_bio: "Please add more details to your bio - tell us about your interests, hobbies, or what you're looking for."
+    },
+    de: {
+        welcome: "Willkommen bei Crush.lu! Dein Profil sieht toll aus und wir freuen uns, dich in unserer Community begrüßen zu dürfen. Wir sehen uns bei einer kommenden Veranstaltung! 💜",
+        better_photo: "Bitte lade ein klareres Profilfoto hoch, auf dem dein Gesicht deutlich zu sehen ist. Das hilft anderen Mitgliedern, dich bei Veranstaltungen zu erkennen.",
+        more_bio: "Bitte füge mehr Details zu deiner Biografie hinzu - erzähle uns von deinen Interessen, Hobbys oder wonach du suchst."
+    },
+    fr: {
+        welcome: "Bienvenue sur Crush.lu ! Votre profil est superbe et nous sommes ravis de vous accueillir dans notre communauté. À bientôt lors d'un événement ! 💜",
+        better_photo: "Veuillez télécharger une photo de profil plus claire où votre visage est clairement visible. Cela aide les autres membres à vous reconnaître lors des événements.",
+        more_bio: "Veuillez ajouter plus de détails à votre biographie - parlez-nous de vos intérêts, passe-temps ou de ce que vous recherchez."
+    }
+};
+
+// Quick note chips - append to internal notes textarea (use English for internal notes)
 document.querySelectorAll('.coach-note-chip').forEach(function(chip) {
     chip.addEventListener('click', function() {
         var textarea = document.getElementById('id_coach_notes');
@@ -224,14 +383,96 @@ document.querySelectorAll('.coach-note-chip').forEach(function(chip) {
     });
 });
 
-// Feedback template chips - replace feedback textarea content
+// Feedback template chips - replace feedback textarea content with user's preferred language
 document.querySelectorAll('.feedback-chip').forEach(function(chip) {
     chip.addEventListener('click', function() {
         var textarea = document.getElementById('id_feedback_to_user');
-        var feedback = this.getAttribute('data-feedback');
+        var templateKey = this.getAttribute('data-template-key');
+        var feedback = feedbackTemplates[userLanguage][templateKey];
         textarea.value = feedback;
         textarea.focus();
     });
+});
+
+// Email preview modal integration with HTMX
+document.addEventListener('DOMContentLoaded', function() {
+    const previewBtn = document.getElementById('preview-email-btn');
+    const modalEl = document.querySelector('[x-data="emailPreviewModal"]');
+
+    if (previewBtn && modalEl) {
+        console.log('Preview button and modal found');
+
+        // Store reference to Alpine component
+        let alpineComponent = null;
+
+        // Click handler to open modal before HTMX request
+        previewBtn.addEventListener('click', function() {
+            console.log('Preview button clicked');
+
+            // Try multiple methods to access Alpine component
+            try {
+                // Method 1: Alpine's $data helper
+                if (window.Alpine) {
+                    console.log('Trying Alpine.$data method');
+                    const data = Alpine.$data(modalEl);
+                    if (data && typeof data.open === 'function') {
+                        console.log('Opening modal via Alpine.$data');
+                        alpineComponent = data;
+                        data.open();
+                        return;
+                    }
+                }
+
+                // Method 2: Direct access via _x_dataStack
+                if (modalEl._x_dataStack && modalEl._x_dataStack.length > 0) {
+                    const component = modalEl._x_dataStack[0];
+                    console.log('Opening modal via _x_dataStack');
+                    alpineComponent = component;
+                    component.open();
+                    return;
+                }
+
+                // Method 3: Dispatch Alpine event
+                console.log('Trying event dispatch method');
+                modalEl.dispatchEvent(new CustomEvent('open-modal'));
+            } catch (e) {
+                console.error('Error opening modal:', e);
+            }
+        });
+
+        // Listen for HTMX events on the button
+        previewBtn.addEventListener('htmx:afterSwap', function(evt) {
+            console.log('HTMX content swapped on button');
+            // Hide loading spinner
+            if (alpineComponent && typeof alpineComponent.handlePreviewLoaded === 'function') {
+                console.log('Hiding loading spinner');
+                alpineComponent.handlePreviewLoaded();
+            }
+        });
+
+        // Also listen on the preview content div
+        const previewContent = document.getElementById('preview-content');
+        if (previewContent) {
+            previewContent.addEventListener('htmx:afterSwap', function(evt) {
+                console.log('HTMX content swapped on preview-content');
+                // Hide loading spinner
+                if (alpineComponent && typeof alpineComponent.handlePreviewLoaded === 'function') {
+                    console.log('Hiding loading spinner via preview-content');
+                    alpineComponent.handlePreviewLoaded();
+                }
+            });
+        }
+
+        previewBtn.addEventListener('htmx:responseError', function(evt) {
+            console.error('HTMX error:', evt.detail);
+            // Hide loading on error too
+            if (alpineComponent && typeof alpineComponent.handlePreviewLoaded === 'function') {
+                alpineComponent.handlePreviewLoaded();
+            }
+        });
+    } else {
+        console.error('Preview button or modal not found');
+    }
 });
 </script>
 {% endblock %}

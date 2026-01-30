@@ -1973,12 +1973,266 @@ def coach_review_profile(request, submission_id):
     else:
         form = ProfileReviewForm(instance=submission)
 
+    # Get social login provider if exists
+    social_account = submission.profile.user.socialaccount_set.first()
+
     context = {
         'submission': submission,
         'profile': submission.profile,
         'form': form,
+        'social_account': social_account,
     }
     return render(request, 'crush_lu/coach_review_profile.html', context)
+
+
+@crush_login_required
+def coach_preview_email(request, submission_id):
+    """Preview the email that will be sent for a review decision"""
+    import traceback
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+    from django.http import HttpResponse
+    from .utils.i18n import get_user_preferred_language
+    from .email_helpers import get_email_context_with_unsubscribe, get_email_base_urls, get_user_language_url
+    from django.template.loader import render_to_string
+
+    # Wrap entire function in try-except to catch any errors
+    try:
+        try:
+            coach = CrushCoach.objects.get(user=request.user)
+            if not coach.is_active:
+                return HttpResponse("Coach account deactivated", status=403)
+        except CrushCoach.DoesNotExist:
+            return HttpResponse("Not a coach", status=403)
+
+        submission = get_object_or_404(
+            ProfileSubmission,
+            id=submission_id,
+            coach=coach
+        )
+
+        # Get parameters from request
+        status = request.GET.get('status', '')
+        feedback = request.GET.get('feedback_to_user', '')
+        coach_notes = request.GET.get('coach_notes', '')
+
+        profile = submission.profile
+        user = profile.user
+
+        # Get user's preferred language
+        lang = get_user_preferred_language(user=user, request=request, default='en')
+
+        # If no valid status selected, show a helpful message
+        if not status or status == 'pending':
+            preview_html = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Email Preview</title>
+            <style>
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    margin: 0;
+                    padding: 40px;
+                    background: #f3f4f6;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 100vh;
+                }
+                .message {
+                    background: white;
+                    padding: 32px;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    text-align: center;
+                    max-width: 500px;
+                }
+                .message h2 {
+                    margin: 0 0 16px 0;
+                    color: #6366f1;
+                    font-size: 24px;
+                }
+                .message p {
+                    margin: 0;
+                    color: #6b7280;
+                    line-height: 1.6;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="message">
+                <h2>📧 No Preview Available</h2>
+                <p>Please select a decision (Approved, Rejected, Revision Requested, or Recontact Coach) to preview the email that will be sent.</p>
+            </div>
+        </body>
+        </html>
+            """
+            response = HttpResponse(preview_html, content_type='text/html')
+            response['X-Frame-Options'] = 'SAMEORIGIN'
+            return response
+
+        # Build context based on decision type
+        if status == 'approved':
+            events_url = get_user_language_url(user, 'crush_lu:event_list', request)
+            context = get_email_context_with_unsubscribe(user, request,
+                first_name=user.first_name,
+                coach_notes=feedback or coach_notes,
+                events_url=events_url,
+            )
+            template = 'crush_lu/emails/profile_approved.html'
+            with translation.override(lang):
+                subject = _("Welcome to Crush.lu - Your Profile is Approved!")
+
+        elif status == 'rejected':
+            base_urls = get_email_base_urls(user, request)
+            context = {
+                'user': user,
+                'first_name': user.first_name,
+                'reason': feedback,
+                'LANGUAGE_CODE': lang,
+                **base_urls,
+            }
+            template = 'crush_lu/emails/profile_rejected.html'
+            with translation.override(lang):
+                subject = _("Profile Review Update - Crush.lu")
+
+        elif status == 'revision':
+            edit_profile_url = get_user_language_url(user, 'crush_lu:edit_profile', request)
+            base_urls = get_email_base_urls(user, request)
+            context = {
+                'user': user,
+                'first_name': user.first_name,
+                'feedback': feedback,
+                'edit_profile_url': edit_profile_url,
+                'LANGUAGE_CODE': lang,
+                **base_urls,
+            }
+            template = 'crush_lu/emails/profile_revision_request.html'
+            with translation.override(lang):
+                subject = _("Profile Review Feedback - Crush.lu")
+
+        elif status == 'recontact_coach':
+            base_urls = get_email_base_urls(user, request)
+            context = {
+                'user': user,
+                'first_name': user.first_name,
+                'coach': coach,
+                'LANGUAGE_CODE': lang,
+                **base_urls,
+            }
+            template = 'crush_lu/emails/profile_recontact.html'
+            with translation.override(lang):
+                subject = _("Your Crush Coach Needs to Speak With You")
+        else:
+            return HttpResponse("Invalid status", status=400)
+
+        # Render preview with language override
+        try:
+            with translation.override(lang):
+                html_content = render_to_string(template, context)
+        except Exception as e:
+            logger.error(f"Error rendering email template: {e}")
+            logger.error(traceback.format_exc())
+            return HttpResponse(f"Error rendering template: {str(e)}<br><br><pre>{traceback.format_exc()}</pre>", status=500)
+
+        # Wrap in preview container
+        preview_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Email Preview</title>
+        <style>
+            body {{
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                margin: 0;
+                padding: 20px;
+                background: #f3f4f6;
+            }}
+            .preview-header {{
+                background: white;
+                padding: 16px 24px;
+                border-radius: 8px;
+                margin-bottom: 16px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }}
+            .preview-header h2 {{
+                margin: 0 0 8px 0;
+                font-size: 18px;
+                color: #111827;
+            }}
+            .preview-header p {{
+                margin: 0;
+                font-size: 14px;
+                color: #6b7280;
+            }}
+            .email-container {{
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                overflow: hidden;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="preview-header">
+            <h2>📧 {subject}</h2>
+            <p>Language: {lang.upper()} | To: {user.email}</p>
+        </div>
+        <div class="email-container">
+            {html_content}
+        </div>
+    </body>
+    </html>
+    """
+
+        response = HttpResponse(preview_html, content_type='text/html')
+        response['X-Frame-Options'] = 'SAMEORIGIN'
+        return response
+
+    except Exception as e:
+        logger.error(f"Error in coach_preview_email: {e}")
+        logger.error(traceback.format_exc())
+        error_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Preview Error</title>
+            <style>
+                body {{
+                    font-family: monospace;
+                    padding: 20px;
+                    background: #fee;
+                }}
+                .error {{
+                    background: white;
+                    padding: 20px;
+                    border: 2px solid #f00;
+                    border-radius: 8px;
+                }}
+                h2 {{ color: #c00; }}
+                pre {{
+                    background: #f5f5f5;
+                    padding: 10px;
+                    overflow: auto;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="error">
+                <h2>Preview Error</h2>
+                <p><strong>Error:</strong> {str(e)}</p>
+                <h3>Traceback:</h3>
+                <pre>{traceback.format_exc()}</pre>
+            </div>
+        </body>
+        </html>
+        """
+        return HttpResponse(error_html, status=500)
 
 
 @crush_login_required
