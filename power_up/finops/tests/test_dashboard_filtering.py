@@ -71,7 +71,7 @@ class TestFinOpsDashboardFiltering:
         page.wait_for_load_state('networkidle')
 
         # Check URL has charge_type=all
-        expect(page).to_have_url(f"{test_url}/finops/?charge_type=all")
+        expect(page).to_have_url(f"{live_server.url}/finops/?charge_type=all")
 
         # Check info message is NOT shown for 'all' filter
         info_message = page.locator('text=Showing Usage costs only')
