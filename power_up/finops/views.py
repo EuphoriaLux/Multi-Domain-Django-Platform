@@ -32,6 +32,7 @@ def dashboard(request):
     days = int(request.GET.get('days', 30))
     subscription_filter = request.GET.get('subscription')
     service_filter = request.GET.get('service')
+    charge_type_filter = request.GET.get('charge_type', 'usage')  # Default to 'usage' only
 
     # Smart date range: check actual usage dates in the database
     date_range = CostRecord.objects.aggregate(
@@ -62,6 +63,10 @@ def dashboard(request):
     if service_filter:
         base_queryset = base_queryset.filter(service_name__icontains=service_filter)
 
+    # Charge type filter (default to Usage only for clearer consumption tracking)
+    if charge_type_filter and charge_type_filter != 'all':
+        base_queryset = base_queryset.filter(charge_category__iexact=charge_type_filter)
+
     total_cost = base_queryset.aggregate(total=Sum('billed_cost'))['total'] or 0
 
     month_start = end_date.replace(day=1)
@@ -74,6 +79,9 @@ def dashboard(request):
         usage_date__gte=month_start,
         usage_date__lte=end_date
     )
+    # Apply same charge type filter to MTD
+    if charge_type_filter and charge_type_filter != 'all':
+        mtd_queryset = mtd_queryset.filter(charge_category__iexact=charge_type_filter)
     mtd_cost = mtd_queryset.aggregate(total=Sum('billed_cost'))['total'] or 0
 
     year_start = end_date.replace(month=1, day=1)
@@ -86,6 +94,9 @@ def dashboard(request):
         usage_date__gte=year_start,
         usage_date__lte=end_date
     )
+    # Apply same charge type filter to YTD
+    if charge_type_filter and charge_type_filter != 'all':
+        ytd_queryset = ytd_queryset.filter(charge_category__iexact=charge_type_filter)
     ytd_cost = ytd_queryset.aggregate(total=Sum('billed_cost'))['total'] or 0
 
     actual_days = (end_date - start_date).days + 1
@@ -109,9 +120,10 @@ def dashboard(request):
     top_subscriptions_list = list(top_subscriptions)
     top_services_list = list(top_services)
 
-    # Get all subscriptions and services for filter dropdowns
+    # Get all subscriptions, services, and charge types for filter dropdowns
     all_subscriptions = CostRecord.objects.values_list('sub_account_name', flat=True).distinct().order_by('sub_account_name')
     all_services = CostRecord.objects.values_list('service_name', flat=True).distinct().order_by('service_name')
+    all_charge_types = CostRecord.objects.values_list('charge_category', flat=True).distinct().order_by('charge_category')
 
     context = {
         'page_title': _('FinOps Hub - Cost Dashboard'),
@@ -123,8 +135,10 @@ def dashboard(request):
         'filters': {
             'subscription': subscription_filter,
             'service': service_filter,
+            'charge_type': charge_type_filter,
             'all_subscriptions': all_subscriptions,
             'all_services': all_services,
+            'all_charge_types': all_charge_types,
         },
         'summary': {
             'total_cost': total_cost,

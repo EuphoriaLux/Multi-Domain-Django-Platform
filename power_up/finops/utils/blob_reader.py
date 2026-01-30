@@ -29,19 +29,34 @@ class AzureCostBlobReader:
 
     def __init__(self):
         """Initialize Azure Blob Service Client using Django settings"""
-        account_name = os.getenv('AZURE_ACCOUNT_NAME') or getattr(settings, 'AZURE_ACCOUNT_NAME', None)
-        account_key = os.getenv('AZURE_ACCOUNT_KEY') or getattr(settings, 'AZURE_ACCOUNT_KEY', None)
+        # Check if we're running in Azurite mode (local development)
+        is_azurite = os.getenv('AZURITE_MODE', 'False').lower() == 'true'
 
-        if not account_name or not account_key:
-            raise ValueError("Azure Storage credentials not configured. Set AZURE_ACCOUNT_NAME and AZURE_ACCOUNT_KEY environment variables.")
+        if is_azurite:
+            # Azurite: use connection string
+            connection_string = os.getenv('AZURE_CONNECTION_STRING') or getattr(settings, 'AZURE_CONNECTION_STRING', None)
+            if not connection_string:
+                raise ValueError("Azurite mode requires AZURE_CONNECTION_STRING")
 
-        self.account_name = account_name
-        self.account_url = f"https://{account_name}.blob.core.windows.net"
-        self.blob_service_client = BlobServiceClient(
-            account_url=self.account_url,
-            credential=account_key
-        )
-        self.container_name = 'msexports'
+            self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+            self.account_name = 'devstoreaccount1'
+        else:
+            # Production: use account name + key
+            account_name = os.getenv('AZURE_ACCOUNT_NAME') or getattr(settings, 'AZURE_ACCOUNT_NAME', None)
+            account_key = os.getenv('AZURE_ACCOUNT_KEY') or getattr(settings, 'AZURE_ACCOUNT_KEY', None)
+
+            if not account_name or not account_key:
+                raise ValueError("Azure Storage credentials not configured. Set AZURE_ACCOUNT_NAME and AZURE_ACCOUNT_KEY environment variables.")
+
+            self.account_name = account_name
+            self.account_url = f"https://{account_name}.blob.core.windows.net"
+            self.blob_service_client = BlobServiceClient(
+                account_url=self.account_url,
+                credential=account_key
+            )
+
+        # Container name: use environment variable override for local testing, default to production 'msexports'
+        self.container_name = os.getenv('FINOPS_COST_EXPORT_CONTAINER', 'msexports')
         self.container_client = self.blob_service_client.get_container_client(self.container_name)
 
     def list_cost_exports(self, prefix='', subscription_filter=None):
