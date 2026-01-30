@@ -382,3 +382,104 @@ class CostForecast(models.Model):
 
     def __str__(self):
         return f"Forecast for {self.dimension_value} on {self.forecast_date}: {self.forecast_cost} {self.currency}"
+
+
+class ReservationCost(models.Model):
+    """
+    Azure Reservation purchase costs and amortization.
+
+    Tracks reservation purchases that don't appear in CSP Partner Led exports.
+    Pricing is fetched from Azure Retail Prices API and amortized monthly.
+    """
+
+    # Reservation identification
+    reservation_id = models.CharField(max_length=100, unique=True, db_index=True)
+    reservation_order_id = models.CharField(max_length=100, db_index=True)
+    reservation_name = models.CharField(max_length=200)
+
+    # SKU and location
+    sku_name = models.CharField(max_length=200)
+    sku_description = models.TextField(blank=True)
+    service_name = models.CharField(max_length=200, db_index=True)
+    region = models.CharField(max_length=50, db_index=True)
+
+    # Purchase details
+    purchase_date = models.DateField(db_index=True)
+    expiry_date = models.DateField()
+    term_months = models.IntegerField()  # 12 for 1-year, 36 for 3-year
+    billing_plan = models.CharField(max_length=20, default='Monthly')  # Monthly, Upfront
+    quantity = models.IntegerField(default=1)
+
+    # Cost details
+    total_cost = models.DecimalField(max_digits=12, decimal_places=2)
+    monthly_amortization = models.DecimalField(max_digits=12, decimal_places=2)
+    currency = models.CharField(max_length=10, default='EUR')
+
+    # Data source tracking
+    is_estimate = models.BooleanField(default=True, db_index=True)  # True = from Retail API, False = from invoice
+    pricing_source = models.CharField(max_length=50, default='Azure Retail Prices API')
+    last_synced = models.DateTimeField(auto_now=True)
+
+    # Metadata
+    metadata = models.JSONField(default=dict, blank=True)  # Store raw API response
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'finops_hub_reservationcost'
+        ordering = ['-purchase_date']
+        indexes = [
+            models.Index(fields=['reservation_id', 'is_estimate']),
+            models.Index(fields=['service_name', 'region']),
+            models.Index(fields=['purchase_date', 'expiry_date']),
+        ]
+
+    def __str__(self):
+        return f"{self.reservation_name} - {self.monthly_amortization} {self.currency}/month"
+
+    def is_active(self, check_date=None):
+        """Check if reservation is active on given date"""
+        from django.utils import timezone
+        if check_date is None:
+            check_date = timezone.now().date()
+        return self.purchase_date <= check_date <= self.expiry_date
+
+    def get_amortized_cost_for_period(self, start_date, end_date):
+        """
+        Calculate amortized cost for a specific date range.
+
+        Uses monthly charge divided by actual days in each month (28-31),
+        matching how Microsoft attributes reservation costs in billing.
+
+        This ensures full months always total to exactly the monthly_amortization amount.
+        Example: February (28 days) = €24.83/28/day, January (31 days) = €24.83/31/day
+        """
+        from datetime import timedelta
+        from calendar import monthrange
+        from decimal import Decimal
+
+        # Find overlap between reservation period and requested period
+        overlap_start = max(self.purchase_date, start_date)
+        overlap_end = min(self.expiry_date, end_date)
+
+        if overlap_start > overlap_end:
+            return 0  # No overlap
+
+        # Calculate cost day-by-day, using the correct daily rate for each month
+        total_cost = Decimal('0.00')
+        current_date = overlap_start
+
+        while current_date <= overlap_end:
+            # Get the number of days in this specific month
+            days_in_current_month = monthrange(current_date.year, current_date.month)[1]
+
+            # Calculate daily rate for this month
+            daily_rate = self.monthly_amortization / days_in_current_month
+
+            # Add this day's cost
+            total_cost += daily_rate
+
+            # Move to next day
+            current_date += timedelta(days=1)
+
+        return float(total_cost)

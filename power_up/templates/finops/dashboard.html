@@ -11,12 +11,21 @@
         <h1 class="text-2xl font-bold text-gray-900">FinOps Hub - Cost Dashboard</h1>
         <p class="text-gray-500">Azure cost analytics and insights</p>
     </div>
-    <div class="mt-4 md:mt-0 flex space-x-2">
-        <a href="?days=7" class="px-3 py-1.5 text-sm font-medium rounded-md {% if period.days == 7 %}bg-blue-600 text-white{% else %}bg-white text-gray-700 border border-gray-300 hover:bg-gray-50{% endif %}">7 days</a>
-        <a href="?days=30" class="px-3 py-1.5 text-sm font-medium rounded-md {% if period.days == 30 %}bg-blue-600 text-white{% else %}bg-white text-gray-700 border border-gray-300 hover:bg-gray-50{% endif %}">30 days</a>
-        <a href="?days=60" class="px-3 py-1.5 text-sm font-medium rounded-md {% if period.days == 60 %}bg-blue-600 text-white{% else %}bg-white text-gray-700 border border-gray-300 hover:bg-gray-50{% endif %}">60 days</a>
-        <a href="?days=90" class="px-3 py-1.5 text-sm font-medium rounded-md {% if period.days == 90 %}bg-blue-600 text-white{% else %}bg-white text-gray-700 border border-gray-300 hover:bg-gray-50{% endif %}">90 days</a>
-        <a href="?days=365" class="px-3 py-1.5 text-sm font-medium rounded-md {% if period.days == 365 %}bg-blue-600 text-white{% else %}bg-white text-gray-700 border border-gray-300 hover:bg-gray-50{% endif %}">1 year</a>
+    <div class="mt-4 md:mt-0">
+        <form method="get" action="" class="flex items-center space-x-2">
+            <!-- Preserve existing filters -->
+            {% if filters.subscription %}<input type="hidden" name="subscription" value="{{ filters.subscription }}">{% endif %}
+            {% if filters.service %}<input type="hidden" name="service" value="{{ filters.service }}">{% endif %}
+            {% if filters.charge_type %}<input type="hidden" name="charge_type" value="{{ filters.charge_type }}">{% endif %}
+
+            <label for="month" class="text-sm font-medium text-gray-700">Period:</label>
+            <select name="month" id="month" onchange="this.form.submit()" class="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="">Custom (Last 30 days)</option>
+                {% for month in filters.available_months %}
+                <option value="{{ month.value }}" {% if filters.month == month.value %}selected{% endif %}>{{ month.label }}</option>
+                {% endfor %}
+            </select>
+        </form>
     </div>
 </div>
 
@@ -31,17 +40,17 @@
     </div>
 
     <form method="get" action="" x-show="showFilters" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {% if filters.month %}
+        <input type="hidden" name="month" value="{{ filters.month }}">
+        {% else %}
         <input type="hidden" name="days" value="{{ period.days }}">
+        {% endif %}
 
         <div>
-            <label for="charge_type" class="block text-sm font-medium text-gray-700 mb-1">Charge Type</label>
+            <label for="charge_type" class="block text-sm font-medium text-gray-700 mb-1">Pricing Model</label>
             <select name="charge_type" id="charge_type" class="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                <option value="usage" {% if filters.charge_type == 'usage' %}selected{% endif %}>Usage Only</option>
-                <option value="all" {% if filters.charge_type == 'all' %}selected{% endif %}>All Charges</option>
-                {% for charge_type in filters.all_charge_types %}
-                    {% if charge_type %}
-                    <option value="{{ charge_type }}" {% if filters.charge_type == charge_type %}selected{% endif %}>{{ charge_type|title }}</option>
-                    {% endif %}
+                {% for value, label in filters.pricing_categories %}
+                <option value="{{ value }}" {% if filters.charge_type == value %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -76,39 +85,50 @@
         </div>
     </form>
 
-    {% if filters.subscription or filters.service or filters.charge_type != 'usage' %}
+    {% if filters.subscription or filters.service or filters.charge_type != 'payg' %}
     <div class="mt-3 flex flex-wrap gap-2">
         <span class="text-sm text-gray-600">Active filters:</span>
-        {% if filters.charge_type and filters.charge_type != 'usage' %}
+        {% if filters.charge_type and filters.charge_type != 'payg' %}
         <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded">
-            Charge Type: {{ filters.charge_type|title }}
-            <a href="?days={{ period.days }}&charge_type=usage{% if filters.subscription %}&subscription={{ filters.subscription }}{% endif %}{% if filters.service %}&service={{ filters.service }}{% endif %}" class="ml-1 text-purple-600 hover:text-purple-900">×</a>
+            Pricing: {% if filters.charge_type == 'reserved' %}Reserved Instance{% elif filters.charge_type == 'all' %}All Usage{% else %}{{ filters.charge_type|title }}{% endif %}
+            <a href="?days={{ period.days }}&charge_type=payg{% if filters.subscription %}&subscription={{ filters.subscription }}{% endif %}{% if filters.service %}&service={{ filters.service }}{% endif %}" class="ml-1 text-purple-600 hover:text-purple-900">×</a>
         </span>
         {% endif %}
         {% if filters.subscription %}
         <span class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
             Subscription: {{ filters.subscription }}
-            <a href="?days={{ period.days }}&charge_type={{ filters.charge_type|default:'usage' }}{% if filters.service %}&service={{ filters.service }}{% endif %}" class="ml-1 text-blue-600 hover:text-blue-900">×</a>
+            <a href="?days={{ period.days }}&charge_type={{ filters.charge_type|default:'payg' }}{% if filters.service %}&service={{ filters.service }}{% endif %}" class="ml-1 text-blue-600 hover:text-blue-900">×</a>
         </span>
         {% endif %}
         {% if filters.service %}
         <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
             Service: {{ filters.service }}
-            <a href="?days={{ period.days }}&charge_type={{ filters.charge_type|default:'usage' }}{% if filters.subscription %}&subscription={{ filters.subscription }}{% endif %}" class="ml-1 text-green-600 hover:text-green-900">×</a>
+            <a href="?days={{ period.days }}&charge_type={{ filters.charge_type|default:'payg' }}{% if filters.subscription %}&subscription={{ filters.subscription }}{% endif %}" class="ml-1 text-green-600 hover:text-green-900">×</a>
         </span>
         {% endif %}
     </div>
     {% endif %}
 
     <!-- Info message about default filtering -->
-    {% if filters.charge_type == 'usage' or not filters.charge_type %}
+    {% if filters.charge_type == 'payg' or not filters.charge_type %}
     <div class="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
         <div class="flex items-start">
             <svg class="h-5 w-5 text-blue-400 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
             </svg>
             <p class="text-sm text-blue-800">
-                Showing <strong>Usage costs only</strong> for clearer consumption tracking. Purchase costs (reservations, savings plans) are excluded. Select "All Charges" in filters to include them.
+                Showing <strong>Pay-as-you-go costs only</strong>. Reserved Instance usage is excluded. Select "All Usage" to include reservation-covered workloads.
+            </p>
+        </div>
+    </div>
+    {% elif filters.charge_type == 'reserved' %}
+    <div class="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+        <div class="flex items-start">
+            <svg class="h-5 w-5 text-green-400 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <p class="text-sm text-green-800">
+                Showing <strong>Reserved Instance usage only</strong>. These costs are covered by your reservation commitment. Effective cost is typically €0 (already paid upfront).
             </p>
         </div>
     </div>
@@ -137,22 +157,49 @@
 </div>
 
 <!-- Summary Cards -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
     <div class="bg-white rounded-lg shadow border-l-4 border-blue-500 p-5">
-        <p class="text-sm text-gray-500 mb-1">Total Cost ({{ period.days }} days)</p>
-        <p class="text-2xl font-bold text-blue-600">{{ summary.total_cost|floatformat:2 }}</p>
-        <p class="text-sm text-gray-400">Avg: {{ summary.avg_daily_cost|floatformat:2 }}/day</p>
+        <p class="text-sm text-gray-500 mb-1">Usage Cost ({{ period.days }} days)</p>
+        <p class="text-2xl font-bold text-blue-600">€{{ summary.total_cost|floatformat:2 }}</p>
+        <p class="text-sm text-gray-400">Avg: €{{ summary.avg_daily_cost|floatformat:2 }}/day</p>
     </div>
+
+    {% if filters.charge_type != 'reserved' %}
+    <div class="bg-white rounded-lg shadow border-l-4 border-orange-500 p-5">
+        <p class="text-sm text-gray-500 mb-1">Reservation Cost ({{ period.days }} days)</p>
+        <p class="text-2xl font-bold text-orange-600">€{{ summary.reservation_cost|floatformat:2 }}</p>
+        <p class="text-sm text-gray-400">Amortized (from Azure)</p>
+    </div>
+
+    <div class="bg-white rounded-lg shadow border-l-4 border-indigo-500 p-5">
+        <p class="text-sm text-gray-500 mb-1">Total Cost</p>
+        <p class="text-2xl font-bold text-indigo-600">€{{ summary.total_cost_with_reservations|floatformat:2 }}</p>
+        <p class="text-sm text-gray-400">Usage + Reservations</p>
+    </div>
+    {% else %}
     <div class="bg-white rounded-lg shadow border-l-4 border-green-500 p-5">
-        <p class="text-sm text-gray-500 mb-1">Month-to-Date</p>
-        <p class="text-2xl font-bold text-green-600">{{ summary.mtd_cost|floatformat:2 }}</p>
-        <p class="text-sm text-gray-400">{{ period.end|date:"F Y" }}</p>
+        <p class="text-sm text-gray-500 mb-1">Reserved Instance Usage</p>
+        <p class="text-2xl font-bold text-green-600">€{{ summary.total_list_cost|floatformat:2 }}</p>
+        <p class="text-sm text-gray-400">Capacity tracked</p>
     </div>
-    <div class="bg-white rounded-lg shadow border-l-4 border-cyan-500 p-5">
-        <p class="text-sm text-gray-500 mb-1">Year-to-Date</p>
-        <p class="text-2xl font-bold text-cyan-600">{{ summary.ytd_cost|floatformat:2 }}</p>
-        <p class="text-sm text-gray-400">{{ period.end|date:"Y" }}</p>
+    {% endif %}
+
+    <div class="bg-white rounded-lg shadow border-l-4 border-green-500 p-5">
+        <p class="text-sm text-gray-500 mb-1">
+            {% if filters.charge_type == 'reserved' %}Reservation Savings{% else %}Est. Savings{% endif %}
+        </p>
+        <p class="text-2xl font-bold text-green-600">
+            {% if filters.charge_type == 'reserved' %}
+            €{{ summary.total_savings|floatformat:2 }}
+            {% else %}
+            €{{ summary.reservation_savings_estimate|floatformat:2 }}
+            {% endif %}
+        </p>
+        <p class="text-sm text-gray-400">
+            {% if filters.charge_type == 'reserved' %}List cost{% else %}~55% discount{% endif %}
+        </p>
     </div>
+
     <div class="bg-white rounded-lg shadow border-l-4 border-gray-400 p-5">
         <p class="text-sm text-gray-500 mb-1">Data Imports</p>
         <p class="text-2xl font-bold text-gray-700">{{ summary.completed_exports }}/{{ summary.total_exports }}</p>
@@ -163,6 +210,25 @@
         {% endif %}
     </div>
 </div>
+
+<!-- Reservation Cost Disclaimer -->
+{% if filters.charge_type != 'reserved' and summary.reservation_cost > 0 %}
+<div class="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+    <div class="flex items-start">
+        <svg class="h-5 w-5 text-blue-400 mt-0.5 mr-3" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+        </svg>
+        <div>
+            <p class="text-sm font-medium text-blue-800">About reservation costs</p>
+            <p class="text-sm text-blue-700 mt-1">
+                Reservation costs are amortized from the monthly cost shown in Azure Portal Cost Management (€24.83/month for P0v3 App Service).
+                Costs are prorated for partial months based on the reservation purchase date (Jan 16, 2026).
+                Savings estimates assume typical 3-year reservation discounts (~55% off pay-as-you-go rates).
+            </p>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Charts Row -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">

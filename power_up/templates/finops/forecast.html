@@ -45,14 +45,8 @@
         <div class="bg-blue-50 rounded-lg shadow p-6">
             <div class="text-sm font-medium text-blue-800">{% trans "Avg Daily (Forecast)" %}</div>
             <div class="mt-2 text-3xl font-bold text-blue-900">€{{ avg_forecast|floatformat:2 }}</div>
-            <div class="mt-1 text-sm {% if avg_forecast > avg_historical %}text-red-600{% else %}text-green-600{% endif %}">
-                {% if avg_forecast > avg_historical %}
-                    +{{ avg_forecast|floatformat:2|add:"-"|add:avg_historical|floatformat:2|stringformat:"s"|slice:"1:" }}
-                    ({{ avg_forecast|floatformat:0|add:"-"|add:avg_historical|floatformat:0|mul:100|div:avg_historical|floatformat:0 }}%)
-                {% else %}
-                    {{ avg_forecast|floatformat:2|add:"-"|add:avg_historical|floatformat:2 }}
-                    ({{ avg_forecast|floatformat:0|add:"-"|add:avg_historical|floatformat:0|mul:100|div:avg_historical|floatformat:0 }}%)
-                {% endif %}
+            <div class="mt-1 text-sm {% if pct_change > 0 %}text-red-600{% else %}text-green-600{% endif %}">
+                {% if pct_change > 0 %}+{% endif %}{{ pct_change|floatformat:1 }}%
             </div>
         </div>
         <div class="bg-green-50 rounded-lg shadow p-6">

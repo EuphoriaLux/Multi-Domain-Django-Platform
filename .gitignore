@@ -152,6 +152,7 @@ yarn-error.log*
 .azure
 .aider*
 .claude/
+msexports/
 
 # Backup folders (not needed for deployment)
 _backup_old_apps/

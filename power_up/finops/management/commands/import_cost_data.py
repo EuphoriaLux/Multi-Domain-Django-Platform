@@ -132,16 +132,16 @@ class Command(BaseCommand):
                     total_records_imported += result['records_imported']
                     total_duplicates_skipped += result['duplicates_skipped']
                     self.stdout.write(self.style.SUCCESS(
-                        f'  ✓ Imported {result["records_imported"]} records '
+                        f'  [OK] Imported {result["records_imported"]} records '
                         f'({result["duplicates_skipped"]} duplicates skipped)'
                     ))
                 except Exception as e:
-                    self.stdout.write(self.style.ERROR(f'  ✗ Failed: {str(e)}'))
+                    self.stdout.write(self.style.ERROR(f'  [ERROR] Failed: {str(e)}'))
                     self.stderr.write(traceback.format_exc())
                     continue
 
             self.stdout.write(self.style.SUCCESS(
-                f'\n✓ Import completed!'
+                f'\n[OK] Import completed!'
             ))
             self.stdout.write(f'  Total records imported: {total_records_imported}')
             self.stdout.write(f'  Total duplicates skipped: {total_duplicates_skipped}')
@@ -208,7 +208,7 @@ class Command(BaseCommand):
         if is_update or force_reimport:
             # This is an update or forced re-import - handle old data
             if existing_exports.exists():
-                self.stdout.write(f'  → Detected update for existing period, handling old data...')
+                self.stdout.write(f'  -> Detected update for existing period, handling old data...')
                 for old_export in existing_exports:
                     old_record_count = old_export.records.count()
                     # Delete old cost records
@@ -217,7 +217,7 @@ class Command(BaseCommand):
                     old_export.import_status = 'superseded'
                     old_export.error_message = f'Superseded by {blob_path}'
                     old_export.save()
-                    self.stdout.write(f'  → Removed {old_record_count} old records from superseded export')
+                    self.stdout.write(f'  -> Removed {old_record_count} old records from superseded export')
 
         # Create or get CostExport record
         cost_export, created = CostExport.objects.get_or_create(
@@ -336,7 +336,7 @@ class Command(BaseCommand):
             if subscription_id_found:
                 cost_export.subscription_id = subscription_id_found
                 cost_export.save()
-                self.stdout.write(f'  → Extracted subscription ID: {subscription_id_found}')
+                self.stdout.write(f'  -> Extracted subscription ID: {subscription_id_found}')
 
             # Mark as completed
             cost_export.mark_completed(records_imported)

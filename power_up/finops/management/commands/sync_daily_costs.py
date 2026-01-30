@@ -44,11 +44,19 @@ class Command(BaseCommand):
             # Non-fatal - continue
 
         # Step 4: Generate cost forecasts
-        self.stdout.write('\n[4/4] Generating cost forecasts...')
+        self.stdout.write('\n[4/5] Generating cost forecasts...')
         try:
             call_command('generate_cost_forecasts', '--forecast-days=30', '--refresh', stdout=self.stdout, stderr=self.stderr)
         except Exception as e:
             self.stdout.write(self.style.WARNING(f'Forecast generation failed: {str(e)}'))
+            # Non-fatal - continue
+
+        # Step 5: Sync reservation costs from Azure Retail Prices API
+        self.stdout.write('\n[5/5] Syncing reservation costs...')
+        try:
+            call_command('sync_reservation_costs', stdout=self.stdout, stderr=self.stderr)
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f'Reservation sync failed: {str(e)}'))
             # Non-fatal - continue
 
         # Summary
