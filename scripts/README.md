@@ -1,6 +1,23 @@
 # Scripts Directory
 
-Utility scripts for development, translation, and maintenance tasks.
+Utility scripts for development, translation, deployment, and maintenance tasks.
+
+## 🚀 FinOps Hub Deployment Scripts
+
+### Quick Deploy
+
+```bash
+# Deploy Azure Function for daily cost sync
+./scripts/deploy-finops-function.sh --generate-token
+```
+
+### Deployment Scripts
+
+- `deploy-finops-function.sh` - Azure Function deployment (Bash)
+
+**Documentation:**
+- See `AZURE_CLI_DEPLOYMENT.md` for complete deployment guide
+- See `.github/workflows/deploy-finops-sync-function.yml` for CI/CD automation
 
 ## Translation Scripts
 

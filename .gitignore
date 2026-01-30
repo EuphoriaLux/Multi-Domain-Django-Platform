@@ -190,3 +190,6 @@ tmpclaude-*
 
 # Development email files (DEBUG mode file backend)
 sent_emails/
+
+# Azure Function publish profiles (contain secrets)
+*-publish-profile.xml

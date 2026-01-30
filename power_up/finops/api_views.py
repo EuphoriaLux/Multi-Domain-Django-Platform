@@ -15,7 +15,7 @@ from datetime import timedelta
 from decimal import Decimal
 import csv
 
-from .models import CostExport, CostRecord, CostAggregation
+from .models import CostExport, CostRecord, CostAggregation, CostAnomaly
 from .serializers import (
     CostExportSerializer,
     CostRecordSerializer,
@@ -369,6 +369,74 @@ def export_status(request):
         'recent_imports': CostExportSerializer(recent_imports, many=True).data,
         'failed_imports': CostExportSerializer(failed_imports, many=True).data,
     })
+
+
+@api_view(['GET'])
+@permission_classes([HasSessionOrIsAuthenticated])
+def cost_anomalies(request):
+    """Get recent cost anomalies"""
+    days = int(request.query_params.get('days', 30))
+    severity = request.query_params.get('severity')
+    acknowledged = request.query_params.get('acknowledged')
+
+    start_date = timezone.now().date() - timedelta(days=days)
+
+    queryset = CostAnomaly.objects.filter(detected_date__gte=start_date)
+
+    if severity:
+        queryset = queryset.filter(severity=severity)
+    if acknowledged is not None:
+        queryset = queryset.filter(is_acknowledged=acknowledged.lower() == 'true')
+
+    anomalies = queryset.order_by('-detected_date', '-severity')[:100]
+
+    data = [{
+        'id': a.id,
+        'detected_date': a.detected_date.isoformat(),
+        'severity': a.severity,
+        'type': a.anomaly_type,
+        'dimension_type': a.dimension_type,
+        'dimension_value': a.dimension_value,
+        'actual_cost': float(a.actual_cost),
+        'expected_cost': float(a.expected_cost),
+        'deviation_percent': float(a.deviation_percent),
+        'description': a.description,
+        'is_acknowledged': a.is_acknowledged,
+    } for a in anomalies]
+
+    return Response({
+        'success': True,
+        'count': len(data),
+        'anomalies': data
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def acknowledge_anomaly(request, anomaly_id):
+    """Acknowledge a cost anomaly (staff only)"""
+    if not request.user.is_staff:
+        return Response(
+            {'success': False, 'error': 'Staff permission required'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        anomaly = CostAnomaly.objects.get(id=anomaly_id)
+        anomaly.is_acknowledged = True
+        anomaly.acknowledged_by = request.user.username
+        anomaly.acknowledged_at = timezone.now()
+        anomaly.save()
+
+        return Response({
+            'success': True,
+            'message': 'Anomaly acknowledged successfully'
+        })
+    except CostAnomaly.DoesNotExist:
+        return Response(
+            {'success': False, 'error': 'Anomaly not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
 
 
 @api_view(['GET'])

@@ -7,6 +7,7 @@ Dashboard views for cost management and analytics.
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.utils.translation import gettext as _
@@ -17,7 +18,7 @@ from django.core.serializers.json import DjangoJSONEncoder
 from datetime import timedelta
 import json
 
-from .models import CostExport, CostRecord, CostAggregation
+from .models import CostExport, CostRecord, CostAggregation, CostAnomaly
 from .forms import SubscriptionIDForm
 
 
@@ -298,6 +299,7 @@ def resource_explorer(request):
     return render(request, 'finops/resource_explorer.html', context)
 
 
+@staff_member_required
 def trigger_import(request):
     """Admin page to manually trigger cost data import"""
     if request.method == 'POST':
@@ -320,6 +322,7 @@ def trigger_import(request):
     return render(request, 'finops/import.html', context)
 
 
+@staff_member_required
 def update_subscription_id(request, export_id):
     """Update subscription ID for an incomplete export"""
     export = get_object_or_404(CostExport, id=export_id)
@@ -363,3 +366,41 @@ def faq(request):
     }
 
     return render(request, 'finops/faq.html', context)
+
+
+def anomalies_view(request):
+    """Cost anomalies dashboard"""
+    days = int(request.GET.get('days', 30))
+    severity_filter = request.GET.get('severity')
+    acknowledged_filter = request.GET.get('acknowledged')
+
+    # Date range
+    end_date = timezone.now().date()
+    start_date = end_date - timedelta(days=days)
+
+    # Base queryset
+    queryset = CostAnomaly.objects.filter(detected_date__gte=start_date)
+
+    # Apply filters
+    if severity_filter:
+        queryset = queryset.filter(severity=severity_filter)
+    if acknowledged_filter is not None:
+        is_ack = acknowledged_filter.lower() == 'true'
+        queryset = queryset.filter(is_acknowledged=is_ack)
+
+    anomalies = queryset[:50]  # Limit to 50 most recent
+
+    # Severity counts (unacknowledged only)
+    context = {
+        'page_title': _('FinOps Hub - Cost Anomalies'),
+        'anomalies': anomalies,
+        'critical_count': CostAnomaly.objects.filter(severity='critical', is_acknowledged=False).count(),
+        'high_count': CostAnomaly.objects.filter(severity='high', is_acknowledged=False).count(),
+        'medium_count': CostAnomaly.objects.filter(severity='medium', is_acknowledged=False).count(),
+        'low_count': CostAnomaly.objects.filter(severity='low', is_acknowledged=False).count(),
+        'days': days,
+        'severity_filter': severity_filter,
+        'acknowledged_filter': acknowledged_filter,
+    }
+
+    return render(request, 'finops/anomalies.html', context)

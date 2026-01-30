@@ -1,0 +1,55 @@
+name: Deploy FinOps Sync Function
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'azure-functions/finops-daily-sync/**'
+      - '.github/workflows/deploy-finops-sync-function.yml'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd azure-functions/finops-daily-sync
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify function app structure
+        run: |
+          cd azure-functions/finops-daily-sync
+          test -f function_app.py || (echo "Missing function_app.py" && exit 1)
+          test -f requirements.txt || (echo "Missing requirements.txt" && exit 1)
+          test -f host.json || (echo "Missing host.json" && exit 1)
+          echo "✓ Function app structure verified"
+
+      - name: Deploy to Azure Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: 'finops-daily-sync'
+          package: './azure-functions/finops-daily-sync'
+          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE_FINOPS_SYNC }}
+
+      - name: Deployment summary
+        run: |
+          echo "## ✅ Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Function App:** finops-daily-sync" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** West Europe" >> $GITHUB_STEP_SUMMARY
+          echo "**Runtime:** Python 3.11" >> $GITHUB_STEP_SUMMARY
+          echo "**Schedule:** Daily at 3:00 AM UTC" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Monitor Execution" >> $GITHUB_STEP_SUMMARY
+          echo "- [Azure Portal](https://portal.azure.com/#@/resource/subscriptions/.../resourceGroups/django-app-rg/providers/Microsoft.Web/sites/finops-daily-sync)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Application Insights](https://portal.azure.com/#@/resource/subscriptions/.../resourceGroups/django-app-rg/providers/microsoft.insights/components/finops-daily-sync-insights)" >> $GITHUB_STEP_SUMMARY

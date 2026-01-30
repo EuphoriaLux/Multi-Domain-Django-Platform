@@ -1,0 +1,10 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "DJANGO_WEBHOOK_URL": "http://localhost:8000/finops/api/sync/",
+    "SECRET_SYNC_TOKEN": "your-local-sync-token-here",
+    "FINOPS_SYNC_ENABLED": "true"
+  }
+}

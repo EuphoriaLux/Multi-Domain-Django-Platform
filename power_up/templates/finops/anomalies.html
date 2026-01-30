@@ -1,0 +1,218 @@
+{% extends "finops/base_finops.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Cost Anomalies" %} - FinOps Hub{% endblock %}
+
+{% block finops_content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">{% trans "Cost Anomalies" %}</h1>
+        <p class="text-gray-600 mt-2">
+            {% trans "Unusual cost patterns detected automatically" %}
+        </p>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div class="bg-red-50 border border-red-200 p-4 rounded-lg">
+            <div class="text-red-700 text-sm font-semibold uppercase tracking-wide">{% trans "Critical" %}</div>
+            <div class="text-3xl font-bold text-red-900 mt-1">{{ critical_count }}</div>
+            <div class="text-red-600 text-xs mt-1">{% trans "Unacknowledged" %}</div>
+        </div>
+        <div class="bg-orange-50 border border-orange-200 p-4 rounded-lg">
+            <div class="text-orange-700 text-sm font-semibold uppercase tracking-wide">{% trans "High" %}</div>
+            <div class="text-3xl font-bold text-orange-900 mt-1">{{ high_count }}</div>
+            <div class="text-orange-600 text-xs mt-1">{% trans "Unacknowledged" %}</div>
+        </div>
+        <div class="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+            <div class="text-yellow-700 text-sm font-semibold uppercase tracking-wide">{% trans "Medium" %}</div>
+            <div class="text-3xl font-bold text-yellow-900 mt-1">{{ medium_count }}</div>
+            <div class="text-yellow-600 text-xs mt-1">{% trans "Unacknowledged" %}</div>
+        </div>
+        <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+            <div class="text-blue-700 text-sm font-semibold uppercase tracking-wide">{% trans "Low" %}</div>
+            <div class="text-3xl font-bold text-blue-900 mt-1">{{ low_count }}</div>
+            <div class="text-blue-600 text-xs mt-1">{% trans "Unacknowledged" %}</div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+        <form method="get" class="flex flex-wrap gap-4">
+            <div>
+                <label for="days" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Time Period" %}</label>
+                <select name="days" id="days" class="px-3 py-2 border border-gray-300 rounded-md text-sm">
+                    <option value="7" {% if days == 7 %}selected{% endif %}>{% trans "Last 7 days" %}</option>
+                    <option value="14" {% if days == 14 %}selected{% endif %}>{% trans "Last 14 days" %}</option>
+                    <option value="30" {% if days == 30 %}selected{% endif %}>{% trans "Last 30 days" %}</option>
+                    <option value="60" {% if days == 60 %}selected{% endif %}>{% trans "Last 60 days" %}</option>
+                    <option value="90" {% if days == 90 %}selected{% endif %}>{% trans "Last 90 days" %}</option>
+                </select>
+            </div>
+            <div>
+                <label for="severity" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Severity" %}</label>
+                <select name="severity" id="severity" class="px-3 py-2 border border-gray-300 rounded-md text-sm">
+                    <option value="">{% trans "All" %}</option>
+                    <option value="critical" {% if severity_filter == 'critical' %}selected{% endif %}>{% trans "Critical" %}</option>
+                    <option value="high" {% if severity_filter == 'high' %}selected{% endif %}>{% trans "High" %}</option>
+                    <option value="medium" {% if severity_filter == 'medium' %}selected{% endif %}>{% trans "Medium" %}</option>
+                    <option value="low" {% if severity_filter == 'low' %}selected{% endif %}>{% trans "Low" %}</option>
+                </select>
+            </div>
+            <div>
+                <label for="acknowledged" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Status" %}</label>
+                <select name="acknowledged" id="acknowledged" class="px-3 py-2 border border-gray-300 rounded-md text-sm">
+                    <option value="">{% trans "All" %}</option>
+                    <option value="false" {% if acknowledged_filter == 'false' %}selected{% endif %}>{% trans "Unacknowledged" %}</option>
+                    <option value="true" {% if acknowledged_filter == 'true' %}selected{% endif %}>{% trans "Acknowledged" %}</option>
+                </select>
+            </div>
+            <div class="flex items-end">
+                <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm font-medium">
+                    {% trans "Apply Filters" %}
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Anomaly List -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+        {% if anomalies %}
+            {% for anomaly in anomalies %}
+            <div class="p-4 border-b border-gray-200 last:border-b-0 {% if anomaly.severity == 'critical' %}bg-red-50{% elif anomaly.severity == 'high' %}bg-orange-50{% endif %}">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <!-- Severity Badge -->
+                            <span class="px-2 py-1 text-xs font-semibold rounded
+                                {% if anomaly.severity == 'critical' %}bg-red-200 text-red-900
+                                {% elif anomaly.severity == 'high' %}bg-orange-200 text-orange-900
+                                {% elif anomaly.severity == 'medium' %}bg-yellow-200 text-yellow-900
+                                {% else %}bg-blue-200 text-blue-900{% endif %}">
+                                {{ anomaly.get_severity_display|upper }}
+                            </span>
+
+                            <!-- Date -->
+                            <span class="text-sm text-gray-500">{{ anomaly.detected_date|date:"M d, Y" }}</span>
+
+                            <!-- Acknowledged Badge -->
+                            {% if anomaly.is_acknowledged %}
+                            <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">
+                                ✓ {% trans "Acknowledged" %}
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Description -->
+                        <h3 class="text-lg font-semibold text-gray-900 mb-1">{{ anomaly.description }}</h3>
+
+                        <!-- Dimension -->
+                        <div class="text-sm text-gray-600 mb-2">
+                            <span class="font-semibold">{{ anomaly.dimension_type|title }}:</span> {{ anomaly.dimension_value }}
+                        </div>
+
+                        <!-- Cost Details -->
+                        <div class="flex flex-wrap gap-4 text-sm">
+                            <div>
+                                <span class="text-gray-600">{% trans "Actual" %}:</span>
+                                <span class="font-semibold text-red-600">{{ anomaly.actual_cost|floatformat:2 }} {{ anomaly.currency }}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-600">{% trans "Expected" %}:</span>
+                                <span class="font-semibold text-gray-900">{{ anomaly.expected_cost|floatformat:2 }} {{ anomaly.currency }}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-600">{% trans "Deviation" %}:</span>
+                                <span class="font-semibold text-orange-600">{{ anomaly.deviation_percent|floatformat:1 }}%</span>
+                            </div>
+                        </div>
+
+                        <!-- Metadata (if available) -->
+                        {% if anomaly.metadata %}
+                        <details class="mt-2">
+                            <summary class="text-xs text-gray-500 cursor-pointer hover:text-gray-700">
+                                {% trans "Technical Details" %}
+                            </summary>
+                            <div class="mt-1 text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                                {% if anomaly.metadata.z_score %}
+                                <div>Z-Score: {{ anomaly.metadata.z_score }}</div>
+                                {% endif %}
+                                {% if anomaly.metadata.std_dev %}
+                                <div>Std Dev: {{ anomaly.metadata.std_dev }}</div>
+                                {% endif %}
+                                {% if anomaly.metadata.mean %}
+                                <div>Mean: {{ anomaly.metadata.mean }}</div>
+                                {% endif %}
+                            </div>
+                        </details>
+                        {% endif %}
+                    </div>
+
+                    <!-- Actions (staff only) -->
+                    {% if user.is_staff and not anomaly.is_acknowledged %}
+                    <div class="ml-4">
+                        <button onclick="acknowledgeAnomaly({{ anomaly.id }})"
+                                class="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 whitespace-nowrap">
+                            {% trans "Acknowledge" %}
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="p-8 text-center text-gray-500">
+                <svg class="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p class="text-lg font-medium">{% trans "No anomalies detected" %}</p>
+                <p class="text-sm mt-1">{% trans "Cost patterns are within expected ranges" %}</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if user.is_staff %}
+<script>
+function acknowledgeAnomaly(id) {
+    if (!confirm('{% trans "Mark this anomaly as acknowledged?" %}')) return;
+
+    fetch(`/finops/api/anomalies/${id}/acknowledge/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('{% trans "Failed to acknowledge anomaly" %}');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('{% trans "An error occurred" %}');
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endif %}
+{% endblock %}

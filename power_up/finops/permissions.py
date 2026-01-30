@@ -6,6 +6,32 @@ Custom permissions for FinOps Hub API
 from rest_framework.permissions import BasePermission
 
 
+class AllowAnyPublic(BasePermission):
+    """
+    Allow public access to read-only dashboard views.
+
+    Used for dashboard pages that should be publicly accessible
+    without authentication.
+    """
+
+    def has_permission(self, request, view):
+        return True
+
+
+class IsAdminOrStaff(BasePermission):
+    """
+    Require admin or staff for management views.
+
+    Used for sensitive operations like triggering imports,
+    updating configuration, etc.
+    """
+
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and (
+            request.user.is_staff or request.user.is_superuser
+        )
+
+
 class HasSessionOrIsAuthenticated(BasePermission):
     """
     Allow access if:

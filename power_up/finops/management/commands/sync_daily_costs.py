@@ -17,7 +17,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('Starting daily cost data sync'))
 
         # Step 1: Import new cost exports
-        self.stdout.write('\n[1/2] Importing new cost exports...')
+        self.stdout.write('\n[1/3] Importing new cost exports...')
         try:
             call_command('import_cost_data', '--batch-size=1000', stdout=self.stdout, stderr=self.stderr)
         except Exception as e:
@@ -25,7 +25,7 @@ class Command(BaseCommand):
             # Continue to aggregation even if import fails
 
         # Step 2: Refresh cost aggregations
-        self.stdout.write('\n[2/2] Refreshing cost aggregations...')
+        self.stdout.write('\n[2/3] Refreshing cost aggregations...')
         try:
             result = CostAggregator.refresh_all(days_back=60, currency='EUR')
             self.stdout.write(self.style.SUCCESS(f'  ✓ Daily aggregations: {result["daily_aggregations"]}'))
@@ -33,7 +33,15 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f'  ✓ Period: {result["period"]}'))
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'Aggregation failed: {str(e)}'))
-            return
+            # Continue to anomaly detection even if aggregation fails
+
+        # Step 3: Detect cost anomalies
+        self.stdout.write('\n[3/3] Detecting cost anomalies...')
+        try:
+            call_command('detect_cost_anomalies', '--days-back=7', stdout=self.stdout, stderr=self.stderr)
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f'Anomaly detection failed: {str(e)}'))
+            # Non-fatal - continue
 
         # Summary
         completed = CostExport.objects.filter(import_status='completed').count()

@@ -273,3 +273,65 @@ class CostAggregation(models.Model):
 
     def __str__(self):
         return f"{self.get_aggregation_type_display()} - {self.dimension_value} ({self.period_start}): {self.total_cost} {self.currency}"
+
+
+class CostAnomaly(models.Model):
+    """
+    Detected cost anomalies for alerting and monitoring.
+
+    Anomalies are detected using statistical methods (2σ rule) and
+    rule-based thresholds to identify unusual cost spikes.
+    """
+
+    SEVERITY_CHOICES = [
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('critical', 'Critical'),
+    ]
+
+    ANOMALY_TYPES = [
+        ('spike', 'Cost Spike'),
+        ('sudden_service', 'New Service Detected'),
+        ('unusual_resource', 'Unusual Resource Cost'),
+        ('sustained_increase', 'Sustained Cost Increase'),
+    ]
+
+    # When and what
+    detected_date = models.DateField(db_index=True)
+    anomaly_type = models.CharField(max_length=50, choices=ANOMALY_TYPES)
+    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, db_index=True)
+
+    # What triggered it
+    dimension_type = models.CharField(max_length=50)  # subscription, service, resource
+    dimension_value = models.CharField(max_length=300)
+
+    # Cost details
+    actual_cost = models.DecimalField(max_digits=12, decimal_places=2)
+    expected_cost = models.DecimalField(max_digits=12, decimal_places=2)
+    deviation_percent = models.DecimalField(max_digits=5, decimal_places=2)
+    currency = models.CharField(max_length=10, default='EUR')
+
+    # Context
+    description = models.TextField()
+    metadata = models.JSONField(default=dict, blank=True)
+
+    # Status tracking
+    is_acknowledged = models.BooleanField(default=False, db_index=True)
+    acknowledged_by = models.CharField(max_length=100, null=True, blank=True)
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+    resolution_notes = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'finops_hub_costanomaly'
+        ordering = ['-detected_date', '-severity']
+        indexes = [
+            models.Index(fields=['detected_date', 'severity']),
+            models.Index(fields=['dimension_type', 'dimension_value']),
+            models.Index(fields=['is_acknowledged', 'detected_date']),
+        ]
+
+    def __str__(self):
+        return f"{self.get_severity_display()}: {self.dimension_value} on {self.detected_date}"

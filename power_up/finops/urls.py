@@ -24,6 +24,7 @@ urlpatterns = [
     path('subscriptions/', views.subscription_view, name='subscriptions'),
     path('services/', views.service_breakdown, name='services'),
     path('resources/', views.resource_explorer, name='resources'),
+    path('anomalies/', views.anomalies_view, name='anomalies'),
     path('import/', views.trigger_import, name='import'),
     path('import/<int:export_id>/update-subscription/', views.update_subscription_id, name='update_subscription_id'),
     path('faq/', views.faq, name='faq'),
@@ -37,6 +38,8 @@ urlpatterns = [
     path('api/costs/trend/', api_views.cost_trend, name='api_cost_trend'),
     path('api/costs/export-csv/', api_views.export_costs_csv, name='api_export_csv'),
     path('api/exports/status/', api_views.export_status, name='api_export_status'),
+    path('api/anomalies/', api_views.cost_anomalies, name='api_cost_anomalies'),
+    path('api/anomalies/<int:anomaly_id>/acknowledge/', api_views.acknowledge_anomaly, name='api_acknowledge_anomaly'),
 
     # Webhook endpoints for automated sync
     path('api/sync/', views_webhook.trigger_cost_sync, name='webhook_sync'),
