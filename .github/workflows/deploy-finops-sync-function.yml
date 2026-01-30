@@ -20,11 +20,16 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
       - name: Install dependencies
         run: |
           cd azure-functions/finops-daily-sync
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements.txt --target .python_packages/lib/site-packages
 
       - name: Verify function app structure
         run: |
@@ -34,12 +39,19 @@ jobs:
           test -f host.json || (echo "Missing host.json" && exit 1)
           echo "✓ Function app structure verified"
 
+      - name: Create deployment package
+        run: |
+          cd azure-functions/finops-daily-sync
+          zip -r ../finops-function.zip . -x "*.git*" -x "*__pycache__*" -x "*.pyc"
+          echo "✓ Deployment package created"
+
       - name: Deploy to Azure Functions
-        uses: Azure/functions-action@v1
-        with:
-          app-name: 'finops-daily-sync'
-          package: './azure-functions/finops-daily-sync'
-          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE_FINOPS_SYNC }}
+        run: |
+          az functionapp deployment source config-zip \
+            --name finops-daily-sync \
+            --resource-group django-app-rg \
+            --src azure-functions/finops-function.zip
+          echo "✓ Deployment completed"
 
       - name: Deployment summary
         run: |
