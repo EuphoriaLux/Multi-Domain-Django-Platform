@@ -10,7 +10,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 
-from crush_lu.storage import powerup_upload_path
+from power_up.storage import powerup_media_storage, powerup_upload_path
 
 
 class Company(models.Model):
@@ -39,7 +39,12 @@ class Company(models.Model):
     )
 
     # Company settings
-    logo = models.ImageField(upload_to=powerup_upload_path('delegation/companies'), blank=True, null=True)
+    logo = models.ImageField(
+        upload_to=powerup_upload_path('delegation/companies'),
+        storage=powerup_media_storage,
+        blank=True,
+        null=True
+    )
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     auto_approve_workers = models.BooleanField(
@@ -117,6 +122,7 @@ class DelegationProfile(models.Model):
     # Profile photo (downloaded from Microsoft Graph)
     profile_photo = models.ImageField(
         upload_to=powerup_upload_path('delegation/profiles'),
+        storage=powerup_media_storage,
         blank=True,
         null=True
     )
