@@ -21,7 +21,7 @@
 </div>
 
 <!-- Advanced Filters -->
-<div class="bg-white rounded-lg shadow p-4 mb-6" x-data="{ showFilters: {{ filters.subscription or filters.service|yesno:'true,false' }} }">
+<div class="bg-white rounded-lg shadow p-4 mb-6" x-data="{ showFilters: {% if filters.subscription or filters.service %}true{% else %}false{% endif %} }">
     <div class="flex items-center justify-between mb-3">
         <h3 class="text-sm font-semibold text-gray-700">Filters</h3>
         <button @click="showFilters = !showFilters" class="text-sm text-blue-600 hover:text-blue-800">
