@@ -196,6 +196,11 @@ class Command(BaseCommand):
             raise ValueError(f'Invalid date range: {date_range}')
 
         # Check if we already have exports for this billing period (update detection)
+        # IMPORTANT: Multi-part exports (part_0, part_1, etc.) are ADDITIVE, not replacements
+        # Only consider it an update if the export GUID changed (not just part number)
+        import re
+        current_export_guid = self._extract_export_guid(blob_path)
+
         existing_exports = CostExport.objects.filter(
             subscription_name=subscription_name,
             billing_period_start=start_date,
@@ -203,13 +208,22 @@ class Command(BaseCommand):
             import_status='completed'
         ).exclude(blob_path=blob_path)
 
-        is_update = existing_exports.exists()
+        # Filter to only exports with DIFFERENT export GUIDs (true updates, not multi-part)
+        exports_to_supersede = []
+        for exp in existing_exports:
+            exp_guid = self._extract_export_guid(exp.blob_path)
+            if exp_guid != current_export_guid:
+                # Different GUID = true replacement (Azure regenerated the export)
+                exports_to_supersede.append(exp)
+            # else: Same GUID, different part number = complementary file, keep both
+
+        is_update = len(exports_to_supersede) > 0
 
         if is_update or force_reimport:
             # This is an update or forced re-import - handle old data
-            if existing_exports.exists():
-                self.stdout.write(f'  -> Detected update for existing period, handling old data...')
-                for old_export in existing_exports:
+            if exports_to_supersede:
+                self.stdout.write(f'  -> Detected update for existing period (different export GUID), handling old data...')
+                for old_export in exports_to_supersede:
                     old_record_count = old_export.records.count()
                     # Delete old cost records
                     old_export.records.all().delete()
@@ -359,3 +373,29 @@ class Command(BaseCommand):
             # Mark as failed
             cost_export.mark_failed(e)
             raise
+
+    def _extract_export_guid(self, blob_path):
+        """
+        Extract the export GUID from blob path to identify multi-part exports.
+
+        Azure Cost Export path format:
+        subscriptions/{sub-id}/{export-name}/{date-range}/{GUID}/part_{N}_0001.csv.gz
+
+        The GUID identifies the export run. Different part numbers (part_0, part_1, etc.)
+        with the SAME GUID are complementary files from the same export.
+        Different GUIDs mean Azure regenerated the export (true update).
+
+        Args:
+            blob_path: Full blob path
+
+        Returns:
+            str: Export GUID or None if not found
+
+        Example:
+            Input: "subscriptions/.../20260101-20260131/7946d592-03d8-4ce0-bfca-af3abfa49d71/part_0_0001.csv.gz"
+            Output: "7946d592-03d8-4ce0-bfca-af3abfa49d71"
+        """
+        import re
+        # Match GUID pattern (8-4-4-4-12 hex characters)
+        match = re.search(r'([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})', blob_path)
+        return match.group(1) if match else None

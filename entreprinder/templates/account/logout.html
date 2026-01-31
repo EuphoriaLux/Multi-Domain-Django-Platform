@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "account/base_account.html" %}
 {% load i18n %}
 
 {% block head_title %}{% trans "Sign Out" %}{% endblock %}
@@ -14,10 +14,10 @@
             <form method="post" action="{% url 'account_logout' %}">
                 {% csrf_token %}
                 {% if redirect_field_value %}
-                <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}"/>
+                <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value}}"/>
                 {% endif %}
                 <button type="submit" class="btn btn-danger">{% trans 'Sign Out' %}</button>
-                <a href="{% url 'entreprinder:home' %}" class="btn btn-secondary">{% trans 'Cancel' %}</a>
+                <a href="/" class="btn btn-secondary">{% trans 'Cancel' %}</a>
             </form>
         </div>
     </div>
