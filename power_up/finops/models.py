@@ -309,7 +309,7 @@ class CostAnomaly(models.Model):
     # Cost details
     actual_cost = models.DecimalField(max_digits=12, decimal_places=2)
     expected_cost = models.DecimalField(max_digits=12, decimal_places=2)
-    deviation_percent = models.DecimalField(max_digits=5, decimal_places=2)
+    deviation_percent = models.DecimalField(max_digits=10, decimal_places=2, help_text="Percentage deviation from expected cost (supports extreme spikes up to 99,999,999.99%)")
     currency = models.CharField(max_length=10, default='EUR')
 
     # Context
