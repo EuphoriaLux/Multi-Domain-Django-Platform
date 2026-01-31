@@ -19,6 +19,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from .profiles import get_crush_photo_storage
+from crush_lu.storage import crush_media_storage
 
 logger = logging.getLogger(__name__)
 
@@ -207,6 +208,7 @@ class JourneyGift(models.Model):
     # QR code image
     qr_code_image = models.ImageField(
         upload_to=gift_qr_code_path,
+        storage=crush_media_storage,  # Public container for QR scanning
         blank=True,
         help_text=_("Generated QR code image")
     )

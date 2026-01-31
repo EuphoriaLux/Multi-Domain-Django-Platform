@@ -621,7 +621,7 @@ if AZURITE_MODE:
         "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq"
         "/K1SZFPTOtr/KBHBeksoGMGw=="
     )
-    AZURE_CONTAINER_NAME = "media"
+    # AZURE_CONTAINER_NAME removed - platform-specific containers in use
     AZURITE_BLOB_HOST = "127.0.0.1:10000"
 
     # Azurite connection string for azure-storage-blob SDK
@@ -632,22 +632,15 @@ if AZURITE_MODE:
         f"BlobEndpoint=http://{AZURITE_BLOB_HOST}/{AZURE_ACCOUNT_NAME};"
     )
 
-    # Media URL for serving files (Azurite blob endpoint format)
-    MEDIA_URL = (
-        f"http://{AZURITE_BLOB_HOST}/{AZURE_ACCOUNT_NAME}/{AZURE_CONTAINER_NAME}/"
-    )
+    # Media URL for serving files (Azurite - using shared-media as fallback)
+    MEDIA_URL = f"http://{AZURITE_BLOB_HOST}/{AZURE_ACCOUNT_NAME}/shared-media/"
 
     # Django 4.2+ STORAGES configuration for Azurite
     STORAGES = {
+        # Default storage uses shared-media container (fallback only)
+        # All models should have explicit storage= parameters
         "default": {
-            "BACKEND": "storages.backends.azure_storage.AzureStorage",
-            "OPTIONS": {
-                "account_name": AZURE_ACCOUNT_NAME,
-                "account_key": AZURE_ACCOUNT_KEY,
-                "azure_container": AZURE_CONTAINER_NAME,
-                "connection_string": AZURE_CONNECTION_STRING,
-                "overwrite_files": True,
-            },
+            "BACKEND": "azureproject.storage_shared.SharedMediaStorage",
         },
         # Platform-specific storage backends
         "crush_media": {
@@ -683,43 +676,34 @@ if AZURITE_MODE:
     if os.environ.get("RUN_MAIN"):
         print(f"Using Azurite (Azure Storage Emulator) at {AZURITE_BLOB_HOST}")
 
-# Azure Blob Storage Settings (Production)
+# Azure Blob Storage Settings (Production - when running outside Azurite and production.py)
+# NOTE: In production, production.py handles storage configuration
+# This block is mainly for transition/testing scenarios
 elif os.getenv("AZURE_ACCOUNT_NAME"):
-    DEFAULT_FILE_STORAGE = "storages.backends.azure_storage.AzureStorage"
     AZURE_ACCOUNT_NAME = os.getenv("AZURE_ACCOUNT_NAME")
     AZURE_ACCOUNT_KEY = os.getenv("AZURE_ACCOUNT_KEY")
-    AZURE_CONTAINER_NAME = os.getenv("AZURE_CONTAINER_NAME")
-    MEDIA_URL = (
-        f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}/"
-    )
+    # AZURE_CONTAINER_NAME removed - platform-specific storage in use
+    MEDIA_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/shared-media/"
 
-    # Azure Blob base URL for content images (domain-organized structure)
-    AZURE_CONTENT_BASE_URL = (
-        f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}"
-    )
+    # Platform-specific base URLs (using dedicated containers)
+    CRUSH_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/crush-lu-media"
+    VINSDELUX_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/vinsdelux-media"
+    POWERUP_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/powerup-media"
 
-    # Override content image URLs with Azure Blob paths (if not explicitly set in env)
+    # Override content image URLs with platform-specific paths (if not explicitly set in env)
     if "SOCIAL_PREVIEW_IMAGE_URL" not in os.environ:
-        SOCIAL_PREVIEW_IMAGE_URL = (
-            f"{AZURE_CONTENT_BASE_URL}/crush-lu/branding/social-preview.jpg"
-        )
+        SOCIAL_PREVIEW_IMAGE_URL = f"{CRUSH_MEDIA_BASE_URL}/crush-lu/branding/social-preview.jpg"
     if "CRUSH_SOCIAL_PREVIEW_URL" not in os.environ:
-        CRUSH_SOCIAL_PREVIEW_URL = (
-            f"{AZURE_CONTENT_BASE_URL}/crush-lu/branding/social-preview.jpg"
-        )
+        CRUSH_SOCIAL_PREVIEW_URL = f"{CRUSH_MEDIA_BASE_URL}/crush-lu/branding/social-preview.jpg"
     if "VINSDELUX_JOURNEY_BASE_URL" not in os.environ:
-        VINSDELUX_JOURNEY_BASE_URL = f"{AZURE_CONTENT_BASE_URL}/vinsdelux/journey/"
+        VINSDELUX_JOURNEY_BASE_URL = f"{VINSDELUX_MEDIA_BASE_URL}/vinsdelux/journey/"
     if "VINSDELUX_VINEYARD_DEFAULTS_URL" not in os.environ:
-        VINSDELUX_VINEYARD_DEFAULTS_URL = (
-            f"{AZURE_CONTENT_BASE_URL}/vinsdelux/vineyard-defaults/"
-        )
+        VINSDELUX_VINEYARD_DEFAULTS_URL = f"{VINSDELUX_MEDIA_BASE_URL}/vinsdelux/vineyard-defaults/"
     if "POWERUP_DEFAULT_PROFILE_URL" not in os.environ:
-        POWERUP_DEFAULT_PROFILE_URL = (
-            f"{AZURE_CONTENT_BASE_URL}/powerup/defaults/profile.png"
-        )
+        POWERUP_DEFAULT_PROFILE_URL = f"{POWERUP_MEDIA_BASE_URL}/powerup/defaults/profile.png"
 
     if os.environ.get("RUN_MAIN"):
-        print("Using Azure Blob Storage for media files.")
+        print("Using Azure Blob Storage with platform-specific containers.")
 else:
     MEDIA_URL = "/media/"
     MEDIA_ROOT = BASE_DIR / "media"

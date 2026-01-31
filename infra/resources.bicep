@@ -189,7 +189,6 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       // Skip Oryx collectstatic - CI already builds the complete staticfiles manifest
       // This prevents Oryx from overwriting CI's manifest with an incomplete one
       DISABLE_COLLECTSTATIC: 'true'
-      AZURE_POSTGRESQL_CONNECTIONSTRING: 'dbname=${pythonAppDatabase.name} host=${postgresServer.name}.postgres.database.azure.com port=5432 sslmode=require user=${postgresServer.properties.administratorLogin} password=${databasePassword}'
       SECRET_KEY: secretKey
       // Production domains - marked as slot-sticky via slotConfigNames (won't swap)
       CUSTOM_DOMAINS: 'crush.lu,www.crush.lu,entreprinder.lu,www.entreprinder.lu,vinsdelux.com,www.vinsdelux.com,power-up.lu,www.power-up.lu,powerup.lu,www.powerup.lu,tableau.lu,www.tableau.lu,arborist.lu,www.arborist.lu,delegations.lu,www.delegations.lu'
@@ -197,7 +196,8 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       FLASK_DEBUG: 'False'
       // Azure Storage Account Configuration for Media Files (uses Managed Identity - no key needed)
       AZURE_ACCOUNT_NAME: storageAccount.name
-      AZURE_CONTAINER_NAME: mediaContainerName
+      // AZURE_CONTAINER_NAME removed - all models now use platform-specific storage
+      // Platform containers: crush-lu-media, crush-lu-private, vinsdelux-media, etc.
       // AZURE_ACCOUNT_KEY removed - using Managed Identity with Storage Blob Data Contributor role
       // Deployment flags - set to false for faster deployments
       // Set INITIAL_DEPLOYMENT=true manually in portal for first deployment only
@@ -240,6 +240,17 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       // Referral points configuration (safe to include here)
       REFERRAL_POINTS_PER_SIGNUP: '100'
       REFERRAL_POINTS_PER_PROFILE_APPROVED: '50'
+    }
+  }
+
+  // PostgreSQL Connection String (production database)
+  resource webAppConnectionStrings 'config' = {
+    name: 'connectionstrings'
+    properties: {
+      AZURE_POSTGRESQL_CONNECTIONSTRING: {
+        value: 'dbname=${pythonAppDatabase.name} host=${postgresServer.name}.postgres.database.azure.com port=5432 sslmode=require user=${postgresServer.properties.administratorLogin} password=${databasePassword}'
+        type: 'PostgreSQL'
+      }
     }
   }
 
@@ -312,15 +323,14 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
       // This prevents Oryx from overwriting CI's manifest with an incomplete one
       DISABLE_COLLECTSTATIC: 'true'
       // ISOLATED DATABASE: Uses pythonapp_staging instead of pythonapp to prevent test data affecting production
-      AZURE_POSTGRESQL_CONNECTIONSTRING: 'dbname=${pythonAppStagingDatabase.name} host=${postgresServer.name}.postgres.database.azure.com port=5432 sslmode=require user=${postgresServer.properties.administratorLogin} password=${databasePassword}'
       SECRET_KEY: secretKey
       // Staging domains (test.*) - marked as slot-sticky via slotConfigNames (won't swap)
       CUSTOM_DOMAINS: 'test.crush.lu,test.entreprinder.lu,test.vinsdelux.com,test.power-up.lu,test.powerup.lu,test.tableau.lu,test.arborist.lu,test.delegations.lu'
       ALLOWED_HOSTS_ENV: 'test.crush.lu,test.entreprinder.lu,test.vinsdelux.com,test.power-up.lu,test.powerup.lu,test.tableau.lu,test.arborist.lu,test.delegations.lu,${prefix}-app-service-staging.azurewebsites.net'
       FLASK_DEBUG: 'False'
       AZURE_ACCOUNT_NAME: storageAccount.name
-      // ISOLATED STORAGE: Uses media-staging container instead of media to prevent test uploads affecting production
-      AZURE_CONTAINER_NAME: mediaStagingContainerName
+      // AZURE_CONTAINER_NAME removed - all models now use platform-specific storage
+      // Staging platform containers: crush-lu-media-staging, vinsdelux-media-staging, etc.
       DEPLOY_MEDIA_AND_DATA: 'false'
       INITIAL_DEPLOYMENT: 'false'
       SYNC_MEDIA_TO_AZURE: 'false'
@@ -331,6 +341,17 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
       STAGING_MODE: 'true'
       // NOTE: GA4_CRUSH_LU, GA4_POWERUP, GA4_ARBORIST are intentionally NOT set for staging
       // to prevent test traffic from polluting production analytics
+    }
+  }
+
+  // PostgreSQL Connection String (staging database - isolated from production)
+  resource stagingConnectionStrings 'config' = {
+    name: 'connectionstrings'
+    properties: {
+      AZURE_POSTGRESQL_CONNECTIONSTRING: {
+        value: 'dbname=${pythonAppStagingDatabase.name} host=${postgresServer.name}.postgres.database.azure.com port=5432 sslmode=require user=${postgresServer.properties.administratorLogin} password=${databasePassword}'
+        type: 'PostgreSQL'
+      }
     }
   }
 }
@@ -346,9 +367,7 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       // Domain settings - each slot has its own domains
       'CUSTOM_DOMAINS'
       'ALLOWED_HOSTS_ENV'
-      // CRITICAL: Database and storage isolation - prevents staging data affecting production
-      'AZURE_POSTGRESQL_CONNECTIONSTRING'
-      'AZURE_CONTAINER_NAME'
+      // AZURE_CONTAINER_NAME removed - platform-specific storage handles isolation
       // Staging mode flag - only set in staging slot
       'STAGING_MODE'
       // Analytics - only production should track GA4
@@ -366,6 +385,10 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       'XDT_MicrosoftApplicationInsights_BaseExtensions'
       'XDT_MicrosoftApplicationInsights_Mode'
       'XDT_MicrosoftApplicationInsights_PreemptSdk'
+    ]
+    // CRITICAL: Database isolation - prevents staging database from swapping to production
+    connectionStringNames: [
+      'AZURE_POSTGRESQL_CONNECTIONSTRING'
     ]
   }
 }
@@ -529,8 +552,8 @@ resource pythonAppStagingDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/dat
 
 // Azure Storage Account for Media Files
 var storageAccountName = '${toLower('media')}${uniqueString(resourceGroup().id)}' // Use a fixed prefix and uniqueString
-var mediaContainerName = 'media' // This should match AZURE_CONTAINER_NAME in production.py
-var mediaStagingContainerName = 'media-staging' // Isolated storage for staging slot
+// Legacy container variables removed - now using platform-specific containers
+// (crush-lu-media, vinsdelux-media, entreprinder-media, etc.)
 var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe' // Storage Blob Data Contributor
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
@@ -550,21 +573,9 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
 
   resource blobServices 'blobServices' = {
     name: 'default'
-
-    resource container 'containers' = {
-      name: mediaContainerName
-      properties: {
-        publicAccess: 'None' // Or 'Blob' or 'Container' depending on your needs
-      }
-    }
-
-    // Staging container - isolated from production to prevent test uploads affecting real media
-    resource stagingContainer 'containers' = {
-      name: mediaStagingContainerName
-      properties: {
-        publicAccess: 'None'
-      }
-    }
+    // Legacy 'media' and 'media-staging' containers removed
+    // Platform-specific containers are created manually or via migration scripts
+    // Examples: crush-lu-media, crush-lu-private, vinsdelux-media, etc.
   }
 }
 
@@ -584,7 +595,7 @@ output APPLICATIONINSIGHTS_CONNECTION_STRING string = applicationInsightsResourc
 
 // Azure Storage Account Outputs
 output AZURE_STORAGE_ACCOUNT_NAME string = storageAccount.name
-output AZURE_STORAGE_CONTAINER_NAME string = mediaContainerName
+// AZURE_STORAGE_CONTAINER_NAME output removed - platform-specific containers in use
 output AZURE_STORAGE_BLOB_ENDPOINT string = storageAccount.properties.primaryEndpoints.blob
 
 var webAppSettingsKeys = map(items(web::webAppSettings.properties), setting => setting.key)

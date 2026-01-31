@@ -153,23 +153,13 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Django 4.2+ STORAGES configuration
 STORAGES = {
+    # Default storage removed - all models now use platform-specific storage backends
+    # Platform containers: crush-lu-media, crush-lu-private, vinsdelux-media, etc.
+    # Legacy 'media' container deleted as part of platform-specific migration
     "default": {
-        "BACKEND": "storages.backends.azure_storage.AzureStorage",
-        "OPTIONS": {
-            "account_name": os.getenv("AZURE_ACCOUNT_NAME"),
-            "account_key": os.getenv("AZURE_ACCOUNT_KEY"),
-            "azure_container": os.getenv("AZURE_CONTAINER_NAME"),
-            "overwrite_files": True,
-            # "azure_ssl": True, # Default is True
-            # "upload_max_conn": 2, # Default is 2
-            # "timeout": 20, # Default is 20
-            # "max_memory_size": 2*1024*1024, # Default is 2MB
-            # "expiration_secs": None, # Default is None
-            # "location": "", # Default is ''
-            # "endpoint_suffix": "core.windows.net", # Default is core.windows.net
-            # "custom_domain": None, # Default is None
-            # "token_credential": DefaultAzureCredential(), # For Managed Identity
-        },
+        "BACKEND": "azureproject.storage_shared.SharedMediaStorage",
+        # Fallback to shared-media container for any edge cases
+        # In practice, all model fields should have explicit storage= parameters
     },
     # Platform-specific storage backends (production)
     "crush_media": {
@@ -201,51 +191,50 @@ STORAGES = {
     },
 }
 
-# MEDIA_URL is now derived from STORAGES["default"]
-# You can access it via default_storage.url() or by constructing it manually
-# based on the STORAGES settings.
-# For direct URL construction, you'd still need account name and container name.
+# MEDIA_URL is now derived from platform-specific storage backends
+# Each platform uses its own container (crush-lu-media, vinsdelux-media, etc.)
+# Legacy AZURE_CONTAINER_NAME removed - use storage backend's .url() method instead
 AZURE_ACCOUNT_NAME = os.getenv("AZURE_ACCOUNT_NAME")
-AZURE_CONTAINER_NAME = os.getenv("AZURE_CONTAINER_NAME")
-MEDIA_URL = (
-    f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}/"
-)
+MEDIA_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/shared-media/"  # Fallback only
 
 # ============================================================================
-# CONTENT IMAGE URLS (Azure Blob Storage - Domain-Organized Structure)
+# CONTENT IMAGE URLS (Azure Blob Storage - Platform-Specific Containers)
 # ============================================================================
-# These provide stable URLs for content images that don't change between deployments.
-# Structure: /{domain}/{category}/{filename}
-# - crush-lu/branding/social-preview.jpg
-# - vinsdelux/journey/step_01.png
-# - powerup/defaults/profile.png
-AZURE_CONTENT_BASE_URL = (
-    f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}"
-)
+# These provide stable URLs for content images in platform-specific containers.
+# IMPORTANT: After deleting legacy 'media' container, these files need to be
+# re-uploaded to their respective platform containers with the same paths.
+#
+# Structure: https://{account}.blob.core.windows.net/{container}/{path}
+# - crush-lu-media/crush-lu/branding/social-preview.jpg
+# - vinsdelux-media/vinsdelux/journey/step_01.png
+# - powerup-media/powerup/defaults/profile.png
 
-# Crush.lu images
+# Crush.lu images (in crush-lu-media container)
+CRUSH_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/crush-lu-media"
 SOCIAL_PREVIEW_IMAGE_URL = os.getenv(
     "SOCIAL_PREVIEW_IMAGE_URL",
-    f"{AZURE_CONTENT_BASE_URL}/crush-lu/branding/social-preview.jpg",
+    f"{CRUSH_MEDIA_BASE_URL}/crush-lu/branding/social-preview.jpg",
 )
 CRUSH_SOCIAL_PREVIEW_URL = os.getenv(
     "CRUSH_SOCIAL_PREVIEW_URL",
-    f"{AZURE_CONTENT_BASE_URL}/crush-lu/branding/social-preview.jpg",
+    f"{CRUSH_MEDIA_BASE_URL}/crush-lu/branding/social-preview.jpg",
 )
 
-# VinsDelux images
+# VinsDelux images (in vinsdelux-media container)
+VINSDELUX_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/vinsdelux-media"
 VINSDELUX_JOURNEY_BASE_URL = os.getenv(
-    "VINSDELUX_JOURNEY_BASE_URL", f"{AZURE_CONTENT_BASE_URL}/vinsdelux/journey/"
+    "VINSDELUX_JOURNEY_BASE_URL", f"{VINSDELUX_MEDIA_BASE_URL}/vinsdelux/journey/"
 )
 VINSDELUX_VINEYARD_DEFAULTS_URL = os.getenv(
     "VINSDELUX_VINEYARD_DEFAULTS_URL",
-    f"{AZURE_CONTENT_BASE_URL}/vinsdelux/vineyard-defaults/",
+    f"{VINSDELUX_MEDIA_BASE_URL}/vinsdelux/vineyard-defaults/",
 )
 
-# PowerUP/Entreprinder images
+# PowerUP/Entreprinder images (in powerup-media container)
+POWERUP_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/powerup-media"
 POWERUP_DEFAULT_PROFILE_URL = os.getenv(
     "POWERUP_DEFAULT_PROFILE_URL",
-    f"{AZURE_CONTENT_BASE_URL}/powerup/defaults/profile.png",
+    f"{POWERUP_MEDIA_BASE_URL}/powerup/defaults/profile.png",
 )
 
 # ============================================================================
@@ -261,18 +250,31 @@ VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
 VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
 VAPID_ADMIN_EMAIL = os.getenv("VAPID_ADMIN_EMAIL", "noreply@crush.lu")
 
-# Configure Postgres database based on connection string of the libpq Keyword/Value form
+# Configure Postgres database from Azure Connection String
+# Uses the Connection Strings section in Azure App Service configuration
 from django.core.exceptions import ImproperlyConfigured
 
 try:
-    conn_str = os.environ["AZURE_POSTGRESQL_CONNECTIONSTRING"]
+    # Get Connection String (POSTGRESQLCONNSTR_ prefix from Azure Connection Strings section)
+    # Azure automatically prefixes connection strings with type (POSTGRESQLCONNSTR_, SQLCONNSTR_, etc.)
+    conn_str_key = next(
+        (k for k in os.environ.keys() if k.startswith('POSTGRESQLCONNSTR_')),
+        None
+    )
+
+    if not conn_str_key:
+        raise KeyError("No PostgreSQL connection string found")
+
+    conn_str = os.environ[conn_str_key]
     conn_str_params = {
         pair.split("=")[0]: pair.split("=")[1] for pair in conn_str.split(" ")
     }
-except KeyError:
+except (KeyError, StopIteration):
     raise ImproperlyConfigured(
-        "AZURE_POSTGRESQL_CONNECTIONSTRING environment variable is required in production. "
-        "Format: 'dbname=xxx host=xxx user=xxx password=xxx'"
+        "PostgreSQL connection string is required in production. "
+        "Add a connection string in Azure Portal → App Service → Configuration → Connection Strings. "
+        "Name: pythonappConnection, Type: PostgreSQL, "
+        "Value: 'dbname=xxx host=xxx user=xxx password=xxx'"
     )
 
 DATABASES = {
