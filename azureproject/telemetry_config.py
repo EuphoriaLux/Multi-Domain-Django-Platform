@@ -138,6 +138,10 @@ def configure_azure_monitor_telemetry():
     4. Falls back gracefully if connection string is missing (local dev)
 
     Call this once at application startup (in production.py).
+
+    Environment Variables:
+        APPLICATIONINSIGHTS_CONNECTION_STRING: Required for telemetry
+        ENABLE_LIVE_METRICS: Set to 'false' to disable Live Metrics (default: true)
     """
     connection_string = os.environ.get('APPLICATIONINSIGHTS_CONNECTION_STRING')
 
@@ -148,6 +152,9 @@ def configure_azure_monitor_telemetry():
         )
         return False
 
+    # Allow disabling Live Metrics to avoid timeout issues during deployment
+    enable_live_metrics = os.environ.get('ENABLE_LIVE_METRICS', 'true').lower() != 'false'
+
     try:
         from azure.monitor.opentelemetry import configure_azure_monitor
 
@@ -156,7 +163,6 @@ def configure_azure_monitor_telemetry():
 
         # Configure Azure Monitor with our custom processor
         # The SDK automatically instruments Django, requests, urllib, psycopg2
-        # Live Metrics enabled for real-time monitoring with 1-second latency
         configure_azure_monitor(
             connection_string=connection_string,
             # Add our custom span processor for exception filtering
@@ -164,11 +170,13 @@ def configure_azure_monitor_telemetry():
             # Configure logging integration - use root logger namespace
             logger_name="",  # Empty string = root logger
             # Enable Live Metrics for real-time dashboard monitoring (1-second latency)
-            enable_live_metrics=True,
+            # Can be disabled by setting ENABLE_LIVE_METRICS=false
+            enable_live_metrics=enable_live_metrics,
         )
 
         logger.info(
-            "Azure Monitor OpenTelemetry configured with exception filtering. "
+            f"Azure Monitor OpenTelemetry configured with exception filtering "
+            f"(Live Metrics: {'enabled' if enable_live_metrics else 'disabled'}). "
             "Auto-instrumentation should be DISABLED in Azure App Service."
         )
         return True

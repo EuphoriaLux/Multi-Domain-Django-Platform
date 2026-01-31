@@ -1227,16 +1227,38 @@ OUTLOOK_SYNC_USER_FIELDS = {
     'email',
 }
 
+# Test email domains that should NEVER sync to Outlook
+TEST_EMAIL_DOMAINS = ['example.com', 'example.org', 'test.com', 'localhost', 'crush.test']
+
+
+def is_test_user(user):
+    """
+    Check if user is a test/sample user that should never sync to Outlook.
+
+    This is a defense-in-depth check - is_sync_enabled() should already
+    block test execution, but this catches edge cases.
+
+    Args:
+        user: Django User instance
+
+    Returns:
+        bool: True if user is a test user, False otherwise
+    """
+    email_domain = user.email.split('@')[-1] if user.email and '@' in user.email else ''
+    return email_domain.lower() in TEST_EMAIL_DOMAINS
+
 
 @receiver(post_save, sender=CrushProfile)
 def sync_profile_to_outlook(sender, instance, created, update_fields, **kwargs):
     """
-    Automatically sync profile to Outlook contacts when saved (production only).
+    Automatically sync APPROVED profiles to Outlook contacts (production only).
 
-    This signal fires on CrushProfile save and syncs the contact to Outlook
-    if the profile has a phone number.
+    Only syncs profiles that:
+    1. Have a phone number (required for caller ID)
+    2. Are approved (is_approved=True)
+    3. Are NOT test users (no example.com, test.com, etc.)
 
-    Only runs in production when OUTLOOK_CONTACT_SYNC_ENABLED=true.
+    This ensures the shared mailbox only contains verified, active users.
 
     Args:
         sender: The model class (CrushProfile)
@@ -1251,8 +1273,27 @@ def sync_profile_to_outlook(sender, instance, created, update_fields, **kwargs):
     if not is_sync_enabled():
         return
 
+    # CRITICAL: Never sync test users (example.com, test.com, localhost)
+    if is_test_user(instance.user):
+        logger.debug(f"Skipping Outlook sync for test user: {instance.user.email}")
+        return
+
     # Only sync if phone number exists (required for caller ID)
     if not instance.phone_number:
+        return
+
+    # NEW: Only sync approved profiles
+    if not instance.is_approved:
+        # If profile was previously synced but is now unapproved, delete the contact
+        if instance.outlook_contact_id:
+            try:
+                service = GraphContactsService()
+                service.delete_contact(instance.outlook_contact_id)
+                # Clear the contact ID using update() to avoid infinite recursion
+                CrushProfile.objects.filter(pk=instance.pk).update(outlook_contact_id="")
+                logger.info(f"Deleted Outlook contact for unapproved profile {instance.pk}")
+            except Exception as e:
+                logger.warning(f"Failed to delete Outlook contact for unapproved profile {instance.pk}: {e}")
         return
 
     # Check if relevant fields were updated (if update_fields provided)

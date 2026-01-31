@@ -38,6 +38,12 @@ def is_sync_enabled() -> bool:
     Returns:
         bool: True if sync is enabled, False otherwise
     """
+    import sys
+
+    # NEVER sync during tests (pytest sets sys._called_from_test)
+    if 'pytest' in sys.modules or 'unittest' in sys.modules:
+        return False
+
     # Never sync in DEBUG mode (local development)
     if settings.DEBUG:
         return False
@@ -515,7 +521,7 @@ class GraphContactsService:
 
     def sync_all_profiles(self, dry_run: bool = False) -> dict:
         """
-        Sync all CrushProfiles to Outlook contacts.
+        Sync all APPROVED CrushProfiles to Outlook contacts.
 
         Args:
             dry_run: If True, only preview what would be synced
@@ -531,6 +537,7 @@ class GraphContactsService:
                 }
         """
         from crush_lu.models import CrushProfile
+        from crush_lu.signals import is_test_user
 
         stats = {
             'total': 0,
@@ -544,10 +551,21 @@ class GraphContactsService:
             logger.warning("Outlook contact sync disabled for this environment")
             return stats
 
-        profiles = CrushProfile.objects.select_related('user').all()
+        # NEW: Only sync approved profiles
+        profiles = CrushProfile.objects.select_related('user').filter(is_approved=True)
         stats['total'] = profiles.count()
 
         for profile in profiles:
+            # Skip test users
+            if is_test_user(profile.user):
+                stats['skipped'] += 1
+                if dry_run:
+                    logger.info(
+                        f"[DRY RUN] Would skip profile {profile.pk} "
+                        f"({profile.user.email}) - test user"
+                    )
+                continue
+
             # Skip profiles without phone numbers
             if not profile.phone_number:
                 stats['skipped'] += 1

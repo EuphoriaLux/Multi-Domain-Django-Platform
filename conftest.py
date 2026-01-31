@@ -436,6 +436,22 @@ def clear_mailbox():
     mail.outbox = []
 
 
+@pytest.fixture(autouse=True)
+def disable_outlook_sync(mocker):
+    """
+    Globally disable Outlook contact sync for all tests.
+
+    This is a defense-in-depth measure - is_sync_enabled() should already
+    return False during tests, but this ensures no sync happens even if
+    tests somehow run with production settings.
+    """
+    # Mock the sync function to do nothing
+    mocker.patch('crush_lu.services.graph_contacts.GraphContactsService.sync_profile', return_value=None)
+    mocker.patch('crush_lu.services.graph_contacts.GraphContactsService.create_contact', return_value=None)
+    mocker.patch('crush_lu.services.graph_contacts.GraphContactsService.update_contact', return_value=False)
+    mocker.patch('crush_lu.services.graph_contacts.GraphContactsService.delete_contact', return_value=False)
+
+
 # =============================================================================
 # FILE UPLOAD TESTING FIXTURES
 # =============================================================================
