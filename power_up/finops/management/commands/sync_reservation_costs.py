@@ -55,6 +55,7 @@ class Command(BaseCommand):
         for res in reservations:
             reservation_id = res['id']
             reservation_name = res['name']
+            focus_data = res['focus_data']
 
             self.stdout.write(f'\n-> Processing: {reservation_name}')
 
@@ -80,12 +81,12 @@ class Command(BaseCommand):
                     error_count += 1
                     continue
 
-                # Step 4: Query Azure Retail Prices API for pricing
+                # Step 4: Query Azure Retail Prices API for pricing using FOCUS data
                 pricing = self.get_reservation_pricing(
                     service_name=metadata['service_name'],
-                    sku_name=metadata['sku_name'],
                     region=metadata['region'],
-                    term_years=metadata['term_years']
+                    term_years=metadata['term_years'],
+                    focus_data=focus_data  # Pass FOCUS data for better matching
                 )
 
                 if not pricing:
@@ -146,21 +147,19 @@ class Command(BaseCommand):
         self.stdout.write(f'   Errors: {error_count}')
 
     def find_reservations(self):
-        """Find all unique reservations from FOCUS exports"""
-        reservations = CostRecord.objects.filter(
+        """Find all unique reservations from FOCUS exports with extended data"""
+        # Get full CostRecord objects to access extended_data
+        records = CostRecord.objects.filter(
             extended_data__PricingCategory='Committed',
             extended_data__CommitmentDiscountType='Reservation'
-        ).values(
-            'extended_data__CommitmentDiscountId',
-            'extended_data__CommitmentDiscountName'
-        ).distinct()
+        )
 
         result = []
         seen_ids = set()  # Deduplicate by reservation ID
 
-        for res in reservations:
-            commitment_id = res.get('extended_data__CommitmentDiscountId')
-            commitment_name = res.get('extended_data__CommitmentDiscountName')
+        for record in records:
+            commitment_id = record.extended_data.get('CommitmentDiscountId')
+            commitment_name = record.extended_data.get('CommitmentDiscountName')
 
             if commitment_id and commitment_name:
                 # Extract reservation ID from full path
@@ -177,7 +176,8 @@ class Command(BaseCommand):
                             result.append({
                                 'id': reservation_id,
                                 'full_id': commitment_id,
-                                'name': commitment_name
+                                'name': commitment_name,
+                                'focus_data': record.extended_data  # Include FOCUS extended data
                             })
 
         return result
@@ -185,7 +185,6 @@ class Command(BaseCommand):
     def get_reservation_metadata(self, reservation_id):
         """Query Azure Reservation API for reservation details"""
         try:
-            # Use az rest to query Azure Management API
             # First, we need the full reservation path - let's extract from FOCUS data
             # The reservation_id is just the GUID, but we need the full path from FOCUS
             records = CostRecord.objects.filter(
@@ -204,34 +203,28 @@ class Command(BaseCommand):
                 self.stdout.write(f'   [WARN] No FOCUS record found with reservation ID {reservation_id}')
                 return None
 
-            # Query Azure Reservation API using Azure CLI subprocess
-            # Note: We use subprocess instead of direct API calls to leverage existing az login session
-            import subprocess
-            import sys
+            # Query Azure Management API using Managed Identity authentication
+            # This works in both local dev (Azure CLI) and production (Managed Identity)
+            access_token = self.get_azure_access_token()
 
-            # Build command - use full path to az.cmd on Windows
-            az_cmd = 'az.cmd' if sys.platform == 'win32' else 'az'
-
-            cmd = [
-                az_cmd, 'rest',
-                '--method', 'get',
-                '--url', f'https://management.azure.com{full_id}?api-version=2022-11-01'
-            ]
-
-            try:
-                result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-
-                if result.returncode != 0:
-                    self.stdout.write(self.style.WARNING(f'   [WARN] Azure API error: {result.stderr[:200]}'))
-                    return None
-
-                data = json.loads(result.stdout)
-            except FileNotFoundError:
-                self.stdout.write(self.style.WARNING(f'   [WARN] Azure CLI (az) not found in PATH'))
+            if not access_token:
+                self.stdout.write(self.style.WARNING(f'   [WARN] Failed to get Azure access token'))
                 return None
-            except json.JSONDecodeError as e:
-                self.stdout.write(self.style.WARNING(f'   [WARN] Invalid JSON from Azure API: {str(e)}'))
+
+            # Call Azure Management API
+            url = f'https://management.azure.com{full_id}?api-version=2022-11-01'
+            headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Content-Type': 'application/json'
+            }
+
+            response = requests.get(url, headers=headers, timeout=30)
+
+            if response.status_code != 200:
+                self.stdout.write(self.style.WARNING(f'   [WARN] Azure API error: {response.status_code} - {response.text[:200]}'))
                 return None
+
+            data = response.json()
             props = data.get('properties', {})
 
             # Extract metadata
@@ -268,26 +261,32 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'   [ERROR] Metadata fetch failed: {str(e)}'))
             return None
 
-    def get_reservation_pricing(self, service_name, sku_name, region, term_years=3):
-        """Query Azure Retail Prices API for reservation pricing"""
+    def get_reservation_pricing(self, service_name, region, term_years, focus_data):
+        """
+        Query Azure Retail Prices API for reservation pricing.
+
+        Uses x_SkuMeterSubcategory from FOCUS data to match productName in API.
+        This is more reliable than SKU name matching across different reservation types.
+        """
         try:
             url = 'https://prices.azure.com/api/retail/prices'
 
-            # Build filter query
-            # Note: SKU names in Retail API may differ from Reservation API
-            # We need to search more broadly
-            filter_parts = [
-                f"serviceName eq '{service_name}'",
-                f"armRegionName eq '{region}'",
-                f"priceType eq 'Reservation'"
-            ]
+            # Extract matching fields from FOCUS extended data
+            meter_subcategory = focus_data.get('x_SkuMeterSubcategory')  # e.g., "Azure App Service Premium v3 Plan - Linux"
+            term_months = int(focus_data.get('x_SkuTerm', term_years * 12))  # e.g., "36"
 
-            # Try to match SKU components
-            if 'p0' in sku_name.lower():
-                filter_parts.append("(skuName eq 'P0 v3' or contains(skuName, 'P0v3'))")
+            # Extract SKU from x_SkuOrderName (format: "Product Name, SKU, Region, Term")
+            sku_order_name = focus_data.get('x_SkuOrderName', '')
+            focus_sku = None
+            if ',' in sku_order_name:
+                parts = sku_order_name.split(',')
+                if len(parts) >= 2:
+                    focus_sku = parts[1].strip()  # e.g., "P0v3"
 
-            filter_query = ' and '.join(filter_parts)
+            self.stdout.write(f'   Matching: {meter_subcategory} | SKU: {focus_sku} | {term_months} months')
 
+            # Query API for all reservations of this service + region
+            filter_query = f"serviceName eq '{service_name}' and armRegionName eq '{region}' and priceType eq 'Reservation'"
             params = {
                 '$filter': filter_query,
                 'currencyCode': 'EUR'
@@ -300,44 +299,147 @@ class Command(BaseCommand):
             items = data.get('Items', [])
 
             if not items:
-                # Try broader search without SKU
-                filter_query = f"serviceName eq '{service_name}' and armRegionName eq '{region}' and priceType eq 'Reservation'"
-                params['$filter'] = filter_query
-
-                response = requests.get(url, params=params, timeout=30)
-                response.raise_for_status()
-                data = response.json()
-                items = data.get('Items', [])
-
-            if not items:
+                self.stdout.write(self.style.WARNING(f'   [WARN] No reservations found for {service_name} in {region}'))
                 return None
 
-            # Find matching term
-            term_str = f'{term_years} year'
+            # Strategy 1: Exact match on productName + SKU + term
+            # API returns: "1 Year" or "3 Years" (note: plural for 3)
+            term_str_singular = f'{term_years} Year'
+            term_str_plural = f'{term_years} Years'
+
+            for item in items:
+                product_name = item.get('productName', '')
+                api_sku = item.get('skuName', '')
+                reservation_term = item.get('reservationTerm', '')
+
+                # Exact match: productName AND SKU AND term all match
+                if product_name == meter_subcategory and focus_sku:
+                    # SKU match (case-insensitive, handle "P0v3" vs "P0 v3")
+                    sku_match = (
+                        api_sku.lower().replace(' ', '') == focus_sku.lower().replace(' ', '')
+                    )
+
+                    if sku_match and (reservation_term == term_str_singular or reservation_term == term_str_plural):
+                        self.stdout.write(f'   [MATCH] Exact match: {product_name} | SKU: {api_sku}')
+                        return {
+                            'total_cost': item['unitPrice'],
+                            'unit_price': item['unitPrice'],
+                            'currency': item['currencyCode'],
+                            'product_name': item['productName'],
+                            'reservation_term': reservation_term,
+                            'sku_name': item.get('skuName', 'N/A')
+                        }
+
+            # Strategy 2: Partial match (in case FOCUS has extra details)
+            # Match if API productName is contained in FOCUS x_SkuMeterSubcategory
+            for item in items:
+                product_name = item.get('productName', '')
+                reservation_term = item.get('reservationTerm', '')
+
+                if meter_subcategory and product_name in meter_subcategory:
+                    if reservation_term == term_str_singular or reservation_term == term_str_plural:
+                        self.stdout.write(f'   [MATCH] Found partial match: {product_name}')
+                        return {
+                            'total_cost': item['unitPrice'],
+                            'unit_price': item['unitPrice'],
+                            'currency': item['currencyCode'],
+                            'product_name': item['productName'],
+                            'reservation_term': reservation_term,
+                            'sku_name': item.get('skuName', 'N/A')
+                        }
+
+            # Strategy 3: Fallback - match only by term (prefer Linux)
             for item in items:
                 product_name = item.get('productName', '').lower()
-                if term_str in product_name and 'linux' in product_name.lower():
+                reservation_term = item.get('reservationTerm', '')
+
+                if (reservation_term == term_str_singular or reservation_term == term_str_plural):
+                    if 'linux' in product_name:
+                        self.stdout.write(f'   [WARN] Fallback match (term + Linux): {item["productName"]}')
+                        return {
+                            'total_cost': item['unitPrice'],
+                            'unit_price': item['unitPrice'],
+                            'currency': item['currencyCode'],
+                            'product_name': item['productName'],
+                            'reservation_term': reservation_term,
+                            'sku_name': item.get('skuName', 'N/A')
+                        }
+
+            # Strategy 4: Last fallback - match only by term (any OS)
+            for item in items:
+                reservation_term = item.get('reservationTerm', '')
+                if reservation_term == term_str_singular or reservation_term == term_str_plural:
+                    self.stdout.write(f'   [WARN] Fallback match (term only): {item["productName"]}')
                     return {
                         'total_cost': item['unitPrice'],
                         'unit_price': item['unitPrice'],
                         'currency': item['currencyCode'],
-                        'product_name': item['productName']
+                        'product_name': item['productName'],
+                        'reservation_term': reservation_term,
+                        'sku_name': item.get('skuName', 'N/A')
                     }
 
-            # Fallback: use first item
-            if items:
-                item = items[0]
-                return {
-                    'total_cost': item['unitPrice'],
-                    'unit_price': item['unitPrice'],
-                    'currency': item['currencyCode'],
-                    'product_name': item['productName']
-                }
-
+            self.stdout.write(self.style.WARNING(f'   [WARN] No matching reservation found'))
             return None
 
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'   [ERROR] Pricing API failed: {str(e)}'))
+            return None
+
+    def get_azure_access_token(self):
+        """
+        Get Azure access token for Management API.
+
+        Works in both environments:
+        - Local dev: Uses Azure CLI credentials (az login)
+        - Production: Uses Managed Identity (automatic in Azure App Service)
+        """
+        try:
+            # Try Managed Identity first (production)
+            from azure.identity import ManagedIdentityCredential, AzureCliCredential, ChainedTokenCredential
+
+            # ChainedTokenCredential tries Managed Identity first, then Azure CLI
+            credential = ChainedTokenCredential(
+                ManagedIdentityCredential(),
+                AzureCliCredential()
+            )
+
+            # Get token for Azure Management API
+            token = credential.get_token('https://management.azure.com/.default')
+            return token.token
+
+        except ImportError:
+            self.stdout.write(self.style.WARNING('   [WARN] azure-identity not installed, falling back to subprocess'))
+            # Fallback to az CLI subprocess for local dev without azure-identity
+            import subprocess
+            import sys
+
+            az_cmd = 'az.cmd' if sys.platform == 'win32' else 'az'
+
+            try:
+                result = subprocess.run(
+                    [az_cmd, 'account', 'get-access-token', '--resource', 'https://management.azure.com'],
+                    capture_output=True,
+                    text=True,
+                    check=False
+                )
+
+                if result.returncode == 0:
+                    token_data = json.loads(result.stdout)
+                    return token_data.get('accessToken')
+                else:
+                    self.stdout.write(self.style.WARNING(f'   [WARN] Azure CLI error: {result.stderr[:200]}'))
+                    return None
+
+            except FileNotFoundError:
+                self.stdout.write(self.style.WARNING('   [WARN] Azure CLI not found - install azure-identity or run "az login"'))
+                return None
+            except Exception as e:
+                self.stdout.write(self.style.WARNING(f'   [WARN] Token fetch failed: {str(e)}'))
+                return None
+
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f'   [WARN] Authentication failed: {str(e)}'))
             return None
 
     @staticmethod

@@ -551,7 +551,7 @@ def forecast_view(request):
     # Fetch forecasts
     forecasts = CostForecast.objects.filter(
         dimension_type='overall',
-        dimension_value='all'
+        dimension_value='Total'  # Match aggregation dimension_value
     ).order_by('forecast_date')[:forecast_days]
 
     # Fetch last 30 days historical for comparison

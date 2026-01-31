@@ -57,7 +57,7 @@ class Command(BaseCommand):
 
         forecasts = CostForecaster.forecast_costs(
             dimension_type=dimension,
-            dimension_value='all',
+            dimension_value='Total',  # Match aggregation dimension_value
             forecast_days=forecast_days,
             training_days=training_days,
             currency=currency

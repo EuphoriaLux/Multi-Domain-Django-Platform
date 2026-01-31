@@ -42,7 +42,7 @@ class CostAggregator:
 
             # By subscription
             subscriptions = CostRecord.objects.filter(
-                billing_period_start=current_date,
+                charge_period_start__date=current_date,
                 billing_currency=currency
             ).values_list('sub_account_name', flat=True).distinct()
 
@@ -54,7 +54,7 @@ class CostAggregator:
 
             # By service
             services = CostRecord.objects.filter(
-                billing_period_start=current_date,
+                charge_period_start__date=current_date,
                 billing_currency=currency
             ).values_list('service_name', flat=True).distinct()
 
@@ -66,7 +66,7 @@ class CostAggregator:
 
             # By resource group
             resource_groups = CostRecord.objects.filter(
-                billing_period_start=current_date,
+                charge_period_start__date=current_date,
                 billing_currency=currency
             ).values_list('resource_group_name', flat=True).distinct()
 
@@ -85,7 +85,7 @@ class CostAggregator:
         """Generate aggregation for a single day and dimension"""
         # Build query filters
         filters = {
-            'billing_period_start': date,
+            'charge_period_start__date': date,
             'billing_currency': currency,
         }
 
@@ -184,8 +184,8 @@ class CostAggregator:
 
         # By subscription
         subscriptions = CostRecord.objects.filter(
-            billing_period_start__gte=start_date,
-            billing_period_start__lte=end_date,
+            charge_period_start__date__gte=start_date,
+            charge_period_start__date__lte=end_date,
             billing_currency=currency
         ).values_list('sub_account_name', flat=True).distinct()
 
@@ -197,8 +197,8 @@ class CostAggregator:
 
         # By service
         services = CostRecord.objects.filter(
-            billing_period_start__gte=start_date,
-            billing_period_start__lte=end_date,
+            charge_period_start__date__gte=start_date,
+            charge_period_start__date__lte=end_date,
             billing_currency=currency
         ).values_list('service_name', flat=True).distinct()
 
@@ -215,8 +215,8 @@ class CostAggregator:
         """Generate aggregation for a date range"""
         # Build query filters
         filters = {
-            'billing_period_start__gte': start_date,
-            'billing_period_start__lte': end_date,
+            'charge_period_start__date__gte': start_date,
+            'charge_period_start__date__lte': end_date,
             'billing_currency': currency,
         }
 
