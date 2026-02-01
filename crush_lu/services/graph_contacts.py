@@ -47,7 +47,7 @@ def is_sync_enabled(request=None) -> bool:
 
     # NEVER sync during tests (check for actual test execution, not just imported modules)
     # pytest sets sys._called_from_test, Django sets DJANGO_TEST_PROCESSES during testing
-    if hasattr(sys, '_called_from_test') or os.getenv('DJANGO_TEST_PROCESSES'):
+    if hasattr(sys, "_called_from_test") or os.getenv("DJANGO_TEST_PROCESSES"):
         return False
 
     # Never sync in DEBUG mode (local development)
@@ -57,17 +57,19 @@ def is_sync_enabled(request=None) -> bool:
     # ONLY sync for Crush.lu platform (not VinsDelux, Entreprinder, etc.)
     # Check request.urlconf (set by DomainURLRoutingMiddleware) or fallback to ROOT_URLCONF
     if request is not None:
-        current_urlconf = getattr(request, 'urlconf', None) or getattr(settings, 'ROOT_URLCONF', '')
+        current_urlconf = getattr(request, "urlconf", None) or getattr(
+            settings, "ROOT_URLCONF", ""
+        )
     else:
         # When called without request (e.g., from management command or Azure Function),
         # assume it's for Crush.lu since this is the crush_lu app
-        current_urlconf = 'azureproject.urls_crush'
+        current_urlconf = "azureproject.urls_crush"
 
-    if 'urls_crush' not in current_urlconf:
+    if "urls_crush" not in current_urlconf:
         return False
 
     # Explicit opt-in required via environment variable
-    return os.getenv('OUTLOOK_CONTACT_SYNC_ENABLED', '').lower() == 'true'
+    return os.getenv("OUTLOOK_CONTACT_SYNC_ENABLED", "").lower() == "true"
 
 
 class GraphContactsService:
@@ -82,22 +84,19 @@ class GraphContactsService:
         """Initialize with Graph API credentials from environment or settings."""
         # Try environment variables first (for local dev with .env),
         # then fall back to settings (for production)
-        self.tenant_id = (
-            os.getenv('GRAPH_TENANT_ID') or
-            getattr(settings, 'GRAPH_TENANT_ID', None)
+        self.tenant_id = os.getenv("GRAPH_TENANT_ID") or getattr(
+            settings, "GRAPH_TENANT_ID", None
         )
-        self.client_id = (
-            os.getenv('GRAPH_CLIENT_ID') or
-            getattr(settings, 'GRAPH_CLIENT_ID', None)
+        self.client_id = os.getenv("GRAPH_CLIENT_ID") or getattr(
+            settings, "GRAPH_CLIENT_ID", None
         )
-        self.client_secret = (
-            os.getenv('GRAPH_CLIENT_SECRET') or
-            getattr(settings, 'GRAPH_CLIENT_SECRET', None)
+        self.client_secret = os.getenv("GRAPH_CLIENT_SECRET") or getattr(
+            settings, "GRAPH_CLIENT_SECRET", None
         )
         self.mailbox = (
-            os.getenv('GRAPH_FROM_EMAIL') or
-            getattr(settings, 'GRAPH_FROM_EMAIL', None) or
-            'noreply@crush.lu'
+            os.getenv("GRAPH_FROM_EMAIL")
+            or getattr(settings, "GRAPH_FROM_EMAIL", None)
+            or "noreply@crush.lu"
         )
 
         if not all([self.tenant_id, self.client_id, self.client_secret]):
@@ -145,7 +144,9 @@ class GraphContactsService:
         if "access_token" in result:
             return result["access_token"]
         else:
-            error = result.get("error_description", result.get("error", "Unknown error"))
+            error = result.get(
+                "error_description", result.get("error", "Unknown error")
+            )
             logger.error(f"Failed to acquire Graph API access token: {error}")
             raise Exception(f"Failed to acquire access token: {error}")
 
@@ -181,17 +182,23 @@ class GraphContactsService:
         if profile.is_approved:
             notes_parts.append("Status: Approved")
         else:
-            # Check submission status
-            from crush_lu.models import ProfileSubmission
-            submission = ProfileSubmission.objects.filter(profile=profile).first()
-            if submission:
-                notes_parts.append(f"Status: {submission.get_status_display()}")
+            # Check submission status (only if profile has been saved)
+            if profile.pk:
+                from crush_lu.models import ProfileSubmission
+
+                submission = ProfileSubmission.objects.filter(profile=profile).first()
+                if submission:
+                    notes_parts.append(f"Status: {submission.get_status_display()}")
+                else:
+                    notes_parts.append("Status: Not Submitted")
             else:
                 notes_parts.append("Status: Not Submitted")
 
         # Gender
         if profile.gender:
-            gender_display = dict(profile.GENDER_CHOICES).get(profile.gender, profile.gender)
+            gender_display = dict(profile.GENDER_CHOICES).get(
+                profile.gender, profile.gender
+            )
             notes_parts.append(f"Gender: {gender_display}")
 
         # Age (with defensive check for corrupted date_of_birth data)
@@ -212,7 +219,9 @@ class GraphContactsService:
         notes_parts.append("━" * 20)
 
         # Admin URL
-        admin_url = f"https://crush.lu/crush-admin/crush_lu/crushprofile/{profile.pk}/change/"
+        admin_url = (
+            f"https://crush.lu/crush-admin/crush_lu/crushprofile/{profile.pk}/change/"
+        )
         notes_parts.append(f"Admin: {admin_url}")
 
         # Build the contact payload
@@ -238,7 +247,7 @@ class GraphContactsService:
             payload["emailAddresses"] = [
                 {
                     "address": user.email,
-                    "name": f"{user.first_name} {user.last_name}".strip() or user.email
+                    "name": f"{user.first_name} {user.last_name}".strip() or user.email,
                 }
             ]
 
@@ -246,7 +255,7 @@ class GraphContactsService:
         if profile.date_of_birth:
             try:
                 # date_of_birth should be a date object, but may be corrupted as string
-                if hasattr(profile.date_of_birth, 'isoformat'):
+                if hasattr(profile.date_of_birth, "isoformat"):
                     payload["birthday"] = profile.date_of_birth.isoformat()
                 else:
                     # It's already a string - try to use it directly
@@ -255,15 +264,13 @@ class GraphContactsService:
                     )
                     payload["birthday"] = str(profile.date_of_birth)
             except (AttributeError, TypeError) as e:
-                logger.warning(
-                    f"Profile {profile.pk} has invalid date_of_birth: {e}"
-                )
+                logger.warning(f"Profile {profile.pk} has invalid date_of_birth: {e}")
 
         # Location as business address city
         if profile.location:
             payload["businessAddress"] = {
                 "city": profile.location,
-                "countryOrRegion": "Luxembourg"
+                "countryOrRegion": "Luxembourg",
             }
 
         return payload
@@ -296,21 +303,20 @@ class GraphContactsService:
 
             # Determine content type from filename
             filename = profile.photo_1.name.lower()
-            if filename.endswith('.png'):
-                content_type = 'image/png'
-            elif filename.endswith('.gif'):
-                content_type = 'image/gif'
+            if filename.endswith(".png"):
+                content_type = "image/png"
+            elif filename.endswith(".gif"):
+                content_type = "image/gif"
             else:
-                content_type = 'image/jpeg'  # Default to JPEG
+                content_type = "image/jpeg"  # Default to JPEG
 
             # Upload photo via Graph API
             endpoint = f"{GRAPH_API_BASE}/users/{self.mailbox}/contacts/{contact_id}/photo/$value"
-            headers = {
-                "Authorization": f"Bearer {token}",
-                "Content-Type": content_type
-            }
+            headers = {"Authorization": f"Bearer {token}", "Content-Type": content_type}
 
-            response = requests.put(endpoint, headers=headers, data=photo_content, timeout=60)
+            response = requests.put(
+                endpoint, headers=headers, data=photo_content, timeout=60
+            )
 
             if response.status_code in [200, 204]:
                 logger.info(f"Uploaded photo for contact {contact_id}")
@@ -350,14 +356,16 @@ class GraphContactsService:
             endpoint = f"{GRAPH_API_BASE}/users/{self.mailbox}/contacts"
             headers = {
                 "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             }
 
-            response = requests.post(endpoint, headers=headers, json=payload, timeout=30)
+            response = requests.post(
+                endpoint, headers=headers, json=payload, timeout=30
+            )
 
             if response.status_code in [200, 201]:
                 data = response.json()
-                contact_id = data.get('id')
+                contact_id = data.get("id")
                 logger.info(
                     f"Created Outlook contact for profile {profile.pk}: {contact_id}"
                 )
@@ -375,7 +383,9 @@ class GraphContactsService:
                 return None
 
         except Exception as e:
-            logger.error(f"Error creating Outlook contact for profile {profile.pk}: {e}")
+            logger.error(
+                f"Error creating Outlook contact for profile {profile.pk}: {e}"
+            )
             return None
 
     def update_contact(self, profile, force: bool = False) -> bool:
@@ -408,10 +418,12 @@ class GraphContactsService:
             endpoint = f"{GRAPH_API_BASE}/users/{self.mailbox}/contacts/{profile.outlook_contact_id}"
             headers = {
                 "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             }
 
-            response = requests.patch(endpoint, headers=headers, json=payload, timeout=30)
+            response = requests.patch(
+                endpoint, headers=headers, json=payload, timeout=30
+            )
 
             if response.status_code in [200, 204]:
                 logger.info(
@@ -421,7 +433,9 @@ class GraphContactsService:
 
                 # Update photo if available
                 if profile.photo_1:
-                    self._upload_contact_photo(profile.outlook_contact_id, profile, token)
+                    self._upload_contact_photo(
+                        profile.outlook_contact_id, profile, token
+                    )
 
                 return True
             elif response.status_code == 404:
@@ -431,7 +445,7 @@ class GraphContactsService:
                     f"profile {profile.pk}, will recreate"
                 )
                 profile.outlook_contact_id = ""
-                profile.save(update_fields=['outlook_contact_id'])
+                profile.save(update_fields=["outlook_contact_id"])
                 return False
             else:
                 logger.error(
@@ -441,7 +455,9 @@ class GraphContactsService:
                 return False
 
         except Exception as e:
-            logger.error(f"Error updating Outlook contact for profile {profile.pk}: {e}")
+            logger.error(
+                f"Error updating Outlook contact for profile {profile.pk}: {e}"
+            )
             return False
 
     def delete_contact(self, outlook_contact_id: str, force: bool = False) -> bool:
@@ -464,7 +480,9 @@ class GraphContactsService:
         try:
             token = self.get_access_token()
 
-            endpoint = f"{GRAPH_API_BASE}/users/{self.mailbox}/contacts/{outlook_contact_id}"
+            endpoint = (
+                f"{GRAPH_API_BASE}/users/{self.mailbox}/contacts/{outlook_contact_id}"
+            )
             headers = {
                 "Authorization": f"Bearer {token}",
             }
@@ -509,9 +527,7 @@ class GraphContactsService:
 
         # Skip profiles without phone numbers (can't identify callers)
         if not profile.phone_number:
-            logger.debug(
-                f"Skipping profile {profile.pk} - no phone number"
-            )
+            logger.debug(f"Skipping profile {profile.pk} - no phone number")
             return None
 
         if profile.outlook_contact_id:
@@ -525,7 +541,7 @@ class GraphContactsService:
                 contact_id = self.create_contact(profile, force=force)
                 if contact_id:
                     profile.outlook_contact_id = contact_id
-                    profile.save(update_fields=['outlook_contact_id'])
+                    profile.save(update_fields=["outlook_contact_id"])
                     return contact_id
             return None
         else:
@@ -533,13 +549,16 @@ class GraphContactsService:
             contact_id = self.create_contact(profile, force=force)
             if contact_id:
                 profile.outlook_contact_id = contact_id
-                profile.save(update_fields=['outlook_contact_id'])
+                profile.save(update_fields=["outlook_contact_id"])
                 return contact_id
             return None
 
     def sync_all_profiles(self, dry_run: bool = False) -> dict:
         """
-        Sync all APPROVED CrushProfiles to Outlook contacts.
+        Sync all phone-verified CrushProfiles to Outlook contacts.
+
+        Syncs profiles with verified phone numbers to enable caller ID,
+        regardless of approval status.
 
         Args:
             dry_run: If True, only preview what would be synced
@@ -557,26 +576,23 @@ class GraphContactsService:
         from crush_lu.models import CrushProfile
         from crush_lu.signals import is_test_user
 
-        stats = {
-            'total': 0,
-            'synced': 0,
-            'skipped': 0,
-            'errors': 0,
-            'dry_run': dry_run
-        }
+        stats = {"total": 0, "synced": 0, "skipped": 0, "errors": 0, "dry_run": dry_run}
 
         if not is_sync_enabled() and not dry_run:
             logger.warning("Outlook contact sync disabled for this environment")
             return stats
 
-        # NEW: Only sync approved profiles
-        profiles = CrushProfile.objects.select_related('user').filter(is_approved=True)
-        stats['total'] = profiles.count()
+        # Only sync phone-verified profiles (caller ID requires verified phone)
+        profiles = CrushProfile.objects.select_related("user").filter(
+            phone_verified=True,
+            phone_number__isnull=False
+        ).exclude(phone_number='')
+        stats["total"] = profiles.count()
 
         for profile in profiles:
             # Skip test users
             if is_test_user(profile.user):
-                stats['skipped'] += 1
+                stats["skipped"] += 1
                 if dry_run:
                     logger.info(
                         f"[DRY RUN] Would skip profile {profile.pk} "
@@ -586,7 +602,7 @@ class GraphContactsService:
 
             # Skip profiles without phone numbers
             if not profile.phone_number:
-                stats['skipped'] += 1
+                stats["skipped"] += 1
                 if dry_run:
                     logger.info(
                         f"[DRY RUN] Would skip profile {profile.pk} "
@@ -600,17 +616,17 @@ class GraphContactsService:
                     f"[DRY RUN] Would {action} contact for profile {profile.pk} "
                     f"({profile.user.email}, {profile.phone_number})"
                 )
-                stats['synced'] += 1
+                stats["synced"] += 1
             else:
                 try:
                     result = self.sync_profile(profile)
                     if result:
-                        stats['synced'] += 1
+                        stats["synced"] += 1
                     else:
-                        stats['errors'] += 1
+                        stats["errors"] += 1
                 except Exception as e:
                     logger.error(f"Error syncing profile {profile.pk}: {e}")
-                    stats['errors'] += 1
+                    stats["errors"] += 1
 
         return stats
 
@@ -649,8 +665,8 @@ class GraphContactsService:
                     break
 
                 data = response.json()
-                contacts.extend(data.get('value', []))
-                next_link = data.get('@odata.nextLink')
+                contacts.extend(data.get("value", []))
+                next_link = data.get("@odata.nextLink")
 
             logger.info(f"Found {len(contacts)} contacts in Outlook mailbox")
             return contacts
@@ -674,11 +690,7 @@ class GraphContactsService:
                     'errors': int,     # Failed deletions
                 }
         """
-        stats = {
-            'total': 0,
-            'deleted': 0,
-            'errors': 0
-        }
+        stats = {"total": 0, "deleted": 0, "errors": 0}
 
         if not is_sync_enabled():
             logger.warning("Outlook contact sync disabled for this environment")
@@ -686,26 +698,26 @@ class GraphContactsService:
 
         # Get all contacts from Outlook
         contacts = self.list_all_contacts_from_outlook()
-        stats['total'] = len(contacts)
+        stats["total"] = len(contacts)
 
         logger.warning(f"Deleting {stats['total']} contacts from Outlook mailbox...")
 
         # Delete each contact
         for contact in contacts:
-            contact_id = contact.get('id')
-            display_name = contact.get('displayName', 'Unknown')
+            contact_id = contact.get("id")
+            display_name = contact.get("displayName", "Unknown")
 
             try:
                 success = self.delete_contact(contact_id)
                 if success:
-                    stats['deleted'] += 1
+                    stats["deleted"] += 1
                     logger.info(f"Deleted: {display_name} ({contact_id})")
                 else:
-                    stats['errors'] += 1
+                    stats["errors"] += 1
                     logger.error(f"Failed to delete: {display_name} ({contact_id})")
             except Exception as e:
                 logger.error(f"Error deleting contact {display_name}: {e}")
-                stats['errors'] += 1
+                stats["errors"] += 1
 
         logger.info(
             f"Deletion complete: {stats['deleted']} deleted, "
@@ -730,11 +742,7 @@ class GraphContactsService:
         """
         from crush_lu.models import CrushProfile
 
-        stats = {
-            'total': 0,
-            'deleted': 0,
-            'errors': 0
-        }
+        stats = {"total": 0, "deleted": 0, "errors": 0}
 
         if not is_sync_enabled():
             logger.warning("Outlook contact sync disabled for this environment")
@@ -742,24 +750,20 @@ class GraphContactsService:
 
         profiles = CrushProfile.objects.exclude(
             outlook_contact_id__isnull=True
-        ).exclude(
-            outlook_contact_id=''
-        )
-        stats['total'] = profiles.count()
+        ).exclude(outlook_contact_id="")
+        stats["total"] = profiles.count()
 
         for profile in profiles:
             try:
                 success = self.delete_contact(profile.outlook_contact_id)
                 if success:
                     profile.outlook_contact_id = ""
-                    profile.save(update_fields=['outlook_contact_id'])
-                    stats['deleted'] += 1
+                    profile.save(update_fields=["outlook_contact_id"])
+                    stats["deleted"] += 1
                 else:
-                    stats['errors'] += 1
+                    stats["errors"] += 1
             except Exception as e:
-                logger.error(
-                    f"Error deleting contact for profile {profile.pk}: {e}"
-                )
-                stats['errors'] += 1
+                logger.error(f"Error deleting contact for profile {profile.pk}: {e}")
+                stats["errors"] += 1
 
         return stats

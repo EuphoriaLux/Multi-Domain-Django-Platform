@@ -1213,10 +1213,10 @@ def manage_coach_staff_status(sender, instance, created, **kwargs):
 # Fields that should trigger an Outlook contact update when changed
 OUTLOOK_SYNC_PROFILE_FIELDS = {
     'phone_number',
+    'phone_verified',
     'location',
     'date_of_birth',
     'gender',
-    'is_approved',
     'photo_1',
 }
 
@@ -1251,14 +1251,14 @@ def is_test_user(user):
 @receiver(post_save, sender=CrushProfile)
 def sync_profile_to_outlook(sender, instance, created, update_fields, **kwargs):
     """
-    Automatically sync APPROVED profiles to Outlook contacts (production only).
+    Automatically sync phone-verified profiles to Outlook contacts (production only).
 
     Only syncs profiles that:
-    1. Have a phone number (required for caller ID)
-    2. Are approved (is_approved=True)
-    3. Are NOT test users (no example.com, test.com, etc.)
+    1. Have a verified phone number (phone_verified=True, required for caller ID)
+    2. Are NOT test users (no example.com, test.com, etc.)
 
-    This ensures the shared mailbox only contains verified, active users.
+    This enables caller ID recognition when Crush.lu users call, regardless of
+    profile approval status.
 
     Args:
         sender: The model class (CrushProfile)
@@ -1282,18 +1282,18 @@ def sync_profile_to_outlook(sender, instance, created, update_fields, **kwargs):
     if not instance.phone_number:
         return
 
-    # NEW: Only sync approved profiles
-    if not instance.is_approved:
-        # If profile was previously synced but is now unapproved, delete the contact
+    # Only sync phone-verified profiles (caller ID requires verified phone)
+    if not instance.phone_verified:
+        # If profile was previously synced but phone is now unverified, delete the contact
         if instance.outlook_contact_id:
             try:
                 service = GraphContactsService()
                 service.delete_contact(instance.outlook_contact_id)
                 # Clear the contact ID using update() to avoid infinite recursion
                 CrushProfile.objects.filter(pk=instance.pk).update(outlook_contact_id="")
-                logger.info(f"Deleted Outlook contact for unapproved profile {instance.pk}")
+                logger.info(f"Deleted Outlook contact for unverified phone {instance.pk}")
             except Exception as e:
-                logger.warning(f"Failed to delete Outlook contact for unapproved profile {instance.pk}: {e}")
+                logger.warning(f"Failed to delete Outlook contact for unverified phone {instance.pk}: {e}")
         return
 
     # Check if relevant fields were updated (if update_fields provided)
