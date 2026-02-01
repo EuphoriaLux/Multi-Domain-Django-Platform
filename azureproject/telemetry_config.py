@@ -83,6 +83,72 @@ def _span_has_only_suppressed_exceptions(span) -> bool:
     return True
 
 
+class DependencyFilteringProcessor:
+    """
+    Span processor that filters out low-value dependency calls to reduce costs.
+
+    This processor drops telemetry for:
+    - Static file requests (CSS, JS, images)
+    - Health check endpoints
+    - Azure internal calls
+    """
+
+    # URLs to exclude from dependency tracking
+    EXCLUDED_PATHS = {
+        '/static/',
+        '/media/',
+        '/healthz/',
+        '/favicon.ico',
+        '.css',
+        '.js',
+        '.png',
+        '.jpg',
+        '.jpeg',
+        '.gif',
+        '.svg',
+        '.woff',
+        '.woff2',
+        '.ttf',
+    }
+
+    def __init__(self):
+        from opentelemetry.trace import SpanContext, TraceFlags
+        self._SpanContext = SpanContext
+        self._TraceFlags = TraceFlags
+
+    def on_start(self, span, parent_context=None):
+        """Called when a span is started."""
+        pass
+
+    def on_end(self, span):
+        """Filter out low-value dependency spans."""
+        # Check if this is an HTTP span
+        if hasattr(span, 'attributes') and span.attributes:
+            url = str(span.attributes.get('http.url', ''))
+            target = str(span.attributes.get('http.target', ''))
+
+            # Check if URL or target matches excluded patterns
+            for excluded in self.EXCLUDED_PATHS:
+                if excluded in url or excluded in target:
+                    # Mark as not sampled to prevent export
+                    span._context = self._SpanContext(
+                        span.context.trace_id,
+                        span.context.span_id,
+                        span.context.is_remote,
+                        self._TraceFlags(self._TraceFlags.DEFAULT),
+                        span.context.trace_state,
+                    )
+                    return
+
+    def shutdown(self):
+        """Called when the SDK is shut down."""
+        pass
+
+    def force_flush(self, timeout_millis=30000):
+        """Force flush any pending spans."""
+        return True
+
+
 class ExceptionFilteringProcessor:
     """
     Span processor that filters out spans containing only suppressed exceptions.
@@ -129,19 +195,21 @@ class ExceptionFilteringProcessor:
 
 def configure_azure_monitor_telemetry():
     """
-    Configure Azure Monitor OpenTelemetry SDK with exception filtering.
+    Configure Azure Monitor OpenTelemetry SDK with exception filtering and sampling.
 
     This function:
     1. Checks for Application Insights connection string
     2. Configures azure-monitor-opentelemetry with custom span processor
     3. Sets up Django instrumentation automatically
-    4. Falls back gracefully if connection string is missing (local dev)
+    4. Configures sampling to reduce data ingestion costs
+    5. Falls back gracefully if connection string is missing (local dev)
 
     Call this once at application startup (in production.py).
 
     Environment Variables:
         APPLICATIONINSIGHTS_CONNECTION_STRING: Required for telemetry
         ENABLE_LIVE_METRICS: Set to 'false' to disable Live Metrics (default: true)
+        TELEMETRY_SAMPLING_RATE: Sampling rate 0.0-1.0 (default: 0.1 = 10%)
     """
     connection_string = os.environ.get('APPLICATIONINSIGHTS_CONNECTION_STRING')
 
@@ -155,18 +223,29 @@ def configure_azure_monitor_telemetry():
     # Allow disabling Live Metrics to avoid timeout issues during deployment
     enable_live_metrics = os.environ.get('ENABLE_LIVE_METRICS', 'true').lower() != 'false'
 
+    # Sampling rate: 0.1 = 10% (keep 10% of traces, drop 90%)
+    # This can reduce costs by 90% while maintaining statistical visibility
+    sampling_rate = float(os.environ.get('TELEMETRY_SAMPLING_RATE', '0.1'))
+
     try:
         from azure.monitor.opentelemetry import configure_azure_monitor
+        from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
-        # Create the exception filtering processor
+        # Create filtering processors
         exception_filter = ExceptionFilteringProcessor()
+        dependency_filter = DependencyFilteringProcessor()
 
-        # Configure Azure Monitor with our custom processor
+        # Create sampler - keeps only a percentage of traces
+        sampler = TraceIdRatioBased(sampling_rate)
+
+        # Configure Azure Monitor with our custom processors and sampler
         # The SDK automatically instruments Django, requests, urllib, psycopg2
         configure_azure_monitor(
             connection_string=connection_string,
-            # Add our custom span processor for exception filtering
-            span_processors=[exception_filter],
+            # Add our custom span processors for filtering
+            span_processors=[dependency_filter, exception_filter],
+            # Configure sampling to reduce data ingestion
+            sampler=sampler,
             # Configure logging integration - use root logger namespace
             logger_name="",  # Empty string = root logger
             # Enable Live Metrics for real-time dashboard monitoring (1-second latency)
@@ -176,6 +255,7 @@ def configure_azure_monitor_telemetry():
 
         logger.info(
             f"Azure Monitor OpenTelemetry configured with exception filtering "
+            f"and {sampling_rate*100:.0f}% sampling "
             f"(Live Metrics: {'enabled' if enable_live_metrics else 'disabled'}). "
             "Auto-instrumentation should be DISABLED in Azure App Service."
         )
