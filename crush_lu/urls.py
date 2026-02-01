@@ -20,7 +20,7 @@ class UnifiedAuthView(LoginView):
     Unified authentication view with login/signup tabs.
     Extends LoginView to handle login form processing.
     """
-    template_name = 'crush_lu/auth.html'
+    template_name = 'crush_lu/onboarding/auth.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -79,17 +79,30 @@ class UnifiedAuthView(LoginView):
         response['Pragma'] = 'no-cache'
         response['Expires'] = '0'
         return response
-from . import views_profile
-from . import views_media
-from . import views_oauth_popup
-from . import views_phone_verification
-from . import api_views
-from . import views_journey
-from . import api_journey
-from . import api_push
-from . import api_coach_push
-from . import views_advent
-from . import views_journey_gift
+# View imports (organized into views/ package)
+from .views import core as views
+from .views import profile as views_profile
+from .views import media as views_media
+from .views import oauth as views_oauth_popup
+from .views import phone as views_phone_verification
+from .views import journey as views_journey
+from .views import advent as views_advent
+from .views import journey_gift as views_journey_gift
+from .views import public as views_public
+from .views import pwa as views_pwa
+from .views import invitations as views_invitations
+from .views import account as views_account
+from .views import onboarding as views_onboarding
+from .views import events as views_events
+from .views import connections as views_connections
+from .views import coach as views_coach
+from .views import wallet as views_wallet
+
+# API imports (organized into api/ package)
+from .api import views as api_views
+from .api import journey as api_journey
+from .api import push as api_push
+from .api import coach_push as api_coach_push
 
 app_name = 'crush_lu'
 
@@ -98,34 +111,34 @@ urlpatterns = [
     path('media/profile/<int:user_id>/<str:photo_field>/', views_media.serve_profile_photo, name='serve_profile_photo'),
 
     # Wallet passes
-    path('wallet/apple/pass/', views.wallet_apple_pass, name='wallet_apple_pass'),
-    path('wallet/google/save/', views.wallet_google_save, name='wallet_google_save'),
+    path('wallet/apple/pass/', views_wallet.apple_wallet_pass, name='wallet_apple_pass'),
+    path('wallet/google/save/', views_wallet.google_wallet_jwt, name='wallet_google_save'),
 
     # Landing and public pages
-    path('', views.home, name='home'),
-    path('about/', views.about, name='about'),
-    path('how-it-works/', views.how_it_works, name='how_it_works'),
-    path('membership/', views.membership, name='membership'),
+    path('', views_public.home, name='home'),
+    path('about/', views_public.about, name='about'),
+    path('how-it-works/', views_public.how_it_works, name='how_it_works'),
+    path('membership/', views_public.membership, name='membership'),
 
     # PWA Debug Page (language-prefixed is fine for debug pages)
     # Note: sw-workbox.js, manifest.json, and offline/ are now in urls_crush.py
     # as language-neutral URLs to prevent redirect errors
-    path('pwa-debug/', views.pwa_debug_view, name='pwa_debug'),
+    path('pwa-debug/', views_pwa.pwa_debug_view, name='pwa_debug'),
 
     # Legal pages
-    path('privacy-policy/', views.privacy_policy, name='privacy_policy'),
-    path('terms-of-service/', views.terms_of_service, name='terms_of_service'),
-    path('data-deletion/', views.data_deletion_request, name='data_deletion'),
-    path('data-deletion/status/', views.data_deletion_status, name='data_deletion_status'),
+    path('privacy-policy/', views_public.privacy_policy, name='privacy_policy'),
+    path('terms-of-service/', views_public.terms_of_service, name='terms_of_service'),
+    path('data-deletion/', views_account.data_deletion_request, name='data_deletion'),
+    path('data-deletion/status/', views_account.data_deletion_status, name='data_deletion_status'),
 
     # Facebook Data Deletion Callback (required by Facebook)
-    path('facebook/data-deletion/', views.facebook_data_deletion_callback, name='facebook_data_deletion'),
+    path('facebook/data-deletion/', views_account.facebook_data_deletion_callback, name='facebook_data_deletion'),
 
     # Authentication - Unified auth view with login/signup tabs
     # UnifiedAuthView combines login and signup into a single tabbed experience
     path('login/', UnifiedAuthView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(), name='logout'),
-    path('oauth-complete/', views.oauth_complete, name='oauth_complete'),
+    path('oauth-complete/', views_onboarding.oauth_complete, name='oauth_complete'),
 
     # OAuth Popup Flow (for better PWA experience)
     path('oauth/popup-callback/', views_oauth_popup.oauth_popup_callback, name='oauth_popup_callback'),
@@ -134,9 +147,9 @@ urlpatterns = [
     # Note: api/auth/status/ moved to urls_crush.py (language-neutral) for hardcoded JS paths
 
     # Onboarding flow
-    path('signup/', views.signup, name='signup'),
-    path('create-profile/', views.create_profile, name='create_profile'),
-    path('profile-submitted/', views.profile_submitted, name='profile_submitted'),
+    path('signup/', views_onboarding.signup, name='signup'),
+    path('create-profile/', views_onboarding.create_profile, name='create_profile'),
+    path('profile-submitted/', views_onboarding.profile_submitted, name='profile_submitted'),
 
     # LuxID Integration Mockups (for demonstration/negotiation purposes only)
     path('mockup/auth-luxid/', views.luxid_auth_mockup_view, name='luxid_auth_mockup'),
@@ -167,51 +180,51 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     # Redirect /profile/ to /dashboard/ (LOGIN_REDIRECT_URL points to /profile/)
     path('profile/', RedirectView.as_view(pattern_name='crush_lu:dashboard'), name='profile'),
-    path('profile/edit/', views.edit_profile, name='edit_profile'),
+    path('profile/edit/', views_profile.edit_profile, name='edit_profile'),
 
     # Account settings
-    path('account/settings/', views.account_settings, name='account_settings'),
-    path('account/settings/email-preferences/', views.update_email_preferences, name='update_email_preferences'),
-    path('account/set-password/', views.set_password, name='set_password'),
-    path('account/disconnect/<int:social_account_id>/', views.disconnect_social_account, name='disconnect_social_account'),
-    path('account/delete/', views.delete_account, name='delete_account'),
+    path('account/settings/', views_account.account_settings, name='account_settings'),
+    path('account/settings/email-preferences/', views_account.update_email_preferences, name='update_email_preferences'),
+    path('account/set-password/', views_account.set_password, name='set_password'),
+    path('account/disconnect/<int:social_account_id>/', views_account.disconnect_social_account, name='disconnect_social_account'),
+    path('account/delete/', views_account.delete_account, name='delete_account'),
 
     # Email unsubscribe (public access with token)
-    path('unsubscribe/<uuid:token>/', views.email_unsubscribe, name='email_unsubscribe'),
+    path('unsubscribe/<uuid:token>/', views_account.email_unsubscribe, name='email_unsubscribe'),
 
     # Special user experience
     path('special-welcome/', views.special_welcome, name='special_welcome'),
 
     # Referral landing (public access)
-    path('r/<str:code>/', views.referral_redirect, name='referral_redirect'),
+    path('r/<str:code>/', views_onboarding.referral_redirect, name='referral_redirect'),
 
     # Private Invitation System (PUBLIC ACCESS)
-    path('invite/<uuid:code>/', views.invitation_landing, name='invitation_landing'),
-    path('invite/<uuid:code>/accept/', views.invitation_accept, name='invitation_accept'),
+    path('invite/<uuid:code>/', views_invitations.invitation_landing, name='invitation_landing'),
+    path('invite/<uuid:code>/accept/', views_invitations.invitation_accept, name='invitation_accept'),
 
     # Events
-    path('events/', views.event_list, name='event_list'),
-    path('events/<int:event_id>/', views.event_detail, name='event_detail'),
-    path('events/<int:event_id>/register/', views.event_register, name='event_register'),
-    path('events/<int:event_id>/cancel/', views.event_cancel, name='event_cancel'),
+    path('events/', views_events.event_list, name='event_list'),
+    path('events/<int:event_id>/', views_events.event_detail, name='event_detail'),
+    path('events/<int:event_id>/register/', views_events.event_register, name='event_register'),
+    path('events/<int:event_id>/cancel/', views_events.event_cancel, name='event_cancel'),
 
     # Event Activity Voting (Phase 1)
-    path('events/<int:event_id>/voting/lobby/', views.event_voting_lobby, name='event_voting_lobby'),
-    path('events/<int:event_id>/voting/', views.event_activity_vote, name='event_activity_vote'),
-    path('events/<int:event_id>/voting/results/', views.event_voting_results, name='event_voting_results'),
+    path('events/<int:event_id>/voting/lobby/', views_events.event_voting_lobby, name='event_voting_lobby'),
+    path('events/<int:event_id>/voting/', views_events.event_activity_vote, name='event_activity_vote'),
+    path('events/<int:event_id>/voting/results/', views_events.event_voting_results, name='event_voting_results'),
 
     # Presentations (Phase 2)
-    path('events/<int:event_id>/presentations/', views.event_presentations, name='event_presentations'),
-    path('events/<int:event_id>/presentations/rate/<int:presenter_id>/', views.submit_presentation_rating, name='submit_presentation_rating'),
-    path('events/<int:event_id>/presentations/my-scores/', views.my_presentation_scores, name='my_presentation_scores'),
-    path('api/events/<int:event_id>/presentations/current/', views.get_current_presenter_api, name='get_current_presenter_api'),
+    path('events/<int:event_id>/presentations/', views_events.event_presentations, name='event_presentations'),
+    path('events/<int:event_id>/presentations/rate/<int:presenter_id>/', views_events.submit_presentation_rating, name='submit_presentation_rating'),
+    path('events/<int:event_id>/presentations/my-scores/', views_events.my_presentation_scores, name='my_presentation_scores'),
+    path('api/events/<int:event_id>/presentations/current/', views_events.get_current_presenter_api, name='get_current_presenter_api'),
 
     # Coach Presentation Controls
-    path('coach/events/<int:event_id>/presentations/control/', views.coach_presentation_control, name='coach_presentation_control'),
-    path('coach/events/<int:event_id>/presentations/advance/', views.coach_advance_presentation, name='coach_advance_presentation'),
+    path('coach/events/<int:event_id>/presentations/control/', views_coach.coach_presentation_control, name='coach_presentation_control'),
+    path('coach/events/<int:event_id>/presentations/advance/', views_coach.coach_advance_presentation, name='coach_advance_presentation'),
 
     # Voting Demo/Guided Tour
-    path('voting-demo/', views.voting_demo, name='voting_demo'),
+    path('voting-demo/', views_events.voting_demo, name='voting_demo'),
 
     # Note: Event Voting APIs moved to urls_crush.py (language-neutral) for hardcoded JS paths
     # - api/events/<int:event_id>/voting/status/
@@ -219,16 +232,16 @@ urlpatterns = [
     # - api/events/<int:event_id>/voting/results/
 
     # Coach dashboard
-    path('coach/dashboard/', views.coach_dashboard, name='coach_dashboard'),
-    path('coach/profile/edit/', views.coach_edit_profile, name='coach_edit_profile'),
-    path('coach/review/<int:submission_id>/', views.coach_review_profile, name='coach_review_profile'),
-    path('coach/review/<int:submission_id>/preview/', views.coach_preview_email, name='coach_preview_email'),
-    path('coach/review/<int:submission_id>/call-complete/', views.coach_mark_review_call_complete, name='coach_mark_review_call_complete'),
-    path('coach/review/<int:submission_id>/call-attempt/', views.coach_log_failed_call, name='coach_log_failed_call'),
-    path('coach/sessions/', views.coach_sessions, name='coach_sessions'),
+    path('coach/dashboard/', views_coach.coach_dashboard, name='coach_dashboard'),
+    path('coach/profile/edit/', views_coach.coach_edit_profile, name='coach_edit_profile'),
+    path('coach/review/<int:submission_id>/', views_coach.coach_review_profile, name='coach_review_profile'),
+    path('coach/review/<int:submission_id>/preview/', views_coach.coach_preview_email, name='coach_preview_email'),
+    path('coach/review/<int:submission_id>/call-complete/', views_coach.coach_mark_review_call_complete, name='coach_mark_review_call_complete'),
+    path('coach/review/<int:submission_id>/call-attempt/', views_coach.coach_log_failed_call, name='coach_log_failed_call'),
+    path('coach/sessions/', views_coach.coach_sessions, name='coach_sessions'),
 
     # Coach invitation management
-    path('coach/event/<int:event_id>/invitations/', views.coach_manage_invitations, name='coach_manage_invitations'),
+    path('coach/event/<int:event_id>/invitations/', views_coach.coach_manage_invitations, name='coach_manage_invitations'),
 
     # NOTE: Step 1 screening call URLs have been REMOVED - screening is now part of review process
     # Old URLs (deprecated):
@@ -236,19 +249,19 @@ urlpatterns = [
     # - /coach/screening/<id>/complete/ (replaced by /coach/review/<id>/call-complete/)
 
     # Coach journey management
-    path('coach/journeys/', views.coach_journey_dashboard, name='coach_journey_dashboard'),
-    path('coach/journeys/<int:journey_id>/edit/', views.coach_edit_journey, name='coach_edit_journey'),
-    path('coach/journeys/challenge/<int:challenge_id>/edit/', views.coach_edit_challenge, name='coach_edit_challenge'),
-    path('coach/journeys/progress/<int:progress_id>/', views.coach_view_user_progress, name='coach_view_user_progress'),
+    path('coach/journeys/', views_coach.coach_journey_dashboard, name='coach_journey_dashboard'),
+    path('coach/journeys/<int:journey_id>/edit/', views_coach.coach_edit_journey, name='coach_edit_journey'),
+    path('coach/journeys/challenge/<int:challenge_id>/edit/', views_coach.coach_edit_challenge, name='coach_edit_challenge'),
+    path('coach/journeys/progress/<int:progress_id>/', views_coach.coach_view_user_progress, name='coach_view_user_progress'),
 
     # Post-event connections
-    path('events/<int:event_id>/attendees/', views.event_attendees, name='event_attendees'),
-    path('events/<int:event_id>/connect/<int:user_id>/', views.request_connection, name='request_connection'),
-    path('events/<int:event_id>/connect-inline/<int:user_id>/', views.request_connection_inline, name='request_connection_inline'),
-    path('events/<int:event_id>/connection-actions/<int:user_id>/', views.connection_actions, name='connection_actions'),
-    path('connections/', views.my_connections, name='my_connections'),
-    path('connections/<int:connection_id>/', views.connection_detail, name='connection_detail'),
-    path('connections/<int:connection_id>/<str:action>/', views.respond_connection, name='respond_connection'),
+    path('events/<int:event_id>/attendees/', views_connections.event_attendees, name='event_attendees'),
+    path('events/<int:event_id>/connect/<int:user_id>/', views_connections.request_connection, name='request_connection'),
+    path('events/<int:event_id>/connect-inline/<int:user_id>/', views_connections.request_connection_inline, name='request_connection_inline'),
+    path('events/<int:event_id>/connection-actions/<int:user_id>/', views_connections.connection_actions, name='connection_actions'),
+    path('connections/', views_connections.my_connections, name='my_connections'),
+    path('connections/<int:connection_id>/', views_connections.connection_detail, name='connection_detail'),
+    path('connections/<int:connection_id>/<str:action>/', views_connections.respond_connection, name='respond_connection'),
 
     # ============================================================================
     # INTERACTIVE JOURNEY SYSTEM - "The Wonderland of You"

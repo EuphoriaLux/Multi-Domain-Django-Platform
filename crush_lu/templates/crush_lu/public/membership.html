@@ -1,0 +1,404 @@
+{% extends 'crush_lu/base/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Membership - Crush.lu" %}{% endblock %}
+
+{% block og_title %}{% trans "Crush.lu Membership Program" %}{% endblock %}
+{% block og_description %}{% trans "Join the Crush.lu membership program. Earn points, unlock rewards, and get your digital membership card in your wallet." %}{% endblock %}
+
+{% block meta_description %}{% trans "Crush.lu Membership: Install our app to unlock your digital membership card. Earn points by inviting friends and climb the tiers from Basic to Gold." %}{% endblock %}
+{% block meta_keywords %}{% trans "crush.lu membership, dating rewards, referral program, membership card, pwa app" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Hero Section -->
+    <div class="text-center mb-12 py-8">
+        <div class="inline-block mb-4">
+            <span class="text-5xl">🎭</span>
+        </div>
+        <h1 class="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-crush-purple to-crush-pink bg-clip-text text-transparent">
+            {% trans "Crush.lu Membership" %}
+        </h1>
+        <p class="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
+            {% trans "Get your digital membership card, earn rewards, and unlock exclusive benefits by inviting friends." %}
+        </p>
+    </div>
+
+    {% if not is_pwa_user %}
+    <!-- PWA Install Banner for non-PWA users -->
+    <div class="relative bg-gradient-to-br from-crush-purple via-purple-600 to-crush-pink rounded-2xl shadow-crush-purple mb-10 overflow-hidden">
+        <!-- Decorative background pattern -->
+        <div class="absolute inset-0 opacity-10">
+            <div class="absolute top-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
+            <div class="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2"></div>
+        </div>
+
+        <div class="relative p-8 md:p-10 text-white text-center">
+            <div class="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg transform hover:scale-105 transition-transform">
+                {% include "shared/icons/device-mobile.html" with class="w-10 h-10 text-white" %}
+            </div>
+            <h2 class="text-3xl md:text-4xl font-bold mb-3">{% trans "Install the App to Unlock" %}</h2>
+            <p class="text-white/95 text-lg mb-8 max-w-md mx-auto leading-relaxed">
+                {% trans "Get your membership card in Apple Wallet or Google Wallet, plus push notifications for events and connections." %}
+            </p>
+
+            <!-- PWA Install Button using Alpine.js component -->
+            <div x-data="pwaInstallButton" class="inline-block">
+                <template x-if="canInstallVisible">
+                    <button @click="install" class="bg-white text-crush-purple font-bold px-8 py-4 rounded-xl hover:bg-gray-50 hover:shadow-xl transition-all duration-300 transform hover:scale-105 inline-flex items-center gap-3 text-lg shadow-lg">
+                        {% include "shared/icons/arrow-down-tray.html" with class="w-6 h-6" %}
+                        {% trans "Install Crush.lu App" %}
+                    </button>
+                </template>
+
+                <template x-if="isInstalledVisible">
+                    <div class="bg-white/20 backdrop-blur-sm text-white font-semibold px-8 py-4 rounded-xl inline-flex items-center gap-3 text-lg border-2 border-white/30">
+                        {% include "shared/icons/check-circle.html" with class="w-6 h-6" %}
+                        {% trans "App Installed!" %}
+                    </div>
+                </template>
+
+                <template x-if="showInstructionsVisible">
+                    <div class="bg-white/10 backdrop-blur-sm text-white px-6 py-4 rounded-xl text-sm border border-white/20">
+                        <strong>{% trans "iOS:" %}</strong> {% trans "Tap Share" %} {% include "shared/icons/arrow-up-on-square.html" with class="w-4 h-4 inline" %} {% trans "then 'Add to Home Screen'" %}
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Membership Card Preview -->
+    <div class="relative bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 mb-10 overflow-hidden border border-gray-100">
+        <!-- Gradient accent bar -->
+        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-crush-purple via-purple-500 to-crush-pink"></div>
+
+        <div class="p-6 md:p-8">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center">
+                    <span class="text-white text-lg">🎫</span>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">{% trans "Your Membership Card" %}</h2>
+            </div>
+
+            {% if is_pwa_user and user.is_authenticated %}
+            {# Full membership card for PWA users #}
+            <div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 rounded-xl p-6 mb-4">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-12 h-12 bg-crush-purple rounded-xl flex items-center justify-center text-white text-xl">
+                        {% for tier in tiers %}{% if tier.key == current_tier %}{{ tier.emoji }}{% endif %}{% endfor %}
+                    </div>
+                    <div>
+                        <p class="font-semibold text-lg">{{ user.first_name }} {{ user.last_name }}</p>
+                        <p class="text-gray-600">
+                            {% for tier in tiers %}{% if tier.key == current_tier %}{{ tier.name }}{% endif %}{% endfor %} {% trans "Member" %}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-600">{% trans "Points:" %} <strong class="text-crush-purple">{{ current_points }}</strong></span>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
+                {# Apple Wallet - Coming Soon #}
+                <button type="button" disabled class="inline-flex items-center gap-2 text-sm px-4 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed" title="{% trans 'Coming soon' %}">
+                    {% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4" %}
+                    {% trans "Apple Wallet" %}
+                    <span class="text-xs bg-gray-200 px-2 py-0.5 rounded-full">{% trans "Soon" %}</span>
+                </button>
+                <button type="button" id="save-google-wallet-btn" data-jwt-url="/wallet/google/jwt/" class="google-wallet-btn p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                    {% get_current_language as LANGUAGE_CODE %}
+                    {% if LANGUAGE_CODE == 'de' %}
+                    <img src="{% static 'crush_lu/img/wallet/de_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto" id="google-wallet-img">
+                    {% elif LANGUAGE_CODE == 'fr' %}
+                    <img src="{% static 'crush_lu/img/wallet/fr_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto" id="google-wallet-img">
+                    {% else %}
+                    <img src="{% static 'crush_lu/img/wallet/en_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto" id="google-wallet-img">
+                    {% endif %}
+                </button>
+            </div>
+            {% if referral_url %}
+            <div class="mt-4">
+                <button type="button" id="share-referral-btn" data-referral-url="{{ referral_url }}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-purple-300 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors">
+                    {% include "shared/icons/link.html" with class="w-4 h-4" %}
+                    {% trans "Share Referral Link" %}
+                </button>
+                <p id="share-referral-status" class="text-sm text-green-600 mt-2 hidden"></p>
+            </div>
+            {% endif %}
+
+            {% elif user.is_authenticated %}
+            {# Logged in but not PWA user - show locked preview with blur #}
+            <div class="relative overflow-hidden rounded-xl">
+                {# Blurred membership card preview #}
+                <div class="blur-[6px] pointer-events-none select-none" aria-hidden="true">
+                    <div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 rounded-xl p-6">
+                        <div class="flex items-center gap-4 mb-6">
+                            <div class="w-12 h-12 bg-crush-purple rounded-xl flex items-center justify-center text-white text-xl">
+                                {{ user.first_name|slice:":1" }}
+                            </div>
+                            <div>
+                                <p class="font-semibold text-gray-900">{{ user.first_name }} {{ user.last_name }}</p>
+                                <p class="text-gray-600 text-sm">{% trans "Member since" %} {{ user.date_joined|date:"M Y" }}</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <span class="bg-crush-purple text-white px-4 py-2 rounded-lg text-sm font-medium">{% trans "Add to Apple Wallet" %}</span>
+                            <span class="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium">{% trans "Add to Google Wallet" %}</span>
+                        </div>
+                    </div>
+                </div>
+                {# Lock overlay - simple message pointing to banner above #}
+                <div class="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-[2px]">
+                    <div class="text-center px-4">
+                        <div class="w-14 h-14 bg-gradient-to-br from-crush-purple to-crush-pink rounded-full shadow-lg flex items-center justify-center mx-auto mb-3">
+                            {% include "shared/icons/lock-closed.html" with class="w-7 h-7 text-white" %}
+                        </div>
+                        <p class="text-sm text-gray-600">{% trans "Install the app above to unlock" %}</p>
+                    </div>
+                </div>
+            </div>
+
+            {% else %}
+            {# Not logged in - show login CTA #}
+            <div class="text-center py-12 px-4">
+                <div class="w-20 h-20 bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 rounded-full mx-auto mb-6 flex items-center justify-center">
+                    <span class="text-4xl">👋</span>
+                </div>
+                <p class="text-gray-600 text-lg mb-6">{% trans "Sign in to access your membership card" %}</p>
+                <a href="{% url 'crush_lu:login' %}" class="btn-crush-primary inline-flex items-center gap-2 px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300">
+                    {% trans "Sign In" %}
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Membership Tiers -->
+    <div class="relative bg-white rounded-2xl shadow-lg mb-10 overflow-hidden border border-gray-100">
+        <!-- Gradient accent bar -->
+        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-crush-purple via-purple-500 to-crush-pink"></div>
+
+        <div class="p-6 md:p-8">
+            <div class="flex items-center gap-3 mb-8">
+                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center">
+                    <span class="text-white text-lg">🏆</span>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">{% trans "Membership Tiers" %}</h2>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {% for tier in tiers %}
+                <div class="relative group {% if tier.key == current_tier %}ring-2 ring-crush-purple shadow-crush-purple{% endif %} border-2 {% if tier.key == current_tier %}border-crush-purple bg-gradient-to-br from-crush-purple/5 to-crush-pink/5{% else %}border-gray-200 hover:border-crush-purple/30{% endif %} rounded-2xl p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                    <!-- Tier Icon Background -->
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-crush-purple/5 to-crush-pink/5 rounded-bl-[60px] {% if tier.key != current_tier %}opacity-0 group-hover:opacity-100{% endif %} transition-opacity"></div>
+
+                    <div class="relative text-center mb-4">
+                        <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-gray-50 to-gray-100 {% if tier.key == current_tier %}from-crush-purple/10 to-crush-pink/10{% endif %} rounded-2xl mb-3 shadow-sm">
+                            <span class="text-4xl">{{ tier.emoji }}</span>
+                        </div>
+                        <h3 class="font-bold text-xl mb-1 {% if tier.key == current_tier %}text-crush-purple{% else %}text-gray-900{% endif %}">{{ tier.name }}</h3>
+                        <p class="text-sm font-semibold {% if tier.key == current_tier %}text-crush-purple{% else %}text-gray-500{% endif %}">
+                            {% if tier.points == 0 %}
+                            {% trans "Starting tier" %}
+                            {% else %}
+                            {{ tier.points }} {% trans "points" %}
+                            {% endif %}
+                        </p>
+                    </div>
+
+                    <ul class="text-sm space-y-2.5 mb-4">
+                        {% for benefit in tier.benefits %}
+                        <li class="flex items-start gap-2">
+                            <span class="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center mt-0.5">
+                                {% include "shared/icons/check.html" with class="w-3 h-3 text-green-600" %}
+                            </span>
+                            <span class="text-gray-700">{{ benefit }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+
+                    {% if tier.key == current_tier and user.is_authenticated %}
+                    <div class="text-center">
+                        <span class="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-crush-purple to-crush-pink text-white text-xs font-bold rounded-full shadow-md">
+                            <span>✨</span>
+                            {% trans "Current" %}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- How to Earn Points -->
+    <div class="relative bg-white rounded-2xl shadow-lg mb-10 overflow-hidden border border-gray-100">
+        <!-- Gradient accent bar -->
+        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-crush-purple via-purple-500 to-crush-pink"></div>
+
+        <div class="p-6 md:p-8">
+            <div class="flex items-center gap-3 mb-8">
+                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center">
+                    <span class="text-white text-lg">💎</span>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">{% trans "How to Earn Points" %}</h2>
+            </div>
+
+            <div class="space-y-5">
+                <div class="group flex items-start gap-5 p-5 rounded-xl border-2 border-gray-100 hover:border-crush-purple/30 hover:bg-gradient-to-r hover:from-crush-purple/5 hover:to-transparent transition-all duration-300">
+                    <div class="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-crush-purple to-purple-600 rounded-xl flex items-center justify-center shadow-md transform group-hover:scale-110 transition-transform duration-300">
+                        {% include "shared/icons/user-plus.html" with class="w-7 h-7 text-white" %}
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="font-bold text-lg mb-1 text-gray-900">{% trans "Invite Friends" %}</h3>
+                        <p class="text-gray-600 leading-relaxed">{% trans "Earn 100 points when a friend signs up using your referral link." %}</p>
+                        <div class="mt-2 inline-flex items-center gap-1.5 text-crush-purple font-semibold text-sm">
+                            <span class="text-xl">+100</span>
+                            <span>{% trans "points" %}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="group flex items-start gap-5 p-5 rounded-xl border-2 border-gray-100 hover:border-crush-purple/30 hover:bg-gradient-to-r hover:from-crush-purple/5 hover:to-transparent transition-all duration-300">
+                    <div class="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-crush-pink to-pink-600 rounded-xl flex items-center justify-center shadow-md transform group-hover:scale-110 transition-transform duration-300">
+                        {% include "shared/icons/check-badge.html" with class="w-7 h-7 text-white" %}
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="font-bold text-lg mb-1 text-gray-900">{% trans "Profile Approved" %}</h3>
+                        <p class="text-gray-600 leading-relaxed">{% trans "Earn 50 bonus points when your referred friend's profile is approved." %}</p>
+                        <div class="mt-2 inline-flex items-center gap-1.5 text-crush-pink font-semibold text-sm">
+                            <span class="text-xl">+50</span>
+                            <span>{% trans "points" %}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="group flex items-start gap-5 p-5 rounded-xl border-2 border-gray-100 hover:border-gray-200 bg-gray-50/50 transition-all duration-300">
+                    <div class="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-gray-300 to-gray-400 rounded-xl flex items-center justify-center shadow-sm">
+                        {% include "shared/icons/calendar.html" with class="w-7 h-7 text-white" %}
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="font-bold text-lg mb-1 text-gray-900">{% trans "Attend Events" %}</h3>
+                        <p class="text-gray-600 leading-relaxed">{% trans "Coming soon: Earn points by attending Crush.lu events." %}</p>
+                        <div class="mt-2 inline-flex items-center gap-1.5 text-gray-500 text-sm font-medium">
+                            <span class="bg-gray-200 px-2 py-1 rounded-full">{% trans "Coming Soon" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CTA for non-authenticated users -->
+    {% if not user.is_authenticated %}
+    <div class="relative bg-gradient-to-br from-crush-purple via-purple-600 to-crush-pink rounded-2xl shadow-crush-purple overflow-hidden">
+        <!-- Decorative elements -->
+        <div class="absolute inset-0 opacity-10">
+            <div class="absolute top-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
+            <div class="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2"></div>
+        </div>
+
+        <!-- Floating emoji decorations -->
+        <div class="absolute top-8 left-8 text-4xl opacity-20 animate-pulse">🎉</div>
+        <div class="absolute top-12 right-12 text-3xl opacity-20 animate-pulse" style="animation-delay: 0.5s">✨</div>
+        <div class="absolute bottom-8 left-16 text-3xl opacity-20 animate-pulse" style="animation-delay: 1s">🎁</div>
+
+        <div class="relative text-center px-6 py-16 md:py-20">
+            <div class="w-24 h-24 bg-white/20 backdrop-blur-sm rounded-full mx-auto mb-6 flex items-center justify-center shadow-lg">
+                <span class="text-5xl">🚀</span>
+            </div>
+            <h2 class="text-3xl md:text-4xl font-bold mb-4 text-white">{% trans "Ready to Join?" %}</h2>
+            <p class="text-white/95 text-lg md:text-xl mb-8 max-w-md mx-auto leading-relaxed">{% trans "Create your account and start earning rewards today." %}</p>
+            <a href="{% url 'crush_lu:signup' %}" class="inline-flex items-center gap-3 bg-white text-crush-purple font-bold px-10 py-5 rounded-xl text-lg shadow-xl hover:shadow-2xl hover:bg-gray-50 transform hover:scale-105 transition-all duration-300">
+                <span>{% trans "Sign Up Now" %}</span>
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                </svg>
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if is_pwa_user and user.is_authenticated %}
+<!-- Google Wallet and Referral JavaScript -->
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    // Google Wallet handler
+    var googleWalletBtn = document.getElementById('save-google-wallet-btn');
+    if (googleWalletBtn) {
+        var googleWalletImg = document.getElementById('google-wallet-img');
+        var jwtUrl = googleWalletBtn.dataset.jwtUrl;
+
+        googleWalletBtn.addEventListener('click', async function() {
+            googleWalletBtn.disabled = true;
+            if (googleWalletImg) googleWalletImg.style.opacity = '0.5';
+
+            try {
+                var response = await fetch(jwtUrl);
+                var data = await response.json();
+
+                if (data.jwt) {
+                    window.location.href = 'https://pay.google.com/gp/v/save/' + data.jwt;
+                } else if (data.error) {
+                    alert(data.error);
+                    googleWalletBtn.disabled = false;
+                    if (googleWalletImg) googleWalletImg.style.opacity = '1';
+                }
+            } catch (error) {
+                alert('{% trans "Failed to generate wallet pass. Please try again." %}');
+                googleWalletBtn.disabled = false;
+                if (googleWalletImg) googleWalletImg.style.opacity = '1';
+            }
+        });
+    }
+
+    // Referral share handler
+    var shareButton = document.getElementById('share-referral-btn');
+    if (shareButton) {
+        var statusElement = document.getElementById('share-referral-status');
+        var referralUrl = shareButton.dataset.referralUrl;
+
+        shareButton.addEventListener('click', async function() {
+            if (!referralUrl) return;
+
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'Crush.lu',
+                        text: '{% trans "Join me on Crush.lu" %}',
+                        url: referralUrl,
+                    });
+                    if (statusElement) {
+                        statusElement.textContent = '{% trans "Referral link shared!" %}';
+                        statusElement.classList.remove('hidden');
+                    }
+                    return;
+                } catch (e) {
+                    if (e.name === 'AbortError') return;
+                }
+            }
+
+            // Fallback to clipboard
+            if (navigator.clipboard) {
+                try {
+                    await navigator.clipboard.writeText(referralUrl);
+                    if (statusElement) {
+                        statusElement.textContent = '{% trans "Referral link copied to clipboard." %}';
+                        statusElement.classList.remove('hidden');
+                    }
+                } catch (e) {
+                    if (statusElement) {
+                        statusElement.textContent = '{% trans "Unable to copy referral link." %}';
+                        statusElement.classList.remove('hidden');
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

@@ -19,7 +19,15 @@ from .urls_shared import base_patterns, api_patterns
 from crush_lu.admin import crush_admin_site
 from crush_lu.admin.user_segments import user_segments_dashboard, segment_detail
 from crush_lu.admin.profile_reminders import profile_reminders_panel
-from crush_lu import admin_views, views, views_phone_verification, views_profile
+from crush_lu import admin_views
+from crush_lu.views import core as views
+from crush_lu.views import phone as views_phone_verification
+from crush_lu.views import profile as views_profile
+from crush_lu.views import pwa as views_pwa
+from crush_lu.views import onboarding as views_onboarding
+from crush_lu.views import oauth as views_oauth_popup
+from crush_lu.views import wallet as views_wallet
+from crush_lu.views import seo as views_seo
 from crush_lu.admin_views import (
     email_template_manager,
     email_template_user_search,
@@ -31,10 +39,15 @@ from crush_lu.admin_views import (
     email_template_load_invitations,
     email_template_load_gifts,
 )
-from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync
+from crush_lu.api import views as api_views
+from crush_lu.api import push as api_push
+from crush_lu.api import coach_push as api_coach_push
+from crush_lu.api import pwa as api_pwa
+from crush_lu.api import journey as api_journey
+from crush_lu.api import referral as api_referral
+from crush_lu.api import admin_sync as api_admin_sync
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
-from crush_lu.views_seo import robots_txt
 
 
 def redirect_profile_to_dashboard(request):
@@ -52,7 +65,7 @@ def redirect_profile_to_dashboard(request):
 # These include health checks, API endpoints, authentication, SEO files, and PWA files
 urlpatterns = base_patterns + api_patterns + [
     # SEO: robots.txt and sitemap.xml (must be at root, no language prefix)
-    path('robots.txt', robots_txt, name='robots_txt'),
+    path('robots.txt', views_seo.robots_txt, name='robots_txt'),
     path('sitemap.xml', sitemap, {'sitemaps': crush_sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
 
     # JavaScript i18n catalog (must be language-neutral for JavaScript to access)
@@ -61,11 +74,11 @@ urlpatterns = base_patterns + api_patterns + [
     # PWA: Service Worker, Manifest, and Offline page (must be at root for scope)
     # These CANNOT be inside i18n_patterns because browsers block redirected scripts
     # Note: Use {% url 'pwa_manifest' %} instead of {% url 'crush_lu:manifest' %} in templates
-    path('sw-workbox.js', views.service_worker_view, name='pwa_service_worker'),
-    path('manifest.json', views.manifest_view, name='pwa_manifest'),
-    path('offline/', views.offline_view, name='pwa_offline'),
+    path('sw-workbox.js', views_pwa.service_worker_view, name='pwa_service_worker'),
+    path('manifest.json', views_pwa.manifest_view, name='pwa_manifest'),
+    path('offline/', views_pwa.offline_view, name='pwa_offline'),
     # Android App Links verification for PWA
-    path('.well-known/assetlinks.json', views.assetlinks_view, name='assetlinks'),
+    path('.well-known/assetlinks.json', views_pwa.assetlinks_view, name='assetlinks'),
 
     # Phone verification API (language-neutral - called by JavaScript with hardcoded paths)
     path('api/phone/mark-verified/', views_phone_verification.mark_phone_verified, name='api_phone_mark_verified'),
@@ -162,7 +175,7 @@ urlpatterns = base_patterns + api_patterns + [
     # Referral redirect (language-neutral for wallet passes and sharing)
     # This allows https://crush.lu/r/CODE/ to work without language prefix
     # Users will be redirected to the home page in their browser's preferred language
-    path('r/<str:code>/', views.referral_redirect, name='referral_redirect_neutral'),
+    path('r/<str:code>/', views_onboarding.referral_redirect, name='referral_redirect_neutral'),
 
     # ============================================================================
     # LOGIN REDIRECT COMPATIBILITY

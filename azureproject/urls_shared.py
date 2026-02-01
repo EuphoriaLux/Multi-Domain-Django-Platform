@@ -15,7 +15,7 @@ from django.http import HttpResponse
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .views import csp_report
-from crush_lu.views_language import set_language_with_profile
+from crush_lu.views.language import set_language_with_profile
 
 
 def health_check(request):

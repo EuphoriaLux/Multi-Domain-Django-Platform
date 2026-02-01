@@ -1,0 +1,749 @@
+"""
+Profile creation views with step-by-step saving
+"""
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.utils import timezone
+from django.utils.translation import gettext as _
+from django.db import transaction
+import json
+import logging
+
+from ..models import CrushProfile, CrushCoach, ProfileSubmission
+from ..decorators import crush_login_required
+from ..coach_notifications import notify_coach_new_submission, notify_coach_user_revision
+from ..email_helpers import send_profile_submission_notifications
+
+logger = logging.getLogger(__name__)
+
+
+@crush_login_required
+@require_http_methods(["POST"])
+def save_profile_step1(request):
+    """Save Step 1 (Basic Info) via AJAX - Creates profile with phone number"""
+    try:
+        data = json.loads(request.body)
+
+        # Get or create profile
+        profile, created = CrushProfile.objects.get_or_create(user=request.user)
+
+        # Check if user is an active coach trying to CREATE a new profile
+        # Coaches with existing profiles can still edit them
+        if created:
+            try:
+                coach = CrushCoach.objects.get(user=request.user, is_active=True)
+                # Delete the just-created profile and block
+                profile.delete()
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Coaches cannot create dating profiles.'
+                }, status=403)
+            except CrushCoach.DoesNotExist:
+                pass
+
+        # Validate date of birth and parse to date object
+        date_of_birth_str = data.get('date_of_birth')
+        date_of_birth = None  # Will be set to a date object if valid
+        if date_of_birth_str:
+            from datetime import datetime
+            try:
+                date_of_birth = datetime.strptime(date_of_birth_str, '%Y-%m-%d').date()
+
+                # Calculate age
+                today = timezone.now().date()
+                age = today.year - date_of_birth.year - ((today.month, today.day) < (date_of_birth.month, date_of_birth.day))
+
+                # Validate age range
+                if age < 18:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'You must be at least 18 years old to join Crush.lu'
+                    }, status=400)
+
+                if age > 99:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Please enter a valid date of birth'
+                    }, status=400)
+
+            except ValueError:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid date format. Please use YYYY-MM-DD'
+                }, status=400)
+
+        # Validate required fields: gender and location
+        from ..forms import CrushProfileForm
+        from django.utils.translation import gettext as _
+
+        errors = {}
+
+        # Validate gender
+        gender = data.get('gender', '').strip()
+        if not gender:
+            errors['gender'] = _('Please select your gender')
+        else:
+            valid_genders = [choice[0] for choice in CrushProfile.GENDER_CHOICES]
+            if gender not in valid_genders:
+                errors['gender'] = _('Invalid gender selection')
+
+        # Validate location
+        location = data.get('location', '').strip()
+        if not location:
+            errors['location'] = _('Please select your location')
+        else:
+            valid_locations = [choice[0] for choice in CrushProfileForm.LOCATION_CHOICES if choice[0]]
+            if location not in valid_locations:
+                errors['location'] = _('Invalid location selection')
+
+        # Return validation errors if any
+        if errors:
+            return JsonResponse({
+                'success': False,
+                'error': _('Please fill in all required fields'),
+                'errors': errors
+            }, status=400)
+
+        # Update basic info
+        new_phone_number = data.get('phone_number', '').strip()
+
+        # Check if phone number changed - reset verification if so
+        # Note: When phone is verified via Firebase, phone_number is set from the token
+        # so we don't want users changing it afterwards without re-verification
+        if profile.phone_number and new_phone_number != profile.phone_number:
+            # Phone number changed - reset verification status
+            profile.phone_verified = False
+            profile.phone_verified_at = None
+            profile.phone_verification_uid = None
+            logger.info(f"Phone number changed for user {request.user.id}, resetting verification")
+
+        profile.phone_number = new_phone_number
+        profile.date_of_birth = date_of_birth
+        profile.gender = data.get('gender', '')
+        profile.location = data.get('location', '')
+
+        # Set completion status
+        profile.completion_status = 'step1'
+        # Note: Screening call will happen during coach review after full submission
+
+        profile.save()
+
+        # Note: Welcome email was already sent after signup
+        # No need to send another email here
+        logger.info(f"✅ Step 1 saved for {request.user.email}")
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Basic info saved! Continue to complete your profile.',
+            'profile_id': profile.id
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+@crush_login_required
+@require_http_methods(["POST"])
+def save_profile_step2(request):
+    """Save Step 2 (About You) via AJAX"""
+    try:
+        data = json.loads(request.body)
+
+        profile = CrushProfile.objects.get(user=request.user)
+
+        # SECURITY: Enforce phone verification before allowing Step 2
+        if not profile.phone_verified:
+            return JsonResponse({
+                'success': False,
+                'error': 'Phone verification required. Please verify your phone number before continuing.',
+                'phone_verification_required': True
+            }, status=403)
+
+        # Validate looking_for is provided
+        looking_for = data.get('looking_for', '').strip()
+        if not looking_for:
+            return JsonResponse({
+                'success': False,
+                'error': 'Please select what you\'re looking for'
+            }, status=400)
+
+        # Validate looking_for is a valid choice
+        from ..models import CrushProfile as ProfileModel
+        valid_choices = [choice[0] for choice in ProfileModel.LOOKING_FOR_CHOICES]
+        if looking_for not in valid_choices:
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid selection for "looking for"'
+            }, status=400)
+
+        # Update profile content
+        profile.bio = data.get('bio', '').strip()
+        profile.interests = data.get('interests', '').strip()
+        profile.looking_for = looking_for
+        profile.completion_status = 'step2'
+
+        profile.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'About section saved!'
+        })
+
+    except CrushProfile.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Please complete Step 1 first'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+@crush_login_required
+@require_http_methods(["POST"])
+def save_profile_step3(request):
+    """Save Step 3 (Photos & Privacy) via AJAX/Form"""
+    try:
+        profile = CrushProfile.objects.get(user=request.user)
+
+        # Handle photos if uploaded
+        if request.FILES.get('photo_1'):
+            profile.photo_1 = request.FILES['photo_1']
+        if request.FILES.get('photo_2'):
+            profile.photo_2 = request.FILES['photo_2']
+        if request.FILES.get('photo_3'):
+            profile.photo_3 = request.FILES['photo_3']
+
+        # Privacy settings
+        profile.show_full_name = request.POST.get('show_full_name') == 'on'
+        profile.show_exact_age = request.POST.get('show_exact_age') == 'on'
+        profile.blur_photos = request.POST.get('blur_photos') == 'on'
+        profile.completion_status = 'step3'
+
+        profile.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Photos and privacy settings saved!'
+        })
+
+    except CrushProfile.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Please complete Step 1 first'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+@crush_login_required
+def complete_profile_submission(request):
+    """Final submission - Mark as completed and submit for review"""
+    try:
+        profile = CrushProfile.objects.get(user=request.user)
+
+        # Mark as completed
+        profile.completion_status = 'submitted'
+        profile.save()
+
+        # Create profile submission for coach review
+        submission, created = ProfileSubmission.objects.get_or_create(
+            profile=profile,
+            defaults={'status': 'pending'}
+        )
+
+        if created:
+            submission.assign_coach()
+            logger.info(f"NEW profile submission created for {request.user.email}")
+
+            # Send push notification to assigned coach
+            if submission.coach:
+                try:
+                    notify_coach_new_submission(submission.coach, submission)
+                    logger.info(f"Coach push notification sent for submission {submission.id}")
+                except Exception as e:
+                    logger.warning(f"Failed to send coach push notification: {e}")
+
+            # Send confirmation and coach notification emails
+            send_profile_submission_notifications(
+                submission,
+                request,
+                add_message_func=lambda msg: messages.warning(request, msg)
+            )
+
+        messages.success(request, _('Profile submitted for review! A coach will contact you soon.'))
+        return redirect('crush_lu:profile_submitted')
+
+    except CrushProfile.DoesNotExist:
+        messages.error(request, _('Please complete your profile first.'))
+        return redirect('crush_lu:create_profile')
+
+
+@crush_login_required
+def get_profile_progress(request):
+    """Get current profile completion status"""
+    try:
+        profile = CrushProfile.objects.get(user=request.user)
+
+        return JsonResponse({
+            'exists': True,
+            'completion_status': profile.completion_status,
+            'phone_number': profile.phone_number or '',
+            'phone_verified': profile.phone_verified,
+            'has_basic_info': bool(profile.phone_number and profile.date_of_birth),
+            'has_about': bool(profile.bio and profile.interests),
+            'has_photos': bool(profile.photo_1 or profile.photo_2 or profile.photo_3),
+        })
+    except CrushProfile.DoesNotExist:
+        return JsonResponse({
+            'exists': False,
+            'completion_status': None,
+            'phone_verified': False
+        })
+
+
+# =============================================================================
+# SOCIAL PHOTO IMPORT API
+# =============================================================================
+
+@crush_login_required
+@require_http_methods(["GET"])
+def get_social_photos_api(request):
+    """
+    API endpoint to get all available social photos for current user.
+
+    GET /api/profile/social-photos/
+
+    Returns:
+        {
+            "photos": [
+                {
+                    "provider": "facebook",
+                    "provider_display": "Facebook",
+                    "photo_url": "https://...",
+                    "available": true,
+                    "account_id": 123
+                },
+                {
+                    "provider": "microsoft",
+                    "provider_display": "Microsoft",
+                    "photo_url": null,
+                    "available": false,
+                    "account_id": 456,
+                    "reason": "No photo set or token expired"
+                }
+            ]
+        }
+    """
+    from ..social_photos import get_all_social_photos
+
+    try:
+        photos = get_all_social_photos(request.user)
+        return JsonResponse({'photos': photos})
+    except Exception as e:
+        logger.error(f"Error fetching social photos: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'error': 'Error fetching social photos'
+        }, status=500)
+
+
+@crush_login_required
+@require_http_methods(["POST"])
+def import_social_photo(request):
+    """
+    API endpoint to import a social account photo to a profile slot.
+
+    POST /api/profile/import-social-photo/
+    Body: {
+        "social_account_id": 123,
+        "photo_slot": 1  // 1, 2, or 3
+    }
+
+    Returns:
+        {"success": true, "photo_url": "https://..."}
+        {"success": false, "error": "No photo available for this provider"}
+    """
+    from allauth.socialaccount.models import SocialAccount
+    from ..social_photos import download_and_save_social_photo
+
+    try:
+        data = json.loads(request.body)
+        social_account_id = data.get('social_account_id')
+        photo_slot = data.get('photo_slot')
+
+        # Validate input
+        if not social_account_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Missing social_account_id'
+            }, status=400)
+
+        if photo_slot not in [1, 2, 3]:
+            return JsonResponse({
+                'success': False,
+                'error': 'photo_slot must be 1, 2, or 3'
+            }, status=400)
+
+        # Get the social account and verify ownership
+        try:
+            social_account = SocialAccount.objects.get(
+                id=social_account_id,
+                user=request.user
+            )
+        except SocialAccount.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Social account not found'
+            }, status=404)
+
+        # Download and save the photo
+        result = download_and_save_social_photo(
+            request.user,
+            social_account,
+            photo_slot
+        )
+
+        if result['success']:
+            return JsonResponse(result)
+        else:
+            return JsonResponse(result, status=400)
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid JSON'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"Error importing social photo: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': 'Unexpected error. Please try again.'
+        }, status=500)
+
+
+@crush_login_required
+@require_http_methods(["POST"])
+def upload_profile_photo(request, slot):
+    """
+    HTMX endpoint for individual photo uploads.
+    Returns the updated photo card partial for inline replacement.
+
+    POST /api/profile/upload-photo/<slot>/
+    Files: photo_<slot>
+    """
+    from ..forms import CrushProfileForm
+
+    # Validate slot
+    if slot not in [1, 2, 3]:
+        return render(request, 'crush_lu/partials/photo_card.html', {
+            'slot': slot,
+            'photo': None,
+            'is_main': slot == 1,
+            'error': 'Invalid photo slot',
+        })
+
+    try:
+        # Use get_or_create to support photo uploads during profile creation
+        # (when profile doesn't exist yet)
+        profile, created = CrushProfile.objects.get_or_create(user=request.user)
+        if created:
+            logger.info(f"Created new profile for user {request.user.id} during photo upload")
+
+        # Get uploaded file
+        photo_file = request.FILES.get(f'photo_{slot}')
+        if not photo_file:
+            return render(request, 'crush_lu/partials/photo_card.html', {
+                'slot': slot,
+                'photo': getattr(profile, f'photo_{slot}'),
+                'is_main': slot == 1,
+                'error': 'No file provided',
+            })
+
+        # Validate photo using form validation
+        temp_form = CrushProfileForm(
+            data={},
+            files={f'photo_{slot}': photo_file},
+            instance=profile
+        )
+
+        # Check if the photo field is valid
+        photo_field_name = f'photo_{slot}'
+        if temp_form.fields.get(photo_field_name):
+            try:
+                cleaned_photo = temp_form.fields[photo_field_name].clean(photo_file)
+                setattr(profile, photo_field_name, cleaned_photo)
+                profile.save(update_fields=[photo_field_name])
+
+                logger.info(f"Photo {slot} uploaded for user {request.user.id}")
+
+                return render(request, 'crush_lu/partials/photo_card.html', {
+                    'slot': slot,
+                    'photo': getattr(profile, photo_field_name),
+                    'is_main': slot == 1,
+                    'just_uploaded': True,
+                })
+            except Exception as e:
+                logger.warning(f"Photo validation failed: {e}")
+                return render(request, 'crush_lu/partials/photo_card.html', {
+                    'slot': slot,
+                    'photo': getattr(profile, photo_field_name),
+                    'is_main': slot == 1,
+                    'error': str(e),
+                })
+
+        # Fallback - save without validation (shouldn't happen)
+        setattr(profile, photo_field_name, photo_file)
+        profile.save(update_fields=[photo_field_name])
+
+        return render(request, 'crush_lu/partials/photo_card.html', {
+            'slot': slot,
+            'photo': getattr(profile, photo_field_name),
+            'is_main': slot == 1,
+            'just_uploaded': True,
+        })
+
+    except Exception as e:
+        logger.error(f"Error uploading photo {slot}: {str(e)}", exc_info=True)
+        return render(request, 'crush_lu/partials/photo_card.html', {
+            'slot': slot,
+            'photo': None,
+            'is_main': slot == 1,
+            'error': 'Upload failed. Please try again.',
+        })
+
+
+@crush_login_required
+@require_http_methods(["DELETE"])
+def delete_profile_photo(request, slot):
+    """
+    HTMX endpoint for deleting a profile photo.
+    Returns the updated photo card partial (empty state) for inline replacement.
+
+    DELETE /api/profile/delete-photo/<slot>/
+    """
+    # Validate slot
+    if slot not in [1, 2, 3]:
+        return render(request, 'crush_lu/partials/photo_card.html', {
+            'slot': slot,
+            'photo': None,
+            'is_main': slot == 1,
+            'error': 'Invalid photo slot',
+        })
+
+    try:
+        profile = CrushProfile.objects.get(user=request.user)
+        photo_field_name = f'photo_{slot}'
+        photo_field = getattr(profile, photo_field_name)
+
+        if photo_field:
+            # Delete the actual file
+            photo_field.delete(save=False)
+            # Clear the field
+            setattr(profile, photo_field_name, None)
+            profile.save(update_fields=[photo_field_name])
+            logger.info(f"Photo {slot} deleted for user {request.user.id}")
+
+        return render(request, 'crush_lu/partials/photo_card.html', {
+            'slot': slot,
+            'photo': None,
+            'is_main': slot == 1,
+        })
+
+    except CrushProfile.DoesNotExist:
+        return render(request, 'crush_lu/partials/photo_card.html', {
+            'slot': slot,
+            'photo': None,
+            'is_main': slot == 1,
+        })
+    except Exception as e:
+        logger.error(f"Error deleting photo {slot}: {str(e)}", exc_info=True)
+        return render(request, 'crush_lu/partials/photo_card.html', {
+            'slot': slot,
+            'photo': None,
+            'is_main': slot == 1,
+            'error': 'Delete failed. Please try again.',
+        })
+
+
+def _render_edit_profile_form(request):
+    """Internal: Render single-page edit form for approved profiles.
+
+    This is called by edit_profile() for approved profiles.
+    Not exposed as a separate URL - use edit_profile() instead.
+    """
+    from ..forms import CrushProfileForm
+    from ..social_photos import get_all_social_photos
+
+    # Get existing profile
+    try:
+        profile = CrushProfile.objects.get(user=request.user)
+    except CrushProfile.DoesNotExist:
+        messages.info(request, _('You need to create a profile first.'))
+        return redirect('crush_lu:create_profile')
+
+    # Only approved profiles use this simple edit page
+    if not profile.is_approved:
+        messages.warning(request, _('Your profile must be approved before editing.'))
+        return redirect('crush_lu:edit_profile')
+
+    if request.method == 'POST':
+        form = CrushProfileForm(request.POST, request.FILES, instance=profile)
+        if form.is_valid():
+            # Phone protection is handled at model level in CrushProfile.save()
+            updated_profile = form.save()
+
+            # HTMX: Return success partial without page reload
+            if request.htmx:
+                return render(request, 'crush_lu/partials/edit_profile_success.html', {
+                    'profile': updated_profile,
+                })
+
+            messages.success(request, _('Profile updated successfully!'))
+            return redirect('crush_lu:dashboard')
+        else:
+            # HTMX: Return form with errors for inline display
+            if request.htmx:
+                return render(request, 'crush_lu/partials/edit_profile_form.html', {
+                    'form': form,
+                    'profile': profile,
+                    'social_photos': get_all_social_photos(request.user),
+                    'has_errors': True,
+                })
+
+            # Traditional form: show validation errors via messages
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field.replace('_', ' ').title()}: {error}")
+    else:
+        form = CrushProfileForm(instance=profile)
+
+    context = {
+        'form': form,
+        'profile': profile,
+        'social_photos': get_all_social_photos(request.user),
+    }
+    return render(request, 'crush_lu/profile/edit_profile.html', context)
+
+
+@crush_login_required
+def edit_profile(request):
+    """Edit existing profile - routes to appropriate edit flow"""
+    from ..forms import CrushProfileForm
+
+    # Try to get existing profile, redirect to create if doesn't exist
+    try:
+        profile = CrushProfile.objects.get(user=request.user)
+    except CrushProfile.DoesNotExist:
+        messages.info(request, _('You need to create a profile first.'))
+        return redirect('crush_lu:create_profile')
+
+    # ROUTING LOGIC: Determine which edit flow to use
+
+    # 1. If profile is approved → use simple single-page edit
+    if profile.is_approved:
+        return _render_edit_profile_form(request)
+
+    # 2. If profile is submitted and under review → redirect to status page
+    if profile.completion_status == 'submitted':
+        try:
+            submission = ProfileSubmission.objects.filter(profile=profile).latest('submitted_at')
+            # If pending or under review, can't edit
+            if submission.status in ['pending', 'under_review']:
+                messages.info(request, _('Your profile is currently under review. You\'ll be notified once it\'s approved.'))
+                return redirect('crush_lu:profile_submitted')
+            # If rejected or needs revision, redirect to create_profile with feedback context
+            elif submission.status in ['rejected', 'revision']:
+                messages.warning(request, _('Your profile needs updates. Please review the coach feedback below.'))
+                return redirect('crush_lu:create_profile')
+        except ProfileSubmission.DoesNotExist:
+            pass
+
+    # 3. Profile is incomplete (not submitted yet) → redirect to create_profile
+    # This ensures the URL matches the wizard content being displayed
+    if profile.completion_status in ['not_started', 'step1', 'step2', 'step3', 'completed']:
+        messages.info(request, _('Please complete your profile to continue.'))
+        return redirect('crush_lu:create_profile')
+
+    # 4. Default: Use multi-step form for any other edge cases
+    if request.method == 'POST':
+        form = CrushProfileForm(request.POST, request.FILES, instance=profile)
+        if form.is_valid():
+            # Phone protection is handled at model level in CrushProfile.save()
+            profile = form.save(commit=False)
+
+            # Mark as submitted when completing the form
+            profile.completion_status = 'submitted'
+            profile.save()
+
+            # Create or update profile submission for coach review
+            submission, created = ProfileSubmission.objects.get_or_create(
+                profile=profile,
+                defaults={'status': 'pending'}
+            )
+            if created:
+                submission.assign_coach()
+
+                # Send push notification to assigned coach
+                if submission.coach:
+                    try:
+                        notify_coach_new_submission(submission.coach, submission)
+                        logger.info(f"Coach push notification sent for submission {submission.id}")
+                    except Exception as e:
+                        logger.warning(f"Failed to send coach push notification: {e}")
+
+                # Send confirmation and coach notification emails using consolidated helper
+                send_profile_submission_notifications(
+                    submission,
+                    request,
+                    add_message_func=lambda msg: messages.warning(request, msg)
+                )
+
+            messages.success(request, _('Profile submitted for review!'))
+            return redirect('crush_lu:profile_submitted')
+    else:
+        form = CrushProfileForm(instance=profile)
+
+    # Get latest submission for feedback context
+    latest_submission = None
+    try:
+        latest_submission = ProfileSubmission.objects.filter(profile=profile).latest('submitted_at')
+    except ProfileSubmission.DoesNotExist:
+        pass
+
+    # Determine which step to show based on submission status
+    current_step_to_show = None
+    if latest_submission and latest_submission.status in ['rejected', 'revision']:
+        # For rejected profiles, start from Step 1 so they can review everything
+        current_step_to_show = None  # This will default to step 1 in JavaScript
+    elif profile.completion_status == 'submitted':
+        # If submitted but no rejection, default to None (step 1)
+        current_step_to_show = None
+    elif profile.completion_status == 'not_started':
+        # Brand new profiles (e.g., Facebook signup) that haven't completed any steps
+        current_step_to_show = None  # Start at step 1
+    elif profile.completion_status == 'step1' and (not profile.date_of_birth or not profile.phone_number):
+        # For incomplete Step 1 profiles (missing required fields)
+        # Phone number and date_of_birth are required for Step 1 completion
+        current_step_to_show = None  # Start at step 1
+    else:
+        # Resume from where they left off for incomplete profiles
+        current_step_to_show = profile.completion_status
+
+    context = {
+        'form': form,
+        'profile': profile,
+        'is_editing': True,
+        'current_step': current_step_to_show,
+        'submission': latest_submission,  # Pass submission for feedback display
+    }
+    return render(request, 'crush_lu/create_profile.html', context)
