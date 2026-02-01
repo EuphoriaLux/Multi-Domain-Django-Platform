@@ -32,8 +32,9 @@ def is_sync_enabled() -> bool:
     """
     Check if Outlook contact sync is enabled for this environment.
 
-    Returns True only in production when explicitly enabled.
-    This prevents test data from syncing to Outlook contacts.
+    Returns True only in production when explicitly enabled AND for Crush.lu only.
+    This prevents test data from syncing to Outlook contacts and ensures sync
+    only happens for the Crush.lu platform, not other platforms in the multi-domain app.
 
     Returns:
         bool: True if sync is enabled, False otherwise
@@ -46,6 +47,12 @@ def is_sync_enabled() -> bool:
 
     # Never sync in DEBUG mode (local development)
     if settings.DEBUG:
+        return False
+
+    # ONLY sync for Crush.lu platform (not VinsDelux, Entreprinder, etc.)
+    # Check if we're using Crush.lu URL configuration
+    current_urlconf = getattr(settings, 'ROOT_URLCONF', '')
+    if 'urls_crush' not in current_urlconf:
         return False
 
     # Explicit opt-in required via environment variable
