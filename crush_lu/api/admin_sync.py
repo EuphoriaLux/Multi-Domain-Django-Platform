@@ -77,12 +77,12 @@ def sync_contacts_endpoint(request):
             'error': 'Unauthorized'
         }, status=401)
 
-    # Check if sync is enabled
-    if not is_sync_enabled():
-        logger.warning("Contact sync endpoint called but OUTLOOK_CONTACT_SYNC_ENABLED is not true")
+    # Check if sync is enabled (pass request for domain detection)
+    if not is_sync_enabled(request):
+        logger.warning("Contact sync endpoint called but sync is not enabled for this platform")
         return JsonResponse({
             'success': False,
-            'error': 'Outlook contact sync is not enabled for this environment'
+            'error': 'Outlook contact sync is not enabled for this platform'
         }, status=503)
 
     try:
@@ -147,12 +147,12 @@ def delete_all_contacts_endpoint(request):
             'error': 'Unauthorized'
         }, status=401)
 
-    # Check if sync is enabled
-    if not is_sync_enabled():
-        logger.warning("Delete endpoint called but OUTLOOK_CONTACT_SYNC_ENABLED is not true")
+    # Check if sync is enabled (pass request for domain detection)
+    if not is_sync_enabled(request):
+        logger.warning("Delete endpoint called but sync is not enabled for this platform")
         return JsonResponse({
             'success': False,
-            'error': 'Outlook contact sync is not enabled for this environment'
+            'error': 'Outlook contact sync is not enabled for this platform'
         }, status=503)
 
     try:
@@ -196,8 +196,8 @@ def sync_contacts_health(request):
     # Check if API key is configured
     has_api_key = bool(getattr(settings, 'ADMIN_API_KEY', None))
 
-    # Check if sync is enabled
-    sync_enabled = is_sync_enabled()
+    # Check if sync is enabled (pass request for domain detection)
+    sync_enabled = is_sync_enabled(request)
 
     # Check Graph API credentials
     import os

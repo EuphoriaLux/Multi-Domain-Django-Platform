@@ -28,13 +28,17 @@ logger = logging.getLogger(__name__)
 GRAPH_API_BASE = "https://graph.microsoft.com/v1.0"
 
 
-def is_sync_enabled() -> bool:
+def is_sync_enabled(request=None) -> bool:
     """
     Check if Outlook contact sync is enabled for this environment.
 
     Returns True only in production when explicitly enabled AND for Crush.lu only.
     This prevents test data from syncing to Outlook contacts and ensures sync
     only happens for the Crush.lu platform, not other platforms in the multi-domain app.
+
+    Args:
+        request: Optional HttpRequest object. If provided, uses request.urlconf
+                 to determine the platform. If not provided, assumes Crush.lu.
 
     Returns:
         bool: True if sync is enabled, False otherwise
@@ -50,8 +54,14 @@ def is_sync_enabled() -> bool:
         return False
 
     # ONLY sync for Crush.lu platform (not VinsDelux, Entreprinder, etc.)
-    # Check if we're using Crush.lu URL configuration
-    current_urlconf = getattr(settings, 'ROOT_URLCONF', '')
+    # Check request.urlconf (set by DomainURLRoutingMiddleware) or fallback to ROOT_URLCONF
+    if request is not None:
+        current_urlconf = getattr(request, 'urlconf', None) or getattr(settings, 'ROOT_URLCONF', '')
+    else:
+        # When called without request (e.g., from management command or Azure Function),
+        # assume it's for Crush.lu since this is the crush_lu app
+        current_urlconf = 'azureproject.urls_crush'
+
     if 'urls_crush' not in current_urlconf:
         return False
 
