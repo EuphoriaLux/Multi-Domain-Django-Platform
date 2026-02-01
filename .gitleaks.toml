@@ -6,11 +6,15 @@ useDefault = true
 
 # Allowlist for false positives - Azure RBAC role IDs are public GUIDs
 [allowlist]
-description = "Allow Azure RBAC role definitions, documentation examples, and development defaults"
+description = "Allow Azure RBAC role definitions, documentation examples, test fixtures, and development defaults"
 paths = [
   '''infra/keyvault\.bicep''',
   '''azure-functions/.*/README\.md''',
   '''scripts/.*\.py''',
+  '''.*/migrations/.*\.py''',  # Django migrations with blank=True defaults
+  '''.*/tests/.*\.py''',       # Test fixtures and sample data
+  '''SECURITY_ALERT_.*\.md''', # Security documentation
+  '''.*views_webhook\.py''',   # Webhook documentation in docstrings
 ]
 regexes = [
   # Key Vault Secrets User role ID (public Azure RBAC GUID)
@@ -24,4 +28,9 @@ regexes = [
   '''YOUR_SECRET_TOKEN''',
   '''YOUR_ADMIN_API_KEY''',
   '''your-admin-api-key''',
+  '''your_secret_token_here''',
+
+  # Test fixture placeholders (Web Push p256dh keys)
+  '''blank=True.*help_text=.*token''',
+  '''p256dh_key=.*test.*''',
 ]
