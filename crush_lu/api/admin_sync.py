@@ -210,8 +210,8 @@ def sync_contacts_health(request):
     # Check environment variable directly
     env_var_set = os.getenv('OUTLOOK_CONTACT_SYNC_ENABLED', '').lower() == 'true'
 
-    # Check current platform
-    current_urlconf = getattr(settings, 'ROOT_URLCONF', '')
+    # Check current platform (use request.urlconf set by middleware, not ROOT_URLCONF)
+    current_urlconf = getattr(request, 'urlconf', None) or getattr(settings, 'ROOT_URLCONF', '')
     is_crush_platform = 'urls_crush' in current_urlconf
 
     # Determine overall health
