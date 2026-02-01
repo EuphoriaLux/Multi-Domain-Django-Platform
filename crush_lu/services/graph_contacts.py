@@ -45,8 +45,9 @@ def is_sync_enabled(request=None) -> bool:
     """
     import sys
 
-    # NEVER sync during tests (pytest sets sys._called_from_test)
-    if 'pytest' in sys.modules or 'unittest' in sys.modules:
+    # NEVER sync during tests (check for actual test execution, not just imported modules)
+    # pytest sets sys._called_from_test, Django sets DJANGO_TEST_PROCESSES during testing
+    if hasattr(sys, '_called_from_test') or os.getenv('DJANGO_TEST_PROCESSES'):
         return False
 
     # Never sync in DEBUG mode (local development)
