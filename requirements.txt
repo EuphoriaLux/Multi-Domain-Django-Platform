@@ -18,7 +18,7 @@ psycopg2-binary==2.9.11  # Updated from 2.9.10 (security & bug fixes)
 
 # Authentication
 django-allauth==65.14.0  # Updated from 65.1.0 (latest stable)
-PyJWT==2.10.1
+PyJWT==2.11.0
 cryptography>=41.0.0  # Required for JWT token verification with RSA keys
 google-auth==2.47.0  # Required for Google Wallet API authentication
 
