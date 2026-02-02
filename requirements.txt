@@ -59,7 +59,7 @@ pywebpush==2.2.0
 
 # Azure Application Insights - SDK-based for exception filtering
 # IMPORTANT: Set ApplicationInsightsAgent_EXTENSION_VERSION=disabled in Azure App Service
-azure-monitor-opentelemetry==1.8.4
+azure-monitor-opentelemetry==1.8.5
 
 # Cookie Consent (GDPR/ePrivacy)
 django-cookie-consent==0.9.0
@@ -71,5 +71,5 @@ django-modeltranslation==0.19.19
 pytest==9.0.2
 pytest-django==4.11.1
 pytest-playwright==0.7.2
-pytest-mock==3.15.0  # Provides 'mocker' fixture for mocking
+pytest-mock==3.15.1  # Provides 'mocker' fixture for mocking
 playwright==1.57.0
