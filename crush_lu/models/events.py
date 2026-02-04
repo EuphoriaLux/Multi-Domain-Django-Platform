@@ -6,6 +6,7 @@ from django.utils.functional import cached_property
 from datetime import timedelta
 import uuid
 from .profiles import SpecialUserExperience
+from crush_lu.storage import crush_upload_path, crush_media_storage
 
 
 class MeetupEventQuerySet(models.QuerySet):
@@ -31,13 +32,12 @@ class MeetupEventQuerySet(models.QuerySet):
 
         return self.annotate(
             confirmed_count_annotated=Count(
-                'eventregistration',
-                filter=Q(eventregistration__status__in=['confirmed', 'attended'])
+                "eventregistration",
+                filter=Q(eventregistration__status__in=["confirmed", "attended"]),
             ),
             waitlist_count_annotated=Count(
-                'eventregistration',
-                filter=Q(eventregistration__status='waitlist')
-            )
+                "eventregistration", filter=Q(eventregistration__status="waitlist")
+            ),
         )
 
 
@@ -55,68 +55,103 @@ class MeetupEvent(models.Model):
     """Speed dating and social meetup events"""
 
     EVENT_TYPE_CHOICES = [
-        ('speed_dating', 'Speed Dating'),
-        ('mixer', 'Social Mixer'),
-        ('activity', 'Activity Meetup'),
-        ('themed', 'Themed Event'),
+        ("speed_dating", "Speed Dating"),
+        ("mixer", "Social Mixer"),
+        ("activity", "Activity Meetup"),
+        ("themed", "Themed Event"),
     ]
 
     title = models.CharField(max_length=200)
     description = models.TextField()
     event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES)
 
+    # Event Banner Image
+    image = models.ImageField(
+        upload_to=crush_upload_path('events/banners'),
+        storage=crush_media_storage,  # This is a callable factory that returns storage instance
+        blank=True,
+        null=True,
+        help_text=_("Event banner image (recommended: 1200x400px, displayed on event detail page)")
+    )
+
     # Event Details
     location = models.CharField(max_length=200)
     address = models.TextField()
+    canton = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text=_(
+            "Canton/region visible to public visitors (e.g., 'Luxembourg', 'Esch-sur-Alzette'). Free-text entry for flexibility."
+        ),
+    )
     date_time = models.DateTimeField()
     duration_minutes = models.PositiveIntegerField(default=120)
 
-    # Capacity
+    # Capacity & Requirements
     max_participants = models.PositiveIntegerField(default=20)
     min_age = models.PositiveIntegerField(default=18)
     max_age = models.PositiveIntegerField(default=99)
+    require_approved_profile = models.BooleanField(
+        default=True,
+        help_text=_(
+            "Require attendees to have approved profiles (recommended for dating events)"
+        ),
+    )
+
+    # Registration Form Configuration
+    has_food_component = models.BooleanField(
+        default=False,
+        help_text=_(
+            "Does this event include food/drinks? (Shows dietary restrictions field)"
+        ),
+    )
+    allow_plus_ones = models.BooleanField(
+        default=False, help_text=_("Can attendees bring a guest?")
+    )
 
     # Registration
     registration_deadline = models.DateTimeField()
     registration_fee = models.DecimalField(
-        max_digits=6,
-        decimal_places=2,
-        default=0.00,
-        help_text=_("Event fee in EUR")
+        max_digits=6, decimal_places=2, default=0.00, help_text=_("Event fee in EUR")
     )
 
-    # Status
+    # Status & Features
     is_published = models.BooleanField(default=False)
     is_cancelled = models.BooleanField(default=False)
+    enable_activity_voting = models.BooleanField(
+        default=False,
+        help_text=_(
+            "Enable 3-phase interactive system (voting, presentations, speed dating)"
+        ),
+    )
 
     # Private Invitation Event Settings
     is_private_invitation = models.BooleanField(
         default=False,
-        help_text=_("Private invitation-only event (visible only to invited guests)")
+        help_text=_("Private invitation-only event (visible only to invited guests)"),
     )
     invitation_code = models.CharField(
         max_length=100,
         unique=True,
         blank=True,
         null=True,
-        help_text=_("Unique code for this private event")
+        help_text=_("Unique code for this private event"),
     )
     invitation_expires_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text=_("When invitations for this event expire")
+        null=True, blank=True, help_text=_("When invitations for this event expire")
     )
     max_invited_guests = models.PositiveIntegerField(
-        default=20,
-        help_text=_("Maximum invited guests for private event")
+        default=20, help_text=_("Maximum invited guests for private event")
     )
 
     # Invited Existing Users (for private events)
     invited_users = models.ManyToManyField(
         User,
         blank=True,
-        related_name='invited_to_events',
-        help_text=_("Existing users invited to this private event (no external invitation needed)")
+        related_name="invited_to_events",
+        help_text=_(
+            "Existing users invited to this private event (no external invitation needed)"
+        ),
     )
 
     # Metadata
@@ -126,10 +161,22 @@ class MeetupEvent(models.Model):
     objects = MeetupEventManager()
 
     class Meta:
-        ordering = ['date_time']
+        ordering = ["date_time"]
 
     def __str__(self):
         return f"{self.title} - {self.date_time.strftime('%Y-%m-%d %H:%M')}"
+
+    def clean(self):
+        """Validate event data before saving"""
+        from django.core.exceptions import ValidationError
+
+        super().clean()
+
+        # Require canton for published events
+        if self.is_published and not self.canton:
+            raise ValidationError(
+                {"canton": _("Canton is required for published events.")}
+            )
 
     @property
     def is_registration_open(self):
@@ -176,10 +223,10 @@ class MeetupEvent(models.Model):
         For single events, this method is efficient enough.
         """
         # Try to use annotated value if available (from with_registration_counts())
-        if hasattr(self, 'confirmed_count_annotated'):
+        if hasattr(self, "confirmed_count_annotated"):
             return self.confirmed_count_annotated
         return self.eventregistration_set.filter(
-            status__in=['confirmed', 'attended']
+            status__in=["confirmed", "attended"]
         ).count()
 
     def get_waitlist_count(self):
@@ -189,29 +236,44 @@ class MeetupEvent(models.Model):
         OPTIMIZATION: Use MeetupEvent.objects.with_registration_counts() to avoid N+1 queries.
         """
         # Try to use annotated value if available
-        if hasattr(self, 'waitlist_count_annotated'):
+        if hasattr(self, "waitlist_count_annotated"):
             return self.waitlist_count_annotated
-        return self.eventregistration_set.filter(status='waitlist').count()
+        return self.eventregistration_set.filter(status="waitlist").count()
 
 
 class EventRegistration(models.Model):
     """User registration for meetup events"""
 
     STATUS_CHOICES = [
-        ('pending', 'Pending Payment'),
-        ('confirmed', 'Confirmed'),
-        ('waitlist', 'Waitlist'),
-        ('cancelled', 'Cancelled'),
-        ('attended', 'Attended'),
-        ('no_show', 'No Show'),
+        ("pending", "Pending Payment"),
+        ("confirmed", "Confirmed"),
+        ("waitlist", "Waitlist"),
+        ("cancelled", "Cancelled"),
+        ("attended", "Attended"),
+        ("no_show", "No Show"),
     ]
 
     event = models.ForeignKey(MeetupEvent, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="pending", db_index=True
+    )
 
     # Additional info
-    dietary_restrictions = models.CharField(max_length=200, blank=True)
+    accessibility_needs = models.TextField(
+        blank=True, help_text=_("Any accessibility accommodations needed")
+    )
+    dietary_restrictions = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text=_("Only for events with food component"),
+    )
+    bringing_guest = models.BooleanField(
+        default=False, help_text=_("Attending with a guest")
+    )
+    guest_name = models.CharField(
+        max_length=100, blank=True, help_text=_("Guest's name (if bringing someone)")
+    )
     special_requests = models.TextField(blank=True)
 
     # Payment (if applicable)
@@ -223,20 +285,24 @@ class EventRegistration(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('event', 'user')
-        ordering = ['registered_at']
+        unique_together = ("event", "user")
+        ordering = ["registered_at"]
         indexes = [
             # Optimize COUNT queries for get_confirmed_count() and get_waitlist_count()
-            models.Index(fields=['event', 'status'], name='eventregistration_event_status'),
+            models.Index(
+                fields=["event", "status"], name="eventregistration_event_status"
+            ),
         ]
 
     def __str__(self):
-        return f"{self.user.username} - {self.event.title} ({self.get_status_display()})"
+        return (
+            f"{self.user.username} - {self.event.title} ({self.get_status_display()})"
+        )
 
     @property
     def can_make_connections(self):
         """Only attendees can make post-event connections"""
-        return self.status == 'attended'
+        return self.status == "attended"
 
 
 class EventInvitation(models.Model):
@@ -246,22 +312,26 @@ class EventInvitation(models.Model):
     """
 
     STATUS_CHOICES = [
-        ('pending', 'Invitation Sent'),
-        ('accepted', 'Accepted'),
-        ('declined', 'Declined'),
-        ('attended', 'Attended'),
-        ('expired', 'Expired'),
+        ("pending", "Invitation Sent"),
+        ("accepted", "Accepted"),
+        ("declined", "Declined"),
+        ("attended", "Attended"),
+        ("expired", "Expired"),
     ]
 
     APPROVAL_CHOICES = [
-        ('pending_approval', 'Awaiting Approval'),
-        ('approved', 'Approved to Attend'),
-        ('rejected', 'Rejected'),
+        ("pending_approval", "Awaiting Approval"),
+        ("approved", "Approved to Attend"),
+        ("rejected", "Rejected"),
     ]
 
-    event = models.ForeignKey(MeetupEvent, on_delete=models.CASCADE, related_name='invitations')
+    event = models.ForeignKey(
+        MeetupEvent, on_delete=models.CASCADE, related_name="invitations"
+    )
     guest_email = models.EmailField(help_text=_("Guest's email address"))
-    guest_first_name = models.CharField(max_length=100, help_text=_("Guest's first name"))
+    guest_first_name = models.CharField(
+        max_length=100, help_text=_("Guest's first name")
+    )
     guest_last_name = models.CharField(max_length=100, help_text=_("Guest's last name"))
 
     # Link to Special User Experience (optional - for VIP treatment)
@@ -270,8 +340,10 @@ class EventInvitation(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='event_invitations',
-        help_text=_("Link this invitation to a Special User for VIP treatment (auto-fills from name/email match)")
+        related_name="event_invitations",
+        help_text=_(
+            "Link this invitation to a Special User for VIP treatment (auto-fills from name/email match)"
+        ),
     )
 
     # Invitation details
@@ -279,28 +351,28 @@ class EventInvitation(models.Model):
         default=uuid.uuid4,
         unique=True,
         editable=False,
-        help_text=_("Unique invitation code (UUID)")
+        help_text=_("Unique invitation code (UUID)"),
     )
     invited_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
         null=True,
-        related_name='invitations_sent',
-        help_text=_("Coach/admin who sent the invitation")
+        related_name="invitations_sent",
+        help_text=_("Coach/admin who sent the invitation"),
     )
 
     # Status tracking
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default='pending',
-        help_text=_("Invitation status")
+        default="pending",
+        help_text=_("Invitation status"),
     )
     approval_status = models.CharField(
         max_length=20,
         choices=APPROVAL_CHOICES,
-        default='pending_approval',
-        help_text=_("Approval status (coach must approve before attendance)")
+        default="pending_approval",
+        help_text=_("Approval status (coach must approve before attendance)"),
     )
 
     # Created user after acceptance
@@ -309,8 +381,8 @@ class EventInvitation(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='received_invitation',
-        help_text=_("User account created when invitation was accepted")
+        related_name="received_invitation",
+        help_text=_("User account created when invitation was accepted"),
     )
 
     # Timestamps
@@ -320,16 +392,14 @@ class EventInvitation(models.Model):
 
     # Admin notes
     approval_notes = models.TextField(
-        blank=True,
-        help_text=_("Internal notes about approval/rejection")
+        blank=True, help_text=_("Internal notes about approval/rejection")
     )
     coach_notes = models.TextField(
-        blank=True,
-        help_text=_("Coach notes about the guest")
+        blank=True, help_text=_("Coach notes about the guest")
     )
 
     class Meta:
-        ordering = ['-invitation_sent_at']
+        ordering = ["-invitation_sent_at"]
         verbose_name = _("Event Invitation")
         verbose_name_plural = _("Event Invitations")
 
@@ -343,7 +413,10 @@ class EventInvitation(models.Model):
     @property
     def is_expired(self):
         """Check if invitation has expired"""
-        if self.event.invitation_expires_at and timezone.now() > self.event.invitation_expires_at:
+        if (
+            self.event.invitation_expires_at
+            and timezone.now() > self.event.invitation_expires_at
+        ):
             return True
         return False
 
@@ -351,7 +424,10 @@ class EventInvitation(models.Model):
     def invitation_url(self):
         """Generate the full invitation URL"""
         from django.urls import reverse
-        return reverse('crush_lu:invitation_landing', kwargs={'code': self.invitation_code})
+
+        return reverse(
+            "crush_lu:invitation_landing", kwargs={"code": self.invitation_code}
+        )
 
 
 class GlobalActivityOption(models.Model):
@@ -361,25 +437,23 @@ class GlobalActivityOption(models.Model):
     """
 
     ACTIVITY_TYPE_CHOICES = [
-        ('presentation_style', 'Presentation Style (Phase 2)'),
-        ('speed_dating_twist', 'Speed Dating Twist (Phase 3)'),
+        ("presentation_style", "Presentation Style (Phase 2)"),
+        ("speed_dating_twist", "Speed Dating Twist (Phase 3)"),
     ]
 
     activity_type = models.CharField(max_length=20, choices=ACTIVITY_TYPE_CHOICES)
     activity_variant = models.CharField(
         max_length=20,
         unique=True,
-        help_text=_("Unique identifier (e.g., 'music', 'spicy_questions')")
+        help_text=_("Unique identifier (e.g., 'music', 'spicy_questions')"),
     )
     display_name = models.CharField(max_length=200)
     description = models.TextField()
     is_active = models.BooleanField(
-        default=True,
-        help_text=_("Inactive options won't appear in voting")
+        default=True, help_text=_("Inactive options won't appear in voting")
     )
     sort_order = models.PositiveIntegerField(
-        default=0,
-        help_text=_("Display order in voting UI")
+        default=0, help_text=_("Display order in voting UI")
     )
 
     # Metadata
@@ -387,9 +461,9 @@ class GlobalActivityOption(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['activity_type', 'sort_order', 'display_name']
-        verbose_name = _('Global Activity Option')
-        verbose_name_plural = _('Global Activity Options')
+        ordering = ["activity_type", "sort_order", "display_name"]
+        verbose_name = _("Global Activity Option")
+        verbose_name_plural = _("Global Activity Options")
 
     def __str__(self):
         return f"{self.get_activity_type_display()}: {self.display_name}"
@@ -399,34 +473,37 @@ class EventActivityOption(models.Model):
     """Activity options available for event voting - Two categories"""
 
     ACTIVITY_TYPE_CHOICES = [
-        ('presentation_style', 'Presentation Style (Phase 2)'),
-        ('speed_dating_twist', 'Speed Dating Twist (Phase 3)'),
+        ("presentation_style", "Presentation Style (Phase 2)"),
+        ("speed_dating_twist", "Speed Dating Twist (Phase 3)"),
     ]
 
     ACTIVITY_VARIANT_CHOICES = [
         # Presentation Style variants (Phase 2)
-        ('music', 'With Favorite Music'),
-        ('questions', '5 Predefined Questions'),
-        ('picture_story', 'Share Favorite Picture & Story'),
+        ("music", "With Favorite Music"),
+        ("questions", "5 Predefined Questions"),
+        ("picture_story", "Share Favorite Picture & Story"),
         # Speed Dating Twist variants (Phase 3)
-        ('spicy_questions', 'Spicy Questions First'),
-        ('forbidden_word', 'Forbidden Word Challenge'),
-        ('algorithm_extended', 'Algorithm\'s Choice Extended Time'),
+        ("spicy_questions", "Spicy Questions First"),
+        ("forbidden_word", "Forbidden Word Challenge"),
+        ("algorithm_extended", "Algorithm's Choice Extended Time"),
     ]
 
-    event = models.ForeignKey(MeetupEvent, on_delete=models.CASCADE, related_name='activity_options')
+    event = models.ForeignKey(
+        MeetupEvent, on_delete=models.CASCADE, related_name="activity_options"
+    )
     activity_type = models.CharField(max_length=20, choices=ACTIVITY_TYPE_CHOICES)
     activity_variant = models.CharField(
         max_length=20,
         choices=ACTIVITY_VARIANT_CHOICES,
         blank=True,
-        help_text=_("Sub-option for the activity")
+        help_text=_("Sub-option for the activity"),
     )
     display_name = models.CharField(
-        max_length=200,
-        help_text=_("e.g., 'Speed Dating - Random Order'")
+        max_length=200, help_text=_("e.g., 'Speed Dating - Random Order'")
     )
-    description = models.TextField(help_text=_("Explanation of what this activity entails"))
+    description = models.TextField(
+        help_text=_("Explanation of what this activity entails")
+    )
     vote_count = models.PositiveIntegerField(default=0)
     is_winner = models.BooleanField(default=False)
 
@@ -434,8 +511,8 @@ class EventActivityOption(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['activity_type', 'activity_variant']
-        unique_together = ('event', 'activity_type', 'activity_variant')
+        ordering = ["activity_type", "activity_variant"]
+        unique_together = ("event", "activity_type", "activity_variant")
 
     def __str__(self):
         return f"{self.event.title} - {self.display_name}"
@@ -444,15 +521,17 @@ class EventActivityOption(models.Model):
 class EventActivityVote(models.Model):
     """Individual votes from attendees for event activities (one vote per category)"""
 
-    event = models.ForeignKey(MeetupEvent, on_delete=models.CASCADE, related_name='activity_votes')
+    event = models.ForeignKey(
+        MeetupEvent, on_delete=models.CASCADE, related_name="activity_votes"
+    )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     selected_option = models.ForeignKey(GlobalActivityOption, on_delete=models.CASCADE)
     voted_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         # Each user can vote once PER CATEGORY (presentation_style AND speed_dating_twist)
-        unique_together = ('event', 'user', 'selected_option')
-        ordering = ['-voted_at']
+        unique_together = ("event", "user", "selected_option")
+        ordering = ["-voted_at"]
 
     def __str__(self):
         return f"{self.user.username} voted for {self.selected_option.display_name}"
@@ -462,16 +541,20 @@ class PresentationQueue(models.Model):
     """Manages the order and status of presentations during Phase 2"""
 
     STATUS_CHOICES = [
-        ('waiting', 'Waiting to Present'),
-        ('presenting', 'Currently Presenting'),
-        ('completed', 'Presentation Completed'),
-        ('skipped', 'Skipped'),
+        ("waiting", "Waiting to Present"),
+        ("presenting", "Currently Presenting"),
+        ("completed", "Presentation Completed"),
+        ("skipped", "Skipped"),
     ]
 
-    event = models.ForeignKey(MeetupEvent, on_delete=models.CASCADE, related_name='presentation_queue')
+    event = models.ForeignKey(
+        MeetupEvent, on_delete=models.CASCADE, related_name="presentation_queue"
+    )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    presentation_order = models.PositiveIntegerField(help_text=_("Order in queue (1, 2, 3...)"))
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='waiting')
+    presentation_order = models.PositiveIntegerField(
+        help_text=_("Order in queue (1, 2, 3...)")
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="waiting")
 
     # Timing
     started_at = models.DateTimeField(null=True, blank=True)
@@ -482,8 +565,8 @@ class PresentationQueue(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['event', 'presentation_order']
-        unique_together = ('event', 'user')
+        ordering = ["event", "presentation_order"]
+        unique_together = ("event", "user")
 
     def __str__(self):
         return f"{self.event.title} - #{self.presentation_order}: {self.user.username}"
@@ -499,9 +582,15 @@ class PresentationQueue(models.Model):
 class EventVotingSession(models.Model):
     """Manages voting session state for each event"""
 
-    event = models.OneToOneField(MeetupEvent, on_delete=models.CASCADE, related_name='voting_session')
-    voting_start_time = models.DateTimeField(help_text=_("Event start time + 15 minutes"))
-    voting_end_time = models.DateTimeField(help_text=_("Voting start time + 30 minutes"))
+    event = models.OneToOneField(
+        MeetupEvent, on_delete=models.CASCADE, related_name="voting_session"
+    )
+    voting_start_time = models.DateTimeField(
+        help_text=_("Event start time + 15 minutes")
+    )
+    voting_end_time = models.DateTimeField(
+        help_text=_("Voting start time + 30 minutes")
+    )
     is_active = models.BooleanField(default=False)
     total_votes = models.PositiveIntegerField(default=0)
 
@@ -511,16 +600,16 @@ class EventVotingSession(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='won_presentation_events',
-        limit_choices_to={'activity_type': 'presentation_style'}
+        related_name="won_presentation_events",
+        limit_choices_to={"activity_type": "presentation_style"},
     )
     winning_speed_dating_twist = models.ForeignKey(
         GlobalActivityOption,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='won_speed_dating_events',
-        limit_choices_to={'activity_type': 'speed_dating_twist'}
+        related_name="won_speed_dating_events",
+        limit_choices_to={"activity_type": "speed_dating_twist"},
     )
 
     # Metadata
@@ -542,10 +631,7 @@ class EventVotingSession(models.Model):
     def is_voting_open(self):
         """Check if voting window is currently open"""
         now = timezone.now()
-        return (
-            self.is_active
-            and self.voting_start_time <= now <= self.voting_end_time
-        )
+        return self.is_active and self.voting_start_time <= now <= self.voting_end_time
 
     @property
     def time_until_start(self):
@@ -579,28 +665,36 @@ class EventVotingSession(models.Model):
         from django.db.models import Count
 
         # Count votes for each GlobalActivityOption for presentation style
-        presentation_votes = EventActivityVote.objects.filter(
-            event=self.event,
-            selected_option__activity_type='presentation_style'
-        ).values('selected_option').annotate(
-            vote_count=Count('id')
-        ).order_by('-vote_count')
+        presentation_votes = (
+            EventActivityVote.objects.filter(
+                event=self.event, selected_option__activity_type="presentation_style"
+            )
+            .values("selected_option")
+            .annotate(vote_count=Count("id"))
+            .order_by("-vote_count")
+        )
 
         if presentation_votes:
-            winner_id = presentation_votes[0]['selected_option']
-            self.winning_presentation_style = GlobalActivityOption.objects.get(id=winner_id)
+            winner_id = presentation_votes[0]["selected_option"]
+            self.winning_presentation_style = GlobalActivityOption.objects.get(
+                id=winner_id
+            )
 
         # Count votes for each GlobalActivityOption for speed dating twist
-        twist_votes = EventActivityVote.objects.filter(
-            event=self.event,
-            selected_option__activity_type='speed_dating_twist'
-        ).values('selected_option').annotate(
-            vote_count=Count('id')
-        ).order_by('-vote_count')
+        twist_votes = (
+            EventActivityVote.objects.filter(
+                event=self.event, selected_option__activity_type="speed_dating_twist"
+            )
+            .values("selected_option")
+            .annotate(vote_count=Count("id"))
+            .order_by("-vote_count")
+        )
 
         if twist_votes:
-            winner_id = twist_votes[0]['selected_option']
-            self.winning_speed_dating_twist = GlobalActivityOption.objects.get(id=winner_id)
+            winner_id = twist_votes[0]["selected_option"]
+            self.winning_speed_dating_twist = GlobalActivityOption.objects.get(
+                id=winner_id
+            )
 
     def initialize_presentation_queue(self):
         """Initialize presentation queue with all confirmed/attended users in random order"""
@@ -610,7 +704,7 @@ class EventVotingSession(models.Model):
         # Get all confirmed/attended users for this event
         attendees = User.objects.filter(
             eventregistration__event=self.event,
-            eventregistration__status__in=['confirmed', 'attended']
+            eventregistration__status__in=["confirmed", "attended"],
         ).distinct()
 
         # Create a shuffled list of attendees
@@ -620,29 +714,33 @@ class EventVotingSession(models.Model):
         # Create presentation queue entries
         for order, user in enumerate(attendee_list, start=1):
             PresentationQueue.objects.get_or_create(
-                event=self.event,
-                user=user,
-                defaults={'presentation_order': order}
+                event=self.event, user=user, defaults={"presentation_order": order}
             )
 
 
 class PresentationRating(models.Model):
     """Anonymous 1-5 star ratings for presentations"""
 
-    event = models.ForeignKey(MeetupEvent, on_delete=models.CASCADE, related_name='presentation_ratings')
-    presenter = models.ForeignKey(User, on_delete=models.CASCADE, related_name='presentations_received')
-    rater = models.ForeignKey(User, on_delete=models.CASCADE, related_name='presentations_given')
+    event = models.ForeignKey(
+        MeetupEvent, on_delete=models.CASCADE, related_name="presentation_ratings"
+    )
+    presenter = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="presentations_received"
+    )
+    rater = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="presentations_given"
+    )
     rating = models.PositiveSmallIntegerField(
         help_text=_("Rating from 1-5 stars"),
-        choices=[(i, f"{i} Star{'s' if i > 1 else ''}") for i in range(1, 6)]
+        choices=[(i, f"{i} Star{'s' if i > 1 else ''}") for i in range(1, 6)],
     )
 
     # Metadata
     rated_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('event', 'presenter', 'rater')
-        ordering = ['-rated_at']
+        unique_together = ("event", "presenter", "rater")
+        ordering = ["-rated_at"]
 
     def __str__(self):
         return f"{self.rater.username} rated {self.presenter.username}: {self.rating}★"
@@ -651,21 +749,24 @@ class PresentationRating(models.Model):
     def get_average_rating(event, presenter):
         """Calculate average rating for a presenter"""
         ratings = PresentationRating.objects.filter(
-            event=event,
-            presenter=presenter
-        ).aggregate(avg=models.Avg('rating'))
-        return ratings['avg'] or 0
+            event=event, presenter=presenter
+        ).aggregate(avg=models.Avg("rating"))
+        return ratings["avg"] or 0
 
     @staticmethod
     def get_mutual_rating_score(event, user1, user2):
         """Get mutual rating score between two users (for pairing algorithm)"""
         try:
-            rating1 = PresentationRating.objects.get(event=event, presenter=user2, rater=user1).rating
+            rating1 = PresentationRating.objects.get(
+                event=event, presenter=user2, rater=user1
+            ).rating
         except PresentationRating.DoesNotExist:
             rating1 = 0
 
         try:
-            rating2 = PresentationRating.objects.get(event=event, presenter=user1, rater=user2).rating
+            rating2 = PresentationRating.objects.get(
+                event=event, presenter=user1, rater=user2
+            ).rating
         except PresentationRating.DoesNotExist:
             rating2 = 0
 
@@ -678,17 +779,24 @@ class PresentationRating(models.Model):
 class SpeedDatingPair(models.Model):
     """Speed dating pairs generated from Phase 2 ratings"""
 
-    event = models.ForeignKey(MeetupEvent, on_delete=models.CASCADE, related_name='speed_dating_pairs')
-    user1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='speed_dating_as_user1')
-    user2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='speed_dating_as_user2')
-    round_number = models.PositiveIntegerField(help_text=_("Which speed dating round (1, 2, 3...)"))
+    event = models.ForeignKey(
+        MeetupEvent, on_delete=models.CASCADE, related_name="speed_dating_pairs"
+    )
+    user1 = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="speed_dating_as_user1"
+    )
+    user2 = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="speed_dating_as_user2"
+    )
+    round_number = models.PositiveIntegerField(
+        help_text=_("Which speed dating round (1, 2, 3...)")
+    )
     mutual_rating_score = models.FloatField(
-        help_text=_("Combined rating score from Phase 2"),
-        default=0
+        help_text=_("Combined rating score from Phase 2"), default=0
     )
     is_top_match = models.BooleanField(
         default=False,
-        help_text=_("True if this is user's #1 rated match (gets extended time)")
+        help_text=_("True if this is user's #1 rated match (gets extended time)"),
     )
 
     # Timing
@@ -699,8 +807,8 @@ class SpeedDatingPair(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['event', 'round_number']
-        unique_together = ('event', 'user1', 'user2', 'round_number')
+        ordering = ["event", "round_number"]
+        unique_together = ("event", "user1", "user2", "round_number")
 
     def __str__(self):
         return f"{self.event.title} - Round {self.round_number}: {self.user1.username} ↔ {self.user2.username}"
@@ -711,9 +819,9 @@ class SpeedDatingPair(models.Model):
         if self.is_top_match:
             # Check if "Algorithm's Choice Extended" won voting
             twist = self.event.activity_options.filter(
-                activity_type='speed_dating_twist',
-                activity_variant='algorithm_extended',
-                is_winner=True
+                activity_type="speed_dating_twist",
+                activity_variant="algorithm_extended",
+                is_winner=True,
             ).exists()
             return 8 if twist else 5  # 8 min for top matches, 5 min standard
         return 5

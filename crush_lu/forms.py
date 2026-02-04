@@ -519,15 +519,67 @@ class CoachSessionForm(forms.ModelForm):
 
 
 class EventRegistrationForm(forms.ModelForm):
-    """Form for event registration"""
+    """Dynamic registration form based on event configuration"""
 
     class Meta:
         model = EventRegistration
-        fields = ['dietary_restrictions', 'special_requests']
+        fields = [
+            "accessibility_needs",
+            "dietary_restrictions",
+            "bringing_guest",
+            "guest_name",
+            "special_requests",
+        ]
         widgets = {
-            'dietary_restrictions': forms.TextInput(attrs={'placeholder': _('e.g., vegetarian, gluten-free')}),
-            'special_requests': forms.Textarea(attrs={'rows': 3, 'placeholder': _('Any special requests or questions?')}),
+            "accessibility_needs": forms.Textarea(
+                attrs={
+                    "class": TAILWIND_TEXTAREA,
+                    "rows": 3,
+                    "placeholder": _(
+                        "e.g., wheelchair access, hearing assistance, etc."
+                    ),
+                }
+            ),
+            "dietary_restrictions": forms.TextInput(
+                attrs={
+                    "class": TAILWIND_INPUT,
+                    "placeholder": _(
+                        "e.g., vegetarian, vegan, gluten-free, allergies"
+                    ),
+                }
+            ),
+            "bringing_guest": forms.CheckboxInput(
+                attrs={
+                    "class": "h-4 w-4 rounded border-gray-300 text-crush-purple focus:ring-crush-purple"
+                }
+            ),
+            "guest_name": forms.TextInput(
+                attrs={
+                    "class": TAILWIND_INPUT,
+                    "placeholder": _("Guest's full name"),
+                }
+            ),
+            "special_requests": forms.Textarea(
+                attrs={
+                    "class": TAILWIND_TEXTAREA,
+                    "rows": 4,
+                    "placeholder": _("Any other requests or questions?"),
+                }
+            ),
         }
+
+    def __init__(self, *args, event=None, **kwargs):
+        """Initialize form with event context"""
+        super().__init__(*args, **kwargs)
+
+        # Remove fields not applicable to this event
+        if event:
+            if not event.has_food_component:
+                self.fields.pop("dietary_restrictions", None)
+
+            if not event.allow_plus_ones:
+                self.fields.pop("bringing_guest", None)
+                self.fields.pop("guest_name", None)
 
 
 class CrushCoachForm(forms.ModelForm):

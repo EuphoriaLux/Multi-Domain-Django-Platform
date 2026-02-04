@@ -1,12 +1,12 @@
 # Translations for crush_lu app.
 # Copyright (C) 2024-2025 Entreprinder
 # This file is distributed under the same license as the project.
-# 
+#
 msgid ""
 msgstr ""
 "Project-Id-Version: crush_lu 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-30 00:09+0100\n"
+"POT-Creation-Date: 2026-02-04 19:36+0100\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: DE\n"
@@ -146,124 +146,131 @@ msgstr "Tokens für alle Türen generieren (ausgewählte Benutzer)"
 msgid "Generated %(count)d new QR token(s)"
 msgstr "%(count)d neue(n) QR-Token(s) generiert"
 
-#: .\admin\events.py:142
+#: .\admin\events.py:253
 msgid "📝 Total Registrations"
 msgstr "📝 Gesamtanmeldungen"
 
-#: .\admin\events.py:150
+#: .\admin\events.py:262
 msgid "Invited Users"
 msgstr "Eingeladene Benutzer"
 
-#: .\admin\events.py:155
+#: .\admin\events.py:268
 msgid "✅ Confirmed"
 msgstr "✅ Bestätigt"
 
-#: .\admin\events.py:160
+#: .\admin\events.py:274
 msgid "⏳ Waitlist"
 msgstr "⏳ Warteliste"
 
-#: .\admin\events.py:171
+#: .\admin\events.py:286
 msgid "Spots Available"
 msgstr "Verfügbare Plätze"
 
-#: .\admin\events.py:178
+#: .\admin\events.py:294
 msgid "💰 Revenue"
 msgstr "💰 Einnahmen"
 
-#: .\admin\events.py:192
+#: .\admin\events.py:309
 msgid "🗳️ Phase 1: Voting"
 msgstr "🗳️ Phase 1: Abstimmung"
 
-#: .\admin\events.py:212
+#: .\admin\events.py:330
 msgid "🎤 Phase 2: Presentations"
 msgstr "🎤 Phase 2: Präsentationen"
 
-#: .\admin\events.py:232
+#: .\admin\events.py:353
 msgid "💕 Phase 3: Speed Dating"
 msgstr "💕 Phase 3: Speed Dating"
 
-#: .\admin\events.py:234
+#: .\admin\events.py:355
 msgid "✅ Publish selected events"
 msgstr "✅ Ausgewählte Events veröffentlichen"
 
-#: .\admin\events.py:237
+#: .\admin\events.py:359
 #, python-brace-format
 msgid "Published {count} event(s)"
 msgstr "{count} Event(s) veröffentlicht"
 
-#: .\admin\events.py:239
+#: .\admin\events.py:362
 msgid "❌ Unpublish selected events"
 msgstr "❌ Ausgewählte Events zurückziehen"
 
-#: .\admin\events.py:242
+#: .\admin\events.py:366
 #, python-brace-format
 msgid "Unpublished {count} event(s)"
 msgstr "{count} Event(s) zurückgezogen"
 
-#: .\admin\events.py:244
+#: .\admin\events.py:369
 msgid "🚫 Cancel selected events"
 msgstr "🚫 Ausgewählte Events absagen"
 
-#: .\admin\events.py:247
+#: .\admin\events.py:373
 #, python-brace-format
 msgid "Cancelled {count} event(s)"
 msgstr "{count} Event(s) abgesagt"
 
-#: .\admin\events.py:249
+#: .\admin\events.py:376
 msgid "🔔 Send reminders to confirmed attendees"
 msgstr "🔔 Erinnerungen an bestätigte Teilnehmer senden"
 
-#: .\admin\events.py:284
+#: .\admin\events.py:413
 #, python-brace-format
 msgid "Sent {count} reminder(s) successfully"
 msgstr "{count} Erinnerung(en) erfolgreich gesendet"
 
-#: .\admin\events.py:286
+#: .\admin\events.py:418
 #, python-brace-format
 msgid "Failed to send {count} reminder(s)"
 msgstr "Senden von {count} Erinnerung(en) fehlgeschlagen"
 
-#: .\admin\events.py:288
+#: .\admin\events.py:421
 msgid "No confirmed registrations to notify"
 msgstr "Keine bestätigten Anmeldungen zu benachrichtigen"
 
-#: .\admin\events.py:290
+#: .\admin\events.py:423
 msgid "📋 Export attendees to CSV"
 msgstr "📋 Teilnehmer als CSV exportieren"
 
-#: .\admin\events.py:358
+#: .\admin\events.py:500
+msgid ""
+"Require approved Crush profile for registration?\n"
+"• Checked (recommended): Only users with approved profiles can register\n"
+"• Unchecked: Any authenticated user can register (no profile needed)"
+msgstr ""
+
+#: .\admin\events.py:533
 msgid "📋 Export selected registrations to CSV"
 msgstr "📋 Ausgewählte Anmeldungen als CSV exportieren"
 
-#: .\admin\events.py:397
+#: .\admin\events.py:602
 msgid "✅ Confirm selected registrations"
 msgstr "✅ Ausgewählte Anmeldungen bestätigen"
 
-#: .\admin\events.py:403
+#: .\admin\events.py:608
 msgid "⏳ Move to waitlist"
 msgstr "⏳ Zur Warteliste verschieben"
 
-#: .\admin\events.py:472
+#: .\admin\events.py:717
 msgid "Guest Name"
 msgstr "Gastname"
 
-#: .\admin\events.py:479
+#: .\admin\events.py:725
 msgid "✨ VIP"
 msgstr "✨ VIP"
 
-#: .\admin\events.py:492
+#: .\admin\events.py:740
 msgid "Invitation Link"
 msgstr "Einladungslink"
 
-#: .\admin\events.py:526
+#: .\admin\events.py:777
 msgid "Complete Status"
 msgstr "Status vollständig"
 
-#: .\admin\events.py:528
+#: .\admin\events.py:779
 msgid "✅ Approve selected guests"
 msgstr "✅ Ausgewählte Gäste genehmigen"
 
-#: .\admin\events.py:554
+#: .\admin\events.py:805
 #, python-brace-format
 msgid ""
 "Approved {updated} guest(s) to attend the event. Sent {emails_sent} email "
@@ -272,41 +279,41 @@ msgstr ""
 "{updated} Gast/Gäste für die Veranstaltung genehmigt. {emails_sent} E-Mail-"
 "Benachrichtigung(en) gesendet."
 
-#: .\admin\events.py:560
+#: .\admin\events.py:813
 msgid ""
 "No pending invitations to approve. Only accepted invitations can be approved."
 msgstr ""
 "Keine ausstehenden Einladungen zu genehmigen. Nur akzeptierte Einladungen "
 "können genehmigt werden."
 
-#: .\admin\events.py:563
+#: .\admin\events.py:817
 msgid "❌ Reject selected guests"
 msgstr "❌ Ausgewählte Gäste ablehnen"
 
-#: .\admin\events.py:581
+#: .\admin\events.py:833
 #, python-brace-format
 msgid "Rejected {count} guest(s). They will be notified."
 msgstr "{count} Gast/Gäste abgelehnt. Sie werden benachrichtigt."
 
-#: .\admin\events.py:586
+#: .\admin\events.py:841
 msgid ""
 "No pending invitations to reject. Only accepted invitations can be rejected."
 msgstr ""
 "Keine ausstehenden Einladungen zum Ablehnen. Nur akzeptierte Einladungen "
 "können abgelehnt werden."
 
-#: .\admin\events.py:589
+#: .\admin\events.py:845
 msgid "📧 Resend invitation emails"
 msgstr "📧 Einladungs-E-Mails erneut senden"
 
-#: .\admin\events.py:598
+#: .\admin\events.py:855
 #, python-brace-format
 msgid "Would resend {count} invitation(s). Email sending not yet implemented."
 msgstr ""
 "Würde {count} Einladung(en) erneut senden. E-Mail-Versand noch "
 "nichtimplementiert."
 
-#: .\admin\events.py:603
+#: .\admin\events.py:862
 msgid ""
 "No pending invitations to resend. Only unaccepted invitations can be resent."
 msgstr ""
@@ -474,11 +481,11 @@ msgstr "Deine Coach-Benachrichtigungen funktionieren einwandfrei!"
 msgid "Upload a profile photo for this coach"
 msgstr "Laden Sie ein Profilfoto für diesen Coach hoch"
 
-#: .\admin\profiles.py:77 .\admin\profiles.py:370
+#: .\admin\profiles.py:77 .\admin\profiles.py:395
 msgid "User / Links"
 msgstr "Benutzer / Links"
 
-#: .\admin\profiles.py:83 .\admin\profiles.py:376 .\admin\profiles.py:989
+#: .\admin\profiles.py:83 .\admin\profiles.py:401 .\admin\profiles.py:1014
 #: .\admin\wallet.py:120 .\templates\account\login_crush.html:28
 #: .\templates\crush_lu\account_settings.html:21
 #: .\templates\crush_lu\auth.html:95 .\templates\crush_lu\auth.html:157
@@ -494,9 +501,9 @@ msgstr "E-Mail"
 msgid "Has Dating Profile"
 msgstr "Hat Dating-Profil"
 
-#: .\admin\profiles.py:100 .\templates\crush_lu\create_profile.html:784
-#: .\templates\crush_lu\create_profile.html:811
-#: .\templates\crush_lu\create_profile.html:838
+#: .\admin\profiles.py:100 .\templates\crush_lu\create_profile.html:806
+#: .\templates\crush_lu\create_profile.html:833
+#: .\templates\crush_lu\create_profile.html:860
 #: .\templates\crush_lu\journey\gift_create.html:141
 #: .\templates\crush_lu\journey\gift_create.html:148
 #: .\templates\crush_lu\journey\gift_create.html:155
@@ -522,180 +529,180 @@ msgstr "Ausgewählte Coaches deaktivieren"
 msgid "Activate selected coaches"
 msgstr "Ausgewählte Coaches aktivieren"
 
-#: .\admin\profiles.py:193
+#: .\admin\profiles.py:218
 msgid "At-a-glance status overview"
 msgstr "Statusübersicht auf einen Blick"
 
-#: .\admin\profiles.py:197
+#: .\admin\profiles.py:222
 msgid "Django User account details with link to full user record"
 msgstr ""
 "Django-Benutzerkonto-Details mit Link zum vollständigen Benutzerdatensatz"
 
-#: .\admin\profiles.py:201
+#: .\admin\profiles.py:226
 msgid "Core profile information"
 msgstr "Kern-Profilinformationen"
 
-#: .\admin\profiles.py:205
+#: .\admin\profiles.py:230
 msgid "Phone verification via Firebase/Google Identity Platform SMS OTP"
 msgstr "Telefonverifizierung via Firebase/Google Identity Platform SMS OTP"
 
-#: .\admin\profiles.py:218
+#: .\admin\profiles.py:243
 msgid "View which coach is assigned to review this profile."
 msgstr "Sehen Sie, welcher Coach diesem Profil zur Überprüfung zugewiesen ist."
 
-#: .\admin\profiles.py:223
+#: .\admin\profiles.py:248
 msgid "Track which step of profile creation user completed"
 msgstr ""
 "Verfolgen Sie, welchen Schritt der Profilerstellung der "
 "Benutzerabgeschlossen hat"
 
-#: .\admin\profiles.py:234
+#: .\admin\profiles.py:259
 msgid "User event history and registrations"
 msgstr "Benutzer-Event-Verlauf und Anmeldungen"
 
-#: .\admin\profiles.py:238
+#: .\admin\profiles.py:263
 msgid "Connections sent and received from events"
 msgstr "Von Events gesendete und empfangene Verbindungen"
 
-#: .\admin\profiles.py:242
+#: .\admin\profiles.py:267
 msgid "Referral code and conversions for this profile"
 msgstr "Empfehlungscode und Konversionen für dieses Profil"
 
-#: .\admin\profiles.py:246
+#: .\admin\profiles.py:271
 msgid "Interactive journey experiences (Wonderland, etc.)"
 msgstr "Interaktive Reiseerlebnisse (Wonderland usw.)"
 
-#: .\admin\profiles.py:251
+#: .\admin\profiles.py:276
 msgid "Microsoft Graph contact sync for caller ID"
 msgstr "Microsoft Graph Kontaktsynchronisation für Anrufer-ID"
 
-#: .\admin\profiles.py:385 .\models\profiles.py:906
+#: .\admin\profiles.py:410 .\models\profiles.py:923
 msgid "Phone"
 msgstr "Telefon"
 
-#: .\admin\profiles.py:394
+#: .\admin\profiles.py:419
 msgid "Lang"
 msgstr "Sprache"
 
-#: .\admin\profiles.py:401
+#: .\admin\profiles.py:426
 msgid "Is Coach"
 msgstr "Ist Coach"
 
-#: .\admin\profiles.py:411
+#: .\admin\profiles.py:436
 msgid "Outlook"
 msgstr "Outlook"
 
-#: .\admin\profiles.py:444
+#: .\admin\profiles.py:469
 msgid "Assigned Coach"
 msgstr "Zugewiesener Coach"
 
-#: .\admin\profiles.py:485
+#: .\admin\profiles.py:510
 msgid "Event Registrations"
 msgstr "Event-Anmeldungen"
 
-#: .\admin\profiles.py:536 .\templates\crush_lu\base.html:401
+#: .\admin\profiles.py:561 .\templates\crush_lu\base.html:401
 #: .\templates\crush_lu\base.html:444 .\templates\crush_lu\base.html:459
 #: .\templates\crush_lu\base.html:654 .\templates\crush_lu\base.html:713
 #: .\templates\crush_lu\base.html:749 .\templates\crush_lu\dashboard.html:222
 msgid "Connections"
 msgstr "Verbindungen"
 
-#: .\admin\profiles.py:541 .\models\referrals.py:29
+#: .\admin\profiles.py:566 .\models\referrals.py:29
 msgid "Referral Code"
 msgstr "Empfehlungscode"
 
-#: .\admin\profiles.py:553
+#: .\admin\profiles.py:578
 msgid "Referrals"
 msgstr "Empfehlungen"
 
-#: .\admin\profiles.py:601
+#: .\admin\profiles.py:626
 msgid "User Account Details"
 msgstr "Benutzerkonto-Details"
 
-#: .\admin\profiles.py:681 .\models\journey.py:529
+#: .\admin\profiles.py:706 .\models\journey.py:529
 msgid "Journey Progress"
 msgstr "Reise-Fortschritt"
 
-#: .\admin\profiles.py:723
+#: .\admin\profiles.py:748
 msgid "Status Summary"
 msgstr "Status-Zusammenfassung"
 
-#: .\admin\profiles.py:725
+#: .\admin\profiles.py:750
 msgid "Promote selected profiles to Crush Coach role"
 msgstr "Ausgewählte Profile zur Crush Coach-Rolle befördern"
 
-#: .\admin\profiles.py:763
+#: .\admin\profiles.py:788
 msgid "Approve selected profiles"
 msgstr "Ausgewählte Profile genehmigen"
 
-#: .\admin\profiles.py:768
+#: .\admin\profiles.py:793
 msgid "Deactivate selected profiles"
 msgstr "Ausgewählte Profile deaktivieren"
 
-#: .\admin\profiles.py:773
+#: .\admin\profiles.py:798
 msgid "Reset phone verification (allows re-verification)"
 msgstr "Telefonverifizierung zurücksetzen (ermöglicht erneute Verifizierung)"
 
-#: .\admin\profiles.py:791
+#: .\admin\profiles.py:816
 msgid "Sync selected profiles to Outlook contacts"
 msgstr "Ausgewählte Profile mit Outlook-Kontakten synchronisieren"
 
-#: .\admin\profiles.py:835
+#: .\admin\profiles.py:860
 msgid "Export selected profiles to CSV"
 msgstr "Ausgewählte Profile als CSV exportieren"
 
-#: .\admin\profiles.py:872
+#: .\admin\profiles.py:897
 msgid "Send bulk email to selected users"
 msgstr "Massen-E-Mail an ausgewählte Benutzer senden"
 
-#: .\admin\profiles.py:953
+#: .\admin\profiles.py:978
 msgid "Quick overview of the profile being reviewed"
 msgstr "Schnellübersicht des zu überprüfenden Profils"
 
-#: .\admin\profiles.py:960 .\models\profiles.py:640
+#: .\admin\profiles.py:985 .\models\profiles.py:657
 msgid "Coach must complete screening call before approving profile"
 msgstr ""
 "Coach muss den Screening-Anruf abschließen, bevor das Profilgenehmigt wird"
 
-#: .\admin\profiles.py:983
+#: .\admin\profiles.py:1008
 msgid "Profile"
 msgstr "Profil"
 
-#: .\admin\profiles.py:1034
+#: .\admin\profiles.py:1059
 msgid "Workflow"
 msgstr "Arbeitsablauf"
 
-#: .\admin\profiles.py:1060 .\models\journey_gift.py:113
+#: .\admin\profiles.py:1085 .\models\journey_gift.py:114
 #: .\templates\crush_lu\coach_invitation_dashboard.html:110
 #: .\templates\crush_lu\journey\gift_list.html:24
 msgid "Pending"
 msgstr "Ausstehend"
 
-#: .\admin\profiles.py:1095
+#: .\admin\profiles.py:1120
 msgid "Profile Details"
 msgstr "Profildetails"
 
-#: .\admin\profiles.py:1097
+#: .\admin\profiles.py:1122
 msgid "Approve selected profiles (requires completed call)"
 msgstr "Ausgewählte Profile genehmigen (erfordert abgeschlossenen Anruf)"
 
-#: .\admin\profiles.py:1127
+#: .\admin\profiles.py:1152
 msgid "Reject selected profiles"
 msgstr "Ausgewählte Profile ablehnen"
 
-#: .\admin\profiles.py:1134
+#: .\admin\profiles.py:1159
 msgid "Request revision for selected profiles"
 msgstr "Überarbeitung für ausgewählte Profile anfordern"
 
-#: .\admin\profiles.py:1141
+#: .\admin\profiles.py:1166
 msgid "Auto-assign available coach"
 msgstr "Verfügbaren Coach automatisch zuweisen"
 
-#: .\admin\profiles.py:1175
+#: .\admin\profiles.py:1200
 msgid "Mark screening call as completed"
 msgstr "Screening-Anruf als abgeschlossen markieren"
 
-#: .\admin\profiles.py:1182
+#: .\admin\profiles.py:1207
 msgid "Export selected submissions to CSV"
 msgstr "Ausgewählte Profile als CSV exportieren"
 
@@ -932,19 +939,19 @@ msgstr "Profil zur Überprüfung eingereicht - Crush.lu"
 msgid "New Profile Review Assignment - {name}"
 msgstr "Neue Profil-Überprüfung zugewiesen - {name}"
 
-#: .\email_helpers.py:329 .\views.py:2086
+#: .\email_helpers.py:329 .\views.py:2354
 msgid "Welcome to Crush.lu - Your Profile is Approved!"
 msgstr "Willkommen bei Crush.lu - Ihr Profil wurde genehmigt!"
 
-#: .\email_helpers.py:378 .\views.py:2114
+#: .\email_helpers.py:378 .\views.py:2384
 msgid "Profile Review Feedback - Crush.lu"
 msgstr "Profil-Überprüfung Feedback - Crush.lu"
 
-#: .\email_helpers.py:423 .\views.py:2099
+#: .\email_helpers.py:423 .\views.py:2367
 msgid "Profile Review Update - Crush.lu"
 msgstr "Profil-Überprüfung Update - Crush.lu"
 
-#: .\email_helpers.py:468 .\views.py:2127
+#: .\email_helpers.py:468 .\views.py:2397
 msgid "Your Crush Coach Needs to Speak With You"
 msgstr ""
 
@@ -1053,7 +1060,7 @@ msgstr ""
 msgid "Required for coach screening and event coordination"
 msgstr "Erforderlich für Coach-Screening und Veranstaltungskoordination"
 
-#: .\forms.py:122 .\templates\crush_lu\create_profile.html:227
+#: .\forms.py:122 .\templates\crush_lu\create_profile.html:249
 msgid "Must be 18+ to join"
 msgstr "Sie müssen 18+ sein, um beizutreten"
 
@@ -1086,55 +1093,55 @@ msgstr ""
 msgid "Required"
 msgstr "Erforderlich"
 
-#: .\forms.py:159 .\templates\crush_lu\create_profile.html:447
+#: .\forms.py:159 .\templates\crush_lu\create_profile.html:469
 msgid "Select your region..."
 msgstr "Wählen Sie Ihre Region..."
 
-#: .\forms.py:161 .\templates\crush_lu\create_profile.html:449
+#: .\forms.py:161 .\templates\crush_lu\create_profile.html:471
 msgid "Capellen"
 msgstr "Capellen"
 
-#: .\forms.py:162 .\templates\crush_lu\create_profile.html:450
+#: .\forms.py:162 .\templates\crush_lu\create_profile.html:472
 msgid "Clervaux"
 msgstr "Clerf"
 
-#: .\forms.py:163 .\templates\crush_lu\create_profile.html:451
+#: .\forms.py:163 .\templates\crush_lu\create_profile.html:473
 msgid "Diekirch"
 msgstr "Diekirch"
 
-#: .\forms.py:164 .\templates\crush_lu\create_profile.html:452
+#: .\forms.py:164 .\templates\crush_lu\create_profile.html:474
 msgid "Echternach"
 msgstr "Echternach"
 
-#: .\forms.py:165 .\templates\crush_lu\create_profile.html:453
+#: .\forms.py:165 .\templates\crush_lu\create_profile.html:475
 msgid "Esch-sur-Alzette"
 msgstr "Esch-sur-Alzette"
 
-#: .\forms.py:166 .\templates\crush_lu\create_profile.html:454
+#: .\forms.py:166 .\templates\crush_lu\create_profile.html:476
 msgid "Grevenmacher"
 msgstr "Grevenmacher"
 
-#: .\forms.py:167 .\templates\crush_lu\create_profile.html:455
+#: .\forms.py:167 .\templates\crush_lu\create_profile.html:477
 msgid "Luxembourg"
 msgstr "Luxemburg"
 
-#: .\forms.py:168 .\templates\crush_lu\create_profile.html:456
+#: .\forms.py:168 .\templates\crush_lu\create_profile.html:478
 msgid "Mersch"
 msgstr "Mersch"
 
-#: .\forms.py:169 .\templates\crush_lu\create_profile.html:457
+#: .\forms.py:169 .\templates\crush_lu\create_profile.html:479
 msgid "Redange"
 msgstr "Redingen"
 
-#: .\forms.py:170 .\templates\crush_lu\create_profile.html:458
+#: .\forms.py:170 .\templates\crush_lu\create_profile.html:480
 msgid "Remich"
 msgstr "Remich"
 
-#: .\forms.py:171 .\templates\crush_lu\create_profile.html:459
+#: .\forms.py:171 .\templates\crush_lu\create_profile.html:481
 msgid "Vianden"
 msgstr "Vianden"
 
-#: .\forms.py:172 .\templates\crush_lu\create_profile.html:460
+#: .\forms.py:172 .\templates\crush_lu\create_profile.html:482
 msgid "Wiltz"
 msgstr "Wiltz"
 
@@ -1142,12 +1149,12 @@ msgstr "Wiltz"
 msgid "Belgium (Arlon area)"
 msgstr "Belgien (Raum Arlon)"
 
-#: .\forms.py:175 .\templates\crush_lu\create_profile.html:464
+#: .\forms.py:175 .\templates\crush_lu\create_profile.html:486
 #: .\templates\crush_lu\partials\canton_map_svg.html:66
 msgid "Germany (Trier/Saarland area)"
 msgstr "Deutschland (Raum Trier/Saarland)"
 
-#: .\forms.py:176 .\templates\crush_lu\create_profile.html:465
+#: .\forms.py:176 .\templates\crush_lu\create_profile.html:487
 #: .\templates\crush_lu\partials\canton_map_svg.html:75
 msgid "France (Thionville/Metz area)"
 msgstr "Frankreich (Raum Thionville/Metz)"
@@ -1156,11 +1163,11 @@ msgstr "Frankreich (Raum Thionville/Metz)"
 msgid "Your region in or near Luxembourg"
 msgstr "Ihre Region in oder nahe Luxemburg"
 
-#: .\forms.py:199 .\templates\crush_lu\create_profile.html:906
+#: .\forms.py:199 .\templates\crush_lu\create_profile.html:931
 msgid "Languages for Events"
 msgstr "Sprachen für Events"
 
-#: .\forms.py:200 .\templates\crush_lu\create_profile.html:908
+#: .\forms.py:200 .\templates\crush_lu\create_profile.html:933
 msgid "Which languages can you speak at in-person events?"
 msgstr "Welche Sprachen sprichst du bei persönlichen Veranstaltungen?"
 
@@ -1169,15 +1176,15 @@ msgstr "Welche Sprachen sprichst du bei persönlichen Veranstaltungen?"
 msgid "Invalid language selection: %(lang)s"
 msgstr "Ungültige Sprachauswahl: %(lang)s"
 
-#: .\forms.py:250 .\forms.py:926
+#: .\forms.py:250 .\forms.py:978
 msgid "Date of birth cannot be in the future"
 msgstr "Geburtsdatum darf nicht in der Zukunft liegen"
 
-#: .\forms.py:256 .\forms.py:938
+#: .\forms.py:256 .\forms.py:990
 msgid "You must be at least 18 years old to join Crush.lu"
 msgstr "Sie müssen mindestens 18 Jahre alt sein, um Crush.lu beizutreten"
 
-#: .\forms.py:258 .\forms.py:934
+#: .\forms.py:258 .\forms.py:986
 msgid "Please enter a valid date of birth"
 msgstr "Bitte geben Sie ein gültiges Geburtsdatum ein"
 
@@ -1237,74 +1244,87 @@ msgstr "z.B. Voicemail hinterlassen mit der Bitte zurückzurufen..."
 msgid "Session notes..."
 msgstr "Sitzungsnotizen..."
 
-#: .\forms.py:528 .\templates\crush_lu\_event_registration_form.html:25
-#: .\templates\crush_lu\event_register.html:48
-msgid "e.g., vegetarian, gluten-free"
+#: .\forms.py:539
+msgid "e.g., wheelchair access, hearing assistance, etc."
+msgstr ""
+
+#: .\forms.py:547
+#, fuzzy
+#| msgid "e.g., vegetarian, gluten-free"
+msgid "e.g., vegetarian, vegan, gluten-free, allergies"
 msgstr "z.B. vegetarisch, glutenfrei"
 
-#: .\forms.py:529
-msgid "Any special requests or questions?"
+#: .\forms.py:559
+#, fuzzy
+#| msgid "Guest's last name"
+msgid "Guest's full name"
+msgstr "Nachname des Gastes"
+
+#: .\forms.py:566
+#, fuzzy
+#| msgid "Any special requests or questions?"
+msgid "Any other requests or questions?"
 msgstr "Besondere Wünsche oder Fragen?"
 
-#: .\forms.py:541
+#: .\forms.py:593
 msgid "Share your coaching philosophy and approach..."
 msgstr "Teilen Sie Ihre Coaching-Philosophie und Ihren Ansatz..."
 
-#: .\forms.py:544
+#: .\forms.py:596
 msgid ""
 "Tell users about your coaching style and experience (max 500 characters)"
 msgstr ""
 "Erzählen Sie den Nutzern über Ihren Coaching-Stil und Ihre Erfahrung (max. "
 "500 Zeichen)"
 
-#: .\forms.py:551
+#: .\forms.py:603
 msgid "e.g., Young professionals, Students, 35+, LGBTQ+"
 msgstr "z.B. Junge Berufstätige, Studenten, 35+, LGBTQ+"
 
-#: .\forms.py:554
+#: .\forms.py:606
 msgid "What groups or demographics do you specialize in coaching?"
 msgstr "Auf welche Gruppen oder Zielgruppen sind Sie spezialisiert?"
 
-#: .\forms.py:563
+#: .\forms.py:615
 msgid "Upload a professional photo that users will see"
 msgstr "Laden Sie ein professionelles Foto hoch, das Benutzer sehen werden"
 
-#: .\forms.py:579 .\templates\crush_lu\set_password.html:53
+#: .\forms.py:631 .\templates\crush_lu\set_password.html:53
 msgid "New Password"
 msgstr "Neues Passwort"
 
-#: .\forms.py:582
+#: .\forms.py:634
 msgid "Enter new password"
 msgstr "Neues Passwort eingeben"
 
-#: .\forms.py:585
+#: .\forms.py:637
 msgid "Your password must be at least 8 characters."
 msgstr "Ihr Passwort muss mindestens 8 Zeichen lang sein."
 
-#: .\forms.py:588 .\templates\crush_lu\auth.html:177
+#: .\forms.py:640 .\templates\crush_lu\auth.html:177
 #: .\templates\crush_lu\auth_luxid_mockup.html:249
 #: .\templates\crush_lu\set_password.html:66
 #: .\templates\crush_lu\signup.html:121
 msgid "Confirm Password"
 msgstr "Passwort bestätigen"
 
-#: .\forms.py:591
+#: .\forms.py:643
 msgid "Confirm new password"
 msgstr "Neues Passwort bestätigen"
 
-#: .\forms.py:616
+#: .\forms.py:668
 msgid "Passwords do not match."
 msgstr "Passwörter stimmen nicht überein."
 
-#: .\forms.py:638
+#: .\forms.py:690
 msgid "e.g., My Crush, Marie, Sunshine"
 msgstr "z.B., Mein Crush, Marie, Sonnenschein"
 
-#: .\forms.py:641
+#: .\forms.py:693
 msgid "Name/Nickname for the Journey"
 msgstr "Name/Spitzname fuer die Reise"
 
-#: .\forms.py:642
+#: .\forms.py:694
 msgid ""
 "This name will be used throughout the journey story. Use any name or "
 "nickname you like."
@@ -1312,27 +1332,27 @@ msgstr ""
 "Dieser Name wird in der gesamten Reise-Geschichte verwendet. Verwende einen "
 "beliebigen Namen oder Spitznamen."
 
-#: .\forms.py:655
+#: .\forms.py:707
 msgid "When did you first meet?"
 msgstr "Wann habt ihr euch zum ersten Mal getroffen?"
 
-#: .\forms.py:656
+#: .\forms.py:708
 msgid "This date will be featured in the journey story."
 msgstr "Dieses Datum wird in der Reise-Geschichte vorkommen."
 
-#: .\forms.py:663
+#: .\forms.py:715
 msgid "e.g., Cafe de Paris, Luxembourg City"
 msgstr "z.B., Cafe de Paris, Luxemburg Stadt"
 
-#: .\forms.py:666
+#: .\forms.py:718
 msgid "Where did you first meet?"
 msgstr "Wo habt ihr euch zum ersten Mal getroffen?"
 
-#: .\forms.py:667
+#: .\forms.py:719
 msgid "This location will be featured in the journey story."
 msgstr "Dieser Ort wird in der Reise-Geschichte vorkommen."
 
-#: .\forms.py:675
+#: .\forms.py:727
 msgid ""
 "Optional: Add a personal note that will be shown when they scan the QR "
 "code..."
@@ -1340,32 +1360,32 @@ msgstr ""
 "Optional: Fuege eine persoenliche Notiz hinzu, die angezeigt wird,wenn sie "
 "den QR-Code scannen..."
 
-#: .\forms.py:678
+#: .\forms.py:730
 msgid "Personal Message (Optional)"
 msgstr "Persoenliche Nachricht (Optional)"
 
-#: .\forms.py:679
+#: .\forms.py:731
 msgid "This message will be displayed on the gift landing page."
 msgstr "Diese Nachricht wird auf der Geschenk-Landingpage angezeigt."
 
-#: .\forms.py:685
+#: .\forms.py:737
 msgid "Optional: their@email.com"
 msgstr "Optional: ihre@email.com"
 
-#: .\forms.py:688
+#: .\forms.py:740
 msgid "Recipient Email (Optional)"
 msgstr "Empfaenger-E-Mail (Optional)"
 
-#: .\forms.py:689
+#: .\forms.py:741
 msgid "We can send them a notification when you create the gift."
 msgstr ""
 "Wir koennen eine Benachrichtigung senden, wenn du das Geschenkerstellst."
 
-#: .\forms.py:699
+#: .\forms.py:751
 msgid "Photo Puzzle Image"
 msgstr "Foto-Puzzle-Bild"
 
-#: .\forms.py:700
+#: .\forms.py:752
 msgid ""
 "This image will be revealed as a puzzle in Chapter 1. Recommended: 800x800px "
 "square image."
@@ -1373,45 +1393,45 @@ msgstr ""
 "Dieses Bild wird als Puzzle in Kapitel 1 enthüllt. Empfohlen: Quadratisches "
 "Bild (1:1), mindestens 800x800px."
 
-#: .\forms.py:709
+#: .\forms.py:761
 msgid "Slideshow Photo 1"
 msgstr "Slideshow-Foto 1"
 
-#: .\forms.py:710
+#: .\forms.py:762
 msgid "First photo for the Chapter 3 slideshow."
 msgstr "Erstes Foto für die Slideshow in Kapitel 3."
 
-#: .\forms.py:719
+#: .\forms.py:771
 msgid "Slideshow Photo 2"
 msgstr "Slideshow-Foto 2"
 
-#: .\forms.py:728
+#: .\forms.py:780
 msgid "Slideshow Photo 3"
 msgstr "Slideshow-Foto 3"
 
-#: .\forms.py:737
+#: .\forms.py:789
 msgid "Slideshow Photo 4"
 msgstr "Slideshow-Foto 4"
 
-#: .\forms.py:746
+#: .\forms.py:798
 msgid "Slideshow Photo 5"
 msgstr "Slideshow-Foto 5"
 
-#: .\forms.py:755 .\models\journey.py:310
+#: .\forms.py:807 .\models\journey.py:310
 msgid "Video Message"
 msgstr "Videonachricht"
 
-#: .\forms.py:756
+#: .\forms.py:808
 msgid "Record a video message for Chapter 4. Formats: MP4, MOV (max 50MB)."
 msgstr ""
 "Nehmen Sie eine Videonachricht für Kapitel 4 auf. Formate: MP4, MOV (max. 50 "
 "MB)."
 
-#: .\forms.py:765
+#: .\forms.py:817
 msgid "Letter Music"
 msgstr "Brief-Musik"
 
-#: .\forms.py:766
+#: .\forms.py:818
 msgid ""
 "Add background music for the Future Letter (Chapter 5). Formats: MP3, WAV, "
 "M4A (max 10MB)."
@@ -1419,50 +1439,50 @@ msgstr ""
 "Fügen Sie Hintergrundmusik für den Zukunftsbrief (Kapitel 5) hinzu. Formate: "
 "MP3, WAV, M4A (max. 10 MB)."
 
-#: .\forms.py:788
+#: .\forms.py:840
 msgid "The date you first met cannot be in the future"
 msgstr "Das Datum eures ersten Treffens darf nicht in der Zukunft liegen"
 
-#: .\forms.py:796
+#: .\forms.py:848
 #, python-format
 msgid "Image file size must be less than %(max_size)s MB."
 msgstr "Bilddateigröße muss kleiner als %(max_size)s MB sein."
 
-#: .\forms.py:823
+#: .\forms.py:875
 msgid "Audio file size must be less than 10 MB."
 msgstr "Audiodateigröße muss kleiner als 10 MB sein."
 
-#: .\forms.py:837
+#: .\forms.py:889
 msgid "Invalid audio format. Please use MP3, WAV, or M4A files."
 msgstr "Ungültiges Audioformat. Bitte verwende MP3-, WAV- oder M4A-Dateien."
 
-#: .\forms.py:846
+#: .\forms.py:898
 msgid "Video file size must be less than 50 MB."
 msgstr "Videodateigröße muss kleiner als 50 MB sein."
 
-#: .\forms.py:857
+#: .\forms.py:909
 msgid "Invalid video format. Please use MP4 or MOV files."
 msgstr "Ungültiges Videoformat. Bitte verwende MP4- oder MOV-Dateien."
 
-#: .\forms.py:882 .\models\profiles.py:522
-#: .\templates\crush_lu\create_profile.html:225
-#: .\templates\crush_lu\create_profile.html:1020
+#: .\forms.py:934 .\models\profiles.py:539
+#: .\templates\crush_lu\create_profile.html:247
+#: .\templates\crush_lu\create_profile.html:1049
 msgid "Date of Birth"
 msgstr "Geburtsdatum"
 
-#: .\forms.py:883
+#: .\forms.py:935
 msgid "You must be 18+ to join Crush.lu"
 msgstr "Du musst mindestens 18 Jahre alt sein, um Crush.lu beizutreten"
 
-#: .\forms.py:888
+#: .\forms.py:940
 msgid "I agree to the Terms of Service and Privacy Policy"
 msgstr "Ich stimme den Nutzungsbedingungen und Datenschutzrichtlinien zu"
 
-#: .\forms.py:920
+#: .\forms.py:972
 msgid "Date of birth is required"
 msgstr "Geburtsdatum ist erforderlich"
 
-#: .\forms.py:946
+#: .\forms.py:998
 msgid "You must agree to the Terms of Service and Privacy Policy"
 msgstr "Du musst den Nutzungsbedingungen und Datenschutzrichtlinien zustimmen"
 
@@ -1696,46 +1716,96 @@ msgstr "QR-Code-Token"
 msgid "🔑 5. QR Code Tokens"
 msgstr "🔑 5. QR-Code-Tokens"
 
-#: .\models\events.py:85
+#: .\models\events.py:74
+msgid ""
+"Event banner image (recommended: 1200x400px, displayed on event detail page)"
+msgstr ""
+
+#: .\models\events.py:84
+msgid ""
+"Canton/region visible to public visitors (e.g., 'Luxembourg', 'Esch-sur-"
+"Alzette'). Free-text entry for flexibility."
+msgstr ""
+
+#: .\models\events.py:97
+msgid ""
+"Require attendees to have approved profiles (recommended for dating events)"
+msgstr ""
+
+#: .\models\events.py:105
+msgid "Does this event include food/drinks? (Shows dietary restrictions field)"
+msgstr ""
+
+#: .\models\events.py:109
+msgid "Can attendees bring a guest?"
+msgstr ""
+
+#: .\models\events.py:115
 msgid "Event fee in EUR"
 msgstr "Veranstaltungsgebühr in EUR"
 
-#: .\models\events.py:95
+#: .\models\events.py:124
+msgid "Enable 3-phase interactive system (voting, presentations, speed dating)"
+msgstr ""
+
+#: .\models\events.py:131
 msgid "Private invitation-only event (visible only to invited guests)"
 msgstr "Privates Event nur auf Einladung (nur für eingeladene Gäste sichtbar)"
 
-#: .\models\events.py:102
+#: .\models\events.py:138
 msgid "Unique code for this private event"
 msgstr "Eindeutiger Code für dieses private Event"
 
-#: .\models\events.py:107
+#: .\models\events.py:141
 msgid "When invitations for this event expire"
 msgstr "Wann Einladungen für dieses Event ablaufen"
 
-#: .\models\events.py:111
+#: .\models\events.py:144
 msgid "Maximum invited guests for private event"
 msgstr "Maximale eingeladene Gäste für privates Event"
 
-#: .\models\events.py:119
+#: .\models\events.py:153
 msgid ""
 "Existing users invited to this private event (no external invitation needed)"
 msgstr ""
 "Bestehende Benutzer, die zu diesem privaten Event eingeladen wurden (keine "
 "externe Einladung erforderlich)"
 
-#: .\models\events.py:263
+#: .\models\events.py:178
+#, fuzzy
+#| msgid "to register for this event."
+msgid "Canton is required for published events."
+msgstr "um dich für dieses Event anzumelden."
+
+#: .\models\events.py:264
+msgid "Any accessibility accommodations needed"
+msgstr ""
+
+#: .\models\events.py:269
+msgid "Only for events with food component"
+msgstr ""
+
+#: .\models\events.py:272
+msgid "Attending with a guest"
+msgstr ""
+
+#: .\models\events.py:275
+msgid "Guest's name (if bringing someone)"
+msgstr ""
+
+#: .\models\events.py:331
 msgid "Guest's email address"
 msgstr "E-Mail-Adresse des Gastes"
 
-#: .\models\events.py:264
+#: .\models\events.py:333
 msgid "Guest's first name"
 msgstr "Vorname des Gastes"
 
-#: .\models\events.py:265
+#: .\models\events.py:335
 msgid "Guest's last name"
 msgstr "Nachname des Gastes"
 
-#: .\models\events.py:274
+#: .\models\events.py:345
 msgid ""
 "Link this invitation to a Special User for VIP treatment (auto-fills from "
 "name/email match)"
@@ -1743,99 +1813,99 @@ msgstr ""
 "Diese Einladung mit einem VIP-Benutzer verknüpfen (wird automatisch aus Name/"
 "E-Mail ausgefüllt)"
 
-#: .\models\events.py:282
+#: .\models\events.py:354
 msgid "Unique invitation code (UUID)"
 msgstr "Eindeutiger Einladungscode (UUID)"
 
-#: .\models\events.py:289
+#: .\models\events.py:361
 msgid "Coach/admin who sent the invitation"
 msgstr "Coach/Admin, der die Einladung gesendet hat"
 
-#: .\models\events.py:297
+#: .\models\events.py:369
 msgid "Invitation status"
 msgstr "Einladungsstatus"
 
-#: .\models\events.py:303
+#: .\models\events.py:375
 msgid "Approval status (coach must approve before attendance)"
 msgstr "Genehmigungsstatus (Coach muss vor Teilnahme genehmigen)"
 
-#: .\models\events.py:313
+#: .\models\events.py:385
 msgid "User account created when invitation was accepted"
 msgstr "Benutzerkonto bei Annahme der Einladung erstellt"
 
-#: .\models\events.py:324
+#: .\models\events.py:395
 msgid "Internal notes about approval/rejection"
 msgstr "Interne Notizen zur Genehmigung/Ablehnung"
 
-#: .\models\events.py:328
+#: .\models\events.py:398
 msgid "Coach notes about the guest"
 msgstr "Coach-Notizen über den Gast"
 
-#: .\models\events.py:333
+#: .\models\events.py:403
 msgid "Event Invitation"
 msgstr "Event-Einladung"
 
-#: .\models\events.py:334
+#: .\models\events.py:404
 msgid "Event Invitations"
 msgstr "Event-Einladungen"
 
-#: .\models\events.py:372
+#: .\models\events.py:448
 msgid "Unique identifier (e.g., 'music', 'spicy_questions')"
 msgstr "Eindeutiger Bezeichner (z.B. 'musik', 'spicy_questions')"
 
-#: .\models\events.py:378
+#: .\models\events.py:453
 msgid "Inactive options won't appear in voting"
 msgstr "Inaktive Optionen erscheinen nicht in der Abstimmung"
 
-#: .\models\events.py:382
+#: .\models\events.py:456
 msgid "Display order in voting UI"
 msgstr "Anzeigereihenfolge in der Abstimmungs-UI"
 
-#: .\models\events.py:391
+#: .\models\events.py:465
 msgid "Global Activity Option"
 msgstr "Globale Aktivitätsoption"
 
-#: .\models\events.py:392
+#: .\models\events.py:466
 msgid "Global Activity Options"
 msgstr "Globale Aktivitätsoptionen"
 
-#: .\models\events.py:423
+#: .\models\events.py:499
 msgid "Sub-option for the activity"
 msgstr "Unteroption für die Aktivität"
 
-#: .\models\events.py:427
+#: .\models\events.py:502
 msgid "e.g., 'Speed Dating - Random Order'"
 msgstr "z.B. 'Speed Dating - Zufällige Reihenfolge'"
 
-#: .\models\events.py:429
+#: .\models\events.py:505
 msgid "Explanation of what this activity entails"
 msgstr "Erklärung, was diese Aktivität beinhaltet"
 
-#: .\models\events.py:473
+#: .\models\events.py:555
 msgid "Order in queue (1, 2, 3...)"
 msgstr "Reihenfolge in der Warteschlange (1, 2, 3...)"
 
-#: .\models\events.py:503
+#: .\models\events.py:589
 msgid "Event start time + 15 minutes"
 msgstr "Event-Startzeit + 15 Minuten"
 
-#: .\models\events.py:504
+#: .\models\events.py:592
 msgid "Voting start time + 30 minutes"
 msgstr "Abstimmungs-Startzeit + 30 Minuten"
 
-#: .\models\events.py:636
+#: .\models\events.py:734
 msgid "Rating from 1-5 stars"
 msgstr "Bewertung von 1-5 Sternen"
 
-#: .\models\events.py:684
+#: .\models\events.py:792
 msgid "Which speed dating round (1, 2, 3...)"
 msgstr "Welche Speed-Dating-Runde (1, 2, 3...)"
 
-#: .\models\events.py:686
+#: .\models\events.py:795
 msgid "Combined rating score from Phase 2"
 msgstr "Kombinierte Bewertung aus Phase 2"
 
-#: .\models\events.py:691
+#: .\models\events.py:799
 msgid "True if this is user's #1 rated match (gets extended time)"
 msgstr ""
 "Wahr, wenn dies der am besten bewertete Match ist (erhält verlängerte Zeit)"
@@ -2149,11 +2219,11 @@ msgstr "Belohnungs-Fortschritt"
 msgid "🏆 9. Reward Progress (Puzzle Tracking)"
 msgstr "🏆 9. Belohnungs-Fortschritt (Puzzle-Verfolgung)"
 
-#: .\models\journey_gift.py:114 .\templates\crush_lu\journey\gift_list.html:26
+#: .\models\journey_gift.py:115 .\templates\crush_lu\journey\gift_list.html:26
 msgid "Claimed"
 msgstr "Eingeloest"
 
-#: .\models\journey_gift.py:115
+#: .\models\journey_gift.py:116
 #: .\templates\crush_lu\coach_journey_dashboard.html:48
 #: .\templates\crush_lu\coach_journey_dashboard.html:81
 #: .\templates\crush_lu\coach_view_user_progress.html:453
@@ -2164,120 +2234,120 @@ msgstr "Eingeloest"
 msgid "Completed"
 msgstr "Abgeschlossen"
 
-#: .\models\journey_gift.py:116 .\templates\crush_lu\journey\gift_list.html:30
+#: .\models\journey_gift.py:117 .\templates\crush_lu\journey\gift_list.html:30
 msgid "Expired"
 msgstr "Abgelaufen"
 
-#: .\models\journey_gift.py:117
+#: .\models\journey_gift.py:118
 msgid "Claim Failed"
 msgstr "Anspruch fehlgeschlagen"
 
-#: .\models\journey_gift.py:124
+#: .\models\journey_gift.py:125
 msgid "Unique gift code (e.g., WOY-A1B2C3D4)"
 msgstr "Eindeutiger Geschenkcode (z.B., WOY-A1B2C3D4)"
 
-#: .\models\journey_gift.py:132
+#: .\models\journey_gift.py:133
 msgid "User who created this gift"
 msgstr "Benutzer, der dieses Geschenk erstellt hat"
 
-#: .\models\journey_gift.py:136
+#: .\models\journey_gift.py:137
 msgid "Optional personal message from sender"
 msgstr "Optionale persoenliche Nachricht vom Absender"
 
-#: .\models\journey_gift.py:142
+#: .\models\journey_gift.py:143
 msgid "Name/nickname for the journey story (e.g., 'My Crush', 'Marie')"
 msgstr "Name/Spitzname fuer die Reise-Geschichte (z.B., 'Mein Crush', 'Marie')"
 
-#: .\models\journey_gift.py:146
+#: .\models\journey_gift.py:147
 msgid "Optional email for notifications"
 msgstr "Optionale E-Mail fuer Benachrichtigungen"
 
-#: .\models\journey_gift.py:151
+#: .\models\journey_gift.py:152
 msgid "Date the sender and recipient first met"
 msgstr "Datum des ersten Treffens zwischen Absender und Empfaenger"
 
-#: .\models\journey_gift.py:155
+#: .\models\journey_gift.py:156
 msgid "Location where they first met"
 msgstr "Ort ihres ersten Treffens"
 
-#: .\models\journey_gift.py:163
+#: .\models\journey_gift.py:164
 msgid "Current status of the gift"
 msgstr "Aktueller Status des Geschenks"
 
-#: .\models\journey_gift.py:171
+#: .\models\journey_gift.py:172
 msgid "Optional expiration date for the gift"
 msgstr "Optionales Ablaufdatum fuer das Geschenk"
 
-#: .\models\journey_gift.py:176
+#: .\models\journey_gift.py:177
 msgid "When the gift was claimed"
 msgstr "Wann das Geschenk eingeloest wurde"
 
-#: .\models\journey_gift.py:186
+#: .\models\journey_gift.py:187
 msgid "User who claimed this gift"
 msgstr "Benutzer, der dieses Geschenk eingeloest hat"
 
-#: .\models\journey_gift.py:196
+#: .\models\journey_gift.py:197
 msgid "Journey created from this gift"
 msgstr "Reise erstellt aus diesem Geschenk"
 
-#: .\models\journey_gift.py:204
+#: .\models\journey_gift.py:205
 msgid "Special experience created from this gift"
 msgstr "Besonderes Erlebnis erstellt aus diesem Geschenk"
 
-#: .\models\journey_gift.py:211
+#: .\models\journey_gift.py:213
 msgid "Generated QR code image"
 msgstr "Generiertes QR-Code-Bild"
 
-#: .\models\journey_gift.py:225
+#: .\models\journey_gift.py:227
 msgid "Photo for the Chapter 1 puzzle reveal (recommended: 800x800px)"
 msgstr "Foto for the Kapitel 1 puzzle reveal (recommended: 800x800px)"
 
-#: .\models\journey_gift.py:235
+#: .\models\journey_gift.py:237
 msgid "First slideshow photo"
 msgstr "Erstes Slideshow-Foto"
 
-#: .\models\journey_gift.py:243
+#: .\models\journey_gift.py:245
 msgid "Second slideshow photo"
 msgstr "Zweites Slideshow-Foto"
 
-#: .\models\journey_gift.py:251
+#: .\models\journey_gift.py:253
 msgid "Third slideshow photo"
 msgstr "Drittes Slideshow-Foto"
 
-#: .\models\journey_gift.py:259
+#: .\models\journey_gift.py:261
 msgid "Fourth slideshow photo"
 msgstr "Viertes Slideshow-Foto"
 
-#: .\models\journey_gift.py:267
+#: .\models\journey_gift.py:269
 msgid "Fifth slideshow photo"
 msgstr "Fünftes Slideshow-Foto"
 
-#: .\models\journey_gift.py:277
+#: .\models\journey_gift.py:279
 msgid "Video message file for Chapter 4 (MP4, MOV - max 50MB)"
 msgstr "Videonachricht-Datei für Kapitel 4 (MP4, MOV - max. 50 MB)"
 
-#: .\models\journey_gift.py:287
+#: .\models\journey_gift.py:289
 msgid "Background music for Chapter 5 Future Letter (MP3, WAV, M4A - max 10MB)"
 msgstr ""
 "Hintergrundmusik für Kapitel 5 Zukunftsbrief (MP3, WAV, M4A - max. 10 MB)"
 
-#: .\models\journey_gift.py:298
+#: .\models\journey_gift.py:300
 msgid "DEPRECATED: Use chapter5_letter_music instead"
 msgstr "VERALTET: Verwende stattdessen chapter5_letter_music"
 
-#: .\models\journey_gift.py:304
+#: .\models\journey_gift.py:306
 msgid "Error message if claim failed"
 msgstr "Fehlermeldung wenn Anspruch fehlgeschlagen ist"
 
-#: .\models\journey_gift.py:308
+#: .\models\journey_gift.py:310
 msgid "Number of claim attempts made"
 msgstr "Anzahl der Anspruchsversuche"
 
-#: .\models\journey_gift.py:315
+#: .\models\journey_gift.py:317
 msgid "Journey Gift"
 msgstr "Reise-Geschenk"
 
-#: .\models\journey_gift.py:316
+#: .\models\journey_gift.py:318
 msgid "Journey Gifts"
 msgstr "Reise-Geschenke"
 
@@ -2465,20 +2535,20 @@ msgstr "Coach-Profilfoto für Benutzer"
 msgid "Maximum number of profiles this coach can review simultaneously"
 msgstr "Maximale gleichzeitig zu überprüfende Profile"
 
-#: .\models\profiles.py:286 .\templates\crush_lu\create_profile.html:365
+#: .\models\profiles.py:286 .\templates\crush_lu\create_profile.html:387
 msgid "Male"
 msgstr "Männlich"
 
-#: .\models\profiles.py:287 .\templates\crush_lu\create_profile.html:375
+#: .\models\profiles.py:287 .\templates\crush_lu\create_profile.html:397
 msgid "Female"
 msgstr "Weiblich"
 
-#: .\models\profiles.py:288 .\templates\crush_lu\create_profile.html:385
+#: .\models\profiles.py:288 .\templates\crush_lu\create_profile.html:407
 msgid "Non-binary"
 msgstr "Nicht-binär"
 
 #: .\models\profiles.py:289 .\templates\crush_lu\coach_dashboard.html:139
-#: .\templates\crush_lu\create_profile.html:395
+#: .\templates\crush_lu\create_profile.html:417
 msgid "Other"
 msgstr "Andere"
 
@@ -2490,7 +2560,7 @@ msgstr "Keine Angabe"
 msgid "New Friends"
 msgstr "Neue Freunde"
 
-#: .\models\profiles.py:295 .\templates\crush_lu\create_profile.html:664
+#: .\models\profiles.py:295 .\templates\crush_lu\create_profile.html:686
 msgid "Dating"
 msgstr "Dating"
 
@@ -2498,7 +2568,7 @@ msgstr "Dating"
 #: .\templates\crush_lu\_screening_call_section.html:87
 #: .\templates\crush_lu\_screening_call_section.html:475
 #: .\templates\crush_lu\_screening_tab.html:86
-#: .\templates\crush_lu\create_profile.html:674
+#: .\templates\crush_lu\create_profile.html:696
 msgid "Both"
 msgstr "Beide"
 
@@ -2535,153 +2605,165 @@ msgid "Track which step user completed"
 msgstr "Verfolgen, welchen Schritt der Benutzer abgeschlossen hat"
 
 #: .\models\profiles.py:325
+msgid "Temporary storage for incomplete/invalid step data"
+msgstr ""
+
+#: .\models\profiles.py:330
+msgid "Timestamp of last auto-save"
+msgstr ""
+
+#: .\models\profiles.py:335
+msgid "Auto-delete inactive drafts after 30 days"
+msgstr ""
+
+#: .\models\profiles.py:342
 msgid "Whether phone was verified via SMS OTP"
 msgstr "Ob Telefon via SMS-OTP verifiziert wurde"
 
-#: .\models\profiles.py:326
+#: .\models\profiles.py:343
 msgid "When phone was verified"
 msgstr "Wann Telefon verifiziert wurde"
 
-#: .\models\profiles.py:331
+#: .\models\profiles.py:348
 msgid "Firebase UID from phone verification (for audit/anti-replay)"
 msgstr "Firebase-UID von Telefonverifizierung (für Audit/Anti-Replay)"
 
-#: .\models\profiles.py:333
+#: .\models\profiles.py:350
 msgid "City/Region in Luxembourg"
 msgstr "Stadt/Region in Luxemburg"
 
-#: .\models\profiles.py:336
+#: .\models\profiles.py:353
 msgid "Tell us about yourself!"
 msgstr "Erzählen Sie uns von sich!"
 
-#: .\models\profiles.py:340
+#: .\models\profiles.py:357
 msgid "Your hobbies and interests (comma-separated)"
 msgstr "Ihre Hobbys und Interessen (durch Komma getrennt)"
 
-#: .\models\profiles.py:374
+#: .\models\profiles.py:391
 msgid "Show full name (if false, only first name is shown)"
 msgstr "Vollständigen Namen anzeigen (wenn falsch, nur Vorname)"
 
-#: .\models\profiles.py:378
+#: .\models\profiles.py:395
 msgid "Show exact age (if false, show age range)"
 msgstr "Genaues Alter anzeigen (wenn falsch, Altersbereich)"
 
-#: .\models\profiles.py:382 .\templates\crush_lu\how_it_works.html:498
+#: .\models\profiles.py:399 .\templates\crush_lu\how_it_works.html:498
 msgid "Blur photos until mutual interest"
 msgstr "Verwischen Sie Fotos, bis das gegenseitige Interesse besteht"
 
-#: .\models\profiles.py:389 .\models\profiles.py:399
-#: .\templates\crush_lu\create_profile.html:915
+#: .\models\profiles.py:406 .\models\profiles.py:416
+#: .\templates\crush_lu\create_profile.html:941
 msgid "English"
 msgstr "Englisch"
 
-#: .\models\profiles.py:390 .\models\profiles.py:400
-#: .\templates\crush_lu\create_profile.html:922
+#: .\models\profiles.py:407 .\models\profiles.py:417
+#: .\templates\crush_lu\create_profile.html:949
 msgid "Deutsch"
 msgstr "Deutsch"
 
-#: .\models\profiles.py:391 .\models\profiles.py:401
-#: .\templates\crush_lu\create_profile.html:929
+#: .\models\profiles.py:408 .\models\profiles.py:418
+#: .\templates\crush_lu\create_profile.html:957
 msgid "Français"
 msgstr "Französisch"
 
-#: .\models\profiles.py:394
+#: .\models\profiles.py:411
 msgid "Preferred language for emails and notifications"
 msgstr "Bevorzugte Sprache für E-Mails und Benachrichtigungen"
 
-#: .\models\profiles.py:402 .\templates\crush_lu\create_profile.html:936
+#: .\models\profiles.py:419 .\templates\crush_lu\create_profile.html:965
 msgid "Lëtzebuergesch"
 msgstr "Lëtzebuergesch"
 
-#: .\models\profiles.py:407
+#: .\models\profiles.py:424
 msgid "Languages the user can speak at in-person events"
 msgstr ""
 "Sprachen, die der Benutzer bei persönlichen Veranstaltungen sprechen kann"
 
-#: .\models\profiles.py:414
+#: .\models\profiles.py:431
 msgid "Apple Wallet pass serial number"
 msgstr "Apple Wallet Pass-Seriennummer"
 
-#: .\models\profiles.py:419
+#: .\models\profiles.py:436
 msgid "Apple Wallet authentication token"
 msgstr "Apple Wallet Authentifizierungs-Token"
 
-#: .\models\profiles.py:424
+#: .\models\profiles.py:441
 msgid "Google Wallet object ID"
 msgstr "Google Wallet Objekt-ID"
 
-#: .\models\profiles.py:428
+#: .\models\profiles.py:445
 msgid "Show profile photo on wallet card"
 msgstr "Profilfoto auf Wallet-Karte anzeigen"
 
-#: .\models\profiles.py:435
+#: .\models\profiles.py:452
 msgid "Microsoft Graph contact ID for Outlook sync"
 msgstr "Microsoft Graph Kontakt-ID für Outlook-Synchronisation"
 
-#: .\models\profiles.py:440 .\views.py:1373
+#: .\models\profiles.py:457 .\views.py:1555
 msgid "Basic"
 msgstr "Basic"
 
-#: .\models\profiles.py:441 .\views.py:1384
+#: .\models\profiles.py:458 .\views.py:1566
 msgid "Bronze"
 msgstr "Bronze"
 
-#: .\models\profiles.py:442 .\views.py:1395
+#: .\models\profiles.py:459 .\views.py:1577
 msgid "Silver"
 msgstr "Silber"
 
-#: .\models\profiles.py:443 .\views.py:1406
+#: .\models\profiles.py:460 .\views.py:1588
 msgid "Gold"
 msgstr "Gold"
 
-#: .\models\profiles.py:447
+#: .\models\profiles.py:464
 msgid "Points earned from referrals"
 msgstr "Durch Empfehlungen verdiente Punkte"
 
-#: .\models\profiles.py:453
+#: .\models\profiles.py:470
 msgid "Membership tier based on referral activity"
 msgstr "Mitgliedschaftsstufe basierend auf Empfehlungsaktivität"
 
-#: .\models\profiles.py:528 .\templates\crush_lu\create_profile.html:340
-#: .\templates\crush_lu\create_profile.html:1029
+#: .\models\profiles.py:545 .\templates\crush_lu\create_profile.html:362
+#: .\templates\crush_lu\create_profile.html:1058
 msgid "Gender"
 msgstr "Geschlecht"
 
-#: .\models\profiles.py:534 .\templates\crush_lu\create_profile.html:153
-#: .\templates\crush_lu\create_profile.html:1011
+#: .\models\profiles.py:551 .\templates\crush_lu\create_profile.html:175
+#: .\templates\crush_lu\create_profile.html:1040
 #: .\templates\crush_lu\verify_phone.html:50
 msgid "Phone Number"
 msgstr "Telefonnummer"
 
-#: .\models\profiles.py:540
+#: .\models\profiles.py:557
 msgid "Phone Verification"
 msgstr "Telefonverifizierung erforderlich!"
 
-#: .\models\profiles.py:546 .\templates\crush_lu\create_profile.html:1038
-#: .\templates\crush_lu\event_detail.html:116
+#: .\models\profiles.py:563 .\templates\crush_lu\create_profile.html:1067
+#: .\templates\crush_lu\event_detail.html:158
 #: .\templates\crush_lu\invitation_landing.html:158
 msgid "Location"
 msgstr "Standort"
 
-#: .\models\profiles.py:554 .\templates\crush_lu\_profile_tab.html:149
-#: .\templates\crush_lu\create_profile.html:546
+#: .\models\profiles.py:571 .\templates\crush_lu\_profile_tab.html:149
+#: .\templates\crush_lu\create_profile.html:568
 msgid "Bio"
 msgstr "Über mich"
 
-#: .\models\profiles.py:560 .\templates\crush_lu\_profile_tab.html:153
+#: .\models\profiles.py:577 .\templates\crush_lu\_profile_tab.html:153
 msgid "Interests"
 msgstr "Interessen"
 
-#: .\models\profiles.py:568
+#: .\models\profiles.py:585
 msgid "Profile Photo"
 msgstr "Profil"
 
-#: .\models\profiles.py:614 .\templates\crush_lu\account_settings.html:278
-#: .\templates\crush_lu\base.html:491 .\views.py:1230
+#: .\models\profiles.py:631 .\templates\crush_lu\account_settings.html:278
+#: .\templates\crush_lu\base.html:491 .\views.py:1404
 msgid "Pending Review"
 msgstr "Prüfung ausstehend"
 
-#: .\models\profiles.py:615 .\templates\crush_lu\account_settings.html:278
+#: .\models\profiles.py:632 .\templates\crush_lu\account_settings.html:278
 #: .\templates\crush_lu\base.html:497
 #: .\templates\crush_lu\coach_dashboard.html:181
 #: .\templates\crush_lu\coach_invitation_dashboard.html:44
@@ -2690,416 +2772,416 @@ msgstr "Prüfung ausstehend"
 msgid "Approved"
 msgstr "Genehmigt"
 
-#: .\models\profiles.py:616 .\templates\crush_lu\base.html:493
+#: .\models\profiles.py:633 .\templates\crush_lu\base.html:493
 #: .\templates\crush_lu\coach_dashboard.html:183
 #: .\templates\crush_lu\coach_invitation_dashboard.html:280
 msgid "Rejected"
 msgstr "Abgelehnt"
 
-#: .\models\profiles.py:617 .\templates\crush_lu\base.html:495
+#: .\models\profiles.py:634 .\templates\crush_lu\base.html:495
 msgid "Needs Revision"
 msgstr "Überarbeitung erforderlich"
 
-#: .\models\profiles.py:618
+#: .\models\profiles.py:635
 msgid "Recontact Coach Required"
 msgstr "Erneuter Coach-Kontakt erforderlich"
 
-#: .\models\profiles.py:631
+#: .\models\profiles.py:648
 msgid "Internal notes from coach"
 msgstr "Interne Notizen vom Coach"
 
-#: .\models\profiles.py:634
+#: .\models\profiles.py:651
 msgid "Feedback shown to user if revision needed"
 msgstr "Feedback für Benutzer bei erforderlicher Überarbeitung"
 
-#: .\models\profiles.py:645
+#: .\models\profiles.py:662
 msgid "When coach completed the screening call"
 msgstr "Wann Coach den Screening-Anruf abschloss"
 
-#: .\models\profiles.py:649
+#: .\models\profiles.py:666
 msgid "Notes from coach's screening call during review"
 msgstr "Notizen vom Screening-Anruf während der Überprüfung"
 
-#: .\models\profiles.py:654
+#: .\models\profiles.py:671
 msgid "Structured checklist data from screening call"
 msgstr "Strukturierte Checklisten-Daten aus dem Screening-Anruf"
 
-#: .\models\profiles.py:694
+#: .\models\profiles.py:711
 msgid "Call Completed"
 msgstr "Anruf abgeschlossen"
 
-#: .\models\profiles.py:695
+#: .\models\profiles.py:712
 msgid "Call Failed"
 msgstr "Anruf fehlgeschlagen"
 
-#: .\models\profiles.py:699 .\templates\crush_lu\_call_attempt_form.html:21
+#: .\models\profiles.py:716 .\templates\crush_lu\_call_attempt_form.html:21
 msgid "No answer"
 msgstr "Keine Antwort"
 
-#: .\models\profiles.py:700 .\templates\crush_lu\_call_attempt_form.html:22
+#: .\models\profiles.py:717 .\templates\crush_lu\_call_attempt_form.html:22
 msgid "Voicemail left"
 msgstr "Voicemail hinterlassen"
 
-#: .\models\profiles.py:701 .\templates\crush_lu\_call_attempt_form.html:23
+#: .\models\profiles.py:718 .\templates\crush_lu\_call_attempt_form.html:23
 msgid "Wrong number"
 msgstr "Falsche Nummer"
 
-#: .\models\profiles.py:702 .\templates\crush_lu\_call_attempt_form.html:24
+#: .\models\profiles.py:719 .\templates\crush_lu\_call_attempt_form.html:24
 msgid "User busy"
 msgstr "Benutzer beschäftigt"
 
-#: .\models\profiles.py:703 .\templates\crush_lu\_call_attempt_form.html:25
+#: .\models\profiles.py:720 .\templates\crush_lu\_call_attempt_form.html:25
 msgid "Scheduled callback"
 msgstr "Rückruf vereinbart"
 
-#: .\models\profiles.py:710
+#: .\models\profiles.py:727
 msgid "The profile submission this call attempt is for"
 msgstr ""
 
-#: .\models\profiles.py:715
+#: .\models\profiles.py:732
 #, fuzzy
 #| msgid "When the state was created"
 msgid "When the call attempt was made"
 msgstr "Wann der Status erstellt wurde"
 
-#: .\models\profiles.py:720
+#: .\models\profiles.py:737
 msgid "Whether the call succeeded or failed"
 msgstr ""
 
-#: .\models\profiles.py:727
+#: .\models\profiles.py:744
 msgid "Reason why call failed (if applicable)"
 msgstr ""
 
-#: .\models\profiles.py:731
+#: .\models\profiles.py:748
 #, fuzzy
 #| msgid "Coach notes about the guest"
 msgid "Additional notes about the call attempt"
 msgstr "Coach-Notizen über den Gast"
 
-#: .\models\profiles.py:737
+#: .\models\profiles.py:754
 msgid "Coach who made the call attempt"
 msgstr ""
 
-#: .\models\profiles.py:742
+#: .\models\profiles.py:759
 msgid "Call Attempt"
 msgstr "Anrufversuch"
 
-#: .\models\profiles.py:743
+#: .\models\profiles.py:760
 msgid "Call Attempts"
 msgstr "Anrufversuche"
 
-#: .\models\profiles.py:760
+#: .\models\profiles.py:777
 msgid "Onboarding Session"
 msgstr "Onboarding-Sitzung"
 
-#: .\models\profiles.py:761
+#: .\models\profiles.py:778
 msgid "Profile Feedback"
 msgstr "Profil-Feedback"
 
-#: .\models\profiles.py:762
+#: .\models\profiles.py:779
 msgid "Dating Guidance"
 msgstr "Dating-Beratung"
 
-#: .\models\profiles.py:763
+#: .\models\profiles.py:780
 msgid "Follow-up"
 msgstr "Nachverfolgung"
 
-#: .\models\profiles.py:770
+#: .\models\profiles.py:787
 msgid "Session notes and key points discussed"
 msgstr "Sitzungsnotizen und besprochene Hauptpunkte"
 
-#: .\models\profiles.py:792
+#: .\models\profiles.py:809
 msgid "User being tracked"
 msgstr "Verfolgter Benutzer"
 
-#: .\models\profiles.py:797
+#: .\models\profiles.py:814
 msgid "Last time user made a request"
 msgstr "Letzte Benutzeranfrage"
 
-#: .\models\profiles.py:802
+#: .\models\profiles.py:819
 msgid "Last time user accessed via PWA (standalone mode)"
 msgstr "Letzter Zugriff via PWA (Standalone-Modus)"
 
-#: .\models\profiles.py:808
+#: .\models\profiles.py:825
 msgid "Has this user ever used the installed PWA?"
 msgstr "Hat dieser Benutzer jemals die PWA verwendet?"
 
-#: .\models\profiles.py:814
+#: .\models\profiles.py:831
 msgid "Total number of visits/requests"
 msgstr "Gesamtzahl der Besuche/Anfragen"
 
-#: .\models\profiles.py:821
+#: .\models\profiles.py:838
 msgid "Last time a reminder email was sent to this user"
 msgstr "Letzte Erinnerungs-E-Mail an diesen Benutzer"
 
-#: .\models\profiles.py:825
+#: .\models\profiles.py:842
 msgid "Total number of reminder emails sent to this user"
 msgstr "Gesamtzahl gesendeter Erinnerungs-E-Mails"
 
-#: .\models\profiles.py:831
+#: .\models\profiles.py:848
 msgid "First time user was tracked"
 msgstr "Erste Benutzerverfolgung"
 
-#: .\models\profiles.py:835
+#: .\models\profiles.py:852
 msgid "User Activity"
 msgstr "Benutzeraktivität"
 
-#: .\models\profiles.py:836
+#: .\models\profiles.py:853
 msgid "User Activities"
 msgstr "Benutzeraktivitäten"
 
-#: .\models\profiles.py:896
+#: .\models\profiles.py:913
 msgid "iOS"
 msgstr "iOS"
 
-#: .\models\profiles.py:897
+#: .\models\profiles.py:914
 msgid "Android"
 msgstr "Android"
 
-#: .\models\profiles.py:898
+#: .\models\profiles.py:915
 msgid "Windows"
 msgstr "Windows"
 
-#: .\models\profiles.py:899
+#: .\models\profiles.py:916
 msgid "macOS"
 msgstr "macOS"
 
-#: .\models\profiles.py:900
+#: .\models\profiles.py:917
 msgid "Linux"
 msgstr "Linux"
 
-#: .\models\profiles.py:901
+#: .\models\profiles.py:918
 msgid "ChromeOS"
 msgstr "ChromeOS"
 
-#: .\models\profiles.py:902 .\models\profiles.py:909
+#: .\models\profiles.py:919 .\models\profiles.py:926
 msgid "Unknown"
 msgstr "Unbekannt"
 
-#: .\models\profiles.py:907
+#: .\models\profiles.py:924
 msgid "Tablet"
 msgstr "Tablet"
 
-#: .\models\profiles.py:908
+#: .\models\profiles.py:925
 msgid "Desktop"
 msgstr "Desktop"
 
-#: .\models\profiles.py:916
+#: .\models\profiles.py:933
 msgid "User who installed the PWA"
 msgstr "Benutzer, der die PWA installiert hat"
 
-#: .\models\profiles.py:923
+#: .\models\profiles.py:940
 msgid "Stable browser fingerprint for device identification"
 msgstr "Stabiler Browser-Fingerprint zur Geräteidentifikation"
 
-#: .\models\profiles.py:931
+#: .\models\profiles.py:948
 msgid "Operating system type"
 msgstr "Betriebssystemtyp"
 
-#: .\models\profiles.py:937
+#: .\models\profiles.py:954
 msgid "Device form factor (phone, tablet, desktop)"
 msgstr "Geräte-Formfaktor (Telefon, Tablet, Desktop)"
 
-#: .\models\profiles.py:941
+#: .\models\profiles.py:958
 msgid "Combined category like 'Android Phone', 'Windows Desktop'"
 msgstr "Kombinierte Kategorie wie 'Android Phone', 'Windows Desktop'"
 
-#: .\models\profiles.py:946
+#: .\models\profiles.py:963
 msgid "Browser name (Chrome, Safari, Edge, etc.)"
 msgstr "Browsername (Chrome, Safari, Edge usw.)"
 
-#: .\models\profiles.py:952
+#: .\models\profiles.py:969
 msgid "Full user agent string"
 msgstr "Vollständiger User-Agent-String"
 
-#: .\models\profiles.py:958
+#: .\models\profiles.py:975
 msgid "When PWA was first installed on this device"
 msgstr "Wann PWA erstmals auf diesem Gerät installiert wurde"
 
-#: .\models\profiles.py:962
+#: .\models\profiles.py:979
 msgid "Last time PWA was used on this device"
 msgstr "Letzte PWA-Nutzung auf diesem Gerät"
 
-#: .\models\profiles.py:968
+#: .\models\profiles.py:985
 msgid "PWA Device Installation"
 msgstr "PWA-Geräteinstallation"
 
-#: .\models\profiles.py:969
+#: .\models\profiles.py:986
 msgid "PWA Device Installations"
 msgstr "PWA-Geräteinstallationen"
 
-#: .\models\profiles.py:994
+#: .\models\profiles.py:1011
 msgid "User who owns this push subscription"
 msgstr "Benutzer des Push-Abonnements"
 
-#: .\models\profiles.py:1000 .\models\profiles.py:1220
+#: .\models\profiles.py:1017 .\models\profiles.py:1237
 msgid "Push service endpoint URL"
 msgstr "Push-Service-Endpunkt-URL"
 
-#: .\models\profiles.py:1004 .\models\profiles.py:1224
+#: .\models\profiles.py:1021 .\models\profiles.py:1241
 msgid "Public key for encryption (p256dh)"
 msgstr "Öffentlicher Schlüssel für Verschlüsselung (p256dh)"
 
-#: .\models\profiles.py:1008 .\models\profiles.py:1228
+#: .\models\profiles.py:1025 .\models\profiles.py:1245
 msgid "Authentication secret (auth)"
 msgstr "Authentifizierungsgeheimnis (auth)"
 
-#: .\models\profiles.py:1014 .\models\profiles.py:1234
+#: .\models\profiles.py:1031 .\models\profiles.py:1251
 msgid "Browser user agent string"
 msgstr "Browser-User-Agent-String"
 
-#: .\models\profiles.py:1019 .\models\profiles.py:1239
+#: .\models\profiles.py:1036 .\models\profiles.py:1256
 msgid "Friendly device name (e.g., 'Android Chrome', 'iPhone Safari')"
 msgstr ""
 "Benutzerfreundlicher Gerätename (z.B. 'Android Chrome', 'iPhone Safari')"
 
-#: .\models\profiles.py:1025 .\models\profiles.py:1245
+#: .\models\profiles.py:1042 .\models\profiles.py:1262
 msgid ""
 "Browser fingerprint hash for stable device identification across sessions"
 msgstr ""
 "Browser-Fingerprint-Hash für stabile Geräteidentifikation über Sitzungen "
 "hinweg"
 
-#: .\models\profiles.py:1031
+#: .\models\profiles.py:1048
 msgid "User can disable notifications without unsubscribing"
 msgstr "Benutzer kann Benachrichtigungen ohne Abmeldung deaktivieren"
 
-#: .\models\profiles.py:1035
+#: .\models\profiles.py:1052
 msgid "Notify about new connection messages"
 msgstr "Über neue Verbindungsnachrichten benachrichtigen"
 
-#: .\models\profiles.py:1039
+#: .\models\profiles.py:1056
 msgid "Notify about upcoming events"
 msgstr "Über bevorstehende Events benachrichtigen"
 
-#: .\models\profiles.py:1043
+#: .\models\profiles.py:1060
 msgid "Notify about new connection requests"
 msgstr "Über neue Verbindungsanfragen benachrichtigen"
 
-#: .\models\profiles.py:1047
+#: .\models\profiles.py:1064
 msgid "Notify about profile approval status"
 msgstr "Über Profilgenehmigungsstatus benachrichtigen"
 
-#: .\models\profiles.py:1056 .\models\profiles.py:1276
+#: .\models\profiles.py:1073 .\models\profiles.py:1293
 msgid "Last time a notification was successfully sent"
 msgstr "Letzte erfolgreiche Benachrichtigungszustellung"
 
-#: .\models\profiles.py:1060 .\models\profiles.py:1280
+#: .\models\profiles.py:1077 .\models\profiles.py:1297
 msgid "Number of consecutive failed deliveries (auto-delete after threshold)"
 msgstr "Anzahl aufeinanderfolgender fehlgeschlagener Zustellungen"
 
-#: .\models\profiles.py:1066
+#: .\models\profiles.py:1083
 msgid "Push Notification Subscription"
 msgstr "Push-Benachrichtigungs-Abonnement"
 
-#: .\models\profiles.py:1067
+#: .\models\profiles.py:1084
 msgid "Push Notification Subscriptions"
 msgstr "Push-Benachrichtigungs-Abonnements"
 
-#: .\models\profiles.py:1101
+#: .\models\profiles.py:1118
 msgid "User who owns these email preferences"
 msgstr "Benutzer dieser E-Mail-Einstellungen"
 
-#: .\models\profiles.py:1109
+#: .\models\profiles.py:1126
 msgid "Secure token for one-click unsubscribe links"
 msgstr "Sicherer Token für Ein-Klick-Abmeldelinks"
 
-#: .\models\profiles.py:1115 .\templates\crush_lu\account_settings.html:344
+#: .\models\profiles.py:1132 .\templates\crush_lu\account_settings.html:344
 msgid "Emails about profile approval, revision requests"
 msgstr "E-Mails über Profilgenehmigung, Überarbeitungsanfragen"
 
-#: .\models\profiles.py:1119 .\templates\crush_lu\account_settings.html:356
+#: .\models\profiles.py:1136 .\templates\crush_lu\account_settings.html:356
 msgid "Reminders about upcoming events you're registered for"
 msgstr "Erinnerungen an kommende Events, für die du angemeldet bist"
 
-#: .\models\profiles.py:1123 .\templates\crush_lu\account_settings.html:368
+#: .\models\profiles.py:1140 .\templates\crush_lu\account_settings.html:368
 msgid "Notifications about new connection requests"
 msgstr "Benachrichtigungen über neue Verbindungsanfragen"
 
-#: .\models\profiles.py:1127 .\templates\crush_lu\account_settings.html:380
+#: .\models\profiles.py:1144 .\templates\crush_lu\account_settings.html:380
 msgid "Notifications about new messages from connections"
 msgstr "Benachrichtigungen über neue Nachrichten von Verbindungen"
 
-#: .\models\profiles.py:1131
+#: .\models\profiles.py:1148
 msgid "Marketing emails, newsletters, promotions (requires explicit opt-in)"
 msgstr ""
 "Marketing-E-Mails, Newsletter, Werbeaktionen (erfordert explizite "
 "Einwilligung)"
 
-#: .\models\profiles.py:1137
+#: .\models\profiles.py:1154
 msgid "User has unsubscribed from ALL emails"
 msgstr "Benutzer hat ALLE E-Mails abbestellt"
 
-#: .\models\profiles.py:1145
+#: .\models\profiles.py:1162
 msgid "Email Preference"
 msgstr "E-Mail-Einstellung"
 
-#: .\models\profiles.py:1146 .\templates\crush_lu\email_unsubscribe.html:4
+#: .\models\profiles.py:1163 .\templates\crush_lu\email_unsubscribe.html:4
 #: .\templates\crush_lu\email_unsubscribe.html:73
 msgid "Email Preferences"
 msgstr "E-Mail-Einstellungen"
 
-#: .\models\profiles.py:1214
+#: .\models\profiles.py:1231
 msgid "Coach who owns this push subscription"
 msgstr "Coach des Push-Abonnements"
 
-#: .\models\profiles.py:1251
+#: .\models\profiles.py:1268
 msgid "Coach can disable notifications without unsubscribing"
 msgstr "Coach kann Benachrichtigungen ohne Abmeldung deaktivieren"
 
-#: .\models\profiles.py:1255
+#: .\models\profiles.py:1272
 msgid "Notify when new profile is assigned for review"
 msgstr "Benachrichtigen bei neuem Profil zur Überprüfung"
 
-#: .\models\profiles.py:1259
+#: .\models\profiles.py:1276
 msgid "Notify about pending screening calls"
 msgstr "Über ausstehende Screening-Anrufe benachrichtigen"
 
-#: .\models\profiles.py:1263
+#: .\models\profiles.py:1280
 msgid "Notify when user submits revision"
 msgstr "Benachrichtigen bei Benutzerüberarbeitung"
 
-#: .\models\profiles.py:1267
+#: .\models\profiles.py:1284
 msgid "Notify about system/admin messages"
 msgstr "Über System-/Admin-Nachrichten benachrichtigen"
 
-#: .\models\profiles.py:1286
+#: .\models\profiles.py:1303
 msgid "Coach Push Subscription"
 msgstr "Coach-Push-Abonnement"
 
-#: .\models\profiles.py:1287
+#: .\models\profiles.py:1304
 msgid "Coach Push Subscriptions"
 msgstr "Coach-Push-Abonnements"
 
-#: .\models\profiles.py:1316
+#: .\models\profiles.py:1333
 msgid "24 Hour"
 msgstr "24 Stunden"
 
-#: .\models\profiles.py:1317
+#: .\models\profiles.py:1334
 msgid "72 Hour"
 msgstr "72 Stunden"
 
-#: .\models\profiles.py:1318
+#: .\models\profiles.py:1335
 msgid "7 Day Final"
 msgstr "7 Tage endgültig"
 
-#: .\models\profiles.py:1325
+#: .\models\profiles.py:1342
 msgid "User who received this reminder"
 msgstr "Benutzer, der diese Erinnerung erhielt"
 
-#: .\models\profiles.py:1330
+#: .\models\profiles.py:1347
 msgid "Type of reminder sent"
 msgstr "Art der gesendeten Erinnerung"
 
-#: .\models\profiles.py:1334
+#: .\models\profiles.py:1351
 msgid "When the reminder was sent"
 msgstr "Wann die Erinnerung gesendet wurde"
 
-#: .\models\profiles.py:1340
+#: .\models\profiles.py:1357
 msgid "Profile Reminder"
 msgstr "Profil-Erinnerung"
 
-#: .\models\profiles.py:1341
+#: .\models\profiles.py:1358
 msgid "Profile Reminders"
 msgstr "Profil-Erinnerungen"
 
@@ -3252,7 +3334,7 @@ msgstr "Möchten Sie sich wirklich abmelden?"
 #: .\templates\crush_lu\coach_edit_profile.html:127
 #: .\templates\crush_lu\coach_invitation_dashboard.html:169
 #: .\templates\crush_lu\delete_account_confirm.html:93
-#: .\templates\crush_lu\event_register.html:78
+#: .\templates\crush_lu\event_register.html:193
 msgid "Cancel"
 msgstr "Abbrechen"
 
@@ -3383,7 +3465,7 @@ msgstr "Kontakte geteilt!"
 
 #: .\templates\crush_lu\_connection_card.html:57
 #: .\templates\crush_lu\_connection_response.html:18
-#: .\templates\crush_lu\event_list.html:135 .\templates\crush_lu\home.html:203
+#: .\templates\crush_lu\event_list.html:151 .\templates\crush_lu\home.html:203
 msgid "View Details"
 msgstr "Details ansehen"
 
@@ -3523,23 +3605,28 @@ msgid "Submit Review"
 msgstr "Bewertung einreichen"
 
 #: .\templates\crush_lu\_event_registration_form.html:22
-#: .\templates\crush_lu\event_register.html:45
+#: .\templates\crush_lu\event_register.html:107
 msgid "Dietary Restrictions"
 msgstr "Ernährungseinschränkungen"
 
+#: .\templates\crush_lu\_event_registration_form.html:25
+msgid "e.g., vegetarian, gluten-free"
+msgstr "z.B. vegetarisch, glutenfrei"
+
 #: .\templates\crush_lu\_event_registration_form.html:33
-#: .\templates\crush_lu\event_register.html:56
+#: .\templates\crush_lu\event_register.html:155
 msgid "Special Requests or Questions"
 msgstr "Besondere Wünsche oder Fragen"
 
 #: .\templates\crush_lu\_event_registration_form.html:48
-#: .\templates\crush_lu\event_detail.html:190
-#: .\templates\crush_lu\event_register.html:71
+#: .\templates\crush_lu\event_detail.html:314
+#: .\templates\crush_lu\event_detail.html:336
+#: .\templates\crush_lu\event_register.html:177
 msgid "Join Waitlist"
 msgstr "Auf Warteliste setzen"
 
 #: .\templates\crush_lu\_event_registration_form.html:50
-#: .\templates\crush_lu\event_register.html:73
+#: .\templates\crush_lu\event_register.html:179
 msgid "Confirm Registration"
 msgstr "Anmeldung bestätigen"
 
@@ -3572,8 +3659,8 @@ msgid "Go to Dashboard"
 msgstr "Zum Dashboard"
 
 #: .\templates\crush_lu\_event_registration_success.html:27
-#: .\templates\crush_lu\emails\event_registration_confirmation.html:34
-#: .\templates\crush_lu\emails\event_reminder.html:31
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:62
+#: .\templates\crush_lu\emails\event_reminder.html:68
 msgid "View Event Details"
 msgstr "Event-Details ansehen"
 
@@ -3704,7 +3791,7 @@ msgid "Bio & Interests"
 msgstr "Interessen"
 
 #: .\templates\crush_lu\_profile_tab.html:167
-#: .\templates\crush_lu\create_profile.html:867
+#: .\templates\crush_lu\create_profile.html:889
 msgid "Privacy Settings"
 msgstr "Datenschutzeinstellungen"
 
@@ -4121,7 +4208,7 @@ msgstr ""
 "authentische verbindungen, luxemburg singles community"
 
 #: .\templates\crush_lu\about.html:24
-#: .\templates\crush_lu\event_detail.html:68
+#: .\templates\crush_lu\event_detail.html:77
 #: .\templates\crush_lu\event_list.html:28
 #: .\templates\crush_lu\how_it_works.html:24
 msgid "Home"
@@ -4413,6 +4500,7 @@ msgstr "Du hast noch kein Dating-Profil erstellt."
 
 #: .\templates\crush_lu\account_settings.html:295
 #: .\templates\crush_lu\base.html:522
+#: .\templates\crush_lu\event_detail.html:295
 msgid "Create Profile"
 msgstr "Profil erstellen"
 
@@ -4901,7 +4989,7 @@ msgstr "Meine Sitzungen"
 #: .\templates\crush_lu\base.html:745 .\templates\crush_lu\base.html:768
 #: .\templates\crush_lu\base.html:872 .\templates\crush_lu\dashboard.html:213
 #: .\templates\crush_lu\emails\base_email.html:103
-#: .\templates\crush_lu\event_detail.html:74
+#: .\templates\crush_lu\event_detail.html:83
 #: .\templates\crush_lu\event_list.html:34
 msgid "Events"
 msgstr "Veranstaltungen"
@@ -4954,7 +5042,7 @@ msgstr "Abmelden"
 msgid "Dashboard"
 msgstr "Dashboard"
 
-#: .\templates\crush_lu\base.html:367 .\templates\crush_lu\event_list.html:79
+#: .\templates\crush_lu\base.html:367 .\templates\crush_lu\event_list.html:83
 #: .\templates\crush_lu\home.html:180
 msgid "Upcoming Events"
 msgstr "Kommende Veranstaltungen"
@@ -5546,6 +5634,7 @@ msgstr "Private Einladungen verwalten"
 #: .\templates\crush_lu\coach_invitation_dashboard.html:26
 #: .\templates\crush_lu\coach_presentation_control.html:15
 #: .\templates\crush_lu\event_presentations.html:149
+#: .\templates\crush_lu\event_register.html:25
 #: .\templates\crush_lu\event_voting_lobby.html:18
 #: .\templates\crush_lu\event_voting_results.html:18
 #: .\templates\crush_lu\my_presentation_scores.html:15
@@ -5911,7 +6000,7 @@ msgstr "Profil-Überprüfung"
 
 #: .\templates\crush_lu\coach_review_profile.html:157
 #: .\templates\crush_lu\coach_review_profile.html:193
-#: .\templates\crush_lu\create_profile.html:1069
+#: .\templates\crush_lu\create_profile.html:1098
 msgid "Screening Call"
 msgstr "Screening-Anruf"
 
@@ -6248,7 +6337,7 @@ msgid "Let's create your profile in just a few steps"
 msgstr "Lassen Sie uns in wenigen Schritten Ihr Profil erstellen"
 
 #: .\templates\crush_lu\create_profile.html:65
-#: .\templates\crush_lu\create_profile.html:539
+#: .\templates\crush_lu\create_profile.html:561
 msgid "About You"
 msgstr "Über dich"
 
@@ -6256,150 +6345,157 @@ msgstr "Über dich"
 msgid "Please fix the following errors:"
 msgstr "Bitte behebe die folgenden Fehler:"
 
-#: .\templates\crush_lu\create_profile.html:143
+#: .\templates\crush_lu\create_profile.html:144
+#: .\templates\crush_lu\create_profile.html:524
+#: .\templates\crush_lu\create_profile.html:748
+#: .\templates\crush_lu\create_profile.html:1000
+msgid "Saving..."
+msgstr "Sparen..."
+
+#: .\templates\crush_lu\create_profile.html:165
 msgid "Basic Information"
 msgstr "Grundinformationen"
 
-#: .\templates\crush_lu\create_profile.html:144
+#: .\templates\crush_lu\create_profile.html:166
 msgid "Let's start with the essentials"
 msgstr "Let's start with the essentials"
 
-#: .\templates\crush_lu\create_profile.html:156
+#: .\templates\crush_lu\create_profile.html:178
 msgid "Verification Required"
 msgstr "Verifizierung erforderlich"
 
-#: .\templates\crush_lu\create_profile.html:163
+#: .\templates\crush_lu\create_profile.html:185
 #: .\templates\crush_lu\profile_submitted_luxid_mockup.html:88
 msgid "Verified"
 msgstr "Verifiziert"
 
-#: .\templates\crush_lu\create_profile.html:186
+#: .\templates\crush_lu\create_profile.html:208
 msgid "Verify"
 msgstr "Verifizieren"
 
-#: .\templates\crush_lu\create_profile.html:199
+#: .\templates\crush_lu\create_profile.html:221
 msgid "Enter your number and click the Verify button to receive an SMS code"
 msgstr ""
 "Gib deine Nummer ein und klicke auf Verifizieren, um einen SMS-Code zu "
 "erhalten"
 
-#: .\templates\crush_lu\create_profile.html:203
+#: .\templates\crush_lu\create_profile.html:225
 msgid "Your phone number is verified"
 msgstr "Ihre Telefonnummer wurde erfolgreich verifiziert."
 
-#: .\templates\crush_lu\create_profile.html:230
+#: .\templates\crush_lu\create_profile.html:252
 msgid "January"
 msgstr "Januar"
 
-#: .\templates\crush_lu\create_profile.html:230
+#: .\templates\crush_lu\create_profile.html:252
 msgid "February"
 msgstr "Februar"
 
-#: .\templates\crush_lu\create_profile.html:230
+#: .\templates\crush_lu\create_profile.html:252
 msgid "March"
 msgstr "März"
 
-#: .\templates\crush_lu\create_profile.html:230
+#: .\templates\crush_lu\create_profile.html:252
 msgid "April"
 msgstr "April"
 
-#: .\templates\crush_lu\create_profile.html:230
+#: .\templates\crush_lu\create_profile.html:252
 msgid "May"
 msgstr "Mai"
 
-#: .\templates\crush_lu\create_profile.html:230
+#: .\templates\crush_lu\create_profile.html:252
 msgid "June"
 msgstr "Juni"
 
-#: .\templates\crush_lu\create_profile.html:230
+#: .\templates\crush_lu\create_profile.html:252
 msgid "July"
 msgstr "Juli"
 
-#: .\templates\crush_lu\create_profile.html:230
+#: .\templates\crush_lu\create_profile.html:252
 msgid "August"
 msgstr "August"
 
-#: .\templates\crush_lu\create_profile.html:230
+#: .\templates\crush_lu\create_profile.html:252
 msgid "September"
 msgstr "September"
 
-#: .\templates\crush_lu\create_profile.html:230
+#: .\templates\crush_lu\create_profile.html:252
 msgid "October"
 msgstr "Oktober"
 
-#: .\templates\crush_lu\create_profile.html:230
+#: .\templates\crush_lu\create_profile.html:252
 msgid "November"
 msgstr "November"
 
-#: .\templates\crush_lu\create_profile.html:230
+#: .\templates\crush_lu\create_profile.html:252
 msgid "December"
 msgstr "Dezember"
 
-#: .\templates\crush_lu\create_profile.html:238
+#: .\templates\crush_lu\create_profile.html:260
 msgid "Age Range"
 msgstr "Altersbereich"
 
-#: .\templates\crush_lu\create_profile.html:278
+#: .\templates\crush_lu\create_profile.html:300
 msgid "What's your age range?"
 msgstr "Was ist dein Altersbereich?"
 
-#: .\templates\crush_lu\create_profile.html:287
+#: .\templates\crush_lu\create_profile.html:309
 msgid "Select your birth year"
 msgstr "Wähle dein Geburtsjahr"
 
-#: .\templates\crush_lu\create_profile.html:296
+#: .\templates\crush_lu\create_profile.html:318
 msgid "Select your birth month"
 msgstr "Wähle deinen Geburtsmonat"
 
-#: .\templates\crush_lu\create_profile.html:305
+#: .\templates\crush_lu\create_profile.html:327
 msgid "Select your birth day"
 msgstr "Wähle deinen Geburtstag"
 
-#: .\templates\crush_lu\create_profile.html:319
+#: .\templates\crush_lu\create_profile.html:341
 msgid "Date of birth selected"
 msgstr "Geburtsdatum ausgewählt"
 
-#: .\templates\crush_lu\create_profile.html:343
+#: .\templates\crush_lu\create_profile.html:365
 msgid "How do you identify?"
 msgstr "Wie identifizierst du dich?"
 
-#: .\templates\crush_lu\create_profile.html:344
+#: .\templates\crush_lu\create_profile.html:366
 msgid "Select your gender"
 msgstr "Wählen Sie Ihr Geschlecht"
 
-#: .\templates\crush_lu\create_profile.html:412
+#: .\templates\crush_lu\create_profile.html:434
 msgid "Location in Luxembourg"
 msgstr "Standort in Luxemburg"
 
-#: .\templates\crush_lu\create_profile.html:414
+#: .\templates\crush_lu\create_profile.html:436
 msgid "Click the map or use the dropdown to select your region"
 msgstr ""
 "Klicken Sie auf die Karte oder verwenden Sie das Dropdown-Menü, um Ihre "
 "Region auszuwählen"
 
-#: .\templates\crush_lu\create_profile.html:419
+#: .\templates\crush_lu\create_profile.html:441
 msgid "Click the map to select your region"
 msgstr "Klicken Sie auf die Karte, um Ihre Region auszuwählen"
 
-#: .\templates\crush_lu\create_profile.html:443
+#: .\templates\crush_lu\create_profile.html:465
 msgid "Can't use the map? Select from list"
 msgstr "Sie können die Karte nicht verwenden? Aus Liste auswählen"
 
-#: .\templates\crush_lu\create_profile.html:448
+#: .\templates\crush_lu\create_profile.html:470
 msgid "Luxembourg Cantons"
 msgstr "Luxemburger Identität"
 
-#: .\templates\crush_lu\create_profile.html:462
+#: .\templates\crush_lu\create_profile.html:484
 msgid "Border Regions"
 msgstr "Grenzregionen"
 
-#: .\templates\crush_lu\create_profile.html:463
+#: .\templates\crush_lu\create_profile.html:485
 msgid "Belgium (Arlon/Virton area)"
 msgstr "Belgien (Raum Arlon/Virton)"
 
-#: .\templates\crush_lu\create_profile.html:490
-#: .\templates\crush_lu\create_profile.html:714
-#: .\templates\crush_lu\create_profile.html:959
+#: .\templates\crush_lu\create_profile.html:512
+#: .\templates\crush_lu\create_profile.html:736
+#: .\templates\crush_lu\create_profile.html:988
 #: .\templates\crush_lu\journey\challenges\multiple_choice.html:19
 #: .\templates\crush_lu\journey\challenges\open_text.html:20
 #: .\templates\crush_lu\journey\challenges\riddle.html:21
@@ -6412,211 +6508,208 @@ msgstr "Belgien (Raum Arlon/Virton)"
 msgid "Continue"
 msgstr "Weiter"
 
-#: .\templates\crush_lu\create_profile.html:502
-#: .\templates\crush_lu\create_profile.html:726
-#: .\templates\crush_lu\create_profile.html:971
-msgid "Saving..."
-msgstr "Sparen..."
-
-#: .\templates\crush_lu\create_profile.html:527
+#: .\templates\crush_lu\create_profile.html:549
 msgid "Please verify your phone number to continue."
 msgstr ""
 "Bitte verifizieren Sie Ihre Telefonnummer, um fortzufahren.Bitteverifizieren "
 "Sie Ihre Telefonnummer, um alle Funktionen nutzen zukönnen."
 
-#: .\templates\crush_lu\create_profile.html:540
+#: .\templates\crush_lu\create_profile.html:562
 msgid "Share what makes you unique (optional)"
 msgstr ""
 "Teilen Sie, was Sie einzigartig macht (optional)Teilen Sie mit, was Sie "
 "einzigartig macht! (Optional, max. 500 Zeichen)"
 
-#: .\templates\crush_lu\create_profile.html:547
-#: .\templates\crush_lu\create_profile.html:568
+#: .\templates\crush_lu\create_profile.html:569
+#: .\templates\crush_lu\create_profile.html:590
+#: .\templates\crush_lu\event_register.html:88
+#: .\templates\crush_lu\event_register.html:108
+#: .\templates\crush_lu\event_register.html:156
 msgid "Optional"
-msgstr "Optional"
+msgstr "Fakultativ"
 
-#: .\templates\crush_lu\create_profile.html:555
+#: .\templates\crush_lu\create_profile.html:577
 msgid "Tell us about yourself... What do you love? What makes you smile?"
 msgstr "Erzähl uns über dich... Was liebst du? Was bringt dich zum Lächeln?"
 
-#: .\templates\crush_lu\create_profile.html:557
-#: .\templates\crush_lu\create_profile.html:635
+#: .\templates\crush_lu\create_profile.html:579
+#: .\templates\crush_lu\create_profile.html:657
 msgid "characters"
 msgstr "Zeichen"
 
-#: .\templates\crush_lu\create_profile.html:567
+#: .\templates\crush_lu\create_profile.html:589
 msgid "Interest Categories"
 msgstr "Interessenkategorien"
 
-#: .\templates\crush_lu\create_profile.html:571
+#: .\templates\crush_lu\create_profile.html:593
 msgid "Select all that apply"
 msgstr "Wähle alle zutreffenden"
 
-#: .\templates\crush_lu\create_profile.html:579
+#: .\templates\crush_lu\create_profile.html:601
 msgid "Sports"
 msgstr "Sport"
 
-#: .\templates\crush_lu\create_profile.html:588
+#: .\templates\crush_lu\create_profile.html:610
 msgid "Arts"
 msgstr "Kunst"
 
-#: .\templates\crush_lu\create_profile.html:597
+#: .\templates\crush_lu\create_profile.html:619
 msgid "Food"
 msgstr "Essen"
 
-#: .\templates\crush_lu\create_profile.html:606
+#: .\templates\crush_lu\create_profile.html:628
 msgid "Outdoors"
 msgstr "Draußen"
 
-#: .\templates\crush_lu\create_profile.html:615
+#: .\templates\crush_lu\create_profile.html:637
 msgid "Business"
 msgstr "Business"
 
-#: .\templates\crush_lu\create_profile.html:625
+#: .\templates\crush_lu\create_profile.html:647
 msgid "Or write your own interests"
 msgstr "Oder schreiben Sie Ihre eigenen Interessen"
 
-#: .\templates\crush_lu\create_profile.html:633
+#: .\templates\crush_lu\create_profile.html:655
 msgid "e.g., hiking, photography, cooking..."
 msgstr "z.B. Wandern, Fotografieren, Kochen..."
 
-#: .\templates\crush_lu\create_profile.html:642
+#: .\templates\crush_lu\create_profile.html:664
 #: .\templates\crush_lu\emails\profile_incomplete_24h.html:34
 msgid "What are you looking for?"
 msgstr "Was suchst du?"
 
-#: .\templates\crush_lu\create_profile.html:645
+#: .\templates\crush_lu\create_profile.html:667
 msgid "What brings you here?"
 msgstr "Was bringt dich hierher?"
 
-#: .\templates\crush_lu\create_profile.html:646
+#: .\templates\crush_lu\create_profile.html:668
 msgid "Select what you are looking for"
 msgstr "Wählen Sie aus, was Sie suchen"
 
-#: .\templates\crush_lu\create_profile.html:654
+#: .\templates\crush_lu\create_profile.html:676
 msgid "Friends"
 msgstr "Freunde"
 
-#: .\templates\crush_lu\create_profile.html:684
+#: .\templates\crush_lu\create_profile.html:706
 msgid "Networking"
 msgstr "Vernetzung"
 
-#: .\templates\crush_lu\create_profile.html:706
-#: .\templates\crush_lu\create_profile.html:951
-#: .\templates\crush_lu\create_profile.html:1101
+#: .\templates\crush_lu\create_profile.html:728
+#: .\templates\crush_lu\create_profile.html:980
+#: .\templates\crush_lu\create_profile.html:1130
 #: .\templates\crush_lu\journey\gift_create.html:238
 #: .\templates\crush_lu\verify_phone.html:218
 msgid "Back"
 msgstr "Zurück"
 
-#: .\templates\crush_lu\create_profile.html:755
+#: .\templates\crush_lu\create_profile.html:777
 msgid "Add Photos"
 msgstr "Fotos hinzufügen"
 
-#: .\templates\crush_lu\create_profile.html:756
+#: .\templates\crush_lu\create_profile.html:778
 msgid "Upload at least one photo (optional but recommended)"
 msgstr "Laden Sie mindestens ein Foto hoch (optional, aber empfohlen)"
 
-#: .\templates\crush_lu\create_profile.html:857
+#: .\templates\crush_lu\create_profile.html:879
 msgid "Tip:"
 msgstr "Tipp:"
 
-#: .\templates\crush_lu\create_profile.html:857
+#: .\templates\crush_lu\create_profile.html:879
 msgid "Use clear photos where your face is visible. Avoid group photos!"
 msgstr ""
 "Verwenden Sie klare Fotos, auf denen Ihr Gesicht sichtbar ist.Vermeiden Sie "
 "Gruppenfotos!"
 
-#: .\templates\crush_lu\create_profile.html:875
+#: .\templates\crush_lu\create_profile.html:898
 msgid "Show my full name"
 msgstr "Meinen vollständigen Namen anzeigen"
 
-#: .\templates\crush_lu\create_profile.html:876
+#: .\templates\crush_lu\create_profile.html:899
 msgid "Otherwise only your first name will be shown"
 msgstr "Ansonsten wird nur Ihr Vorname angezeigt"
 
-#: .\templates\crush_lu\create_profile.html:884
+#: .\templates\crush_lu\create_profile.html:908
 msgid "Show my exact age"
 msgstr "Mein genaues Alter anzeigen"
 
-#: .\templates\crush_lu\create_profile.html:885
+#: .\templates\crush_lu\create_profile.html:909
 msgid "Otherwise show age range (e.g., 25-29)"
 msgstr "Ansonsten Altersspanne anzeigen (z. B. 25–29)"
 
-#: .\templates\crush_lu\create_profile.html:893
+#: .\templates\crush_lu\create_profile.html:918
 msgid "Blur my photos until mutual interest"
 msgstr "Verwische meine Fotos bis zum gegenseitigen Interesse"
 
-#: .\templates\crush_lu\create_profile.html:894
+#: .\templates\crush_lu\create_profile.html:919
 msgid "Photos will only be visible after you both connect"
 msgstr ""
 "Fotos werden erst sichtbar, nachdem Sie beide eine Verbindunghergestellt "
 "haben"
 
-#: .\templates\crush_lu\create_profile.html:1000
+#: .\templates\crush_lu\create_profile.html:1029
 msgid "Review & Submit"
 msgstr "Überprüfen und einreichen"
 
-#: .\templates\crush_lu\create_profile.html:1001
+#: .\templates\crush_lu\create_profile.html:1030
 msgid "Almost done! Review your information"
 msgstr "Fast fertig! Überprüfen Sie Ihre Informationen"
 
-#: .\templates\crush_lu\create_profile.html:1012
-#: .\templates\crush_lu\create_profile.html:1021
+#: .\templates\crush_lu\create_profile.html:1041
+#: .\templates\crush_lu\create_profile.html:1050
 #: .\templates\crush_lu\emails\coach_assignment.html:17
 #: .\templates\crush_lu\emails\coach_assignment.html:18
 msgid "Not provided"
 msgstr "Nicht angegeben"
 
-#: .\templates\crush_lu\create_profile.html:1030
-#: .\templates\crush_lu\create_profile.html:1039
+#: .\templates\crush_lu\create_profile.html:1059
+#: .\templates\crush_lu\create_profile.html:1068
 msgid "Not selected"
 msgstr "Nicht ausgewählt"
 
-#: .\templates\crush_lu\create_profile.html:1048
+#: .\templates\crush_lu\create_profile.html:1077
 msgid "What Happens Next?"
 msgstr "Was passiert als Nächstes?"
 
-#: .\templates\crush_lu\create_profile.html:1055
+#: .\templates\crush_lu\create_profile.html:1084
 #: .\templates\crush_lu\emails\profile_submission_confirmation.html:4
 msgid "Profile Submitted"
 msgstr "Profil eingereicht"
 
-#: .\templates\crush_lu\create_profile.html:1056
+#: .\templates\crush_lu\create_profile.html:1085
 msgid "Your profile is sent to our Crush Coach team"
 msgstr "Dein Profil wird an unser Crush Coach Team gesendet"
 
-#: .\templates\crush_lu\create_profile.html:1062
+#: .\templates\crush_lu\create_profile.html:1091
 msgid "Coach Review"
 msgstr "Coach-Überprüfung"
 
-#: .\templates\crush_lu\create_profile.html:1063
+#: .\templates\crush_lu\create_profile.html:1092
 msgid "A coach will review your profile within 24-48 hours"
 msgstr "Ein Coach wird dein Profil innerhalb von 24-48 Stunden prüfen"
 
-#: .\templates\crush_lu\create_profile.html:1070
+#: .\templates\crush_lu\create_profile.html:1099
 msgid "Your coach will call you to discuss your profile and goals"
 msgstr ""
 "Dein Coach wird dich anrufen, um dein Profil und deine Ziele zubesprechen"
 
-#: .\templates\crush_lu\create_profile.html:1076
+#: .\templates\crush_lu\create_profile.html:1105
 #: .\templates\crush_lu\edit_profile.html:53
 #: .\templates\crush_lu\emails\profile_approved.html:4
 #: .\templates\crush_lu\membership.html:269
 msgid "Profile Approved"
 msgstr "Profil genehmigt"
 
-#: .\templates\crush_lu\create_profile.html:1077
+#: .\templates\crush_lu\create_profile.html:1106
 msgid "You can start attending events and making connections!"
 msgstr ""
 "Sie können an Events teilnehmen und Kontakte knüpfen!Entdecken Sieunsere "
 "kommenden Veranstaltungen und knüpfen Sie Kontakte!"
 
-#: .\templates\crush_lu\create_profile.html:1089
+#: .\templates\crush_lu\create_profile.html:1118
 msgid "Privacy First:"
 msgstr "Datenschutz zuerst:"
 
-#: .\templates\crush_lu\create_profile.html:1089
+#: .\templates\crush_lu\create_profile.html:1118
 msgid ""
 "Your phone number will only be used by your coach for screening. It won't be "
 "shared with other members without your consent."
@@ -6624,53 +6717,53 @@ msgstr ""
 "Ihre Telefonnummer wird nur von Ihrem Coach für das Screening verwendet. Sie "
 "wird ohne Ihre Zustimmung nicht mit anderen Mitgliedern geteilt."
 
-#: .\templates\crush_lu\create_profile.html:1113
+#: .\templates\crush_lu\create_profile.html:1142
 msgid "Submit Profile"
 msgstr "Profil einreichen"
 
-#: .\templates\crush_lu\create_profile.html:1122
+#: .\templates\crush_lu\create_profile.html:1151
 #: .\templates\crush_lu\journey\challenges\open_text.html:108
 #: .\templates\crush_lu\journey\challenges\would_you_rather.html:85
 msgid "Submitting..."
 msgstr "Wird eingereicht..."
 
-#: .\templates\crush_lu\create_profile.html:1170
+#: .\templates\crush_lu\create_profile.html:1199
 #: .\templates\crush_lu\verify_phone.html:4
 msgid "Verify Your Phone"
 msgstr "Überprüfen Sie Ihr Telefon"
 
-#: .\templates\crush_lu\create_profile.html:1176
+#: .\templates\crush_lu\create_profile.html:1205
 msgid "Sending verification code..."
 msgstr "Verifizierungscode wird gesendet..."
 
-#: .\templates\crush_lu\create_profile.html:1182
+#: .\templates\crush_lu\create_profile.html:1211
 msgid "We sent a 6-digit code to"
 msgstr "Wir haben einen 6-stelligen Code an gesendet"
 
-#: .\templates\crush_lu\create_profile.html:1215
+#: .\templates\crush_lu\create_profile.html:1244
 #: .\templates\crush_lu\verify_phone.html:138
 msgid "Verify Code"
 msgstr "Code verifizieren"
 
-#: .\templates\crush_lu\create_profile.html:1221
+#: .\templates\crush_lu\create_profile.html:1250
 msgid "Resend available in"
 msgstr "Erneut senden verfügbar in"
 
-#: .\templates\crush_lu\create_profile.html:1226
+#: .\templates\crush_lu\create_profile.html:1255
 #: .\templates\crush_lu\verify_phone.html:160
 msgid "Resend Code"
 msgstr "Code erneut senden"
 
-#: .\templates\crush_lu\create_profile.html:1234
+#: .\templates\crush_lu\create_profile.html:1263
 msgid "Verifying your code..."
 msgstr "Ihr Code wird verifiziert..."
 
-#: .\templates\crush_lu\create_profile.html:1244
+#: .\templates\crush_lu\create_profile.html:1273
 #: .\templates\crush_lu\verify_phone.html:183
 msgid "Phone Verified!"
 msgstr "Telefon verifiziert!"
 
-#: .\templates\crush_lu\create_profile.html:1245
+#: .\templates\crush_lu\create_profile.html:1274
 msgid "Your phone number has been verified successfully."
 msgstr "Ihre Telefonnummer wurde erfolgreich verifiziert."
 
@@ -6870,7 +6963,7 @@ msgid "Make Connections"
 msgstr "Verbindungen knüpfen"
 
 #: .\templates\crush_lu\dashboard.html:269
-#: .\templates\crush_lu\event_detail.html:184
+#: .\templates\crush_lu\event_detail.html:280
 msgid "Cancel Registration"
 msgstr "Anmeldung stornieren"
 
@@ -7640,7 +7733,7 @@ msgstr "Zur Startseite"
 msgid "Preferences Updated!"
 msgstr "Einstellungen aktualisiert!"
 
-#: .\templates\crush_lu\email_unsubscribe.html:38 .\views.py:566
+#: .\templates\crush_lu\email_unsubscribe.html:38 .\views.py:607
 msgid "You have been unsubscribed from all Crush.lu emails."
 msgstr "Du hast dich von allen Crush.lu-E-Mails abgemeldet."
 
@@ -7662,7 +7755,7 @@ msgid "Want more control?"
 msgstr "Möchtest du mehr Kontrolle?"
 
 #: .\templates\crush_lu\email_unsubscribe.html:61
-#: .\templates\crush_lu\event_detail.html:203
+#: .\templates\crush_lu\event_detail.html:363
 #: .\templates\crush_lu\signup.html:136
 msgid "Log in"
 msgstr "Anmelden"
@@ -7826,9 +7919,9 @@ msgstr "Vielen Dank für Ihre Hilfe!"
 #: .\templates\crush_lu\emails\coach_assignment.html:38
 #: .\templates\crush_lu\emails\connection_accepted.html:35
 #: .\templates\crush_lu\emails\event_cancellation.html:32
-#: .\templates\crush_lu\emails\event_registration_confirmation.html:54
-#: .\templates\crush_lu\emails\event_reminder.html:45
-#: .\templates\crush_lu\emails\event_waitlist.html:39
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:82
+#: .\templates\crush_lu\emails\event_reminder.html:82
+#: .\templates\crush_lu\emails\event_waitlist.html:70
 #: .\templates\crush_lu\emails\new_connection_request.html:36
 #: .\templates\crush_lu\emails\new_message.html:27
 #: .\templates\crush_lu\emails\profile_approved.html:42
@@ -7990,67 +8083,109 @@ msgstr "Wir sehen uns dort, %(first_name)s!"
 msgid "Your registration for <strong>%(title)s</strong> is confirmed!"
 msgstr "Deine Anmeldung für <strong>%(title)s</strong> ist bestätigt!"
 
-#: .\templates\crush_lu\emails\event_registration_confirmation.html:20
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:24
 #: .\templates\crush_lu\emails\existing_user_invitation.html:146
 #: .\templates\crush_lu\emails\external_guest_invitation.html:149
 #: .\templates\crush_lu\emails\invitation_approved.html:148
 msgid "Fee:"
 msgstr "Gebühr:"
 
-#: .\templates\crush_lu\emails\event_registration_confirmation.html:29
-msgid "Your Dietary Restrictions:"
-msgstr "Deine Ernährungseinschränkungen:"
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:33
+#: .\templates\crush_lu\emails\event_reminder.html:30
+#: .\templates\crush_lu\emails\event_waitlist.html:28
+#, fuzzy
+#| msgid "Confirm Registration"
+msgid "Your Registration Details:"
+msgstr "Anmeldung bestätigen"
 
 #: .\templates\crush_lu\emails\event_registration_confirmation.html:36
+#: .\templates\crush_lu\emails\event_reminder.html:33
+#: .\templates\crush_lu\emails\event_waitlist.html:31
+#, fuzzy
+#| msgid "Access to public events"
+msgid "Accessibility Needs:"
+msgstr "Zugang zu öffentlichen Veranstaltungen"
+
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:41
+#: .\templates\crush_lu\emails\event_reminder.html:38
+#: .\templates\crush_lu\emails\event_waitlist.html:36
+#, fuzzy
+#| msgid "Dietary Restrictions"
+msgid "Dietary Restrictions:"
+msgstr "Ernährungseinschränkungen"
+
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:46
+#: .\templates\crush_lu\emails\event_reminder.html:43
+#: .\templates\crush_lu\emails\event_waitlist.html:41
+#, fuzzy
+#| msgid "Question:"
+msgid "Guest:"
+msgstr "Frage:"
+
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:50
+#: .\templates\crush_lu\emails\event_reminder.html:47
+#: .\templates\crush_lu\emails\event_waitlist.html:45
+msgid "Bringing a guest"
+msgstr ""
+
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:56
+#: .\templates\crush_lu\emails\event_reminder.html:53
+#: .\templates\crush_lu\emails\event_waitlist.html:51
+#, fuzzy
+#| msgid "Special Requests or Questions"
+msgid "Special Requests:"
+msgstr "Besondere Wünsche oder Fragen"
+
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:64
 msgid "What to bring:"
 msgstr "Was Sie mitbringen sollten:"
 
-#: .\templates\crush_lu\emails\event_registration_confirmation.html:38
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:66
 msgid "Valid ID (for age verification)"
 msgstr "Gültiger Ausweis (zur Altersverifizierung)"
 
-#: .\templates\crush_lu\emails\event_registration_confirmation.html:39
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:67
 msgid "An open mind and positive attitude"
 msgstr "Ein offener Geist und eine positive Einstellung"
 
-#: .\templates\crush_lu\emails\event_registration_confirmation.html:40
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:68
 msgid "Your best self!"
 msgstr "Dein bestes Ich!"
 
-#: .\templates\crush_lu\emails\event_registration_confirmation.html:43
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:71
 msgid "Important:"
 msgstr "Wichtig:"
 
-#: .\templates\crush_lu\emails\event_registration_confirmation.html:45
-#: .\templates\crush_lu\emails\event_reminder.html:35
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:73
+#: .\templates\crush_lu\emails\event_reminder.html:72
 msgid "Arrive 10-15 minutes early"
 msgstr "Kommen Sie 10-15 Minuten früher an"
 
-#: .\templates\crush_lu\emails\event_registration_confirmation.html:46
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:74
 #, python-format
 msgid "Registration closes %(deadline)s"
 msgstr "Registrierung endet am %(deadline)s"
 
-#: .\templates\crush_lu\emails\event_registration_confirmation.html:47
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:75
 #: .\templates\crush_lu\emails\profile_approved.html:34
 msgid "Respect everyone's privacy and boundaries"
 msgstr "Respektieren Sie die Privatsphäre und Grenzen aller"
 
-#: .\templates\crush_lu\emails\event_registration_confirmation.html:50
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:78
 msgid "Can't make it?"
 msgstr "Du schaffst es nicht?"
 
-#: .\templates\crush_lu\emails\event_registration_confirmation.html:50
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:78
 msgid "Cancel your registration"
 msgstr "Anmeldung stornieren"
 
-#: .\templates\crush_lu\emails\event_registration_confirmation.html:50
-#: .\templates\crush_lu\emails\event_reminder.html:41
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:78
+#: .\templates\crush_lu\emails\event_reminder.html:78
 msgid "so someone on the waitlist can attend."
 msgstr "damit jemand auf der Warteliste teilnehmen kann."
 
-#: .\templates\crush_lu\emails\event_registration_confirmation.html:53
-#: .\templates\crush_lu\emails\event_reminder.html:44
+#: .\templates\crush_lu\emails\event_registration_confirmation.html:81
+#: .\templates\crush_lu\emails\event_reminder.html:81
 msgid "See you soon!"
 msgstr "Bis bald!"
 
@@ -8076,43 +8211,43 @@ msgstr[1] ""
 "Sie sind angemeldet für <strong>%(title)s</strong>, das in %(days)s Tagen "
 "stattfindet!"
 
-#: .\templates\crush_lu\emails\event_reminder.html:24
+#: .\templates\crush_lu\emails\event_reminder.html:59
 msgid "Remember to bring:"
 msgstr "Denken Sie daran, Folgendes mitzubringen:"
 
-#: .\templates\crush_lu\emails\event_reminder.html:26
+#: .\templates\crush_lu\emails\event_reminder.html:61
 msgid "Valid ID for age verification"
 msgstr "Gültiger Ausweis zur Altersüberprüfung"
 
-#: .\templates\crush_lu\emails\event_reminder.html:27
+#: .\templates\crush_lu\emails\event_reminder.html:62
 msgid "An open mind and positive energy"
 msgstr "Ein offener Geist und positive Energie"
 
-#: .\templates\crush_lu\emails\event_reminder.html:28
+#: .\templates\crush_lu\emails\event_reminder.html:64
 msgid "Yourself - no one else!"
 msgstr "Du selbst – niemand sonst!"
 
-#: .\templates\crush_lu\emails\event_reminder.html:33
+#: .\templates\crush_lu\emails\event_reminder.html:70
 msgid "Tips for a great experience:"
 msgstr "Tipps für ein tolles Erlebnis:"
 
-#: .\templates\crush_lu\emails\event_reminder.html:36
+#: .\templates\crush_lu\emails\event_reminder.html:73
 msgid "Be yourself and relax"
 msgstr "Be yourself and relax"
 
-#: .\templates\crush_lu\emails\event_reminder.html:37
+#: .\templates\crush_lu\emails\event_reminder.html:74
 msgid "Respect everyone's privacy"
 msgstr "Respektieren Sie die Privatsphäre aller"
 
-#: .\templates\crush_lu\emails\event_reminder.html:38
+#: .\templates\crush_lu\emails\event_reminder.html:75
 msgid "Have fun and make connections!"
 msgstr "Viel Spaß und knüpfe Verbindungen!"
 
-#: .\templates\crush_lu\emails\event_reminder.html:41
+#: .\templates\crush_lu\emails\event_reminder.html:78
 msgid "Can't make it? Please"
 msgstr "Du schaffst es nicht? Bitte"
 
-#: .\templates\crush_lu\emails\event_reminder.html:41
+#: .\templates\crush_lu\emails\event_reminder.html:78
 msgid "cancel your registration"
 msgstr "Anmeldung stornieren"
 
@@ -8142,38 +8277,38 @@ msgstr ""
 msgid "Your Waitlist Position:"
 msgstr "Deine Wartelistenposition:"
 
-#: .\templates\crush_lu\emails\event_waitlist.html:26
+#: .\templates\crush_lu\emails\event_waitlist.html:57
 msgid "What happens next:"
 msgstr "Was passiert als Nächstes:"
 
-#: .\templates\crush_lu\emails\event_waitlist.html:28
+#: .\templates\crush_lu\emails\event_waitlist.html:59
 msgid "If someone cancels, you'll be automatically moved to confirmed"
 msgstr ""
 "Wenn jemand storniert, werden Sie automatisch in den bestätigten Status "
 "verschoben"
 
-#: .\templates\crush_lu\emails\event_waitlist.html:29
+#: .\templates\crush_lu\emails\event_waitlist.html:60
 msgid "You'll receive an email if your status changes"
 msgstr "Sie erhalten eine E-Mail, wenn sich Ihr Status ändert"
 
-#: .\templates\crush_lu\emails\event_waitlist.html:30
+#: .\templates\crush_lu\emails\event_waitlist.html:61
 msgid "Check back closer to the event date for updates"
 msgstr ""
 "Schauen Sie näher zum Veranstaltungsdatum noch einmal vorbei, um Updates zu "
 "erhalten"
 
-#: .\templates\crush_lu\emails\event_waitlist.html:33
+#: .\templates\crush_lu\emails\event_waitlist.html:64
 #: .\templates\crush_lu\emails\invitation_rejected.html:94
 msgid "Browse Other Events"
 msgstr "Andere Events durchsuchen"
 
-#: .\templates\crush_lu\emails\event_waitlist.html:35
+#: .\templates\crush_lu\emails\event_waitlist.html:66
 msgid "We host events regularly, so keep an eye out for more opportunities!"
 msgstr ""
 "Wir veranstalten regelmäßig Veranstaltungen, also halten Sie Ausschaunach "
 "weiteren Möglichkeiten!"
 
-#: .\templates\crush_lu\emails\event_waitlist.html:38
+#: .\templates\crush_lu\emails\event_waitlist.html:69
 msgid "Hope to see you soon!"
 msgstr "Ich hoffe, wir sehen uns bald!"
 
@@ -9403,7 +9538,7 @@ msgstr "Mit wem hast du dich verbunden?"
 
 #: .\templates\crush_lu\event_attendees.html:15
 #: .\templates\crush_lu\event_cancel.html:15
-#: .\templates\crush_lu\event_register.html:19
+#: .\templates\crush_lu\event_register.html:43
 #, python-format
 msgid "%(date)s at %(time)s"
 msgstr "%(date)s bei %(time)s"
@@ -9445,120 +9580,149 @@ msgstr "Ja, Anmeldung stornieren"
 msgid "No, Keep Registration"
 msgstr "Nein, Anmeldung behalten"
 
-#: .\templates\crush_lu\event_detail.html:93
+#: .\templates\crush_lu\event_detail.html:102
 msgid "Back to Events"
 msgstr "Zurück zu Events"
 
-#: .\templates\crush_lu\event_detail.html:109
+#: .\templates\crush_lu\event_detail.html:144
 #: .\templates\crush_lu\invitation_landing.html:148
 msgid "Date & Time"
 msgstr "Datum und Uhrzeit"
 
-#: .\templates\crush_lu\event_detail.html:112
+#: .\templates\crush_lu\event_detail.html:148
 #, python-format
 msgid "%(time)s (%(duration)s minutes)"
 msgstr "%(time)s (%(duration)s Minuten)"
 
-#: .\templates\crush_lu\event_detail.html:126
+#: .\templates\crush_lu\event_detail.html:172
+msgid "Create a Crush profile to see the exact location"
+msgstr ""
+
+#: .\templates\crush_lu\event_detail.html:174
+msgid "Sign in with a Crush profile to see the exact location"
+msgstr ""
+
+#: .\templates\crush_lu\event_detail.html:190
 msgid "Capacity"
 msgstr "Kapazität"
 
-#: .\templates\crush_lu\event_detail.html:128
+#: .\templates\crush_lu\event_detail.html:193
 #, python-format
 msgid "Max participants: %(max)s"
 msgstr "Max. Teilnehmer: %(max)s"
 
-#: .\templates\crush_lu\event_detail.html:129
-#, python-format
-msgid "<strong>Spots remaining: %(spots)s</strong>"
+#: .\templates\crush_lu\event_detail.html:194
+#, fuzzy, python-format
+#| msgid "<strong>Spots remaining: %(spots)s</strong>"
+msgid "Spots remaining: %(spots)s"
 msgstr "<strong>Verbleibende Plätze: %(spots)s</strong>"
 
-#: .\templates\crush_lu\event_detail.html:133
+#: .\templates\crush_lu\event_detail.html:205
 msgid "Price"
 msgstr "Preis"
 
-#: .\templates\crush_lu\event_detail.html:138
-#: .\templates\crush_lu\event_list.html:130
+#: .\templates\crush_lu\event_detail.html:211
+#: .\templates\crush_lu\event_list.html:146
 msgid "Free"
 msgstr "Frei"
 
-#: .\templates\crush_lu\event_detail.html:145
+#: .\templates\crush_lu\event_detail.html:223
 msgid "Requirements"
 msgstr "Voraussetzungen"
 
-#: .\templates\crush_lu\event_detail.html:147
+#: .\templates\crush_lu\event_detail.html:226
 #, python-format
 msgid "Ages %(min)s-%(max)s"
 msgstr "Alter %(min)s-%(max)s"
 
-#: .\templates\crush_lu\event_detail.html:148
+#: .\templates\crush_lu\event_detail.html:227
 #, python-format
 msgid "Registration deadline: %(deadline)s"
 msgstr "Anmeldeschluss: %(deadline)s"
 
-#: .\templates\crush_lu\event_detail.html:153
+#: .\templates\crush_lu\event_detail.html:239
 msgid "How The Event Works"
 msgstr "So funktioniert das Event"
 
-#: .\templates\crush_lu\event_detail.html:155
+#: .\templates\crush_lu\event_detail.html:240
 msgid "Interactive Activity Voting:"
 msgstr "Interaktive Aktivitätsabstimmung:"
 
-#: .\templates\crush_lu\event_detail.html:157
+#: .\templates\crush_lu\event_detail.html:242
 msgid ""
 "15 minutes after the event starts, you'll vote on which activity format to do"
 msgstr ""
 "15 Minuten nach Eventbeginn stimmen Sie ab, welches Aktivitätsformat "
 "durchgeführt wird"
 
-#: .\templates\crush_lu\event_detail.html:158
+#: .\templates\crush_lu\event_detail.html:243
 msgid "Choose from Speed Dating, 90-Second Presentations, or Mystery Event"
 msgstr "Choose from Speed Dating, 90-Second Presentations, or Mystery Event"
 
-#: .\templates\crush_lu\event_detail.html:159
+#: .\templates\crush_lu\event_detail.html:244
 msgid "Voting lasts 30 minutes - everyone participates!"
 msgstr "Die Abstimmung dauert 30 Minuten – jeder macht mit!"
 
-#: .\templates\crush_lu\event_detail.html:160
+#: .\templates\crush_lu\event_detail.html:245
 msgid "The winning activity determines how the event flows"
 msgstr "Die gewinnende Aktivität bestimmt, wie die Veranstaltung abläuft"
 
-#: .\templates\crush_lu\event_detail.html:161
+#: .\templates\crush_lu\event_detail.html:246
 msgid "After the event, connect with people you clicked with"
 msgstr ""
 "Vernetzen Sie sich nach der Veranstaltung mit den Personen, mit denen Sie "
 "geklickt haben"
 
-#: .\templates\crush_lu\event_detail.html:167
+#: .\templates\crush_lu\event_detail.html:252
 msgid "Access Voting Lobby"
 msgstr "Greifen Sie auf die Abstimmungslobby zu"
 
-#: .\templates\crush_lu\event_detail.html:180
+#: .\templates\crush_lu\event_detail.html:274
 msgid "You're registered for this event!"
 msgstr "Du bist für dieses Event angemeldet!"
 
-#: .\templates\crush_lu\event_detail.html:181
+#: .\templates\crush_lu\event_detail.html:275
 #, python-format
 msgid "Status: %(status)s"
 msgstr "Status: %(status)s"
 
-#: .\templates\crush_lu\event_detail.html:192
+#: .\templates\crush_lu\event_detail.html:292
+#, fuzzy
+#| msgid "Profile Review"
+msgid "Profile Required"
+msgstr "Profil-Überprüfung"
+
+#: .\templates\crush_lu\event_detail.html:293
+msgid "This event requires a Crush profile."
+msgstr ""
+
+#: .\templates\crush_lu\event_detail.html:307
+#, fuzzy
+#| msgid "⏳ Your profile is currently under review by %(coach)s"
+msgid ""
+"This event requires an approved profile. Your profile is currently under "
+"review by our coaches."
+msgstr "⏳ Ihr Profil wird derzeit von %(coach)s überprüft"
+
+#: .\templates\crush_lu\event_detail.html:316
+#: .\templates\crush_lu\event_detail.html:338
 msgid "Register for This Event"
 msgstr "Für dieses Event anmelden"
 
-#: .\templates\crush_lu\event_detail.html:197
+#: .\templates\crush_lu\event_detail.html:326
+#: .\templates\crush_lu\event_detail.html:348
 msgid "Registration is closed for this event."
 msgstr "Die Anmeldung für dieses Event ist geschlossen."
 
-#: .\templates\crush_lu\event_detail.html:203
+#: .\templates\crush_lu\event_detail.html:363
 msgid "or"
 msgstr "oder"
 
-#: .\templates\crush_lu\event_detail.html:204
+#: .\templates\crush_lu\event_detail.html:364
 msgid "sign up"
 msgstr "anmelden"
 
-#: .\templates\crush_lu\event_detail.html:204
+#: .\templates\crush_lu\event_detail.html:364
 msgid "to register for this event."
 msgstr "um dich für dieses Event anzumelden."
 
@@ -9619,7 +9783,7 @@ msgstr ""
 "Speed-Dating, gesellschaftliche Mixer und Singles-Treffen, organisiert von "
 "Crush.lu"
 
-#: .\templates\crush_lu\event_list.html:85
+#: .\templates\crush_lu\event_list.html:89
 #, python-format
 msgid ""
 "\n"
@@ -9642,32 +9806,32 @@ msgstr[1] ""
 "unveröffentlichte Events, die hier nicht angezeigt werden.\n"
 "        "
 
-#: .\templates\crush_lu\event_list.html:90
+#: .\templates\crush_lu\event_list.html:94
 msgid "Go to Admin to publish it"
 msgid_plural "Go to Admin to publish them"
 msgstr[0] "Gehe zum Admin, um es zu veröffentlichen"
 msgstr[1] "Gehe zum Admin, um sie zu veröffentlichen"
 
-#: .\templates\crush_lu\event_list.html:101
+#: .\templates\crush_lu\event_list.html:117
 msgid "Private Invitation"
 msgstr "Private Einladung"
 
-#: .\templates\crush_lu\event_list.html:122
+#: .\templates\crush_lu\event_list.html:138
 msgid "Full"
 msgstr "Voll"
 
-#: .\templates\crush_lu\event_list.html:124
+#: .\templates\crush_lu\event_list.html:140
 #, python-format
 msgid "%(counter)s spot left"
 msgid_plural "%(counter)s spots left"
 msgstr[0] "%(counter)s Platz übrig"
 msgstr[1] "%(counter)s Plätze übrig"
 
-#: .\templates\crush_lu\event_list.html:144
+#: .\templates\crush_lu\event_list.html:160
 msgid "No events scheduled yet"
 msgstr "Noch keine Events geplant"
 
-#: .\templates\crush_lu\event_list.html:145
+#: .\templates\crush_lu\event_list.html:161
 msgid "Check back soon for upcoming meetups and speed dating events!"
 msgstr "Schau bald wieder vorbei für kommende Treffen und Speed-Dating-Events!"
 
@@ -9741,19 +9905,77 @@ msgstr "Warten auf den Beginn der Präsentationen..."
 msgid "The coach will start the presentation round shortly."
 msgstr "Der Trainer wird in Kürze mit der Präsentationsrunde beginnen."
 
-#: .\templates\crush_lu\event_register.html:14
+#: .\templates\crush_lu\event_register.html:6
+#, fuzzy
+#| msgid "Register for Event"
+msgid "Register for"
+msgstr "Registrieren Sie sich für die Veranstaltung"
+
+#: .\templates\crush_lu\event_register.html:29
 #: .\templates\crush_lu\invitation_pending_approval.html:171
 msgid "Register for Event"
 msgstr "Registrieren Sie sich für die Veranstaltung"
 
-#: .\templates\crush_lu\event_register.html:23
-#, python-format
-msgid "Fee: %(fee)s"
-msgstr "Fee: %(fee)s"
+#: .\templates\crush_lu\event_register.html:50
+#, fuzzy
+#| msgid "Event:"
+msgid "Event Fee:"
+msgstr "Event:"
 
-#: .\templates\crush_lu\event_register.html:29
-msgid "This event is full. You will be added to the waitlist."
-msgstr "Dieses Event ist voll. Du wirst auf die Warteliste gesetzt."
+#: .\templates\crush_lu\event_register.html:62
+#, fuzzy
+#| msgid "Events"
+msgid "Event is Full"
+msgstr "Veranstaltungen"
+
+#: .\templates\crush_lu\event_register.html:63
+#, fuzzy
+#| msgid ""
+#| "The event is currently full, but we'll notify you if a spot opens up."
+msgid "You will be added to the waitlist. We'll notify you if a spot opens up."
+msgstr ""
+"Das Event ist derzeit ausgebucht, aber wir benachrichtigen dich, wennein "
+"Platz frei wird."
+
+#: .\templates\crush_lu\event_register.html:87
+msgid "Accessibility Needs"
+msgstr "Barrierefreiheit"
+
+#: .\templates\crush_lu\event_register.html:91
+msgid ""
+"Let us know if you need any accommodations (wheelchair access, hearing "
+"assistance, etc.)"
+msgstr ""
+"Teilen Sie uns mit, wenn Sie besondere Unterstützung benötigen "
+"(Rollstuhlzugang, Hörunterstützung, usw.)"
+
+#: .\templates\crush_lu\event_register.html:111
+msgid ""
+"This event includes food/drinks. Let us know about any dietary needs or "
+"allergies."
+msgstr ""
+"Diese Veranstaltung beinhaltet Essen/Getränke. Teilen Sie uns Ihre "
+"Ernährungsbedürfnisse oder Allergien mit."
+
+#: .\templates\crush_lu\event_register.html:127
+msgid "Guest Information"
+msgstr "Gast-Informationen"
+
+#: .\templates\crush_lu\event_register.html:133
+msgid "I'm bringing a guest"
+msgstr "Ich bringe einen Gast mit"
+
+#: .\templates\crush_lu\event_register.html:139
+msgid "Guest's Name"
+msgstr "Name des Gastes"
+
+#: .\templates\crush_lu\event_register.html:159
+msgid "Anything else we should know? Questions about the event?"
+msgstr "Gibt es noch etwas, das wir wissen sollten? Fragen zur Veranstaltung?"
+
+#: .\templates\crush_lu\event_register.html:187
+msgid "Processing..."
+msgstr "Wird verarbeitet..."
 
 #: .\templates\crush_lu\event_voting_lobby.html:5
 msgid "Event Voting Lobby"
@@ -14502,91 +14724,91 @@ msgstr "Besuche Events und lerne Leute kennen!"
 msgid "Login here"
 msgstr "Hier anmelden"
 
-#: .\views.py:536
+#: .\views.py:569
 msgid "Email preferences updated successfully!"
 msgstr "E-Mail-Einstellungen erfolgreich aktualisiert!"
 
-#: .\views.py:553
+#: .\views.py:588
 msgid "Invalid unsubscribe link. Please check your email or contact support."
 msgstr ""
 "Ungültiger Abmeldelink. Bitte überprüfen Sie Ihre E-Mail oderkontaktieren "
 "Sie den Support."
 
-#: .\views.py:572
+#: .\views.py:615
 msgid "You have been unsubscribed from marketing emails."
 msgstr "Sie wurden von Marketing-E-Mails abgemeldet."
 
-#: .\views.py:582
+#: .\views.py:627
 msgid "You have been re-subscribed to Crush.lu emails."
 msgstr "Sie wurden erneut für Crush.lu E-Mails angemeldet."
 
-#: .\views.py:619
+#: .\views.py:674
 msgid "This feature is only for users who signed up with Facebook."
 msgstr ""
 "Diese Funktion ist nur für Benutzer verfügbar, die sich mit "
 "Facebookregistriert haben."
 
-#: .\views.py:623
+#: .\views.py:681
 msgid "You already have a password set. Use \"Change Password\" to update it."
 msgstr ""
 "Sie haben bereits ein Passwort festgelegt. Verwenden Sie \"Passwortändern\", "
 "um es zu aktualisieren."
 
-#: .\views.py:663
+#: .\views.py:728
 msgid "Social account not found."
 msgstr "Social-Media-Konto nicht gefunden."
 
-#: .\views.py:705
+#: .\views.py:772
 msgid "Please type \"DELETE MY ACCOUNT\" to confirm."
 msgstr "Bitte geben Sie \"DELETE MY ACCOUNT\" ein, um zu bestätigen."
 
-#: .\views.py:711
+#: .\views.py:778
 msgid "Incorrect password. Please try again."
 msgstr "Falsches Passwort. Bitte versuchen Sie es erneut."
 
-#: .\views.py:727
+#: .\views.py:796
 msgid "Your account has been successfully deleted."
 msgstr "Ihr Konto wurde erfolgreich gelöscht."
 
-#: .\views.py:734
+#: .\views.py:808
 msgid "An error occurred while deleting your account. Please contact support."
 msgstr ""
 "Beim Löschen Ihres Kontos ist ein Fehler aufgetreten. Bittekontaktieren Sie "
 "den Support."
 
-#: .\views.py:783
+#: .\views.py:864
 msgid "Account created! Check your email and complete your profile."
 msgstr ""
 "Konto erstellt! Überprüfen Sie Ihre E-Mail und vervollständigen Sie Ihr "
 "Profil."
 
-#: .\views.py:905
+#: .\views.py:1008
 msgid "An error occurred while submitting your profile. Please try again."
 msgstr ""
 "Beim Einreichen Ihres Profils ist ein Fehler aufgetreten. Bitteversuchen Sie "
 "es erneut."
 
-#: .\views.py:946 .\views.py:1142
+#: .\views.py:1061 .\views.py:1308
 msgid "Profile submitted for review!"
 msgstr "Profil zur Überprüfung eingereicht!"
 
-#: .\views.py:977
+#: .\views.py:1098
 msgid "Your profile has been submitted. Check the status below."
 msgstr "Ihr Profil wurde eingereicht. Überprüfen Sie den Status unten."
 
-#: .\views.py:1022 .\views.py:1078
+#: .\views.py:1159 .\views.py:1225
 msgid "You need to create a profile first."
 msgstr "Sie müssen zuerst ein Profil erstellen."
 
-#: .\views.py:1027
+#: .\views.py:1164
 msgid "Your profile must be approved before editing."
 msgstr "Ihr Profil muss genehmigt werden, bevor Sie es bearbeiten können."
 
-#: .\views.py:1044
+#: .\views.py:1185
 msgid "Profile updated successfully!"
 msgstr "Profil erfolgreich aktualisiert!"
 
-#: .\views.py:1093
+#: .\views.py:1245
 msgid ""
 "Your profile is currently under review. You'll be notified once it's "
 "approved."
@@ -14594,92 +14816,92 @@ msgstr ""
 "Ihr Profil wird derzeit überprüft. Sie werden benachrichtigt, sobald es "
 "genehmigt wurde."
 
-#: .\views.py:1097
+#: .\views.py:1254
 msgid "Your profile needs updates. Please review the coach feedback below."
 msgstr ""
 "Ihr Profil benötigt Aktualisierungen. Bitte überprüfen Sie das Coach-"
 "Feedback unten."
 
-#: .\views.py:1105
+#: .\views.py:1270
 msgid "Please complete your profile to continue."
 msgstr "Bitte vervollständigen Sie Ihr Profil, um fortzufahren."
 
-#: .\views.py:1190
+#: .\views.py:1362
 msgid "No profile submission found."
 msgstr "Keine Profilübermittlung gefunden."
 
-#: .\views.py:1335 .\views_profile.py:288
+#: .\views.py:1516 .\views_profile.py:467
 msgid "Please complete your profile first."
 msgstr "Bitte vervollständigen Sie zuerst Ihr Profil."
 
-#: .\views.py:1378
+#: .\views.py:1560
 msgid "Access to public events"
 msgstr "Zugang zu öffentlichen Veranstaltungen"
 
-#: .\views.py:1379
+#: .\views.py:1561
 msgid "Basic profile features"
 msgstr "Basis-Profilfunktionen"
 
-#: .\views.py:1380
+#: .\views.py:1562
 msgid "Connection messaging"
 msgstr "Verbindungs-Messaging"
 
-#: .\views.py:1389
+#: .\views.py:1571
 msgid "All Basic benefits"
 msgstr "Alle Basic-Vorteile"
 
-#: .\views.py:1390
+#: .\views.py:1572
 msgid "Priority event registration"
 msgstr "Vorrangige Anmeldung für Veranstaltungen"
 
-#: .\views.py:1391
+#: .\views.py:1573
 msgid "Profile badge"
 msgstr "Profil-Abzeichen"
 
-#: .\views.py:1400
+#: .\views.py:1582
 msgid "All Bronze benefits"
 msgstr "Alle Bronze-Vorteile"
 
-#: .\views.py:1401
+#: .\views.py:1583
 msgid "Exclusive events access"
 msgstr "Exklusiver Zugang zu Veranstaltungen"
 
-#: .\views.py:1402
+#: .\views.py:1584
 msgid "Extended profile features"
 msgstr "Erweiterte Profilfunktionen"
 
-#: .\views.py:1411
+#: .\views.py:1593
 msgid "All Silver benefits"
 msgstr "Alle Silver-Vorteile"
 
-#: .\views.py:1412
+#: .\views.py:1594
 msgid "VIP event access"
 msgstr "VIP-Zugang zu Veranstaltungen"
 
-#: .\views.py:1413
+#: .\views.py:1595
 msgid "Personal coach session"
 msgstr "Persönliche Coach-Sitzung"
 
-#: .\views.py:1437 .\views.py:1447
+#: .\views.py:1620 .\views.py:1632
 msgid "Membership card is not available yet. Please try again later."
 msgstr ""
 "Die Mitgliedskarte ist noch nicht verfügbar. Bitte versuchen Sie esspäter "
 "noch einmal."
 
-#: .\views.py:1512
+#: .\views.py:1698
 msgid "This is a private invitation-only event. Please log in."
 msgstr ""
 "Dies ist ein privates Event nur auf Einladung. Bitte melden Sie sichan."
 
-#: .\views.py:1525
+#: .\views.py:1712
 msgid "You do not have access to this private event."
 msgstr "Sie haben keinen Zugang zu diesem privaten Event."
 
-#: .\views.py:1560
+#: .\views.py:1747
 msgid "You do not have an approved invitation for this event."
 msgstr "Sie haben keine genehmigte Einladung für dieses Event."
 
-#: .\views.py:1572
+#: .\views.py:1762
 msgid ""
 "Please complete your profile before registering for events. This is required "
 "for all users, even with invitations."
@@ -14687,195 +14909,207 @@ msgstr ""
 "Bitte vervollständige dein Profil, bevor du dich für Events anmeldest. Dies "
 "ist für alle Nutzer erforderlich, auch mit Einladungen."
 
-#: .\views.py:1591
+#: .\views.py:1784
 msgid "Your profile is missing. Please contact support for assistance."
 msgstr "Dein Profil fehlt. Bitte kontaktiere den Support für Hilfe."
 
-#: .\views.py:1599
-msgid "Your profile must be approved before registering for events."
+#: .\views.py:1798
+msgid ""
+"This event requires an approved profile. Your profile is currently under "
+"review."
 msgstr ""
-"Ihr Profil muss genehmigt werden, bevor Sie sich für Events anmeldenkönnen."
 
-#: .\views.py:1602
-msgid "Please create a profile first."
-msgstr "Bitte erstellen Sie zuerst ein Profil."
+#: .\views.py:1805
+msgid "This event requires a Crush profile. Please create one to register."
+msgstr ""
 
-#: .\views.py:1607
+#: .\views.py:1819
+msgid ""
+"This event has age restrictions. Please create a profile to verify your age."
+msgstr ""
+
+#: .\views.py:1825
 msgid "You are already registered for this event."
 msgstr "Sie sind bereits für diese Veranstaltung angemeldet."
 
-#: .\views.py:1612
+#: .\views.py:1830
 msgid "Registration is not available for this event."
 msgstr "Anmeldung für diese Veranstaltung nicht verfügbar."
 
-#: .\views.py:1625
+#: .\views.py:1844
 msgid "Event is full. You have been added to the waitlist."
 msgstr "Veranstaltung ist voll. Sie wurden auf die Warteliste gesetzt."
 
-#: .\views.py:1628
+#: .\views.py:1848
 msgid "Successfully registered for the event!"
 msgstr "Erfolgreich für die Veranstaltung angemeldet!"
 
-#: .\views.py:1678
+#: .\views.py:1902
 msgid "Your registration has been cancelled."
 msgstr "Ihre Anmeldung wurde storniert."
 
-#: .\views.py:1702
+#: .\views.py:1929
 msgid ""
 "Your coach account has been deactivated. Please contact an administrator."
 msgstr ""
 "Ihr Coach-Konto wurde deaktiviert. Bitte kontaktieren Sie einen "
 "Administrator."
 
-#: .\views.py:1705 .\views.py:1757 .\views.py:1760 .\views.py:1822
-#: .\views.py:1875 .\views.py:2247 .\views.py:2310 .\views.py:2347
-#: .\views.py:2371 .\views.py:2425
+#: .\views.py:1934 .\views.py:1995 .\views.py:1999 .\views.py:2074
+#: .\views.py:2129 .\views.py:2520 .\views.py:2585 .\views.py:2630
+#: .\views.py:2654 .\views.py:2724
 msgid "You do not have coach access."
 msgstr "Sie haben keinen Coach-Zugang."
 
-#: .\views.py:1772
+#: .\views.py:2014
 msgid "Submission not found or not assigned to you."
 msgstr "Einreichung nicht gefunden oder dir nicht zugewiesen."
 
-#: .\views.py:1775
+#: .\views.py:2018
 msgid "Submission not found."
 msgstr "Einladung nicht gefunden."
 
-#: .\views.py:1819 .\views.py:1872 .\views.py:2244 .\views.py:2265
-#: .\views.py:3504
+#: .\views.py:2071 .\views.py:2126 .\views.py:2517 .\views.py:2538
+#: .\views.py:3904
 msgid "Your coach account has been deactivated."
 msgstr "Ihr Coach-Konto wurde deaktiviert."
 
-#: .\views.py:1841
+#: .\views.py:2093
 msgid "Failed call attempt logged."
 msgstr ""
 
-#: .\views.py:1894
+#: .\views.py:2147
 msgid "You must complete a screening call before approving this profile."
 msgstr ""
 "Sie müssen einen Screening-Anruf abschließen, bevor Sie dieses "
 "Profilgenehmigen."
 
-#: .\views.py:1905
+#: .\views.py:2162
 msgid "Profile approved!"
 msgstr "Profil genehmigt!"
 
-#: .\views.py:1923
+#: .\views.py:2182
 msgid "Profile rejected."
 msgstr "Profil abgelehnt."
 
-#: .\views.py:1939
+#: .\views.py:2200
 msgid "Revision requested."
 msgstr "Überarbeitung angefordert."
 
-#: .\views.py:1955
+#: .\views.py:2218
 msgid "User asked to recontact coach."
 msgstr ""
 
-#: .\views.py:2268
+#: .\views.py:2541
 msgid "You do not have a coach profile."
 msgstr "Sie haben kein Coach-Profil."
 
-#: .\views.py:2275
+#: .\views.py:2548
 msgid "Coach profile updated successfully!"
 msgstr "Coach-Profil erfolgreich aktualisiert!"
 
-#: .\views.py:2396
+#: .\views.py:2691
 msgid "Points must be valid numbers."
 msgstr "Punkte müssen gültige Zahlen sein."
 
-#: .\views.py:2587 .\views.py:2659
+#: .\views.py:2906 .\views.py:2973
 msgid "You must attend this event before making connections."
 msgstr ""
 "Sie müssen an diesem Event teilnehmen, bevor Sie Verbindungenherstellen "
 "können."
 
-#: .\views.py:2670
+#: .\views.py:2981
 msgid "This person did not attend the event."
 msgstr "Diese Person hat nicht am Event teilgenommen."
 
-#: .\views.py:2680
+#: .\views.py:2991
 msgid "Connection request already exists."
 msgstr "Verbindungsanfrage existiert bereits."
 
-#: .\views.py:2743
+#: .\views.py:3055
 msgid "Connection request sent!"
 msgstr "Verbindungsanfrage gesendet!"
 
-#: .\views.py:2912
+#: .\views.py:3232
 msgid "You must have attended this event to respond to connections."
 msgstr ""
 "Sie müssen an diesem Event teilgenommen haben, um auf Verbindungen "
 "zuantworten."
 
-#: .\views.py:2919
+#: .\views.py:3242
 msgid "You are not registered for this event."
 msgstr "Sie sind nicht für dieses Event angemeldet."
 
-#: .\views.py:2963
+#: .\views.py:3290
 msgid "Connection accepted! A coach will help facilitate your introduction."
 msgstr "Verbindung akzeptiert! Ein Coach wird Ihre Vorstellung begleiten."
 
-#: .\views.py:2982
+#: .\views.py:3312
 msgid "Connection request declined."
 msgstr "Verbindungsanfrage abgelehnt."
 
-#: .\views.py:2988
+#: .\views.py:3318
 msgid "Invalid action."
 msgstr "Ungültige Aktion."
 
-#: .\views.py:3049
+#: .\views.py:3391
 msgid "Contact information is now shared!"
 msgstr "Kontaktinformationen werden jetzt geteilt!"
 
-#: .\views.py:3051
+#: .\views.py:3393
 msgid "Your consent has been recorded."
 msgstr "Ihre Zustimmung wurde aufgezeichnet."
 
-#: .\views.py:3088
+#: .\views.py:3437
 msgid "Message sent!"
 msgstr "Nachricht gesendet!"
 
-#: .\views.py:3090
+#: .\views.py:3440
 msgid "You can only message accepted connections."
 msgstr "Sie können nur akzeptierte Verbindungen anschreiben."
 
-#: .\views.py:3092
+#: .\views.py:3444
 msgid "Please enter a valid message (max 2000 characters)."
 msgstr "Bitte geben Sie eine gültige Nachricht ein (max. 2000 Zeichen)."
 
-#: .\views.py:3129
+#: .\views.py:3477 .\views.py:3523 .\views.py:3772
+#, fuzzy
+#| msgid "Voting is not currently open for this event."
+msgid "Activity voting is not enabled for this event."
+msgstr "Die Abstimmung für dieses Event ist derzeit nicht geöffnet."
+
+#: .\views.py:3487
 msgid "Only confirmed attendees can access event voting."
 msgstr "Nur bestätigte Teilnehmer können an der Event-Abstimmung teilnehmen."
 
-#: .\views.py:3170
+#: .\views.py:3532
 msgid "Only confirmed attendees can vote."
 msgstr "Nur bestätigte Teilnehmer können abstimmen."
 
-#: .\views.py:3178
+#: .\views.py:3540
 msgid "Voting is not currently open for this event."
 msgstr "Die Abstimmung für dieses Event ist derzeit nicht geöffnet."
 
-#: .\views.py:3186
+#: .\views.py:3551
 msgid ""
 "Please vote on BOTH categories: Presentation Style AND Speed Dating Twist."
 msgstr ""
 "Bitte stimmen Sie in BEIDEN Kategorien ab: Präsentationsstil UNDSpeed-Dating-"
 "Twist."
 
-#: .\views.py:3245
+#: .\views.py:3611
 msgid "Your votes have been recorded for both categories!"
 msgstr "Ihre Stimmen wurden für beide Kategorien aufgezeichnet!"
 
-#: .\views.py:3249
+#: .\views.py:3616
 msgid "Invalid activity option selected."
 msgstr "Ungültige Aktivitätsoption ausgewählt."
 
-#: .\views.py:3301
+#: .\views.py:3665
 msgid "Only confirmed attendees can view results."
 msgstr "Nur bestätigte Teilnehmer können die Ergebnisse sehen."
 
-#: .\views.py:3324
+#: .\views.py:3691
 msgid ""
 "Voting has ended. You did not vote, but you can still participate in "
 "presentations!"
@@ -14883,41 +15117,41 @@ msgstr ""
 "Die Abstimmung ist beendet. Sie haben nicht abgestimmt, können aber trotzdem "
 "an den Präsentationen teilnehmen!"
 
-#: .\views.py:3367
+#: .\views.py:3741
 msgid "Voting complete! Redirecting to presentations..."
 msgstr "Abstimmung abgeschlossen! Weiterleitung zu den Präsentationen..."
 
-#: .\views.py:3403
+#: .\views.py:3781
 msgid "Only confirmed attendees can view presentations."
 msgstr "Nur bestätigte Teilnehmer können die Präsentationen sehen."
 
-#: .\views.py:3507
+#: .\views.py:3907
 msgid "Only coaches can access presentation controls."
 msgstr "Nur Coaches können auf die Präsentationssteuerung zugreifen."
 
-#: .\views.py:3604
+#: .\views.py:4016
 msgid "Only confirmed attendees can view scores."
 msgstr "Nur bestätigte Teilnehmer können die Ergebnisse sehen."
 
-#: .\views.py:3614
+#: .\views.py:4032
 msgid "Scores will be available after all presentations are completed."
 msgstr "Ergebnisse werden nach Abschluss aller Präsentationen verfügbar sein."
 
-#: .\views.py:3783
+#: .\views.py:4216
 msgid "You have already accepted this invitation. Please log in to continue."
 msgstr ""
 "Sie haben diese Einladung bereits akzeptiert. Bitte melden Sie sichan, um "
 "fortzufahren."
 
-#: .\views.py:3810
+#: .\views.py:4244
 msgid "This invitation has already been accepted."
 msgstr "Diese Einladung wurde bereits akzeptiert."
 
-#: .\views.py:3815
+#: .\views.py:4249
 msgid "This invitation has expired."
 msgstr "Diese Einladung ist abgelaufen."
 
-#: .\views.py:3873
+#: .\views.py:4311
 msgid ""
 "Welcome! Your invitation has been accepted. You will receive an email once "
 "your attendance is approved by our team."
@@ -14925,29 +15159,29 @@ msgstr ""
 "Willkommen! Deine Einladung wurde angenommen. Du erhältst eine E-Mail, "
 "sobald deine Teilnahme von unserem Team genehmigt wurde."
 
-#: .\views.py:3883
+#: .\views.py:4330
 msgid "An error occurred while accepting your invitation. Please try again."
 msgstr ""
 "Beim Annehmen Ihrer Einladung ist ein Fehler aufgetreten. Bitteversuchen Sie "
 "es erneut."
 
-#: .\views.py:3906
+#: .\views.py:4355
 msgid "Only coaches can manage invitations."
 msgstr "Nur Coaches können Einladungen verwalten."
 
-#: .\views.py:3921
+#: .\views.py:4371
 msgid "Please provide email, first name, and last name."
 msgstr "Bitte geben Sie E-Mail, Vorname und Nachname an."
 
-#: .\views.py:3966 .\views.py:3986
+#: .\views.py:4437 .\views.py:4466
 msgid "Invitation not found."
 msgstr "Einladung nicht gefunden."
 
-#: .\views.py:4023
+#: .\views.py:4504
 msgid "This page is not available."
 msgstr "Diese Seite ist nicht verfügbar."
 
-#: .\views.py:4042
+#: .\views.py:4522
 msgid "This special experience is no longer available."
 msgstr "Diese spezielle Erfahrung ist nicht mehr verfügbar."
 
@@ -15120,27 +15354,27 @@ msgstr "Willkommen in deinem Wonderland! Deine Reise wurde erstellt."
 msgid "Your phone number is already verified."
 msgstr "Ihre Telefonnummer ist bereits verifiziert."
 
-#: .\views_profile.py:86
+#: .\views_profile.py:119
 msgid "Please select your gender"
 msgstr "Wählen Sie Ihr Geschlecht"
 
-#: .\views_profile.py:90
+#: .\views_profile.py:123
 msgid "Invalid gender selection"
 msgstr "Ungültige Geschlechtsauswahl"
 
-#: .\views_profile.py:95
+#: .\views_profile.py:128
 msgid "Please select your location"
 msgstr "Bitte wählen Sie Ihren Standort"
 
-#: .\views_profile.py:99
+#: .\views_profile.py:132
 msgid "Invalid location selection"
 msgstr "Ungültige Standortauswahl"
 
-#: .\views_profile.py:105
+#: .\views_profile.py:149
 msgid "Please fill in all required fields"
 msgstr "Bitte füllen Sie alle erforderlichen Felder aus"
 
-#: .\views_profile.py:284
+#: .\views_profile.py:463
 msgid "Profile submitted for review! A coach will contact you soon."
 msgstr ""
 "Profil zur Überprüfung eingereicht! Ein Coach wird sich bald bei Ihnen "
@@ -15153,3 +15387,21 @@ msgid ""
 msgstr ""
 "Apple Wallet-Unterstützung ist bald verfügbar! Bitte nutzen Sie in der "
 "Zwischenzeit Google Wallet."
+
+#~ msgid "Your Dietary Restrictions:"
+#~ msgstr "Deine Ernährungseinschränkungen:"
+
+#, python-format
+#~ msgid "Fee: %(fee)s"
+#~ msgstr "Fee: %(fee)s"
+
+#~ msgid "This event is full. You will be added to the waitlist."
+#~ msgstr "Dieses Event ist voll. Du wirst auf die Warteliste gesetzt."
+
+#~ msgid "Your profile must be approved before registering for events."
+#~ msgstr ""
+#~ "Ihr Profil muss genehmigt werden, bevor Sie sich für Events "
+#~ "anmeldenkönnen."
+
+#~ msgid "Please create a profile first."
+#~ msgstr "Bitte erstellen Sie zuerst ein Profil."

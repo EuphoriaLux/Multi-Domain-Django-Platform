@@ -15,17 +15,54 @@
     <ul style="margin: 10px 0;">
         <li><strong>{% trans "Date:" %}</strong> {{ event.date_time|date:"l, F j, Y" }}</li>
         <li><strong>{% trans "Time:" %}</strong> {{ event.date_time|date:"g:i A" }}</li>
-        <li><strong>{% trans "Location:" %}</strong> {{ event.location }}</li>
+        <li><strong>{% trans "Location:" %}</strong><br>
+            {{ event.location }}<br>
+            {{ event.address }}<br>
+            {{ event.canton|default:"Luxembourg" }}, Luxembourg
+        </li>
     </ul>
 </div>
 
-<p><strong>{{ event.description }}</strong></p>
+<div><strong>{{ event.description|linebreaks }}</strong></div>
+
+{% if registration.accessibility_needs or registration.dietary_restrictions or registration.bringing_guest or registration.special_requests %}
+<div class="info-box">
+    <strong>{% trans "Your Registration Details:" %}</strong>
+
+    {% if registration.accessibility_needs %}
+    <p><strong>{% trans "Accessibility Needs:" %}</strong><br>
+    {{ registration.accessibility_needs }}</p>
+    {% endif %}
+
+    {% if registration.dietary_restrictions %}
+    <p><strong>{% trans "Dietary Restrictions:" %}</strong><br>
+    {{ registration.dietary_restrictions }}</p>
+    {% endif %}
+
+    {% if registration.bringing_guest %}
+    <p><strong>{% trans "Guest:" %}</strong><br>
+    {% if registration.guest_name %}
+        {{ registration.guest_name }}
+    {% else %}
+        {% trans "Bringing a guest" %}
+    {% endif %}
+    </p>
+    {% endif %}
+
+    {% if registration.special_requests %}
+    <p><strong>{% trans "Special Requests:" %}</strong><br>
+    {{ registration.special_requests }}</p>
+    {% endif %}
+</div>
+{% endif %}
 
 <p><strong>{% trans "Remember to bring:" %}</strong></p>
 <ul>
     <li>{% trans "Valid ID for age verification" %}</li>
     <li>{% trans "An open mind and positive energy" %}</li>
+    {% if not registration.bringing_guest %}
     <li>{% trans "Yourself - no one else!" %}</li>
+    {% endif %}
 </ul>
 
 <a href="{{ event_url }}" class="button">{% trans "View Event Details" %}</a>

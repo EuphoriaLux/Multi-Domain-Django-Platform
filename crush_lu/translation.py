@@ -8,6 +8,7 @@ When a user visits /de/journey/, the German content is automatically returned.
 from modeltranslation.translator import translator, TranslationOptions
 
 from .models.profiles import SpecialUserExperience
+from .models.events import MeetupEvent
 from .models.journey import (
     JourneyConfiguration,
     JourneyChapter,
@@ -20,6 +21,12 @@ class SpecialUserExperienceTranslationOptions(TranslationOptions):
     """Translatable fields for special user welcome experience."""
 
     fields = ('custom_welcome_title', 'custom_welcome_message')
+
+
+class MeetupEventTranslationOptions(TranslationOptions):
+    """Translatable fields for meetup events."""
+
+    fields = ('title', 'description')
 
 
 class JourneyConfigurationTranslationOptions(TranslationOptions):
@@ -56,6 +63,7 @@ class JourneyRewardTranslationOptions(TranslationOptions):
 
 # Register models with translation options
 translator.register(SpecialUserExperience, SpecialUserExperienceTranslationOptions)
+translator.register(MeetupEvent, MeetupEventTranslationOptions)
 translator.register(JourneyConfiguration, JourneyConfigurationTranslationOptions)
 translator.register(JourneyChapter, JourneyChapterTranslationOptions)
 translator.register(JourneyChallenge, JourneyChallengeTranslationOptions)

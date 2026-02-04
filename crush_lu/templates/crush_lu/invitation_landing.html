@@ -134,7 +134,7 @@
                 <!-- Event Description -->
                 {% if event.description %}
                 <div class="alert alert-info mb-4" style="background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(255, 107, 157, 0.1)); border: none;">
-                    <p class="mb-0" style="color: var(--crush-dark);">{{ event.description }}</p>
+                    <div class="mb-0" style="color: var(--crush-dark);">{{ event.description|linebreaks }}</div>
                 </div>
                 {% endif %}
 

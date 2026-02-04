@@ -164,7 +164,6 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
         )
     # In DEBUG mode, use file backend to save emails (avoids Windows console encoding issues)
     elif settings.DEBUG:
-        import os
         email_folder = os.path.join(settings.BASE_DIR, 'sent_emails')
         os.makedirs(email_folder, exist_ok=True)
         logger.info(f"📧 [DEBUG] Saving email to {email_folder} (from {email_from})")

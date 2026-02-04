@@ -18,7 +18,7 @@
 {# Main Alpine.js component for wizard state management #}
 <div x-data="profileWizard"
      data-initial-step="{% if current_step %}{{ current_step }}{% else %}1{% endif %}"
-     data-phone-verified="{{ profile.phone_verified|default:False|yesno:'true,false' }}"
+     data-phone-verified="{% if profile and profile.phone_verified %}true{% else %}false{% endif %}"
      data-is-editing="{{ is_editing|lower|default:'false' }}"
      class="profile-creation-wrapper">
     <div class="container py-4 max-w-3xl mx-auto px-4">
@@ -169,7 +169,7 @@
                 <!-- Phone Number with Verification -->
                 <div class="mb-6" id="phone-verification-container"
                      x-data="phoneVerificationComponent"
-                     data-verified="{{ profile.phone_verified|default:False|yesno:'true,false' }}"
+                     data-verified="{% if profile and profile.phone_verified %}true{% else %}false{% endif %}"
                      data-phone-input-id="{{ form.phone_number.id_for_label }}">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
                         {% include "shared/icons/phone.html" with class="w-5 h-5" %} {% trans "Phone Number" %} *
@@ -345,7 +345,7 @@
 
                         <!-- Hidden input for form submission -->
                         <input type="hidden" name="date_of_birth"
-                               value="{% if form.date_of_birth.value %}{{ form.date_of_birth.value|date:'Y-m-d' }}{% elif profile.date_of_birth %}{{ profile.date_of_birth|date:'Y-m-d' }}{% endif %}">
+                               value="{% if form.date_of_birth.value %}{{ form.date_of_birth.value|date:'Y-m-d' }}{% elif profile and profile.date_of_birth %}{{ profile.date_of_birth|date:'Y-m-d' }}{% endif %}">
                     </div>
 
                     {% if form.date_of_birth.errors %}
@@ -436,7 +436,7 @@
                     <p class="text-sm text-gray-500 mb-2">{% trans "Click the map or use the dropdown to select your region" %}</p>
 
                     <div x-data="cantonMap"
-                         data-initial-value="{{ form.location.value|default:profile.location|default:'' }}"
+                         data-initial-value="{% if form.location.value %}{{ form.location.value }}{% elif profile and profile.location %}{{ profile.location }}{% endif %}"
                          data-initial-name="{% if form.location.value %}{{ form.location.value }}{% elif profile and profile.location %}{{ profile.get_location_display }}{% endif %}"
                          data-placeholder="{% trans "Click the map to select your region" %}"
                          class="canton-map-container {% if form.location.errors %}has-error{% endif %}">
@@ -563,7 +563,7 @@
                 </div>
 
                 <!-- Bio -->
-                <div class="mb-6" x-data="charCounter" data-initial-count="{% if form.bio.value %}{{ form.bio.value|length }}{% else %}{{ profile.bio|default:''|length }}{% endif %}" data-max-length="500">
+                <div class="mb-6" x-data="charCounter" data-initial-count="{% if form.bio.value %}{{ form.bio.value|length }}{% elif profile and profile.bio %}{{ profile.bio|length }}{% else %}0{% endif %}" data-max-length="500">
                     <label for="{{ form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
                         {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5" %} {% trans "Bio" %}
                         <span class="text-xs text-gray-400 font-normal ml-1">{% trans "Optional" %}</span>
@@ -574,7 +574,7 @@
                               rows="4"
                               maxlength="500"
                               @input="updateCount"
-                              placeholder="{% trans "Tell us about yourself... What do you love? What makes you smile?" %}">{{ form.bio.value|default:profile.bio|default:"" }}</textarea>
+                              placeholder="{% trans "Tell us about yourself... What do you love? What makes you smile?" %}">{% if form.bio.value %}{{ form.bio.value }}{% elif profile and profile.bio %}{{ profile.bio }}{% endif %}</textarea>
                     <div class="text-right text-sm text-gray-400 mt-1">
                         <span x-text="charCount"></span>/500 {% trans "characters" %}
                     </div>
@@ -642,7 +642,7 @@
                 </div>
 
                 <!-- Custom Interests -->
-                <div class="mb-6" x-data="charCounter" data-initial-count="{% if form.interests.value %}{{ form.interests.value|length }}{% else %}{{ profile.interests|default:''|length }}{% endif %}" data-max-length="300">
+                <div class="mb-6" x-data="charCounter" data-initial-count="{% if form.interests.value %}{{ form.interests.value|length }}{% elif profile and profile.interests %}{{ profile.interests|length }}{% else %}0{% endif %}" data-max-length="300">
                     <label for="{{ form.interests.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
                         {% include "shared/icons/pencil.html" with class="w-5 h-5" %} {% trans "Or write your own interests" %}
                     </label>
@@ -652,7 +652,7 @@
                               rows="2"
                               maxlength="300"
                               @input="updateCount"
-                              placeholder="{% trans "e.g., hiking, photography, cooking..." %}">{{ form.interests.value|default:profile.interests|default:"" }}</textarea>
+                              placeholder="{% trans "e.g., hiking, photography, cooking..." %}">{% if form.interests.value %}{{ form.interests.value }}{% elif profile and profile.interests %}{{ profile.interests }}{% endif %}</textarea>
                     <div class="text-right text-sm text-gray-400 mt-1">
                         <span x-text="charCount"></span>/300 {% trans "characters" %}
                     </div>
@@ -781,12 +781,12 @@
                 <!-- Photo Upload Grid - smaller gap on mobile for better fit -->
                 <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-6"
                      x-data="photoUpload"
-                     data-photo-1-exists="{{ profile.photo_1|default:False|yesno:'true,false' }}"
-                     data-photo-1-url="{% if profile.photo_1 %}{{ profile.photo_1.url }}{% endif %}"
-                     data-photo-2-exists="{{ profile.photo_2|default:False|yesno:'true,false' }}"
-                     data-photo-2-url="{% if profile.photo_2 %}{{ profile.photo_2.url }}{% endif %}"
-                     data-photo-3-exists="{{ profile.photo_3|default:False|yesno:'true,false' }}"
-                     data-photo-3-url="{% if profile.photo_3 %}{{ profile.photo_3.url }}{% endif %}">
+                     data-photo-1-exists="{% if profile and profile.photo_1 %}true{% else %}false{% endif %}"
+                     data-photo-1-url="{% if profile and profile.photo_1 %}{{ profile.photo_1.url }}{% endif %}"
+                     data-photo-2-exists="{% if profile and profile.photo_2 %}true{% else %}false{% endif %}"
+                     data-photo-2-url="{% if profile and profile.photo_2 %}{{ profile.photo_2.url }}{% endif %}"
+                     data-photo-3-exists="{% if profile and profile.photo_3 %}true{% else %}false{% endif %}"
+                     data-photo-3-url="{% if profile and profile.photo_3 %}{{ profile.photo_3.url }}{% endif %}">
                     <!-- Photo 1 -->
                     <div class="relative aspect-square">
                         <input type="file" name="photo_1" id="photo1" accept="image/*" class="hidden"
