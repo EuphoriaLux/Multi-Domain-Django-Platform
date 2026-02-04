@@ -193,7 +193,7 @@
                                    name="phone_number"
                                    id="{{ form.phone_number.id_for_label }}"
                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-                                   value="{{ form.phone_number.value|default:profile.phone_number|default:'' }}"
+                                   value="{% if form.phone_number.value %}{{ form.phone_number.value }}{% elif profile %}{{ profile.phone_number|default:'' }}{% endif %}"
                                    x-bind:readonly="verified"
                                    @input="onPhoneInput"
                                    required>
