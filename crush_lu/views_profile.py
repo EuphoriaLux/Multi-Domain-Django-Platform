@@ -57,18 +57,51 @@ def save_profile_step1(request):
 
                 # Validate age range
                 if age < 18:
+                    # Preserve data in draft even though validation failed
+                    if not profile.draft_data:
+                        profile.draft_data = {}
+                    profile.draft_data['step1'] = {
+                        'phone_number': data.get('phone_number', ''),
+                        'date_of_birth': date_of_birth_str,
+                        'gender': data.get('gender', ''),
+                        'location': data.get('location', ''),
+                    }
+                    profile.save(update_fields=['draft_data'])
+
                     return JsonResponse({
                         'success': False,
                         'error': 'You must be at least 18 years old to join Crush.lu'
                     }, status=400)
 
                 if age > 99:
+                    # Preserve data in draft
+                    if not profile.draft_data:
+                        profile.draft_data = {}
+                    profile.draft_data['step1'] = {
+                        'phone_number': data.get('phone_number', ''),
+                        'date_of_birth': date_of_birth_str,
+                        'gender': data.get('gender', ''),
+                        'location': data.get('location', ''),
+                    }
+                    profile.save(update_fields=['draft_data'])
+
                     return JsonResponse({
                         'success': False,
                         'error': 'Please enter a valid date of birth'
                     }, status=400)
 
             except ValueError:
+                # Preserve data in draft even with invalid date format
+                if not profile.draft_data:
+                    profile.draft_data = {}
+                profile.draft_data['step1'] = {
+                    'phone_number': data.get('phone_number', ''),
+                    'date_of_birth': date_of_birth_str,
+                    'gender': data.get('gender', ''),
+                    'location': data.get('location', ''),
+                }
+                profile.save(update_fields=['draft_data'])
+
                 return JsonResponse({
                     'success': False,
                     'error': 'Invalid date format. Please use YYYY-MM-DD'
@@ -100,6 +133,17 @@ def save_profile_step1(request):
 
         # Return validation errors if any
         if errors:
+            # CRITICAL FIX: Preserve invalid data in draft for recovery
+            if not profile.draft_data:
+                profile.draft_data = {}
+            profile.draft_data['step1'] = {
+                'phone_number': data.get('phone_number', ''),
+                'date_of_birth': date_of_birth_str or '',
+                'gender': gender,
+                'location': location,
+            }
+            profile.save(update_fields=['draft_data'])
+
             return JsonResponse({
                 'success': False,
                 'error': _('Please fill in all required fields'),
@@ -127,6 +171,10 @@ def save_profile_step1(request):
         # Set completion status
         profile.completion_status = 'step1'
         # Note: Screening call will happen during coach review after full submission
+
+        # Clear step1 draft data on successful save (data now officially saved)
+        if profile.draft_data and 'step1' in profile.draft_data:
+            del profile.draft_data['step1']
 
         profile.save()
 
@@ -167,6 +215,16 @@ def save_profile_step2(request):
         # Validate looking_for is provided
         looking_for = data.get('looking_for', '').strip()
         if not looking_for:
+            # Preserve data in draft
+            if not profile.draft_data:
+                profile.draft_data = {}
+            profile.draft_data['step2'] = {
+                'bio': data.get('bio', ''),
+                'interests': data.get('interests', ''),
+                'looking_for': looking_for,
+            }
+            profile.save(update_fields=['draft_data'])
+
             return JsonResponse({
                 'success': False,
                 'error': 'Please select what you\'re looking for'
@@ -176,6 +234,16 @@ def save_profile_step2(request):
         from .models import CrushProfile as ProfileModel
         valid_choices = [choice[0] for choice in ProfileModel.LOOKING_FOR_CHOICES]
         if looking_for not in valid_choices:
+            # Preserve data in draft
+            if not profile.draft_data:
+                profile.draft_data = {}
+            profile.draft_data['step2'] = {
+                'bio': data.get('bio', ''),
+                'interests': data.get('interests', ''),
+                'looking_for': looking_for,
+            }
+            profile.save(update_fields=['draft_data'])
+
             return JsonResponse({
                 'success': False,
                 'error': 'Invalid selection for "looking for"'
@@ -186,6 +254,20 @@ def save_profile_step2(request):
         profile.interests = data.get('interests', '').strip()
         profile.looking_for = looking_for
         profile.completion_status = 'step2'
+
+        # Clear step2 draft data on successful save, BUT preserve UI-only fields
+        if profile.draft_data and 'step2' in profile.draft_data:
+            # Preserve interest_category (UI-only, not stored in model)
+            interest_category = profile.draft_data['step2'].get('interest_category')
+
+            # Clear the entire step2 draft
+            del profile.draft_data['step2']
+
+            # Restore interest_category if it existed
+            if interest_category:
+                if 'step2' not in profile.draft_data:
+                    profile.draft_data['step2'] = {}
+                profile.draft_data['step2']['interest_category'] = interest_category
 
         profile.save()
 
@@ -208,12 +290,80 @@ def save_profile_step2(request):
 
 @crush_login_required
 @require_http_methods(["POST"])
+def upload_photo_draft(request):
+    """
+    Upload a single photo immediately (auto-save).
+
+    This endpoint uploads a photo to Azure Blob Storage and saves the URL
+    to the draft, allowing photo persistence across page refreshes.
+
+    Request: multipart/form-data with 'photo' file and 'photo_number' (1-3)
+
+    Response: {success: true, photo_url: '...', photo_number: 1}
+    """
+    try:
+        photo_number = request.POST.get('photo_number')
+        if not photo_number or photo_number not in ['1', '2', '3']:
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid photo_number. Must be 1, 2, or 3.'
+            }, status=400)
+
+        photo_file = request.FILES.get('photo')
+        if not photo_file:
+            return JsonResponse({
+                'success': False,
+                'error': 'No photo file provided'
+            }, status=400)
+
+        # Get or create profile
+        profile, created = CrushProfile.objects.get_or_create(user=request.user)
+
+        # Save photo to the appropriate field
+        photo_field = f'photo_{photo_number}'
+        setattr(profile, photo_field, photo_file)
+        profile.save(update_fields=[photo_field])
+
+        # Get the URL of the uploaded photo
+        photo_obj = getattr(profile, photo_field)
+        photo_url = photo_obj.url if photo_obj else None
+
+        # Store photo URL in draft for recovery
+        if not profile.draft_data:
+            profile.draft_data = {}
+        if 'step3' not in profile.draft_data:
+            profile.draft_data['step3'] = {}
+
+        profile.draft_data['step3'][f'photo_{photo_number}_url'] = photo_url
+        profile.save(update_fields=['draft_data'])
+
+        return JsonResponse({
+            'success': True,
+            'photo_url': photo_url,
+            'photo_number': int(photo_number),
+            'message': f'Photo {photo_number} uploaded successfully'
+        })
+
+    except CrushProfile.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Profile not found'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@crush_login_required
+@require_http_methods(["POST"])
 def save_profile_step3(request):
     """Save Step 3 (Photos & Privacy) via AJAX/Form"""
     try:
         profile = CrushProfile.objects.get(user=request.user)
 
-        # Handle photos if uploaded
+        # Handle photos if uploaded (for backward compatibility with form submission)
         if request.FILES.get('photo_1'):
             profile.photo_1 = request.FILES['photo_1']
         if request.FILES.get('photo_2'):
@@ -225,7 +375,30 @@ def save_profile_step3(request):
         profile.show_full_name = request.POST.get('show_full_name') == 'on'
         profile.show_exact_age = request.POST.get('show_exact_age') == 'on'
         profile.blur_photos = request.POST.get('blur_photos') == 'on'
+
+        # Event languages (multiple checkboxes stored as JSON array)
+        # CRITICAL: Check draft first, then POST data
+        event_languages = request.POST.getlist('event_languages')
+        if not event_languages and profile.draft_data and 'step3' in profile.draft_data:
+            # Not in POST, check if it's in the draft
+            draft_event_languages = profile.draft_data['step3'].get('event_languages')
+            if draft_event_languages and isinstance(draft_event_languages, list):
+                # Use draft value
+                event_languages = draft_event_languages
+
+        if event_languages:
+            # Update the field with POST or draft value
+            profile.event_languages = event_languages
+        # else: Keep existing value
+
+        # Note: interest_category checkboxes are UI-only (not stored in model)
+        # They're used for filtering/display purposes only
+
         profile.completion_status = 'step3'
+
+        # Clear step3 draft data on successful save
+        if profile.draft_data and 'step3' in profile.draft_data:
+            del profile.draft_data['step3']
 
         profile.save()
 
@@ -254,6 +427,12 @@ def complete_profile_submission(request):
 
         # Mark as completed
         profile.completion_status = 'submitted'
+
+        # Clear ALL draft data on successful submission
+        profile.draft_data = {}
+        profile.last_draft_saved = None
+        profile.draft_expires_at = None
+
         profile.save()
 
         # Create profile submission for coach review

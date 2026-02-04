@@ -138,6 +138,31 @@ class ProfileSubmissionProfileInline(admin.TabularInline):
 
 class CrushProfileAdmin(admin.ModelAdmin):
     list_display = ('get_user_link', 'get_email', 'age', 'gender', 'location', 'get_language_display', 'phone_verified_icon', 'completion_status', 'get_assigned_coach', 'get_referral_code', 'get_referral_count', 'is_approved', 'is_active', 'outlook_synced', 'created_at', 'is_coach')
+
+    def save_model(self, request, obj, form, change):
+        """
+        Override save_model to allow phone verification field changes in admin.
+        This bypasses the model's protection to allow manual corrections for testing.
+        """
+        if change:
+            # Get the old instance to check if we're modifying phone verification fields
+            old_instance = CrushProfile.objects.get(pk=obj.pk)
+
+            # Check if any phone-related fields are being changed
+            phone_fields_changed = any(
+                field in form.changed_data
+                for field in ['phone_number', 'phone_verified', 'phone_verified_at', 'phone_verification_uid']
+            )
+
+            if old_instance.phone_verified and phone_fields_changed:
+                # Admin is explicitly changing phone fields - bypass model protection
+                # Save directly to database without triggering model's save() override
+                super(CrushProfile, obj).save(update_fields=form.changed_data)
+                return
+
+        # Normal save for all other cases
+        super().save_model(request, obj, form, change)
+
     list_filter = (
         # Approval & Status
         'is_approved',

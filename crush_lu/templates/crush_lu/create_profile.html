@@ -132,6 +132,28 @@
             </div>
             {% endif %}
 
+            <!-- Auto-save Indicators (Fixed Position) -->
+            <div class="fixed bottom-4 right-4 z-50 space-y-2">
+                <!-- Saving Indicator -->
+                <div x-show="showAutoSaving" x-transition
+                     class="bg-white rounded-full shadow-lg px-4 py-2 flex items-center gap-2">
+                    <svg class="w-4 h-4 animate-spin text-purple-500" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="text-sm text-gray-600">{% trans "Saving..." %}</span>
+                </div>
+
+                <!-- Saved Indicator -->
+                <div x-show="showLastSaved" x-transition x-cloak
+                     class="bg-white rounded-full shadow-lg px-4 py-2 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    <span class="text-sm text-gray-600" x-text="lastSavedMessage"></span>
+                </div>
+            </div>
+
             <!-- Step 1: Basic Information -->
             <div x-show="isStep1" x-transition:enter="transition ease-out duration-300"
                  x-transition:enter-start="opacity-0 transform translate-x-4"
@@ -171,7 +193,7 @@
                                    name="phone_number"
                                    id="{{ form.phone_number.id_for_label }}"
                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-                                   value="{{ profile.phone_number|default:'' }}"
+                                   value="{{ form.phone_number.value|default:profile.phone_number|default:'' }}"
                                    x-bind:readonly="verified"
                                    @input="onPhoneInput"
                                    required>
@@ -323,7 +345,7 @@
 
                         <!-- Hidden input for form submission -->
                         <input type="hidden" name="date_of_birth"
-                               {% if profile.date_of_birth %}value="{{ profile.date_of_birth|date:'Y-m-d' }}"{% endif %}>
+                               value="{% if form.date_of_birth.value %}{{ form.date_of_birth.value|date:'Y-m-d' }}{% elif profile.date_of_birth %}{{ profile.date_of_birth|date:'Y-m-d' }}{% endif %}">
                     </div>
 
                     {% if form.date_of_birth.errors %}
@@ -345,7 +367,7 @@
                             {% for value, label, icon in gender_choices %}
                             <label class="cursor-pointer block">
                                 <input type="radio" name="gender" value="{{ value }}" class="peer hidden"
-                                       {% if profile.gender == value %}checked{% endif %} required>
+                                       {% if form.gender.value == value or profile.gender == value %}checked{% endif %} required>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
                                             border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
@@ -357,7 +379,7 @@
                             <!-- Fallback if gender_choices not provided -->
                             <label class="cursor-pointer block">
                                 <input type="radio" name="gender" value="M" class="peer hidden"
-                                       {% if profile.gender == 'M' %}checked{% endif %} required>
+                                       {% if form.gender.value == 'M' or profile.gender == 'M' %}checked{% endif %} required>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
                                             border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
@@ -367,7 +389,7 @@
                             </label>
                             <label class="cursor-pointer block">
                                 <input type="radio" name="gender" value="F" class="peer hidden"
-                                       {% if profile.gender == 'F' %}checked{% endif %}>
+                                       {% if form.gender.value == 'F' or profile.gender == 'F' %}checked{% endif %}>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
                                             border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
@@ -377,7 +399,7 @@
                             </label>
                             <label class="cursor-pointer block">
                                 <input type="radio" name="gender" value="NB" class="peer hidden"
-                                       {% if profile.gender == 'NB' %}checked{% endif %}>
+                                       {% if form.gender.value == 'NB' or profile.gender == 'NB' %}checked{% endif %}>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
                                             border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
@@ -387,7 +409,7 @@
                             </label>
                             <label class="cursor-pointer block">
                                 <input type="radio" name="gender" value="O" class="peer hidden"
-                                       {% if profile.gender == 'O' %}checked{% endif %}>
+                                       {% if form.gender.value == 'O' or profile.gender == 'O' %}checked{% endif %}>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
                                             border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
@@ -414,8 +436,8 @@
                     <p class="text-sm text-gray-500 mb-2">{% trans "Click the map or use the dropdown to select your region" %}</p>
 
                     <div x-data="cantonMap"
-                         data-initial-value="{{ profile.location|default:'' }}"
-                         data-initial-name="{% if profile.location %}{{ profile.get_location_display }}{% endif %}"
+                         data-initial-value="{{ form.location.value|default:profile.location|default:'' }}"
+                         data-initial-name="{% if form.location.value %}{{ form.location.value }}{% elif profile.location %}{{ profile.get_location_display }}{% endif %}"
                          data-placeholder="{% trans "Click the map to select your region" %}"
                          class="canton-map-container {% if form.location.errors %}has-error{% endif %}">
 
@@ -541,7 +563,7 @@
                 </div>
 
                 <!-- Bio -->
-                <div class="mb-6" x-data="charCounter" data-initial-count="{{ profile.bio|length|default:0 }}" data-max-length="500">
+                <div class="mb-6" x-data="charCounter" data-initial-count="{% if form.bio.value %}{{ form.bio.value|length }}{% else %}{{ profile.bio|length|default:0 }}{% endif %}" data-max-length="500">
                     <label for="{{ form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
                         {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5" %} {% trans "Bio" %}
                         <span class="text-xs text-gray-400 font-normal ml-1">{% trans "Optional" %}</span>
@@ -552,7 +574,7 @@
                               rows="4"
                               maxlength="500"
                               @input="updateCount"
-                              placeholder="{% trans "Tell us about yourself... What do you love? What makes you smile?" %}">{{ profile.bio|default:"" }}</textarea>
+                              placeholder="{% trans "Tell us about yourself... What do you love? What makes you smile?" %}">{{ form.bio.value|default:profile.bio|default:"" }}</textarea>
                     <div class="text-right text-sm text-gray-400 mt-1">
                         <span x-text="charCount"></span>/500 {% trans "characters" %}
                     </div>
@@ -620,7 +642,7 @@
                 </div>
 
                 <!-- Custom Interests -->
-                <div class="mb-6" x-data="charCounter" data-initial-count="{{ profile.interests|length|default:0 }}" data-max-length="300">
+                <div class="mb-6" x-data="charCounter" data-initial-count="{% if form.interests.value %}{{ form.interests.value|length }}{% else %}{{ profile.interests|length|default:0 }}{% endif %}" data-max-length="300">
                     <label for="{{ form.interests.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
                         {% include "shared/icons/pencil.html" with class="w-5 h-5" %} {% trans "Or write your own interests" %}
                     </label>
@@ -630,7 +652,7 @@
                               rows="2"
                               maxlength="300"
                               @input="updateCount"
-                              placeholder="{% trans "e.g., hiking, photography, cooking..." %}">{{ profile.interests|default:"" }}</textarea>
+                              placeholder="{% trans "e.g., hiking, photography, cooking..." %}">{{ form.interests.value|default:profile.interests|default:"" }}</textarea>
                     <div class="text-right text-sm text-gray-400 mt-1">
                         <span x-text="charCount"></span>/300 {% trans "characters" %}
                     </div>
@@ -646,7 +668,7 @@
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-3" role="radiogroup" aria-label="{% trans "Select what you are looking for" %}">
                             <label class="cursor-pointer block">
                                 <input type="radio" name="looking_for" value="friends" class="peer hidden"
-                                       {% if profile.looking_for == 'friends' %}checked{% endif %} required>
+                                       {% if form.looking_for.value == 'friends' or profile.looking_for == 'friends' %}checked{% endif %} required>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
                                             border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
@@ -656,7 +678,7 @@
                             </label>
                             <label class="cursor-pointer block">
                                 <input type="radio" name="looking_for" value="dating" class="peer hidden"
-                                       {% if profile.looking_for == 'dating' %}checked{% endif %}>
+                                       {% if form.looking_for.value == 'dating' or profile.looking_for == 'dating' %}checked{% endif %}>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
                                             border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
@@ -666,7 +688,7 @@
                             </label>
                             <label class="cursor-pointer block">
                                 <input type="radio" name="looking_for" value="both" class="peer hidden"
-                                       {% if profile.looking_for == 'both' %}checked{% endif %}>
+                                       {% if form.looking_for.value == 'both' or profile.looking_for == 'both' %}checked{% endif %}>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
                                             border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
@@ -676,7 +698,7 @@
                             </label>
                             <label class="cursor-pointer block">
                                 <input type="radio" name="looking_for" value="networking" class="peer hidden"
-                                       {% if profile.looking_for == 'networking' %}checked{% endif %}>
+                                       {% if form.looking_for.value == 'networking' or profile.looking_for == 'networking' %}checked{% endif %}>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
                                             border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
@@ -870,6 +892,7 @@
                     <div class="space-y-4">
                         <label class="flex items-start gap-3 cursor-pointer">
                             <input type="checkbox" name="show_full_name"
+                                   {% if form.show_full_name.value or profile.show_full_name %}checked{% endif %}
                                    class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                             <div>
                                 <span class="font-medium">{% trans "Show my full name" %}</span>
@@ -878,7 +901,8 @@
                         </label>
 
                         <label class="flex items-start gap-3 cursor-pointer">
-                            <input type="checkbox" name="show_exact_age" checked
+                            <input type="checkbox" name="show_exact_age"
+                                   {% if form.show_exact_age.value is None %}{% if profile.show_exact_age or not profile.id %}checked{% endif %}{% elif form.show_exact_age.value %}checked{% endif %}
                                    class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                             <div>
                                 <span class="font-medium">{% trans "Show my exact age" %}</span>
@@ -888,6 +912,7 @@
 
                         <label class="flex items-start gap-3 cursor-pointer">
                             <input type="checkbox" name="blur_photos"
+                                   {% if form.blur_photos.value or profile.blur_photos %}checked{% endif %}
                                    class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                             <div>
                                 <span class="font-medium">{% trans "Blur my photos until mutual interest" %}</span>
@@ -910,28 +935,32 @@
                     <div class="flex flex-wrap gap-3">
                         <label class="cursor-pointer">
                             <input type="checkbox" name="event_languages" value="en" class="peer hidden"
-                                   {% if 'en' in profile.event_languages %}checked{% endif %}>
+                                   data-language="en"
+                                   {% if form.event_languages.value and 'en' in form.event_languages.value %}checked{% elif not form.event_languages.value and 'en' in profile.event_languages %}checked{% endif %}>
                             <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 bg-white transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:text-purple-700 hover:border-purple-300">
                                 🇬🇧 {% trans "English" %}
                             </span>
                         </label>
                         <label class="cursor-pointer">
                             <input type="checkbox" name="event_languages" value="de" class="peer hidden"
-                                   {% if 'de' in profile.event_languages %}checked{% endif %}>
+                                   data-language="de"
+                                   {% if form.event_languages.value and 'de' in form.event_languages.value %}checked{% elif not form.event_languages.value and 'de' in profile.event_languages %}checked{% endif %}>
                             <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 bg-white transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:text-purple-700 hover:border-purple-300">
                                 🇩🇪 {% trans "Deutsch" %}
                             </span>
                         </label>
                         <label class="cursor-pointer">
                             <input type="checkbox" name="event_languages" value="fr" class="peer hidden"
-                                   {% if 'fr' in profile.event_languages %}checked{% endif %}>
+                                   data-language="fr"
+                                   {% if form.event_languages.value and 'fr' in form.event_languages.value %}checked{% elif not form.event_languages.value and 'fr' in profile.event_languages %}checked{% endif %}>
                             <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 bg-white transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:text-purple-700 hover:border-purple-300">
                                 🇫🇷 {% trans "Français" %}
                             </span>
                         </label>
                         <label class="cursor-pointer">
                             <input type="checkbox" name="event_languages" value="lu" class="peer hidden"
-                                   {% if 'lu' in profile.event_languages %}checked{% endif %}>
+                                   data-language="lu"
+                                   {% if form.event_languages.value and 'lu' in form.event_languages.value %}checked{% elif not form.event_languages.value and 'lu' in profile.event_languages %}checked{% endif %}>
                             <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 bg-white transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:text-purple-700 hover:border-purple-300">
                                 🇱🇺 {% trans "Lëtzebuergesch" %}
                             </span>

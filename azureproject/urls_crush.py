@@ -19,7 +19,7 @@ from .urls_shared import base_patterns, api_patterns
 from crush_lu.admin import crush_admin_site
 from crush_lu.admin.user_segments import user_segments_dashboard, segment_detail
 from crush_lu.admin.profile_reminders import profile_reminders_panel
-from crush_lu import admin_views, views, views_phone_verification, views_profile
+from crush_lu import admin_views, views, views_phone_verification, views_profile, views_profile_draft
 from crush_lu.admin_views import (
     email_template_manager,
     email_template_user_search,
@@ -142,6 +142,12 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/profile/save-step2/', views_profile.save_profile_step2, name='api_save_profile_step2'),
     path('api/profile/save-step3/', views_profile.save_profile_step3, name='api_save_profile_step3'),
     path('api/profile/progress/', views_profile.get_profile_progress, name='api_get_profile_progress'),
+
+    # Profile Draft APIs (auto-save and draft recovery)
+    path('api/profile/draft/save/', views_profile_draft.save_draft, name='api_save_draft'),
+    path('api/profile/draft/get/', views_profile_draft.get_draft, name='api_get_draft'),
+    path('api/profile/draft/clear/', views_profile_draft.clear_draft, name='api_clear_draft'),
+    path('api/profile/draft/upload-photo/', views_profile.upload_photo_draft, name='api_upload_photo_draft'),
 
     # Wallet passes (language-neutral for platform-specific clients)
     path('wallet/apple/pass/', views_wallet.apple_wallet_pass, name='wallet_apple_pass'),

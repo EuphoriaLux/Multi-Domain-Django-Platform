@@ -318,6 +318,23 @@ class CrushProfile(models.Model):
     # Note: Screening call tracking has been consolidated into ProfileSubmission.review_call_completed
     # The Step 1 screening system was redundant and has been removed
 
+    # Draft storage for profile creation
+    draft_data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=_("Temporary storage for incomplete/invalid step data")
+    )
+    last_draft_saved = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("Timestamp of last auto-save")
+    )
+    draft_expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("Auto-delete inactive drafts after 30 days")
+    )
+
     # Basic Info (Step 1 - REQUIRED for initial save)
     date_of_birth = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=2, choices=GENDER_CHOICES, blank=True)

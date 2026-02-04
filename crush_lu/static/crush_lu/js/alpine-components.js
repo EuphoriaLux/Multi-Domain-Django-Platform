@@ -1400,13 +1400,40 @@ document.addEventListener('alpine:init', function() {
 
             init: function() {
                 var el = this.$el;
-                // Read initial photo states from data attributes
+                var self = this;
+
+                // Read initial photo states from data attributes (from database)
                 for (var i = 1; i <= 3; i++) {
                     var hasImage = el.getAttribute('data-photo-' + i + '-exists') === 'true';
                     var preview = el.getAttribute('data-photo-' + i + '-url') || '';
                     this.photos[i - 1].hasImage = hasImage;
                     this.photos[i - 1].preview = preview;
+                    this.photos[i - 1].uploadedUrl = preview;
                 }
+
+                // Also check draft for any newly uploaded photos not yet in database
+                fetch('/api/profile/draft/get/')
+                    .then(function(response) { return response.json(); })
+                    .then(function(result) {
+                        if (result.success && result.data && result.data.merged) {
+                            var draft = result.data.merged;
+                            console.log('[PHOTO UPLOAD] Checking draft for photos...');
+
+                            // Check each photo URL in draft
+                            for (var i = 1; i <= 3; i++) {
+                                var photoUrlKey = 'photo_' + i + '_url';
+                                if (draft[photoUrlKey]) {
+                                    console.log('[PHOTO UPLOAD] Found photo ' + i + ' in draft:', draft[photoUrlKey]);
+                                    self.photos[i - 1].preview = draft[photoUrlKey];
+                                    self.photos[i - 1].hasImage = true;
+                                    self.photos[i - 1].uploadedUrl = draft[photoUrlKey];
+                                }
+                            }
+                        }
+                    })
+                    .catch(function(err) {
+                        console.error('[PHOTO UPLOAD] Failed to load draft photos:', err);
+                    });
             },
             handleFile1: function(event) {
                 this._handleFileSelect(0, event);
@@ -1421,12 +1448,52 @@ document.addEventListener('alpine:init', function() {
                 var file = event.target.files[0];
                 if (file) {
                     var self = this;
+                    var photoNumber = index + 1; // Convert 0-indexed to 1-indexed
+
+                    // Show preview immediately
                     var reader = new FileReader();
                     reader.onload = function(e) {
                         self.photos[index].preview = e.target.result;
                         self.photos[index].hasImage = true;
                     };
                     reader.readAsDataURL(file);
+
+                    // Upload to server immediately (auto-save)
+                    var formData = new FormData();
+                    formData.append('photo', file);
+                    formData.append('photo_number', photoNumber);
+
+                    // Get CSRF token
+                    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+                    if (csrfToken) {
+                        formData.append('csrfmiddlewaretoken', csrfToken.value);
+                    }
+
+                    console.log('[PHOTO UPLOAD] Uploading photo ' + photoNumber + '...');
+
+                    fetch('/api/profile/draft/upload-photo/', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrfToken ? csrfToken.value : ''
+                        },
+                        body: formData
+                    })
+                    .then(function(response) {
+                        return response.json();
+                    })
+                    .then(function(result) {
+                        if (result.success) {
+                            console.log('[PHOTO UPLOAD] ✅ Photo ' + photoNumber + ' uploaded:', result.photo_url);
+                            self.photos[index].uploadedUrl = result.photo_url;
+                        } else {
+                            console.error('[PHOTO UPLOAD] ❌ Upload failed:', result.error);
+                            alert('Photo upload failed: ' + result.error);
+                        }
+                    })
+                    .catch(function(err) {
+                        console.error('[PHOTO UPLOAD] ❌ Network error:', err);
+                        alert('Photo upload failed. Please try again.');
+                    });
                 }
             },
             removePhoto1: function() {
@@ -1670,6 +1737,22 @@ document.addEventListener('alpine:init', function() {
                         self.dobFormatted = e.detail.formatted;
                     }
                 });
+
+                // =========================================================================
+                // DRAFT AUTO-SAVE SETUP
+                // =========================================================================
+
+                // Load draft data on init (will populate form fields if draft exists)
+                self.loadDraft();
+
+                // Setup auto-save listeners
+                self.setupAutoSaveListeners();
+
+                // Setup periodic checkpoint every 60s
+                self.setupPeriodicCheckpoint();
+
+                // Warn before leaving with unsaved changes
+                self.setupUnloadWarning();
             },
 
             // Initialize field tracking from DOM values
@@ -2088,6 +2171,383 @@ document.addEventListener('alpine:init', function() {
             // Clear save error (for dismissing error messages)
             clearSaveError: function() {
                 this.saveError = '';
+            },
+
+            // =========================================================================
+            // DRAFT AUTO-SAVE FUNCTIONALITY
+            // =========================================================================
+
+            // Draft state
+            isDirty: false,
+            isAutoSaving: false,
+            lastSavedAt: null,
+            autoSaveTimer: null,
+            draftData: {},
+
+            // CSP-safe getters for auto-save UI
+            get showAutoSaving() { return this.isAutoSaving; },
+            get showLastSaved() { return this.lastSavedAt !== null; },
+            get lastSavedMessage() {
+                if (!this.lastSavedAt) return '';
+                var now = new Date();
+                var saved = new Date(this.lastSavedAt);
+                var diffMs = now - saved;
+                var diffSec = Math.floor(diffMs / 1000);
+
+                if (diffSec < 10) return 'Saved just now';
+                if (diffSec < 60) return 'Saved ' + diffSec + 's ago';
+                var diffMin = Math.floor(diffSec / 60);
+                if (diffMin < 60) return 'Saved ' + diffMin + 'm ago';
+                return 'Saved earlier';
+            },
+
+            // Load draft data on init
+            loadDraft: function() {
+                var self = this;
+                console.log('[DRAFT LOAD] Starting to load draft data...');
+
+                fetch('/api/profile/draft/get/')
+                    .then(function(response) {
+                        console.log('[DRAFT LOAD] Response status:', response.status);
+                        return response.json();
+                    })
+                    .then(function(result) {
+                        console.log('[DRAFT LOAD] Response data:', result);
+
+                        if (result.success && result.data) {
+                            self.draftData = result.data.merged || {};
+                            self.lastSavedAt = result.data.last_saved;
+
+                            console.log('[DRAFT LOAD] ✅ Draft data loaded:', self.draftData);
+                            console.log('[DRAFT LOAD] Last saved:', self.lastSavedAt);
+                            console.log('[DRAFT LOAD] Calling populateFieldsFromDraft()...');
+
+                            self.populateFieldsFromDraft();
+
+                            console.log('[DRAFT LOAD] ✅ populateFieldsFromDraft() completed');
+                        } else {
+                            console.warn('[DRAFT LOAD] No draft data in response');
+                        }
+                    })
+                    .catch(function(err) {
+                        console.error('[DRAFT LOAD] ❌ Failed to load draft:', err);
+                    });
+            },
+
+            // Populate form fields from draft data
+            populateFieldsFromDraft: function() {
+                var self = this;
+                var form = this.$el.querySelector('form');
+                if (!form) {
+                    console.warn('[POPULATE] No form found in component');
+                    return;
+                }
+
+                console.log('[POPULATE] Starting to populate fields from draft data...');
+                console.log('[POPULATE] Draft data keys:', Object.keys(this.draftData));
+
+                for (var key in this.draftData) {
+                    var value = this.draftData[key];
+
+                    // CRITICAL: Skip file inputs (photos) - cannot be set programmatically for security
+                    if (key === 'photo_1' || key === 'photo_2' || key === 'photo_3') {
+                        console.log('[POPULATE] Skipping file input:', key);
+                        continue;
+                    }
+
+                    console.log('[POPULATE] Processing field:', key, 'Value:', value, 'Type:', typeof value);
+
+                    // Handle checkbox arrays (like event_languages)
+                    if (Array.isArray(value)) {
+                        var checkboxes = form.querySelectorAll('[name="' + key + '"]');
+                        console.log('[POPULATE] Array field:', key, 'Value:', value, 'Length:', value.length);
+                        console.log('[POPULATE] Found', checkboxes.length, 'checkboxes for', key);
+
+                        if (value.length === 0) {
+                            console.warn('[POPULATE] ⚠️ Array is EMPTY for', key);
+                        }
+
+                        for (var i = 0; i < checkboxes.length; i++) {
+                            var checkbox = checkboxes[i];
+                            var shouldCheck = value.indexOf(checkbox.value) !== -1;
+                            checkbox.checked = shouldCheck;
+                            console.log('[POPULATE]   Checkbox', checkbox.value, '→', shouldCheck ? 'CHECKED' : 'unchecked', '(looking for in:', value, ')');
+                        }
+                        continue;
+                    }
+
+                    var input = form.querySelector('[name="' + key + '"]');
+
+                    if (input) {
+                        console.log('[POPULATE] Found input for', key, '(type:', input.type + ')');
+
+                        if (input.type === 'checkbox') {
+                            // Handle single checkbox - convert string 'true'/'false' or Python 'True'/'False' to boolean
+                            var shouldCheck = (value === true || value === 'true' || value === '1' || value === 'True');
+                            input.checked = shouldCheck;
+                            console.log('[POPULATE]   Single checkbox', key, '→', shouldCheck ? 'CHECKED' : 'unchecked', '(value was:', value, ')');
+                        } else if (input.type === 'radio') {
+                            // For radio buttons, find the one with matching value
+                            var radios = form.querySelectorAll('[name="' + key + '"]');
+                            console.log('[POPULATE]   Found', radios.length, 'radio buttons');
+                            for (var i = 0; i < radios.length; i++) {
+                                if (radios[i].value === value) {
+                                    radios[i].checked = true;
+                                    console.log('[POPULATE]   Radio', key, '=', value, '→ CHECKED');
+                                    break;
+                                }
+                            }
+                        } else if (input.type !== 'file') {
+                            // Only set value for non-file inputs
+                            input.value = value || '';
+                            console.log('[POPULATE]   Text/select', key, '→', value);
+                        }
+                    } else {
+                        console.warn('[POPULATE] ⚠️ No input found for field:', key);
+                    }
+                }
+
+                // Update component state from draft data
+                if (this.draftData.phone_number) {
+                    this.phoneNumber = this.draftData.phone_number;
+                }
+                if (this.draftData.date_of_birth) {
+                    this.dateOfBirth = this.draftData.date_of_birth;
+                    // Format the date for display in review (e.g., "1990-01-15" -> "Jan 15, 1990")
+                    try {
+                        var dateParts = this.draftData.date_of_birth.split('-');
+                        if (dateParts.length === 3) {
+                            var dateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+                            var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                            this.dobFormatted = months[dateObj.getMonth()] + ' ' + dateObj.getDate() + ', ' + dateObj.getFullYear();
+                        }
+                    } catch (e) {
+                        this.dobFormatted = this.draftData.date_of_birth; // Fallback to raw value
+                    }
+                }
+                if (this.draftData.gender) {
+                    this.gender = this.draftData.gender;
+                }
+                if (this.draftData.location) {
+                    this.location = this.draftData.location;
+                    // Try to get the display name from the map
+                    var locationInput = form.querySelector('[name="location"]');
+                    if (locationInput) {
+                        var mapContainer = document.querySelector('[x-data*="cantonMap"]');
+                        if (mapContainer) {
+                            var regionPath = document.getElementById(this.draftData.location);
+                            if (regionPath) {
+                                this.locationName = regionPath.getAttribute('data-region-name') || this.draftData.location;
+                            } else {
+                                this.locationName = this.draftData.location;
+                            }
+                        } else {
+                            this.locationName = this.draftData.location;
+                        }
+                    }
+                }
+
+                // CRITICAL FIX: Update the review display after populating fields
+                // This ensures Step 4 review shows the correct data when page is refreshed
+                setTimeout(function() {
+                    self.updateReview();
+                }, 100); // Small delay to ensure DOM is ready
+
+                console.log('[POPULATE] ✅ Finished populating fields');
+            },
+
+            // Setup auto-save event listeners
+            setupAutoSaveListeners: function() {
+                var self = this;
+                var form = this.$el.querySelector('form');
+                if (!form) return;
+
+                // Text inputs and textareas: debounced save (2 seconds after typing stops)
+                var textInputs = form.querySelectorAll('input[type="text"], input[type="tel"], input[type="date"], textarea');
+                for (var i = 0; i < textInputs.length; i++) {
+                    textInputs[i].addEventListener('input', function() {
+                        self.scheduleAutoSave();
+                    });
+                }
+
+                // Dropdowns, radios, and checkboxes: immediate save
+                var immediateInputs = form.querySelectorAll('select, input[type="radio"], input[type="checkbox"]');
+                for (var j = 0; j < immediateInputs.length; j++) {
+                    immediateInputs[j].addEventListener('change', function() {
+                        self.saveDraft();
+                    });
+                }
+            },
+
+            // Schedule auto-save with debounce (2 seconds)
+            scheduleAutoSave: function() {
+                clearTimeout(this.autoSaveTimer);
+                this.isDirty = true;
+
+                var self = this;
+                this.autoSaveTimer = setTimeout(function() {
+                    self.saveDraft();
+                }, 2000);  // 2-second debounce
+            },
+
+            // Save current step data to draft (no validation)
+            saveDraft: function() {
+                var self = this;
+                self.isAutoSaving = true;
+
+                var stepData = self.gatherCurrentStepData();
+
+                console.log('[DRAFT SAVE] Saving step', self.currentStep);
+                console.log('[DRAFT SAVE] Step data:', stepData);
+                console.log('[DRAFT SAVE] event_languages in stepData:', stepData.event_languages);
+
+                var payload = {
+                    step: self.currentStep,
+                    data: stepData
+                };
+                var jsonPayload = JSON.stringify(payload);
+                console.log('[DRAFT SAVE] JSON payload:', jsonPayload);
+                console.log('[DRAFT SAVE] Parsed back:', JSON.parse(jsonPayload));
+
+                fetch('/api/profile/draft/save/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': self.getCsrfToken()
+                    },
+                    body: jsonPayload
+                })
+                .then(function(response) {
+                    console.log('[DRAFT SAVE] Response status:', response.status);
+                    return response.json();
+                })
+                .then(function(result) {
+                    console.log('[DRAFT SAVE] Response:', result);
+                    self.isAutoSaving = false;
+                    self.isDirty = false;
+                    if (result.success) {
+                        self.lastSavedAt = result.saved_at;
+                        console.log('[DRAFT SAVE] ✅ Draft saved at', result.saved_at);
+                    } else {
+                        console.error('[DRAFT SAVE] ❌ Save failed:', result.error);
+                    }
+                })
+                .catch(function(err) {
+                    self.isAutoSaving = false;
+                    console.error('[DRAFT SAVE] ❌ Network error:', err);
+                });
+            },
+
+            // Gather current step form data
+            gatherCurrentStepData: function() {
+                var form = this.$el.querySelector('form');
+                if (!form) {
+                    console.warn('[GATHER] No form found');
+                    return {};
+                }
+
+                console.log('[GATHER] Gathering data from current step...');
+
+                var formData = new FormData(form);
+                var data = {};
+                var checkboxGroups = {};  // Track checkbox arrays
+
+                // Collect all form data from FormData
+                for (var pair of formData.entries()) {
+                    var key = pair[0];
+                    var value = pair[1];
+
+                    // Skip file inputs (photos) - they're uploaded separately
+                    if (key === 'photo_1' || key === 'photo_2' || key === 'photo_3') {
+                        continue;
+                    }
+
+                    // CRITICAL FIX: Skip checkboxes - they're handled separately below
+                    // FormData returns each checked checkbox as a separate entry, which would
+                    // overwrite the previous value instead of building an array
+                    var field = form.querySelector('[name="' + key + '"]');
+                    if (field && field.type === 'checkbox') {
+                        console.log('[GATHER] Skipping checkbox in FormData loop:', key);
+                        continue;  // Let the checkbox handling code process these
+                    }
+
+                    // Only add non-empty values
+                    if (value !== '') {
+                        data[key] = value;
+                    }
+                }
+
+                console.log('[GATHER] FormData collected:', data);
+
+                // CRITICAL: Handle checkboxes properly
+                // Single checkboxes (privacy settings) are stored as boolean
+                // Multiple checkboxes with same name (event_languages) are stored as array
+                var checkboxes = form.querySelectorAll('input[type="checkbox"]');
+                console.log('[GATHER] Found', checkboxes.length, 'checkboxes');
+
+                // First pass: identify checkbox groups (multiple checkboxes with same name)
+                for (var i = 0; i < checkboxes.length; i++) {
+                    var checkbox = checkboxes[i];
+                    if (checkbox.name) {
+                        if (!checkboxGroups[checkbox.name]) {
+                            checkboxGroups[checkbox.name] = [];
+                        }
+                        checkboxGroups[checkbox.name].push(checkbox);
+                    }
+                }
+
+                console.log('[GATHER] Checkbox groups:', Object.keys(checkboxGroups));
+
+                // Second pass: process each checkbox group
+                for (var name in checkboxGroups) {
+                    var group = checkboxGroups[name];
+
+                    if (group.length === 1) {
+                        // Single checkbox - store as boolean
+                        data[name] = group[0].checked;
+                        console.log('[GATHER]   Single checkbox', name, '→', group[0].checked);
+                    } else {
+                        // Multiple checkboxes with same name - store as array of checked values
+                        var checkedValues = [];
+                        for (var j = 0; j < group.length; j++) {
+                            if (group[j].checked) {
+                                checkedValues.push(group[j].value);
+                            }
+                        }
+                        data[name] = checkedValues;
+                        console.log('[GATHER]   Checkbox array', name, '→', checkedValues);
+                    }
+                }
+
+                console.log('[GATHER] ✅ Final gathered data:', data);
+                return data;
+            },
+
+            // Get CSRF token from form
+            getCsrfToken: function() {
+                var token = document.querySelector('[name=csrfmiddlewaretoken]');
+                return token ? token.value : '';
+            },
+
+            // Setup periodic checkpoint (every 60 seconds if dirty)
+            setupPeriodicCheckpoint: function() {
+                var self = this;
+                setInterval(function() {
+                    if (self.isDirty) {
+                        self.saveDraft();
+                    }
+                }, 60000);  // 60 seconds
+            },
+
+            // Warn before leaving with unsaved changes
+            setupUnloadWarning: function() {
+                var self = this;
+                window.addEventListener('beforeunload', function(e) {
+                    if (self.isDirty) {
+                        e.preventDefault();
+                        e.returnValue = '';
+                    }
+                });
             }
         };
     });
@@ -2145,7 +2605,10 @@ document.addEventListener('alpine:init', function() {
                     this.selectedRegionName = initialName || initialValue;
                     // Highlight the initially selected region
                     this.$nextTick(function() {
-                        self._highlightRegion(initialValue);
+                        // Safety check: ensure the function exists before calling
+                        if (typeof self._highlightRegion === 'function') {
+                            self._highlightRegion(initialValue);
+                        }
                     });
                 }
 

@@ -907,6 +907,7 @@ def create_profile(request):
                 from .social_photos import get_all_social_photos
                 context = {
                     'form': form,
+                    'profile': profile,
                     'current_step': 'step3',
                     'social_photos': get_all_social_photos(request.user),
                 }
