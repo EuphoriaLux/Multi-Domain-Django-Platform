@@ -153,6 +153,15 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
             backend='django.core.mail.backends.locmem.EmailBackend',
             fail_silently=fail_silently,
         )
+    # In STAGING mode, use console backend (prints to Azure logs, no real emails)
+    elif os.getenv('STAGING_MODE', '').lower() in ('true', '1', 'yes'):
+        logger.info(f"📧 [STAGING] Using console email backend - no real emails sent (from {email_from})")
+        logger.info(f"📧 Recipients: {', '.join(recipient_list)}")
+        logger.info(f"📧 Subject: {subject}")
+        connection = get_connection(
+            backend='django.core.mail.backends.console.EmailBackend',
+            fail_silently=fail_silently,
+        )
     # In DEBUG mode, use file backend to save emails (avoids Windows console encoding issues)
     elif settings.DEBUG:
         import os

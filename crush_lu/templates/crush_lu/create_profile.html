@@ -18,7 +18,7 @@
 {# Main Alpine.js component for wizard state management #}
 <div x-data="profileWizard"
      data-initial-step="{% if current_step %}{{ current_step }}{% else %}1{% endif %}"
-     data-phone-verified="{{ profile.phone_verified|yesno:'true,false'|default:'false' }}"
+     data-phone-verified="{{ profile.phone_verified|default:False|yesno:'true,false' }}"
      data-is-editing="{{ is_editing|lower|default:'false' }}"
      class="profile-creation-wrapper">
     <div class="container py-4 max-w-3xl mx-auto px-4">
@@ -169,7 +169,7 @@
                 <!-- Phone Number with Verification -->
                 <div class="mb-6" id="phone-verification-container"
                      x-data="phoneVerificationComponent"
-                     data-verified="{{ profile.phone_verified|yesno:'true,false'|default:'false' }}"
+                     data-verified="{{ profile.phone_verified|default:False|yesno:'true,false' }}"
                      data-phone-input-id="{{ form.phone_number.id_for_label }}">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
                         {% include "shared/icons/phone.html" with class="w-5 h-5" %} {% trans "Phone Number" %} *
@@ -367,7 +367,7 @@
                             {% for value, label, icon in gender_choices %}
                             <label class="cursor-pointer block">
                                 <input type="radio" name="gender" value="{{ value }}" class="peer hidden"
-                                       {% if form.gender.value == value or profile.gender == value %}checked{% endif %} required>
+                                       {% if form.gender.value == value or profile and profile.gender == value %}checked{% endif %} required>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
                                             border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
@@ -379,7 +379,7 @@
                             <!-- Fallback if gender_choices not provided -->
                             <label class="cursor-pointer block">
                                 <input type="radio" name="gender" value="M" class="peer hidden"
-                                       {% if form.gender.value == 'M' or profile.gender == 'M' %}checked{% endif %} required>
+                                       {% if form.gender.value == 'M' or profile and profile.gender == 'M' %}checked{% endif %} required>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
                                             border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
@@ -389,7 +389,7 @@
                             </label>
                             <label class="cursor-pointer block">
                                 <input type="radio" name="gender" value="F" class="peer hidden"
-                                       {% if form.gender.value == 'F' or profile.gender == 'F' %}checked{% endif %}>
+                                       {% if form.gender.value == 'F' or profile and profile.gender == 'F' %}checked{% endif %}>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
                                             border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
@@ -399,7 +399,7 @@
                             </label>
                             <label class="cursor-pointer block">
                                 <input type="radio" name="gender" value="NB" class="peer hidden"
-                                       {% if form.gender.value == 'NB' or profile.gender == 'NB' %}checked{% endif %}>
+                                       {% if form.gender.value == 'NB' or profile and profile.gender == 'NB' %}checked{% endif %}>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
                                             border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
@@ -409,7 +409,7 @@
                             </label>
                             <label class="cursor-pointer block">
                                 <input type="radio" name="gender" value="O" class="peer hidden"
-                                       {% if form.gender.value == 'O' or profile.gender == 'O' %}checked{% endif %}>
+                                       {% if form.gender.value == 'O' or profile and profile.gender == 'O' %}checked{% endif %}>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
                                             border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
@@ -437,7 +437,7 @@
 
                     <div x-data="cantonMap"
                          data-initial-value="{{ form.location.value|default:profile.location|default:'' }}"
-                         data-initial-name="{% if form.location.value %}{{ form.location.value }}{% elif profile.location %}{{ profile.get_location_display }}{% endif %}"
+                         data-initial-name="{% if form.location.value %}{{ form.location.value }}{% elif profile and profile.location %}{{ profile.get_location_display }}{% endif %}"
                          data-placeholder="{% trans "Click the map to select your region" %}"
                          class="canton-map-container {% if form.location.errors %}has-error{% endif %}">
 
@@ -563,7 +563,7 @@
                 </div>
 
                 <!-- Bio -->
-                <div class="mb-6" x-data="charCounter" data-initial-count="{% if form.bio.value %}{{ form.bio.value|length }}{% else %}{{ profile.bio|length|default:0 }}{% endif %}" data-max-length="500">
+                <div class="mb-6" x-data="charCounter" data-initial-count="{% if form.bio.value %}{{ form.bio.value|length }}{% else %}{{ profile.bio|default:''|length }}{% endif %}" data-max-length="500">
                     <label for="{{ form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
                         {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5" %} {% trans "Bio" %}
                         <span class="text-xs text-gray-400 font-normal ml-1">{% trans "Optional" %}</span>
@@ -642,7 +642,7 @@
                 </div>
 
                 <!-- Custom Interests -->
-                <div class="mb-6" x-data="charCounter" data-initial-count="{% if form.interests.value %}{{ form.interests.value|length }}{% else %}{{ profile.interests|length|default:0 }}{% endif %}" data-max-length="300">
+                <div class="mb-6" x-data="charCounter" data-initial-count="{% if form.interests.value %}{{ form.interests.value|length }}{% else %}{{ profile.interests|default:''|length }}{% endif %}" data-max-length="300">
                     <label for="{{ form.interests.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
                         {% include "shared/icons/pencil.html" with class="w-5 h-5" %} {% trans "Or write your own interests" %}
                     </label>
@@ -668,7 +668,7 @@
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-3" role="radiogroup" aria-label="{% trans "Select what you are looking for" %}">
                             <label class="cursor-pointer block">
                                 <input type="radio" name="looking_for" value="friends" class="peer hidden"
-                                       {% if form.looking_for.value == 'friends' or profile.looking_for == 'friends' %}checked{% endif %} required>
+                                       {% if form.looking_for.value == 'friends' or profile and profile.looking_for == 'friends' %}checked{% endif %} required>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
                                             border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
@@ -678,7 +678,7 @@
                             </label>
                             <label class="cursor-pointer block">
                                 <input type="radio" name="looking_for" value="dating" class="peer hidden"
-                                       {% if form.looking_for.value == 'dating' or profile.looking_for == 'dating' %}checked{% endif %}>
+                                       {% if form.looking_for.value == 'dating' or profile and profile.looking_for == 'dating' %}checked{% endif %}>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
                                             border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
@@ -688,7 +688,7 @@
                             </label>
                             <label class="cursor-pointer block">
                                 <input type="radio" name="looking_for" value="both" class="peer hidden"
-                                       {% if form.looking_for.value == 'both' or profile.looking_for == 'both' %}checked{% endif %}>
+                                       {% if form.looking_for.value == 'both' or profile and profile.looking_for == 'both' %}checked{% endif %}>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
                                             border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
@@ -698,7 +698,7 @@
                             </label>
                             <label class="cursor-pointer block">
                                 <input type="radio" name="looking_for" value="networking" class="peer hidden"
-                                       {% if form.looking_for.value == 'networking' or profile.looking_for == 'networking' %}checked{% endif %}>
+                                       {% if form.looking_for.value == 'networking' or profile and profile.looking_for == 'networking' %}checked{% endif %}>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
                                             border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
@@ -781,11 +781,11 @@
                 <!-- Photo Upload Grid - smaller gap on mobile for better fit -->
                 <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-6"
                      x-data="photoUpload"
-                     data-photo-1-exists="{{ profile.photo_1|yesno:'true,false' }}"
+                     data-photo-1-exists="{{ profile.photo_1|default:False|yesno:'true,false' }}"
                      data-photo-1-url="{% if profile.photo_1 %}{{ profile.photo_1.url }}{% endif %}"
-                     data-photo-2-exists="{{ profile.photo_2|yesno:'true,false' }}"
+                     data-photo-2-exists="{{ profile.photo_2|default:False|yesno:'true,false' }}"
                      data-photo-2-url="{% if profile.photo_2 %}{{ profile.photo_2.url }}{% endif %}"
-                     data-photo-3-exists="{{ profile.photo_3|yesno:'true,false' }}"
+                     data-photo-3-exists="{{ profile.photo_3|default:False|yesno:'true,false' }}"
                      data-photo-3-url="{% if profile.photo_3 %}{{ profile.photo_3.url }}{% endif %}">
                     <!-- Photo 1 -->
                     <div class="relative aspect-square">
@@ -892,7 +892,7 @@
                     <div class="space-y-4">
                         <label class="flex items-start gap-3 cursor-pointer">
                             <input type="checkbox" name="show_full_name"
-                                   {% if form.show_full_name.value or profile.show_full_name %}checked{% endif %}
+                                   {% if form.show_full_name.value or profile and profile.show_full_name %}checked{% endif %}
                                    class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                             <div>
                                 <span class="font-medium">{% trans "Show my full name" %}</span>
@@ -902,7 +902,7 @@
 
                         <label class="flex items-start gap-3 cursor-pointer">
                             <input type="checkbox" name="show_exact_age"
-                                   {% if form.show_exact_age.value is None %}{% if profile.show_exact_age or not profile.id %}checked{% endif %}{% elif form.show_exact_age.value %}checked{% endif %}
+                                   {% if form.show_exact_age.value is None %}{% if profile and profile.show_exact_age or not profile %}checked{% endif %}{% elif form.show_exact_age.value %}checked{% endif %}
                                    class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                             <div>
                                 <span class="font-medium">{% trans "Show my exact age" %}</span>
@@ -912,7 +912,7 @@
 
                         <label class="flex items-start gap-3 cursor-pointer">
                             <input type="checkbox" name="blur_photos"
-                                   {% if form.blur_photos.value or profile.blur_photos %}checked{% endif %}
+                                   {% if form.blur_photos.value or profile and profile.blur_photos %}checked{% endif %}
                                    class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                             <div>
                                 <span class="font-medium">{% trans "Blur my photos until mutual interest" %}</span>
@@ -936,7 +936,7 @@
                         <label class="cursor-pointer">
                             <input type="checkbox" name="event_languages" value="en" class="peer hidden"
                                    data-language="en"
-                                   {% if form.event_languages.value and 'en' in form.event_languages.value %}checked{% elif not form.event_languages.value and 'en' in profile.event_languages %}checked{% endif %}>
+                                   {% if form.event_languages.value and 'en' in form.event_languages.value %}checked{% elif not form.event_languages.value and profile and 'en' in profile.event_languages %}checked{% endif %}>
                             <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 bg-white transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:text-purple-700 hover:border-purple-300">
                                 🇬🇧 {% trans "English" %}
                             </span>
@@ -944,7 +944,7 @@
                         <label class="cursor-pointer">
                             <input type="checkbox" name="event_languages" value="de" class="peer hidden"
                                    data-language="de"
-                                   {% if form.event_languages.value and 'de' in form.event_languages.value %}checked{% elif not form.event_languages.value and 'de' in profile.event_languages %}checked{% endif %}>
+                                   {% if form.event_languages.value and 'de' in form.event_languages.value %}checked{% elif not form.event_languages.value and profile and 'de' in profile.event_languages %}checked{% endif %}>
                             <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 bg-white transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:text-purple-700 hover:border-purple-300">
                                 🇩🇪 {% trans "Deutsch" %}
                             </span>
@@ -952,7 +952,7 @@
                         <label class="cursor-pointer">
                             <input type="checkbox" name="event_languages" value="fr" class="peer hidden"
                                    data-language="fr"
-                                   {% if form.event_languages.value and 'fr' in form.event_languages.value %}checked{% elif not form.event_languages.value and 'fr' in profile.event_languages %}checked{% endif %}>
+                                   {% if form.event_languages.value and 'fr' in form.event_languages.value %}checked{% elif not form.event_languages.value and profile and 'fr' in profile.event_languages %}checked{% endif %}>
                             <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 bg-white transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:text-purple-700 hover:border-purple-300">
                                 🇫🇷 {% trans "Français" %}
                             </span>
@@ -960,7 +960,7 @@
                         <label class="cursor-pointer">
                             <input type="checkbox" name="event_languages" value="lu" class="peer hidden"
                                    data-language="lu"
-                                   {% if form.event_languages.value and 'lu' in form.event_languages.value %}checked{% elif not form.event_languages.value and 'lu' in profile.event_languages %}checked{% endif %}>
+                                   {% if form.event_languages.value and 'lu' in form.event_languages.value %}checked{% elif not form.event_languages.value and profile and 'lu' in profile.event_languages %}checked{% endif %}>
                             <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 bg-white transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:text-purple-700 hover:border-purple-300">
                                 🇱🇺 {% trans "Lëtzebuergesch" %}
                             </span>
