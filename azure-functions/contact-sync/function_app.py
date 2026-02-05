@@ -27,7 +27,8 @@ from datetime import datetime
 
 app = func.FunctionApp()
 
-logger = logging.getLogger(__name__)
+# Use built-in logging (reaches Application Insights automatically)
+# Note: logging.info() goes to Application Insights in Azure Functions
 
 
 @app.function_name(name="DailyContactSync")
@@ -49,9 +50,9 @@ def daily_contact_sync(timer: func.TimerRequest) -> None:
     utc_timestamp = datetime.utcnow().isoformat()
 
     if timer.past_due:
-        logger.warning(f"Timer is past due! Current time: {utc_timestamp}")
+        logging.warning(f"Timer is past due! Current time: {utc_timestamp}")
 
-    logger.info(f"Starting daily Outlook contact sync at {utc_timestamp}")
+    logging.info(f"Starting daily Outlook contact sync at {utc_timestamp}")
 
     # Get configuration from environment
     command_url = os.environ.get('DJANGO_MANAGEMENT_COMMAND_URL')
@@ -60,15 +61,15 @@ def daily_contact_sync(timer: func.TimerRequest) -> None:
 
     # Validation
     if not sync_enabled:
-        logger.info("OUTLOOK_CONTACT_SYNC_ENABLED is not true - skipping sync")
+        logging.info("OUTLOOK_CONTACT_SYNC_ENABLED is not true - skipping sync")
         return
 
     if not command_url:
-        logger.error("DJANGO_MANAGEMENT_COMMAND_URL not configured")
+        logging.error("DJANGO_MANAGEMENT_COMMAND_URL not configured")
         return
 
     if not api_key:
-        logger.error("ADMIN_API_KEY not configured")
+        logging.error("ADMIN_API_KEY not configured")
         return
 
     try:
@@ -92,7 +93,7 @@ def daily_contact_sync(timer: func.TimerRequest) -> None:
 
         if result.get('success'):
             stats = result.get('stats', {})
-            logger.info(
+            logging.info(
                 f"Daily contact sync completed successfully:\n"
                 f"  Total profiles: {stats.get('total', 'N/A')}\n"
                 f"  Synced: {stats.get('synced', 'N/A')}\n"
@@ -101,11 +102,11 @@ def daily_contact_sync(timer: func.TimerRequest) -> None:
             )
         else:
             error_msg = result.get('error', 'Unknown error')
-            logger.error(f"Daily contact sync failed: {error_msg}")
+            logging.error(f"Daily contact sync failed: {error_msg}")
 
     except requests.exceptions.Timeout:
-        logger.error("Daily contact sync timed out after 5 minutes")
+        logging.error("Daily contact sync timed out after 5 minutes")
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error calling Django management command: {e}")
+        logging.error(f"Error calling Django management command: {e}")
     except Exception as e:
-        logger.error(f"Unexpected error during daily contact sync: {e}")
+        logging.error(f"Unexpected error during daily contact sync: {e}")
