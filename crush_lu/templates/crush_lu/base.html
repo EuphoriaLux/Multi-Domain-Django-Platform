@@ -189,7 +189,7 @@
                 <!-- Mobile menu button -->
                 <button type="button"
                         @click="toggleMobile"
-                        class="lg:hidden text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
+                        class="lg:hidden text-white p-3 rounded-lg hover:bg-white/10 transition-colors focus-ring-white"
                         aria-label="Toggle navigation menu"
                         x-bind:aria-expanded="mobileMenuAriaExpanded"
                         aria-controls="mobile-nav-menu">
@@ -898,6 +898,9 @@
         </div>
     </footer>
 
+    <!-- Toast Notification Container -->
+    {% include "crush_lu/shared/toast.html" %}
+
     <!-- JavaScript i18n catalog (must load before components that use gettext()) -->
     <script src="{% url 'javascript-catalog' %}"></script>
 
@@ -905,6 +908,14 @@
     <script defer src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js"
             integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
             crossorigin="anonymous"></script>
+
+    <!-- Toast Notification Component (loads before alpine-components.js) -->
+    {% if debug %}
+        {% now "U" as ts %}
+        <script defer src="{% static 'crush_lu/js/toast-component.js' %}?v={{ ts }}"></script>
+    {% else %}
+        <script defer src="{% static 'crush_lu/js/toast-component.js' %}"></script>
+    {% endif %}
 
     <!-- Alpine.js CSP Components (defer maintains order - runs BEFORE Alpine.js) -->
     {% if debug %}

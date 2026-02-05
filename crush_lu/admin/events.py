@@ -501,6 +501,15 @@ class MeetupEventAdmin(TranslationAdmin):
                 "• Checked (recommended): Only users with approved profiles can register\n"
                 "• Unchecked: Any authenticated user can register (no profile needed)"
             )
+        elif db_field.name == "image":
+            kwargs["help_text"] = _(
+                "📸 Event banner image (optional)\n"
+                "• Recommended size: 1200×630 pixels (1.9:1 aspect ratio)\n"
+                "• Format: JPG or PNG\n"
+                "• File size: Under 500KB for best performance\n"
+                "• This size works great for social media sharing (Open Graph) and displays perfectly on all devices\n"
+                "• The image will be cropped to fit: centered on mobile, full width on desktop"
+            )
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 
 

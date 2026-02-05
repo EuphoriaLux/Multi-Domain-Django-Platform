@@ -38,56 +38,57 @@
             </template>
 
             <!-- Progress Tracker -->
-            <div class="flex items-center justify-center mt-6 gap-0">
+            <div class="flex items-start justify-center mt-6 gap-1 sm:gap-2">
                 <!-- Step 1 -->
-                <div class="flex flex-col items-center">
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
-                         x-bind:class="step1CircleClass">
+                <div class="flex flex-col items-center w-16 sm:w-20">
+                    <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
+                         x-bind:class="step1CircleClass"
+                         aria-current="step">
                         <span x-show="step1NotCompleted">1</span>
-                        <svg x-show="step1Completed" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <svg x-show="step1Completed" class="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                         </svg>
                     </div>
-                    <span class="text-xs mt-1" x-bind:class="step1TextClass">{% trans "Basic Info" %}</span>
+                    <span class="text-xs sm:text-sm mt-1 text-center leading-tight min-h-[2rem] flex items-center" x-bind:class="step1TextClass">{% trans "Basic Info" %}</span>
                 </div>
 
-                <div class="w-12 h-1 mx-1" x-bind:class="step1ConnectorClass"></div>
+                <div class="w-8 sm:w-12 h-1 mx-1 mt-3 sm:mt-4 flex-shrink-0" x-bind:class="step1ConnectorClass"></div>
 
                 <!-- Step 2 -->
-                <div class="flex flex-col items-center">
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
+                <div class="flex flex-col items-center w-16 sm:w-20">
+                    <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
                          x-bind:class="step2CircleClass">
                         <span x-show="step2NotCompleted">2</span>
-                        <svg x-show="step2Completed" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <svg x-show="step2Completed" class="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                         </svg>
                     </div>
-                    <span class="text-xs mt-1" x-bind:class="step2TextClass">{% trans "About You" %}</span>
+                    <span class="text-xs sm:text-sm mt-1 text-center leading-tight min-h-[2rem] flex items-center" x-bind:class="step2TextClass">{% trans "About You" %}</span>
                 </div>
 
-                <div class="w-12 h-1 mx-1" x-bind:class="step2ConnectorClass"></div>
+                <div class="w-8 sm:w-12 h-1 mx-1 mt-3 sm:mt-4 flex-shrink-0" x-bind:class="step2ConnectorClass"></div>
 
                 <!-- Step 3 -->
-                <div class="flex flex-col items-center">
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
+                <div class="flex flex-col items-center w-16 sm:w-20">
+                    <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
                          x-bind:class="step3CircleClass">
                         <span x-show="step3NotCompleted">3</span>
-                        <svg x-show="step3Completed" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <svg x-show="step3Completed" class="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                         </svg>
                     </div>
-                    <span class="text-xs mt-1" x-bind:class="step3TextClass">{% trans "Photos" %}</span>
+                    <span class="text-xs sm:text-sm mt-1 text-center leading-tight min-h-[2rem] flex items-center" x-bind:class="step3TextClass">{% trans "Photos" %}</span>
                 </div>
 
-                <div class="w-12 h-1 mx-1" x-bind:class="step3ConnectorClass"></div>
+                <div class="w-8 sm:w-12 h-1 mx-1 mt-3 sm:mt-4 flex-shrink-0" x-bind:class="step3ConnectorClass"></div>
 
                 <!-- Step 4 -->
-                <div class="flex flex-col items-center">
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
+                <div class="flex flex-col items-center w-16 sm:w-20">
+                    <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
                          x-bind:class="step4CircleClass">
                         4
                     </div>
-                    <span class="text-xs mt-1" x-bind:class="step4TextClass">{% trans "Review" %}</span>
+                    <span class="text-xs sm:text-sm mt-1 text-center leading-tight min-h-[2rem] flex items-center" x-bind:class="step4TextClass">{% trans "Review" %}</span>
                 </div>
             </div>
         </div>

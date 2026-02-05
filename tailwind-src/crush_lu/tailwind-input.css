@@ -576,7 +576,8 @@ body.journey-bg {
 
   .nav-link {
     @apply inline-flex items-center gap-1.5 text-white/90 hover:text-white px-3 py-2
-           transition-colors duration-200 no-underline font-medium whitespace-nowrap;
+           transition-colors duration-200 no-underline font-medium whitespace-nowrap
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-purple-600 rounded-lg;
   }
 
   .nav-link svg {
@@ -601,7 +602,8 @@ body.journey-bg {
   .dropdown-item {
     @apply flex items-center gap-2 px-4 py-2 text-gray-700 no-underline
            hover:bg-gray-50 hover:text-crush-purple
-           transition-colors duration-150;
+           transition-colors duration-150
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-inset;
   }
 
   .dropdown-divider {
@@ -745,6 +747,22 @@ body.journey-bg {
   .text-gradient {
     @apply bg-gradient-to-r from-crush-purple to-crush-pink
            bg-clip-text text-transparent;
+  }
+
+  /* =========================================================================
+     ACCESSIBILITY - FOCUS INDICATORS
+     ========================================================================= */
+  /* Apply to interactive elements for keyboard navigation visibility */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2;
+  }
+
+  .focus-ring-white {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-purple-600;
+  }
+
+  .focus-ring-inset {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-inset;
   }
 
   /* =========================================================================

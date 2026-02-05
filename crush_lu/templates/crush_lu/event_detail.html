@@ -7,9 +7,11 @@
 {% block og_type %}article{% endblock %}
 {% block og_title %}{{ event.title }} - {{ event.get_event_type_display }} | Crush.lu{% endblock %}
 {% block og_description %}{{ event.description|truncatewords:30 }} Join us on {{ event.date_time|date:"F j, Y" }} at {{ event.location }}.{% endblock %}
+{% block og_image %}{% if event.image %}{{ event.image.url }}{% else %}{{ social_preview_image_url }}{% endif %}{% endblock %}
 
 {% block twitter_title %}{{ event.title }} - {{ event.get_event_type_display }} | Crush.lu{% endblock %}
 {% block twitter_description %}{{ event.description|truncatewords:30 }} Join us on {{ event.date_time|date:"F j, Y" }} at {{ event.location }}.{% endblock %}
+{% block twitter_image %}{% if event.image %}{{ event.image.url }}{% else %}{{ social_preview_image_url }}{% endif %}{% endblock %}
 
 {% block meta_description %}{{ event.description|truncatewords:25 }} {{ event.get_event_type_display }} event on {{ event.date_time|date:"F j, Y" }} at {{ event.location }}, Luxembourg.{% endblock %}
 {% block meta_keywords %}{{ event.title }}, {{ event.get_event_type_display|lower }}, dating event luxembourg, {{ event.location|lower }}, singles event{% endblock %}
@@ -97,10 +99,19 @@
 {% block content %}
 <div class="flex justify-center">
     <div class="w-full lg:w-2/3">
-        <a href="{% url 'crush_lu:event_list' %}" class="inline-flex items-center gap-2 px-4 py-2 mb-4 sm:mb-6 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
-            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
-            {% trans "Back to Events" %}
-        </a>
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4 sm:mb-6">
+            <a href="{% url 'crush_lu:event_list' %}" class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
+                {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
+                {% trans "Back to Events" %}
+            </a>
+
+            <button id="shareEventBtn" class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-crush-purple to-crush-pink text-white hover:shadow-lg font-semibold rounded-lg transition-all duration-300 hover:scale-105">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+                </svg>
+                <span>{% trans "Share" %}</span>
+            </button>
+        </div>
 
         <div class="bg-white rounded-xl shadow-sm overflow-hidden">
             {# Event banner image (if available) #}
@@ -371,4 +382,34 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const shareBtn = document.getElementById('shareEventBtn');
+
+    // Hide share button if Web Share API is not supported
+    if (!navigator.share) {
+        shareBtn.style.display = 'none';
+        return;
+    }
+
+    shareBtn.addEventListener('click', async function() {
+        const shareData = {
+            title: '{{ event.title|escapejs }}',
+            text: '{{ event.description|truncatewords:20|escapejs }} - {{ event.get_event_type_display|escapejs }}',
+            url: window.location.href
+        };
+
+        try {
+            await navigator.share(shareData);
+            console.log('Event shared successfully');
+        } catch (err) {
+            // User cancelled or error occurred
+            if (err.name !== 'AbortError') {
+                console.error('Error sharing:', err);
+            }
+        }
+    });
+});
+</script>
 {% endblock %}

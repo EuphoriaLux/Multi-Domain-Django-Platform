@@ -22,6 +22,15 @@ document.addEventListener('alpine:init', function() {
             eventsOpen: false,
             userMenuOpen: false,
 
+            init: function() {
+                // Close all dropdowns on Escape key
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        this.closeAllDropdowns();
+                    }
+                });
+            },
+
             // Computed getters for CSP compatibility (avoid inline expressions)
             get mobileMenuClosed() { return !this.mobileMenuOpen; },
             get mobileMenuAriaExpanded() { return this.mobileMenuOpen ? 'true' : 'false'; },
@@ -55,6 +64,13 @@ document.addEventListener('alpine:init', function() {
                 this.eventsOpen = false;
             },
             closeUserMenu: function() {
+                this.userMenuOpen = false;
+            },
+            closeAllDropdowns: function() {
+                this.mobileMenuOpen = false;
+                this.coachToolsOpen = false;
+                this.coachProfileOpen = false;
+                this.eventsOpen = false;
                 this.userMenuOpen = false;
             }
         };
@@ -2206,26 +2222,37 @@ document.addEventListener('alpine:init', function() {
                 var self = this;
                 console.log('[DRAFT LOAD] Starting to load draft data...');
 
+                // Debug mode flag - only log when ?debug=1 is in URL
+                var isDebug = window.location.search.indexOf('debug=1') !== -1;
+
                 fetch('/api/profile/draft/get/')
                     .then(function(response) {
-                        console.log('[DRAFT LOAD] Response status:', response.status);
+                        if (isDebug) {
+                            console.log('[DRAFT LOAD] Response status:', response.status);
+                        }
                         return response.json();
                     })
                     .then(function(result) {
-                        console.log('[DRAFT LOAD] Response data:', result);
+                        if (isDebug) {
+                            console.log('[DRAFT LOAD] Response data:', result);
+                        }
 
                         if (result.success && result.data) {
                             self.draftData = result.data.merged || {};
                             self.lastSavedAt = result.data.last_saved;
 
-                            console.log('[DRAFT LOAD] ✅ Draft data loaded:', self.draftData);
-                            console.log('[DRAFT LOAD] Last saved:', self.lastSavedAt);
-                            console.log('[DRAFT LOAD] Calling populateFieldsFromDraft()...');
+                            if (isDebug) {
+                                console.log('[DRAFT LOAD] ✅ Draft data loaded:', self.draftData);
+                                console.log('[DRAFT LOAD] Last saved:', self.lastSavedAt);
+                                console.log('[DRAFT LOAD] Calling populateFieldsFromDraft()...');
+                            }
 
                             self.populateFieldsFromDraft();
 
-                            console.log('[DRAFT LOAD] ✅ populateFieldsFromDraft() completed');
-                        } else {
+                            if (isDebug) {
+                                console.log('[DRAFT LOAD] ✅ populateFieldsFromDraft() completed');
+                            }
+                        } else if (isDebug) {
                             console.warn('[DRAFT LOAD] No draft data in response');
                         }
                     })
@@ -2238,40 +2265,58 @@ document.addEventListener('alpine:init', function() {
             populateFieldsFromDraft: function() {
                 var self = this;
                 var form = this.$el.querySelector('form');
+
+                // Debug mode flag - only log when ?debug=1 is in URL
+                var isDebug = window.location.search.indexOf('debug=1') !== -1;
+
                 if (!form) {
-                    console.warn('[POPULATE] No form found in component');
+                    if (isDebug) console.warn('[POPULATE] No form found in component');
                     return;
                 }
 
-                console.log('[POPULATE] Starting to populate fields from draft data...');
-                console.log('[POPULATE] Draft data keys:', Object.keys(this.draftData));
+                if (isDebug) {
+                    console.log('[POPULATE] Starting to populate fields from draft data...');
+                    console.log('[POPULATE] Draft data keys:', Object.keys(this.draftData));
+                }
 
                 for (var key in this.draftData) {
                     var value = this.draftData[key];
 
                     // CRITICAL: Skip file inputs (photos) - cannot be set programmatically for security
                     if (key === 'photo_1' || key === 'photo_2' || key === 'photo_3') {
-                        console.log('[POPULATE] Skipping file input:', key);
+                        if (isDebug) console.log('[POPULATE] Skipping file input:', key);
                         continue;
                     }
 
-                    console.log('[POPULATE] Processing field:', key, 'Value:', value, 'Type:', typeof value);
+                    if (isDebug) {
+                        console.log('[POPULATE] Processing field:', key, 'Value:', value, 'Type:', typeof value);
+                    }
 
                     // Handle checkbox arrays (like event_languages)
                     if (Array.isArray(value)) {
                         var checkboxes = form.querySelectorAll('[name="' + key + '"]');
-                        console.log('[POPULATE] Array field:', key, 'Value:', value, 'Length:', value.length);
-                        console.log('[POPULATE] Found', checkboxes.length, 'checkboxes for', key);
 
-                        if (value.length === 0) {
-                            console.warn('[POPULATE] ⚠️ Array is EMPTY for', key);
+                        if (isDebug) {
+                            console.log('[POPULATE] Array field:', key, 'Value:', value, 'Length:', value.length);
                         }
+
+                        if (isDebug) {
+                            console.log('[POPULATE] Found', checkboxes.length, 'checkboxes for', key);
+                        }
+
+                        // Empty arrays are normal when user hasn't made selections yet - no need to warn
+                        // if (value.length === 0) {
+                        //     console.warn('[POPULATE] ⚠️ Array is EMPTY for', key);
+                        // }
 
                         for (var i = 0; i < checkboxes.length; i++) {
                             var checkbox = checkboxes[i];
                             var shouldCheck = value.indexOf(checkbox.value) !== -1;
                             checkbox.checked = shouldCheck;
-                            console.log('[POPULATE]   Checkbox', checkbox.value, '→', shouldCheck ? 'CHECKED' : 'unchecked', '(looking for in:', value, ')');
+
+                            if (isDebug) {
+                                console.log('[POPULATE]   Checkbox', checkbox.value, '→', shouldCheck ? 'CHECKED' : 'unchecked', '(looking for in:', value, ')');
+                            }
                         }
                         continue;
                     }
@@ -2279,30 +2324,45 @@ document.addEventListener('alpine:init', function() {
                     var input = form.querySelector('[name="' + key + '"]');
 
                     if (input) {
-                        console.log('[POPULATE] Found input for', key, '(type:', input.type + ')');
+                        if (isDebug) {
+                            console.log('[POPULATE] Found input for', key, '(type:', input.type + ')');
+                        }
 
                         if (input.type === 'checkbox') {
                             // Handle single checkbox - convert string 'true'/'false' or Python 'True'/'False' to boolean
                             var shouldCheck = (value === true || value === 'true' || value === '1' || value === 'True');
                             input.checked = shouldCheck;
-                            console.log('[POPULATE]   Single checkbox', key, '→', shouldCheck ? 'CHECKED' : 'unchecked', '(value was:', value, ')');
+
+                            if (isDebug) {
+                                console.log('[POPULATE]   Single checkbox', key, '→', shouldCheck ? 'CHECKED' : 'unchecked', '(value was:', value, ')');
+                            }
                         } else if (input.type === 'radio') {
                             // For radio buttons, find the one with matching value
                             var radios = form.querySelectorAll('[name="' + key + '"]');
-                            console.log('[POPULATE]   Found', radios.length, 'radio buttons');
+
+                            if (isDebug) {
+                                console.log('[POPULATE]   Found', radios.length, 'radio buttons');
+                            }
+
                             for (var i = 0; i < radios.length; i++) {
                                 if (radios[i].value === value) {
                                     radios[i].checked = true;
-                                    console.log('[POPULATE]   Radio', key, '=', value, '→ CHECKED');
+
+                                    if (isDebug) {
+                                        console.log('[POPULATE]   Radio', key, '=', value, '→ CHECKED');
+                                    }
                                     break;
                                 }
                             }
                         } else if (input.type !== 'file') {
                             // Only set value for non-file inputs
                             input.value = value || '';
-                            console.log('[POPULATE]   Text/select', key, '→', value);
+
+                            if (isDebug) {
+                                console.log('[POPULATE]   Text/select', key, '→', value);
+                            }
                         }
-                    } else {
+                    } else if (isDebug) {
                         console.warn('[POPULATE] ⚠️ No input found for field:', key);
                     }
                 }
@@ -3545,6 +3605,13 @@ document.addEventListener('alpine:init', function() {
                 window.addEventListener('open-phone-modal', function() {
                     self.open();
                 });
+
+                // Keyboard navigation: Escape key closes modal
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape' && self.isOpen) {
+                        self.close();
+                    }
+                });
             },
 
             open: function() {
@@ -3564,6 +3631,9 @@ document.addEventListener('alpine:init', function() {
                 this.otp4 = '';
                 this.otp5 = '';
                 this.resendCountdown = 0;
+
+                // Prevent body scroll when modal is open
+                document.body.style.overflow = 'hidden';
             },
 
             close: function() {
@@ -3573,6 +3643,9 @@ document.addEventListener('alpine:init', function() {
                     clearInterval(this.resendTimer);
                     this.resendTimer = null;
                 }
+
+                // Restore body scroll
+                document.body.style.overflow = '';
             },
 
             showCodeStep: function(phone) {
@@ -7203,6 +7276,65 @@ document.addEventListener('alpine:init', function() {
                 if (!event.target.getAttribute('hx-post')) {
                     event.target.submit();
                 }
+            }
+        };
+    });
+
+    // Form Button Component - Standardized loading states for submit buttons
+    // Usage: <button x-data="formButton" @click="setLoading" :disabled="isLoading" :class="buttonClass">
+    //           <span x-show="!isLoading" x-text="label"></span>
+    //           <span x-show="isLoading" class="flex items-center">
+    //               <svg class="animate-spin -ml-1 mr-2 h-4 w-4" ...>...</svg>
+    //               <span x-text="loadingLabel"></span>
+    //           </span>
+    //        </button>
+    Alpine.data('formButton', function() {
+        return {
+            isLoading: false,
+            label: '',
+            loadingLabel: '',
+            baseClass: '',
+
+            init: function() {
+                // Read attributes from button element
+                this.label = this.$el.dataset.label || this.$el.textContent.trim();
+                this.loadingLabel = this.$el.dataset.loadingLabel || 'Processing...';
+                this.baseClass = this.$el.className;
+
+                // Listen for form submission
+                const form = this.$el.closest('form');
+                if (form) {
+                    form.addEventListener('submit', () => {
+                        this.setLoading();
+                    });
+                }
+
+                // Listen for HTMX request events
+                this.$el.addEventListener('htmx:beforeRequest', () => {
+                    this.setLoading();
+                });
+                this.$el.addEventListener('htmx:afterRequest', () => {
+                    this.resetLoading();
+                });
+            },
+
+            // Computed property for button classes
+            get buttonClass() {
+                return this.baseClass + (this.isLoading ? ' opacity-75 cursor-not-allowed' : '');
+            },
+
+            // Computed property for disabled state
+            get isDisabled() {
+                return this.isLoading;
+            },
+
+            // Actions
+            setLoading: function() {
+                this.isLoading = true;
+            },
+
+            resetLoading: function() {
+                this.isLoading = false;
             }
         };
     });
